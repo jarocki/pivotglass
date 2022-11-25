@@ -1,12 +1,15 @@
-# ap
-Adversary Pursuit is a gamified framework for hunting, pivoting, and discovery of actor infrastructure, indicators, and TTPs.  "Making bad guys pay for every mistake, and rewarding them with FAIL memes."
+# ap - Adversary Pursuit
+
+Adversary Pursuit is a gamified framework for hunting, pivoting, and discovery of actor infrastructure, indicators, and TTPs.
+
+    ```"Taking maximum advantage of every mistake, and celebrating with epic memes."
 
 Goals: Make it fun. Gamify.  Different modes. Graph of pursuit progress.  Teaching moments at dead ends?  Meme/FWP/DallE generator for celebrations.  Final report generation (interview-based: “Why did you start this pursuit?  How did you find the first indicator?  What is the single most important thing you learned?  How could someone interrupt this adversary’s operation?  What is the next step? Etc.”)
 
 Long term goals:  standardize hunting and pursuit techniques, crowdsource pursuit, competition and ranking for career development and sense of fulfillment 
 
 Key components:
-- open
+- open and free
 - Plug-ins
 - Federation
 - Cloud, internal server, or vm hosted (docker/kubernetes)?
