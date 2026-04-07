@@ -18,6 +18,39 @@ Adversary Pursuit (AP) is a gamified framework for hunting, pivoting, and discov
 
 **Target:** v1 -- multi-platform Python CLI (skipping Jupyter prototype).
 
+## Why Now
+
+This project was first committed in November 2022 as a vision document -- a README capturing raw ideas about gamified threat hunting. It sat dormant for 3.5 years. What changed:
+
+1. **The CTI tooling landscape matured.** IntelOwl, SpiderFoot, and OpenCTI proved the architectural patterns (modular analyzers, pub/sub event buses, STIX 2.1 data models) that AP's design now draws from. In 2022, some of these were less proven.
+2. **AI-assisted development changes the sustainability equation.** A solo developer can now realistically implement a 24-issue plan that would have been a multi-person project in 2022.
+3. **The idea survived.** Three years of latent incubation means the core conviction -- that CTI work should be fun -- isn't a passing enthusiasm. It's durable.
+
+The risk: dormancy is a pattern. The antidote is code, not more planning. Issue #1 ships this week.
+
+## Principles
+
+1. **Fun is a first-class design constraint.** Gamification is not a veneer applied after the "real" tool is built. Scoring, modes, and celebrations are co-equal architectural citizens alongside the module system and data model.
+2. **Metasploit UX is the interaction model.** The `use → set → run` workflow, tab completion, workspaces, and module namespaces -- users who know msfconsole should feel at home immediately.
+3. **STIX 2.1 is the lingua franca.** All module output speaks STIX. This is non-negotiable for interoperability with OpenCTI, MISP, and the broader CTI ecosystem.
+4. **Modules are pure data producers.** Modules query external sources and return STIX observables. They don't render output, manage state, or trigger side effects. The console orchestrates; the gamification engine observes.
+5. **Playfulness and rigor are not opposites.** Bobby Hill mode and STIX 2.1 compliance coexist. The tool is simultaneously serious in its analytical capabilities and absurd in its celebration of them.
+
+## Non-Goals (v1)
+
+These are explicitly out of scope for v1. They may appear in future versions but will not influence v1 design decisions:
+
+- **Web application or GUI** (v3 in README vision)
+- **Mobile application** (v4 in README vision)
+- **Jupyter notebook interface** (v0 -- skipped deliberately)
+- **Federation** between AP instances
+- **Cloud/VM hosting** (Docker, Kubernetes deployment)
+- **Machine-assisted features** (auto-classification, TTP clustering, behavior summarization)
+- **3D character rendering**, .stl files, MS Paint graphics
+- **Character sheets and backstories** (beyond mode personality text)
+- **Real-time collaboration** or multi-user features
+- **DALL-E or AI-generated celebration images** (ASCII art in v1; AI images deferred)
+
 ---
 
 ## Phase 1: Foundation (Issues #1-#5)
@@ -386,14 +419,20 @@ Output: Markdown report with embedded graphs, timeline, IOC table.
 ## Implementation Order
 
 ```
-Phase 1 (Foundation):  #1 -> #2 -> #3 -> #4 -> #5
-Phase 2 (Modules):     #6, #7, #8 (parallel) -> #9-#13
+Phase 1 (Foundation):  #1 -> #5 -> #3 -> #4 -> #2
+Phase 2 (Modules):     #10, #12, #9 -> #11 -> #6, #8 -> #7 -> #13
 Phase 3 (Gamification): #14 -> #15 -> #16 -> #17 -> #18
 Phase 4 (Auto-Pivot):  #19 -> #20
 Phase 5 (Polish):      #21 -> #22 -> #23 -> #24
 ```
 
-Start with #1 (scaffolding) immediately. #2 (console) is the critical path -- everything depends on the REPL working.
+**Phase 1 rationale:** Console (#2) is the integration point that wires together Config (#5), Plugins (#3), and Workspace (#4). Building subsystems first allows clean interfaces and isolated testing. Console becomes straightforward wiring when built last.
+
+**Phase 2 rationale:** Start with simplest free-tier APIs that prove distinct patterns -- AbuseIPDB (#10, single endpoint), OTX (#12, multi-endpoint), URLScan (#9, async submit+poll). Complex APIs (VirusTotal, PassiveTotal) come later.
+
+**MLP (Minimum Lovable Product):** Issues #1, #5, #3, #4, #2, #10, #12, #9, #14 = working console + 3 OSINT modules + scoring. Estimated 16-27 working days.
+
+Start with #1 (scaffolding) immediately.
 
 ---
 
