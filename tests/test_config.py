@@ -307,14 +307,14 @@ class TestGetApiKey:
 # ---------------------------------------------------------------------------
 
 class TestPydanticValidation:
-    def test_invalid_auto_pivot_depth_rejected(self, tmp_path):
+    def test_invalid_auto_pivot_depth_rejected(self):
         """auto_pivot_depth must be a positive integer."""
         from pydantic import ValidationError
         from adversary_pursuit.core.config import GeneralConfig
         with pytest.raises(ValidationError):
             GeneralConfig(auto_pivot_depth=-1)
 
-    def test_invalid_theme_rejected(self, tmp_path):
+    def test_invalid_theme_rejected(self):
         """theme must be 'dark' or 'light'."""
         from pydantic import ValidationError
         from adversary_pursuit.core.config import GeneralConfig
