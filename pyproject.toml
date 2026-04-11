@@ -17,7 +17,8 @@ dependencies = [
 ap = "adversary_pursuit.__main__:main"
 
 [project.entry-points."adversary_pursuit.modules"]
-# Built-in modules register here (populated in Issue #3)
+whois_lookup = "adversary_pursuit.modules.osint.whois_lookup:WhoisLookup"
+dns_resolve = "adversary_pursuit.modules.osint.dns_resolve:DnsResolve"
 
 [build-system]
 requires = ["hatchling"]
