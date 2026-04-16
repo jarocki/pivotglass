@@ -1,0 +1,604 @@
+"""Tests for Issue #4: Workspace & STIX 2.1 Data Model.
+
+@decision DEC-TEST-004
+@title Test suite covers STIX helpers, DB schema, WorkspaceManager CRUD, and production sequence
+@status accepted
+@rationale The production call chain (module.hunt() → store_stix_objects → get_stix_objects)
+           is tested end-to-end in TestProductionSequence. This prevents the failure mode
+           where unit tests pass but the integrated flow is broken. All workspace tests
+           use tmp_path to avoid touching ~/.ap/.
+
+Tests verify:
+- STIX helper layer (stix.py): creation of each SCO type, relationships, bundles
+- dict_to_stix conversion for all supported types and unrecognized types
+- Database schema creation (all four tables)
+- WorkspaceManager CRUD (create, list, switch, delete, default auto-creation)
+- store_stix_objects: plain-dict conversion, STIX deduplication, module run logging
+- get_stix_objects: retrieval, type filtering
+- get_module_runs: execution history
+- add_note: with and without stix_object_id linkage
+- Workspace isolation: objects in workspace A not visible in workspace B
+
+Production sequence coverage: modules return plain dicts → store_stix_objects
+converts them → they appear in get_stix_objects. This mirrors the actual
+production call chain: hunt() → workspace.store_stix_objects() → get_stix_objects().
+"""
+
+from __future__ import annotations
+
+import pytest
+from pathlib import Path
+
+from adversary_pursuit.models.stix import (
+    create_ipv4,
+    create_ipv6,
+    create_domain,
+    create_url,
+    create_email,
+    create_relationship,
+    create_bundle,
+    dict_to_stix,
+)
+from adversary_pursuit.models.database import (
+    Base,
+    StixObject,
+    Relationship as RelationshipModel,
+    ModuleRun,
+    AnalystNote,
+)
+from adversary_pursuit.core.workspace import WorkspaceManager
+
+
+# ---------------------------------------------------------------------------
+# STIX helper layer tests
+# ---------------------------------------------------------------------------
+
+
+class TestStixHelpers:
+    """Unit tests for the STIX 2.1 helper functions."""
+
+    def test_create_ipv4(self):
+        obj = create_ipv4("1.2.3.4")
+        assert obj.type == "ipv4-addr"
+        assert obj.value == "1.2.3.4"
+        assert obj.id.startswith("ipv4-addr--")
+
+    def test_create_ipv4_deterministic(self):
+        """Same value → same STIX ID (content-based ID)."""
+        a = create_ipv4("10.0.0.1")
+        b = create_ipv4("10.0.0.1")
+        assert a.id == b.id
+
+    def test_create_ipv6(self):
+        obj = create_ipv6("::1")
+        assert obj.type == "ipv6-addr"
+        assert obj.value == "::1"
+        assert obj.id.startswith("ipv6-addr--")
+
+    def test_create_domain(self):
+        obj = create_domain("example.com")
+        assert obj.type == "domain-name"
+        assert obj.value == "example.com"
+        assert obj.id.startswith("domain-name--")
+
+    def test_create_url(self):
+        obj = create_url("https://example.com/path")
+        assert obj.type == "url"
+        assert obj.value == "https://example.com/path"
+        assert obj.id.startswith("url--")
+
+    def test_create_email(self):
+        obj = create_email("user@example.com")
+        assert obj.type == "email-addr"
+        assert obj.value == "user@example.com"
+        assert obj.id.startswith("email-addr--")
+
+    def test_create_relationship(self):
+        ip = create_ipv4("192.168.1.1")
+        dom = create_domain("malware.com")
+        rel = create_relationship(dom.id, ip.id, "resolves-to")
+        assert rel.type == "relationship"
+        assert rel.relationship_type == "resolves-to"
+        assert rel.source_ref == dom.id
+        assert rel.target_ref == ip.id
+        assert rel.id.startswith("relationship--")
+
+    def test_create_bundle(self):
+        ip = create_ipv4("8.8.8.8")
+        dom = create_domain("google.com")
+        bundle = create_bundle([ip, dom])
+        assert bundle.type == "bundle"
+        assert len(bundle.objects) == 2
+
+    def test_create_bundle_empty(self):
+        """Empty bundle is valid STIX."""
+        bundle = create_bundle([])
+        assert bundle.type == "bundle"
+
+
+class TestDictToStix:
+    """Tests for dict_to_stix conversion (the bridge from module output to STIX)."""
+
+    def test_ipv4_dict(self):
+        obj = dict_to_stix({"type": "ipv4-addr", "value": "1.2.3.4"})
+        assert obj.type == "ipv4-addr"
+        assert obj.value == "1.2.3.4"
+
+    def test_ipv6_dict(self):
+        obj = dict_to_stix({"type": "ipv6-addr", "value": "2001:db8::1"})
+        assert obj.type == "ipv6-addr"
+        assert obj.value == "2001:db8::1"
+
+    def test_domain_dict(self):
+        obj = dict_to_stix({"type": "domain-name", "value": "evil.com"})
+        assert obj.type == "domain-name"
+        assert obj.value == "evil.com"
+
+    def test_url_dict(self):
+        obj = dict_to_stix({"type": "url", "value": "https://malware.example/payload"})
+        assert obj.type == "url"
+        assert obj.value == "https://malware.example/payload"
+
+    def test_email_dict(self):
+        obj = dict_to_stix({"type": "email-addr", "value": "threat@actor.io"})
+        assert obj.type == "email-addr"
+        assert obj.value == "threat@actor.io"
+
+    def test_unrecognized_type_returns_original_dict(self):
+        """Unrecognized STIX types pass through untouched — future module compat."""
+        d = {"type": "x-custom-indicator", "value": "something", "extra": 42}
+        result = dict_to_stix(d)
+        assert result is d  # same object, not a copy
+
+    def test_missing_type_returns_original_dict(self):
+        d = {"value": "no type field"}
+        result = dict_to_stix(d)
+        assert result is d
+
+    def test_deterministic_id_from_dict(self):
+        """dict_to_stix produces deterministic IDs (same input → same STIX object ID)."""
+        a = dict_to_stix({"type": "ipv4-addr", "value": "5.5.5.5"})
+        b = dict_to_stix({"type": "ipv4-addr", "value": "5.5.5.5"})
+        assert a.id == b.id
+
+
+# ---------------------------------------------------------------------------
+# Database schema tests
+# ---------------------------------------------------------------------------
+
+
+class TestDatabaseSchema:
+    """Verify all four tables are created with correct columns."""
+
+    def test_all_tables_created(self, tmp_path):
+        from sqlalchemy import create_engine, inspect
+        engine = create_engine(f"sqlite:///{tmp_path / 'schema_test.db'}")
+        Base.metadata.create_all(engine)
+        inspector = inspect(engine)
+        tables = set(inspector.get_table_names())
+        assert "stix_objects" in tables
+        assert "relationships" in tables
+        assert "module_runs" in tables
+        assert "notes" in tables
+
+    def test_stix_objects_columns(self, tmp_path):
+        from sqlalchemy import create_engine, inspect
+        engine = create_engine(f"sqlite:///{tmp_path / 'cols_test.db'}")
+        Base.metadata.create_all(engine)
+        inspector = inspect(engine)
+        cols = {c["name"] for c in inspector.get_columns("stix_objects")}
+        assert {"id", "type", "value", "json_blob", "created_at"}.issubset(cols)
+
+    def test_relationships_columns(self, tmp_path):
+        from sqlalchemy import create_engine, inspect
+        engine = create_engine(f"sqlite:///{tmp_path / 'rel_test.db'}")
+        Base.metadata.create_all(engine)
+        inspector = inspect(engine)
+        cols = {c["name"] for c in inspector.get_columns("relationships")}
+        assert {"id", "source_ref", "target_ref", "relationship_type", "json_blob", "created_at"}.issubset(cols)
+
+    def test_module_runs_columns(self, tmp_path):
+        from sqlalchemy import create_engine, inspect
+        engine = create_engine(f"sqlite:///{tmp_path / 'runs_test.db'}")
+        Base.metadata.create_all(engine)
+        inspector = inspect(engine)
+        cols = {c["name"] for c in inspector.get_columns("module_runs")}
+        assert {"id", "module_name", "target", "timestamp", "result_count"}.issubset(cols)
+
+    def test_notes_columns(self, tmp_path):
+        from sqlalchemy import create_engine, inspect
+        engine = create_engine(f"sqlite:///{tmp_path / 'notes_test.db'}")
+        Base.metadata.create_all(engine)
+        inspector = inspect(engine)
+        cols = {c["name"] for c in inspector.get_columns("notes")}
+        assert {"id", "stix_object_id", "content", "created_at"}.issubset(cols)
+
+
+# ---------------------------------------------------------------------------
+# WorkspaceManager CRUD tests
+# ---------------------------------------------------------------------------
+
+
+class TestWorkspaceManagerCRUD:
+    """Test workspace lifecycle: create, list, switch, delete."""
+
+    def test_create_makes_db_file(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("alpha")
+        assert (tmp_path / "alpha.db").exists()
+
+    def test_list_workspaces_empty(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        assert wm.list_workspaces() == []
+
+    def test_list_workspaces_returns_created(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("alpha")
+        wm.create("beta")
+        names = wm.list_workspaces()
+        assert "alpha" in names
+        assert "beta" in names
+        assert len(names) == 2
+
+    def test_switch_changes_active(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("alpha")
+        wm.create("beta")
+        wm.switch("alpha")
+        assert wm.active == "alpha"
+        wm.switch("beta")
+        assert wm.active == "beta"
+
+    def test_switch_nonexistent_raises(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        with pytest.raises(ValueError, match="does not exist"):
+            wm.switch("ghost")
+
+    def test_delete_removes_db_file(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("alpha")
+        assert (tmp_path / "alpha.db").exists()
+        wm.delete("alpha")
+        assert not (tmp_path / "alpha.db").exists()
+
+    def test_delete_nonexistent_raises(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        with pytest.raises(ValueError, match="does not exist"):
+            wm.delete("ghost")
+
+    def test_default_workspace_auto_created_on_get_session(self, tmp_path):
+        """First call to get_session() on a fresh WorkspaceManager creates 'default'."""
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        # Should not raise; creates default workspace automatically
+        with wm.get_session() as session:
+            assert session is not None
+        assert wm.active == "default"
+        assert (tmp_path / "default.db").exists()
+
+    def test_create_duplicate_raises(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("alpha")
+        with pytest.raises(ValueError, match="already exists"):
+            wm.create("alpha")
+
+
+# ---------------------------------------------------------------------------
+# WorkspaceManager data operations
+# ---------------------------------------------------------------------------
+
+
+class TestStoreAndRetrieve:
+    """Test store_stix_objects, get_stix_objects, and get_module_runs."""
+
+    def test_store_plain_dicts_returns_count(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        dicts = [
+            {"type": "ipv4-addr", "value": "1.2.3.4"},
+            {"type": "domain-name", "value": "evil.com"},
+        ]
+        count = wm.store_stix_objects(dicts, module_name="osint/test", target="1.2.3.4")
+        assert count == 2
+
+    def test_stored_objects_retrievable(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        wm.store_stix_objects(
+            [{"type": "ipv4-addr", "value": "1.2.3.4"}],
+            module_name="osint/test",
+            target="1.2.3.4",
+        )
+        objects = wm.get_stix_objects()
+        assert len(objects) == 1
+        assert objects[0]["type"] == "ipv4-addr"
+        assert objects[0]["value"] == "1.2.3.4"
+
+    def test_get_stix_objects_type_filter(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        wm.store_stix_objects(
+            [
+                {"type": "ipv4-addr", "value": "5.6.7.8"},
+                {"type": "domain-name", "value": "filter-test.com"},
+            ],
+            module_name="osint/test",
+            target="5.6.7.8",
+        )
+        ips = wm.get_stix_objects(type_filter="ipv4-addr")
+        assert len(ips) == 1
+        assert ips[0]["type"] == "ipv4-addr"
+
+        domains = wm.get_stix_objects(type_filter="domain-name")
+        assert len(domains) == 1
+        assert domains[0]["value"] == "filter-test.com"
+
+    def test_deduplication_by_stix_id(self, tmp_path):
+        """Storing the same observable twice keeps only one copy (STIX ID dedup)."""
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        same = {"type": "ipv4-addr", "value": "9.9.9.9"}
+        wm.store_stix_objects([same], module_name="osint/first", target="9.9.9.9")
+        wm.store_stix_objects([same], module_name="osint/second", target="9.9.9.9")
+        objects = wm.get_stix_objects()
+        assert len(objects) == 1  # deduplicated
+
+    def test_module_run_logged(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        wm.store_stix_objects(
+            [{"type": "ipv4-addr", "value": "10.0.0.1"}],
+            module_name="osint/whois_lookup",
+            target="10.0.0.1",
+        )
+        runs = wm.get_module_runs()
+        assert len(runs) == 1
+        assert runs[0]["module_name"] == "osint/whois_lookup"
+        assert runs[0]["target"] == "10.0.0.1"
+        assert runs[0]["result_count"] == 1
+
+    def test_multiple_module_runs_logged(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        wm.store_stix_objects(
+            [{"type": "ipv4-addr", "value": "1.1.1.1"}],
+            module_name="osint/whois_lookup",
+            target="1.1.1.1",
+        )
+        wm.store_stix_objects(
+            [{"type": "domain-name", "value": "cloudflare.com"}, {"type": "ipv4-addr", "value": "1.0.0.1"}],
+            module_name="osint/dns_resolve",
+            target="cloudflare.com",
+        )
+        runs = wm.get_module_runs()
+        assert len(runs) == 2
+        module_names = {r["module_name"] for r in runs}
+        assert "osint/whois_lookup" in module_names
+        assert "osint/dns_resolve" in module_names
+
+    def test_unrecognized_type_not_stored_in_stix_objects(self, tmp_path):
+        """Unrecognized dict types (pass-through from dict_to_stix) are skipped."""
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        count = wm.store_stix_objects(
+            [{"type": "x-unknown", "value": "mystery"}],
+            module_name="osint/test",
+            target="mystery",
+        )
+        assert count == 0
+        assert wm.get_stix_objects() == []
+
+    def test_store_relationships(self, tmp_path):
+        """Relationship SROs from module output are stored in relationships table."""
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        ip = create_ipv4("192.168.0.1")
+        dom = create_domain("internal.corp")
+        rel = create_relationship(dom.id, ip.id, "resolves-to")
+        count = wm.store_stix_objects(
+            [ip, dom, rel],
+            module_name="osint/dns_resolve",
+            target="192.168.0.1",
+        )
+        assert count == 3
+
+    def test_get_stix_objects_returns_dicts(self, tmp_path):
+        """get_stix_objects returns plain dicts, not SQLAlchemy model instances."""
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        wm.store_stix_objects(
+            [{"type": "domain-name", "value": "dict-check.com"}],
+            module_name="osint/test",
+            target="dict-check.com",
+        )
+        objects = wm.get_stix_objects()
+        assert isinstance(objects[0], dict)
+
+
+# ---------------------------------------------------------------------------
+# Analyst notes
+# ---------------------------------------------------------------------------
+
+
+class TestAnalystNotes:
+    """Test add_note with and without stix_object_id linkage."""
+
+    def test_add_note_standalone(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        # Should not raise
+        wm.add_note("This IP belongs to Acme Corp.")
+
+    def test_add_note_linked_to_stix_object(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        ip = create_ipv4("203.0.113.1")
+        wm.store_stix_objects([ip], module_name="osint/test", target="203.0.113.1")
+        # Link note to the stored object
+        wm.add_note("Observed in APT campaign.", stix_object_id=ip.id)
+
+    def test_notes_persisted(self, tmp_path):
+        """Notes round-trip through the database."""
+        from sqlalchemy import select
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        wm.add_note("Investigation note #1")
+        wm.add_note("Investigation note #2")
+        # Query directly to verify persistence
+        with wm.get_session() as session:
+            notes = session.execute(select(AnalystNote)).scalars().all()
+            assert len(notes) == 2
+            contents = {n.content for n in notes}
+            assert "Investigation note #1" in contents
+            assert "Investigation note #2" in contents
+
+
+# ---------------------------------------------------------------------------
+# Workspace isolation
+# ---------------------------------------------------------------------------
+
+
+class TestWorkspaceIsolation:
+    """Verify objects stored in workspace A are not visible in workspace B."""
+
+    def test_isolation_between_workspaces(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("alpha")
+        wm.create("beta")
+
+        # Store in alpha
+        wm.switch("alpha")
+        wm.store_stix_objects(
+            [{"type": "ipv4-addr", "value": "10.10.10.10"}],
+            module_name="osint/test",
+            target="10.10.10.10",
+        )
+
+        # Store in beta (different object)
+        wm.switch("beta")
+        wm.store_stix_objects(
+            [{"type": "domain-name", "value": "beta-only.com"}],
+            module_name="osint/test",
+            target="beta-only.com",
+        )
+
+        # Alpha only has its IP
+        wm.switch("alpha")
+        alpha_objects = wm.get_stix_objects()
+        assert len(alpha_objects) == 1
+        assert alpha_objects[0]["value"] == "10.10.10.10"
+
+        # Beta only has its domain
+        wm.switch("beta")
+        beta_objects = wm.get_stix_objects()
+        assert len(beta_objects) == 1
+        assert beta_objects[0]["value"] == "beta-only.com"
+
+    def test_module_runs_isolated(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("alpha")
+        wm.create("beta")
+
+        wm.switch("alpha")
+        wm.store_stix_objects(
+            [{"type": "ipv4-addr", "value": "1.1.1.1"}],
+            module_name="osint/alpha_module",
+            target="1.1.1.1",
+        )
+
+        wm.switch("beta")
+        runs = wm.get_module_runs()
+        assert len(runs) == 0  # beta has no runs
+
+
+# ---------------------------------------------------------------------------
+# Production sequence: module hunt() output -> workspace storage -> retrieval
+# ---------------------------------------------------------------------------
+
+
+class TestProductionSequence:
+    """
+    Tests that exercise the real production call chain:
+    module.hunt() returns plain dicts -> workspace.store_stix_objects() converts
+    and stores them -> workspace.get_stix_objects() retrieves them.
+
+    This is the scenario that would have caught the missing test coverage
+    described in the implementer prompt.
+    """
+
+    def test_full_module_output_flow(self, tmp_path):
+        """Simulates a module hunt() -> workspace store -> retrieve cycle."""
+        # Simulate what whois_lookup or dns_resolve returns
+        module_output = [
+            {"type": "ipv4-addr", "value": "185.220.101.1"},
+            {"type": "domain-name", "value": "tor-exit.example.com"},
+            {"type": "ipv4-addr", "value": "185.220.101.2"},
+        ]
+
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+
+        count = wm.store_stix_objects(
+            module_output,
+            module_name="osint/whois_lookup",
+            target="185.220.101.1",
+        )
+        assert count == 3
+
+        # Retrieve and verify
+        all_objects = wm.get_stix_objects()
+        assert len(all_objects) == 3
+
+        ips = wm.get_stix_objects(type_filter="ipv4-addr")
+        assert len(ips) == 2
+
+        domains = wm.get_stix_objects(type_filter="domain-name")
+        assert len(domains) == 1
+        assert domains[0]["value"] == "tor-exit.example.com"
+
+        runs = wm.get_module_runs()
+        assert len(runs) == 1
+        assert runs[0]["result_count"] == 3
+
+    def test_two_modules_sequential_on_same_workspace(self, tmp_path):
+        """Two sequential module runs (like auto-pivoting) share the workspace."""
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+
+        # First module run
+        wm.store_stix_objects(
+            [{"type": "ipv4-addr", "value": "8.8.8.8"}],
+            module_name="osint/dns_resolve",
+            target="google.com",
+        )
+
+        # Second module run -- same IP, new domain (dedup + new)
+        wm.store_stix_objects(
+            [
+                {"type": "ipv4-addr", "value": "8.8.8.8"},  # duplicate
+                {"type": "domain-name", "value": "google.com"},  # new
+            ],
+            module_name="osint/whois_lookup",
+            target="8.8.8.8",
+        )
+
+        # Only 2 unique objects (deduplication works across runs)
+        all_objects = wm.get_stix_objects()
+        assert len(all_objects) == 2
+
+        # But both module runs are logged
+        runs = wm.get_module_runs()
+        assert len(runs) == 2

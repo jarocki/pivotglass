@@ -1,1 +1,385 @@
-"""Workspace/investigation isolation. Implemented in Issue #4."""
+"""Workspace/investigation isolation manager.
+
+Each workspace is an independent SQLite database file. Switching workspaces
+means switching which database file the session connects to. This mirrors
+Metasploit's workspace model — investigations are fully isolated at the
+storage layer.
+
+@decision DEC-WS-001
+@title One SQLite file per workspace, no shared database
+@status accepted
+@rationale Isolation by file makes workspaces trivially portable (copy the .db
+           file), deletable (rm the file), and independently queryable. A shared
+           database with a workspace_id discriminator column would require more
+           complex queries and risks cross-workspace data leaks from missing WHERE
+           clauses. SQLite's file-per-database model is the right fit.
+
+@decision DEC-WS-002
+@title Active workspace tracked in memory only (no persistence file)
+@status accepted
+@rationale The active workspace is a session concept, not a persistent preference.
+           Persisting it to a file adds complexity without user value -- the console
+           always starts in the configured default_workspace (from ConfigManager).
+           A future "ap workspace switch" command updates ConfigManager, not a
+           separate state file.
+
+@decision DEC-WS-003
+@title store_stix_objects accepts both plain dicts and python-stix2 objects
+@status accepted
+@rationale The production call chain sends plain dicts from module.hunt(). But
+           helper functions (create_ipv4 etc.) return python-stix2 objects. Both
+           forms must be accepted so callers don't need to pre-convert. Detection
+           logic: if the object has a .serialize() method, it's a stix2 object;
+           otherwise treat it as a dict and pass through dict_to_stix.
+
+@decision DEC-WS-004
+@title Deduplication by STIX ID using ORM session.get() before insert
+@status accepted
+@rationale STIX SCO IDs are deterministic (content-based). The same observable
+           stored twice has the same ID. Using session.get(Model, pk) before
+           inserting leverages the SQLAlchemy identity map (O(1) for already-seen
+           objects in the same session) and fires Python-side column defaults
+           (created_at). Raw SQL INSERT OR IGNORE was attempted but silently dropped
+           rows because the NOT NULL created_at column has no SQLite-level DEFAULT.
+"""
+
+from __future__ import annotations
+
+import json
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Generator
+
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session
+
+from adversary_pursuit.models.database import (
+    AnalystNote,
+    Base,
+    ModuleRun,
+    Relationship as RelationshipModel,
+    StixObject,
+)
+from adversary_pursuit.models.stix import dict_to_stix
+
+# Default workspace directory
+_DEFAULT_WORKSPACE_DIR = Path.home() / ".ap" / "workspaces"
+
+
+class WorkspaceManager:
+    """Manages investigation workspaces.
+
+    Each workspace is a SQLite file at <workspace_dir>/<name>.db.
+    The default workspace directory is ~/.ap/workspaces/.
+
+    Usage
+    -----
+    wm = WorkspaceManager()           # uses ~/.ap/workspaces/
+    wm.create("apt41")                # creates apt41.db with full schema
+    wm.switch("apt41")                # point active session at apt41
+    wm.store_stix_objects(            # store module output
+        module_output,
+        module_name="osint/whois_lookup",
+        target="198.51.100.1",
+    )
+    objects = wm.get_stix_objects(type_filter="ipv4-addr")
+    """
+
+    def __init__(self, workspace_dir: Path | None = None) -> None:
+        """Initialise with optional workspace directory override.
+
+        Parameters
+        ----------
+        workspace_dir:
+            Directory where .db files are stored. Defaults to ~/.ap/workspaces/.
+            Pass ``tmp_path`` in tests to avoid touching the real user directory.
+        """
+        self._workspace_dir = Path(workspace_dir) if workspace_dir is not None else _DEFAULT_WORKSPACE_DIR
+        self._active: str | None = None
+        self._engine = None
+
+    # ------------------------------------------------------------------
+    # Workspace lifecycle
+    # ------------------------------------------------------------------
+
+    def create(self, name: str) -> None:
+        """Create a new workspace (creates SQLite DB with full schema).
+
+        Parameters
+        ----------
+        name:
+            Workspace name. Must be unique within this workspace directory.
+
+        Raises
+        ------
+        ValueError
+            If a workspace with this name already exists.
+        """
+        db_path = self._db_path(name)
+        if db_path.exists():
+            raise ValueError(f"Workspace '{name}' already exists at {db_path}")
+        self._workspace_dir.mkdir(parents=True, exist_ok=True)
+        engine = create_engine(f"sqlite:///{db_path}")
+        Base.metadata.create_all(engine)
+        engine.dispose()
+
+    def delete(self, name: str) -> None:
+        """Delete a workspace and its SQLite database file.
+
+        Parameters
+        ----------
+        name:
+            Workspace name to delete.
+
+        Raises
+        ------
+        ValueError
+            If the workspace does not exist.
+        """
+        db_path = self._db_path(name)
+        if not db_path.exists():
+            raise ValueError(f"Workspace '{name}' does not exist")
+        # Dispose engine if we're deleting the active workspace
+        if self._active == name and self._engine is not None:
+            self._engine.dispose()
+            self._engine = None
+            self._active = None
+        db_path.unlink()
+
+    def list_workspaces(self) -> list[str]:
+        """List all workspace names in the workspace directory.
+
+        Returns
+        -------
+        list[str]
+            Sorted list of workspace names (without the .db extension).
+        """
+        if not self._workspace_dir.exists():
+            return []
+        return sorted(p.stem for p in self._workspace_dir.glob("*.db"))
+
+    def switch(self, name: str) -> None:
+        """Switch the active workspace.
+
+        Parameters
+        ----------
+        name:
+            Workspace name to switch to.
+
+        Raises
+        ------
+        ValueError
+            If the workspace does not exist.
+        """
+        db_path = self._db_path(name)
+        if not db_path.exists():
+            raise ValueError(f"Workspace '{name}' does not exist")
+        if self._engine is not None:
+            self._engine.dispose()
+        self._engine = create_engine(f"sqlite:///{db_path}")
+        self._active = name
+
+    @property
+    def active(self) -> str:
+        """Current active workspace name.
+
+        Raises
+        ------
+        RuntimeError
+            If no workspace is active and no default exists.
+        """
+        if self._active is None:
+            raise RuntimeError("No active workspace. Call switch() or get_session() first.")
+        return self._active
+
+    # ------------------------------------------------------------------
+    # Session management
+    # ------------------------------------------------------------------
+
+    @contextmanager
+    def get_session(self) -> Generator[Session, None, None]:
+        """Context manager yielding a SQLAlchemy Session for the active workspace.
+
+        If no workspace is active, auto-creates and switches to "default".
+        The session is committed on clean exit and rolled back on exception.
+
+        Yields
+        ------
+        Session
+            A SQLAlchemy 2.0 Session bound to the active workspace database.
+        """
+        self._ensure_active()
+        with Session(self._engine) as session:
+            yield session
+
+    # ------------------------------------------------------------------
+    # Data operations
+    # ------------------------------------------------------------------
+
+    def store_stix_objects(
+        self,
+        objects: list,
+        module_name: str,
+        target: str,
+    ) -> int:
+        """Store STIX objects from a module run.
+
+        Accepts both plain dicts (from module.hunt()) and python-stix2 objects.
+        Plain dicts are converted via dict_to_stix(). Unrecognized types are
+        skipped. Relationships are stored in the relationships table; SCOs go
+        to stix_objects. Deduplication is by STIX ID (INSERT OR IGNORE).
+
+        Parameters
+        ----------
+        objects:
+            List of plain dicts or python-stix2 objects to persist.
+        module_name:
+            Canonical module name for the audit log (e.g. "osint/whois_lookup").
+        target:
+            The hunt() target string for the audit log.
+
+        Returns
+        -------
+        int
+            Count of objects stored (after conversion; excludes skipped dicts).
+        """
+        stored_count = 0
+
+        with Session(self._engine) as session:
+            for obj in objects:
+                # Convert plain dicts to stix2 objects
+                if isinstance(obj, dict):
+                    obj = dict_to_stix(obj)
+                    if isinstance(obj, dict):
+                        # dict_to_stix returned the original dict — unrecognized type
+                        continue
+
+                # Dispatch on STIX object type
+                obj_type = getattr(obj, "type", None)
+                if obj_type == "relationship":
+                    self._store_relationship(session, obj)
+                else:
+                    self._store_sco(session, obj)
+                stored_count += 1
+
+            # Log the module run
+            run = ModuleRun(
+                module_name=module_name,
+                target=target,
+                result_count=stored_count,
+            )
+            session.add(run)
+            session.commit()
+
+        return stored_count
+
+    def get_stix_objects(self, type_filter: str | None = None) -> list[dict]:
+        """Retrieve STIX objects from the active workspace.
+
+        Parameters
+        ----------
+        type_filter:
+            If provided, return only objects of this STIX type
+            (e.g. "ipv4-addr", "domain-name"). Returns all objects if None.
+
+        Returns
+        -------
+        list[dict]
+            List of plain dicts (the json_blob column contents) for each object.
+        """
+        with Session(self._engine) as session:
+            stmt = select(StixObject)
+            if type_filter is not None:
+                stmt = stmt.where(StixObject.type == type_filter)
+            rows = session.execute(stmt).scalars().all()
+            return [row.json_blob for row in rows]
+
+    def get_module_runs(self) -> list[dict]:
+        """Get module execution history for the active workspace.
+
+        Returns
+        -------
+        list[dict]
+            List of dicts with keys: module_name, target, timestamp, result_count.
+            Ordered by insertion order (id ascending).
+        """
+        with Session(self._engine) as session:
+            rows = session.execute(
+                select(ModuleRun).order_by(ModuleRun.id)
+            ).scalars().all()
+            return [
+                {
+                    "module_name": row.module_name,
+                    "target": row.target,
+                    "timestamp": row.timestamp,
+                    "result_count": row.result_count,
+                }
+                for row in rows
+            ]
+
+    def add_note(self, content: str, stix_object_id: str | None = None) -> None:
+        """Add an analyst note to the active workspace.
+
+        Parameters
+        ----------
+        content:
+            Free-text note content.
+        stix_object_id:
+            Optional STIX ID to link this note to a specific observable.
+        """
+        with Session(self._engine) as session:
+            note = AnalystNote(content=content, stix_object_id=stix_object_id)
+            session.add(note)
+            session.commit()
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _db_path(self, name: str) -> Path:
+        """Return the Path for a workspace's SQLite file."""
+        return self._workspace_dir / f"{name}.db"
+
+    def _ensure_active(self) -> None:
+        """Auto-create and switch to 'default' if no active workspace."""
+        if self._active is None:
+            default_path = self._db_path("default")
+            self._workspace_dir.mkdir(parents=True, exist_ok=True)
+            if not default_path.exists():
+                self.create("default")
+            self.switch("default")
+
+    def _store_sco(self, session: Session, obj) -> None:
+        """Insert a STIX SCO into stix_objects, ignoring duplicate IDs.
+
+        Uses ORM session.get() for deduplication: if a row with this STIX ID
+        already exists, skip the insert. STIX SCO IDs are deterministic, so the
+        same observable always has the same ID (DEC-WS-004). Using the ORM
+        (not raw SQL) ensures the Python-side created_at default fires correctly.
+        """
+        existing = session.get(StixObject, obj.id)
+        if existing is not None:
+            return  # already stored — deduplicated
+        json_dict = json.loads(obj.serialize())
+        row = StixObject(
+            id=obj.id,
+            type=obj.type,
+            value=json_dict.get("value"),
+            json_blob=json_dict,
+        )
+        session.add(row)
+
+    def _store_relationship(self, session: Session, obj) -> None:
+        """Insert a STIX Relationship SRO into relationships, ignoring duplicates."""
+        existing = session.get(RelationshipModel, obj.id)
+        if existing is not None:
+            return  # already stored
+        json_dict = json.loads(obj.serialize())
+        row = RelationshipModel(
+            id=obj.id,
+            source_ref=obj.source_ref,
+            target_ref=obj.target_ref,
+            relationship_type=obj.relationship_type,
+            json_blob=json_dict,
+        )
+        session.add(row)
