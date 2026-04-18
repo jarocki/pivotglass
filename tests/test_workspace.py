@@ -161,6 +161,38 @@ class TestDictToStix:
         b = dict_to_stix({"type": "ipv4-addr", "value": "5.5.5.5"})
         assert a.id == b.id
 
+    def test_custom_x_fields_no_error(self):
+        """dict_to_stix handles x_ prefixed custom fields (e.g. whois_lookup output).
+
+        whois_lookup returns dicts like:
+          {"type": "ipv4-addr", "value": "1.2.3.4", "x_creation_date": "2020-01-01", "x_org": "Acme"}
+        Before the fix, python-stix2 raised ExtraPropertiesError for these fields.
+        allow_custom=True permits them.
+        """
+        obj = dict_to_stix({
+            "type": "ipv4-addr",
+            "value": "203.0.113.42",
+            "x_creation_date": "2020-06-15",
+            "x_org": "Example Corp",
+        })
+        assert obj.type == "ipv4-addr"
+        assert obj.value == "203.0.113.42"
+        # Custom fields are preserved on the STIX object
+        assert obj.x_creation_date == "2020-06-15"
+        assert obj.x_org == "Example Corp"
+
+    def test_custom_x_fields_domain(self):
+        """Custom x_ fields work for domain-name type (whois_lookup common case)."""
+        obj = dict_to_stix({
+            "type": "domain-name",
+            "value": "threat-actor.example",
+            "x_registrar": "Evil Registrar Inc",
+            "x_expiry": "2025-12-31",
+        })
+        assert obj.type == "domain-name"
+        assert obj.value == "threat-actor.example"
+        assert obj.x_registrar == "Evil Registrar Inc"
+
 
 # ---------------------------------------------------------------------------
 # Database schema tests
