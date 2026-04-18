@@ -186,4 +186,7 @@ def dict_to_stix(d: dict):
         return d  # unrecognized type -- pass through unchanged (DEC-STIX-002)
     value = d.get("value", "")
     extra = {k: v for k, v in d.items() if k not in ("type", "value")}
-    return creator(value, **extra)
+    # allow_custom=True permits x_ prefixed extension fields (e.g. x_creation_date,
+    # x_org) returned by whois_lookup and similar modules without raising
+    # ExtraPropertiesError from python-stix2.
+    return creator(value, allow_custom=True, **extra)
