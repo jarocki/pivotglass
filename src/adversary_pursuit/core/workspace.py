@@ -50,7 +50,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
 from adversary_pursuit.models.database import (
@@ -58,6 +58,7 @@ from adversary_pursuit.models.database import (
     Base,
     ModuleRun,
     Relationship as RelationshipModel,
+    ScoreEvent,
     StixObject,
 )
 from adversary_pursuit.models.stix import dict_to_stix
@@ -313,6 +314,113 @@ class WorkspaceManager:
                     "target": row.target,
                     "timestamp": row.timestamp,
                     "result_count": row.result_count,
+                }
+                for row in rows
+            ]
+
+    def get_stix_type_counts(self) -> dict[str, int]:
+        """Get count of STIX objects by type in the active workspace.
+
+        Auto-creates the default workspace if none is active (same lazy-init
+        semantics as get_session / store_stix_objects).
+
+        Returns
+        -------
+        dict[str, int]
+            Maps STIX type strings to their object count.
+            e.g., {"ipv4-addr": 5, "domain-name": 3}. Only types with at
+            least one object are included.
+        """
+        self._ensure_active()
+        with Session(self._engine) as session:
+            rows = session.execute(
+                select(StixObject.type, func.count(StixObject.id).label("cnt"))
+                .group_by(StixObject.type)
+            ).all()
+            return {row.type: row.cnt for row in rows}
+
+    def store_score_events(
+        self,
+        events: list[dict],
+        module_run_id: int | None = None,
+    ) -> int:
+        """Persist scoring events and return total points awarded.
+
+        Parameters
+        ----------
+        events:
+            List of scoring event dicts as returned by ScoringEngine.score_results().
+            Each dict must have "action" and "points" keys. "indicator" is optional.
+        module_run_id:
+            Optional ID of the ModuleRun that produced these events.
+            Stored for attribution; no FK constraint is enforced (DEC-DB-002).
+
+        Returns
+        -------
+        int
+            Sum of all points in the provided events.
+        """
+        self._ensure_active()
+        total = 0
+        with Session(self._engine) as session:
+            for event in events:
+                row = ScoreEvent(
+                    action=event.get("action", ""),
+                    points=event.get("points", 0),
+                    indicator=event.get("indicator"),
+                    module_run_id=module_run_id,
+                )
+                session.add(row)
+                total += event.get("points", 0)
+            session.commit()
+        return total
+
+    def get_total_score(self) -> int:
+        """Get the total accumulated score for the active workspace.
+
+        Auto-creates the default workspace if none is active.
+
+        Returns
+        -------
+        int
+            Sum of points from all score events in this workspace, or 0 if none.
+        """
+        self._ensure_active()
+        with Session(self._engine) as session:
+            result = session.execute(
+                select(func.sum(ScoreEvent.points))
+            ).scalar()
+            return result if result is not None else 0
+
+    def get_recent_scores(self, limit: int = 10) -> list[dict]:
+        """Get the most recent scoring events, newest first.
+
+        Auto-creates the default workspace if none is active.
+
+        Parameters
+        ----------
+        limit:
+            Maximum number of events to return (default: 10).
+
+        Returns
+        -------
+        list[dict]
+            List of event dicts with keys: action, points, indicator, timestamp.
+            Ordered by insertion order descending (most recent first).
+        """
+        self._ensure_active()
+        with Session(self._engine) as session:
+            rows = session.execute(
+                select(ScoreEvent)
+                .order_by(ScoreEvent.id.desc())
+                .limit(limit)
+            ).scalars().all()
+            return [
+                {
+                    "action": row.action,
+                    "points": row.points,
+                    "indicator": row.indicator,
+                    "timestamp": row.timestamp,
                 }
                 for row in rows
             ]

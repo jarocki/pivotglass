@@ -48,6 +48,7 @@ from rich.table import Table
 from adversary_pursuit.core.config import ConfigManager
 from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.gamification.scoring import ScoringEngine
 from adversary_pursuit.modules.base import ModuleError
 from adversary_pursuit.models.stix import create_bundle, dict_to_stix
 
@@ -100,6 +101,7 @@ class APConsole(cmd2.Cmd):
         self.plugin_mgr = PluginManager()
         self.plugin_mgr.load_plugins()
         self.workspace_mgr = WorkspaceManager(workspace_dir=workspace_dir)
+        self.scoring_engine = ScoringEngine()
 
         # Active module state
         self._active_module: Any = None          # PursuitModule instance or None
@@ -303,8 +305,15 @@ class APConsole(cmd2.Cmd):
         # Display results
         self._display_results(results)
 
-        # Store in workspace
+        # Store in workspace and score
+        # @defprog-exempt: workspace/scoring errors are user-visible warnings —
+        # hunt results were already displayed; storage failure is non-fatal and
+        # reported to the user via poutput so they can investigate.
         try:
+            # Capture type counts BEFORE storing so solve_count reflects
+            # what was already in the workspace (not including these new results).
+            stats = self.workspace_mgr.get_stix_type_counts()
+
             count = self.workspace_mgr.store_stix_objects(
                 results,
                 module_name=self._active_module_path,
@@ -313,6 +322,21 @@ class APConsole(cmd2.Cmd):
             self.poutput(
                 f"\n{count} objects stored in workspace '{self.workspace_mgr.active}'"
             )
+
+            # Score the discoveries and show point gains
+            scoring_events = self.scoring_engine.score_results(results, stats)
+            if scoring_events:
+                total_gained = self.scoring_engine.total_score(scoring_events)
+                self.workspace_mgr.store_score_events(scoring_events)
+                self.rich_console.print(
+                    f"[bold green]+{total_gained} points![/bold green]"
+                )
+                for event in scoring_events:
+                    self.rich_console.print(
+                        f"  [cyan]{event['action']}[/cyan]: "
+                        f"[green]+{event['points']}[/green] "
+                        f"({event['indicator']})"
+                    )
         except Exception as exc:  # noqa: BLE001
             self.poutput(f"Warning: could not store results in workspace: {exc}")
 
@@ -460,15 +484,43 @@ class APConsole(cmd2.Cmd):
         self.rich_console.print(table)
 
     # ------------------------------------------------------------------
-    # score (stub — Issue #14)
+    # score
     # ------------------------------------------------------------------
 
     def do_score(self, _: str) -> None:
-        """Show current pursuit score (stub — implemented in Issue #14).
+        """Show current pursuit score and recent scoring events.
 
         Usage: score
+
+        Displays total accumulated score and the 10 most recent events
+        as a Rich table. Score is per-workspace.
         """
-        self.poutput("Score: 0  (gamification coming in Issue #14)")
+        try:
+            total = self.workspace_mgr.get_total_score()
+            recent = self.workspace_mgr.get_recent_scores(limit=10)
+        except Exception as exc:  # noqa: BLE001
+            self.poutput(f"Score: 0  (workspace not yet initialized: {exc})")
+            return
+
+        self.rich_console.print(
+            f"\n[bold yellow]Total Score: {total} pts[/bold yellow]\n"
+        )
+
+        if not recent:
+            self.poutput("No scoring events yet. Run a module to start earning points.")
+            return
+
+        table = Table(title="Recent Scoring Events", show_header=True)
+        table.add_column("Action", style="cyan")
+        table.add_column("Points", style="green", justify="right")
+        table.add_column("Indicator", style="white")
+        for event in recent:
+            table.add_row(
+                event["action"],
+                f"+{event['points']}",
+                event.get("indicator") or "",
+            )
+        self.rich_console.print(table)
 
     # ------------------------------------------------------------------
     # sessions (stub)
