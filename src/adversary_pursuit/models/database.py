@@ -37,6 +37,15 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, DateTime, Integer, JSON, String, Text
 from sqlalchemy.orm import DeclarativeBase
 
+# @decision DEC-DB-004
+# @title ScoreEvent table stores individual scoring events per workspace
+# @status accepted
+# @rationale Gamification scoring requires persistence across sessions. Storing
+#            individual events (not just totals) enables: (1) recent activity feeds
+#            in do_score(), (2) per-module attribution via module_run_id FK, (3)
+#            future analytics (points over time, per-type breakdowns). A single
+#            total column would lose the event history.
+
 
 class Base(DeclarativeBase):
     """Shared declarative base for all workspace tables."""
@@ -129,6 +138,39 @@ class ModuleRun(Base):
 
     result_count = Column(Integer, default=0, nullable=False)
     """Number of STIX objects stored from this run (after deduplication)."""
+
+
+class ScoreEvent(Base):
+    """Individual scoring events from module discoveries.
+
+    Each time a module hunt() discovers a new indicator, one or more ScoreEvent
+    rows are inserted. The sum of all rows gives the workspace's total score.
+    Individual rows enable recent-activity feeds and future per-module analytics.
+    """
+
+    __tablename__ = "score_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    """Auto-increment PK. Order == insertion order (chronological)."""
+
+    action = Column(String, nullable=False)
+    """Scoring action key (e.g. 'new_ip', 'new_domain'). See ScoringRule.action."""
+
+    points = Column(Integer, nullable=False)
+    """Points awarded for this event. Always >= ScoringRule.minimum."""
+
+    indicator = Column(String, nullable=True)
+    """The observable value (e.g. '1.2.3.4', 'evil.com'). For display only."""
+
+    module_run_id = Column(Integer, nullable=True)
+    """Optional FK to module_runs.id. No FK constraint (DEC-DB-002 — no migrations)."""
+
+    timestamp = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    """UTC timestamp when the scoring event was recorded."""
 
 
 class AnalystNote(Base):
