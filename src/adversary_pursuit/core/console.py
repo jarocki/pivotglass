@@ -57,6 +57,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from adversary_pursuit.core.config import ConfigManager
+from adversary_pursuit.core.graph import RelationshipGraph
 from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.report import ReportGenerator
 from adversary_pursuit.core.workspace import WorkspaceManager
@@ -806,11 +807,12 @@ class APConsole(cmd2.Cmd):
     # ------------------------------------------------------------------
 
     def do_export(self, args: str) -> None:
-        """Export workspace objects as a STIX 2.1 bundle.
+        """Export workspace objects.
 
         Usage:
             export                    -- export as STIX bundle (default)
             export --format stix      -- export as STIX bundle JSON
+            export --format gexf      -- export as GEXF XML for Gephi
             export --format csv       -- export as CSV (not yet implemented)
             export --format json      -- export as plain JSON array
         """
@@ -831,12 +833,14 @@ class APConsole(cmd2.Cmd):
 
         if fmt in ("stix", ""):
             self._export_stix(raw_objects)
+        elif fmt == "gexf":
+            self._export_gexf(raw_objects)
         elif fmt == "json":
             self.poutput(json.dumps(raw_objects, indent=2))
         elif fmt == "csv":
             self.poutput("CSV export not yet implemented.")
         else:
-            self.poutput(f"Unknown format '{fmt}'. Supported: stix, json")
+            self.poutput(f"Unknown format '{fmt}'. Supported: stix, gexf, json")
 
     def _export_stix(self, raw_objects: list[dict]) -> None:
         """Construct a STIX bundle from workspace objects and print JSON."""
@@ -852,3 +856,79 @@ class APConsole(cmd2.Cmd):
 
         bundle = create_bundle(stix_objects)
         self.poutput(bundle.serialize(pretty=True))
+
+    def _export_gexf(self, raw_objects: list[dict]) -> None:
+        """Build a RelationshipGraph from workspace objects and export as GEXF XML."""
+        g = RelationshipGraph()
+        g.build_from_workspace(raw_objects)
+        self.poutput(g.export_gexf())
+
+    # ------------------------------------------------------------------
+    # graph
+    # ------------------------------------------------------------------
+
+    def do_graph(self, args: str) -> None:
+        """Visualize the current workspace as a relationship graph.
+
+        Usage:
+            graph                       -- show Rich tree of current workspace
+            graph --root <stix_id>      -- show tree rooted at a specific node
+            graph --stats               -- show graph statistics only
+
+        The graph is built from all STIX objects in the active workspace.
+        Nodes are STIX observables; edges are explicit relationships stored
+        via store_stix_objects. Unconnected nodes appear under an 'Unconnected'
+        branch at the root.
+        """
+        # Parse flags
+        root_id: str | None = None
+        stats_only = "--stats" in args
+
+        if "--root" in args:
+            parts = args.split("--root", 1)
+            if len(parts) > 1:
+                root_id = parts[1].strip().split()[0] if parts[1].strip() else None
+
+        # Load workspace objects
+        try:
+            raw_objects = self.workspace_mgr.get_stix_objects()
+        except Exception as exc:  # noqa: BLE001
+            self.poutput(f"Error reading workspace: {exc}")
+            return
+
+        # Build graph
+        g = RelationshipGraph()
+        g.build_from_workspace(raw_objects)
+
+        if stats_only:
+            self._graph_show_stats(g)
+            return
+
+        if g.node_count == 0:
+            self.poutput("No objects in workspace. Run a module first.")
+            return
+
+        tree = g.render_tree(root_id=root_id)
+        self.rich_console.print(tree)
+
+        # Show stats summary below the tree
+        stats = g.get_stats()
+        self.rich_console.print(
+            f"\n[dim]{stats['node_count']} nodes, {stats['edge_count']} edges[/dim]"
+        )
+
+    def _graph_show_stats(self, g: RelationshipGraph) -> None:
+        """Render graph statistics as a Rich table."""
+        from rich.table import Table as RichTable
+
+        stats = g.get_stats()
+        table = RichTable(title="Graph Statistics", show_header=True)
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="green", justify="right")
+        table.add_row("Nodes", str(stats["node_count"]))
+        table.add_row("Edges", str(stats["edge_count"]))
+
+        for stix_type, count in sorted(stats.get("types", {}).items()):
+            table.add_row(f"  {stix_type}", str(count))
+
+        self.rich_console.print(table)
