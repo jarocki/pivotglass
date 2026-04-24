@@ -58,6 +58,7 @@ from rich.table import Table
 
 from adversary_pursuit.core.config import ConfigManager
 from adversary_pursuit.core.plugin_mgr import PluginManager
+from adversary_pursuit.core.report import ReportGenerator
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.challenges import ChallengeManager
 from adversary_pursuit.gamification.modes import ModeManager
@@ -122,6 +123,10 @@ class APConsole(cmd2.Cmd):
         self._active_module: Any = None          # PursuitModule instance or None
         self._active_module_path: str = ""       # e.g. "osint/whois_lookup"
         self._active_module_options: dict[str, str] = {}
+
+        # Report generator — instantiated lazily when 'report' is first used
+        self._report_generator: ReportGenerator | None = None
+        self._last_report_path: Path | None = None
 
     # ------------------------------------------------------------------
     # Rich console factory (supports test reset)
@@ -649,6 +654,96 @@ class APConsole(cmd2.Cmd):
                     style="green",
                 )
             )
+
+    # ------------------------------------------------------------------
+    # report
+    # ------------------------------------------------------------------
+
+    def do_report(self, args: str) -> None:
+        """Generate and manage investigation reports.
+
+        Usage:
+            report generate   -- generate report and save to file
+            report interview  -- guided interview (prompts for each question)
+            report show       -- display the last generated report
+
+        Reports are Markdown files written to the active workspace directory.
+        The interview must be completed (or partially completed) before generate
+        to embed analyst answers in the report.
+        """
+        parts = args.strip().split(None, 1)
+        sub = parts[0].lower() if parts else "generate"
+
+        if sub == "generate":
+            self._report_generate()
+        elif sub == "interview":
+            self._report_interview()
+        elif sub == "show":
+            self._report_show()
+        else:
+            self.poutput(f"Unknown report subcommand: '{sub}'")
+            self.poutput("Usage: report [generate|interview|show]")
+
+    def _get_report_generator(self) -> ReportGenerator:
+        """Return the current ReportGenerator, creating it if necessary.
+
+        Re-creates the generator if it hasn't been initialised yet.
+        The generator holds in-memory interview answers, so it persists
+        for the session once created. Answers survive multiple generate/show calls.
+        """
+        if self._report_generator is None:
+            self._report_generator = ReportGenerator(
+                self.workspace_mgr,
+                scoring_engine=self.scoring_engine,
+            )
+        return self._report_generator
+
+    def _report_generate(self) -> None:
+        """Generate report and save to a file in the workspace directory."""
+        try:
+            rg = self._get_report_generator()
+            # Derive output path from workspace name
+            try:
+                ws_name = self.workspace_mgr.active
+            except RuntimeError:
+                ws_name = "default"
+
+            # Save alongside the workspace DB files
+            workspace_dir = self.workspace_mgr._workspace_dir
+            workspace_dir.mkdir(parents=True, exist_ok=True)
+            output_path = workspace_dir / f"{ws_name}-report.md"
+            rg.save(output_path)
+            self.poutput(f"Report saved: {output_path}")
+            self._last_report_path = output_path
+        except Exception as exc:  # noqa: BLE001
+            self.poutput(f"Error generating report: {exc}")
+
+    def _report_interview(self) -> None:
+        """Interactive interview — prompts for each question and stores answers.
+
+        Uses self.read_input() so tests can inject answers via stdin redirection.
+        Answers are stored in the ReportGenerator and included in the next generate().
+        """
+        rg = self._get_report_generator()
+        self.poutput("Investigation Interview")
+        self.poutput("Enter your answer for each question (press Enter to skip).")
+        self.poutput("")
+        for i, section in enumerate(rg.sections):
+            self.poutput(f"Q{i + 1}: {section.question}")
+            try:
+                answer = input("A: ").strip()
+            except (EOFError, KeyboardInterrupt):
+                answer = ""
+            if answer:
+                rg.set_answer(i, answer)
+            self.poutput("")
+        self.poutput("Interview complete. Run 'report generate' to produce the report.")
+
+    def _report_show(self) -> None:
+        """Display the report content on stdout."""
+        rg = self._get_report_generator()
+        content = rg.generate()
+        self.poutput(content)
 
     # ------------------------------------------------------------------
     # sessions (stub)
