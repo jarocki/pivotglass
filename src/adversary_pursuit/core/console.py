@@ -30,6 +30,17 @@ rendered through cmd2's stdout channel.
            without active workspace) and delegates lifecycle ops to WorkspaceManager.
            This means the console does not need to explicitly create 'default' at
            __init__ time — the workspace is created lazily on first data operation.
+
+@decision DEC-CONSOLE-004
+@title ModeManager consulted for prompt prefix, run messages, and score celebration
+@status accepted
+@rationale APConsole holds a single ModeManager instance. The prompt is rebuilt on
+           every mode switch (do_mode) and on module load/unload (do_use, do_back)
+           to prepend the active mode's prompt_prefix. run/hunt success messages use
+           mode_mgr.active.run_success (displayed via Rich after results). Score
+           celebration uses mode_mgr.active.score_celebration.format(points=total).
+           This wiring is localised to _execute_hunt and do_mode — future modes
+           integration points (hints, celebrations) will follow the same pattern.
 """
 
 from __future__ import annotations
@@ -48,6 +59,7 @@ from rich.table import Table
 from adversary_pursuit.core.config import ConfigManager
 from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.gamification.modes import ModeManager
 from adversary_pursuit.gamification.scoring import ScoringEngine
 from adversary_pursuit.modules.base import ModuleError
 from adversary_pursuit.models.stix import create_bundle, dict_to_stix
@@ -102,6 +114,7 @@ class APConsole(cmd2.Cmd):
         self.plugin_mgr.load_plugins()
         self.workspace_mgr = WorkspaceManager(workspace_dir=workspace_dir)
         self.scoring_engine = ScoringEngine()
+        self.mode_mgr = ModeManager()
 
         # Active module state
         self._active_module: Any = None          # PursuitModule instance or None
@@ -175,7 +188,8 @@ class APConsole(cmd2.Cmd):
         self._active_module = module
         self._active_module_path = path
         self._active_module_options = {}
-        self.prompt = f"[module] ap({path})> "
+        prefix = self.mode_mgr.active.prompt_prefix
+        self.prompt = f"{prefix}[module] ap({path})> "
         self.poutput(f"Module '{path}' loaded. Type 'show options' to see parameters.")
 
     # ------------------------------------------------------------------
@@ -190,7 +204,8 @@ class APConsole(cmd2.Cmd):
         self._active_module = None
         self._active_module_path = ""
         self._active_module_options = {}
-        self.prompt = "[main] ap> "
+        prefix = self.mode_mgr.active.prompt_prefix
+        self.prompt = f"{prefix}[main] ap> "
 
     # ------------------------------------------------------------------
     # show
@@ -302,8 +317,10 @@ class APConsole(cmd2.Cmd):
             )
             return
 
-        # Display results
+        # Display results and show mode-specific success message
         self._display_results(results)
+        if results:
+            self.rich_console.print(self.mode_mgr.active.run_success)
 
         # Store in workspace and score
         # @defprog-exempt: workspace/scoring errors are user-visible warnings —
@@ -323,14 +340,15 @@ class APConsole(cmd2.Cmd):
                 f"\n{count} objects stored in workspace '{self.workspace_mgr.active}'"
             )
 
-            # Score the discoveries and show point gains
+            # Score the discoveries and show point gains using active mode celebration
             scoring_events = self.scoring_engine.score_results(results, stats)
             if scoring_events:
                 total_gained = self.scoring_engine.total_score(scoring_events)
                 self.workspace_mgr.store_score_events(scoring_events)
-                self.rich_console.print(
-                    f"[bold green]+{total_gained} points![/bold green]"
+                celebration = self.mode_mgr.active.score_celebration.format(
+                    points=total_gained
                 )
+                self.rich_console.print(celebration)
                 for event in scoring_events:
                     self.rich_console.print(
                         f"  [cyan]{event['action']}[/cyan]: "
@@ -534,16 +552,49 @@ class APConsole(cmd2.Cmd):
         self.poutput("No active sessions.")
 
     # ------------------------------------------------------------------
-    # mode (stub — Issue #16)
+    # mode — Issue #16 implementation
     # ------------------------------------------------------------------
 
     def do_mode(self, args: str) -> None:
-        """Switch character mode (stub — implemented in Issue #16).
+        """Switch the active character mode.
 
-        Usage: mode <name>
+        Usage:
+            mode <name>      -- switch to named mode
+            mode             -- show current mode and list all available
+
+        Available modes: default, ninja, full_troll, drunken_master, sun_tzu,
+            chuck_norris, bureaucrat, bobby_hill, bruce_lee, columbo
+
+        Each mode changes the prompt prefix, hunt success/failure messages,
+        and score celebration style. See ModeManager and DEFAULT_MODES in
+        gamification/modes.py for the full configuration.
         """
-        name = args.strip() or "(none)"
-        self.poutput(f"Mode '{name}': character modes coming in Issue #16.")
+        name = args.strip()
+        if not name:
+            # No argument — show current mode and list all
+            current = self.mode_mgr.active
+            self.poutput(f"Current mode: {current.name} — {current.personality}")
+            self.poutput("Available modes:")
+            for entry in self.mode_mgr.list_modes():
+                marker = "* " if entry["name"] == current.name else "  "
+                self.poutput(f"  {marker}{entry['name']}: {entry['personality']}")
+            return
+
+        try:
+            mode = self.mode_mgr.switch(name)
+        except ValueError as exc:
+            self.poutput(f"Error: {exc}")
+            return
+
+        # Update prompt to reflect new mode prefix
+        prefix = mode.prompt_prefix
+        if self._active_module:
+            self.prompt = f"{prefix}[module] ap({self._active_module_path})> "
+        else:
+            self.prompt = f"{prefix}[main] ap> "
+
+        # Display the mode's greeting
+        self.rich_console.print(mode.greeting)
 
     # ------------------------------------------------------------------
     # export
