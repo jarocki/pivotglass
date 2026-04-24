@@ -61,6 +61,7 @@ from adversary_pursuit.core.graph import RelationshipGraph
 from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.report import ReportGenerator
 from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.gamification.badges import BadgeManager
 from adversary_pursuit.gamification.challenges import ChallengeManager
 from adversary_pursuit.gamification.modes import ModeManager
 from adversary_pursuit.gamification.scoring import ScoringEngine
@@ -118,6 +119,7 @@ class APConsole(cmd2.Cmd):
         self.workspace_mgr = WorkspaceManager(workspace_dir=workspace_dir)
         self.scoring_engine = ScoringEngine()
         self.challenge_mgr = ChallengeManager()
+        self.badge_mgr = BadgeManager()
         self.mode_mgr = ModeManager()
 
         # Active module state
@@ -371,6 +373,12 @@ class APConsole(cmd2.Cmd):
             self._check_challenges_after_run()
         except Exception:  # noqa: BLE001
             pass  # Challenge checks must never interrupt the hunt flow
+
+        # Check badges after every run (errors are non-fatal)
+        try:
+            self._check_badges_after_run()
+        except Exception:  # noqa: BLE001
+            pass  # Badge checks must never interrupt the hunt flow
 
     def _display_results(self, results: list[dict]) -> None:
         """Render hunt() results as a Rich table.
@@ -653,6 +661,87 @@ class APConsole(cmd2.Cmd):
                     f"[green]+{ch.points} bonus points![/green]",
                     title="[bold green]Challenge Completed![/bold green]",
                     style="green",
+                )
+            )
+
+    # ------------------------------------------------------------------
+    # badges — Issue #17 implementation
+    # ------------------------------------------------------------------
+
+    def do_badges(self, _: str) -> None:
+        """Show all badges earned in the active workspace.
+
+        Usage: badges
+
+        Displays a Rich table of badges earned, with name, rarity, description,
+        and award timestamp. Badges are permanent achievements that persist in
+        the workspace database (badge_events table).
+        """
+        try:
+            awarded = self.workspace_mgr.get_awarded_badges()
+        except Exception as exc:  # noqa: BLE001
+            self.poutput(f"No badges yet (workspace not initialized: {exc})")
+            return
+
+        if not awarded:
+            self.poutput("No badges earned yet. Run modules to discover indicators and earn badges!")
+            return
+
+        # Get badge metadata from BadgeManager for rarity display
+        table = Table(title="Earned Badges", show_header=True)
+        table.add_column("Badge", style="bold yellow")
+        table.add_column("Rarity", style="cyan")
+        table.add_column("Description")
+        table.add_column("Earned At", style="dim")
+
+        for entry in awarded:
+            badge = self.badge_mgr.get_badge(entry["badge_id"])
+            rarity = badge.rarity.value.upper() if badge else "UNKNOWN"
+            description = badge.description if badge else ""
+            earned_at = entry.get("awarded_at")
+            earned_str = earned_at.strftime("%Y-%m-%d %H:%M") if earned_at else ""
+            table.add_row(entry["badge_name"], rarity, description, earned_str)
+
+        self.rich_console.print(table)
+
+    def _check_badges_after_run(self) -> None:
+        """Check all badges after a module run and persist/announce newly earned ones.
+
+        Called by _execute_hunt() after results are stored and scored.
+        Builds the already_awarded set from the workspace, evaluates all
+        badge conditions via BadgeManager.check_all(), persists new awards
+        to the badge_events table, and displays a Rich panel for each new badge.
+
+        Errors are caught by the caller — this method should not raise.
+        """
+        # Build already_awarded set from workspace (application-layer dedup, DEC-BADGE-002)
+        awarded_rows = self.workspace_mgr.get_awarded_badges()
+        already_awarded = {row["badge_id"] for row in awarded_rows}
+
+        # Get current workspace stats for evaluation
+        stats = self.workspace_mgr.get_workspace_stats()
+
+        # Evaluate all badges
+        newly_earned = self.badge_mgr.check_all(stats, already_awarded=already_awarded)
+
+        for badge in newly_earned:
+            # Persist
+            self.workspace_mgr.store_badge_event(badge.id, badge.name)
+            # Announce with rarity-styled panel
+            rarity_colors = {
+                "common": "white",
+                "uncommon": "green",
+                "rare": "blue",
+                "epic": "magenta",
+                "legendary": "bold yellow",
+            }
+            color = rarity_colors.get(badge.rarity.value, "white")
+            self.rich_console.print(
+                Panel(
+                    f"[bold]{badge.name}[/bold] [{color}]({badge.rarity.value.upper()})[/{color}]\n"
+                    f"{badge.description}",
+                    title="[bold yellow]Badge Earned![/bold yellow]",
+                    style="yellow",
                 )
             )
 
