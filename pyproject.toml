@@ -21,6 +21,7 @@ whois_lookup = "adversary_pursuit.modules.osint.whois_lookup:WhoisLookup"
 dns_resolve = "adversary_pursuit.modules.osint.dns_resolve:DnsResolve"
 abuseipdb = "adversary_pursuit.modules.osint.abuseipdb:AbuseIPDB"
 urlscan = "adversary_pursuit.modules.osint.urlscan:URLScan"
+hibp = "adversary_pursuit.modules.osint.hibp:HIBP"
 otx = "adversary_pursuit.modules.cti.otx:AlienVaultOTX"
 
 [build-system]

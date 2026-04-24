@@ -44,6 +44,7 @@ _BUILTIN_MODULES: list[tuple[str, str]] = [
     ("osint/dns_resolve", "adversary_pursuit.modules.osint.dns_resolve:DnsResolve"),
     ("osint/abuseipdb", "adversary_pursuit.modules.osint.abuseipdb:AbuseIPDB"),
     ("osint/urlscan", "adversary_pursuit.modules.osint.urlscan:URLScan"),
+    ("osint/hibp", "adversary_pursuit.modules.osint.hibp:HIBP"),
     ("cti/otx", "adversary_pursuit.modules.cti.otx:AlienVaultOTX"),
 ]
 
