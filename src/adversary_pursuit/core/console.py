@@ -48,6 +48,7 @@ from rich.table import Table
 from adversary_pursuit.core.config import ConfigManager
 from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.gamification.challenges import ChallengeManager
 from adversary_pursuit.gamification.scoring import ScoringEngine
 from adversary_pursuit.modules.base import ModuleError
 from adversary_pursuit.models.stix import create_bundle, dict_to_stix
@@ -102,6 +103,7 @@ class APConsole(cmd2.Cmd):
         self.plugin_mgr.load_plugins()
         self.workspace_mgr = WorkspaceManager(workspace_dir=workspace_dir)
         self.scoring_engine = ScoringEngine()
+        self.challenge_mgr = ChallengeManager()
 
         # Active module state
         self._active_module: Any = None          # PursuitModule instance or None
@@ -340,6 +342,12 @@ class APConsole(cmd2.Cmd):
         except Exception as exc:  # noqa: BLE001
             self.poutput(f"Warning: could not store results in workspace: {exc}")
 
+        # Check challenges after every run (errors are non-fatal)
+        try:
+            self._check_challenges_after_run()
+        except Exception:  # noqa: BLE001
+            pass  # Challenge checks must never interrupt the hunt flow
+
     def _display_results(self, results: list[dict]) -> None:
         """Render hunt() results as a Rich table.
 
@@ -521,6 +529,108 @@ class APConsole(cmd2.Cmd):
                 event.get("indicator") or "",
             )
         self.rich_console.print(table)
+
+    # ------------------------------------------------------------------
+    # challenges
+    # ------------------------------------------------------------------
+
+    def do_challenges(self, _: str) -> None:
+        """Show all challenges with current status.
+
+        Usage: challenges
+
+        Displays a Rich table of all challenges: name, type, points, status,
+        and hints. Completed challenges show their completion time.
+        """
+        items = self.challenge_mgr.list_challenges()
+
+        table = Table(title="Challenges", show_header=True)
+        table.add_column("ID", style="cyan")
+        table.add_column("Name", style="bold")
+        table.add_column("Type", style="yellow")
+        table.add_column("Points", style="green", justify="right")
+        table.add_column("Status", style="white")
+        table.add_column("Description")
+
+        for item in items:
+            status = item["status"]
+            if status == "completed":
+                status_str = "[green]completed[/green]"
+            elif status == "expired":
+                status_str = "[red]expired[/red]"
+            else:
+                status_str = "[blue]active[/blue]"
+
+            table.add_row(
+                item["id"],
+                item["name"],
+                item["challenge_type"],
+                str(item["points"]),
+                status_str,
+                item["description"],
+            )
+
+        self.rich_console.print(table)
+
+    def _build_workspace_data(self) -> dict:
+        """Assemble workspace_data dict for challenge verification.
+
+        Collects stix_type_counts, modules_used, total_score, and
+        total_indicators from WorkspaceManager. Returns an empty-data
+        dict on any error so challenge checking degrades gracefully.
+
+        Returns
+        -------
+        dict
+            Keys: stix_type_counts, modules_used, total_score,
+            total_indicators, indicators.
+        """
+        try:
+            stix_counts = self.workspace_mgr.get_stix_type_counts()
+            runs = self.workspace_mgr.get_module_runs()
+            modules_used = [r["module_name"] for r in runs]
+            total_score = self.workspace_mgr.get_total_score()
+            total_indicators = sum(stix_counts.values())
+            # Collect flat indicator list for indicator_exists checks
+            indicators = [
+                {"type": obj.get("type", ""), "value": obj.get("value", "")}
+                for obj in self.workspace_mgr.get_stix_objects()
+            ]
+            return {
+                "stix_type_counts": stix_counts,
+                "modules_used": modules_used,
+                "total_score": total_score,
+                "total_indicators": total_indicators,
+                "indicators": indicators,
+            }
+        except Exception:  # noqa: BLE001
+            return {
+                "stix_type_counts": {},
+                "modules_used": [],
+                "total_score": 0,
+                "total_indicators": 0,
+                "indicators": [],
+            }
+
+    def _check_challenges_after_run(self) -> None:
+        """Check all active challenges after a module run and announce completions.
+
+        Called by _execute_hunt() after results are stored. Newly completed
+        challenges are displayed as Rich panels so the analyst sees the reward
+        immediately after their hunt.
+        """
+        workspace_data = self._build_workspace_data()
+        newly_completed = self.challenge_mgr.check_all(workspace_data)
+        for ch in newly_completed:
+            self.rich_console.print(
+                Panel(
+                    f"[bold yellow]{ch.name}[/bold yellow]\n"
+                    f"{ch.description}\n\n"
+                    f"[green]+{ch.points} bonus points![/green]",
+                    title="[bold green]Challenge Completed![/bold green]",
+                    style="green",
+                )
+            )
 
     # ------------------------------------------------------------------
     # sessions (stub)
