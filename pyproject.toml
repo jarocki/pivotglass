@@ -24,6 +24,7 @@ abuseipdb = "adversary_pursuit.modules.osint.abuseipdb:AbuseIPDB"
 urlscan = "adversary_pursuit.modules.osint.urlscan:URLScan"
 hibp = "adversary_pursuit.modules.osint.hibp:HIBP"
 otx = "adversary_pursuit.modules.cti.otx:AlienVaultOTX"
+shodan_ip = "adversary_pursuit.modules.osint.shodan_ip:ShodanIP"
 
 [build-system]
 requires = ["hatchling"]
