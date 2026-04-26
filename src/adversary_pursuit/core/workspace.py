@@ -41,6 +41,15 @@ storage layer.
            objects in the same session) and fires Python-side column defaults
            (created_at). Raw SQL INSERT OR IGNORE was attempted but silently dropped
            rows because the NOT NULL created_at column has no SQLite-level DEFAULT.
+
+@decision DEC-WS-005
+@title get_workspace_stats uses multiple scalar queries, not a single aggregation join
+@status accepted
+@rationale Each stat (total_indicators, domain_count, ip_count, module_run_count,
+           total_score, note_count) requires a different query against different tables
+           or filtered subsets. A single UNION or CTE would be harder to read, debug,
+           and extend. SQLite is fast for small workspace databases (< 100k rows), so
+           6 small scalar queries run in negligible time. Clarity over micro-optimization.
 """
 
 from __future__ import annotations
@@ -55,6 +64,7 @@ from sqlalchemy.orm import Session
 
 from adversary_pursuit.models.database import (
     AnalystNote,
+    BadgeEvent,
     Base,
     ModuleRun,
     Relationship as RelationshipModel,
@@ -439,6 +449,107 @@ class WorkspaceManager:
             note = AnalystNote(content=content, stix_object_id=stix_object_id)
             session.add(note)
             session.commit()
+
+    def store_badge_event(self, badge_id: str, badge_name: str) -> None:
+        """Persist a badge award to the active workspace.
+
+        Does NOT enforce uniqueness at the DB layer — callers are responsible
+        for checking get_awarded_badges() first (DEC-DB-005). Idempotency is
+        enforced at the application layer by APConsole._check_badges_after_run()
+        which builds the already_awarded set before calling BadgeManager.check_all().
+
+        Parameters
+        ----------
+        badge_id:
+            Stable badge slug (e.g. "badge-first-blood").
+        badge_name:
+            Display name snapshot at award time (e.g. "First Blood").
+        """
+        self._ensure_active()
+        with Session(self._engine) as session:
+            event = BadgeEvent(badge_id=badge_id, badge_name=badge_name)
+            session.add(event)
+            session.commit()
+
+    def get_awarded_badges(self) -> list[dict]:
+        """Return all badges earned in the active workspace.
+
+        Returns
+        -------
+        list[dict]
+            Each dict has: badge_id (str), badge_name (str), awarded_at (datetime).
+            Ordered by awarded_at ascending (oldest first).
+        """
+        self._ensure_active()
+        with Session(self._engine) as session:
+            rows = session.execute(
+                select(BadgeEvent).order_by(BadgeEvent.awarded_at)
+            ).scalars().all()
+            return [
+                {
+                    "badge_id": row.badge_id,
+                    "badge_name": row.badge_name,
+                    "awarded_at": row.awarded_at,
+                }
+                for row in rows
+            ]
+
+    def get_workspace_stats(self) -> dict:
+        """Return aggregated stats for badge/achievement evaluation.
+
+        Collects all metrics needed by BadgeManager.check_all() in a single
+        method to keep APConsole wiring simple. Stats are computed from live
+        workspace data (not cached).
+
+        Returns
+        -------
+        dict
+            Keys and sources:
+            - total_indicators (int): count of all stix_objects rows
+            - domain_count (int): count of stix_objects where type = "domain-name"
+            - ip_count (int): count of stix_objects where type IN ("ipv4-addr", "ipv6-addr")
+            - module_run_count (int): count of module_runs rows
+            - total_score (int): sum of score_events.points (0 if none)
+            - note_count (int): count of notes rows
+        """
+        self._ensure_active()
+        with Session(self._engine) as session:
+            total_indicators = session.execute(
+                select(func.count(StixObject.id))
+            ).scalar() or 0
+
+            domain_count = session.execute(
+                select(func.count(StixObject.id)).where(
+                    StixObject.type == "domain-name"
+                )
+            ).scalar() or 0
+
+            ip_count = session.execute(
+                select(func.count(StixObject.id)).where(
+                    StixObject.type.in_(["ipv4-addr", "ipv6-addr"])
+                )
+            ).scalar() or 0
+
+            module_run_count = session.execute(
+                select(func.count(ModuleRun.id))
+            ).scalar() or 0
+
+            total_score = session.execute(
+                select(func.sum(ScoreEvent.points))
+            ).scalar() or 0
+
+            note_count = session.execute(
+                select(func.count(AnalystNote.id))
+            ).scalar() or 0
+
+        return {
+            "total_indicators": total_indicators,
+            "domain_count": domain_count,
+            "ip_count": ip_count,
+            "module_run_count": module_run_count,
+            "total_score": total_score,
+            "note_count": note_count,
+        }
 
     # ------------------------------------------------------------------
     # Private helpers

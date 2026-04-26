@@ -173,6 +173,48 @@ class ScoreEvent(Base):
     """UTC timestamp when the scoring event was recorded."""
 
 
+# @decision DEC-DB-005
+# @title BadgeEvent table stores earned badges per workspace
+# @status accepted
+# @rationale Badges are workspace-persistent (unlike in-memory challenge state).
+#            A separate BadgeEvent table (not reusing ScoreEvent) keeps badge
+#            semantics distinct from scoring: badges are identified by badge_id
+#            (a stable string slug), have a display name snapshot, and are
+#            deduplicated by badge_id so the same badge is never awarded twice
+#            in the same workspace. The badge_id is NOT an FK to any catalog
+#            table — the catalog lives in memory (BadgeManager). This avoids
+#            schema coupling to the badge list and aligns with DEC-DB-002
+#            (no migrations in v1).
+
+
+class BadgeEvent(Base):
+    """Persisted record of a badge earned in this workspace.
+
+    Each row represents a unique badge award. badge_id is the stable slug
+    from the Badge dataclass (e.g. "badge-first-blood"). Duplicate badge_id
+    rows are prevented at the application layer by checking get_awarded_badges()
+    before calling store_badge_event().
+    """
+
+    __tablename__ = "badge_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    """Auto-increment PK."""
+
+    badge_id = Column(String, nullable=False, index=True)
+    """Stable badge slug (e.g. "badge-first-blood"). Not an FK — catalog is in memory."""
+
+    badge_name = Column(String, nullable=False)
+    """Snapshot of Badge.name at award time. Survives catalog changes."""
+
+    awarded_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    """UTC timestamp when this badge was first earned."""
+
+
 class AnalystNote(Base):
     """Free-text analyst annotations, optionally linked to a STIX object.
 
