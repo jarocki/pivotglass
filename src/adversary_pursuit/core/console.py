@@ -63,6 +63,7 @@ from adversary_pursuit.core.report import ReportGenerator
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.badges import BadgeManager
 from adversary_pursuit.gamification.challenges import ChallengeManager
+from adversary_pursuit.gamification.celebrations import CelebrationEngine
 from adversary_pursuit.gamification.modes import ModeManager
 from adversary_pursuit.gamification.scoring import ScoringEngine
 from adversary_pursuit.modules.base import ModuleError
@@ -121,6 +122,7 @@ class APConsole(cmd2.Cmd):
         self.challenge_mgr = ChallengeManager()
         self.badge_mgr = BadgeManager()
         self.mode_mgr = ModeManager()
+        self.celebration_engine = CelebrationEngine()
 
         # Active module state
         self._active_module: Any = None          # PursuitModule instance or None
