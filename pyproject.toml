@@ -3,6 +3,31 @@ name = "adversary-pursuit"
 version = "0.1.0"
 requires-python = ">=3.12"
 description = "Gamified framework for hunting, pivoting, and discovery of adversary infrastructure, indicators, and TTPs"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "John Jarocki", email = "john@jarocki.me" },
+]
+keywords = ["threat-intelligence", "osint", "cti", "gamification", "adversary-pursuit"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Internet",
+]
+
+[project.urls]
+Homepage = "https://github.com/jarocki/ap"
+Repository = "https://github.com/jarocki/ap"
+"Bug Tracker" = "https://github.com/jarocki/ap/issues"
+
 dependencies = [
     "cmd2>=2.5",
     "rich>=13.0",
@@ -41,6 +66,7 @@ asyncio_mode = "auto"
 dev = [
     "pytest>=9.0.3",
     "pytest-asyncio>=1.3.0",
+    "ruff>=0.4",
 ]
 
 [project.optional-dependencies]
