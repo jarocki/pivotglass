@@ -46,6 +46,7 @@ _BUILTIN_MODULES: list[tuple[str, str]] = [
     ("osint/urlscan", "adversary_pursuit.modules.osint.urlscan:URLScan"),
     ("osint/hibp", "adversary_pursuit.modules.osint.hibp:HIBP"),
     ("osint/shodan_ip", "adversary_pursuit.modules.osint.shodan_ip:ShodanIP"),
+        ("cti/passivetotal", "adversary_pursuit.modules.cti.passivetotal:PassiveTotal"),
     ("cti/otx", "adversary_pursuit.modules.cti.otx:AlienVaultOTX"),
 ]
 
