@@ -25,6 +25,7 @@ urlscan = "adversary_pursuit.modules.osint.urlscan:URLScan"
 hibp = "adversary_pursuit.modules.osint.hibp:HIBP"
 otx = "adversary_pursuit.modules.cti.otx:AlienVaultOTX"
 shodan_ip = "adversary_pursuit.modules.osint.shodan_ip:ShodanIP"
+virustotal = "adversary_pursuit.modules.cti.virustotal:VirusTotal"
 
 [build-system]
 requires = ["hatchling"]
