@@ -23,11 +23,6 @@ classifiers = [
     "Topic :: Internet",
 ]
 
-[project.urls]
-Homepage = "https://github.com/jarocki/ap"
-Repository = "https://github.com/jarocki/ap"
-"Bug Tracker" = "https://github.com/jarocki/ap/issues"
-
 dependencies = [
     "cmd2>=2.5",
     "rich>=13.0",
@@ -38,6 +33,11 @@ dependencies = [
     "tomli_w>=1.0",
     "pyyaml>=6.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/jarocki/ap"
+Repository = "https://github.com/jarocki/ap"
+"Bug Tracker" = "https://github.com/jarocki/ap/issues"
 
 [project.scripts]
 ap = "adversary_pursuit.__main__:main"
