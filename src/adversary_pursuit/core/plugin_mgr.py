@@ -47,6 +47,7 @@ _BUILTIN_MODULES: list[tuple[str, str]] = [
     ("osint/hibp", "adversary_pursuit.modules.osint.hibp:HIBP"),
     ("osint/shodan_ip", "adversary_pursuit.modules.osint.shodan_ip:ShodanIP"),
     ("osint/censys_host", "adversary_pursuit.modules.osint.censys_host:CensysHost"),
+    ("cti/virustotal", "adversary_pursuit.modules.cti.virustotal:VirusTotal"),
     ("cti/otx", "adversary_pursuit.modules.cti.otx:AlienVaultOTX"),
 ]
 
