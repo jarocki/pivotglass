@@ -64,6 +64,7 @@ from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.badges import BadgeManager
 from adversary_pursuit.gamification.challenges import ChallengeManager
 from adversary_pursuit.gamification.celebrations import CelebrationEngine
+from adversary_pursuit.gamification.hints import HintProvider, InsufficientBalanceError
 from adversary_pursuit.gamification.modes import ModeManager
 from adversary_pursuit.gamification.scoring import ScoringEngine
 from adversary_pursuit.modules.base import ModuleError
@@ -121,6 +122,7 @@ class APConsole(cmd2.Cmd):
         self.scoring_engine = ScoringEngine()
         self.challenge_mgr = ChallengeManager()
         self.badge_mgr = BadgeManager()
+        self.hint_provider = HintProvider()
         self.mode_mgr = ModeManager()
         self.celebration_engine = CelebrationEngine()
 
@@ -1023,3 +1025,130 @@ class APConsole(cmd2.Cmd):
             table.add_row(f"  {stix_type}", str(count))
 
         self.rich_console.print(table)
+
+    # ------------------------------------------------------------------
+    # hint — Issue #18 implementation
+    # ------------------------------------------------------------------
+
+    def do_hint(self, args: str) -> None:
+        """Show contextual hints for the current investigation.
+
+        Usage:
+            hint           -- show next hint (free hints first)
+            hint free      -- show all free hints for the active module
+            hint buy       -- reveal a paid hint (costs 10-20 points)
+
+        Hints are contextual: when a module is loaded, module-specific hints
+        are included alongside general hints. Free hints have no score cost.
+        Paid hints deduct points from your workspace score (10-20 pts each).
+
+        Module base name is derived from the active module path by stripping
+        the namespace prefix (e.g. 'osint/dns_resolve' -> 'dns_resolve').
+        See DEC-HINT-004 for rationale.
+        """
+        sub = args.strip().lower() if args.strip() else ""
+
+        # Derive module base name from active module path (DEC-HINT-004)
+        module_name: str | None = None
+        if self._active_module_path:
+            # "osint/dns_resolve" -> "dns_resolve"; "dns_resolve" -> "dns_resolve"
+            module_name = self._active_module_path.split("/")[-1] if self._active_module_path else None
+
+        if sub == "free":
+            self._hint_show_free(module_name)
+        elif sub == "buy":
+            self._hint_buy(module_name)
+        elif sub == "":
+            self._hint_show_next(module_name)
+        else:
+            self.poutput(
+                "Usage: hint | hint free | hint buy\n"
+                "  hint       -- next hint (free first)\n"
+                "  hint free  -- all free hints\n"
+                "  hint buy   -- purchase a paid hint (10-20 pts)"
+            )
+
+    def _hint_show_next(self, module_name: str | None) -> None:
+        """Show the next unrevealed hint (free hints first)."""
+        result = self.hint_provider.get_next_hint(module=module_name)
+        if result is None:
+            self.rich_console.print(
+                "[dim]All hints revealed. You're on your own now, analyst.[/dim]"
+            )
+            return
+        cost_label = "[green]FREE[/green]" if result.hint.cost == 0 else f"[yellow]{result.hint.cost} pts[/yellow]"
+        self.rich_console.print(
+            Panel(
+                result.hint.text,
+                title=f"[bold cyan]Hint[/bold cyan] {cost_label}",
+                style="cyan",
+            )
+        )
+
+    def _hint_show_free(self, module_name: str | None) -> None:
+        """Show all free hints for the current module context."""
+        free_hints = self.hint_provider.get_free_hints(module=module_name)
+        if not free_hints:
+            self.poutput("No free hints available for this context.")
+            return
+
+        context_label = f"module '{module_name}'" if module_name else "general"
+        table = Table(title=f"Free Hints ({context_label})", show_header=True)
+        table.add_column("#", style="dim", justify="right")
+        table.add_column("Hint", style="white")
+        table.add_column("Scope", style="cyan")
+
+        for i, hint in enumerate(free_hints, start=1):
+            scope = hint.module if hint.module else "general"
+            table.add_row(str(i), hint.text, scope)
+
+        self.rich_console.print(table)
+
+    def _hint_buy(self, module_name: str | None) -> None:
+        """Purchase the next paid hint, deducting cost from workspace score."""
+        # Get current score — workspace may not be initialized yet
+        try:
+            current_score = self.workspace_mgr.get_total_score()
+        except Exception:  # noqa: BLE001
+            current_score = 0
+
+        try:
+            result = self.hint_provider.buy_hint(
+                current_score=current_score,
+                module=module_name,
+            )
+        except InsufficientBalanceError as exc:
+            self.rich_console.print(
+                Panel(
+                    f"You need [bold]{exc.required}[/bold] pts but have [bold]{exc.available}[/bold] pts.\n"
+                    "Run more modules to earn points, then try again.",
+                    title="[bold red]Insufficient Score[/bold red]",
+                    style="red",
+                )
+            )
+            return
+
+        if result is None:
+            self.poutput("No paid hints available for this context. All hints revealed!")
+            return
+
+        # Deduct the hint cost from workspace score (DEC-HINT-001)
+        try:
+            self.workspace_mgr.store_score_events([
+                {
+                    "action": "hint_purchase",
+                    "points": -result.cost_paid,
+                    "indicator": result.hint.id,
+                    "rule_description": f"Paid hint purchased: -{result.cost_paid} pts",
+                }
+            ])
+        except Exception:  # noqa: BLE001
+            pass  # Workspace not initialized — cost tracking skipped, hint still shown
+
+        self.rich_console.print(
+            Panel(
+                result.hint.text,
+                title=f"[bold yellow]Paid Hint[/bold yellow] [red]-{result.cost_paid} pts[/red]",
+                style="yellow",
+            )
+        )
