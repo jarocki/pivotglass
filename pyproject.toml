@@ -52,6 +52,7 @@ otx = "adversary_pursuit.modules.cti.otx:AlienVaultOTX"
 shodan_ip = "adversary_pursuit.modules.osint.shodan_ip:ShodanIP"
 censys_host = "adversary_pursuit.modules.osint.censys_host:CensysHost"
 virustotal = "adversary_pursuit.modules.cti.virustotal:VirusTotal"
+passivetotal = "adversary_pursuit.modules.cti.passivetotal:PassiveTotal"
 
 [build-system]
 requires = ["hatchling"]
