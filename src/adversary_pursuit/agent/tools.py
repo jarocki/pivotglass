@@ -6,11 +6,11 @@ execution, result formatting, and workspace storage.
 @decision DEC-AGENT-TOOLS-001
 @title Thin tool wrappers delegating to existing PursuitModule infrastructure
 @status accepted
-@rationale The existing modules (whois, dns, abuseipdb, shodan, hibp, otx, urlscan)
-           are already tested and working. Tool wrappers are thin adapters that:
-           (1) accept simple string args from the LLM, (2) initialize the module
-           with config, (3) call hunt(), (4) format + store results. No business
-           logic duplication.
+@rationale The existing modules (whois, dns, abuseipdb, shodan, hibp, otx, urlscan,
+           virustotal, censys_host, passivetotal) are already tested and working.
+           Tool wrappers are thin adapters that: (1) accept simple string args
+           from the LLM, (2) initialize the module with config, (3) call hunt(),
+           (4) format + store results. No business logic duplication.
 
 @decision DEC-AGENT-TOOLS-002
 @title OpenAI function-calling format for tool definitions
@@ -21,17 +21,28 @@ execution, result formatting, and workspace storage.
            needed. By producing tool definitions in this format, the tool layer
            is compatible with any litellm-supported backend (Ollama, OpenAI,
            Anthropic, etc.) without changes.
+
+@decision DEC-AGENT-TOOLS-003
+@title Per-module credential builders for multi-key auth modules
+@status accepted
+@rationale Most modules use a single api_key, but Censys requires censys_id +
+           censys_secret and PassiveTotal requires passivetotal_user +
+           passivetotal_key. _CREDENTIAL_BUILDERS maps module paths to callables
+           that construct the full init_config dict from ConfigManager. Modules
+           not in the map fall back to the legacy {"api_key": ...} pattern.
+           This keeps run_module() generic while correctly threading multi-key
+           credentials to modules that need them.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
-from pathlib import Path
 from typing import Any
 
 from adversary_pursuit.core.config import ConfigManager
-from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.core.plugin_mgr import PluginManager
+from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.scoring import ScoringEngine
 
 logger = logging.getLogger(__name__)
@@ -90,11 +101,18 @@ class ToolContext:
         if mod is None:
             return {"error": f"Module '{module_path}' not found"}
 
-        # Determine service name for API key lookup:
-        # "osint/abuseipdb" -> "abuseipdb", "cti/otx" -> "otx"
-        service_name = module_path.split("/")[-1]
-        api_key = self.config_mgr.get_api_key(service_name) or ""
-        mod.initialize({"api_key": api_key})
+        # Build init_config for this module. Most modules use a single api_key;
+        # multi-key modules (Censys, PassiveTotal) use _CREDENTIAL_BUILDERS.
+        # See DEC-AGENT-TOOLS-003.
+        credential_builder = _CREDENTIAL_BUILDERS.get(module_path)
+        if credential_builder is not None:
+            init_config = credential_builder(self.config_mgr)
+        else:
+            # Legacy path: "osint/abuseipdb" -> service "abuseipdb"
+            service_name = module_path.split("/")[-1]
+            api_key = self.config_mgr.get_api_key(service_name) or ""
+            init_config = {"api_key": api_key}
+        mod.initialize(init_config)
 
         # Run hunt() via asyncio — modules are async
         results = asyncio.run(mod.hunt(target, options or {}))
@@ -118,7 +136,9 @@ class ToolContext:
         if total > 0:
             summary_lines.append(f"\n+{total} points!")
             for e in events:
-                summary_lines.append(f"  {e['action']}: +{e['points']} ({e['indicator']})")
+                summary_lines.append(
+                    f"  {e['action']}: +{e['points']} ({e['indicator']})"
+                )
 
         return {
             "results": results,
@@ -145,7 +165,8 @@ def create_tools(ctx: ToolContext) -> list[dict]:
     Returns
     -------
     list[dict]
-        9 tool definitions covering all built-in AP modules plus workspace ops.
+        12 tool definitions covering all built-in AP modules plus workspace ops.
+        7 OSINT/CTI modules + VT + Censys + PassiveTotal + 2 workspace tools.
     """
     return [
         {
@@ -313,6 +334,90 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                 },
             },
         },
+        # -----------------------------------------------------------------------
+        # Three new tools added in Issue #25 / ADR-010 parity slice:
+        # VirusTotal (#7), Censys (#8), PassiveTotal (#13)
+        # -----------------------------------------------------------------------
+        {
+            "type": "function",
+            "function": {
+                "name": "virustotal_lookup",
+                "description": (
+                    "Query VirusTotal v3 for threat analysis of an IP, domain, URL, or "
+                    "file hash. Returns malicious/suspicious/harmless vendor counts, "
+                    "reputation score, and AS/country for IPs and domains. "
+                    "Target type is auto-detected from the input."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": (
+                                "IP address, domain, URL, or file hash (MD5/SHA-1/SHA-256)"
+                            ),
+                        },
+                        "target_type": {
+                            "type": "string",
+                            "description": (
+                                "Override auto-detection: ip, domain, url, or hash. "
+                                "Leave empty for auto-detection."
+                            ),
+                            "default": "",
+                        },
+                    },
+                    "required": ["target"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "censys_host_lookup",
+                "description": (
+                    "Query Censys for host intelligence on an IP address. "
+                    "Returns open services (port/protocol/service_name), OS fingerprint, "
+                    "geolocation country, autonomous system, TLS certificate fingerprints, "
+                    "and last-updated timestamp."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "ip_address": {
+                            "type": "string",
+                            "description": "IPv4 address to query",
+                        },
+                    },
+                    "required": ["ip_address"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "passivetotal_lookup",
+                "description": (
+                    "Query PassiveTotal/RiskIQ for passive DNS records and WHOIS history "
+                    "on a domain or IP. Returns first/last seen, total DNS record count, "
+                    "related resolved IPs/domains, and optional WHOIS registrant details."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": "Domain or IP address to query",
+                        },
+                        "include_whois": {
+                            "type": "boolean",
+                            "description": "Include WHOIS history (default: true)",
+                            "default": True,
+                        },
+                    },
+                    "required": ["target"],
+                },
+            },
+        },
         {
             "type": "function",
             "function": {
@@ -352,6 +457,24 @@ def create_tools(ctx: ToolContext) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Credential builders for multi-key auth modules (DEC-AGENT-TOOLS-003)
+# ---------------------------------------------------------------------------
+
+# Maps module_path -> callable(ConfigManager) -> init_config dict.
+# Only modules that require credentials beyond a single "api_key" field
+# are listed here. run_module() falls back to {"api_key": ...} for all others.
+_CREDENTIAL_BUILDERS: dict[str, Any] = {
+    "osint/censys_host": lambda cfg: {
+        "censys_id": cfg.get_api_key("censys_id") or "",
+        "censys_secret": cfg.get_api_key("censys_secret") or "",
+    },
+    "cti/passivetotal": lambda cfg: {
+        "passivetotal_user": cfg.get_api_key("passivetotal_user") or "",
+        "passivetotal_key": cfg.get_api_key("passivetotal_key") or "",
+    },
+}
+
+# ---------------------------------------------------------------------------
 # Module → tool name mapping
 # ---------------------------------------------------------------------------
 
@@ -389,6 +512,22 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
     "scan_url": (
         "osint/urlscan",
         lambda a: (a["url"], {"VISIBILITY": a.get("visibility", "unlisted")}),
+    ),
+    # New entries — VT/Censys/PassiveTotal parity with cmd2 console
+    "virustotal_lookup": (
+        "cti/virustotal",
+        lambda a: (a["target"], {"TARGET_TYPE": a.get("target_type", "")}),
+    ),
+    "censys_host_lookup": (
+        "osint/censys_host",
+        lambda a: (a["ip_address"], {}),
+    ),
+    "passivetotal_lookup": (
+        "cti/passivetotal",
+        lambda a: (
+            a["target"],
+            {"INCLUDE_WHOIS": str(a.get("include_whois", True)).lower()},
+        ),
     ),
 }
 
