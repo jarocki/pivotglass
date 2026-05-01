@@ -66,18 +66,19 @@ These are explicitly out of scope for v1. They may appear in future versions but
 
 ---
 
-## Plan Status (Reconciled 2026-04-28, Reframed 2026-04-29)
+## Plan Status (Reconciled 2026-04-28, Reframed 2026-04-29, Closed 2026-04-28)
 
 | Phase | Status | Notes |
 |-------|--------|-------|
 | Phase 0 — Foundation Modules (was Phase 1) (#1-#5) | completed | All 5 issues landed; cmd2 console wires Config + Plugin + Workspace + Modes. Now reframed as supporting infrastructure for the agent. |
 | Phase 1 — OSINT/CTI Modules (was Phase 2) (#6-#13) | completed | All 8 priority modules landed; plus stretch `whois_lookup`, `dns_resolve`. Modules are the uniform tool surface both interfaces share. |
-| Phase 2 — Gamification (was Phase 3) (#14-#18) | completed | Scoring, Challenges, Modes, Badges, Hints all landed. **Wiring into the cmd2 console is complete; wiring into the agent path is partial — see Phase 4 below.** |
-| Phase 3 — Auto-Pivot & Graph (was Phase 4) (#19-#20) | completed | Event bus opt-in (DEC-EVENTBUS-002); graph + GEXF + STIX bundle export. **Wired into cmd2 console only; not yet observed by agent.** |
-| Phase 4 — Agentic Chat Interface (#25 + W-AGENT-*) | **in-progress (primary v1 interface)** | Agent core landed (`707f956`, `17120e7`): `ap chat` subcommand, `AgentRunner` + `ToolContext` + 9 tools, scoring + workspace + 7 modules wired, 41 unit tests in `test_agent_tools.py`. **Gaps to v1-quality bar:** celebrations, badges, hints, autopivot, character modes (UI), challenges, graph/export, reports, and 3 modules (VirusTotal/Censys/PassiveTotal) are not yet exposed through agent path. See Phase 4 Decision Log and W-AGENT-* items below. |
-| Phase 5 — Polish & Release (#21-#24) | in-progress | #21, #22, #23 done; #24 CI/CD landed, PyPI publish needs verification. |
+| Phase 2 — Gamification (was Phase 3) (#14-#18) | completed | Scoring, Challenges, Modes, Badges, Hints all landed. Fully wired into both the cmd2 console and the agent path (all 9 W-AGENT-* slices complete). |
+| Phase 3 — Auto-Pivot & Graph (was Phase 4) (#19-#20) | completed | Event bus opt-in (DEC-EVENTBUS-002); graph + GEXF + STIX bundle export. Wired into both cmd2 console and agent path (W-AGENT-AUTOPIVOT `8e48256`, W-AGENT-GRAPH-EXPORT `0b83eb2`). |
+| Phase 4 — Agentic Chat Interface (#25 + W-AGENT-*) | **completed** | All 9 W-AGENT-* slices landed. 21 LLM tools covering all 10 modules + celebrations + badges + hints + modes + autopivot + challenges + graph/export + reports. Full gamification parity with cmd2 console achieved. |
+| Phase 5 — Polish & Release (#21-#24) | in-progress | #21, #22, #23 done; #24 CI/CD landed, PyPI publish needs verification (W-V1-PYPI-VERIFY). |
+| Phase 6 — Agent Docs (W-AGENT-DOCS) | **completed** | README rewritten for agent-first v1: `ap chat` primary interface documented, all 21 LLM tools, 8 meta-commands, 10 modes, and persona-prompt protocol. MASTER_PLAN Phase 4 status and W-AGENT-* table updated with all merge SHAs. |
 
-**Aggregate (revised):** Foundation + Modules + Gamification primitives + Auto-Pivot/Graph all complete. Phase 4 (Agentic Chat — the v1 primary interface) is in-progress: the core dispatch layer is solid, but parity with the cmd2 console's gamification surface is the remaining v1 work. Phase 5 is gated on PyPI publish verification.
+**Aggregate (final):** Phases 0–4 complete; all W-AGENT-* slices landed; Phase 6 docs complete. The agentic chat (`ap chat`) is the v1 primary interface with full gamification parity. The cmd2 REPL is a supported power-user surface. The only remaining v1 item is Phase 5 PyPI publish verification (W-V1-PYPI-VERIFY).
 
 > **Note:** The previous "Beyond v1 — smolagents" framing is retired. Agentic chat is in v1 by user direction (ADR-010). Phase numbering in this status table is the **revised** ordering; the per-phase Decision Log sections below retain their original numbering for traceability with prior plan revisions.
 
@@ -336,7 +337,7 @@ Each module implements `PursuitModule` protocol and returns STIX 2.1 observables
 |-------|-----------|-----------|---------------|
 | #14 Scoring | `gamification/scoring.py` | `0e8b053` | DEC-SCORING-001 (CTFd parabolic decay), DEC-SCORING-002 (per-STIX-type workspace counts as solve_count) |
 | #15 Challenges | `gamification/challenges.py` | `db85eff` | DEC-CHALLENGE-001 (workspace_data dict contract), DEC-CHALLENGE-002 (in-memory state, no persistence v1), DEC-CHALLENGE-003 (YAML top-level "challenges" list key) |
-| #16 Character Modes | `gamification/modes.py` | `adc05ff` | DEC-MODE-001 (frozen dataclass + thin state machine ModeManager), DEC-MODE-002 (`str.format(points=N)` template, not f-string). Note: 10 modes shipped vs. 9 listed in original plan — additional Joker mode added at implementation time. |
+| #16 Character Modes | `gamification/modes.py` | `adc05ff` | DEC-MODE-001 (frozen dataclass + thin state machine ModeManager), DEC-MODE-002 (`str.format(points=N)` template, not f-string). Note: 10 modes shipped vs. 9 listed in original plan — additional `columbo` mode added at implementation time. |
 | #17 Badges | `gamification/badges.py` | `81c3444` | DEC-BADGE-001 (workspace_stats dict contract), DEC-BADGE-002 (already_awarded set passed in, BadgeManager stateless), DEC-BADGE-003 (BadgeMetric enum selects evaluated stat) |
 | #18 Hints | `gamification/hints.py` | `19a54b8` | DEC-HINT-001 (cost is score penalty, not a currency), DEC-HINT-002 (sequential reveal, ID set tracking), DEC-HINT-003 (free hints before paid), DEC-HINT-004 (module-specific hints keyed by base name) |
 
@@ -491,7 +492,7 @@ Output: Markdown report with embedded graphs, timeline, IOC table.
 ---
 
 ## Phase 6 (new, primary v1 interface): Agentic Chat (#25 + W-AGENT-*)
-**Status:** in-progress (primary v1 interface)
+**Status:** completed
 
 > **Numbering note:** The revised Plan Status table at the top of this file lists this as "Phase 4 — Agentic Chat Interface" in user-facing ordering. In the per-phase Decision Log narrative below, where the original Phase 1-5 sections are preserved verbatim for historical traceability, the new agent work is documented here as "Phase 6" so it appends cleanly without renumbering legacy phases. Both views describe the same body of work.
 
@@ -501,7 +502,7 @@ Output: Markdown report with embedded graphs, timeline, IOC table.
 |-----------|--------|-----------|---------------|
 | #25 Agent core (`agent/` package) | landed | `17120e7` (initial) → `707f956` (consolidated) | DEC-AGENT-ARCH-001 (separate tool layer from LLM runner for testability), DEC-AGENT-CHAT-001 (minimal Rich REPL — no readline/prompt_toolkit), DEC-AGENT-RUNNER-001 (litellm for LLM-backend abstraction over direct smolagents — supports Ollama/OpenAI/Anthropic via OpenAI-compatible function-calling), DEC-AGENT-RUNNER-002 (graceful ImportError when litellm missing — `[agent]` extra optional), DEC-AGENT-TOOLS-001 (thin tool wrappers delegating to existing `PursuitModule` infra; no business-logic duplication), DEC-AGENT-TOOLS-002 (OpenAI function-calling format for tool definitions), DEC-TEST-AGENT-001 (mock `module.hunt()` at the asyncio boundary for hermetic tests). |
 | `ap chat` subcommand | landed | (`__main__.py`) | Dispatches to `agent.chat.run_chat()`; falls through to cmd2 console only when no `chat` subcommand or `--version` is present. |
-| 9 LLM tools | landed | (`agent/tools.py`) | Covers `dns_resolve`, `whois_lookup`, `check_ip_reputation` (AbuseIPDB), `shodan_host_lookup`, `check_breaches` (HIBP), `otx_threat_intel`, `scan_url` (URLScan), plus `get_workspace_summary` and `search_workspace`. |
+| 9 LLM tools at #25 landing (later grew to 21 via W-AGENT-* slices) | landed | (`agent/tools.py`) | Covers `dns_resolve`, `whois_lookup`, `check_ip_reputation` (AbuseIPDB), `shodan_host_lookup`, `check_breaches` (HIBP), `otx_threat_intel`, `scan_url` (URLScan), plus `get_workspace_summary` and `search_workspace`. |
 | Scoring + workspace integration | landed | (`agent/tools.py:run_module`) | Every tool call hits `WorkspaceManager.store_stix_objects` + `ScoringEngine.score_results` + `WorkspaceManager.store_score_events`. The `+N points!` line in the tool summary is the agent's current scoring surface. |
 | Workspace meta-command | landed | (`agent/chat.py:run_chat`) | `workspace <name>` is intercepted client-side and forwarded to `runner.ctx.workspace_mgr.switch()` — never sent to the LLM. |
 | 41 unit tests | landed | (`tests/test_agent_tools.py`) | Cover `ToolContext` init, tool definition shape, dispatch correctness for all 7 modules, workspace meta-tools, scoring side-effects, and module-not-found error paths. |
@@ -514,21 +515,19 @@ The original Phase 3 wired scoring/modes/celebrations/badges/hints into the cmd2
 |------------|------------|------------------|---------------|-----------|
 | Scoring (`ScoringEngine`) | wired (`do_run` → `_execute_hunt`) | **wired** (`tools.run_module` → `score_results` + `store_score_events`; `+N points!` in summary) | none — scoring is the one gamification surface that is already cross-cutting. | — |
 | Workspace persistence | wired (`do_workspace`) | wired (`workspace <name>` meta-command in `run_chat`) | none — already symmetrical. | — |
-| Character Modes (`ModeManager`) | wired (`do_mode`, prompt prefix, `run_success`, `score_celebration.format`) | **partial** — `AgentRunner.set_character()` exists but is never called from `run_chat()`; no `mode <name>` meta-command in chat REPL. | Add `mode <name>` chat meta-command; wire `set_character` to `ModeManager.modes` to persona-prompt. | W-AGENT-MODES |
-| Celebrations (`CelebrationEngine`) | wired (`_execute_hunt` shows ASCII art/milestones) | **not wired** — agent emits raw `+N points!` only. | Render appropriate celebration art/milestone messages after a tool's `total_points`. | W-AGENT-CELEBRATIONS |
-| Badges (`BadgeManager`) | wired (`do_badges`, `_check_badges_after_run`) | **not wired** — no badge check after tool calls. | Run `BadgeManager.check_all` after each tool call; persist `badge_events`; surface newly earned badges in the LLM tool summary or out-of-band Rich panel. | W-AGENT-BADGES |
-| Hints (`HintProvider`) | wired (`do_hint`) | **not wired** — no `hint` chat meta-command; LLM cannot surface contextual hints to user. | Decide: (a) chat meta-command `hint` parallel to cmd2 OR (b) expose hints as an LLM tool the agent can call when stuck. Likely both. | W-AGENT-HINTS |
-| Auto-Pivot / Event Bus (`core/event_bus.py`) | opt-in via console `do_autopivot` toggle | **not wired** — agent ignores event bus; cascading discovery only happens if the LLM explicitly chooses follow-up tools. | Subscribe agent's tool-execution path to the event bus so cascading modules fire; surface cascaded discoveries in summaries. | W-AGENT-AUTOPIVOT |
-| Challenges (`ChallengeManager`) | wired (`do_challenges`) | **not wired** — agent has no challenge awareness. | Expose `list_challenges` and `submit_flag` (or equivalent) as agent tools; LLM can announce active challenges. | W-AGENT-CHALLENGES |
-| Graph + Export (`RelationshipGraph`) | wired (`do_graph`, `do_export`) | **not wired** — no graph/export tools. | Expose `render_graph` and `export_workspace` (gexf/stix) as agent tools. | W-AGENT-GRAPH-EXPORT |
-| Report Generation (`ReportEngine`) | wired (`do_report`) | **not wired** | Expose interview-driven report flow either as a chat meta-command or as an agent-orchestrated multi-turn flow. | W-AGENT-REPORT |
-| Module coverage | 10 modules | **7 modules** — VirusTotal, Censys, PassiveTotal not yet exposed as agent tools. | Add tool definitions and `_MODULE_MAP` entries for the 3 missing modules. | W-AGENT-MODULES-VT-CENSYS-PT |
+| Character Modes (`ModeManager`) | wired (`do_mode`, prompt prefix, `run_success`, `score_celebration.format`) | **wired** (`8564d1e`) — `mode <name>` chat meta-command; persona injected via `AgentRunner.set_character`; mode-specific `score_celebration` template. | — | W-AGENT-MODES |
+| Celebrations (`CelebrationEngine`) | wired (`_execute_hunt` shows ASCII art/milestones) | **wired** (`4ccc5888`) — `run_module` invokes `CelebrationEngine.celebrate(total)`; rendered via Rich panel after LLM response. | — | W-AGENT-CELEBRATIONS |
+| Badges (`BadgeManager`) | wired (`do_badges`, `_check_badges_after_run`) | **wired** (`380c2f8`) — `run_module` calls `BadgeManager.check_all`; persisted via `store_badge_event`. | — | W-AGENT-BADGES |
+| Hints (`HintProvider`) | wired (`do_hint`) | **wired** (`f511f06`) — `hint` / `hint buy` chat meta-command + `get_next_hint` / `buy_hint` LLM tools; balance-protected. | — | W-AGENT-HINTS |
+| Auto-Pivot / Event Bus (`core/event_bus.py`) | opt-in via console `do_autopivot` toggle | **wired** (`8e48256`) — opt-in `autopivot on/off` chat meta-command; `EventBus.process_results` cascades on tool output. | — | W-AGENT-AUTOPIVOT |
+| Challenges (`ChallengeManager`) | wired (`do_challenges`) | **wired** (`26fefe7`) — auto-check after each tool call; `list_challenges` + `check_challenges` LLM tools; `challenges` chat meta-command. | — | W-AGENT-CHALLENGES |
+| Graph + Export (`RelationshipGraph`) | wired (`do_graph`, `do_export`) | **wired** (`0b83eb2`) — `render_graph` + `export_workspace` LLM tools (gexf/stix); `graph` + `export gexf|stix` chat meta-commands. | — | W-AGENT-GRAPH-EXPORT |
+| Report Generation (`ReportEngine`) | wired (`do_report`) | **wired** (`f513c2d`) — interview-driven; 3 LLM tools (`start_report_interview` / `answer_report_question` / `generate_report`); `report` chat meta-command. | — | W-AGENT-REPORT |
+| Module coverage | 10 modules | **10 modules** (`66f89dd` added VT/Censys/PT) — full parity. | — | W-AGENT-MODULES-VT-CENSYS-PT |
 
-### Honest Reality Check (as of 2026-04-29)
+### Phase 6 Closeout (2026-05-01)
 
-The agent's **dispatch + scoring + workspace** core is solid: 9 working tools, 41 unit tests, clean architectural separation between tool layer and runner. What's missing is **gamification parity** with the cmd2 console. Until W-AGENT-CELEBRATIONS, W-AGENT-BADGES, W-AGENT-HINTS, W-AGENT-MODES, W-AGENT-AUTOPIVOT, and W-AGENT-MODULES-VT-CENSYS-PT land, calling `ap chat` "the v1 user-facing interface" is partially aspirational: the agent works, but it doesn't yet surface the celebration/badge/mode/hint signals that the project's first principle — *"fun is a first-class design constraint"* — promises.
-
-The **MLP boundary** (see Implementation Order, below) is therefore where the cut between "v1 ships now" and "v1 ships when agent has parity" lies. That cut is documented as part of the work-item plan and is not unilaterally decided here.
+The agent's **dispatch + scoring + workspace** core is solid: 21 working tools, clean architectural separation between tool layer and runner. Phase 6 closeout (2026-05-01): all 9 W-AGENT-* slices landed. The agent now has full gamification parity with the cmd2 console — celebrations, badges, hints, modes, auto-pivot, challenges, graph/export, and reports all surface through the smolagents tool path. `ap chat` is no longer aspirational — it is the v1 primary interface in code as well as in plan.
 
 ### `@decision` annotation gap (informational, not blocking)
 
@@ -556,18 +555,18 @@ These are the concrete follow-ups identified by the 2026-04-28 reckoning and upd
 
 ### Agent gamification parity (Phase 6 follow-ups)
 
-| ID | Title | Type | Blocked By | Touches |
-|----|-------|------|------------|---------|
-| W-AGENT-MODULES-VT-CENSYS-PT | Add VirusTotal, Censys, PassiveTotal to the agent's tool catalog (3 new tool definitions in `agent/tools.py:create_tools` + 3 entries in `_MODULE_MAP` + tests in `test_agent_tools.py`) | source + tests | none | `src/adversary_pursuit/agent/tools.py`, `tests/test_agent_tools.py` |
-| W-AGENT-CELEBRATIONS | Wire `CelebrationEngine` into `agent/tools.py:run_module` so a tool's score event fires the appropriate ASCII art / milestone message; surface to the user via Rich panel after the LLM response renders | source + tests | none | `src/adversary_pursuit/agent/{tools.py,chat.py}`, `tests/test_agent_tools.py` |
-| W-AGENT-BADGES | Run `BadgeManager.check_all` after each tool call in `run_module`; persist newly-earned `badge_events`; surface to the user as a Rich panel and include in the LLM tool summary | source + tests | none | `src/adversary_pursuit/agent/tools.py`, `tests/test_agent_tools.py` |
-| W-AGENT-MODES | Add `mode <name>` chat meta-command in `run_chat`; wire `AgentRunner.set_character` to `ModeManager.modes[*].persona_prompt` (or equivalent); document persona-prompt schema | source + tests | DEC-MODE-001/002 (already landed) | `src/adversary_pursuit/agent/{chat.py,runner.py}`, `tests/test_agent_tools.py` (or new `tests/test_agent_runner.py`) |
-| W-AGENT-HINTS | Decide and implement: chat meta-command `hint` (parallel to cmd2 `do_hint`) AND/OR expose hints as an LLM tool the agent can call when stuck. Verify balance protection (DEC-HINT-001) still applies. | source + tests | W-AGENT-MODES landing first is preferable so hints can be mode-flavored | `src/adversary_pursuit/agent/{chat.py,tools.py}`, `tests/test_agent_tools.py` |
-| W-AGENT-AUTOPIVOT | Subscribe agent's tool-execution path to the existing `core/event_bus.py` so cascading modules fire when a tool surfaces a new SCO; respect existing depth limit + module whitelist (DEC-EVENTBUS-001/002); surface cascaded discoveries in the LLM tool summary | source + tests | none | `src/adversary_pursuit/agent/tools.py`, `tests/test_agent_tools.py` |
-| W-AGENT-CHALLENGES | Expose `list_challenges` + `submit_flag` (or equivalent) as agent tools; LLM can announce active challenges and verify flags via `ChallengeManager` | source + tests | none | `src/adversary_pursuit/agent/tools.py`, `tests/test_agent_tools.py` |
-| W-AGENT-GRAPH-EXPORT | Expose `render_graph` (Rich Tree text rendering) and `export_workspace --format gexf|stix` as agent tools | source + tests | none | `src/adversary_pursuit/agent/tools.py`, `tests/test_agent_tools.py` |
-| W-AGENT-REPORT | Expose interview-driven report flow either as `report` chat meta-command or as an agent-orchestrated multi-turn flow over the existing `ReportEngine` (DEC-REPORT-001..003) | source + tests | DEC-REPORT-* landed | `src/adversary_pursuit/agent/{chat.py,tools.py}`, `tests/test_agent_tools.py` |
-| W-AGENT-DOCS | Update README and module-author guide so the agent path is described as the primary v1 interface, not as an experimental extra; document the persona-prompt protocol once W-AGENT-MODES lands | docs only | depends on a few W-AGENT-* items above being unambiguous | `README.md`, possibly `docs/` |
+| ID | Title | Type | Merge SHA | Status |
+|----|-------|------|-----------|--------|
+| W-AGENT-MODULES-VT-CENSYS-PT | Add VirusTotal, Censys, PassiveTotal to the agent's tool catalog | source + tests | `66f89dd` | completed |
+| W-AGENT-CELEBRATIONS | Wire `CelebrationEngine` into `run_module`; surface ASCII art / milestone messages via Rich panel | source + tests | `4ccc5888` | completed |
+| W-AGENT-BADGES | Run `BadgeManager.check_all` after each tool call; persist and surface newly-earned badges | source + tests | `380c2f8` | completed |
+| W-AGENT-MODES | Add `mode <name>` chat meta-command; wire `AgentRunner.set_character` to `ModeManager` | source + tests | `8564d1e` | completed |
+| W-AGENT-HINTS | Chat meta-command `hint` / `hint buy` AND LLM tools `get_next_hint` / `buy_hint`; balance protection | source + tests | `f511f06` | completed |
+| W-AGENT-AUTOPIVOT | Subscribe agent tool-execution path to `core/event_bus.py`; `autopivot on/off` meta-command | source + tests | `8e48256` | completed |
+| W-AGENT-CHALLENGES | LLM tools `list_challenges` + `check_challenges`; `challenges` meta-command | source + tests | `26fefe7` | completed |
+| W-AGENT-GRAPH-EXPORT | LLM tools `render_graph` + `export_workspace`; `graph` + `export gexf/stix` meta-commands | source + tests | `0b83eb2` | completed |
+| W-AGENT-REPORT | LLM tools `start_report_interview` + `answer_report_question` + `generate_report`; `report` meta-command | source + tests | `f513c2d` | completed |
+| W-AGENT-DOCS | README + MASTER_PLAN updated for agent-first v1; all 21 tools, 8 meta-commands, 10 modes documented | docs only | this commit | completed |
 
 ### Other v1 boundaries
 
@@ -626,9 +625,9 @@ Phase 6 (Agent — primary v1 interface):
 **MLP (Minimum Lovable Product, revised 2026-04-29):**
 - *Original MLP:* working cmd2 console + 3 OSINT modules + scoring.
 - *Revised MLP:* working **`ap chat` agent** + 3 OSINT modules wired as agent tools + scoring + **at least one visible gamification signal in the chat path** (celebrations is the recommended one — highest signal-to-effort ratio). The cmd2 console is bundled but is not the front door.
-- *Status against revised MLP:* core agent + 7 modules + scoring **already meet the modules+scoring half** of the revised MLP. The "at least one visible gamification signal" half is not yet met — `+N points!` is technically a signal, but the celebration system (DEC-CELEBRATION-001/002) is what the project's first principle promises. **W-AGENT-CELEBRATIONS is therefore on the MLP critical path.**
+- *MLP Status (Phase 6 closeout, 2026-05-01):* MLP threshold crossed. `ap chat` provides 10 modules, full gamification (scoring + celebrations + badges + modes + hints), auto-pivot, challenges, graph/export, and reports — exceeds the revised MLP. Remaining v1 work is Phase 5 release polish (`W-V1-PYPI-VERIFY`).
 
-The previous "Start with #1 (scaffolding) immediately" instruction is retired — Phase 1-4 are landed. The next concrete step is `W-AGENT-MODULES-VT-CENSYS-PT` followed by `W-AGENT-CELEBRATIONS`.
+The previous "Start with #1 (scaffolding) immediately" instruction is retired — Phase 1-6 are landed. The next concrete step is `W-V1-PYPI-VERIFY`.
 
 ---
 
