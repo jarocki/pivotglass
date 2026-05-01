@@ -272,6 +272,41 @@ def run_chat() -> None:
                 )
             continue
 
+        # Challenges meta-command — mirrors APConsole.do_challenges (DEC-AGENT-CHALLENGES-001).
+        # Handled locally (not sent to LLM) so the list is always deterministic and fast.
+        # Shares the same ChallengeManager instance on runner.ctx so completion state
+        # is consistent with the LLM tool path and the auto-check in run_module().
+        #
+        # Supported form:
+        #   challenges           → list all challenges with current status
+        if lower == "challenges":
+            items = runner.ctx.challenge_mgr.list_challenges()
+            table = Table(title="Challenges", show_header=True)
+            table.add_column("ID", style="cyan")
+            table.add_column("Name", style="bold")
+            table.add_column("Type", style="yellow")
+            table.add_column("Points", style="green", justify="right")
+            table.add_column("Status", style="white")
+            table.add_column("Description")
+            for item in items:
+                status = item["status"]
+                if status == "completed":
+                    status_str = "[green]completed[/green]"
+                elif status == "expired":
+                    status_str = "[red]expired[/red]"
+                else:
+                    status_str = "[blue]active[/blue]"
+                table.add_row(
+                    item["id"],
+                    item["name"],
+                    item["challenge_type"],
+                    str(item["points"]),
+                    status_str,
+                    item["description"],
+                )
+            console.print(table)
+            continue
+
         # Normal chat — send to LLM
         try:
             with console.status("[bold green]Thinking...[/bold green]"):

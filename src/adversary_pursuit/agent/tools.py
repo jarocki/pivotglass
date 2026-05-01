@@ -80,6 +80,41 @@ execution, result formatting, and workspace storage.
                Each entry is registered via event_bus.register_module_subscriptions()
                with a per-module callback that initialises and runs that module's
                hunt() for the pivoted indicator value.
+
+@decision DEC-AGENT-CHALLENGES-001
+@title ChallengeManager wired into ToolContext; list_challenges + check_challenges LLM tools
+@status accepted
+@rationale ChallengeManager is session-scoped (DEC-CHALLENGE-002: in-memory state).
+           Wiring it into ToolContext (parallel to BadgeManager, HintProvider) means
+           both the LLM tool path and the chat meta-command path share one instance
+           so challenge completion state is consistent regardless of which code path
+           checks it.
+
+           Two LLM tools are exposed:
+           (1) list_challenges() — returns active/all challenges as serializable dicts
+               via ChallengeManager.list_challenges(). No side-effects. The LLM can
+               call this at session start to announce what challenges are available.
+           (2) check_challenges() — runs ChallengeManager.check_all(workspace_data)
+               against the current workspace state and returns newly-completed challenges.
+               The workspace_data dict is assembled here using the same keys as
+               APConsole._build_workspace_data() (DEC-CHALLENGE-001): stix_type_counts,
+               modules_used, total_score, total_indicators, indicators.
+
+           Auto-check after every run_module() call (mirrors APConsole._check_challenges_after_run):
+           After badges are checked, build workspace_data from WorkspaceManager and call
+           check_all(). Newly-completed challenges are appended to the run_module summary
+           and returned under the "challenges" key so execute_tool/chat.py can render
+           them as Rich panels. A session-scoped set _announced_challenges prevents the
+           same challenge from appearing in the summary more than once (parallel to
+           _awarded_badges for badges).
+
+           The chat meta-command 'challenges' lists all challenges in a Rich Table,
+           mirroring APConsole.do_challenges() exactly — same column layout.
+
+           Modules_used tracking: WorkspaceManager.get_module_runs() is already called
+           for workspace summary; here we reuse it to build modules_used as a list of
+           module_name strings from get_module_runs(), matching how APConsole builds
+           _build_workspace_data(). This is the identical strategy, not a new mechanism.
 """
 
 from __future__ import annotations
@@ -98,6 +133,7 @@ from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.badges import BadgeManager
 from adversary_pursuit.gamification.celebrations import CelebrationEngine
+from adversary_pursuit.gamification.challenges import Challenge, ChallengeManager
 from adversary_pursuit.gamification.hints import (
     HintProvider,
     HintResult,
@@ -145,6 +181,14 @@ class ToolContext:
         # Tracks badge IDs awarded in this session (application-layer dedup, DEC-BADGE-002).
         # Populated from workspace on first badge check; updated as badges are earned.
         self._awarded_badges: set[str] = set()
+
+        # ChallengeManager is session-scoped (DEC-CHALLENGE-002, DEC-AGENT-CHALLENGES-001).
+        # Shared by both the LLM tool path and the chat meta-command path so that
+        # challenge completion state is consistent regardless of which path checks it.
+        self.challenge_mgr: ChallengeManager = ChallengeManager()
+        # Tracks challenge IDs announced in this session to prevent re-announcement
+        # in the run_module summary. Parallel to _awarded_badges for badges.
+        self._announced_challenges: set[str] = set()
 
         # EventBus for auto-pivot cascades (DEC-AGENT-AUTOPIVOT-001).
         # Starts disabled (autopivot_enabled=False) per DEC-EVENTBUS-002.
@@ -337,6 +381,38 @@ class ToolContext:
             except Exception:  # noqa: BLE001
                 pass  # cascade errors must never block primary tool result
 
+        # Auto-check challenges after scoring and badges (DEC-AGENT-CHALLENGES-001).
+        # Mirrors APConsole._check_challenges_after_run(): build workspace_data from
+        # WorkspaceManager using the same dict contract as DEC-CHALLENGE-001, then
+        # call check_all(). Only newly-completed challenges (status ACTIVE→COMPLETED
+        # in this call) are returned. _announced_challenges deduplicates across
+        # multiple run_module() calls so the same challenge never appears twice.
+        newly_completed_challenges: list[Challenge] = []
+        try:
+            stix_counts = self.workspace_mgr.get_stix_type_counts()
+            runs = self.workspace_mgr.get_module_runs()
+            modules_used = [r["module_name"] for r in runs]
+            total_score_now = self.workspace_mgr.get_total_score()
+            total_indicators = sum(stix_counts.values())
+            indicators = [
+                {"type": obj.get("type", ""), "value": obj.get("value", "")}
+                for obj in self.workspace_mgr.get_stix_objects()
+            ]
+            workspace_data = {
+                "stix_type_counts": stix_counts,
+                "modules_used": modules_used,
+                "total_score": total_score_now,
+                "total_indicators": total_indicators,
+                "indicators": indicators,
+            }
+            all_newly_completed = self.challenge_mgr.check_all(workspace_data)
+            for ch in all_newly_completed:
+                if ch.id not in self._announced_challenges:
+                    newly_completed_challenges.append(ch)
+                    self._announced_challenges.add(ch.id)
+        except Exception:  # noqa: BLE001
+            pass  # challenge check must never block tool result delivery
+
         # Build human-readable summary for the LLM response
         summary_lines = [f"Found {count} indicators:"]
         for r in results[:10]:
@@ -355,6 +431,11 @@ class ToolContext:
                 summary_lines.append(
                     f"  [{badge.rarity.value.upper()}] {badge.name}: {badge.description}"
                 )
+        # Surface newly-completed challenges in the LLM summary.
+        if newly_completed_challenges:
+            summary_lines.append("\nChallenge(s) completed:")
+            for ch in newly_completed_challenges:
+                summary_lines.append(f"  {ch.name} (+{ch.points} pts)")
         # Surface cascade discoveries so the LLM and user see what fired secondarily.
         if cascade_results:
             summary_lines.append(
@@ -369,6 +450,7 @@ class ToolContext:
             "summary": "\n".join(summary_lines),
             "celebration": celebration,
             "badges": newly_earned_badges,
+            "challenges": newly_completed_challenges,
             "cascade_results": cascade_results,
             "cascade_count": len(cascade_results),
         }
@@ -792,6 +874,45 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                 },
             },
         },
+        # -----------------------------------------------------------------------
+        # Challenge tools — DEC-AGENT-CHALLENGES-001
+        # list_challenges: returns all challenges with current status as dicts.
+        # check_challenges: runs check_all against current workspace state and
+        # returns newly-completed challenges. Both share the same ChallengeManager
+        # instance on ToolContext so completion state is consistent.
+        # -----------------------------------------------------------------------
+        {
+            "type": "function",
+            "function": {
+                "name": "list_challenges",
+                "description": (
+                    "List all available challenges with their current status. "
+                    "Returns each challenge's id, name, description, type, points, "
+                    "and status (active/completed/expired). Call this at session start "
+                    "to announce what challenges the analyst can pursue."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "check_challenges",
+                "description": (
+                    "Check whether any active challenges have been completed based on "
+                    "the current workspace state. Returns a list of newly-completed "
+                    "challenges with their name and bonus points. Returns an empty list "
+                    "when no new challenges were completed."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
+        },
     ]
 
 
@@ -928,6 +1049,13 @@ def execute_tool(
 
     if tool_name == "buy_hint":
         return _execute_buy_hint(ctx, arguments.get("module")), None, []
+
+    # Challenge tools — DEC-AGENT-CHALLENGES-001
+    if tool_name == "list_challenges":
+        return _execute_list_challenges(ctx), None, []
+
+    if tool_name == "check_challenges":
+        return _execute_check_challenges(ctx), None, []
 
     # Module dispatch
     if tool_name not in _MODULE_MAP:
@@ -1102,3 +1230,95 @@ def _execute_buy_hint(ctx: ToolContext, module: str | None = None) -> str:
         )
 
     return f"Hint (-{result.cost_paid} pts): {result.hint.text}"
+
+
+def _execute_list_challenges(ctx: ToolContext) -> str:
+    """Return all challenges as a formatted string for the LLM.
+
+    Calls ChallengeManager.list_challenges() which returns serializable dicts.
+    The result is formatted as a human-readable summary suitable for the LLM
+    to read and relay to the analyst (DEC-AGENT-CHALLENGES-001).
+
+    Parameters
+    ----------
+    ctx:
+        The shared ToolContext holding the session-scoped ChallengeManager.
+
+    Returns
+    -------
+    str
+        Formatted challenge list, or a message when no challenges exist.
+    """
+    items = ctx.challenge_mgr.list_challenges()
+    if not items:
+        return "No challenges available."
+    lines = [f"Challenges ({len(items)} total):"]
+    for item in items:
+        status = item["status"]
+        pts = item["points"]
+        lines.append(
+            f"  [{status.upper()}] {item['id']}: {item['name']} "
+            f"(+{pts} pts) — {item['description']}"
+        )
+    return "\n".join(lines)
+
+
+def _execute_check_challenges(ctx: ToolContext) -> str:
+    """Run challenge auto-check against workspace and return newly-completed.
+
+    Assembles workspace_data from WorkspaceManager using the DEC-CHALLENGE-001
+    dict contract (same keys as APConsole._build_workspace_data), then calls
+    ChallengeManager.check_all(). Returns a formatted summary of newly-completed
+    challenges, or a message when none completed. Uses _announced_challenges set
+    on ToolContext to deduplicate across multiple calls (DEC-AGENT-CHALLENGES-001).
+
+    Parameters
+    ----------
+    ctx:
+        The shared ToolContext holding ChallengeManager and WorkspaceManager.
+
+    Returns
+    -------
+    str
+        Formatted newly-completed challenge list, or a "none completed" message.
+    """
+    try:
+        stix_counts = ctx.workspace_mgr.get_stix_type_counts()
+        runs = ctx.workspace_mgr.get_module_runs()
+        modules_used = [r["module_name"] for r in runs]
+        total_score = ctx.workspace_mgr.get_total_score()
+        total_indicators = sum(stix_counts.values())
+        indicators = [
+            {"type": obj.get("type", ""), "value": obj.get("value", "")}
+            for obj in ctx.workspace_mgr.get_stix_objects()
+        ]
+        workspace_data = {
+            "stix_type_counts": stix_counts,
+            "modules_used": modules_used,
+            "total_score": total_score,
+            "total_indicators": total_indicators,
+            "indicators": indicators,
+        }
+    except Exception as e:
+        logger.exception("Failed to build workspace_data for challenge check")
+        return f"Error checking challenges: {e}"
+
+    try:
+        all_newly_completed = ctx.challenge_mgr.check_all(workspace_data)
+    except Exception as e:
+        logger.exception("ChallengeManager.check_all failed")
+        return f"Error running challenge check: {e}"
+
+    # Dedup against already-announced challenges (DEC-AGENT-CHALLENGES-001).
+    newly_announced = []
+    for ch in all_newly_completed:
+        if ch.id not in ctx._announced_challenges:
+            newly_announced.append(ch)
+            ctx._announced_challenges.add(ch.id)
+
+    if not newly_announced:
+        return "No new challenges completed yet. Keep hunting!"
+    lines = [f"{len(newly_announced)} challenge(s) newly completed:"]
+    for ch in newly_announced:
+        lines.append(f"  {ch.name} (+{ch.points} pts): {ch.description}")
+    return "\n".join(lines)

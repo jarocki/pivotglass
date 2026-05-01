@@ -178,10 +178,10 @@ class TestCreateTools:
         tools = create_tools(tmp_ctx)
         assert isinstance(tools, list)
 
-    def test_returns_fourteen_tools(self, tmp_ctx):
-        """create_tools returns exactly 14 tool definitions (7 original + 3 new + 2 workspace + 2 hints)."""
+    def test_returns_sixteen_tools(self, tmp_ctx):
+        """create_tools returns exactly 16 tool definitions (7 original + 3 new + 2 workspace + 2 hints + 2 challenges)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 14
+        assert len(tools) == 16
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -211,7 +211,7 @@ class TestCreateTools:
             )
 
     def test_expected_tool_names(self, tmp_ctx):
-        """create_tools includes all expected tool names including hint tools."""
+        """create_tools includes all expected tool names including hint and challenge tools."""
         tools = create_tools(tmp_ctx)
         names = {t["function"]["name"] for t in tools}
         expected = {
@@ -232,6 +232,9 @@ class TestCreateTools:
             # Hint tools (DEC-AGENT-HINTS-001)
             "get_next_hint",
             "buy_hint",
+            # Challenge tools (DEC-AGENT-CHALLENGES-001)
+            "list_challenges",
+            "check_challenges",
         }
         assert names == expected
 
@@ -267,7 +270,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 14
+        assert len(roundtripped) == 16
 
     # --- New tool schema tests ---
 
@@ -1393,7 +1396,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 14
+        assert len(r.tools) == 16
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""
@@ -2259,3 +2262,208 @@ class TestAutopivotWiring:
         # Ninja mode celebration template used
         expected_points_text = f"+{result['total_points']}"
         assert expected_points_text in result["celebration"]
+
+
+# ---------------------------------------------------------------------------
+# ChallengeManager wiring tests (DEC-AGENT-CHALLENGES-001)
+# ---------------------------------------------------------------------------
+
+
+class TestChallengeWiring:
+    """Tests for ChallengeManager integration in ToolContext, run_module, and execute_tool.
+
+    # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+    # Mocking at the asyncio boundary avoids live API calls while testing the
+    # real challenge auto-check path through ChallengeManager.
+
+    Production sequence validated:
+      ToolContext init → ChallengeManager ready →
+      run_module() → workspace updated → check_all() → newly-completed surfaced →
+      execute_tool("list_challenges" / "check_challenges") → LLM-readable strings.
+    """
+
+    def _make_mock_module(self, results):
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=results)
+        mock_mod.initialize = MagicMock()
+        return mock_mod
+
+    # ------------------------------------------------------------------
+    # ToolContext has challenge_mgr
+    # ------------------------------------------------------------------
+
+    def test_toolcontext_has_challenge_mgr(self, tmp_ctx):
+        """ToolContext.challenge_mgr is a ChallengeManager instance."""
+        from adversary_pursuit.gamification.challenges import ChallengeManager
+
+        assert hasattr(tmp_ctx, "challenge_mgr")
+        assert isinstance(tmp_ctx.challenge_mgr, ChallengeManager)
+
+    def test_toolcontext_has_announced_challenges_set(self, tmp_ctx):
+        """ToolContext._announced_challenges starts as an empty set."""
+        assert hasattr(tmp_ctx, "_announced_challenges")
+        assert isinstance(tmp_ctx._announced_challenges, set)
+        assert len(tmp_ctx._announced_challenges) == 0
+
+    def test_challenge_mgr_has_builtin_challenges(self, tmp_ctx):
+        """ChallengeManager loads built-in challenges on ToolContext init."""
+        items = tmp_ctx.challenge_mgr.list_challenges()
+        assert (
+            len(items) >= 5
+        )  # 5 starter challenges defined in _load_builtin_challenges
+
+    # ------------------------------------------------------------------
+    # list_challenges LLM tool
+    # ------------------------------------------------------------------
+
+    def test_list_challenges_in_create_tools(self, tmp_ctx):
+        """create_tools() includes list_challenges tool definition."""
+        tools = create_tools(tmp_ctx)
+        names = {t["function"]["name"] for t in tools}
+        assert "list_challenges" in names
+
+    def test_list_challenges_returns_string(self, tmp_ctx):
+        """execute_tool('list_challenges') returns a non-empty string."""
+        summary, celebration, badges = execute_tool(tmp_ctx, "list_challenges", {})
+        assert isinstance(summary, str)
+        assert len(summary) > 0
+        assert celebration is None
+        assert badges == []
+
+    def test_list_challenges_mentions_active_challenges(self, tmp_ctx):
+        """list_challenges output references active challenges by name."""
+        summary, _, _ = execute_tool(tmp_ctx, "list_challenges", {})
+        # Built-in challenges include "First Blood", "Domain Hunter", etc.
+        # At least one should appear since all start ACTIVE.
+        assert "ACTIVE" in summary or "active" in summary.lower()
+
+    def test_list_challenges_returns_all_builtin_challenges(self, tmp_ctx):
+        """list_challenges output references all 5 built-in challenge IDs."""
+        summary, _, _ = execute_tool(tmp_ctx, "list_challenges", {})
+        for ch_id in ["ch-001", "ch-002", "ch-003", "ch-004", "ch-005"]:
+            assert ch_id in summary, (
+                f"Challenge {ch_id} missing from list_challenges output"
+            )
+
+    # ------------------------------------------------------------------
+    # check_challenges LLM tool
+    # ------------------------------------------------------------------
+
+    def test_check_challenges_in_create_tools(self, tmp_ctx):
+        """create_tools() includes check_challenges tool definition."""
+        tools = create_tools(tmp_ctx)
+        names = {t["function"]["name"] for t in tools}
+        assert "check_challenges" in names
+
+    def test_check_challenges_returns_none_when_no_criteria_met(self, tmp_ctx):
+        """check_challenges returns 'none completed' message on empty workspace."""
+        summary, celebration, badges = execute_tool(tmp_ctx, "check_challenges", {})
+        assert isinstance(summary, str)
+        assert (
+            "No new challenges" in summary
+            or "none" in summary.lower()
+            or "keep" in summary.lower()
+        )
+        assert celebration is None
+        assert badges == []
+
+    def test_check_challenges_detects_score_threshold(self, tmp_ctx):
+        """check_challenges fires when score_threshold challenge criteria met.
+
+        ch-004 (Score Hunter) requires total_score >= 500.
+        We inject a large score event directly into the workspace, then call
+        check_challenges — it should report ch-004 as newly completed.
+        """
+        # Inject score events directly to reach 500 pts without running a module
+        tmp_ctx.workspace_mgr.store_score_events(
+            [
+                {
+                    "action": "test",
+                    "points": 500,
+                    "indicator": "1.2.3.4",
+                    "rule_description": "Test injection",
+                }
+            ]
+        )
+        summary, _, _ = execute_tool(tmp_ctx, "check_challenges", {})
+        # ch-004 "Score Hunter" requires min_score=500
+        assert "Score Hunter" in summary or "ch-004" in summary
+
+    # ------------------------------------------------------------------
+    # run_module auto-check and summary surfacing
+    # ------------------------------------------------------------------
+
+    def test_run_module_returns_challenges_key(self, tmp_ctx):
+        """run_module() result dict contains a 'challenges' key."""
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+        assert "challenges" in result
+        assert isinstance(result["challenges"], list)
+
+    def test_run_module_challenge_completes_on_first_ip(self, tmp_ctx):
+        """run_module completes ch-001 (First Blood) when first ipv4-addr discovered.
+
+        ch-001 verification: indicator_count, stix_type=ipv4-addr, min_count=1.
+        SAMPLE_IP_RESULTS contains one ipv4-addr, so ch-001 should complete.
+        """
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+        # ch-001 "First Blood" should be in newly_completed_challenges
+        completed_ids = [ch.id for ch in result["challenges"]]
+        assert "ch-001" in completed_ids
+
+    def test_run_module_challenge_in_summary(self, tmp_ctx):
+        """Newly-completed challenges appear in run_module summary string."""
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+        # ch-001 completes — its name should appear in the summary
+        assert "Challenge" in result["summary"] or "First Blood" in result["summary"]
+
+    def test_run_module_no_reannnouncement(self, tmp_ctx):
+        """Completed challenges are NOT re-announced on subsequent run_module calls.
+
+        _announced_challenges dedup prevents the same challenge surfacing twice
+        in the summary across multiple run_module() calls.
+        """
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result1 = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+            result2 = tmp_ctx.run_module("osint/whois_lookup", "evil.example.com", {})
+
+        # ch-001 should appear in first result but NOT second
+        first_ids = [ch.id for ch in result1["challenges"]]
+        second_ids = [ch.id for ch in result2["challenges"]]
+        assert "ch-001" in first_ids
+        assert "ch-001" not in second_ids
+
+    # ------------------------------------------------------------------
+    # Compound integration test: full production sequence
+    # ------------------------------------------------------------------
+
+    def test_compound_module_run_then_challenge_check(self, tmp_ctx):
+        """Compound: run module → challenge completes → check_challenges confirms it.
+
+        This is the real production sequence:
+          1. Analyst runs a module via execute_tool (LLM tool call)
+          2. run_module auto-checks challenges; ch-001 completes
+          3. LLM calls check_challenges explicitly — ch-001 already announced,
+             so check_challenges returns "No new challenges" (dedup working)
+          4. list_challenges now shows ch-001 as COMPLETED
+        """
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+
+        # Step 1+2: run module, ch-001 auto-completes
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            run_result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+        assert any(ch.id == "ch-001" for ch in run_result["challenges"])
+
+        # Step 3: check_challenges sees ch-001 already announced — returns none new
+        check_summary, _, _ = execute_tool(tmp_ctx, "check_challenges", {})
+        assert "ch-001" not in check_summary or "No new" in check_summary
+
+        # Step 4: list_challenges shows ch-001 as completed
+        list_summary, _, _ = execute_tool(tmp_ctx, "list_challenges", {})
+        assert "COMPLETED" in list_summary or "completed" in list_summary
