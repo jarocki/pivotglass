@@ -32,6 +32,26 @@ execution, result formatting, and workspace storage.
            not in the map fall back to the legacy {"api_key": ...} pattern.
            This keeps run_module() generic while correctly threading multi-key
            credentials to modules that need them.
+
+@decision DEC-AGENT-HINTS-001
+@title HintProvider wired into ToolContext; both chat meta-command and LLM tools exposed
+@status accepted
+@rationale Two integration paths are provided for hints in the agent:
+           (1) Chat meta-command ('hint', 'hint <module>', 'hint buy [<module>]') in
+           chat.py mirrors cmd2's do_hint — gives the analyst immediate access without
+           involving the LLM at all. Handled in the local meta-command dispatch before
+           any LLM call so it is fast, deterministic, and not subject to LLM refusal.
+           (2) LLM tools 'get_next_hint' and 'buy_hint' let the LLM proactively offer
+           hints when it detects the analyst is stuck or requests a suggestion. Both
+           paths share the SAME HintProvider instance on ToolContext so the revealed-ID
+           set (DEC-HINT-002) is consistent regardless of which path surfaced a hint.
+           Balance protection (DEC-HINT-001): buy_hint reads get_total_score() before
+           calling HintProvider.buy_hint(). On InsufficientBalanceError the cost is
+           NOT deducted and an error string is returned — score never goes negative.
+           Score deduction for paid hints uses workspace_mgr.store_score_events() with
+           a negative points entry, exactly as documented in DEC-HINT-001 and the
+           HintProvider docstring. The HintProvider itself is stateless about the
+           workspace — the caller (this module and chat.py) owns deduction.
 """
 
 from __future__ import annotations
@@ -45,6 +65,11 @@ from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.badges import BadgeManager
 from adversary_pursuit.gamification.celebrations import CelebrationEngine
+from adversary_pursuit.gamification.hints import (
+    HintProvider,
+    HintResult,
+    InsufficientBalanceError,
+)
 from adversary_pursuit.gamification.modes import ModeManager
 from adversary_pursuit.gamification.scoring import ScoringEngine
 
@@ -65,9 +90,12 @@ class ToolContext:
     workspace_dir:
         Path to workspace directory. Defaults to ~/.ap/workspaces.
         Pass tmp_path in tests.
+    hints:
+        Optional custom hint list passed to HintProvider. Defaults to None
+        (uses the built-in catalogue). Pass a custom list in tests.
     """
 
-    def __init__(self, config_dir=None, workspace_dir=None):
+    def __init__(self, config_dir=None, workspace_dir=None, hints=None):
         self.config_mgr = ConfigManager(config_dir=config_dir)
         self.config = self.config_mgr.load()
         self.workspace_mgr = WorkspaceManager(workspace_dir=workspace_dir)
@@ -77,6 +105,10 @@ class ToolContext:
         self.celebration = CelebrationEngine()
         self.badge_mgr = BadgeManager()
         self.mode_mgr = ModeManager()
+        # HintProvider is session-scoped: revealed-ID set persists across all hint calls
+        # in this session so the same hint is never shown twice (DEC-HINT-002).
+        # Shared by both the LLM tool path and the chat meta-command path (DEC-AGENT-HINTS-001).
+        self.hint_mgr: HintProvider = HintProvider(hints=hints)
         # Tracks badge IDs awarded in this session (application-layer dedup, DEC-BADGE-002).
         # Populated from workspace on first badge check; updated as badges are earned.
         self._awarded_badges: set[str] = set()
@@ -569,6 +601,63 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                 },
             },
         },
+        # -----------------------------------------------------------------------
+        # Hint tools — DEC-AGENT-HINTS-001
+        # get_next_hint: reveals the next free hint (cost=0) for optional module.
+        # buy_hint: reveals the next paid hint, deducting its cost from score.
+        # Both share the same HintProvider instance on ToolContext so the
+        # revealed-ID set is consistent across all paths (DEC-HINT-002).
+        # -----------------------------------------------------------------------
+        {
+            "type": "function",
+            "function": {
+                "name": "get_next_hint",
+                "description": (
+                    "Get the next free contextual hint for the current investigation. "
+                    "Free hints (cost=0) are always available without score penalty. "
+                    "Optionally filter to a specific module (e.g. 'dns_resolve', "
+                    "'abuseipdb'). Returns None when all free hints have been revealed."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "module": {
+                            "type": "string",
+                            "description": (
+                                "Module base name to get module-specific hints "
+                                "(e.g. 'dns_resolve', 'abuseipdb'). "
+                                "Omit for general hints only."
+                            ),
+                        },
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "buy_hint",
+                "description": (
+                    "Buy the next paid hint for the current investigation. "
+                    "Paid hints cost 10-20 score points (deducted automatically). "
+                    "Returns an error if the analyst cannot afford the next hint. "
+                    "Optionally filter to a specific module."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "module": {
+                            "type": "string",
+                            "description": (
+                                "Module base name to get module-specific paid hints "
+                                "(e.g. 'dns_resolve', 'abuseipdb'). "
+                                "Omit for general paid hints."
+                            ),
+                        },
+                    },
+                },
+            },
+        },
     ]
 
 
@@ -697,6 +786,15 @@ def execute_tool(
     if tool_name == "search_workspace":
         return _search_workspace(ctx, arguments.get("type_filter")), None, []
 
+    # Hint tools — free and paid, no scoring/celebration/badge side-effects
+    # (DEC-AGENT-HINTS-001: hints are dispatched here to keep execute_tool as
+    # the single dispatch point for all LLM-callable tools)
+    if tool_name == "get_next_hint":
+        return _execute_get_next_hint(ctx, arguments.get("module")), None, []
+
+    if tool_name == "buy_hint":
+        return _execute_buy_hint(ctx, arguments.get("module")), None, []
+
     # Module dispatch
     if tool_name not in _MODULE_MAP:
         return f"Unknown tool: {tool_name}", None, []
@@ -770,3 +868,103 @@ def _search_workspace(ctx: ToolContext, type_filter: str | None = None) -> str:
     except Exception as e:
         logger.exception("Failed to search workspace")
         return f"Error searching workspace: {e}"
+
+
+def _execute_get_next_hint(ctx: ToolContext, module: str | None = None) -> str:
+    """Return the next free hint as a string for the LLM.
+
+    Free hints (cost=0) are revealed in cost-ascending order (DEC-HINT-003).
+    The HintProvider instance on ToolContext is shared with the chat
+    meta-command path so the revealed-ID set is consistent (DEC-AGENT-HINTS-001).
+
+    Parameters
+    ----------
+    ctx:
+        The shared ToolContext holding the session-scoped HintProvider.
+    module:
+        Module base name to include module-specific hints (e.g. "dns_resolve").
+        Pass None for general hints only.
+
+    Returns
+    -------
+    str
+        Hint text, or a "no more hints" message when all free hints are revealed.
+    """
+    result: HintResult | None = ctx.hint_mgr.get_next_hint(module=module)
+    if result is None:
+        ctx_label = f" for module '{module}'" if module else ""
+        return (
+            f"No more free hints available{ctx_label}. "
+            "Use buy_hint to unlock paid hints."
+        )
+    return f"Hint: {result.hint.text}"
+
+
+def _execute_buy_hint(ctx: ToolContext, module: str | None = None) -> str:
+    """Reveal the next paid hint and deduct its cost from the workspace score.
+
+    Reads current_score from the workspace, calls HintProvider.buy_hint(), and
+    on success stores a negative score event so the deduction persists (DEC-HINT-001).
+    On InsufficientBalanceError returns a user-friendly error string — score is
+    never modified when the analyst cannot afford the hint (balance protection,
+    DEC-AGENT-HINTS-001).
+
+    Parameters
+    ----------
+    ctx:
+        The shared ToolContext holding the session-scoped HintProvider and
+        WorkspaceManager for score reads and deduction writes.
+    module:
+        Module base name to include module-specific paid hints.
+        Pass None for general paid hints.
+
+    Returns
+    -------
+    str
+        Hint text with cost note, an insufficient-balance error, or a
+        "no more paid hints" message.
+    """
+    try:
+        current_score = ctx.workspace_mgr.get_total_score()
+    except Exception as e:
+        logger.exception("Failed to read score before buy_hint")
+        return f"Error reading score: {e}"
+
+    try:
+        result: HintResult | None = ctx.hint_mgr.buy_hint(
+            current_score=current_score, module=module
+        )
+    except InsufficientBalanceError as exc:
+        return (
+            f"Insufficient score to buy a hint: need {exc.required} pts "
+            f"but have {exc.available} pts. Earn more points by running modules."
+        )
+    except Exception as e:
+        logger.exception("buy_hint failed unexpectedly")
+        return f"Error buying hint: {e}"
+
+    if result is None:
+        ctx_label = f" for module '{module}'" if module else ""
+        return f"No more paid hints available{ctx_label}."
+
+    # Deduct the cost from the workspace score (DEC-HINT-001: caller owns deduction).
+    try:
+        ctx.workspace_mgr.store_score_events(
+            [
+                {
+                    "action": "hint",
+                    "points": -result.cost_paid,
+                    "indicator": module or "general",
+                    "rule_description": f"Paid hint: {result.hint.id}",
+                }
+            ]
+        )
+    except Exception as e:
+        logger.exception("Failed to store hint score deduction")
+        # Hint was already revealed — report it but warn about deduction failure
+        return (
+            f"Hint: {result.hint.text}\n"
+            f"(Warning: score deduction of {result.cost_paid} pts could not be saved: {e})"
+        )
+
+    return f"Hint (-{result.cost_paid} pts): {result.hint.text}"

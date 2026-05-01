@@ -47,6 +47,10 @@ def run_chat() -> None:
       mode                     -- list available character modes
       mode list                -- list available character modes
       mode <name>              -- switch to named character mode
+      hint                     -- get next free hint (general)
+      hint <module>            -- get next free hint for a specific module
+      hint buy                 -- buy the next paid hint (costs score points)
+      hint buy <module>        -- buy the next paid module-specific hint
     """
     console = Console()
 
@@ -136,6 +140,106 @@ def run_chat() -> None:
                         f"[dim]{new_mode.personality}[/dim]",
                         title=f"[bold green]Mode switched: {new_mode.name}[/bold green]",
                         style="green",
+                    )
+                )
+            continue
+
+        # Hint meta-command — mirrors APConsole.do_hint (DEC-AGENT-HINTS-001).
+        # Handled locally so hint state changes are immediate and deterministic.
+        # Shares the same HintProvider instance on runner.ctx so revealed-ID set
+        # is consistent with the LLM tool path (DEC-HINT-002).
+        #
+        # Supported forms:
+        #   hint                 → next free general hint
+        #   hint <module>        → next free hint for that module
+        #   hint buy             → next paid general hint (deducts score)
+        #   hint buy <module>    → next paid hint for that module
+        if lower == "hint" or lower.startswith("hint "):
+            hint_mgr = runner.ctx.hint_mgr
+            workspace_mgr = runner.ctx.workspace_mgr
+            rest = stripped[4:].strip() if len(stripped) > 4 else ""
+
+            buy_mode = rest.lower().startswith("buy")
+            if buy_mode:
+                # "hint buy" or "hint buy <module>"
+                module_arg = rest[3:].strip() or None
+                try:
+                    current_score = workspace_mgr.get_total_score()
+                except Exception as e:
+                    console.print(f"[red]Error reading score: {e}[/red]")
+                    continue
+                try:
+                    from adversary_pursuit.gamification.hints import (
+                        InsufficientBalanceError,
+                    )
+
+                    result = hint_mgr.buy_hint(
+                        current_score=current_score, module=module_arg
+                    )
+                except InsufficientBalanceError as exc:
+                    console.print(
+                        f"[yellow]Not enough points: need {exc.required} pts "
+                        f"but have {exc.available} pts.[/yellow]"
+                    )
+                    continue
+                except Exception as e:
+                    console.print(f"[red]Error buying hint: {e}[/red]")
+                    continue
+
+                if result is None:
+                    ctx_label = f" for '{module_arg}'" if module_arg else ""
+                    console.print(
+                        f"[dim]No more paid hints available{ctx_label}.[/dim]"
+                    )
+                    continue
+
+                # Persist score deduction (DEC-HINT-001: caller owns deduction)
+                try:
+                    workspace_mgr.store_score_events(
+                        [
+                            {
+                                "action": "hint",
+                                "points": -result.cost_paid,
+                                "indicator": module_arg or "general",
+                                "rule_description": f"Paid hint: {result.hint.id}",
+                            }
+                        ]
+                    )
+                except Exception as e:
+                    console.print(
+                        f"[yellow]Warning: score deduction failed: {e}[/yellow]"
+                    )
+
+                # Render with mode-flavored header
+                mode_name = runner.ctx.mode_mgr.active.name
+                panel_title = f"[bold cyan]Hint (-{result.cost_paid} pts)[/bold cyan]"
+                console.print(
+                    Panel(
+                        result.hint.text,
+                        title=panel_title,
+                        subtitle=f"[dim]{mode_name}[/dim]",
+                        style="cyan",
+                    )
+                )
+            else:
+                # Free hint: "hint" or "hint <module>"
+                module_arg = rest or None
+                result = hint_mgr.get_next_hint(module=module_arg)
+                if result is None:
+                    ctx_label = f" for '{module_arg}'" if module_arg else ""
+                    console.print(
+                        f"[dim]No more free hints available{ctx_label}. "
+                        f"Try 'hint buy' for paid hints.[/dim]"
+                    )
+                    continue
+
+                mode_name = runner.ctx.mode_mgr.active.name
+                console.print(
+                    Panel(
+                        result.hint.text,
+                        title="[bold cyan]Hint (free)[/bold cyan]",
+                        subtitle=f"[dim]{mode_name}[/dim]",
+                        style="cyan",
                     )
                 )
             continue

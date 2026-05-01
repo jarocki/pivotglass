@@ -178,10 +178,10 @@ class TestCreateTools:
         tools = create_tools(tmp_ctx)
         assert isinstance(tools, list)
 
-    def test_returns_twelve_tools(self, tmp_ctx):
-        """create_tools returns exactly 12 tool definitions (7 original + 3 new + 2 workspace)."""
+    def test_returns_fourteen_tools(self, tmp_ctx):
+        """create_tools returns exactly 14 tool definitions (7 original + 3 new + 2 workspace + 2 hints)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 12
+        assert len(tools) == 14
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -211,7 +211,7 @@ class TestCreateTools:
             )
 
     def test_expected_tool_names(self, tmp_ctx):
-        """create_tools includes all expected tool names including the three new ones."""
+        """create_tools includes all expected tool names including hint tools."""
         tools = create_tools(tmp_ctx)
         names = {t["function"]["name"] for t in tools}
         expected = {
@@ -229,6 +229,9 @@ class TestCreateTools:
             # Workspace tools
             "get_workspace_summary",
             "search_workspace",
+            # Hint tools (DEC-AGENT-HINTS-001)
+            "get_next_hint",
+            "buy_hint",
         }
         assert names == expected
 
@@ -264,7 +267,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 12
+        assert len(roundtripped) == 14
 
     # --- New tool schema tests ---
 
@@ -1390,7 +1393,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 12
+        assert len(r.tools) == 14
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""
@@ -1662,3 +1665,308 @@ class TestModeWiring:
         assert expected_text in result["celebration"], (
             f"Expected sun_tzu template text '{expected_text}' in: {result['celebration']!r}"
         )
+
+
+# ---------------------------------------------------------------------------
+# HintProvider wiring tests (DEC-AGENT-HINTS-001)
+# ---------------------------------------------------------------------------
+
+# @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+# The hint wiring tests use the same exemption as TestCelebrationWiring,
+# TestBadgeWiring, and TestModeWiring above: hunt() is mocked at the asyncio
+# boundary to avoid live API calls while exercising the full dispatch path.
+
+# Minimal deterministic hint catalogue for tests — avoids coupling to
+# _DEFAULT_HINTS order or count.
+from adversary_pursuit.gamification.hints import Hint as _Hint  # noqa: E402
+
+_FREE_HINT_GENERAL = _Hint(
+    id="test-free-001", text="Free general hint text.", cost=0, module=None
+)
+_FREE_HINT_DNS = _Hint(
+    id="test-free-dns-001",
+    text="Free DNS hint text.",
+    cost=0,
+    module="dns_resolve",
+)
+_PAID_HINT_GENERAL = _Hint(
+    id="test-paid-001", text="Paid general hint text.", cost=10, module=None
+)
+_PAID_HINT_DNS = _Hint(
+    id="test-paid-dns-001",
+    text="Paid DNS hint text.",
+    cost=15,
+    module="dns_resolve",
+)
+
+_TEST_HINTS = [
+    _FREE_HINT_GENERAL,
+    _FREE_HINT_DNS,
+    _PAID_HINT_GENERAL,
+    _PAID_HINT_DNS,
+]
+
+
+@pytest.fixture
+def hint_ctx(tmp_path):
+    """ToolContext with deterministic test hint set and a funded workspace."""
+    config_dir = tmp_path / "config"
+    workspace_dir = tmp_path / "workspaces"
+    config_dir.mkdir()
+    workspace_dir.mkdir()
+    ctx = ToolContext(
+        config_dir=config_dir, workspace_dir=workspace_dir, hints=_TEST_HINTS
+    )
+    ctx.workspace_mgr.create("default")
+    ctx.workspace_mgr.switch("default")
+    # Seed score so paid-hint tests have a balance to spend (cheapest paid = 10 pts)
+    ctx.workspace_mgr.store_score_events(
+        [
+            {
+                "action": "seed",
+                "points": 100,
+                "indicator": "seed",
+                "rule_description": "seed for hint tests",
+            }
+        ]
+    )
+    return ctx
+
+
+class TestHintWiring:
+    """Tests for HintProvider integration in ToolContext and execute_tool.
+
+    # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+    # The compound test mocks hunt() at the asyncio boundary to avoid live API
+    # calls — same exemption declared in the file-level docstring and used by
+    # TestCelebrationWiring, TestBadgeWiring, and TestModeWiring.
+
+    Covers:
+      (1) ToolContext has a HintProvider instance on .hint_mgr
+      (2) HintProvider singleton — same instance across accesses preserves revealed state
+      (3) execute_tool('get_next_hint') returns next free hint text
+      (4) get_next_hint with module= filters to module-specific hints
+      (5) get_next_hint returns 'no more' message when all free hints revealed
+      (6) execute_tool('buy_hint') deducts score and returns paid hint
+      (7) buy_hint with module= filters to module-specific paid hints
+      (8) buy_hint returns error string on insufficient balance (score not modified)
+      (9) balance protection: score after failed buy equals score before
+      (10) hint tools in create_tools() catalog: get_next_hint and buy_hint present
+      (11) hint tools have correct schema (no required parameters)
+      (12) compound: switch mode -> run module tool -> get hint -> hint surfaces correctly
+    """
+
+    # --- (1) ToolContext has HintProvider ---
+
+    def test_tool_context_has_hint_provider(self, hint_ctx):
+        """ToolContext.__init__ creates a HintProvider instance on .hint_mgr."""
+        from adversary_pursuit.gamification.hints import HintProvider
+
+        assert hasattr(hint_ctx, "hint_mgr")
+        assert isinstance(hint_ctx.hint_mgr, HintProvider)
+
+    # --- (2) Singleton — same instance preserves revealed state ---
+
+    def test_hint_mgr_is_same_instance_across_accesses(self, hint_ctx):
+        """hint_mgr is the same object across all accesses — session-scoped singleton."""
+        first = hint_ctx.hint_mgr
+        second = hint_ctx.hint_mgr
+        assert first is second
+
+    def test_revealed_state_persists_across_calls(self, hint_ctx):
+        """Calling get_next_hint twice returns two different hints (revealed set shared).
+
+        get_next_hint returns hints in cost-ascending order (free first, then paid).
+        The second call reveals the paid hint — NOT a 'no more' message, because
+        HintProvider.get_next_hint() covers all hints (free and paid), free first.
+        """
+        from adversary_pursuit.agent.tools import _execute_get_next_hint
+
+        result1 = _execute_get_next_hint(hint_ctx, module=None)
+        result2 = _execute_get_next_hint(hint_ctx, module=None)
+        # First call: the single general free hint is revealed
+        assert "Free general hint text." in result1
+        # Second call: paid general hint revealed next (cost-ascending order)
+        assert "Paid general hint text." in result2
+        # Both are different hints — revealed-set prevented re-showing hint 1
+        assert result1 != result2
+
+    # --- (3) get_next_hint returns free hint ---
+
+    def test_execute_get_next_hint_returns_free_hint_text(self, hint_ctx):
+        """execute_tool('get_next_hint', {}) returns the next free general hint."""
+        summary, celebration, badges = execute_tool(hint_ctx, "get_next_hint", {})
+        assert "Free general hint text." in summary
+        assert celebration is None
+        assert badges == []
+
+    # --- (4) get_next_hint with module filters ---
+
+    def test_get_next_hint_dns_module_surfaces_dns_specific_hint(self, hint_ctx):
+        """After general free hint revealed, next get_next_hint for dns_resolve is DNS-specific."""
+        from adversary_pursuit.agent.tools import _execute_get_next_hint
+
+        # dns_resolve pool ordered by cost: [free-general(0), free-dns(0), paid-general(10), paid-dns(15)]
+        # First call reveals free-general
+        _execute_get_next_hint(hint_ctx, module="dns_resolve")
+        # Second call reveals free-dns (next unrevealed in module pool)
+        result2 = _execute_get_next_hint(hint_ctx, module="dns_resolve")
+        assert "Free DNS hint text." in result2
+
+    # --- (5) get_next_hint exhausted → 'no more' message ---
+
+    def test_get_next_hint_exhausted_returns_no_more_message(self, hint_ctx):
+        """get_next_hint returns 'no more' string when ALL hints in pool are revealed.
+
+        The general-only pool has 2 hints: free-general (cost=0) and paid-general (cost=10).
+        get_next_hint covers free AND paid (free first). After both are revealed,
+        the third call returns the 'no more' message.
+        """
+        from adversary_pursuit.agent.tools import _execute_get_next_hint
+
+        # Reveal hint 1: free-general
+        _execute_get_next_hint(hint_ctx, module=None)
+        # Reveal hint 2: paid-general (get_next_hint covers all, free first)
+        _execute_get_next_hint(hint_ctx, module=None)
+        # Third call: pool exhausted
+        result = _execute_get_next_hint(hint_ctx, module=None)
+        assert "No more free hints" in result
+        assert "buy_hint" in result  # directs analyst to paid path
+
+    # --- (6) buy_hint deducts score and returns paid hint ---
+
+    def test_execute_buy_hint_returns_paid_hint_and_deducts_score(self, hint_ctx):
+        """execute_tool('buy_hint', {}) deducts cost from score and returns paid hint."""
+        score_before = hint_ctx.workspace_mgr.get_total_score()
+        summary, celebration, badges = execute_tool(hint_ctx, "buy_hint", {})
+
+        assert "Paid general hint text." in summary
+        assert "-10 pts" in summary  # cost note in returned string
+        assert celebration is None
+        assert badges == []
+
+        score_after = hint_ctx.workspace_mgr.get_total_score()
+        assert score_after == score_before - 10
+
+    # --- (7) buy_hint with module filter ---
+
+    def test_execute_buy_hint_module_filter_deducts_correct_cost(self, hint_ctx):
+        """execute_tool('buy_hint', {'module': 'dns_resolve'}) deducts correct cost."""
+        score_before = hint_ctx.workspace_mgr.get_total_score()
+        summary, _, _ = execute_tool(hint_ctx, "buy_hint", {"module": "dns_resolve"})
+
+        # dns_resolve paid pool: paid-general (10 pts) first, paid-dns (15 pts) second
+        assert "Paid" in summary or "hint" in summary.lower()
+        score_after = hint_ctx.workspace_mgr.get_total_score()
+        assert score_after == score_before - 10  # cheapest paid hint costs 10 pts
+
+    # --- (8) buy_hint insufficient balance → error string ---
+
+    def test_buy_hint_insufficient_balance_returns_error_string(self, tmp_path):
+        """execute_tool('buy_hint') returns error string when score < hint cost."""
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(
+            config_dir=config_dir, workspace_dir=workspace_dir, hints=_TEST_HINTS
+        )
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+        # Score = 0 — cannot afford any paid hint (cheapest is 10 pts)
+        summary, celebration, badges = execute_tool(ctx, "buy_hint", {})
+
+        assert "Insufficient score" in summary or "insufficient" in summary.lower()
+        assert "need" in summary.lower() or "pts" in summary.lower()
+        assert celebration is None
+        assert badges == []
+
+    # --- (9) Balance protection: score unchanged on failed buy ---
+
+    def test_buy_hint_insufficient_balance_does_not_modify_score(self, tmp_path):
+        """Score is not deducted when buy_hint raises InsufficientBalanceError."""
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(
+            config_dir=config_dir, workspace_dir=workspace_dir, hints=_TEST_HINTS
+        )
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+        # Score = 0
+        score_before = ctx.workspace_mgr.get_total_score()
+        execute_tool(ctx, "buy_hint", {})
+        score_after = ctx.workspace_mgr.get_total_score()
+        assert score_after == score_before == 0
+
+    # --- (10) Hint tools in create_tools catalog ---
+
+    def test_hint_tools_in_create_tools(self, hint_ctx):
+        """create_tools includes get_next_hint and buy_hint in the tool catalog."""
+        tools = create_tools(hint_ctx)
+        names = {t["function"]["name"] for t in tools}
+        assert "get_next_hint" in names
+        assert "buy_hint" in names
+
+    # --- (11) Hint tool schema has no required parameters ---
+
+    def test_get_next_hint_schema_no_required_params(self, hint_ctx):
+        """get_next_hint tool has no required parameters (module is optional)."""
+        tools = create_tools(hint_ctx)
+        tool = next(t for t in tools if t["function"]["name"] == "get_next_hint")
+        params = tool["function"]["parameters"]
+        assert "required" not in params or len(params.get("required", [])) == 0
+
+    def test_buy_hint_schema_no_required_params(self, hint_ctx):
+        """buy_hint tool has no required parameters (module is optional)."""
+        tools = create_tools(hint_ctx)
+        tool = next(t for t in tools if t["function"]["name"] == "buy_hint")
+        params = tool["function"]["parameters"]
+        assert "required" not in params or len(params.get("required", [])) == 0
+
+    # --- (12) Compound: switch mode -> run module tool -> get hint ---
+
+    def test_compound_mode_switch_tool_run_then_hint(self, hint_ctx):
+        """Compound: switch to ninja mode, run a module tool, then get hint.
+
+        # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+        # Mocking at the asyncio boundary avoids live API calls while exercising
+        # the full dispatch path through workspace storage and scoring.
+
+        Production sequence:
+          (a) ModeManager.switch('ninja') changes active mode
+          (b) execute_tool(module_tool) runs hunt() (mocked at HTTP boundary),
+              stores results, scores, returns celebration with ninja template
+          (c) execute_tool('get_next_hint') returns free hint via same HintProvider
+              instance — revealed-set shared between LLM tool path and meta-command path
+
+        This crosses ToolContext, ModeManager, WorkspaceManager, ScoringEngine,
+        and HintProvider boundaries in the real production call sequence.
+        """
+        # (a) Switch mode — mirrors chat.py 'mode ninja' meta-command
+        hint_ctx.mode_mgr.switch("ninja")
+        assert hint_ctx.mode_mgr.active.name == "ninja"
+
+        # (b) Run a module tool that scores points (hunt() mocked at HTTP boundary)
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=SAMPLE_IP_RESULTS)
+        mock_mod.initialize = MagicMock()
+        with patch.object(hint_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            summary, celebration, _ = execute_tool(
+                hint_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
+            )
+        assert "Found" in summary
+        assert celebration is not None  # ninja mode scored points → celebration present
+
+        # (c) Get a free hint — same HintProvider, same revealed-set
+        hint_summary, hint_celebration, hint_badges = execute_tool(
+            hint_ctx, "get_next_hint", {}
+        )
+        assert "Free general hint text." in hint_summary
+        assert hint_celebration is None
+        assert hint_badges == []
+
+        # Workspace reflects both the seed (100) and module scoring
+        total = hint_ctx.workspace_mgr.get_total_score()
+        assert total > 100  # seed was 100; module scoring adds more
