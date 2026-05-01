@@ -178,10 +178,10 @@ class TestCreateTools:
         tools = create_tools(tmp_ctx)
         assert isinstance(tools, list)
 
-    def test_returns_eighteen_tools(self, tmp_ctx):
-        """create_tools returns exactly 18 tool definitions (7 original + 3 new + 2 workspace + 2 hints + 2 challenges + 2 graph/export)."""
+    def test_returns_twenty_one_tools(self, tmp_ctx):
+        """create_tools returns exactly 21 tool definitions (18 previous + 3 report interview tools)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 18
+        assert len(tools) == 21
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -211,7 +211,7 @@ class TestCreateTools:
             )
 
     def test_expected_tool_names(self, tmp_ctx):
-        """create_tools includes all expected tool names including hint, challenge, and graph/export tools."""
+        """create_tools includes all expected tool names including hint, challenge, graph/export, and report tools."""
         tools = create_tools(tmp_ctx)
         names = {t["function"]["name"] for t in tools}
         expected = {
@@ -238,6 +238,10 @@ class TestCreateTools:
             # Graph/export tools (DEC-AGENT-GRAPH-EXPORT-001)
             "render_graph",
             "export_workspace",
+            # Report interview tools (DEC-AGENT-REPORT-001)
+            "start_report_interview",
+            "answer_report_question",
+            "generate_report",
         }
         assert names == expected
 
@@ -273,7 +277,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 18
+        assert len(roundtripped) == 21
 
     # --- New tool schema tests ---
 
@@ -1399,7 +1403,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 18
+        assert len(r.tools) == 21
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""
@@ -2697,3 +2701,305 @@ class TestGraphExportWiring:
         # Step 3+4: render_graph reflects the stored indicator
         graph_summary, _, _ = execute_tool(tmp_ctx, "render_graph", {})
         assert "192.0.2.1" in graph_summary or "ipv4-addr" in graph_summary
+
+
+# ---------------------------------------------------------------------------
+# TestReportWiring — DEC-AGENT-REPORT-001
+# ---------------------------------------------------------------------------
+
+
+class TestReportWiring:
+    """Tests for start_report_interview, answer_report_question, generate_report LLM tools.
+
+    # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+    # The compound integration test mocks hunt() at the asyncio boundary to avoid
+    # live API calls while exercising the real execute_tool → run_module →
+    # workspace.store_stix_objects → generate_report production sequence.
+
+    Production sequence:
+      ToolContext(tmp dirs) → start_report_interview → answer_report_question (x5)
+                           → generate_report → Markdown string
+
+    @decision DEC-AGENT-REPORT-001
+    (see tools.py module docstring for full rationale)
+    Tests validate: tool registration, schema correctness, start resets state,
+    answers persist in-memory, generated report is Markdown, IOC table present
+    when workspace populated, timeline present when module runs recorded, and the
+    compound run_module → generate_report end-to-end sequence.
+    """
+
+    # ------------------------------------------------------------------
+    # Tool registration
+    # ------------------------------------------------------------------
+
+    def test_start_report_interview_registered_in_create_tools(self, tmp_ctx):
+        """start_report_interview is present in the create_tools() list."""
+        tools = create_tools(tmp_ctx)
+        names = {t["function"]["name"] for t in tools}
+        assert "start_report_interview" in names
+
+    def test_answer_report_question_registered_in_create_tools(self, tmp_ctx):
+        """answer_report_question is present in the create_tools() list."""
+        tools = create_tools(tmp_ctx)
+        names = {t["function"]["name"] for t in tools}
+        assert "answer_report_question" in names
+
+    def test_generate_report_registered_in_create_tools(self, tmp_ctx):
+        """generate_report is present in the create_tools() list."""
+        tools = create_tools(tmp_ctx)
+        names = {t["function"]["name"] for t in tools}
+        assert "generate_report" in names
+
+    def test_answer_report_question_has_required_params(self, tmp_ctx):
+        """answer_report_question schema declares question_index and answer as required."""
+        tools = create_tools(tmp_ctx)
+        tool = next(
+            t for t in tools if t["function"]["name"] == "answer_report_question"
+        )
+        params = tool["function"]["parameters"]
+        assert "question_index" in params["properties"]
+        assert "answer" in params["properties"]
+        assert "question_index" in params.get("required", [])
+        assert "answer" in params.get("required", [])
+
+    # ------------------------------------------------------------------
+    # start_report_interview
+    # ------------------------------------------------------------------
+
+    def test_start_report_interview_returns_string(self, tmp_ctx):
+        """start_report_interview returns a plain string with no celebration or badges."""
+        summary, celebration, badges = execute_tool(
+            tmp_ctx, "start_report_interview", {}
+        )
+        assert isinstance(summary, str)
+        assert celebration is None
+        assert badges == []
+
+    def test_start_report_interview_contains_all_five_questions(self, tmp_ctx):
+        """start_report_interview output contains all 5 interview questions."""
+        from adversary_pursuit.core.report import ReportGenerator
+
+        summary, _, _ = execute_tool(tmp_ctx, "start_report_interview", {})
+        for q in ReportGenerator.INTERVIEW_QUESTIONS:
+            assert q in summary, f"Missing question in interview output: {q}"
+
+    def test_start_report_interview_initialises_report_generator(self, tmp_ctx):
+        """start_report_interview sets ctx.report_generator to a fresh ReportGenerator."""
+        from adversary_pursuit.core.report import ReportGenerator
+
+        assert tmp_ctx.report_generator is None  # starts unset
+        execute_tool(tmp_ctx, "start_report_interview", {})
+        assert tmp_ctx.report_generator is not None
+        assert isinstance(tmp_ctx.report_generator, ReportGenerator)
+
+    def test_start_report_interview_resets_prior_answers(self, tmp_ctx):
+        """Re-calling start_report_interview wipes all previously set answers."""
+        # Start and set an answer
+        execute_tool(tmp_ctx, "start_report_interview", {})
+        execute_tool(
+            tmp_ctx,
+            "answer_report_question",
+            {"question_index": 0, "answer": "original answer"},
+        )
+        assert tmp_ctx.report_generator.sections[0].answer == "original answer"
+
+        # Re-start — answers must be blank again
+        execute_tool(tmp_ctx, "start_report_interview", {})
+        assert tmp_ctx.report_generator.sections[0].answer == ""
+
+    # ------------------------------------------------------------------
+    # answer_report_question
+    # ------------------------------------------------------------------
+
+    def test_answer_report_question_persists_answer(self, tmp_ctx):
+        """answer_report_question stores the answer on the ReportGenerator in-memory."""
+        execute_tool(tmp_ctx, "start_report_interview", {})
+        summary, celebration, badges = execute_tool(
+            tmp_ctx,
+            "answer_report_question",
+            {"question_index": 0, "answer": "Tip from partner"},
+        )
+        assert isinstance(summary, str)
+        assert celebration is None
+        assert badges == []
+        # Verify the answer persisted on the shared instance
+        assert tmp_ctx.report_generator.sections[0].answer == "Tip from partner"
+
+    def test_answer_report_question_confirms_question_text(self, tmp_ctx):
+        """answer_report_question confirmation includes the question text."""
+        from adversary_pursuit.core.report import ReportGenerator
+
+        execute_tool(tmp_ctx, "start_report_interview", {})
+        summary, _, _ = execute_tool(
+            tmp_ctx,
+            "answer_report_question",
+            {"question_index": 2, "answer": "C2 beacon is 10 min"},
+        )
+        # The question for index 2 should appear in the confirmation
+        assert ReportGenerator.INTERVIEW_QUESTIONS[2] in summary
+
+    def test_answer_report_question_without_start_returns_error(self, tmp_ctx):
+        """answer_report_question returns an error if start_report_interview was not called."""
+        summary, _, _ = execute_tool(
+            tmp_ctx,
+            "answer_report_question",
+            {"question_index": 0, "answer": "some answer"},
+        )
+        lower = summary.lower()
+        assert "not been started" in lower or "start_report_interview" in lower
+
+    def test_answer_report_question_out_of_range_returns_error(self, tmp_ctx):
+        """answer_report_question returns an error for an out-of-range index."""
+        execute_tool(tmp_ctx, "start_report_interview", {})
+        summary, _, _ = execute_tool(
+            tmp_ctx,
+            "answer_report_question",
+            {"question_index": 99, "answer": "bad"},
+        )
+        lower = summary.lower()
+        assert "error" in lower or "out of range" in lower or "range" in lower
+
+    def test_all_five_answers_persist_independently(self, tmp_ctx):
+        """All 5 answers can be set independently and all persist on the same instance."""
+        execute_tool(tmp_ctx, "start_report_interview", {})
+        answers = [
+            "Tip from partner",
+            "WHOIS lookup",
+            "C2 beacon is 10 min",
+            "Sinkhole the C2",
+            "Pivot to ASN block",
+        ]
+        for i, ans in enumerate(answers):
+            execute_tool(
+                tmp_ctx,
+                "answer_report_question",
+                {"question_index": i, "answer": ans},
+            )
+        # All 5 answers must survive independently
+        for i, ans in enumerate(answers):
+            assert tmp_ctx.report_generator.sections[i].answer == ans
+
+    # ------------------------------------------------------------------
+    # generate_report
+    # ------------------------------------------------------------------
+
+    def test_generate_report_without_start_returns_error(self, tmp_ctx):
+        """generate_report returns an error message if the interview was not started."""
+        summary, _, _ = execute_tool(tmp_ctx, "generate_report", {})
+        lower = summary.lower()
+        assert "not been started" in lower or "start_report_interview" in lower
+
+    def test_generate_report_returns_markdown_string(self, tmp_ctx):
+        """generate_report returns a non-empty Markdown string starting with a heading."""
+        execute_tool(tmp_ctx, "start_report_interview", {})
+        summary, celebration, badges = execute_tool(tmp_ctx, "generate_report", {})
+        assert isinstance(summary, str)
+        assert celebration is None
+        assert badges == []
+        assert len(summary) > 0
+        # Markdown report starts with a H1 heading
+        assert summary.startswith("# ")
+
+    def test_generate_report_contains_interview_notes_section(self, tmp_ctx):
+        """Generated report contains the Interview Notes section header."""
+        execute_tool(tmp_ctx, "start_report_interview", {})
+        execute_tool(
+            tmp_ctx,
+            "answer_report_question",
+            {"question_index": 0, "answer": "Partner tip"},
+        )
+        summary, _, _ = execute_tool(tmp_ctx, "generate_report", {})
+        assert "## Interview Notes" in summary
+
+    def test_generate_report_contains_recorded_answer(self, tmp_ctx):
+        """Generated report body includes the analyst answer text verbatim."""
+        execute_tool(tmp_ctx, "start_report_interview", {})
+        execute_tool(
+            tmp_ctx,
+            "answer_report_question",
+            {"question_index": 1, "answer": "WHOIS lookup on spearphish domain"},
+        )
+        summary, _, _ = execute_tool(tmp_ctx, "generate_report", {})
+        assert "WHOIS lookup on spearphish domain" in summary
+
+    def test_generate_report_ioc_table_present_when_workspace_populated(self, tmp_ctx):
+        """Generated report contains an IOC table when workspace has indicators."""
+        # Populate workspace directly via WorkspaceManager
+        tmp_ctx.workspace_mgr.store_stix_objects(
+            [{"type": "ipv4-addr", "value": "10.0.0.99"}],
+            "test/module",
+            "10.0.0.99",
+        )
+        execute_tool(tmp_ctx, "start_report_interview", {})
+        summary, _, _ = execute_tool(tmp_ctx, "generate_report", {})
+        # IOC table section must be present
+        assert "## Indicators of Compromise" in summary
+        # The indicator value must appear in the table
+        assert "10.0.0.99" in summary
+
+    def test_generate_report_timeline_present_when_module_runs_exist(self, tmp_ctx):
+        """Generated report contains a Timeline section (not empty placeholder) when module runs exist."""
+        # store_stix_objects internally records a module run
+        tmp_ctx.workspace_mgr.store_stix_objects(
+            [{"type": "domain-name", "value": "evil.example.com"}],
+            "osint/dns_resolve",
+            "evil.example.com",
+        )
+        execute_tool(tmp_ctx, "start_report_interview", {})
+        summary, _, _ = execute_tool(tmp_ctx, "generate_report", {})
+        assert "## Timeline" in summary
+        # The timeline should NOT be the empty placeholder
+        assert "_No module runs recorded._" not in summary
+
+    # ------------------------------------------------------------------
+    # Compound integration: run_module → generate_report includes IOCs
+    # ------------------------------------------------------------------
+
+    def test_compound_run_module_then_generate_report_includes_ioc(self, tmp_ctx):
+        """Compound: run_module stores IOCs → generate_report includes them in IOC table.
+
+        # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+        # We mock at the asyncio/module boundary to avoid live API calls while
+        # exercising the full production sequence:
+        #   execute_tool("check_ip_reputation") → run_module() → store_stix_objects()
+        #   → start_report_interview() → generate_report() → Markdown with IOC table
+
+        This is the real production sequence the LLM drives:
+          1. LLM calls execute_tool("check_ip_reputation") → run_module() → hunt() (mocked)
+          2. Results stored in workspace via store_stix_objects()
+          3. LLM calls execute_tool("start_report_interview") → initialises ReportGenerator
+          4. LLM answers some questions via execute_tool("answer_report_question")
+          5. LLM calls execute_tool("generate_report") → ReportGenerator.generate()
+             reads live workspace → Markdown with IOC table containing indicator from step 1
+        """
+        mock_mod = MagicMock()
+        mock_mod.initialize = MagicMock()
+        mock_mod.hunt = AsyncMock(
+            return_value=[
+                {"type": "ipv4-addr", "value": "203.0.113.1"},
+            ]
+        )
+
+        # Step 1+2: run module → indicator stored in workspace
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            run_summary, _, _ = execute_tool(
+                tmp_ctx, "check_ip_reputation", {"ip_address": "203.0.113.1"}
+            )
+        assert "Found" in run_summary
+
+        # Step 3: start interview
+        execute_tool(tmp_ctx, "start_report_interview", {})
+
+        # Step 4: answer a question
+        execute_tool(
+            tmp_ctx,
+            "answer_report_question",
+            {"question_index": 0, "answer": "Automated compound test trigger"},
+        )
+
+        # Step 5: generate report — must include the IOC from step 1
+        report_md, _, _ = execute_tool(tmp_ctx, "generate_report", {})
+        assert report_md.startswith("# ")
+        assert "203.0.113.1" in report_md
+        assert "## Indicators of Compromise" in report_md
+        assert "Automated compound test trigger" in report_md

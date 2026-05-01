@@ -43,14 +43,17 @@ def run_chat() -> None:
     types 'quit', 'exit', or sends EOF (Ctrl+D).
 
     Meta-commands (handled locally, not sent to the LLM):
-      workspace <name>         -- switch active workspace
-      mode                     -- list available character modes
-      mode list                -- list available character modes
-      mode <name>              -- switch to named character mode
-      hint                     -- get next free hint (general)
-      hint <module>            -- get next free hint for a specific module
-      hint buy                 -- buy the next paid hint (costs score points)
-      hint buy <module>        -- buy the next paid module-specific hint
+      workspace <name>              -- switch active workspace
+      mode                          -- list available character modes
+      mode list                     -- list available character modes
+      mode <name>                   -- switch to named character mode
+      hint                          -- get next free hint (general)
+      hint <module>                 -- get next free hint for a specific module
+      hint buy                      -- buy the next paid hint (costs score points)
+      hint buy <module>             -- buy the next paid module-specific hint
+      report                        -- show interview status (auto-starts if not started)
+      report answer <idx> <text>    -- record answer for question index 0-4
+      report generate               -- generate and display Markdown report
     """
     console = Console()
 
@@ -363,6 +366,97 @@ def run_chat() -> None:
 
                 bundle = g.export_stix_bundle()
                 console.print(_json.dumps(bundle, indent=2))
+            continue
+
+        # Report meta-command — mirrors APConsole.do_report (DEC-AGENT-REPORT-001).
+        # Handled locally (not sent to LLM) for deterministic, immediate output.
+        # Shares the same ReportGenerator instance on runner.ctx so answers set here
+        # are visible to the LLM tool path (start_report_interview / answer_report_question
+        # / generate_report) and vice versa.
+        #
+        # Supported forms:
+        #   report                         → show current interview status (questions + answers)
+        #   report answer <idx> <text>     → set answer for question index idx (0-4)
+        #   report generate                → generate and print the Markdown report
+        if lower == "report" or lower.startswith("report "):
+            from adversary_pursuit.agent.tools import (
+                _execute_answer_report_question,
+                _execute_generate_report,
+                _execute_start_report_interview,
+            )
+
+            rest = stripped[6:].strip() if len(stripped) > 6 else ""
+            rest_lower = rest.lower()
+
+            if rest_lower == "generate":
+                # Generate and render the Markdown report
+                report_md = _execute_generate_report(runner.ctx)
+                if report_md.startswith("Report interview") or report_md.startswith(
+                    "Error"
+                ):
+                    console.print(f"[yellow]{report_md}[/yellow]")
+                else:
+                    console.print(
+                        Panel(
+                            Markdown(report_md),
+                            title="[bold green]Investigation Report[/bold green]",
+                            style="green",
+                        )
+                    )
+
+            elif rest_lower.startswith("answer "):
+                # 'report answer <idx> <text>'
+                args_str = rest[7:].strip()  # everything after "answer "
+                parts = args_str.split(None, 1)
+                if len(parts) < 2:
+                    console.print(
+                        "[yellow]Usage: report answer <index> <answer text>[/yellow]"
+                    )
+                else:
+                    try:
+                        idx = int(parts[0])
+                    except ValueError:
+                        console.print(
+                            f"[yellow]Invalid index '{parts[0]}': must be 0-4[/yellow]"
+                        )
+                    else:
+                        # Lazily initialise if not yet started
+                        if runner.ctx.report_generator is None:
+                            _execute_start_report_interview(runner.ctx)
+                        result = _execute_answer_report_question(
+                            runner.ctx, idx, parts[1]
+                        )
+                        console.print(f"[green]{result}[/green]")
+
+            else:
+                # 'report' with no subcommand — show interview status
+                rg = runner.ctx.report_generator
+                if rg is None:
+                    # Auto-start interview on bare 'report' command (mirrors do_report)
+                    _execute_start_report_interview(runner.ctx)
+                    rg = runner.ctx.report_generator
+
+                table = Table(
+                    title="Report Interview",
+                    show_header=True,
+                    show_lines=True,
+                )
+                table.add_column("#", style="cyan", width=3)
+                table.add_column("Question", style="bold", ratio=2)
+                table.add_column("Answer", ratio=3)
+                for i, section in enumerate(rg.sections):
+                    answer_display = (
+                        section.answer.strip()
+                        if section.answer.strip()
+                        else "[dim]_not answered_[/dim]"
+                    )
+                    table.add_row(str(i), section.question, answer_display)
+                console.print(table)
+                console.print(
+                    "[dim]Use [bold]report answer <idx> <text>[/bold] to set answers, "
+                    "then [bold]report generate[/bold] to produce the report.[/dim]"
+                )
+
             continue
 
         # Normal chat — send to LLM
