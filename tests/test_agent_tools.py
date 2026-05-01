@@ -178,10 +178,10 @@ class TestCreateTools:
         tools = create_tools(tmp_ctx)
         assert isinstance(tools, list)
 
-    def test_returns_sixteen_tools(self, tmp_ctx):
-        """create_tools returns exactly 16 tool definitions (7 original + 3 new + 2 workspace + 2 hints + 2 challenges)."""
+    def test_returns_eighteen_tools(self, tmp_ctx):
+        """create_tools returns exactly 18 tool definitions (7 original + 3 new + 2 workspace + 2 hints + 2 challenges + 2 graph/export)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 16
+        assert len(tools) == 18
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -211,7 +211,7 @@ class TestCreateTools:
             )
 
     def test_expected_tool_names(self, tmp_ctx):
-        """create_tools includes all expected tool names including hint and challenge tools."""
+        """create_tools includes all expected tool names including hint, challenge, and graph/export tools."""
         tools = create_tools(tmp_ctx)
         names = {t["function"]["name"] for t in tools}
         expected = {
@@ -235,6 +235,9 @@ class TestCreateTools:
             # Challenge tools (DEC-AGENT-CHALLENGES-001)
             "list_challenges",
             "check_challenges",
+            # Graph/export tools (DEC-AGENT-GRAPH-EXPORT-001)
+            "render_graph",
+            "export_workspace",
         }
         assert names == expected
 
@@ -270,7 +273,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 16
+        assert len(roundtripped) == 18
 
     # --- New tool schema tests ---
 
@@ -1396,7 +1399,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 16
+        assert len(r.tools) == 18
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""
@@ -2467,3 +2470,230 @@ class TestChallengeWiring:
         # Step 4: list_challenges shows ch-001 as completed
         list_summary, _, _ = execute_tool(tmp_ctx, "list_challenges", {})
         assert "COMPLETED" in list_summary or "completed" in list_summary
+
+
+# ---------------------------------------------------------------------------
+# Graph/export tool tests — DEC-AGENT-GRAPH-EXPORT-001
+# ---------------------------------------------------------------------------
+
+
+class TestGraphExportWiring:
+    """Tests for render_graph and export_workspace LLM tools.
+
+    # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+    # The compound integration test mocks hunt() at the asyncio boundary to avoid
+    # live API calls while exercising the real execute_tool → run_module →
+    # workspace.store_stix_objects → render_graph production sequence.
+    # All other tests use _populate_workspace() to call the real WorkspaceManager
+    # directly — no mocks needed.
+
+    Production sequence:
+      ToolContext(tmp dirs) → populate workspace → execute_tool("render_graph")
+                                                 → execute_tool("export_workspace", {"format": ...})
+
+    @decision DEC-AGENT-GRAPH-EXPORT-001
+    (see tools.py module docstring for full rationale)
+    Tests validate: string output, empty-workspace fallback, node IDs present after
+    population, GEXF XML structure, STIX bundle dict structure, bad-format error,
+    tool registration, and the compound run_module → render_graph sequence.
+    """
+
+    def _populate_workspace(self, ctx, objects):
+        """Store plain STIX dicts into workspace via the real WorkspaceManager.
+
+        Objects must NOT include an 'id' key — STIX auto-generates valid UUIDs.
+        dict_to_stix() passes extra keys (including 'id') to the stix2 constructor
+        which validates UUID format; fake IDs like 'ipv4-addr--aaa' will raise.
+        """
+        ctx.workspace_mgr.store_stix_objects(objects, "test/module", "test-target")
+
+    # ------------------------------------------------------------------
+    # render_graph
+    # ------------------------------------------------------------------
+
+    def test_render_graph_returns_string(self, tmp_ctx):
+        """render_graph tool returns a plain string with no celebration or badges."""
+        summary, celebration, badges = execute_tool(tmp_ctx, "render_graph", {})
+        assert isinstance(summary, str)
+        assert celebration is None
+        assert badges == []
+
+    def test_render_graph_empty_workspace(self, tmp_ctx):
+        """render_graph returns an informational message when workspace is empty."""
+        summary, _, _ = execute_tool(tmp_ctx, "render_graph", {})
+        lower = summary.lower()
+        assert "no objects" in lower or "empty" in lower or "run a module" in lower
+
+    def test_render_graph_populated_workspace_contains_node(self, tmp_ctx):
+        """render_graph output contains node values after workspace is populated."""
+        # No 'id' key — dict_to_stix auto-generates valid STIX UUIDs
+        self._populate_workspace(
+            tmp_ctx,
+            [
+                {"type": "ipv4-addr", "value": "1.2.3.4"},
+                {"type": "domain-name", "value": "evil.example.com"},
+            ],
+        )
+        summary, _, _ = execute_tool(tmp_ctx, "render_graph", {})
+        assert "1.2.3.4" in summary or "ipv4-addr" in summary
+        assert "evil.example.com" in summary or "domain-name" in summary
+
+    def test_render_graph_includes_stats_line(self, tmp_ctx):
+        """render_graph output ends with a node/edge count summary line."""
+        self._populate_workspace(
+            tmp_ctx,
+            [{"type": "ipv4-addr", "value": "10.0.0.1"}],
+        )
+        summary, _, _ = execute_tool(tmp_ctx, "render_graph", {})
+        assert "node" in summary.lower()
+
+    # ------------------------------------------------------------------
+    # export_workspace — gexf
+    # ------------------------------------------------------------------
+
+    def test_export_workspace_gexf_returns_xml(self, tmp_ctx):
+        """export_workspace gexf returns GEXF XML with root element and nodes."""
+        self._populate_workspace(
+            tmp_ctx,
+            [{"type": "ipv4-addr", "value": "1.2.3.4"}],
+        )
+        summary, celebration, badges = execute_tool(
+            tmp_ctx, "export_workspace", {"format": "gexf"}
+        )
+        assert isinstance(summary, str)
+        assert celebration is None
+        assert badges == []
+        assert "<gexf" in summary
+        assert "<node" in summary
+
+    def test_export_workspace_gexf_contains_stix_type_in_node(self, tmp_ctx):
+        """export_workspace gexf XML node labels include the STIX type prefix."""
+        # The node label format is "<stix_type>: <value>" — assert the type appears
+        self._populate_workspace(
+            tmp_ctx,
+            [{"type": "ipv4-addr", "value": "1.2.3.4"}],
+        )
+        summary, _, _ = execute_tool(tmp_ctx, "export_workspace", {"format": "gexf"})
+        # label attribute should contain "ipv4-addr" and "1.2.3.4"
+        assert "ipv4-addr" in summary
+        assert "1.2.3.4" in summary
+
+    # ------------------------------------------------------------------
+    # export_workspace — stix
+    # ------------------------------------------------------------------
+
+    def test_export_workspace_stix_returns_bundle_json(self, tmp_ctx):
+        """export_workspace stix returns valid JSON of a STIX 2.1 bundle dict."""
+        import json
+
+        self._populate_workspace(
+            tmp_ctx,
+            [{"type": "ipv4-addr", "value": "1.2.3.4"}],
+        )
+        summary, celebration, badges = execute_tool(
+            tmp_ctx, "export_workspace", {"format": "stix"}
+        )
+        assert isinstance(summary, str)
+        assert celebration is None
+        assert badges == []
+        bundle = json.loads(summary)
+        assert bundle["type"] == "bundle"
+        assert "objects" in bundle
+        assert isinstance(bundle["objects"], list)
+        assert len(bundle["objects"]) >= 1
+
+    def test_export_workspace_stix_bundle_contains_node_value(self, tmp_ctx):
+        """export_workspace stix bundle objects list includes the stored indicator value."""
+        import json
+
+        self._populate_workspace(
+            tmp_ctx,
+            [{"type": "ipv4-addr", "value": "1.2.3.4"}],
+        )
+        summary, _, _ = execute_tool(tmp_ctx, "export_workspace", {"format": "stix"})
+        bundle = json.loads(summary)
+        # The bundle objects list must contain at least one object with value "1.2.3.4"
+        values = [o.get("value", "") for o in bundle["objects"]]
+        assert "1.2.3.4" in values
+
+    # ------------------------------------------------------------------
+    # Bad format
+    # ------------------------------------------------------------------
+
+    def test_export_workspace_bad_format_returns_error(self, tmp_ctx):
+        """export_workspace returns a descriptive error string for unsupported formats."""
+        # Bad-format check does not require populated workspace — format validation
+        # fires before workspace reads when workspace is empty, so populate first
+        # to ensure workspace-empty path doesn't shadow the format error.
+        self._populate_workspace(
+            tmp_ctx,
+            [{"type": "ipv4-addr", "value": "1.2.3.4"}],
+        )
+        summary, _, _ = execute_tool(tmp_ctx, "export_workspace", {"format": "csv"})
+        lower = summary.lower()
+        assert "unknown" in lower or "unsupported" in lower or "supported" in lower
+
+    # ------------------------------------------------------------------
+    # Tool registration
+    # ------------------------------------------------------------------
+
+    def test_render_graph_registered_in_create_tools(self, tmp_ctx):
+        """render_graph is present in the create_tools() list."""
+        tools = create_tools(tmp_ctx)
+        names = {t["function"]["name"] for t in tools}
+        assert "render_graph" in names
+
+    def test_export_workspace_registered_in_create_tools(self, tmp_ctx):
+        """export_workspace is present in the create_tools() list."""
+        tools = create_tools(tmp_ctx)
+        names = {t["function"]["name"] for t in tools}
+        assert "export_workspace" in names
+
+    def test_export_workspace_has_required_format_param(self, tmp_ctx):
+        """export_workspace tool schema declares 'format' as a required parameter."""
+        tools = create_tools(tmp_ctx)
+        tool = next(t for t in tools if t["function"]["name"] == "export_workspace")
+        params = tool["function"]["parameters"]
+        assert "format" in params["properties"]
+        assert "format" in params.get("required", [])
+
+    # ------------------------------------------------------------------
+    # Compound integration: run_module → render_graph shows new entities
+    # ------------------------------------------------------------------
+
+    def test_compound_run_module_then_render_graph(self, tmp_ctx):
+        """Compound: run_module stores objects → render_graph reflects them immediately.
+
+        # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+        # We mock at the asyncio/module boundary to avoid live API calls while
+        # exercising the full: execute_tool → run_module → store_stix_objects
+        # → execute_tool("render_graph") → RelationshipGraph → render_text path.
+
+        This is the real production sequence:
+          1. LLM calls execute_tool("check_ip_reputation") → run_module() → hunt() (mocked)
+          2. Results stored in workspace via store_stix_objects()
+          3. LLM calls execute_tool("render_graph") → _execute_render_graph()
+             → RelationshipGraph.build_from_workspace() → render_text()
+          4. The rendered text contains the indicator value from step 1
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_mod = MagicMock()
+        mock_mod.initialize = MagicMock()
+        # No 'id' — dict_to_stix auto-generates a valid STIX UUID
+        mock_mod.hunt = AsyncMock(
+            return_value=[
+                {"type": "ipv4-addr", "value": "192.0.2.1"},
+            ]
+        )
+
+        # Step 1+2: run module → objects stored in workspace
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            run_summary, _, _ = execute_tool(
+                tmp_ctx, "check_ip_reputation", {"ip_address": "192.0.2.1"}
+            )
+        assert "Found" in run_summary
+
+        # Step 3+4: render_graph reflects the stored indicator
+        graph_summary, _, _ = execute_tool(tmp_ctx, "render_graph", {})
+        assert "192.0.2.1" in graph_summary or "ipv4-addr" in graph_summary

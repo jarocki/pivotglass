@@ -307,6 +307,64 @@ def run_chat() -> None:
             console.print(table)
             continue
 
+        # Graph meta-command — mirrors APConsole.do_graph (DEC-AGENT-GRAPH-EXPORT-001).
+        # Handled locally (not sent to LLM) for immediate, deterministic output.
+        # Shares ToolContext.workspace_mgr so the graph reflects the live workspace.
+        #
+        # Supported form:
+        #   graph            → render workspace relationship graph as Rich Tree
+        if lower == "graph":
+            from adversary_pursuit.core.graph import RelationshipGraph
+
+            try:
+                raw_objects = runner.ctx.workspace_mgr.get_stix_objects()
+            except Exception as e:
+                console.print(f"[red]Error reading workspace: {e}[/red]")
+                continue
+            g = RelationshipGraph()
+            g.build_from_workspace(raw_objects)
+            if g.node_count == 0:
+                console.print("[dim]No objects in workspace. Run a module first.[/dim]")
+            else:
+                tree = g.render_tree()
+                console.print(tree)
+                stats = g.get_stats()
+                console.print(
+                    f"\n[dim]{stats['node_count']} nodes, {stats['edge_count']} edges[/dim]"
+                )
+            continue
+
+        # Export meta-command — mirrors APConsole.do_export (DEC-AGENT-GRAPH-EXPORT-001).
+        # Handled locally for deterministic output, no LLM involvement.
+        #
+        # Supported forms:
+        #   export gexf      → print GEXF 1.2 XML to terminal
+        #   export stix      → print STIX 2.1 bundle JSON to terminal
+        if lower == "export gexf" or lower == "export stix":
+            from adversary_pursuit.core.graph import RelationshipGraph
+
+            fmt = stripped.split()[-1].lower()  # "gexf" or "stix"
+            try:
+                raw_objects = runner.ctx.workspace_mgr.get_stix_objects()
+            except Exception as e:
+                console.print(f"[red]Error reading workspace: {e}[/red]")
+                continue
+            if not raw_objects:
+                console.print(
+                    "[dim]No objects in workspace to export. Run a module first.[/dim]"
+                )
+                continue
+            g = RelationshipGraph()
+            g.build_from_workspace(raw_objects)
+            if fmt == "gexf":
+                console.print(g.export_gexf())
+            else:
+                import json as _json
+
+                bundle = g.export_stix_bundle()
+                console.print(_json.dumps(bundle, indent=2))
+            continue
+
         # Normal chat — send to LLM
         try:
             with console.status("[bold green]Thinking...[/bold green]"):

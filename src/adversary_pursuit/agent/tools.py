@@ -12,6 +12,20 @@ execution, result formatting, and workspace storage.
            from the LLM, (2) initialize the module with config, (3) call hunt(),
            (4) format + store results. No business logic duplication.
 
+@decision DEC-AGENT-GRAPH-EXPORT-001
+@title render_graph and export_workspace as stateless per-call RelationshipGraph builds
+@status accepted
+@rationale RelationshipGraph is a lightweight in-memory object (DEC-GRAPH-001). Building
+           it fresh on each render_graph/export_workspace call avoids any staleness issue
+           (graph always reflects current workspace state), eliminates session-lifecycle
+           complexity, and mirrors exactly how console.py do_graph and do_export work:
+           both construct a new RelationshipGraph(), call build_from_workspace(raw_objects),
+           then render/export. Caching would require invalidation logic with no benefit
+           given graph builds are O(n) on a small CTI workspace. The two tools are
+           registered as LLM tools (OpenAI function-calling format, DEC-AGENT-TOOLS-002)
+           and also exposed as chat meta-commands in chat.py (mirroring the cmd2 pattern
+           of DEC-AGENT-HINTS-001 and DEC-AGENT-AUTOPIVOT-001).
+
 @decision DEC-AGENT-TOOLS-002
 @title OpenAI function-calling format for tool definitions
 @status accepted
@@ -129,6 +143,7 @@ from adversary_pursuit.core.event_bus import (
     EventBus,
     PivotConfig,
 )
+from adversary_pursuit.core.graph import RelationshipGraph
 from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.badges import BadgeManager
@@ -913,6 +928,55 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                 },
             },
         },
+        # -----------------------------------------------------------------------
+        # Graph/export tools — DEC-AGENT-GRAPH-EXPORT-001
+        # render_graph: builds RelationshipGraph from workspace, returns render_text().
+        # export_workspace: exports workspace as GEXF XML or STIX bundle JSON.
+        # Both mirror cmd2 do_graph / do_export semantics.
+        # -----------------------------------------------------------------------
+        {
+            "type": "function",
+            "function": {
+                "name": "render_graph",
+                "description": (
+                    "Render the current workspace as a plain-text relationship graph. "
+                    "Shows STIX objects as nodes and their relationships as edges in a "
+                    "tree layout. Useful for inspecting the structure of discovered "
+                    "indicators and understanding how they relate to each other. "
+                    "Returns an empty-graph message when no objects are in the workspace."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "export_workspace",
+                "description": (
+                    "Export the current workspace as GEXF XML (for Gephi visualization) "
+                    "or as a STIX 2.1 bundle JSON string. "
+                    "Use format='gexf' to get GEXF 1.2 XML importable into Gephi. "
+                    "Use format='stix' (default) to get a STIX 2.1 bundle dict as JSON."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "format": {
+                            "type": "string",
+                            "description": (
+                                "Export format: 'gexf' for GEXF 1.2 XML (Gephi), "
+                                "'stix' for STIX 2.1 bundle JSON. Default: 'stix'."
+                            ),
+                            "default": "stix",
+                        },
+                    },
+                    "required": ["format"],
+                },
+            },
+        },
     ]
 
 
@@ -1056,6 +1120,13 @@ def execute_tool(
 
     if tool_name == "check_challenges":
         return _execute_check_challenges(ctx), None, []
+
+    # Graph/export tools — DEC-AGENT-GRAPH-EXPORT-001
+    if tool_name == "render_graph":
+        return _execute_render_graph(ctx), None, []
+
+    if tool_name == "export_workspace":
+        return _execute_export_workspace(ctx, arguments.get("format", "stix")), None, []
 
     # Module dispatch
     if tool_name not in _MODULE_MAP:
@@ -1322,3 +1393,97 @@ def _execute_check_challenges(ctx: ToolContext) -> str:
     for ch in newly_announced:
         lines.append(f"  {ch.name} (+{ch.points} pts): {ch.description}")
     return "\n".join(lines)
+
+
+def _execute_render_graph(ctx: ToolContext) -> str:
+    """Render the current workspace as a plain-text relationship graph.
+
+    Builds a RelationshipGraph from all STIX objects in the active workspace
+    and returns the render_text() output — a multi-line tree string safe for
+    LLM consumption (no ANSI escape codes).
+
+    Mirrors cmd2 APConsole.do_graph: build RelationshipGraph, call
+    build_from_workspace(raw_objects), render_tree() via render_text().
+    See DEC-AGENT-GRAPH-EXPORT-001 for the per-call rebuild rationale.
+
+    Parameters
+    ----------
+    ctx:
+        The shared ToolContext providing the WorkspaceManager.
+
+    Returns
+    -------
+    str
+        Multi-line text tree of the workspace relationships, or an
+        informational message when the workspace is empty or unreadable.
+    """
+    try:
+        raw_objects = ctx.workspace_mgr.get_stix_objects()
+    except Exception as e:
+        logger.exception("render_graph: failed to read workspace")
+        return f"Error reading workspace: {e}"
+
+    g = RelationshipGraph()
+    g.build_from_workspace(raw_objects)
+
+    if g.node_count == 0:
+        return "No objects in workspace. Run a module first to populate the graph."
+
+    text = g.render_text()
+    stats = g.get_stats()
+    return (
+        text.rstrip() + f"\n\n{stats['node_count']} nodes, {stats['edge_count']} edges"
+    )
+
+
+def _execute_export_workspace(ctx: ToolContext, fmt: str) -> str:
+    """Export the workspace as GEXF XML or a STIX bundle JSON string.
+
+    Builds a RelationshipGraph from all STIX objects in the active workspace
+    and calls export_gexf() or export_stix_bundle() depending on *fmt*.
+
+    Mirrors cmd2 APConsole._export_gexf and do_export --format stix.
+    See DEC-AGENT-GRAPH-EXPORT-001 for the per-call rebuild rationale.
+
+    Parameters
+    ----------
+    ctx:
+        The shared ToolContext providing the WorkspaceManager.
+    fmt:
+        Export format: "gexf" returns GEXF 1.2 XML string; "stix" returns
+        a JSON-serialized STIX 2.1 bundle dict. Any other value returns an
+        error string.
+
+    Returns
+    -------
+    str
+        GEXF XML string, JSON-serialized STIX bundle, or an error message.
+    """
+    import json as _json
+
+    fmt = (fmt or "stix").strip().lower()
+    if fmt not in ("gexf", "stix"):
+        return (
+            f"Unknown export format '{fmt}'. "
+            "Supported formats: 'gexf' (GEXF 1.2 XML for Gephi), "
+            "'stix' (STIX 2.1 bundle JSON)."
+        )
+
+    try:
+        raw_objects = ctx.workspace_mgr.get_stix_objects()
+    except Exception as e:
+        logger.exception("export_workspace: failed to read workspace")
+        return f"Error reading workspace: {e}"
+
+    if not raw_objects:
+        return "No objects in workspace to export. Run a module first."
+
+    g = RelationshipGraph()
+    g.build_from_workspace(raw_objects)
+
+    if fmt == "gexf":
+        return g.export_gexf()
+
+    # fmt == "stix"
+    bundle = g.export_stix_bundle()
+    return _json.dumps(bundle, indent=2)
