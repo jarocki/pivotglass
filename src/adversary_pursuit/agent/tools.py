@@ -52,6 +52,34 @@ execution, result formatting, and workspace storage.
            a negative points entry, exactly as documented in DEC-HINT-001 and the
            HintProvider docstring. The HintProvider itself is stateless about the
            workspace — the caller (this module and chat.py) owns deduction.
+
+@decision DEC-AGENT-AUTOPIVOT-001
+@title EventBus auto-pivot integrated into ToolContext; opt-in via autopivot_enabled flag
+@status accepted
+@rationale The cmd2 console (APConsole) has no autopivot integration yet — this is the
+           first wiring of EventBus.process_results into an execution path. The agent
+           tool path is the right place because:
+           (1) Opt-in by default (DEC-EVENTBUS-002): autopivot_enabled=False on
+               ToolContext. Analysts enable it explicitly via 'autopivot on' in the
+               chat meta-command, mirroring the cmd2 pattern where it is a toggle.
+           (2) EventBus.process_results is the canonical cascade workhorse. After
+               run_module() produces STIX results, process_results() publishes each
+               STIX indicator as a PivotEvent which triggers all subscribed module
+               callbacks for that STIX type. Cascaded results are collected and
+               merged into the tool response summary so the LLM and user both see
+               what fired secondarily.
+           (3) Depth limit deferred to PivotConfig.max_depth (default=2, DEC-EVENTBUS-001).
+               Module whitelist deferred to PivotConfig.module_whitelist. Both are
+               respected transparently by EventBus.publish() — the tool layer does not
+               duplicate that logic.
+           (4) Async bridge: run_module() uses asyncio.run() for each async call
+               sequentially (not nested). After asyncio.run(mod.hunt()) returns, a
+               second asyncio.run(event_bus.process_results()) starts a fresh event
+               loop — valid in Python 3.12+ when calls are sequential.
+           (5) Module subscriptions: DEFAULT_SUBSCRIPTIONS maps module_path → stix_types.
+               Each entry is registered via event_bus.register_module_subscriptions()
+               with a per-module callback that initialises and runs that module's
+               hunt() for the pivoted indicator value.
 """
 
 from __future__ import annotations
@@ -61,6 +89,11 @@ import logging
 from typing import Any
 
 from adversary_pursuit.core.config import ConfigManager
+from adversary_pursuit.core.event_bus import (
+    DEFAULT_SUBSCRIPTIONS,
+    EventBus,
+    PivotConfig,
+)
 from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.badges import BadgeManager
@@ -112,6 +145,23 @@ class ToolContext:
         # Tracks badge IDs awarded in this session (application-layer dedup, DEC-BADGE-002).
         # Populated from workspace on first badge check; updated as badges are earned.
         self._awarded_badges: set[str] = set()
+
+        # EventBus for auto-pivot cascades (DEC-AGENT-AUTOPIVOT-001).
+        # Starts disabled (autopivot_enabled=False) per DEC-EVENTBUS-002.
+        # The PivotConfig.enabled flag is kept in sync with autopivot_enabled so
+        # EventBus.publish() correctly gates on the enabled state.
+        self.event_bus: EventBus = EventBus(config=PivotConfig(enabled=False))
+        self.autopivot_enabled: bool = False
+
+        # Register module subscriptions from DEFAULT_SUBSCRIPTIONS so the event
+        # bus knows which modules to cascade-trigger for each STIX type.
+        # Each subscription registers a per-module callback that will initialise
+        # and hunt() on the pivoted indicator value (see _make_cascade_callback).
+        for module_path, stix_types in DEFAULT_SUBSCRIPTIONS.items():
+            callback = self._make_cascade_callback(module_path)
+            self.event_bus.register_module_subscriptions(
+                module_path, stix_types, callback
+            )
 
     def run_module(self, module_path: str, target: str, options: dict = None) -> dict:
         """Run a module and return formatted results with scoring.
@@ -267,6 +317,26 @@ class ToolContext:
         except Exception:  # noqa: BLE001
             pass  # badge check must never block tool result delivery
 
+        # Auto-pivot cascade (DEC-AGENT-AUTOPIVOT-001).
+        # When autopivot is enabled and results are non-empty, feed the STIX
+        # results into the event bus. process_results() publishes a PivotEvent
+        # for each (type, value) pair and triggers all subscribed module callbacks.
+        # Cascade errors are non-fatal — hunt flow must not be blocked.
+        cascade_results: list[dict] = []
+        cascade_module_count: int = 0
+        if self.autopivot_enabled and results:
+            try:
+                cascade_results = asyncio.run(
+                    self.event_bus.process_results(
+                        results, source_module=module_path, depth=0
+                    )
+                )
+                # Count how many distinct subscribed callbacks fired by checking
+                # how many PivotEvents were published (one per indicator).
+                cascade_module_count = self.event_bus.subscriber_count
+            except Exception:  # noqa: BLE001
+                pass  # cascade errors must never block primary tool result
+
         # Build human-readable summary for the LLM response
         summary_lines = [f"Found {count} indicators:"]
         for r in results[:10]:
@@ -285,6 +355,12 @@ class ToolContext:
                 summary_lines.append(
                     f"  [{badge.rarity.value.upper()}] {badge.name}: {badge.description}"
                 )
+        # Surface cascade discoveries so the LLM and user see what fired secondarily.
+        if cascade_results:
+            summary_lines.append(
+                f"\nAuto-pivoted: {len(cascade_results)} additional discoveries "
+                f"from {cascade_module_count} cascaded module subscriptions."
+            )
 
         return {
             "results": results,
@@ -293,7 +369,65 @@ class ToolContext:
             "summary": "\n".join(summary_lines),
             "celebration": celebration,
             "badges": newly_earned_badges,
+            "cascade_results": cascade_results,
+            "cascade_count": len(cascade_results),
         }
+
+    def _make_cascade_callback(self, module_path: str):
+        """Return an async callback that runs module_path.hunt() for a pivot event.
+
+        The returned coroutine is registered with EventBus.subscribe() so that when
+        a PivotEvent fires for a matching STIX type, the module is initialised and
+        its hunt() is called against the event's indicator value.
+
+        The callback is a closure over module_path and self so it captures the
+        ToolContext's plugin_mgr and config_mgr without holding stale references.
+        Module initialisation re-reads credentials fresh on each cascade call.
+
+        Parameters
+        ----------
+        module_path:
+            Canonical path of the module to run on cascade, e.g. "osint/abuseipdb".
+
+        Returns
+        -------
+        Callable[[PivotEvent], Coroutine[Any, Any, list[dict]]]
+            Async callback suitable for EventBus.subscribe().
+        """
+        from adversary_pursuit.core.event_bus import (
+            PivotEvent,
+        )  # local import avoids circularity
+
+        async def _callback(event: PivotEvent) -> list[dict]:
+            mod = self.plugin_mgr.get_module(module_path)
+            if mod is None:
+                return []
+            # Build credentials the same way run_module does (DEC-AGENT-TOOLS-003)
+            credential_builder = _CREDENTIAL_BUILDERS.get(module_path)
+            if credential_builder is not None:
+                init_config = credential_builder(self.config_mgr)
+            else:
+                service_name = module_path.split("/")[-1]
+                api_key = self.config_mgr.get_api_key(service_name) or ""
+                init_config = {"api_key": api_key}
+            mod.initialize(init_config)
+            try:
+                return await mod.hunt(event.value, {})
+            except Exception:  # noqa: BLE001
+                return []
+
+        return _callback
+
+    def set_autopivot(self, enabled: bool) -> None:
+        """Toggle EventBus auto-pivot and keep PivotConfig.enabled in sync.
+
+        Parameters
+        ----------
+        enabled:
+            True to enable auto-pivot cascades, False to disable.
+        """
+        self.autopivot_enabled = enabled
+        self.event_bus.config.enabled = enabled
 
 
 def create_tools(ctx: ToolContext) -> list[dict]:

@@ -244,6 +244,34 @@ def run_chat() -> None:
                 )
             continue
 
+        # Autopivot meta-command — mirrors DEC-EVENTBUS-002 opt-in toggle.
+        # Handled locally (not sent to LLM) so state changes are immediate.
+        # Supported forms:
+        #   autopivot          → show current state
+        #   autopivot on       → enable EventBus cascade execution
+        #   autopivot off      → disable EventBus cascade execution
+        if lower == "autopivot" or lower.startswith("autopivot "):
+            sub = stripped[9:].strip().lower() if len(stripped) > 9 else ""
+            if sub == "on":
+                runner.ctx.set_autopivot(True)
+                console.print(
+                    "[green]Auto-pivot enabled.[/green] Cascading modules will fire on discoveries."
+                )
+            elif sub == "off":
+                runner.ctx.set_autopivot(False)
+                console.print(
+                    "[yellow]Auto-pivot disabled.[/yellow] Running modules manually only."
+                )
+            else:
+                # Status display
+                state = "on" if runner.ctx.autopivot_enabled else "off"
+                color = "green" if runner.ctx.autopivot_enabled else "yellow"
+                console.print(
+                    f"Auto-pivot is [{color}]{state}[/{color}]. "
+                    f"Use [bold]autopivot on[/bold] or [bold]autopivot off[/bold] to toggle."
+                )
+            continue
+
         # Normal chat — send to LLM
         try:
             with console.status("[bold green]Thinking...[/bold green]"):

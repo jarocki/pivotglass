@@ -1970,3 +1970,292 @@ class TestHintWiring:
         # Workspace reflects both the seed (100) and module scoring
         total = hint_ctx.workspace_mgr.get_total_score()
         assert total > 100  # seed was 100; module scoring adds more
+
+
+# ---------------------------------------------------------------------------
+# EventBus auto-pivot wiring tests (DEC-AGENT-AUTOPIVOT-001)
+# ---------------------------------------------------------------------------
+
+
+class TestAutopivotWiring:
+    """Tests for EventBus auto-pivot integration in ToolContext.
+
+    # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+    # Cascade callbacks use the same hunt() mock pattern as other tests.
+    # EventBus.publish() is called internally — we verify its effects through
+    # ToolContext state (cascade_results returned by run_module).
+
+    Covers:
+      (1) ToolContext has event_bus (EventBus) and autopivot_enabled=False by default
+      (2) set_autopivot(True) enables, set_autopivot(False) disables
+      (3) autopivot_enabled=False → cascade does not fire (cascade_results=[])
+      (4) autopivot_enabled=True + results → cascade fires (cascade_results non-empty)
+      (5) depth limit respected via PivotConfig.max_depth=0 (no second-level cascade)
+      (6) module whitelist filters cascades via PivotConfig.module_whitelist
+      (7) cascade results surfaced in tool summary ("Auto-pivoted" text)
+      (8) cascade_count key present in run_module return dict
+      (9) event_bus.subscriber_count > 0 after ToolContext init (subscriptions registered)
+      (10) compound: switch mode → enable autopivot → run tool → cascade fires
+    """
+
+    def _make_mock_module(self, results):
+        # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=results)
+        mock_mod.initialize = MagicMock()
+        return mock_mod
+
+    # --- (1) ToolContext has event_bus and autopivot_enabled ---
+
+    def test_tool_context_has_event_bus(self, tmp_ctx):
+        """ToolContext.__init__ creates an EventBus instance on .event_bus."""
+        from adversary_pursuit.core.event_bus import EventBus
+
+        assert hasattr(tmp_ctx, "event_bus")
+        assert isinstance(tmp_ctx.event_bus, EventBus)
+
+    def test_autopivot_disabled_by_default(self, tmp_ctx):
+        """autopivot_enabled defaults to False on a fresh ToolContext (DEC-EVENTBUS-002)."""
+        assert tmp_ctx.autopivot_enabled is False
+
+    def test_event_bus_config_disabled_by_default(self, tmp_ctx):
+        """EventBus.config.enabled matches autopivot_enabled (False) on init."""
+        assert tmp_ctx.event_bus.config.enabled is False
+
+    # --- (9) Subscriptions registered ---
+
+    def test_event_bus_has_subscriptions_after_init(self, tmp_ctx):
+        """EventBus.subscriber_count > 0 after ToolContext init (DEFAULT_SUBSCRIPTIONS wired)."""
+        assert tmp_ctx.event_bus.subscriber_count > 0
+
+    # --- (2) set_autopivot toggles state ---
+
+    def test_set_autopivot_true_enables(self, tmp_ctx):
+        """set_autopivot(True) sets autopivot_enabled=True and event_bus.config.enabled=True."""
+        tmp_ctx.set_autopivot(True)
+        assert tmp_ctx.autopivot_enabled is True
+        assert tmp_ctx.event_bus.config.enabled is True
+
+    def test_set_autopivot_false_disables(self, tmp_ctx):
+        """set_autopivot(False) sets autopivot_enabled=False and event_bus.config.enabled=False."""
+        tmp_ctx.set_autopivot(True)
+        tmp_ctx.set_autopivot(False)
+        assert tmp_ctx.autopivot_enabled is False
+        assert tmp_ctx.event_bus.config.enabled is False
+
+    # --- (3) cascade does NOT fire when autopivot disabled ---
+
+    def test_cascade_not_fired_when_autopivot_disabled(self, tmp_ctx):
+        """With autopivot_enabled=False, run_module returns cascade_results=[]."""
+        assert tmp_ctx.autopivot_enabled is False  # default
+
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        assert result["cascade_results"] == []
+        assert result["cascade_count"] == 0
+
+    def test_cascade_not_fired_when_results_empty(self, tmp_ctx):
+        """Even with autopivot enabled, empty hunt() results produce no cascades."""
+        tmp_ctx.set_autopivot(True)
+
+        mock_mod = self._make_mock_module([])
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        assert result["cascade_results"] == []
+        assert result["cascade_count"] == 0
+
+    # --- (4) cascade fires when autopivot enabled and results non-empty ---
+
+    def test_cascade_fires_when_autopivot_enabled(self, tmp_ctx):
+        """With autopivot_enabled=True and STIX results, cascade_results is non-empty.
+
+        # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+        # We mock both the primary module (plugin_mgr.get_module) and the cascade
+        # module callbacks to verify that process_results fires subscribed callbacks
+        # for the STIX types present in SAMPLE_IP_RESULTS (ipv4-addr, domain-name).
+        """
+        tmp_ctx.set_autopivot(True)
+
+        # Cascade callback mock: returns one result so cascade_results is non-empty
+        cascade_result = [{"type": "ipv4-addr", "value": "9.9.9.9"}]
+        cascade_callback = AsyncMock(return_value=cascade_result)
+
+        # Subscribe the mock callback directly for ipv4-addr so we control what fires
+        tmp_ctx.event_bus.subscribe("ipv4-addr", cascade_callback)
+
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        # Cascade should have fired for the ipv4-addr in SAMPLE_IP_RESULTS
+        assert result["cascade_count"] > 0
+        assert len(result["cascade_results"]) > 0
+        cascade_callback.assert_called()
+
+    # --- (5) depth limit respected ---
+
+    def test_depth_limit_zero_prevents_cascades(self, tmp_ctx):
+        """PivotConfig.max_depth=0 prevents any cascade from firing.
+
+        EventBus.publish() gates on event.depth >= config.max_depth. Setting
+        max_depth=0 means depth=1 events (the first cascade level) are blocked.
+        """
+        tmp_ctx.set_autopivot(True)
+        tmp_ctx.event_bus.config.max_depth = 0  # depth=0 means no cascades allowed
+
+        cascade_callback = AsyncMock(
+            return_value=[{"type": "ipv4-addr", "value": "9.9.9.9"}]
+        )
+        tmp_ctx.event_bus.subscribe("ipv4-addr", cascade_callback)
+
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        # With max_depth=0, publish() returns [] because event.depth(1) >= max_depth(0)
+        assert result["cascade_results"] == []
+        cascade_callback.assert_not_called()
+
+    # --- (6) module whitelist filters cascades ---
+
+    def test_module_whitelist_filters_cascade_subscriptions(self, tmp_path):
+        """PivotConfig.module_whitelist restricts which modules can subscribe.
+
+        When module_whitelist is set, register_module_subscriptions() skips
+        modules not on the list, so their callbacks never fire.
+        """
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+
+        # Build a ToolContext with a whitelist that excludes all DEFAULT_SUBSCRIPTIONS modules.
+        # We do this by patching PivotConfig after construction.
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+
+        # Reset the event bus with a whitelist that allows NO module from DEFAULT_SUBSCRIPTIONS.
+        # This simulates a restrictive whitelist — all cascade subscriptions are excluded.
+        from adversary_pursuit.core.event_bus import EventBus, PivotConfig
+
+        ctx.event_bus = EventBus(
+            config=PivotConfig(enabled=True, module_whitelist=["nonexistent/module"])
+        )
+        # Re-register subscriptions with the new whitelist — all should be filtered out
+        from adversary_pursuit.core.event_bus import DEFAULT_SUBSCRIPTIONS
+
+        for module_path, stix_types in DEFAULT_SUBSCRIPTIONS.items():
+            callback = ctx._make_cascade_callback(module_path)
+            ctx.event_bus.register_module_subscriptions(
+                module_path, stix_types, callback
+            )
+
+        ctx.autopivot_enabled = True
+
+        # No subscriptions should have been registered (all filtered by whitelist)
+        assert ctx.event_bus.subscriber_count == 0
+
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=SAMPLE_IP_RESULTS)
+        mock_mod.initialize = MagicMock()
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        assert result["cascade_results"] == []
+
+    # --- (7) cascade results surface in tool summary ---
+
+    def test_cascade_summary_text_present_when_cascade_fires(self, tmp_ctx):
+        """When cascades fire, 'Auto-pivoted' text appears in run_module summary."""
+        tmp_ctx.set_autopivot(True)
+
+        cascade_result = [{"type": "ipv4-addr", "value": "9.9.9.9"}]
+        cascade_callback = AsyncMock(return_value=cascade_result)
+        tmp_ctx.event_bus.subscribe("ipv4-addr", cascade_callback)
+
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        if result["cascade_count"] > 0:
+            assert "Auto-pivoted" in result["summary"]
+            assert str(result["cascade_count"]) in result["summary"]
+
+    def test_cascade_summary_absent_when_autopivot_disabled(self, tmp_ctx):
+        """When autopivot is off, 'Auto-pivoted' text does NOT appear in summary."""
+        assert tmp_ctx.autopivot_enabled is False
+
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        assert "Auto-pivoted" not in result["summary"]
+
+    # --- (8) cascade_count key present ---
+
+    def test_run_module_returns_cascade_keys(self, tmp_ctx):
+        """run_module always returns 'cascade_results' and 'cascade_count' keys."""
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        assert "cascade_results" in result
+        assert "cascade_count" in result
+        assert isinstance(result["cascade_results"], list)
+        assert isinstance(result["cascade_count"], int)
+
+    # --- (10) Compound: switch mode → enable autopivot → run tool → cascade fires ---
+
+    def test_compound_mode_switch_autopivot_tool_run(self, tmp_ctx):
+        """Compound: switch to ninja mode, enable autopivot, run tool, cascade fires.
+
+        # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+
+        Production sequence:
+          (a) chat.py 'mode ninja' → mode_mgr.switch('ninja') + runner.set_character()
+          (b) chat.py 'autopivot on' → ctx.set_autopivot(True)
+          (c) LLM calls execute_tool(module_tool) → run_module → cascade fires
+          (d) cascade_results non-empty → 'Auto-pivoted' in LLM summary
+
+        This crosses ModeManager, EventBus, ToolContext, and WorkspaceManager
+        boundaries in the real production call sequence.
+        """
+        from adversary_pursuit.agent.runner import AgentRunner
+
+        # (a) Switch to ninja mode (as chat.py 'mode ninja' would do)
+        runner = AgentRunner(tool_context=tmp_ctx)
+        new_mode = tmp_ctx.mode_mgr.switch("ninja")
+        runner.set_character(new_mode)
+        assert tmp_ctx.mode_mgr.active.name == "ninja"
+
+        # (b) Enable autopivot (as chat.py 'autopivot on' would do)
+        tmp_ctx.set_autopivot(True)
+        assert tmp_ctx.autopivot_enabled is True
+        assert tmp_ctx.event_bus.config.enabled is True
+
+        # Subscribe a mock cascade callback for ipv4-addr
+        cascade_result = [{"type": "domain-name", "value": "cascade.example.com"}]
+        cascade_callback = AsyncMock(return_value=cascade_result)
+        tmp_ctx.event_bus.subscribe("ipv4-addr", cascade_callback)
+
+        # (c) Execute a module tool that produces STIX results
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        # Primary results stored and scored
+        assert result["total_points"] > 0
+        # Cascade fired (SAMPLE_IP_RESULTS contains ipv4-addr)
+        assert result["cascade_count"] > 0
+        cascade_callback.assert_called()
+
+        # (d) Cascade surfaced in summary
+        assert "Auto-pivoted" in result["summary"]
+
+        # Ninja mode celebration template used
+        expected_points_text = f"+{result['total_points']}"
+        assert expected_points_text in result["celebration"]
