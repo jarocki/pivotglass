@@ -13,6 +13,7 @@ Launched via `ap chat` or `python -m adversary_pursuit chat`.
            (APConsole) handles the structured `use/set/run` workflow; chat.py
            handles the conversational interface.
 """
+
 from __future__ import annotations
 
 from rich.console import Console
@@ -41,6 +42,7 @@ def run_chat() -> None:
 
     try:
         from adversary_pursuit.agent.runner import AgentRunner
+
         runner = AgentRunner()
         console.print("[dim]Agent ready. Ask me about any indicator.[/dim]\n")
     except ImportError as e:
@@ -84,6 +86,21 @@ def run_chat() -> None:
                 response = runner.chat(stripped)
             console.print(Markdown(response))
             console.print()
+            # Render celebration panels after the LLM response — one per tool
+            # call that awarded points. The celebration is for the user, not
+            # the LLM, so it is displayed here (outside the tool result loop)
+            # mirroring cmd2's _execute_hunt() pattern where Rich panels appear
+            # after results are displayed and stored. Silent when no points
+            # were awarded (runner.last_celebrations will be empty).
+            for celebration_art in getattr(runner, "last_celebrations", []):
+                console.print(
+                    Panel(
+                        celebration_art,
+                        title="[bold yellow]Achievement Unlocked[/bold yellow]",
+                        style="yellow",
+                        width=60,
+                    )
+                )
         except ImportError as e:
             console.print(f"[red]Missing dependency: {e}[/red]")
             console.print(

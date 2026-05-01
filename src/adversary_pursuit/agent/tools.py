@@ -43,6 +43,7 @@ from typing import Any
 from adversary_pursuit.core.config import ConfigManager
 from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.gamification.celebrations import CelebrationEngine
 from adversary_pursuit.gamification.scoring import ScoringEngine
 
 logger = logging.getLogger(__name__)
@@ -71,12 +72,31 @@ class ToolContext:
         self.plugin_mgr = PluginManager()
         self.plugin_mgr.load_plugins()
         self.scoring = ScoringEngine()
+        self.celebration = CelebrationEngine()
 
     def run_module(self, module_path: str, target: str, options: dict = None) -> dict:
         """Run a module and return formatted results with scoring.
 
         Dispatches to the named PursuitModule, runs hunt(), stores results in
-        the workspace, applies scoring, and returns a summary dict.
+        the workspace, applies scoring, computes the celebration artifact, and
+        returns a summary dict.
+
+        @decision DEC-AGENT-CELEBRATIONS-001
+        @title CelebrationEngine wired into run_module return value
+        @status accepted
+        @rationale The cmd2 console renders celebrations in _execute_hunt() after
+                   scoring. The agent path must surface the same visual feedback to
+                   users. Rather than rendering inside run_module (which has no
+                   console reference), the celebration string is computed here and
+                   returned under the "celebration" key so the caller (execute_tool,
+                   chat.py REPL) can render it at the appropriate display boundary.
+                   Keeping computation in run_module means tests can assert the
+                   artifact without mocking the Rich console.
+                   Silent path: celebration is None when total_points == 0 (no
+                   scoring events), matching the cmd2 path which only shows
+                   celebration when scoring_events is non-empty.
+                   Milestone messages are computed against the post-storage total
+                   score and appended to the celebration string when they fire.
 
         Parameters
         ----------
@@ -94,6 +114,8 @@ class ToolContext:
             score_events (list[dict]): scoring events generated
             total_points (int): total points awarded
             summary (str): human-readable summary for the LLM
+            celebration (str | None): ASCII art celebration string, or None
+                when no points were awarded (silent path).
 
         Returns {"error": str} if the module is not found.
         """
@@ -127,6 +149,20 @@ class ToolContext:
         if events:
             self.workspace_mgr.store_score_events(events)
 
+        # Compute celebration artifact (DEC-AGENT-CELEBRATIONS-001).
+        # Silent path: no celebration when no points awarded.
+        celebration: str | None = None
+        if total > 0:
+            celebration = self.celebration.celebrate(total)
+            # Check milestone against post-storage total score
+            try:
+                post_total = self.workspace_mgr.get_total_score()
+                milestone = self.celebration.milestone_message(post_total)
+                if milestone:
+                    celebration = celebration + "\n\n" + milestone
+            except Exception:  # noqa: BLE001
+                pass  # milestone check must never block tool result delivery
+
         # Build human-readable summary for the LLM response
         summary_lines = [f"Found {count} indicators:"]
         for r in results[:10]:
@@ -145,6 +181,7 @@ class ToolContext:
             "score_events": events,
             "total_points": total,
             "summary": "\n".join(summary_lines),
+            "celebration": celebration,
         }
 
 
@@ -532,12 +569,18 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
 }
 
 
-def execute_tool(ctx: ToolContext, tool_name: str, arguments: dict) -> str:
-    """Execute a tool call and return the result as a string.
+def execute_tool(
+    ctx: ToolContext, tool_name: str, arguments: dict
+) -> tuple[str, str | None]:
+    """Execute a tool call and return (summary, celebration).
 
     This is the dispatcher that maps LLM tool call names to module invocations.
-    All results are formatted as strings suitable for inclusion in the LLM
-    conversation as a "tool" role message.
+    The summary string is suitable for inclusion in the LLM conversation as a
+    "tool" role message. The celebration string is ASCII art for the user
+    terminal (None when no points were awarded — silent path).
+
+    Workspace meta-tools (get_workspace_summary, search_workspace) always
+    return celebration=None because they do not trigger scoring events.
 
     Parameters
     ----------
@@ -550,31 +593,33 @@ def execute_tool(ctx: ToolContext, tool_name: str, arguments: dict) -> str:
 
     Returns
     -------
-    str
-        Human-readable result string. Returns an error string (not raises)
-        when the tool fails — errors are reported to the LLM as tool results.
+    tuple[str, str | None]
+        (summary, celebration) where summary is the LLM-facing result string
+        and celebration is the ASCII art to display to the user, or None.
+        Returns (error_string, None) when the tool fails — errors are reported
+        to the LLM as tool results.
     """
-    # Workspace meta-tools
+    # Workspace meta-tools — no scoring, no celebration
     if tool_name == "get_workspace_summary":
-        return _workspace_summary(ctx)
+        return _workspace_summary(ctx), None
 
     if tool_name == "search_workspace":
-        return _search_workspace(ctx, arguments.get("type_filter"))
+        return _search_workspace(ctx, arguments.get("type_filter")), None
 
     # Module dispatch
     if tool_name not in _MODULE_MAP:
-        return f"Unknown tool: {tool_name}"
+        return f"Unknown tool: {tool_name}", None
 
     module_path, arg_mapper = _MODULE_MAP[tool_name]
     try:
         target, options = arg_mapper(arguments)
         result = ctx.run_module(module_path, target, options)
         if "error" in result:
-            return f"Error: {result['error']}"
-        return result["summary"]
+            return f"Error: {result['error']}", None
+        return result["summary"], result.get("celebration")
     except Exception as e:
         logger.exception("Tool execution failed: %s", tool_name)
-        return f"Error running {tool_name}: {e}"
+        return f"Error running {tool_name}: {e}", None
 
 
 def _workspace_summary(ctx: ToolContext) -> str:

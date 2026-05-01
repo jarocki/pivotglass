@@ -23,22 +23,23 @@ Supports multiple LLM backends via litellm.
            when the user actually tries to chat. This pattern matches how
            optional features are handled throughout the codebase.
 """
+
 from __future__ import annotations
 
 import json
 import logging
-from typing import Generator
 
 logger = logging.getLogger(__name__)
 
 # Try litellm first — optional dependency
 try:
     import litellm
+
     HAS_LITELLM = True
 except ImportError:
     HAS_LITELLM = False
 
-from adversary_pursuit.agent.tools import ToolContext, create_tools, execute_tool
+from adversary_pursuit.agent.tools import ToolContext, create_tools, execute_tool  # noqa: E402
 
 
 class AgentRunner:
@@ -124,6 +125,11 @@ class AgentRunner:
 
         self.conversation.append({"role": "user", "content": user_message})
 
+        # Accumulate celebration strings from all tool calls this turn.
+        # chat.py reads self.last_celebrations after chat() returns to render
+        # Rich panels for the user — separate from the LLM conversation content.
+        self.last_celebrations: list[str] = []
+
         max_rounds = 5
         for _ in range(max_rounds):
             response = self._call_llm()
@@ -133,30 +139,38 @@ class AgentRunner:
             if not tool_calls:
                 # No tool calls — this is the final text response
                 assistant_msg = self._extract_text(response)
-                self.conversation.append({"role": "assistant", "content": assistant_msg})
+                self.conversation.append(
+                    {"role": "assistant", "content": assistant_msg}
+                )
                 return assistant_msg
 
             # Execute all tool calls in this round
-            self.conversation.append({
-                "role": "assistant",
-                "content": None,
-                "tool_calls": tool_calls,
-            })
+            self.conversation.append(
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": tool_calls,
+                }
+            )
             for tc in tool_calls:
                 try:
                     args = json.loads(tc["function"]["arguments"])
                 except (json.JSONDecodeError, KeyError):
                     args = {}
-                result = execute_tool(
+                summary, celebration = execute_tool(
                     self.ctx,
                     tc["function"]["name"],
                     args,
                 )
-                self.conversation.append({
-                    "role": "tool",
-                    "tool_call_id": tc["id"],
-                    "content": result,
-                })
+                if celebration:
+                    self.last_celebrations.append(celebration)
+                self.conversation.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "content": summary,
+                    }
+                )
 
         # Fallback if we hit max_rounds without a final text response
         return (
