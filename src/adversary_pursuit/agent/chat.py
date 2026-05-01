@@ -12,6 +12,19 @@ Launched via `ap chat` or `python -m adversary_pursuit chat`.
            meaningful benefit at this stage. The existing cmd2 console
            (APConsole) handles the structured `use/set/run` workflow; chat.py
            handles the conversational interface.
+
+@decision DEC-AGENT-CHAT-002
+@title mode meta-command mirrors APConsole.do_mode — parsed before LLM dispatch
+@status accepted
+@rationale Character mode switching must be handled locally (not sent to the
+           LLM) so the mode state change is immediate and deterministic. The
+           command surface matches cmd2 APConsole.do_mode: 'mode' alone lists
+           available modes with the active one marked; 'mode list' is an alias;
+           'mode <name>' switches via ModeManager.switch(name) and then calls
+           runner.set_character(active_mode) to update the LLM system prompt.
+           Unknown names show an error without changing state. The prompt prefix
+           reflects the active mode's prompt_prefix so the user sees the persona
+           in every input line. Mirrors DEC-CONSOLE-004 for the agent path.
 """
 
 from __future__ import annotations
@@ -19,6 +32,7 @@ from __future__ import annotations
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
+from rich.table import Table
 
 
 def run_chat() -> None:
@@ -28,15 +42,18 @@ def run_chat() -> None:
     Prints a welcome banner, then loops reading user input until the user
     types 'quit', 'exit', or sends EOF (Ctrl+D).
 
-    The user can switch workspaces by typing 'workspace <name>' as a
-    meta-command (handled locally, not sent to the LLM).
+    Meta-commands (handled locally, not sent to the LLM):
+      workspace <name>         -- switch active workspace
+      mode                     -- list available character modes
+      mode list                -- list available character modes
+      mode <name>              -- switch to named character mode
     """
     console = Console()
 
     console.print(
         Panel.fit(
             "[bold green]Adversary Pursuit[/bold green] v2 — Conversational CTI",
-            subtitle="Type 'quit' to exit, 'workspace <name>' to switch workspace",
+            subtitle="Type 'quit' to exit | 'workspace <name>' | 'mode <name>'",
         )
     )
 
@@ -52,9 +69,14 @@ def run_chat() -> None:
         )
         return
 
+    def _mode_prompt() -> str:
+        """Return a prompt string reflecting the active mode's prefix."""
+        prefix = runner.ctx.mode_mgr.active.prompt_prefix
+        return f"{prefix}[bold cyan]ap>[/bold cyan] "
+
     while True:
         try:
-            user_input = console.input("[bold cyan]ap>[/bold cyan] ")
+            user_input = console.input(_mode_prompt())
         except (EOFError, KeyboardInterrupt):
             console.print("\nBye!")
             break
@@ -78,6 +100,44 @@ def run_chat() -> None:
                     )
                 except ValueError as e:
                     console.print(f"[yellow]{e}[/yellow]")
+            continue
+
+        # Mode meta-command — mirrors APConsole.do_mode (DEC-AGENT-CHAT-002)
+        lower = stripped.lower()
+        if lower == "mode" or lower == "mode list":
+            # List all available modes, mark the active one
+            mode_mgr = runner.ctx.mode_mgr
+            current = mode_mgr.active
+            table = Table(title="Character Modes", show_header=True)
+            table.add_column("", style="bold green", width=2)
+            table.add_column("Mode", style="cyan")
+            table.add_column("Personality")
+            for entry in mode_mgr.list_modes():
+                marker = "*" if entry["name"] == current.name else ""
+                table.add_row(marker, entry["name"], entry["personality"])
+            console.print(table)
+            console.print(f"\n[dim]Active: [bold]{current.name}[/bold][/dim]")
+            continue
+
+        if lower.startswith("mode "):
+            mode_name = stripped[5:].strip()
+            if mode_name:
+                mode_mgr = runner.ctx.mode_mgr
+                try:
+                    new_mode = mode_mgr.switch(mode_name)
+                except ValueError as e:
+                    console.print(f"[yellow]Error: {e}[/yellow]")
+                    continue
+                # Update the LLM system prompt with the new persona
+                runner.set_character(new_mode)
+                console.print(
+                    Panel(
+                        f"[bold]{new_mode.name}[/bold]\n{new_mode.greeting}\n\n"
+                        f"[dim]{new_mode.personality}[/dim]",
+                        title=f"[bold green]Mode switched: {new_mode.name}[/bold green]",
+                        style="green",
+                    )
+                )
             continue
 
         # Normal chat — send to LLM

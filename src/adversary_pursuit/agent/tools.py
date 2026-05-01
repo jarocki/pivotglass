@@ -45,6 +45,7 @@ from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.badges import BadgeManager
 from adversary_pursuit.gamification.celebrations import CelebrationEngine
+from adversary_pursuit.gamification.modes import ModeManager
 from adversary_pursuit.gamification.scoring import ScoringEngine
 
 logger = logging.getLogger(__name__)
@@ -75,6 +76,7 @@ class ToolContext:
         self.scoring = ScoringEngine()
         self.celebration = CelebrationEngine()
         self.badge_mgr = BadgeManager()
+        self.mode_mgr = ModeManager()
         # Tracks badge IDs awarded in this session (application-layer dedup, DEC-BADGE-002).
         # Populated from workspace on first badge check; updated as badges are earned.
         self._awarded_badges: set[str] = set()
@@ -119,6 +121,24 @@ class ToolContext:
                    behaviour which only renders panels when newly_earned is non-empty.
                    _awarded_badges set is seeded lazily from the workspace on first call
                    so sessions that resume mid-investigation do not re-award old badges.
+
+        @decision DEC-AGENT-MODES-001
+        @title ModeManager wired into ToolContext; mode affects celebration text and LLM persona
+        @status accepted
+        @rationale Three integration points for character modes in the agent path:
+                   (1) ToolContext holds a ModeManager instance (parallel to BadgeManager,
+                   CelebrationEngine) so mode state is scoped to the agent session, not
+                   imported as a global — matches cmd2 APConsole.mode_mgr pattern.
+                   (2) run_module celebration: CelebrationEngine produces the ASCII art;
+                   mode_mgr.active.score_celebration.format(points=total) appends the
+                   mode-specific points line, mirroring console.py _execute_hunt() which
+                   uses the same template call. The field is named 'personality' on
+                   CharacterMode (not 'persona_prompt' as the plan draft said).
+                   (3) LLM persona: AgentRunner.set_character(mode) prepends mode.personality
+                   to the default system prompt. chat.py 'mode <name>' meta-command calls
+                   ModeManager.switch(name) then runner.set_character(active_mode) so the
+                   LLM voice changes immediately without resetting conversation history beyond
+                   the system message slot (conversation[0]).
 
         Parameters
         ----------
@@ -173,11 +193,18 @@ class ToolContext:
         if events:
             self.workspace_mgr.store_score_events(events)
 
-        # Compute celebration artifact (DEC-AGENT-CELEBRATIONS-001).
+        # Compute celebration artifact (DEC-AGENT-CELEBRATIONS-001, DEC-AGENT-MODES-001).
+        # The ASCII art comes from CelebrationEngine. The points line uses the active
+        # mode's score_celebration template (str.format(points=N)) so the character
+        # voice matches the chosen persona — mirrors console.py _execute_hunt().
         # Silent path: no celebration when no points awarded.
         celebration: str | None = None
         if total > 0:
-            celebration = self.celebration.celebrate(total)
+            art = self.celebration.celebrate(total)
+            mode_points_line = self.mode_mgr.active.score_celebration.format(
+                points=total
+            )
+            celebration = art + "\n" + mode_points_line
             # Check milestone against post-storage total score
             try:
                 post_total = self.workspace_mgr.get_total_score()

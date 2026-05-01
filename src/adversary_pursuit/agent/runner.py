@@ -40,6 +40,7 @@ except ImportError:
     HAS_LITELLM = False
 
 from adversary_pursuit.agent.tools import ToolContext, create_tools, execute_tool  # noqa: E402
+from adversary_pursuit.gamification.modes import CharacterMode  # noqa: E402
 
 
 class AgentRunner:
@@ -225,19 +226,22 @@ class AgentRunner:
         """Reset conversation history to just the system prompt."""
         self.conversation = [{"role": "system", "content": self.system_prompt}]
 
-    def set_character(self, mode_name: str, persona_prompt: str) -> None:
-        """Update the system prompt with a character persona.
+    def set_character(self, mode: CharacterMode) -> None:
+        """Update the LLM system prompt to reflect the given character mode.
 
-        Prepends the persona prompt to the default system prompt.
-        Resets the conversation to use the new system prompt.
+        Prepends the mode's personality field to the default system prompt so
+        the LLM adopts the corresponding voice. Only the system message slot
+        (conversation[0]) is modified — conversation history is preserved.
 
         Parameters
         ----------
-        mode_name:
-            Character mode name (e.g. "ninja", "drunken_master"). Used for logging.
-        persona_prompt:
-            The persona-specific system prompt text.
+        mode:
+            The CharacterMode to activate. mode.personality is prepended to
+            the default system prompt. mode.name is used for debug logging.
         """
-        logger.debug("Setting character mode: %s", mode_name)
-        self.system_prompt = persona_prompt + "\n\n" + self._default_system_prompt()
+        logger.debug("Setting character mode: %s", mode.name)
+        self.system_prompt = (
+            f"Character mode: {mode.name}\n{mode.personality}\n\n"
+            + self._default_system_prompt()
+        )
         self.conversation[0] = {"role": "system", "content": self.system_prompt}

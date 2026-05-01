@@ -1419,3 +1419,246 @@ class TestAgentRunnerImport:
         r = AgentRunner(tool_context=tmp_ctx)
         with pytest.raises(ImportError, match="litellm"):
             r.chat("test message")
+
+
+# ---------------------------------------------------------------------------
+# ModeManager wiring tests (DEC-AGENT-MODES-001)
+# ---------------------------------------------------------------------------
+
+
+class TestModeWiring:
+    """Tests for ModeManager integration in ToolContext, AgentRunner, and chat meta-command.
+
+    # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+    # The mode wiring tests focus on ModeManager state, system-prompt injection,
+    # and celebration template substitution. hunt() is mocked at the asyncio
+    # boundary to avoid live API calls — same exemption as TestCelebrationWiring
+    # and TestBadgeWiring above.
+
+    Covers:
+      (1) ToolContext has a ModeManager defaulting to 'default' mode
+      (2) mode_mgr.switch(name) changes the active mode
+      (3) runner.set_character(mode) updates the LLM system prompt
+      (4) personality appears in runner system prompt after set_character
+      (5) run_module celebration uses active mode's score_celebration template
+      (6) unknown mode name raises ValueError / leaves state unchanged
+      (7) list_modes returns all mode names including the active one
+      (8) default mode is 'default' on fresh ToolContext
+      (9) compound: switch mode -> run tool -> celebration uses new mode template
+    """
+
+    def _make_mock_module(self, results):
+        # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=results)
+        mock_mod.initialize = MagicMock()
+        return mock_mod
+
+    # --- (1) ToolContext has ModeManager ---
+
+    def test_tool_context_has_mode_manager(self, tmp_ctx):
+        """ToolContext.__init__ creates a ModeManager instance."""
+        from adversary_pursuit.gamification.modes import ModeManager
+
+        assert hasattr(tmp_ctx, "mode_mgr")
+        assert isinstance(tmp_ctx.mode_mgr, ModeManager)
+
+    # --- (8) Default mode ---
+
+    def test_tool_context_default_mode_is_default(self, tmp_ctx):
+        """ToolContext.mode_mgr starts in 'default' mode."""
+        assert tmp_ctx.mode_mgr.active.name == "default"
+
+    # --- (2) Mode switching ---
+
+    def test_mode_switch_changes_active_mode(self, tmp_ctx):
+        """ModeManager.switch('ninja') changes active mode to ninja."""
+        tmp_ctx.mode_mgr.switch("ninja")
+        assert tmp_ctx.mode_mgr.active.name == "ninja"
+
+    def test_mode_switch_returns_character_mode(self, tmp_ctx):
+        """ModeManager.switch() returns the newly-activated CharacterMode."""
+        from adversary_pursuit.gamification.modes import CharacterMode
+
+        result = tmp_ctx.mode_mgr.switch("sun_tzu")
+        assert isinstance(result, CharacterMode)
+        assert result.name == "sun_tzu"
+
+    # --- (6) Unknown mode name ---
+
+    def test_unknown_mode_raises_value_error(self, tmp_ctx):
+        """ModeManager.switch() raises ValueError for unknown mode names."""
+        with pytest.raises(ValueError, match="Unknown mode"):
+            tmp_ctx.mode_mgr.switch("nonexistent_mode")
+
+    def test_unknown_mode_leaves_state_unchanged(self, tmp_ctx):
+        """ModeManager.switch() with unknown name does not change the active mode."""
+        original = tmp_ctx.mode_mgr.active.name
+        try:
+            tmp_ctx.mode_mgr.switch("does_not_exist")
+        except ValueError:
+            pass
+        assert tmp_ctx.mode_mgr.active.name == original
+
+    # --- (7) list_modes ---
+
+    def test_list_modes_returns_all_mode_names(self, tmp_ctx):
+        """ModeManager.list_modes() returns entries for all built-in modes."""
+        modes = tmp_ctx.mode_mgr.list_modes()
+        names = {m["name"] for m in modes}
+        expected = {
+            "default",
+            "ninja",
+            "full_troll",
+            "drunken_master",
+            "sun_tzu",
+            "chuck_norris",
+            "bureaucrat",
+            "bobby_hill",
+            "bruce_lee",
+            "columbo",
+        }
+        assert expected == names
+
+    def test_list_modes_entries_have_personality(self, tmp_ctx):
+        """Each list_modes() entry has 'name' and 'personality' keys."""
+        for entry in tmp_ctx.mode_mgr.list_modes():
+            assert "name" in entry
+            assert "personality" in entry
+            assert isinstance(entry["personality"], str)
+
+    # --- (3) & (4) runner.set_character updates system prompt ---
+
+    def test_set_character_updates_system_prompt(self, tmp_ctx):
+        """AgentRunner.set_character(mode) updates self.system_prompt."""
+        from adversary_pursuit.agent.runner import AgentRunner
+
+        r = AgentRunner(tool_context=tmp_ctx)
+        original_prompt = r.system_prompt
+
+        ninja_mode = tmp_ctx.mode_mgr.switch("ninja")
+        r.set_character(ninja_mode)
+
+        assert r.system_prompt != original_prompt
+
+    def test_set_character_injects_personality_into_system_prompt(self, tmp_ctx):
+        """AgentRunner.set_character(mode) includes mode.personality in system prompt."""
+        from adversary_pursuit.agent.runner import AgentRunner
+
+        r = AgentRunner(tool_context=tmp_ctx)
+        sun_tzu_mode = tmp_ctx.mode_mgr.switch("sun_tzu")
+        r.set_character(sun_tzu_mode)
+
+        assert sun_tzu_mode.personality in r.system_prompt
+
+    def test_set_character_updates_conversation_system_slot(self, tmp_ctx):
+        """AgentRunner.set_character() updates conversation[0] system message."""
+        from adversary_pursuit.agent.runner import AgentRunner
+
+        r = AgentRunner(tool_context=tmp_ctx)
+        drunken_mode = tmp_ctx.mode_mgr.switch("drunken_master")
+        r.set_character(drunken_mode)
+
+        assert r.conversation[0]["role"] == "system"
+        assert drunken_mode.personality in r.conversation[0]["content"]
+
+    def test_set_character_preserves_conversation_history_length(self, tmp_ctx):
+        """set_character() only modifies conversation[0], does not append or truncate."""
+        from adversary_pursuit.agent.runner import AgentRunner
+
+        r = AgentRunner(tool_context=tmp_ctx)
+        # Manually add a user message to simulate mid-conversation mode switch
+        r.conversation.append({"role": "user", "content": "hello"})
+        assert len(r.conversation) == 2
+
+        ninja_mode = tmp_ctx.mode_mgr.switch("ninja")
+        r.set_character(ninja_mode)
+
+        # Length unchanged — only slot 0 was replaced
+        assert len(r.conversation) == 2
+        assert r.conversation[1]["content"] == "hello"
+
+    # --- (5) celebration uses active mode template ---
+
+    def test_celebration_uses_default_mode_template(self, tmp_ctx):
+        """run_module celebration contains default mode score_celebration text."""
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        assert result["total_points"] > 0
+        # Default mode template: "+{points} points!" — formatted result must appear
+        expected_text = f"+{result['total_points']} points!"
+        assert expected_text in result["celebration"], (
+            f"Expected '{expected_text}' in celebration: {result['celebration']!r}"
+        )
+
+    def test_celebration_uses_ninja_mode_template_after_switch(self, tmp_ctx):
+        """run_module celebration uses ninja mode template after mode switch."""
+        tmp_ctx.mode_mgr.switch("ninja")
+
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        assert result["total_points"] > 0
+        # Ninja mode template: "[dim]+{points}[/dim]" — the formatted points must appear
+        expected_text = f"+{result['total_points']}"
+        assert expected_text in result["celebration"], (
+            f"Expected '{expected_text}' in celebration: {result['celebration']!r}"
+        )
+
+    def test_celebration_uses_sun_tzu_template_after_switch(self, tmp_ctx):
+        """run_module celebration uses sun_tzu mode template after switch."""
+        tmp_ctx.mode_mgr.switch("sun_tzu")
+
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        assert result["total_points"] > 0
+        # sun_tzu template: '"Supreme excellence." +{points} points earned.'
+        expected_text = f"+{result['total_points']} points earned."
+        assert expected_text in result["celebration"], (
+            f"Expected sun_tzu template text '{expected_text}' in: {result['celebration']!r}"
+        )
+
+    # --- (9) Compound: switch mode -> run tool -> celebration uses new mode template ---
+
+    def test_compound_mode_switch_then_tool_uses_mode_celebration(self, tmp_ctx):
+        """Compound: switch to sun_tzu mode, run tool, celebration uses sun_tzu template.
+
+        This is the required compound-interaction test exercising the real
+        production sequence: ModeManager.switch() -> runner.set_character()
+        -> ToolContext.run_module() -> celebration computed with active mode's
+        score_celebration template.
+
+        Production path: chat.py 'mode sun_tzu' -> mode_mgr.switch('sun_tzu')
+        -> runner.set_character(mode) -> user runs a query -> execute_tool()
+        -> run_module() -> celebration uses sun_tzu template.
+        """
+        from adversary_pursuit.agent.runner import AgentRunner
+
+        # 1. Create runner sharing the same ToolContext
+        r = AgentRunner(tool_context=tmp_ctx)
+
+        # 2. Switch to sun_tzu mode (as chat.py 'mode sun_tzu' would do)
+        new_mode = tmp_ctx.mode_mgr.switch("sun_tzu")
+        r.set_character(new_mode)
+
+        # 3. Verify system prompt reflects sun_tzu persona
+        assert new_mode.personality in r.system_prompt
+
+        # 4. Run a tool that scores points (hunt() mocked at HTTP boundary)
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        assert result["total_points"] > 0
+
+        # 5. Celebration must contain sun_tzu's score_celebration template text
+        # sun_tzu template: '"Supreme excellence." +{points} points earned.'
+        expected_text = f"+{result['total_points']} points earned."
+        assert expected_text in result["celebration"], (
+            f"Expected sun_tzu template text '{expected_text}' in: {result['celebration']!r}"
+        )
