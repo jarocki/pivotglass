@@ -125,10 +125,11 @@ class AgentRunner:
 
         self.conversation.append({"role": "user", "content": user_message})
 
-        # Accumulate celebration strings from all tool calls this turn.
-        # chat.py reads self.last_celebrations after chat() returns to render
+        # Accumulate celebration strings and newly-earned Badge objects from all
+        # tool calls this turn. chat.py reads both after chat() returns to render
         # Rich panels for the user — separate from the LLM conversation content.
         self.last_celebrations: list[str] = []
+        self.last_badges: list = []  # list[Badge] — newly earned this turn
 
         max_rounds = 5
         for _ in range(max_rounds):
@@ -157,13 +158,15 @@ class AgentRunner:
                     args = json.loads(tc["function"]["arguments"])
                 except (json.JSONDecodeError, KeyError):
                     args = {}
-                summary, celebration = execute_tool(
+                summary, celebration, badges = execute_tool(
                     self.ctx,
                     tc["function"]["name"],
                     args,
                 )
                 if celebration:
                     self.last_celebrations.append(celebration)
+                if badges:
+                    self.last_badges.extend(badges)
                 self.conversation.append(
                     {
                         "role": "tool",

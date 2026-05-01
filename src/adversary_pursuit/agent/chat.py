@@ -101,6 +101,26 @@ def run_chat() -> None:
                         width=60,
                     )
                 )
+            # Render badge panels after celebrations — one per newly-earned badge.
+            # Mirrors cmd2 APConsole._check_badges_after_run() rarity-styled panels.
+            # Silent when no new badges earned (runner.last_badges will be empty).
+            _BADGE_RARITY_COLORS = {
+                "common": "white",
+                "uncommon": "green",
+                "rare": "blue",
+                "epic": "magenta",
+                "legendary": "bold yellow",
+            }
+            for badge in getattr(runner, "last_badges", []):
+                color = _BADGE_RARITY_COLORS.get(badge.rarity.value, "white")
+                console.print(
+                    Panel(
+                        f"[bold]{badge.name}[/bold] [{color}]({badge.rarity.value.upper()})[/{color}]\n"
+                        f"{badge.description}",
+                        title="[bold yellow]Badge Earned![/bold yellow]",
+                        style="yellow",
+                    )
+                )
         except ImportError as e:
             console.print(f"[red]Missing dependency: {e}[/red]")
             console.print(

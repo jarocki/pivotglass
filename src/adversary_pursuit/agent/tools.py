@@ -43,6 +43,7 @@ from typing import Any
 from adversary_pursuit.core.config import ConfigManager
 from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.gamification.badges import BadgeManager
 from adversary_pursuit.gamification.celebrations import CelebrationEngine
 from adversary_pursuit.gamification.scoring import ScoringEngine
 
@@ -73,6 +74,10 @@ class ToolContext:
         self.plugin_mgr.load_plugins()
         self.scoring = ScoringEngine()
         self.celebration = CelebrationEngine()
+        self.badge_mgr = BadgeManager()
+        # Tracks badge IDs awarded in this session (application-layer dedup, DEC-BADGE-002).
+        # Populated from workspace on first badge check; updated as badges are earned.
+        self._awarded_badges: set[str] = set()
 
     def run_module(self, module_path: str, target: str, options: dict = None) -> dict:
         """Run a module and return formatted results with scoring.
@@ -98,6 +103,23 @@ class ToolContext:
                    Milestone messages are computed against the post-storage total
                    score and appended to the celebration string when they fire.
 
+        @decision DEC-AGENT-BADGES-001
+        @title BadgeManager wired into run_module after scoring, mirroring cmd2 _check_badges_after_run
+        @status accepted
+        @rationale cmd2 APConsole._check_badges_after_run() calls BadgeManager.check_all()
+                   after each module execution, persists newly-earned badge events via
+                   workspace_mgr.store_badge_event(), and renders a Rich panel per badge.
+                   The agent path mirrors this exactly: (1) build already_awarded from the
+                   workspace using get_awarded_badges() on first check then from the session
+                   cache _awarded_badges thereafter for dedup; (2) call check_all() against
+                   get_workspace_stats(); (3) persist via store_badge_event(); (4) return the
+                   newly-earned Badge list under "badges" key so execute_tool can thread it
+                   to chat.py for Rich panel rendering.
+                   Silent path: badges is [] when no new badges earned, matching cmd2
+                   behaviour which only renders panels when newly_earned is non-empty.
+                   _awarded_badges set is seeded lazily from the workspace on first call
+                   so sessions that resume mid-investigation do not re-award old badges.
+
         Parameters
         ----------
         module_path:
@@ -116,6 +138,8 @@ class ToolContext:
             summary (str): human-readable summary for the LLM
             celebration (str | None): ASCII art celebration string, or None
                 when no points were awarded (silent path).
+            badges (list[Badge]): newly-earned Badge objects this run, or []
+                when no new badges earned (silent path).
 
         Returns {"error": str} if the module is not found.
         """
@@ -163,6 +187,27 @@ class ToolContext:
             except Exception:  # noqa: BLE001
                 pass  # milestone check must never block tool result delivery
 
+        # Check badges after scoring (DEC-AGENT-BADGES-001).
+        # Mirrors cmd2 APConsole._check_badges_after_run() exactly:
+        # build already_awarded, evaluate all badges, persist new ones.
+        # Lazy-seed _awarded_badges from workspace on first call so sessions
+        # resuming mid-investigation don't re-award previously earned badges.
+        newly_earned_badges: list = []
+        try:
+            if not self._awarded_badges:
+                # Seed from workspace: captures any badges earned by prior sessions
+                awarded_rows = self.workspace_mgr.get_awarded_badges()
+                self._awarded_badges = {row["badge_id"] for row in awarded_rows}
+            badge_stats = self.workspace_mgr.get_workspace_stats()
+            newly_earned_badges = self.badge_mgr.check_all(
+                badge_stats, already_awarded=self._awarded_badges
+            )
+            for badge in newly_earned_badges:
+                self.workspace_mgr.store_badge_event(badge.id, badge.name)
+                self._awarded_badges.add(badge.id)
+        except Exception:  # noqa: BLE001
+            pass  # badge check must never block tool result delivery
+
         # Build human-readable summary for the LLM response
         summary_lines = [f"Found {count} indicators:"]
         for r in results[:10]:
@@ -175,6 +220,12 @@ class ToolContext:
                 summary_lines.append(
                     f"  {e['action']}: +{e['points']} ({e['indicator']})"
                 )
+        if newly_earned_badges:
+            summary_lines.append("\nBadge(s) earned:")
+            for badge in newly_earned_badges:
+                summary_lines.append(
+                    f"  [{badge.rarity.value.upper()}] {badge.name}: {badge.description}"
+                )
 
         return {
             "results": results,
@@ -182,6 +233,7 @@ class ToolContext:
             "total_points": total,
             "summary": "\n".join(summary_lines),
             "celebration": celebration,
+            "badges": newly_earned_badges,
         }
 
 
@@ -571,16 +623,27 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
 
 def execute_tool(
     ctx: ToolContext, tool_name: str, arguments: dict
-) -> tuple[str, str | None]:
-    """Execute a tool call and return (summary, celebration).
+) -> tuple[str, str | None, list]:
+    """Execute a tool call and return (summary, celebration, badges).
 
     This is the dispatcher that maps LLM tool call names to module invocations.
     The summary string is suitable for inclusion in the LLM conversation as a
     "tool" role message. The celebration string is ASCII art for the user
-    terminal (None when no points were awarded — silent path).
+    terminal (None when no points were awarded — silent path). The badges list
+    contains newly-earned Badge objects for Rich panel rendering in chat.py
+    ([] when no new badges earned — silent path).
 
     Workspace meta-tools (get_workspace_summary, search_workspace) always
-    return celebration=None because they do not trigger scoring events.
+    return celebration=None and badges=[] because they do not trigger scoring
+    or badge evaluation.
+
+    @decision DEC-AGENT-BADGES-001
+    (see run_module docstring for full rationale)
+    Triple return chosen over a unified user_messages list because celebration
+    (plain string) and badges (Badge objects with rarity metadata for styled
+    panels) have different rendering logic at the chat.py boundary. Keeping
+    them as separate typed values preserves testability and avoids conflating
+    two distinct display artifacts into an untyped list.
 
     Parameters
     ----------
@@ -593,33 +656,34 @@ def execute_tool(
 
     Returns
     -------
-    tuple[str, str | None]
-        (summary, celebration) where summary is the LLM-facing result string
-        and celebration is the ASCII art to display to the user, or None.
-        Returns (error_string, None) when the tool fails — errors are reported
-        to the LLM as tool results.
+    tuple[str, str | None, list]
+        (summary, celebration, badges) where summary is the LLM-facing result
+        string, celebration is the ASCII art to display to the user or None,
+        and badges is a list of newly-earned Badge objects ([] when none).
+        Returns (error_string, None, []) when the tool fails — errors are
+        reported to the LLM as tool results.
     """
-    # Workspace meta-tools — no scoring, no celebration
+    # Workspace meta-tools — no scoring, no celebration, no badge check
     if tool_name == "get_workspace_summary":
-        return _workspace_summary(ctx), None
+        return _workspace_summary(ctx), None, []
 
     if tool_name == "search_workspace":
-        return _search_workspace(ctx, arguments.get("type_filter")), None
+        return _search_workspace(ctx, arguments.get("type_filter")), None, []
 
     # Module dispatch
     if tool_name not in _MODULE_MAP:
-        return f"Unknown tool: {tool_name}", None
+        return f"Unknown tool: {tool_name}", None, []
 
     module_path, arg_mapper = _MODULE_MAP[tool_name]
     try:
         target, options = arg_mapper(arguments)
         result = ctx.run_module(module_path, target, options)
         if "error" in result:
-            return f"Error: {result['error']}", None
-        return result["summary"], result.get("celebration")
+            return f"Error: {result['error']}", None, []
+        return result["summary"], result.get("celebration"), result.get("badges", [])
     except Exception as e:
         logger.exception("Tool execution failed: %s", tool_name)
-        return f"Error running {tool_name}: {e}", None
+        return f"Error running {tool_name}: {e}", None, []
 
 
 def _workspace_summary(ctx: ToolContext) -> str:

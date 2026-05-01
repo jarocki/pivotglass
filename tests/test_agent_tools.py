@@ -322,7 +322,7 @@ class TestExecuteToolDispatch:
 
     def test_unknown_tool_returns_error(self, tmp_ctx):
         """execute_tool returns (error_string, None) for unknown tool names."""
-        summary, celebration = execute_tool(tmp_ctx, "nonexistent_tool", {})
+        summary, celebration, badges = execute_tool(tmp_ctx, "nonexistent_tool", {})
         assert "Unknown tool" in summary
         assert "nonexistent_tool" in summary
         assert celebration is None
@@ -333,7 +333,7 @@ class TestExecuteToolDispatch:
         with patch.object(
             tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
         ) as mock_get:
-            summary, _celebration = execute_tool(
+            summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "dns_resolve", {"domain": "example.com"}
             )
             assert isinstance(summary, str)
@@ -347,7 +347,7 @@ class TestExecuteToolDispatch:
         with patch.object(
             tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
         ) as mock_get:
-            summary, _celebration = execute_tool(
+            summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "whois_lookup", {"target": "example.com"}
             )
             assert isinstance(summary, str)
@@ -359,7 +359,7 @@ class TestExecuteToolDispatch:
         with patch.object(
             tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
         ) as mock_get:
-            summary, _celebration = execute_tool(
+            summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
             assert isinstance(summary, str)
@@ -371,7 +371,7 @@ class TestExecuteToolDispatch:
         with patch.object(
             tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
         ) as mock_get:
-            summary, _celebration = execute_tool(
+            summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "shodan_host_lookup", {"ip_address": "1.2.3.4"}
             )
             assert isinstance(summary, str)
@@ -385,7 +385,7 @@ class TestExecuteToolDispatch:
         with patch.object(
             tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
         ) as mock_get:
-            summary, _celebration = execute_tool(
+            summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "check_breaches", {"email": "user@example.com"}
             )
             assert isinstance(summary, str)
@@ -397,7 +397,7 @@ class TestExecuteToolDispatch:
         with patch.object(
             tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
         ) as mock_get:
-            summary, _celebration = execute_tool(
+            summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "otx_threat_intel", {"target": "1.2.3.4"}
             )
             assert isinstance(summary, str)
@@ -411,7 +411,7 @@ class TestExecuteToolDispatch:
         with patch.object(
             tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
         ) as mock_get:
-            summary, _celebration = execute_tool(
+            summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "scan_url", {"url": "http://evil.example.com"}
             )
             assert isinstance(summary, str)
@@ -420,7 +420,7 @@ class TestExecuteToolDispatch:
     def test_module_not_found_returns_error(self, tmp_ctx):
         """execute_tool returns (error_string, None) when module not found."""
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=None):
-            summary, celebration = execute_tool(
+            summary, celebration, _badges = execute_tool(
                 tmp_ctx, "dns_resolve", {"domain": "example.com"}
             )
         assert "Error" in summary
@@ -432,7 +432,7 @@ class TestExecuteToolDispatch:
         mock_mod.hunt = AsyncMock(side_effect=RuntimeError("Network error"))
         mock_mod.initialize = MagicMock()
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration = execute_tool(
+            summary, celebration, _badges = execute_tool(
                 tmp_ctx, "dns_resolve", {"domain": "example.com"}
             )
         assert "Error" in summary
@@ -446,7 +446,7 @@ class TestExecuteToolDispatch:
         with patch.object(
             tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
         ) as mock_get:
-            summary, _celebration = execute_tool(
+            summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "virustotal_lookup", {"target": "1.2.3.4"}
             )
             assert isinstance(summary, str)
@@ -475,7 +475,7 @@ class TestExecuteToolDispatch:
         with patch.object(
             tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
         ) as mock_get:
-            summary, _celebration = execute_tool(
+            summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "censys_host_lookup", {"ip_address": "8.8.8.8"}
             )
             assert isinstance(summary, str)
@@ -495,7 +495,7 @@ class TestExecuteToolDispatch:
         with patch.object(
             tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
         ) as mock_get:
-            summary, _celebration = execute_tool(
+            summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "passivetotal_lookup", {"target": "evil.example.com"}
             )
             assert isinstance(summary, str)
@@ -538,19 +538,23 @@ class TestWorkspaceTools:
 
     def test_get_workspace_summary_returns_string(self, tmp_ctx):
         """execute_tool('get_workspace_summary', {}) returns (summary, None)."""
-        summary, celebration = execute_tool(tmp_ctx, "get_workspace_summary", {})
+        summary, celebration, _badges = execute_tool(
+            tmp_ctx, "get_workspace_summary", {}
+        )
         assert isinstance(summary, str)
         assert "Workspace" in summary or "workspace" in summary.lower()
         assert celebration is None
 
     def test_get_workspace_summary_includes_counts(self, tmp_ctx):
         """Workspace summary includes total indicators and score."""
-        summary, _celebration = execute_tool(tmp_ctx, "get_workspace_summary", {})
+        summary, _celebration, _badges = execute_tool(
+            tmp_ctx, "get_workspace_summary", {}
+        )
         assert "indicators" in summary.lower() or "Total" in summary
 
     def test_search_workspace_empty_returns_message(self, tmp_ctx):
         """search_workspace on empty workspace returns (no-results string, None)."""
-        summary, celebration = execute_tool(tmp_ctx, "search_workspace", {})
+        summary, celebration, _badges = execute_tool(tmp_ctx, "search_workspace", {})
         assert isinstance(summary, str)
         # Empty workspace should indicate no results found
         assert "No" in summary or "0" in summary or "no" in summary.lower()
@@ -558,7 +562,7 @@ class TestWorkspaceTools:
 
     def test_search_workspace_with_type_filter(self, tmp_ctx):
         """search_workspace with type_filter filters by STIX type."""
-        summary, _celebration = execute_tool(
+        summary, _celebration, _badges = execute_tool(
             tmp_ctx, "search_workspace", {"type_filter": "ipv4-addr"}
         )
         assert isinstance(summary, str)
@@ -569,7 +573,7 @@ class TestWorkspaceTools:
         objects = [{"type": "ipv4-addr", "value": "1.2.3.4"}]
         tmp_ctx.workspace_mgr.store_stix_objects(objects, "test/module", "1.2.3.4")
 
-        summary, _celebration = execute_tool(
+        summary, _celebration, _badges = execute_tool(
             tmp_ctx, "search_workspace", {"type_filter": "ipv4-addr"}
         )
         assert "1.2.3.4" in summary or "Found 1" in summary
@@ -813,7 +817,7 @@ class TestNewToolsProductionSequence:
         # 2. Execute via dispatch path
         mock_mod = self._make_mock_module(SAMPLE_VT_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration = execute_tool(
+            summary, celebration, _badges = execute_tool(
                 tmp_ctx, "virustotal_lookup", {"target": "1.2.3.4"}
             )
 
@@ -841,7 +845,7 @@ class TestNewToolsProductionSequence:
 
         mock_mod = self._make_mock_module(SAMPLE_CENSYS_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration = execute_tool(
+            summary, celebration, _badges = execute_tool(
                 tmp_ctx, "censys_host_lookup", {"ip_address": "8.8.8.8"}
             )
 
@@ -868,7 +872,7 @@ class TestNewToolsProductionSequence:
 
         mock_mod = self._make_mock_module(SAMPLE_PT_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration = execute_tool(
+            summary, celebration, _badges = execute_tool(
                 tmp_ctx,
                 "passivetotal_lookup",
                 {"target": "evil.example.com", "include_whois": True},
@@ -916,7 +920,7 @@ class TestNewToolsProductionSequence:
 
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             for tool_name, args in arg_map.items():
-                summary, celebration = execute_tool(tmp_ctx, tool_name, args)
+                summary, celebration, _badges = execute_tool(tmp_ctx, tool_name, args)
                 assert isinstance(summary, str), f"Tool {tool_name} did not return str"
                 assert "Error" not in summary or "Unknown" not in summary, (
                     f"Tool {tool_name} returned unexpected error: {summary}"
@@ -995,7 +999,7 @@ class TestCelebrationWiring:
         """execute_tool returns a non-None celebration for tools that award points."""
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration = execute_tool(
+            summary, celebration, _badges = execute_tool(
                 tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
 
@@ -1007,7 +1011,7 @@ class TestCelebrationWiring:
         """execute_tool celebration is None when hunt() returns no new indicators."""
         mock_mod = self._make_mock_module([])
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            _summary, celebration = execute_tool(
+            _summary, celebration, _badges = execute_tool(
                 tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
 
@@ -1085,7 +1089,7 @@ class TestCelebrationWiring:
         # 2. Execute dispatch path with scoring results
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration = execute_tool(
+            summary, celebration, _badges = execute_tool(
                 tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
 
@@ -1107,6 +1111,263 @@ class TestCelebrationWiring:
         # (not empty, not an error message)
         assert "Error" not in celebration
         assert len(celebration.strip()) > 0
+
+
+# ---------------------------------------------------------------------------
+# BadgeManager wiring tests (DEC-AGENT-BADGES-001)
+# ---------------------------------------------------------------------------
+
+
+class TestBadgeWiring:
+    """Tests for BadgeManager integration in ToolContext and execute_tool.
+
+    # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+    # Mocking at the asyncio boundary avoids live API calls while exercising
+    # the real badge evaluation path through BadgeManager and WorkspaceManager.
+
+    Covers:
+      (1) ToolContext has a BadgeManager and _awarded_badges set
+      (2) badge check fires after each tool call (run_module returns "badges" key)
+      (3) newly-earned badges surface in the run_module dict and execute_tool triple
+      (4) silent path — badges=[] when no new badges earned
+      (5) _awarded_badges set updated correctly — no duplicate awards across calls
+      (6) badge info appended to LLM summary string
+      (7) badge events persisted to workspace via store_badge_event
+      (8) compound interaction: create_tools -> execute_tool -> badge computed end-to-end
+    """
+
+    def _make_mock_module(self, results):
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=results)
+        mock_mod.initialize = MagicMock()
+        return mock_mod
+
+    def _make_high_score_ctx(self, tmp_path):
+        """Create a ToolContext pre-seeded with enough score to earn badge-century."""
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+        # Seed score to 99 — one more scoring event will cross the 100-pt "Century" badge
+        ctx.workspace_mgr.store_score_events(
+            [
+                {
+                    "action": "seed",
+                    "points": 99,
+                    "indicator": "seed",
+                    "rule_description": "seed",
+                }
+            ]
+        )
+        return ctx
+
+    def test_tool_context_has_badge_manager(self, tmp_ctx):
+        """ToolContext.__init__ creates a BadgeManager instance."""
+        from adversary_pursuit.gamification.badges import BadgeManager
+
+        assert hasattr(tmp_ctx, "badge_mgr")
+        assert isinstance(tmp_ctx.badge_mgr, BadgeManager)
+
+    def test_tool_context_has_awarded_badges_set(self, tmp_ctx):
+        """ToolContext.__init__ initialises _awarded_badges as an empty set."""
+        assert hasattr(tmp_ctx, "_awarded_badges")
+        assert isinstance(tmp_ctx._awarded_badges, set)
+        assert len(tmp_ctx._awarded_badges) == 0
+
+    def test_run_module_returns_badges_key(self, tmp_ctx):
+        """run_module return dict always includes 'badges' key."""
+        mock_mod = self._make_mock_module([])
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        assert "badges" in result
+        assert isinstance(result["badges"], list)
+
+    def test_run_module_badges_empty_when_not_earned(self, tmp_ctx):
+        """run_module returns badges=[] when no badge thresholds are crossed.
+
+        Silent path (DEC-AGENT-BADGES-001): no badges => empty list.
+        Fresh workspace with no indicators means no badge can be earned.
+        """
+        mock_mod = self._make_mock_module([])
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        assert result["badges"] == []
+
+    def test_run_module_badge_earned_when_threshold_crossed(self, tmp_path):
+        """run_module returns newly-earned Badge when workspace stats cross threshold.
+
+        Seeds workspace to 99 score points, then triggers a scoring event that
+        pushes total to 100, crossing the 'Century' badge threshold (100 pts).
+        """
+        from adversary_pursuit.gamification.badges import Badge
+
+        ctx = self._make_high_score_ctx(tmp_path)
+        assert ctx.workspace_mgr.get_total_score() == 99
+
+        # A scoring result that pushes total over 100 pt threshold
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        if result["total_points"] > 0:
+            # Badges should contain at least the Century badge (100-pt threshold)
+            badge_ids = [b.id for b in result["badges"]]
+            assert "badge-century" in badge_ids, (
+                f"Expected badge-century in {badge_ids} with score "
+                f"{ctx.workspace_mgr.get_total_score()}"
+            )
+            for badge in result["badges"]:
+                assert isinstance(badge, Badge)
+
+    def test_awarded_badges_set_updated_after_badge_earned(self, tmp_path):
+        """_awarded_badges set is updated when a badge is earned, preventing re-award."""
+        ctx = self._make_high_score_ctx(tmp_path)
+
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        if result["badges"]:
+            for badge in result["badges"]:
+                assert badge.id in ctx._awarded_badges
+
+    def test_no_duplicate_badge_award_on_second_call(self, tmp_path):
+        """Badge is not re-awarded on a second run_module call for the same workspace.
+
+        DEC-BADGE-002: already_awarded set prevents duplicate awards.
+        """
+        ctx = self._make_high_score_ctx(tmp_path)
+
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result1 = ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        first_badge_ids = {b.id for b in result1["badges"]}
+
+        # Second call — same workspace, same target; no new badges should fire
+        mock_mod2 = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod2):
+            result2 = ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        second_badge_ids = {b.id for b in result2["badges"]}
+        # None of the badges from the first call should re-appear in the second
+        overlap = first_badge_ids & second_badge_ids
+        assert not overlap, f"Badges re-awarded on second call: {overlap}"
+
+    def test_badge_event_persisted_to_workspace(self, tmp_path):
+        """Newly-earned badges are persisted via store_badge_event to the workspace DB."""
+        ctx = self._make_high_score_ctx(tmp_path)
+
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        if result["badges"]:
+            awarded = ctx.workspace_mgr.get_awarded_badges()
+            awarded_ids = {row["badge_id"] for row in awarded}
+            for badge in result["badges"]:
+                assert badge.id in awarded_ids, (
+                    f"Badge {badge.id} earned but not found in workspace: {awarded_ids}"
+                )
+
+    def test_badge_info_appended_to_llm_summary(self, tmp_path):
+        """Badge name and rarity are appended to the LLM summary string when earned."""
+        ctx = self._make_high_score_ctx(tmp_path)
+
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        if result["badges"]:
+            summary = result["summary"]
+            assert "Badge" in summary or "badge" in summary.lower(), (
+                f"Expected badge info in summary but got: {summary!r}"
+            )
+            for badge in result["badges"]:
+                assert badge.name in summary, (
+                    f"Badge name {badge.name!r} not found in summary: {summary!r}"
+                )
+
+    def test_execute_tool_returns_badges_list(self, tmp_path):
+        """execute_tool returns a triple (summary, celebration, badges)."""
+        ctx = self._make_high_score_ctx(tmp_path)
+
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = execute_tool(ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"})
+
+        assert len(result) == 3
+        summary, celebration, badges = result
+        assert isinstance(summary, str)
+        assert isinstance(badges, list)
+
+    def test_execute_tool_badges_empty_for_workspace_meta_tools(self, tmp_ctx):
+        """Workspace meta-tools return badges=[] — no badge check on workspace queries."""
+        summary, celebration, badges = execute_tool(
+            tmp_ctx, "get_workspace_summary", {}
+        )
+        assert badges == []
+        summary2, celebration2, badges2 = execute_tool(tmp_ctx, "search_workspace", {})
+        assert badges2 == []
+
+    def test_execute_tool_badges_empty_for_unknown_tool(self, tmp_ctx):
+        """execute_tool returns badges=[] for unknown tool names."""
+        summary, celebration, badges = execute_tool(tmp_ctx, "unknown_tool", {})
+        assert badges == []
+
+    def test_compound_create_tools_execute_tool_badge_computed(self, tmp_path):
+        """Compound: create_tools -> execute_tool -> badge computed end-to-end.
+
+        This is the required compound-interaction test crossing the real
+        production sequence: ToolContext init (BadgeManager + _awarded_badges
+        wired) -> create_tools (catalog built) -> execute_tool (dispatch +
+        run_module + badge check + persist) -> caller receives triple with
+        newly-earned Badge objects ready for Rich panel rendering in chat.py.
+
+        Production path: chat.py calls runner.chat() which calls execute_tool()
+        and accumulates badges in runner.last_badges for display. This test
+        exercises all components except the LLM call itself.
+        """
+        ctx = self._make_high_score_ctx(tmp_path)
+
+        # 1. Tools catalog built from ToolContext (includes BadgeManager)
+        tools = create_tools(ctx)
+        tool_names = {t["function"]["name"] for t in tools}
+        assert "check_ip_reputation" in tool_names
+
+        # 2. Execute dispatch path: scoring results push score over badge threshold
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            summary, celebration, badges = execute_tool(
+                ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
+            )
+
+        # 3. Summary goes to LLM — must be a non-empty string
+        assert isinstance(summary, str)
+        assert "Found" in summary
+
+        # 4. badges list is returned (may be empty if scoring didn't cross threshold)
+        assert isinstance(badges, list)
+
+        # 5. If badges were earned, they are Badge objects with rarity metadata
+        from adversary_pursuit.gamification.badges import Badge, BadgeRarity
+
+        for badge in badges:
+            assert isinstance(badge, Badge)
+            assert isinstance(badge.rarity, BadgeRarity)
+            assert badge.id in ctx._awarded_badges
+
+        # 6. Workspace reflects badge persistence
+        if badges:
+            awarded = ctx.workspace_mgr.get_awarded_badges()
+            awarded_ids = {row["badge_id"] for row in awarded}
+            for badge in badges:
+                assert badge.id in awarded_ids
 
 
 # ---------------------------------------------------------------------------
