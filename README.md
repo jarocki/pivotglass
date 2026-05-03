@@ -21,13 +21,60 @@ The **v1 primary interface is `ap chat`** — a conversational AI agent powered 
 - **Auto-Pivoting** — Event bus for cascading OSINT discovery
 - **Hint System** — Free and paid hints with balance protection
 
+## Installation
+
+Adversary Pursuit is currently a development version. Install locally from a clone for testing and iteration. PyPI distribution is planned for a future polished release.
+
+### Local dev install (recommended)
+
+```bash
+git clone https://github.com/jarocki/ap.git
+cd ap
+
+# With uv (fast, isolated — installs all extras including litellm for ap chat)
+uv sync --all-extras
+
+# Then launch
+uv run ap chat    # primary v1 interface — conversational AI agent (per ADR-010)
+uv run ap         # classic cmd2 REPL (power-user surface)
+```
+
+Alternatively, install as an editable package in a virtualenv so source changes take effect immediately:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate          # on Windows: .venv\Scripts\activate
+pip install -e ".[agent]"          # [agent] pulls in litellm, required for ap chat
+
+ap chat    # primary v1 interface
+ap         # classic REPL
+```
+
+### Alternative: install from a git tag
+
+```bash
+# pip
+pip install "git+https://github.com/jarocki/ap.git@v0.1.0[agent]"
+
+# or with uv
+uv tool install "git+https://github.com/jarocki/ap.git@v0.1.0[agent]"
+```
+
+### Alternative: install from a downloaded wheel
+
+```bash
+# Each tagged release attaches a wheel to https://github.com/jarocki/ap/releases
+pip install adversary_pursuit-0.1.0-py3-none-any.whl
+```
+
+### Future: PyPI
+
+Once a polished release is ready, the package will be published to PyPI as `adversary-pursuit`. Until then, use the local dev install above.
+
 ## Quick Start
 
 ```bash
-pip install adversary-pursuit
-
-# Primary interface: conversational agent (requires litellm)
-pip install 'adversary-pursuit[agent]'
+# Primary interface: conversational agent (requires litellm extras)
 ap chat
 
 # Classic REPL (power users)
@@ -295,8 +342,7 @@ ADR-010: The agentic AI chat (`ap chat`, litellm-driven) is the v1 primary user-
 
 ## What's Next
 
-Phase 1–6 of the v1 plan are complete. The only remaining v1 item is:
-- **W-V1-PYPI-VERIFY** — confirm `pip install adversary-pursuit` resolves to a published artifact (or trigger the release workflow and verify it succeeds).
+Phase 1–6 of the v1 plan are complete. Distribution is via GitHub Releases — push a `v*.*.*` tag to trigger the release workflow, which builds wheel + sdist and attaches them as release assets automatically.
 
 ## License
 
