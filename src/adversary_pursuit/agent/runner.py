@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -54,10 +55,16 @@ class AgentRunner:
     litellm-supported string (e.g. "gpt-4o", "claude-3-5-sonnet-20241022",
     "ollama/qwen2.5:8b").
 
+    Model selection precedence (highest to lowest):
+      1. Explicit ``model=`` argument passed to ``__init__``
+      2. ``AP_MODEL`` environment variable
+      3. ``DEFAULT_MODEL`` class constant (``ollama/qwen2.5:8b``)
+
     Parameters
     ----------
     model:
-        litellm model string. Defaults to DEFAULT_MODEL (local Ollama).
+        litellm model string. When provided, takes precedence over AP_MODEL
+        and DEFAULT_MODEL.
     tool_context:
         Shared ToolContext. Created automatically if not provided.
     system_prompt:
@@ -72,7 +79,17 @@ class AgentRunner:
         tool_context: ToolContext | None = None,
         system_prompt: str | None = None,
     ) -> None:
-        self.model = model or self.DEFAULT_MODEL
+        # @decision DEC-AGENT-MODEL-ENV-001
+        # @title AP_MODEL env-var override for runner model selection
+        # @status accepted
+        # @rationale Lets users switch LLM backend (Anthropic/OpenAI/Ollama) without
+        #            code edits. Precedence: explicit model= arg is highest priority
+        #            (tests and programmatic callers retain full control), then AP_MODEL
+        #            env var (operator/user runtime configuration), then DEFAULT_MODEL
+        #            as the zero-config local fallback. Empty-string AP_MODEL is treated
+        #            as unset because Python's `or` chain skips falsy values — consistent
+        #            with conventional env-var patterns across the codebase.
+        self.model = model or os.environ.get("AP_MODEL") or self.DEFAULT_MODEL
         self.ctx = tool_context or ToolContext()
         self.tools = create_tools(self.ctx)
         self.conversation: list[dict] = []

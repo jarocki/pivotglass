@@ -1435,6 +1435,61 @@ class TestAgentRunnerImport:
 
 
 # ---------------------------------------------------------------------------
+# AP_MODEL env-var override tests (DEC-AGENT-MODEL-ENV-001)
+# ---------------------------------------------------------------------------
+
+
+class TestAgentRunnerModelResolution:
+    """Verify AP_MODEL env-var precedence: explicit arg > AP_MODEL > DEFAULT_MODEL.
+
+    Production sequence: AgentRunner.__init__ is called (via `ap chat` or
+    directly) and resolves self.model from three possible sources.  These
+    tests exercise all three precedence paths plus the edge-case of an empty
+    env var, covering the full state-transition space of the `or` chain.
+    """
+
+    def test_default_model_when_no_arg_no_env(self, tmp_ctx, monkeypatch):
+        """Falls through to DEFAULT_MODEL when neither arg nor AP_MODEL is set."""
+        from adversary_pursuit.agent.runner import AgentRunner
+
+        monkeypatch.delenv("AP_MODEL", raising=False)
+        r = AgentRunner(tool_context=tmp_ctx)
+        assert r.model == AgentRunner.DEFAULT_MODEL
+
+    def test_env_var_overrides_default(self, tmp_ctx, monkeypatch):
+        """AP_MODEL env var is used when no explicit model= arg is given."""
+        from adversary_pursuit.agent.runner import AgentRunner
+
+        monkeypatch.setenv("AP_MODEL", "foo/bar")
+        r = AgentRunner(tool_context=tmp_ctx)
+        assert r.model == "foo/bar"
+
+    def test_explicit_arg_overrides_env_var(self, tmp_ctx, monkeypatch):
+        """Explicit model= arg takes priority over AP_MODEL env var."""
+        from adversary_pursuit.agent.runner import AgentRunner
+
+        monkeypatch.setenv("AP_MODEL", "foo/bar")
+        r = AgentRunner(model="baz/qux", tool_context=tmp_ctx)
+        assert r.model == "baz/qux"
+
+    def test_explicit_arg_overrides_default_when_no_env(self, tmp_ctx, monkeypatch):
+        """Explicit model= arg is used even when AP_MODEL is absent."""
+        from adversary_pursuit.agent.runner import AgentRunner
+
+        monkeypatch.delenv("AP_MODEL", raising=False)
+        r = AgentRunner(model="x/y", tool_context=tmp_ctx)
+        assert r.model == "x/y"
+
+    def test_empty_env_var_falls_through_to_default(self, tmp_ctx, monkeypatch):
+        """Empty AP_MODEL string is falsy — runner falls through to DEFAULT_MODEL."""
+        from adversary_pursuit.agent.runner import AgentRunner
+
+        monkeypatch.setenv("AP_MODEL", "")
+        r = AgentRunner(tool_context=tmp_ctx)
+        assert r.model == AgentRunner.DEFAULT_MODEL
+
+
+# ---------------------------------------------------------------------------
 # ModeManager wiring tests (DEC-AGENT-MODES-001)
 # ---------------------------------------------------------------------------
 

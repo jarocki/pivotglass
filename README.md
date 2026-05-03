@@ -81,6 +81,30 @@ ap chat
 ap
 ```
 
+### Choose an LLM backend (optional)
+
+The default backend is Ollama running locally (`ollama/qwen2.5:8b`). To use a
+different provider, set `AP_MODEL` to any litellm-supported model string and
+provide the corresponding API key:
+
+```bash
+# Anthropic Claude
+export AP_MODEL=claude-3-5-sonnet-20241022
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# OpenAI GPT-4o
+export AP_MODEL=gpt-4o
+export OPENAI_API_KEY=sk-...
+
+# Local Ollama with a different model (default backend, no API key needed)
+export AP_MODEL=ollama/llama3.2:3b
+```
+
+Precedence: explicit `model=` argument to `AgentRunner` > `AP_MODEL` env var >
+built-in default (`ollama/qwen2.5:8b`). See
+[litellm provider docs](https://docs.litellm.ai/docs/providers) for the full
+list of supported model strings.
+
 ## Chat Interface (Primary v1 Interface)
 
 `ap chat` is the v1 entry point. The LLM agent selects and invokes modules as tools, narrates findings, and emits gamification events as part of the conversation.
