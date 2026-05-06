@@ -368,6 +368,89 @@ def run_chat() -> None:
                 console.print(_json.dumps(bundle, indent=2))
             continue
 
+        # Help meta-command — renders a Rich Table of all chat meta-commands so
+        # users can discover the command surface without triggering an LLM call.
+        # Intercepted before LLM dispatch, identical output for both 'help' and '?'.
+        #
+        # @decision DEC-AGENT-CHAT-HELP-001
+        # @title Help / ? meta-command renders local command reference without LLM call
+        # @status accepted
+        # @rationale Users typing 'help' or '?' expect instant, offline discoverability
+        #            of available commands — not an LLM round-trip that may fail on
+        #            backend-unavailability (e.g., Ollama connection refused). Mirrors
+        #            cmd2's built-in help() parity for the conversational REPL. Showing
+        #            active model and workspace aids debugging without requiring a
+        #            separate status command.
+        if lower in ("help", "?"):
+            help_table = Table(
+                title="Chat Meta-Commands",
+                show_header=True,
+                header_style="bold cyan",
+            )
+            help_table.add_column("Command", style="bold cyan", no_wrap=True)
+            help_table.add_column("Syntax", style="green")
+            help_table.add_column("Description")
+            help_table.add_row(
+                "workspace",
+                "workspace <name>",
+                "Switch active workspace",
+            )
+            help_table.add_row(
+                "mode",
+                "mode / mode list / mode <name>",
+                "List or switch character mode",
+            )
+            help_table.add_row(
+                "hint",
+                "hint / hint <module> / hint buy [<module>]",
+                "Request free or paid hints",
+            )
+            help_table.add_row(
+                "autopivot",
+                "autopivot [on|off]",
+                "Toggle event-bus auto-pivot",
+            )
+            help_table.add_row(
+                "challenges",
+                "challenges",
+                "List active challenges",
+            )
+            help_table.add_row(
+                "graph",
+                "graph",
+                "Render workspace relationship tree",
+            )
+            help_table.add_row(
+                "export",
+                "export gexf / export stix",
+                "Export workspace as GEXF or STIX bundle",
+            )
+            help_table.add_row(
+                "report",
+                "report / report answer N <text> / report generate",
+                "Interview-driven investigation report",
+            )
+            help_table.add_row(
+                "help",
+                "help / ?",
+                "Show this command reference",
+            )
+            help_table.add_row(
+                "quit",
+                "quit / exit",
+                "Leave chat",
+            )
+            console.print(help_table)
+            try:
+                active_workspace = runner.ctx.workspace_mgr.active
+            except RuntimeError:
+                active_workspace = "default"
+            console.print(f"\n[dim]Active model: [bold]{runner.model}[/bold][/dim]")
+            console.print(
+                f"[dim]Active workspace: [bold]{active_workspace}[/bold][/dim]"
+            )
+            continue
+
         # Report meta-command — mirrors APConsole.do_report (DEC-AGENT-REPORT-001).
         # Handled locally (not sent to LLM) for deterministic, immediate output.
         # Shares the same ReportGenerator instance on runner.ctx so answers set here

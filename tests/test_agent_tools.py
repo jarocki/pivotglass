@@ -3058,3 +3058,169 @@ class TestReportWiring:
         assert "203.0.113.1" in report_md
         assert "## Indicators of Compromise" in report_md
         assert "Automated compound test trigger" in report_md
+
+
+# ---------------------------------------------------------------------------
+# TestRunChatHelp — help / ? meta-command (DEC-AGENT-CHAT-HELP-001)
+# ---------------------------------------------------------------------------
+
+# @mock-exempt: AgentRunner.__init__ imports litellm and may attempt live
+# model introspection.  We mock the entire AgentRunner at the import boundary
+# in chat.py so the help command can be exercised without LLM infrastructure.
+
+
+class TestRunChatHelp:
+    """Verify 'help' and '?' meta-commands in run_chat().
+
+    Production sequence:
+      user types 'help' or '?' at the chat prompt
+        → chat.py strips the input
+        → lower-cased equality check matches before LLM dispatch
+        → Rich Table rendered to Console (no runner.chat() call)
+        → active model + workspace printed below the table
+        → loop continues (no LLM round-trip)
+    """
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _make_runner_mock(tmp_ctx, model: str = "test-model-001") -> MagicMock:
+        """Return a MagicMock that looks enough like AgentRunner for chat.py."""
+        mock_runner = MagicMock()
+        mock_runner.model = model
+        mock_runner.ctx = tmp_ctx
+        mock_runner.last_celebrations = []
+        mock_runner.last_badges = []
+        mock_runner.chat = MagicMock(return_value="LLM response text")
+        return mock_runner
+
+    @staticmethod
+    def _run_chat_with_inputs(
+        inputs: list[str], tmp_ctx, model: str = "test-model-001"
+    ):
+        """Run run_chat() with canned console inputs, returning captured output.
+
+        # @mock-exempt: AgentRunner connects to LLM backends (litellm / Ollama).
+        # Patching at the source module (adversary_pursuit.agent.runner.AgentRunner)
+        # replaces the class before the lazy 'from ... import AgentRunner' inside
+        # run_chat() binds it — the only way to inject a test double without a live
+        # LLM endpoint. Console is mocked to capture Rich output in-memory and to
+        # feed canned user inputs without an interactive TTY.  Both are external
+        # I/O boundaries (LLM network call, TTY), not internal business logic.
+
+        Patch strategy:
+          - adversary_pursuit.agent.runner.AgentRunner → mock class whose call
+            returns mock_runner (chat.py does 'from ... import AgentRunner; AgentRunner()')
+          - Console (rich.console.Console) → in-memory StringIO console so Rich
+            output can be inspected and fake_input can be injected
+        """
+        from io import StringIO
+
+        from rich.console import Console
+
+        from adversary_pursuit.agent.chat import run_chat
+
+        mock_runner = TestRunChatHelp._make_runner_mock(tmp_ctx, model)
+        buf = StringIO()
+        test_console = Console(file=buf, width=120, highlight=False, markup=False)
+
+        input_seq = iter(inputs)
+
+        def fake_input(_prompt=""):
+            try:
+                return next(input_seq)
+            except StopIteration:
+                raise EOFError
+
+        # Build a mock class whose instantiation returns mock_runner
+        mock_agent_runner_class = MagicMock(return_value=mock_runner)
+
+        with (
+            patch(
+                "adversary_pursuit.agent.runner.AgentRunner",
+                mock_agent_runner_class,
+            ),
+            patch.object(test_console, "input", side_effect=fake_input),
+            patch("adversary_pursuit.agent.chat.Console", return_value=test_console),
+        ):
+            run_chat()
+
+        return buf.getvalue(), mock_runner
+
+    # ------------------------------------------------------------------
+    # (1) 'help' does not invoke runner.chat (no LLM call)
+    # ------------------------------------------------------------------
+
+    def test_help_does_not_invoke_runner_chat(self, tmp_ctx):
+        """'help' must be handled locally — runner.chat() must NOT be called."""
+        _output, mock_runner = self._run_chat_with_inputs(["help"], tmp_ctx)
+        mock_runner.chat.assert_not_called()
+
+    # ------------------------------------------------------------------
+    # (2) '?' does not invoke runner.chat (no LLM call)
+    # ------------------------------------------------------------------
+
+    def test_question_mark_does_not_invoke_runner_chat(self, tmp_ctx):
+        """'?' must be handled locally — runner.chat() must NOT be called."""
+        _output, mock_runner = self._run_chat_with_inputs(["?"], tmp_ctx)
+        mock_runner.chat.assert_not_called()
+
+    # ------------------------------------------------------------------
+    # (3) help output lists all known meta-commands
+    # ------------------------------------------------------------------
+
+    def test_help_lists_known_meta_commands(self, tmp_ctx):
+        """Help table must include all current chat meta-commands by name."""
+        output, _ = self._run_chat_with_inputs(["help"], tmp_ctx)
+        for cmd in (
+            "workspace",
+            "mode",
+            "hint",
+            "autopivot",
+            "challenges",
+            "graph",
+            "export",
+            "report",
+            "quit",
+        ):
+            assert cmd in output, f"Expected meta-command '{cmd}' in help output"
+
+    # ------------------------------------------------------------------
+    # (4) help output shows the active model
+    # ------------------------------------------------------------------
+
+    def test_help_shows_active_model(self, tmp_ctx):
+        """Help output must include the runner's active model identifier."""
+        model_name = "claude-3-5-sonnet-20241022"
+        output, _ = self._run_chat_with_inputs(["help"], tmp_ctx, model=model_name)
+        assert model_name in output, (
+            f"Expected model name '{model_name}' in help output"
+        )
+
+    # ------------------------------------------------------------------
+    # (5) help output shows the active workspace
+    # ------------------------------------------------------------------
+
+    def test_help_shows_active_workspace(self, tmp_ctx):
+        """Help output must include the active workspace name."""
+        # tmp_ctx fixture already creates and switches to 'default' workspace
+        output, _ = self._run_chat_with_inputs(["help"], tmp_ctx)
+        assert "default" in output, "Expected active workspace 'default' in help output"
+
+    # ------------------------------------------------------------------
+    # (6) plain text still invokes runner.chat (LLM dispatch not broken)
+    # ------------------------------------------------------------------
+
+    def test_plain_text_still_invokes_runner_chat(self, tmp_ctx):
+        """Non-meta-command input must still reach runner.chat() for LLM dispatch.
+
+        This is the compound-interaction regression guard: adding the 'help'
+        interceptor must not silently capture ordinary chat messages.
+
+        Production sequence:
+          user types a query → chat.py routes to runner.chat() → LLM called
+        """
+        _output, mock_runner = self._run_chat_with_inputs(["what is 8.8.8.8"], tmp_ctx)
+        mock_runner.chat.assert_called_once_with("what is 8.8.8.8")
