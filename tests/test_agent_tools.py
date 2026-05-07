@@ -3097,6 +3097,19 @@ class TestRunChatHelp:
         return mock_runner
 
     @staticmethod
+    def _make_config_mgr_mock(
+        model: str = "test-model-001", provider: str = "anthropic"
+    ) -> MagicMock:
+        """Return a MagicMock that looks enough like ConfigManager for chat.py."""
+        mock_cfg_mgr = MagicMock()
+        mock_cfg_mgr.get_agent_model.return_value = model
+        mock_cfg_mgr.get_agent_provider.return_value = provider
+        mock_cfg_mgr.get_provider_api_key.return_value = "test-api-key"
+        mock_cfg_mgr.set_agent_selection = MagicMock()
+        mock_cfg_mgr.set_provider_api_key = MagicMock()
+        return mock_cfg_mgr
+
+    @staticmethod
     def _run_chat_with_inputs(
         inputs: list[str], tmp_ctx, model: str = "test-model-001"
     ):
@@ -3109,10 +3122,14 @@ class TestRunChatHelp:
         # LLM endpoint. Console is mocked to capture Rich output in-memory and to
         # feed canned user inputs without an interactive TTY.  Both are external
         # I/O boundaries (LLM network call, TTY), not internal business logic.
+        # ConfigManager is mocked to return a pre-configured model so that the
+        # interactive wizard is never triggered during tests.
 
         Patch strategy:
           - adversary_pursuit.agent.runner.AgentRunner → mock class whose call
             returns mock_runner (chat.py does 'from ... import AgentRunner; AgentRunner()')
+          - adversary_pursuit.agent.chat.ConfigManager → mock class returning a
+            pre-configured mock_cfg_mgr (prevents wizard trigger when AP_MODEL unset)
           - Console (rich.console.Console) → in-memory StringIO console so Rich
             output can be inspected and fake_input can be injected
         """
@@ -3123,6 +3140,7 @@ class TestRunChatHelp:
         from adversary_pursuit.agent.chat import run_chat
 
         mock_runner = TestRunChatHelp._make_runner_mock(tmp_ctx, model)
+        mock_cfg_mgr = TestRunChatHelp._make_config_mgr_mock(model)
         buf = StringIO()
         test_console = Console(file=buf, width=120, highlight=False, markup=False)
 
@@ -3136,11 +3154,17 @@ class TestRunChatHelp:
 
         # Build a mock class whose instantiation returns mock_runner
         mock_agent_runner_class = MagicMock(return_value=mock_runner)
+        # Build a mock ConfigManager class whose instantiation returns mock_cfg_mgr
+        mock_config_mgr_class = MagicMock(return_value=mock_cfg_mgr)
 
         with (
             patch(
                 "adversary_pursuit.agent.runner.AgentRunner",
                 mock_agent_runner_class,
+            ),
+            patch(
+                "adversary_pursuit.agent.chat.ConfigManager",
+                mock_config_mgr_class,
             ),
             patch.object(test_console, "input", side_effect=fake_input),
             patch("adversary_pursuit.agent.chat.Console", return_value=test_console),
@@ -3224,3 +3248,224 @@ class TestRunChatHelp:
         """
         _output, mock_runner = self._run_chat_with_inputs(["what is 8.8.8.8"], tmp_ctx)
         mock_runner.chat.assert_called_once_with("what is 8.8.8.8")
+
+
+# @mock-exempt: AgentRunner is an external LLM network boundary (litellm calls to
+# Anthropic/OpenAI/Ollama). ConfigManager reads/writes ~/.ap/config.toml (external
+# filesystem boundary — real path would create side-effects on developer machines).
+# Console.input is an interactive TTY boundary. run_provider_wizard makes HTTP calls
+# to provider endpoints. All mocks in this class are for external I/O, not internal
+# business logic — matching the existing mock-exempt pattern in TestRunChatHelp above.
+class TestModelMetaCommands:
+    """Verify 'model show' and 'model select' meta-commands in run_chat().
+
+    Production sequence:
+      user types 'model show' or 'model select' at the chat prompt
+        → chat.py strips + lowercases the input
+        → matched before LLM dispatch (no runner.chat() call)
+        → 'model show': prints current model + source layer to console
+        → 'model select': invokes run_provider_wizard, updates runner.model
+        → loop continues
+
+    @decision DEC-TEST-MODEL-COMMANDS-001
+    @title Test model meta-commands using same patch strategy as TestRunChatHelp
+    @status accepted
+    @rationale 'model show' and 'model select' are handled locally in chat.py
+               before LLM dispatch, matching the pattern of other meta-commands.
+               ConfigManager is mocked to control which model/provider is
+               "configured" without touching ~/.ap. run_provider_wizard is mocked
+               to avoid interactive prompts and HTTP calls in the test suite.
+               Both mocks are at external I/O boundaries (config file, HTTP + TTY).
+    """
+
+    @staticmethod
+    def _make_runner_mock(tmp_ctx, model: str = "test-model-001") -> MagicMock:
+        mock_runner = MagicMock()
+        mock_runner.model = model
+        mock_runner.ctx = tmp_ctx
+        mock_runner.last_celebrations = []
+        mock_runner.last_badges = []
+        mock_runner.chat = MagicMock(return_value="LLM response text")
+        return mock_runner
+
+    @staticmethod
+    def _run_chat_model_cmd(
+        inputs: list[str],
+        tmp_ctx,
+        model: str = "configured-model",
+        provider: str = "anthropic",
+        ap_model_env: str | None = None,
+        wizard_return: str = "wizard-chosen-model",
+    ):
+        """Run run_chat() with model meta-command inputs, return (output, mock_runner, mock_cfg_mgr).
+
+        Patches: AgentRunner, ConfigManager, run_provider_wizard, Console.
+        AP_MODEL env var is injected/cleared via monkeypatching os.environ.
+        """
+        import os
+        from io import StringIO
+        from unittest.mock import patch
+
+        from rich.console import Console
+
+        from adversary_pursuit.agent.chat import run_chat
+
+        mock_runner = TestModelMetaCommands._make_runner_mock(tmp_ctx, model)
+        mock_cfg_mgr = MagicMock()
+        mock_cfg_mgr.get_agent_model.return_value = model
+        mock_cfg_mgr.get_agent_provider.return_value = provider
+        mock_cfg_mgr.get_provider_api_key.return_value = "test-key"
+        mock_cfg_mgr.set_agent_selection = MagicMock()
+        mock_cfg_mgr.set_provider_api_key = MagicMock()
+
+        buf = StringIO()
+        test_console = Console(file=buf, width=120, highlight=False, markup=False)
+
+        input_seq = iter(inputs)
+
+        def fake_input(_prompt=""):
+            try:
+                return next(input_seq)
+            except StopIteration:
+                raise EOFError
+
+        mock_agent_runner_class = MagicMock(return_value=mock_runner)
+        mock_config_mgr_class = MagicMock(return_value=mock_cfg_mgr)
+
+        env_overrides: dict[str, str] = {}
+        if ap_model_env is not None:
+            env_overrides["AP_MODEL"] = ap_model_env
+
+        with (
+            patch(
+                "adversary_pursuit.agent.runner.AgentRunner",
+                mock_agent_runner_class,
+            ),
+            patch("adversary_pursuit.agent.chat.ConfigManager", mock_config_mgr_class),
+            patch(
+                "adversary_pursuit.agent.chat.run_provider_wizard",
+                return_value=wizard_return,
+            ),
+            patch.dict(os.environ, env_overrides, clear=False),
+            patch.object(test_console, "input", side_effect=fake_input),
+            patch("adversary_pursuit.agent.chat.Console", return_value=test_console),
+        ):
+            if ap_model_env is None:
+                os.environ.pop("AP_MODEL", None)
+            run_chat()
+
+        return buf.getvalue(), mock_runner, mock_cfg_mgr
+
+    # ------------------------------------------------------------------
+    # model show
+    # ------------------------------------------------------------------
+
+    def test_model_show_does_not_invoke_runner_chat(self, tmp_ctx):
+        """'model show' must not trigger an LLM call."""
+        _output, mock_runner, _cfg = self._run_chat_model_cmd(["model show"], tmp_ctx)
+        mock_runner.chat.assert_not_called()
+
+    def test_model_show_prints_model_name(self, tmp_ctx):
+        """'model show' output contains the configured model string."""
+        output, _runner, _cfg = self._run_chat_model_cmd(
+            ["model show"], tmp_ctx, model="gpt-4o"
+        )
+        assert "gpt-4o" in output
+
+    def test_model_show_prints_provider(self, tmp_ctx):
+        """'model show' output contains the configured provider id."""
+        output, _runner, _cfg = self._run_chat_model_cmd(
+            ["model show"], tmp_ctx, model="gpt-4o", provider="openai"
+        )
+        assert "openai" in output
+
+    def test_model_show_reports_env_source_when_ap_model_set(self, tmp_ctx):
+        """'model show' labels the source as 'AP_MODEL env var' when env is set."""
+        output, _runner, _cfg = self._run_chat_model_cmd(
+            ["model show"],
+            tmp_ctx,
+            model="config-model",
+            ap_model_env="env-override-model",
+        )
+        assert "env-override-model" in output or "AP_MODEL" in output
+
+    # ------------------------------------------------------------------
+    # model select
+    # ------------------------------------------------------------------
+
+    def test_model_select_does_not_invoke_runner_chat(self, tmp_ctx):
+        """'model select' must not trigger an LLM call."""
+        _output, mock_runner, _cfg = self._run_chat_model_cmd(
+            ["model select"], tmp_ctx, wizard_return="new-model-after-wizard"
+        )
+        mock_runner.chat.assert_not_called()
+
+    def test_model_select_updates_runner_model(self, tmp_ctx):
+        """After 'model select', runner.model is updated to the wizard's return value.
+
+        Production sequence:
+          user types 'model select'
+            → chat.py calls run_provider_wizard(config_mgr)
+            → wizard returns new model string
+            → runner.model = new_model (in-place update)
+            → loop continues; next LLM call uses new model
+        """
+        _output, mock_runner, _cfg = self._run_chat_model_cmd(
+            ["model select"], tmp_ctx, wizard_return="updated-to-new-model"
+        )
+        assert mock_runner.model == "updated-to-new-model"
+
+    def test_model_select_plain_text_still_routes_to_llm(self, tmp_ctx):
+        """After 'model select', a subsequent plain text input still reaches LLM."""
+        _output, mock_runner, _cfg = self._run_chat_model_cmd(
+            ["model select", "what is 8.8.8.8"],
+            tmp_ctx,
+            wizard_return="new-model",
+        )
+        mock_runner.chat.assert_called_once_with("what is 8.8.8.8")
+
+    # ------------------------------------------------------------------
+    # help table includes 'model' command (regression guard)
+    # ------------------------------------------------------------------
+
+    def test_help_table_lists_model_command(self, tmp_ctx):
+        """'help' output must include 'model' meta-command after this slice."""
+        import os
+        from io import StringIO
+        from unittest.mock import patch
+
+        from rich.console import Console
+
+        from adversary_pursuit.agent.chat import run_chat
+
+        mock_runner = self._make_runner_mock(tmp_ctx)
+        mock_cfg_mgr = MagicMock()
+        mock_cfg_mgr.get_agent_model.return_value = "test-model"
+        mock_cfg_mgr.get_agent_provider.return_value = "anthropic"
+
+        buf = StringIO()
+        test_console = Console(file=buf, width=120, highlight=False, markup=False)
+        input_seq = iter(["help"])
+
+        def fake_input(_prompt=""):
+            try:
+                return next(input_seq)
+            except StopIteration:
+                raise EOFError
+
+        mock_agent_runner_class = MagicMock(return_value=mock_runner)
+        mock_config_mgr_class = MagicMock(return_value=mock_cfg_mgr)
+
+        with (
+            patch(
+                "adversary_pursuit.agent.runner.AgentRunner", mock_agent_runner_class
+            ),
+            patch("adversary_pursuit.agent.chat.ConfigManager", mock_config_mgr_class),
+            patch.object(test_console, "input", side_effect=fake_input),
+            patch("adversary_pursuit.agent.chat.Console", return_value=test_console),
+        ):
+            os.environ.pop("AP_MODEL", None)
+            run_chat()
+
+        output = buf.getvalue()
+        assert "model" in output, "Expected 'model' meta-command listed in help output"

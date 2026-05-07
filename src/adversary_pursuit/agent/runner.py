@@ -29,6 +29,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from adversary_pursuit.core.config import ConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -58,17 +62,22 @@ class AgentRunner:
     Model selection precedence (highest to lowest):
       1. Explicit ``model=`` argument passed to ``__init__``
       2. ``AP_MODEL`` environment variable
-      3. ``DEFAULT_MODEL`` class constant (``ollama/qwen2.5:8b``)
+      3. ``config_mgr.get_agent_model()`` — saved via interactive wizard
+      4. ``DEFAULT_MODEL`` class constant (``ollama/qwen2.5:8b``)
 
     Parameters
     ----------
     model:
-        litellm model string. When provided, takes precedence over AP_MODEL
-        and DEFAULT_MODEL.
+        litellm model string. When provided, takes precedence over AP_MODEL,
+        config, and DEFAULT_MODEL.
     tool_context:
         Shared ToolContext. Created automatically if not provided.
     system_prompt:
         Override the default system prompt.
+    config_mgr:
+        Optional ConfigManager for reading/writing provider and model config.
+        When provided, the config layer is checked in the model precedence
+        chain and API keys are injected into litellm calls.
     """
 
     DEFAULT_MODEL = "ollama/qwen2.5:8b"  # Local default via Ollama
@@ -78,18 +87,28 @@ class AgentRunner:
         model: str | None = None,
         tool_context: ToolContext | None = None,
         system_prompt: str | None = None,
+        config_mgr: ConfigManager | None = None,
     ) -> None:
         # @decision DEC-AGENT-MODEL-ENV-001
-        # @title AP_MODEL env-var override for runner model selection
+        # @title AP_MODEL env-var and config.toml override for runner model selection
         # @status accepted
-        # @rationale Lets users switch LLM backend (Anthropic/OpenAI/Ollama) without
-        #            code edits. Precedence: explicit model= arg is highest priority
-        #            (tests and programmatic callers retain full control), then AP_MODEL
-        #            env var (operator/user runtime configuration), then DEFAULT_MODEL
-        #            as the zero-config local fallback. Empty-string AP_MODEL is treated
-        #            as unset because Python's `or` chain skips falsy values — consistent
-        #            with conventional env-var patterns across the codebase.
-        self.model = model or os.environ.get("AP_MODEL") or self.DEFAULT_MODEL
+        # @rationale Precedence chain (highest → lowest):
+        #   1. explicit model= arg — tests and programmatic callers retain full control.
+        #   2. AP_MODEL env var — operator/user runtime override without file edits.
+        #   3. config_mgr.get_agent_model() — selection persisted by the interactive
+        #      wizard; lives in ~/.ap/config.toml (chmod 0600).
+        #   4. DEFAULT_MODEL — zero-config local fallback (Ollama).
+        #   Empty-string AP_MODEL and empty-string config values are treated as unset
+        #   because Python's `or` chain skips falsy values — consistent with the rest of
+        #   the codebase. The config layer is skipped when config_mgr is None so that
+        #   existing callers that don't pass config_mgr are unaffected.
+        self._config_mgr = config_mgr
+        self.model = (
+            model
+            or os.environ.get("AP_MODEL")
+            or (config_mgr.get_agent_model() if config_mgr is not None else None)
+            or self.DEFAULT_MODEL
+        )
         self.ctx = tool_context or ToolContext()
         self.tools = create_tools(self.ctx)
         self.conversation: list[dict] = []
@@ -202,14 +221,27 @@ class AgentRunner:
     def _call_llm(self) -> object:
         """Call the LLM with current conversation and tools.
 
+        When a config_mgr was provided at construction and the configured
+        provider has an API key stored in config.toml, that key is passed to
+        litellm via the ``api_key`` kwarg so it takes precedence over any
+        environment variable that litellm would otherwise read.  This lets
+        the wizard-persisted key work even when the user has no env vars set.
+
         Returns the message object from the LLM response.
         """
-        response = litellm.completion(
-            model=self.model,
-            messages=self.conversation,
-            tools=self.tools,
-            tool_choice="auto",
-        )
+        kwargs: dict = {
+            "model": self.model,
+            "messages": self.conversation,
+            "tools": self.tools,
+            "tool_choice": "auto",
+        }
+        if self._config_mgr is not None:
+            provider_id = self._config_mgr.get_agent_provider()
+            if provider_id:
+                stored_key = self._config_mgr.get_provider_api_key(provider_id)
+                if stored_key:
+                    kwargs["api_key"] = stored_key
+        response = litellm.completion(**kwargs)
         return response.choices[0].message
 
     def _extract_tool_calls(self, message: object) -> list[dict]:

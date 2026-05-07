@@ -21,6 +21,19 @@ variable overrides for API keys, Pydantic validation, and 0600 file permissions.
            need post-load mutation (dotted-key set), and because env vars only apply
            to api_keys (not general settings), a manual override step in ConfigManager.load()
            is simpler, more explicit, and avoids an additional dependency.
+
+@decision DEC-AGENT-CONFIG-PROVIDER-001
+@title Agent provider/model selection persisted in GeneralConfig + ApiKeysConfig
+@status accepted
+@rationale The interactive provider wizard needs to persist: (1) the chosen provider
+           id ("anthropic", "openai", etc.), (2) the full litellm model string, and
+           (3) the provider-specific API key. All three live in config.toml under
+           existing sections (general and api_keys) rather than a new section to
+           avoid changing the TOML schema shape for downstream consumers. Provider API
+           keys are stored in ApiKeysConfig alongside existing service keys — they get
+           the same 0600 file permission protection. get_provider_api_key() and
+           set_provider_api_key() use a stable string-keyed lookup so new providers
+           can be added to the registry without changing this module.
 """
 
 from __future__ import annotations
@@ -61,6 +74,7 @@ _ENV_VAR_MAP: dict[str, str] = {
 # Pydantic models
 # ---------------------------------------------------------------------------
 
+
 class GeneralConfig(BaseModel):
     """General application settings."""
 
@@ -68,6 +82,10 @@ class GeneralConfig(BaseModel):
     theme: Literal["dark", "light"] = "dark"
     auto_pivot: bool = False
     auto_pivot_depth: int = Field(default=2, ge=1)
+    # Agent provider/model selection — set by the interactive wizard.
+    # None means "not configured"; wizard will prompt on first chat launch.
+    agent_provider: str | None = None
+    agent_model: str | None = None
 
     @field_validator("auto_pivot_depth")
     @classmethod
@@ -82,6 +100,8 @@ class ApiKeysConfig(BaseModel):
 
     Fields default to empty string (not configured).
     Environment variables override these at load time — see _ENV_VAR_MAP.
+    Provider-specific keys for the agent wizard are also stored here so they
+    receive the same 0600 file-permission protection as other service keys.
     """
 
     shodan: str = ""
@@ -94,6 +114,12 @@ class ApiKeysConfig(BaseModel):
     otx: str = ""
     passivetotal_user: str = ""
     passivetotal_key: str = ""
+    # Agent provider API keys — keyed by provider id ("anthropic", "openai", etc.)
+    # Stored as nullable so TOML round-trips cleanly when not yet set.
+    agent_anthropic: str | None = None
+    agent_openai: str | None = None
+    agent_openrouter: str | None = None
+    agent_google: str | None = None
 
 
 class Config(BaseModel):
@@ -103,16 +129,27 @@ class Config(BaseModel):
     api_keys: ApiKeysConfig = Field(default_factory=ApiKeysConfig)
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a plain dict suitable for TOML serialisation."""
+        """Return a plain dict suitable for TOML serialisation.
+
+        None values are excluded because tomli_w cannot serialise Python None.
+        TOML has no null type; absent fields round-trip as their Pydantic default
+        (None) when the key is not present in the file — this is the correct
+        representation for "not yet configured" optional fields.
+        """
         return {
-            "general": self.general.model_dump(),
-            "api_keys": self.api_keys.model_dump(),
+            "general": {
+                k: v for k, v in self.general.model_dump().items() if v is not None
+            },
+            "api_keys": {
+                k: v for k, v in self.api_keys.model_dump().items() if v is not None
+            },
         }
 
 
 # ---------------------------------------------------------------------------
 # ConfigManager
 # ---------------------------------------------------------------------------
+
 
 class ConfigManager:
     """Loads, validates, and persists application configuration.
@@ -139,7 +176,9 @@ class ConfigManager:
             Directory that contains config.toml.  Defaults to ~/.ap/.
             Pass ``tmp_path`` in tests to avoid touching the real user config.
         """
-        self._config_dir: Path = Path(config_dir) if config_dir is not None else _DEFAULT_CONFIG_DIR
+        self._config_dir: Path = (
+            Path(config_dir) if config_dir is not None else _DEFAULT_CONFIG_DIR
+        )
         self._config_path: Path = self._config_dir / "config.toml"
         self._cache: Config | None = None
 
@@ -269,13 +308,93 @@ class ConfigManager:
         # Return None for empty string (not configured)
         return value if value else None
 
+    # ------------------------------------------------------------------
+    # Agent provider/model helpers (DEC-AGENT-CONFIG-PROVIDER-001)
+    # ------------------------------------------------------------------
+
+    # Mapping from provider_id → ApiKeysConfig field name.
+    # Kept here (not in provider_setup.py) so config.py stays self-contained
+    # and can be imported without pulling in wizard dependencies.
+    _PROVIDER_KEY_FIELD: dict[str, str] = {
+        "anthropic": "agent_anthropic",
+        "openai": "agent_openai",
+        "openrouter": "agent_openrouter",
+        "google": "agent_google",
+    }
+
+    def get_agent_provider(self) -> str | None:
+        """Return the configured agent provider id, or None if not set."""
+        cfg = self._cache if self._cache is not None else self.load()
+        return cfg.general.agent_provider or None
+
+    def get_agent_model(self) -> str | None:
+        """Return the configured litellm model string, or None if not set."""
+        cfg = self._cache if self._cache is not None else self.load()
+        return cfg.general.agent_model or None
+
+    def set_agent_selection(self, provider: str, model: str) -> None:
+        """Persist provider id and litellm model string to config.
+
+        Parameters
+        ----------
+        provider:
+            Provider id string (e.g. "anthropic", "openai").
+        model:
+            Full litellm model string (e.g. "claude-3-5-sonnet-20241022",
+            "openai/gpt-4o", "gemini/gemini-2.0-flash-exp").
+        """
+        cfg = self._cache if self._cache is not None else self.load()
+        cfg.general.agent_provider = provider
+        cfg.general.agent_model = model
+        self.save(cfg)
+
+    def get_provider_api_key(self, provider_id: str) -> str | None:
+        """Return the stored API key for *provider_id*, or None.
+
+        Parameters
+        ----------
+        provider_id:
+            One of "anthropic", "openai", "openrouter", "google".
+            Returns None immediately for "ollama" (no key needed).
+        """
+        field = self._PROVIDER_KEY_FIELD.get(provider_id)
+        if field is None:
+            return None
+        cfg = self._cache if self._cache is not None else self.load()
+        value = getattr(cfg.api_keys, field, None)
+        return value if value else None
+
+    def set_provider_api_key(self, provider_id: str, key: str) -> None:
+        """Persist the API key for *provider_id*.
+
+        Parameters
+        ----------
+        provider_id:
+            One of "anthropic", "openai", "openrouter", "google".
+        key:
+            The API key string to persist.
+
+        Raises
+        ------
+        ValueError:
+            If provider_id is not in the known provider map.
+        """
+        field = self._PROVIDER_KEY_FIELD.get(provider_id)
+        if field is None:
+            raise ValueError(f"Unknown provider id: {provider_id!r}")
+        cfg = self._cache if self._cache is not None else self.load()
+        setattr(cfg.api_keys, field, key)
+        self.save(cfg)
+
 
 # ---------------------------------------------------------------------------
 # Sentinel
 # ---------------------------------------------------------------------------
 
+
 class _MissingType:
     """Sentinel for missing attribute lookups (avoids None ambiguity)."""
+
     def __repr__(self) -> str:
         return "<MISSING>"
 

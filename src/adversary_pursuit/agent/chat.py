@@ -25,14 +25,36 @@ Launched via `ap chat` or `python -m adversary_pursuit chat`.
            Unknown names show an error without changing state. The prompt prefix
            reflects the active mode's prompt_prefix so the user sees the persona
            in every input line. Mirrors DEC-CONSOLE-004 for the agent path.
+
+@decision DEC-AGENT-CHAT-MODEL-COMMANDS-001
+@title model show / model select meta-commands for provider/model management
+@status accepted
+@rationale Users need a discoverable way to check which provider+model is active
+           and to re-run the setup wizard without restarting. Both are handled
+           locally (not sent to the LLM) for immediate, deterministic output.
+           'model show' reads from the three precedence layers (env, config,
+           default) and labels each so the user can diagnose override surprises.
+           'model select' re-runs the full provider wizard and updates
+           runner.model in-place so the running session immediately uses the new
+           selection without a restart. Wired through the same meta-command
+           intercept block as all other local commands — no new dispatch path.
 """
 
 from __future__ import annotations
+
+import os
 
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
+
+# ConfigManager and run_provider_wizard are imported at module level so that
+# tests can patch 'adversary_pursuit.agent.chat.ConfigManager' and
+# 'adversary_pursuit.agent.chat.run_provider_wizard' cleanly.
+# Neither pulls in optional dependencies (litellm), so this is safe.
+from adversary_pursuit.agent.provider_setup import run_provider_wizard
+from adversary_pursuit.core.config import ConfigManager
 
 
 def run_chat() -> None:
@@ -41,6 +63,10 @@ def run_chat() -> None:
     Starts an interactive terminal chat session using AgentRunner.
     Prints a welcome banner, then loops reading user input until the user
     types 'quit', 'exit', or sends EOF (Ctrl+D).
+
+    On first launch (when no model is configured via AP_MODEL env var or
+    config.toml), runs the interactive provider/model setup wizard before
+    entering the chat loop.
 
     Meta-commands (handled locally, not sent to the LLM):
       workspace <name>              -- switch active workspace
@@ -54,6 +80,8 @@ def run_chat() -> None:
       report                        -- show interview status (auto-starts if not started)
       report answer <idx> <text>    -- record answer for question index 0-4
       report generate               -- generate and display Markdown report
+      model show                    -- display current provider/model and source layer
+      model select                  -- re-run the provider/model setup wizard
     """
     console = Console()
 
@@ -65,9 +93,26 @@ def run_chat() -> None:
     )
 
     try:
+        # AgentRunner stays as a lazy import — it pulls in litellm (optional dep).
+        # ConfigManager and run_provider_wizard are module-level imports (no optional deps).
         from adversary_pursuit.agent.runner import AgentRunner
 
-        runner = AgentRunner()
+        config_mgr = ConfigManager()
+
+        # Determine if a model is already configured; if not, run the wizard.
+        # Precedence: AP_MODEL env > config.toml > (wizard needed)
+        resolved_model: str | None = (
+            os.environ.get("AP_MODEL") or config_mgr.get_agent_model()
+        )
+        if not resolved_model:
+            # No model configured — run the interactive setup wizard.
+            try:
+                resolved_model = run_provider_wizard(config_mgr)
+            except SystemExit:
+                # Wizard aborted (bad key, no models, user cancelled).
+                return
+
+        runner = AgentRunner(model=resolved_model, config_mgr=config_mgr)
         console.print("[dim]Agent ready. Ask me about any indicator.[/dim]\n")
     except ImportError as e:
         console.print(f"[red]Missing dependency: {e}[/red]")
@@ -431,6 +476,11 @@ def run_chat() -> None:
                 "Interview-driven investigation report",
             )
             help_table.add_row(
+                "model",
+                "model show / model select",
+                "Show current provider/model or re-run setup wizard",
+            )
+            help_table.add_row(
                 "help",
                 "help / ?",
                 "Show this command reference",
@@ -540,6 +590,43 @@ def run_chat() -> None:
                     "then [bold]report generate[/bold] to produce the report.[/dim]"
                 )
 
+            continue
+
+        # Model meta-commands — DEC-AGENT-CHAT-MODEL-COMMANDS-001.
+        # Handled locally (not sent to LLM) for immediate, deterministic output.
+        #
+        # Supported forms:
+        #   model show     → display current provider, model, and which precedence
+        #                    layer it came from (env / config / default)
+        #   model select   → re-run the full provider/model setup wizard; updates
+        #                    runner.model in-place for the current session
+        if lower == "model show":
+            env_model = os.environ.get("AP_MODEL")
+            cfg_model = config_mgr.get_agent_model() if config_mgr else None
+            cfg_provider = config_mgr.get_agent_provider() if config_mgr else None
+            if env_model:
+                source = "[yellow]AP_MODEL env var[/yellow]"
+                effective = env_model
+            elif cfg_model:
+                source = "[cyan]config.toml[/cyan]"
+                effective = cfg_model
+            else:
+                source = "[dim]default (not configured)[/dim]"
+                effective = runner.model
+            console.print(f"\n[bold]Current model:[/bold] {effective}")
+            console.print(f"[dim]Source: {source}[/dim]")
+            if cfg_provider:
+                console.print(f"[dim]Configured provider: {cfg_provider}[/dim]")
+            console.print()
+            continue
+
+        if lower == "model select":
+            try:
+                new_model = run_provider_wizard(config_mgr)
+                runner.model = new_model
+                console.print(f"[green]Model updated to:[/green] {new_model}\n")
+            except SystemExit:
+                console.print("[yellow]Setup wizard cancelled.[/yellow]\n")
             continue
 
         # Normal chat — send to LLM

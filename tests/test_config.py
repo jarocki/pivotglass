@@ -30,6 +30,7 @@ from adversary_pursuit.core.config import Config, ConfigManager
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def make_manager(tmp_path: Path) -> ConfigManager:
     """Return a ConfigManager wired to a temp directory."""
     return ConfigManager(config_dir=tmp_path)
@@ -38,6 +39,7 @@ def make_manager(tmp_path: Path) -> ConfigManager:
 # ---------------------------------------------------------------------------
 # Defaults when no config file exists
 # ---------------------------------------------------------------------------
+
 
 class TestDefaults:
     def test_load_returns_config_without_file(self, tmp_path):
@@ -71,6 +73,7 @@ class TestDefaults:
 # ---------------------------------------------------------------------------
 # Save / load round-trip
 # ---------------------------------------------------------------------------
+
 
 class TestRoundTrip:
     def test_save_creates_file(self, tmp_path):
@@ -131,6 +134,7 @@ class TestRoundTrip:
 # File permissions
 # ---------------------------------------------------------------------------
 
+
 class TestFilePermissions:
     def test_config_file_is_0600(self, tmp_path):
         mgr = make_manager(tmp_path)
@@ -153,6 +157,7 @@ class TestFilePermissions:
 # ---------------------------------------------------------------------------
 # Dotted key get/set
 # ---------------------------------------------------------------------------
+
 
 class TestDottedKeys:
     def test_get_api_key_dotted(self, tmp_path):
@@ -187,6 +192,7 @@ class TestDottedKeys:
 # ---------------------------------------------------------------------------
 # Environment variable override
 # ---------------------------------------------------------------------------
+
 
 class TestEnvVarOverride:
     def test_shodan_env_overrides_file(self, tmp_path, monkeypatch):
@@ -259,6 +265,7 @@ class TestEnvVarOverride:
 # get_api_key method
 # ---------------------------------------------------------------------------
 
+
 class TestGetApiKey:
     def test_returns_none_when_not_set(self, tmp_path, monkeypatch):
         monkeypatch.delenv("AP_SHODAN_API_KEY", raising=False)
@@ -306,11 +313,13 @@ class TestGetApiKey:
 # Pydantic validation
 # ---------------------------------------------------------------------------
 
+
 class TestPydanticValidation:
     def test_invalid_auto_pivot_depth_rejected(self):
         """auto_pivot_depth must be a positive integer."""
         from pydantic import ValidationError
         from adversary_pursuit.core.config import GeneralConfig
+
         with pytest.raises(ValidationError):
             GeneralConfig(auto_pivot_depth=-1)
 
@@ -318,6 +327,7 @@ class TestPydanticValidation:
         """theme must be 'dark' or 'light'."""
         from pydantic import ValidationError
         from adversary_pursuit.core.config import GeneralConfig
+
         with pytest.raises(ValidationError):
             GeneralConfig(theme="neon-rainbow")
 
@@ -325,6 +335,7 @@ class TestPydanticValidation:
 # ---------------------------------------------------------------------------
 # Config directory creation
 # ---------------------------------------------------------------------------
+
 
 class TestDirCreation:
     def test_creates_config_dir_on_save(self, tmp_path):
@@ -334,3 +345,119 @@ class TestDirCreation:
         mgr.save(cfg)
         assert config_dir.exists()
         assert (config_dir / "config.toml").exists()
+
+
+# ---------------------------------------------------------------------------
+# Agent provider/model fields — DEC-AGENT-CONFIG-PROVIDER-001
+# ---------------------------------------------------------------------------
+
+
+class TestAgentProviderFields:
+    """Tests for agent_provider, agent_model, and provider API key helpers."""
+
+    def test_defaults_are_none(self, tmp_path):
+        mgr = make_manager(tmp_path)
+        assert mgr.get_agent_provider() is None
+        assert mgr.get_agent_model() is None
+
+    def test_set_agent_selection_persists(self, tmp_path):
+        mgr = make_manager(tmp_path)
+        mgr.set_agent_selection("anthropic", "claude-3-5-sonnet-20241022")
+        assert mgr.get_agent_provider() == "anthropic"
+        assert mgr.get_agent_model() == "claude-3-5-sonnet-20241022"
+
+    def test_set_agent_selection_round_trip(self, tmp_path):
+        """Write via one ConfigManager, read back via a fresh one."""
+        mgr = make_manager(tmp_path)
+        mgr.set_agent_selection("openai", "gpt-4o")
+
+        mgr2 = make_manager(tmp_path)
+        assert mgr2.get_agent_provider() == "openai"
+        assert mgr2.get_agent_model() == "gpt-4o"
+
+    def test_set_provider_api_key_anthropic(self, tmp_path):
+        mgr = make_manager(tmp_path)
+        mgr.set_provider_api_key("anthropic", "sk-ant-test-key")
+        assert mgr.get_provider_api_key("anthropic") == "sk-ant-test-key"
+
+    def test_set_provider_api_key_openai(self, tmp_path):
+        mgr = make_manager(tmp_path)
+        mgr.set_provider_api_key("openai", "sk-openai-key")
+        assert mgr.get_provider_api_key("openai") == "sk-openai-key"
+
+    def test_set_provider_api_key_openrouter(self, tmp_path):
+        mgr = make_manager(tmp_path)
+        mgr.set_provider_api_key("openrouter", "sk-or-key")
+        assert mgr.get_provider_api_key("openrouter") == "sk-or-key"
+
+    def test_set_provider_api_key_google(self, tmp_path):
+        mgr = make_manager(tmp_path)
+        mgr.set_provider_api_key("google", "AIza-google-key")
+        assert mgr.get_provider_api_key("google") == "AIza-google-key"
+
+    def test_get_provider_api_key_returns_none_for_ollama(self, tmp_path):
+        """Ollama has no API key — get_provider_api_key('ollama') is always None."""
+        mgr = make_manager(tmp_path)
+        assert mgr.get_provider_api_key("ollama") is None
+
+    def test_set_provider_api_key_unknown_raises(self, tmp_path):
+        mgr = make_manager(tmp_path)
+        with pytest.raises(ValueError, match="Unknown provider"):
+            mgr.set_provider_api_key("unknown_provider_xyz", "some-key")
+
+    def test_get_provider_api_key_unknown_returns_none(self, tmp_path):
+        mgr = make_manager(tmp_path)
+        assert mgr.get_provider_api_key("unknown_provider_xyz") is None
+
+    def test_provider_key_round_trip(self, tmp_path):
+        """Write key via one manager, read back via a fresh one."""
+        mgr = make_manager(tmp_path)
+        mgr.set_provider_api_key("anthropic", "sk-ant-persist-test")
+
+        mgr2 = make_manager(tmp_path)
+        assert mgr2.get_provider_api_key("anthropic") == "sk-ant-persist-test"
+
+    def test_provider_key_file_is_0600(self, tmp_path):
+        """Config file retains 0600 permissions after writing provider key."""
+        import stat
+
+        mgr = make_manager(tmp_path)
+        mgr.set_provider_api_key("openai", "sk-openai-test")
+        config_path = tmp_path / "config.toml"
+        mode = stat.S_IMODE(config_path.stat().st_mode)
+        assert mode == 0o600, f"Expected 0600, got {oct(mode)}"
+
+    def test_full_provider_setup_round_trip(self, tmp_path):
+        """Compound test: set provider + model + key; read all back."""
+        import stat
+
+        mgr = make_manager(tmp_path)
+        mgr.set_agent_selection("openrouter", "openrouter/anthropic/claude-3.5-sonnet")
+        mgr.set_provider_api_key("openrouter", "sk-or-compound-test")
+
+        mgr2 = make_manager(tmp_path)
+        assert mgr2.get_agent_provider() == "openrouter"
+        assert mgr2.get_agent_model() == "openrouter/anthropic/claude-3.5-sonnet"
+        assert mgr2.get_provider_api_key("openrouter") == "sk-or-compound-test"
+
+        config_path = tmp_path / "config.toml"
+        mode = stat.S_IMODE(config_path.stat().st_mode)
+        assert mode == 0o600
+
+    def test_agent_model_default_none_in_general_config(self, tmp_path):
+        """GeneralConfig defaults agent_provider and agent_model to None."""
+        from adversary_pursuit.core.config import GeneralConfig
+
+        g = GeneralConfig()
+        assert g.agent_provider is None
+        assert g.agent_model is None
+
+    def test_api_keys_config_has_agent_fields(self, tmp_path):
+        """ApiKeysConfig has agent_anthropic, agent_openai, etc. defaulting to None."""
+        from adversary_pursuit.core.config import ApiKeysConfig
+
+        k = ApiKeysConfig()
+        assert k.agent_anthropic is None
+        assert k.agent_openai is None
+        assert k.agent_openrouter is None
+        assert k.agent_google is None

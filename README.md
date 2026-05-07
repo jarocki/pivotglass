@@ -81,28 +81,41 @@ ap chat
 ap
 ```
 
-### Choose an LLM backend (optional)
+### Choose an LLM backend
 
-The default backend is Ollama running locally (`ollama/qwen2.5:8b`). To use a
-different provider, set `AP_MODEL` to any litellm-supported model string and
-provide the corresponding API key:
+On first run of `ap chat`, the agent runs an interactive setup wizard that:
 
-```bash
-# Anthropic Claude
-export AP_MODEL=claude-3-5-sonnet-20241022
-export ANTHROPIC_API_KEY=sk-ant-...
+1. Prompts you to pick a provider from a curated list (Anthropic, OpenAI, OpenRouter, Google, Ollama)
+2. Prompts for an API key (skipped for Ollama since it's local)
+3. Calls the provider's list-models endpoint to fetch available models
+4. Lets you select one
+5. Persists provider, model, and key to `~/.ap/config.toml` (chmod 0600)
 
-# OpenAI GPT-4o
-export AP_MODEL=gpt-4o
-export OPENAI_API_KEY=sk-...
+Subsequent `ap chat` launches use the saved config — no prompts.
 
-# Local Ollama with a different model (default backend, no API key needed)
-export AP_MODEL=ollama/llama3.2:3b
+**Reconfigure during a session:**
+
+```
+ap> model show       # display current provider, model, and source layer
+ap> model select     # re-run the wizard
 ```
 
-Precedence: explicit `model=` argument to `AgentRunner` > `AP_MODEL` env var >
-built-in default (`ollama/qwen2.5:8b`). See
-[litellm provider docs](https://docs.litellm.ai/docs/providers) for the full
+**Precedence (highest → lowest):**
+
+1. Explicit `model=` argument to `AgentRunner` (programmatic use)
+2. `AP_MODEL` env var (CI / scripted overrides)
+3. `~/.ap/config.toml` (set by the wizard)
+4. Built-in default (`ollama/qwen2.5:8b`)
+
+**Skip the wizard via env var (CI/dev override):**
+
+```bash
+export AP_MODEL=anthropic/claude-3-5-sonnet-20241022
+export ANTHROPIC_API_KEY=sk-ant-...
+uv run ap chat   # bypasses wizard, uses env vars
+```
+
+See [litellm provider docs](https://docs.litellm.ai/docs/providers) for the full
 list of supported model strings.
 
 ## Chat Interface (Primary v1 Interface)
