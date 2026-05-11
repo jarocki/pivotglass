@@ -67,9 +67,11 @@ from adversary_pursuit.models.database import (
     BadgeEvent,
     Base,
     ModuleRun,
-    Relationship as RelationshipModel,
     ScoreEvent,
     StixObject,
+)
+from adversary_pursuit.models.database import (
+    Relationship as RelationshipModel,
 )
 from adversary_pursuit.models.stix import dict_to_stix
 
@@ -105,7 +107,9 @@ class WorkspaceManager:
             Directory where .db files are stored. Defaults to ~/.ap/workspaces/.
             Pass ``tmp_path`` in tests to avoid touching the real user directory.
         """
-        self._workspace_dir = Path(workspace_dir) if workspace_dir is not None else _DEFAULT_WORKSPACE_DIR
+        self._workspace_dir = (
+            Path(workspace_dir) if workspace_dir is not None else _DEFAULT_WORKSPACE_DIR
+        )
         self._active: str | None = None
         self._engine = None
 
@@ -254,6 +258,17 @@ class WorkspaceManager:
         int
             Count of objects stored (after conversion; excludes skipped dicts).
         """
+        # @decision DEC-WS-006
+        # @title _ensure_active() called at top of store_stix_objects
+        # @status accepted
+        # @rationale Without this call, store_stix_objects() opens Session(self._engine)
+        #            when self._engine is None (no workspace switched yet), causing
+        #            SQLAlchemy UnboundExecutionError on session.get() / session.add().
+        #            _ensure_active() auto-creates and switches to the 'default' workspace,
+        #            guaranteeing self._engine is bound before the Session is opened.
+        #            All other public data methods already call _ensure_active(); this was
+        #            the only missing call site.
+        self._ensure_active()
         stored_count = 0
 
         with Session(self._engine) as session:
@@ -315,9 +330,7 @@ class WorkspaceManager:
             Ordered by insertion order (id ascending).
         """
         with Session(self._engine) as session:
-            rows = session.execute(
-                select(ModuleRun).order_by(ModuleRun.id)
-            ).scalars().all()
+            rows = session.execute(select(ModuleRun).order_by(ModuleRun.id)).scalars().all()
             return [
                 {
                     "module_name": row.module_name,
@@ -344,8 +357,9 @@ class WorkspaceManager:
         self._ensure_active()
         with Session(self._engine) as session:
             rows = session.execute(
-                select(StixObject.type, func.count(StixObject.id).label("cnt"))
-                .group_by(StixObject.type)
+                select(StixObject.type, func.count(StixObject.id).label("cnt")).group_by(
+                    StixObject.type
+                )
             ).all()
             return {row.type: row.cnt for row in rows}
 
@@ -397,9 +411,7 @@ class WorkspaceManager:
         """
         self._ensure_active()
         with Session(self._engine) as session:
-            result = session.execute(
-                select(func.sum(ScoreEvent.points))
-            ).scalar()
+            result = session.execute(select(func.sum(ScoreEvent.points))).scalar()
             return result if result is not None else 0
 
     def get_recent_scores(self, limit: int = 10) -> list[dict]:
@@ -420,11 +432,11 @@ class WorkspaceManager:
         """
         self._ensure_active()
         with Session(self._engine) as session:
-            rows = session.execute(
-                select(ScoreEvent)
-                .order_by(ScoreEvent.id.desc())
-                .limit(limit)
-            ).scalars().all()
+            rows = (
+                session.execute(select(ScoreEvent).order_by(ScoreEvent.id.desc()).limit(limit))
+                .scalars()
+                .all()
+            )
             return [
                 {
                     "action": row.action,
@@ -445,6 +457,7 @@ class WorkspaceManager:
         stix_object_id:
             Optional STIX ID to link this note to a specific observable.
         """
+        self._ensure_active()
         with Session(self._engine) as session:
             note = AnalystNote(content=content, stix_object_id=stix_object_id)
             session.add(note)
@@ -482,9 +495,9 @@ class WorkspaceManager:
         """
         self._ensure_active()
         with Session(self._engine) as session:
-            rows = session.execute(
-                select(BadgeEvent).order_by(BadgeEvent.awarded_at)
-            ).scalars().all()
+            rows = (
+                session.execute(select(BadgeEvent).order_by(BadgeEvent.awarded_at)).scalars().all()
+            )
             return [
                 {
                     "badge_id": row.badge_id,
@@ -514,33 +527,29 @@ class WorkspaceManager:
         """
         self._ensure_active()
         with Session(self._engine) as session:
-            total_indicators = session.execute(
-                select(func.count(StixObject.id))
-            ).scalar() or 0
+            total_indicators = session.execute(select(func.count(StixObject.id))).scalar() or 0
 
-            domain_count = session.execute(
-                select(func.count(StixObject.id)).where(
-                    StixObject.type == "domain-name"
-                )
-            ).scalar() or 0
+            domain_count = (
+                session.execute(
+                    select(func.count(StixObject.id)).where(StixObject.type == "domain-name")
+                ).scalar()
+                or 0
+            )
 
-            ip_count = session.execute(
-                select(func.count(StixObject.id)).where(
-                    StixObject.type.in_(["ipv4-addr", "ipv6-addr"])
-                )
-            ).scalar() or 0
+            ip_count = (
+                session.execute(
+                    select(func.count(StixObject.id)).where(
+                        StixObject.type.in_(["ipv4-addr", "ipv6-addr"])
+                    )
+                ).scalar()
+                or 0
+            )
 
-            module_run_count = session.execute(
-                select(func.count(ModuleRun.id))
-            ).scalar() or 0
+            module_run_count = session.execute(select(func.count(ModuleRun.id))).scalar() or 0
 
-            total_score = session.execute(
-                select(func.sum(ScoreEvent.points))
-            ).scalar() or 0
+            total_score = session.execute(select(func.sum(ScoreEvent.points))).scalar() or 0
 
-            note_count = session.execute(
-                select(func.count(AnalystNote.id))
-            ).scalar() or 0
+            note_count = session.execute(select(func.count(AnalystNote.id))).scalar() or 0
 
         return {
             "total_indicators": total_indicators,

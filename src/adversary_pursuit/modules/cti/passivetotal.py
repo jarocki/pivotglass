@@ -67,9 +67,12 @@ class PassiveTotal(BaseModule):
         if not user or not key:
             raise AuthenticationError(
                 "PassiveTotal credentials not configured. "
-                "Set via 'ap config set api_keys.passivetotal_user <user>' and "
-                "'ap config set api_keys.passivetotal_key <key>' or "
-                "AP_PT_USER / AP_PT_API_KEY env vars."
+                "Configure via one of: "
+                "(1) run 'model select' in ap chat to use the setup wizard, "
+                "(2) set env vars AP_PASSIVETOTAL_USER / AP_PASSIVETOTAL_KEY "
+                "(or the vendor aliases PT_USERNAME / PT_API_KEY), "
+                "or (3) hand-edit ~/.ap/config.toml and add "
+                "passivetotal_user and passivetotal_key under [api_keys]."
             )
 
         include_whois = options.get("INCLUDE_WHOIS", "true").lower() == "true"
@@ -78,7 +81,6 @@ class PassiveTotal(BaseModule):
         results: list[dict] = []
 
         async with httpx.AsyncClient(timeout=30.0, auth=(user, key)) as client:
-
             # Passive DNS
             dns_resp = await client.get(
                 "https://api.passivetotal.org/v2/dns/passive",
@@ -115,7 +117,7 @@ class PassiveTotal(BaseModule):
                 whois_resp = await client.get(
                     "https://api.passivetotal.org/v2/whois",
                     params={"query": target},
-                    )
+                )
                 if whois_resp.status_code == 200:
                     whois_data = whois_resp.json()
                     primary["x_whois"] = whois_data

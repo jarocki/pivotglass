@@ -422,6 +422,31 @@ uv run ap           # Launch classic REPL
 
 ADR-010: The agentic AI chat (`ap chat`, litellm-driven) is the v1 primary user-facing interface. The cmd2 REPL (`ap`) ships as a supporting power-user surface. Both layers share the same module catalog, workspace authority, scoring engine, and gamification primitives.
 
+## Smoke testing
+
+A "dummy-user" smoke script exercises every CTI module against real APIs and verifies workspace persistence. It reads keys from `~/.ap/config.toml` and environment variables — no secrets are hardcoded or committed to the repo.
+
+```bash
+# Run against real APIs (keys read from ~/.ap/config.toml + env)
+uv run python scripts/smoke_test.py
+
+# Summary only — suppress per-module output
+uv run python scripts/smoke_test.py --quiet
+
+# Override the default IP target (8.8.8.8)
+uv run python scripts/smoke_test.py --target 1.1.1.1
+
+# Full tracebacks on failure
+uv run python scripts/smoke_test.py --verbose
+```
+
+Modules whose API keys are not configured are reported as `SKIP` (not `FAIL`). Exit code is `0` when all tests pass or skip, `1` if any test fails. The script also runs a workspace persistence regression check that reproduces and verifies the fix for the SQLAlchemy `UnboundExecutionError` (DEC-WS-006).
+
+Key sources (in precedence order):
+1. `~/.ap/config.toml` under `[api_keys]`
+2. `AP_*` environment variables (project-namespaced, e.g. `AP_SHODAN_API_KEY`)
+3. Vendor-convention env vars (e.g. `SHODAN_API_KEY`, `OTX_API_KEY`, `PT_USERNAME`)
+
 ## What's Next
 
 Phase 1–6 of the v1 plan are complete. Distribution is via GitHub Releases — push a `v*.*.*` tag to trigger the release workflow, which builds wheel + sdist and attaches them as release assets automatically.

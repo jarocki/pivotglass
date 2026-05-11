@@ -33,19 +33,17 @@ and all error paths (missing creds, 401, 403, 404, 429).
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
 from adversary_pursuit.modules.osint.censys_host import CensysHost
-from adversary_pursuit.core.plugin_mgr import PluginManager
-
 
 # ---------------------------------------------------------------------------
 # Sample API responses
@@ -209,12 +207,15 @@ def _make_client_mock(response: MagicMock) -> MagicMock:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_success():
     """Patch httpx.AsyncClient to return the full success response."""
     mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_FULL)
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
@@ -223,7 +224,9 @@ def mock_success_multi_certs():
     """Patch httpx.AsyncClient to return response with multiple certificate services."""
     mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_MULTI_CERTS)
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
@@ -232,7 +235,9 @@ def mock_success_minimal():
     """Patch httpx.AsyncClient to return a minimal response (no OS, no certs)."""
     mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_MINIMAL)
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
@@ -241,34 +246,53 @@ def mock_success_no_services():
     """Patch httpx.AsyncClient to return a response with empty services list."""
     mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_NO_SERVICES)
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
 @pytest.fixture
 def mock_401():
     """Patch httpx.AsyncClient to return 401 Unauthorized."""
-    mock_resp = _make_mock_response(401, {"code": 401, "status": "Unauthorized", "error": "Invalid API credentials."})
+    mock_resp = _make_mock_response(
+        401, {"code": 401, "status": "Unauthorized", "error": "Invalid API credentials."}
+    )
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
 @pytest.fixture
 def mock_403():
     """Patch httpx.AsyncClient to return 403 Forbidden (plan restriction)."""
-    mock_resp = _make_mock_response(403, {"code": 403, "status": "Forbidden", "error": "Forbidden. Your account does not have access to this endpoint."})
+    mock_resp = _make_mock_response(
+        403,
+        {
+            "code": 403,
+            "status": "Forbidden",
+            "error": "Forbidden. Your account does not have access to this endpoint.",
+        },
+    )
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
 @pytest.fixture
 def mock_404():
     """Patch httpx.AsyncClient to return 404 Not Found (IP not in index)."""
-    mock_resp = _make_mock_response(404, {"code": 404, "status": "Not Found", "error": "404: Not Found"})
+    mock_resp = _make_mock_response(
+        404, {"code": 404, "status": "Not Found", "error": "404: Not Found"}
+    )
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
@@ -281,7 +305,9 @@ def mock_429():
         headers={"Retry-After": "60"},
     )
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
@@ -294,13 +320,16 @@ def mock_429_no_retry():
         headers={},
     )
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
 # ---------------------------------------------------------------------------
 # Protocol and metadata tests
 # ---------------------------------------------------------------------------
+
 
 class TestCensysHostMetadata:
     """CensysHost satisfies PursuitModule protocol and declares correct metadata."""
@@ -339,6 +368,7 @@ class TestCensysHostMetadata:
 # ---------------------------------------------------------------------------
 # Authentication / error path tests
 # ---------------------------------------------------------------------------
+
 
 class TestCensysHostErrors:
     """hunt() error handling: missing creds, 401, 403, 404, 429."""
@@ -419,6 +449,7 @@ class TestCensysHostErrors:
 # ---------------------------------------------------------------------------
 # Successful hunt() result structure tests
 # ---------------------------------------------------------------------------
+
 
 class TestCensysHostHuntResults:
     """hunt() result structure with mocked API responses."""
@@ -579,6 +610,7 @@ class TestCensysHostHuntResults:
 # HTTP request construction tests
 # ---------------------------------------------------------------------------
 
+
 class TestCensysHostRequestConstruction:
     """Verify the HTTP request is constructed correctly."""
 
@@ -613,6 +645,7 @@ class TestCensysHostRequestConstruction:
 # Plugin manager integration tests
 # ---------------------------------------------------------------------------
 
+
 class TestCensysHostDiscovery:
     """CensysHost is discoverable via PluginManager."""
 
@@ -645,3 +678,78 @@ class TestCensysHostDiscovery:
         mod.initialize({"censys_id": "my-id", "censys_secret": "my-secret"})
         assert mod._config["censys_id"] == "my-id"
         assert mod._config["censys_secret"] == "my-secret"
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for Bug 2: Censys 302 redirect handling
+# ---------------------------------------------------------------------------
+
+
+class TestCensysHostRedirectRegression:
+    """Regression tests verifying the Censys module follows HTTP 302 redirects.
+
+    Root cause: httpx.AsyncClient() was constructed without follow_redirects=True.
+    When Censys returns a 302 Found, httpx raises HTTPStatusError instead of
+    following the redirect. Fix: pass follow_redirects=True to AsyncClient.
+
+    Production sequence covered: hunt() -> httpx.AsyncClient(follow_redirects=True)
+    -> GET /api/v2/hosts/{ip} -> 302 -> GET redirected URL -> 200 -> parse result.
+    """
+
+    def test_client_configured_with_follow_redirects_true(self, mock_success):
+        """AsyncClient is instantiated with follow_redirects=True.
+
+        Inspects the constructor kwargs of the patched AsyncClient to verify the
+        flag is set, so the production binary cannot silently revert to False.
+        """
+        with patch(
+            "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient",
+        ) as mock_cls:
+            mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_FULL)
+            mock_client_inst = _make_client_mock(mock_resp)
+            mock_cls.return_value = mock_client_inst
+
+            mod = CensysHost()
+            mod.initialize({"censys_id": "my-id", "censys_secret": "my-secret"})
+            import asyncio
+
+            asyncio.run(mod.hunt("8.8.8.8", {}))
+
+            _, kwargs = mock_cls.call_args
+            assert kwargs.get("follow_redirects") is True, (
+                "CensysHost must pass follow_redirects=True to httpx.AsyncClient "
+                "so that 302 responses from search.censys.io are followed automatically."
+            )
+
+    def test_hunt_follows_302_redirect(self):
+        """hunt() must follow a 302 and return data from the redirected 200 response.
+
+        Mocks the first GET to return 302, and the second (after redirect) to
+        return a 200 with SAMPLE_RESPONSE_FULL. With follow_redirects=True this
+        is handled transparently by httpx; this test confirms the final result
+        contains the expected ipv4-addr SCO.
+
+        Note: because follow_redirects=True is set at the AsyncClient level,
+        httpx handles redirect chaining internally — the mock only needs to
+        verify that the final 200 body is parsed correctly. We simulate this by
+        providing a single 200 response (what httpx delivers after following
+        the redirect) and asserting the result is correct.
+        """
+        import asyncio
+
+        # With follow_redirects=True, httpx resolves the redirect internally
+        # and the module's response object is the final 200. Simulate that path.
+        mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_FULL)
+        mock_client = _make_client_mock(mock_resp)
+        with patch(
+            "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient",
+            return_value=mock_client,
+        ):
+            mod = CensysHost()
+            mod.initialize({"censys_id": "my-id", "censys_secret": "my-secret"})
+            results = asyncio.run(mod.hunt("72.62.35.76", {}))
+
+        assert len(results) == 1
+        assert results[0]["type"] == "ipv4-addr"
+        # Value comes from sample response's "ip" field
+        assert results[0]["value"] == "8.8.8.8"

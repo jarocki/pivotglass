@@ -24,19 +24,17 @@ pulse extraction, INCLUDE_PASSIVE_DNS=false, PULSE_LIMIT, and error paths.
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
 from adversary_pursuit.modules.cti.otx import AlienVaultOTX
-from adversary_pursuit.core.plugin_mgr import PluginManager
-
 
 # ---------------------------------------------------------------------------
 # Sample API responses
@@ -111,14 +109,13 @@ SAMPLE_DOMAIN_PASSIVE_DNS = {
     ]
 }
 
-SAMPLE_EMPTY_PASSIVE_DNS = {
-    "passive_dns": []
-}
+SAMPLE_EMPTY_PASSIVE_DNS = {"passive_dns": []}
 
 
 # ---------------------------------------------------------------------------
 # Mock helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_mock_response(status_code: int, body: dict, headers: dict | None = None) -> MagicMock:
     """Build a mock httpx.Response-like object."""
@@ -142,6 +139,7 @@ def _make_client(responses: list[MagicMock]) -> MagicMock:
 # ---------------------------------------------------------------------------
 # Fixtures: IP target (general + passive_dns)
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_ip_success():
@@ -182,6 +180,7 @@ def mock_ip_empty_passive_dns():
 # Fixtures: Domain target
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_domain_success():
     """Patch httpx.AsyncClient for a successful domain query (general + passive_dns)."""
@@ -197,6 +196,7 @@ def mock_domain_success():
 # ---------------------------------------------------------------------------
 # Fixtures: Error paths
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_401():
@@ -223,6 +223,7 @@ def mock_429():
 # ---------------------------------------------------------------------------
 # Protocol and metadata tests
 # ---------------------------------------------------------------------------
+
 
 class TestOTXMetadata:
     """Module satisfies PursuitModule protocol and declares correct metadata."""
@@ -270,6 +271,7 @@ class TestOTXMetadata:
 # Authentication / error path tests
 # ---------------------------------------------------------------------------
 
+
 class TestOTXErrors:
     """hunt() error handling: missing key, 401, 429."""
 
@@ -305,6 +307,7 @@ class TestOTXErrors:
 # ---------------------------------------------------------------------------
 # IPv4 target detection and general endpoint parsing
 # ---------------------------------------------------------------------------
+
 
 class TestOTXIPv4Target:
     """hunt() with an IPv4 target calls /IPv4/ endpoints and parses correctly."""
@@ -372,15 +375,14 @@ class TestOTXIPv4Target:
         mod = AlienVaultOTX()
         mod.initialize({"api_key": "my-otx-key"})
         asyncio.run(mod.hunt("1.2.3.4", {}))
-        # The module sets headers on AsyncClient init
-        client_call_kwargs = patch  # ensure we can inspect
-        # Verify via mock_client — get was called
+        # The module sets headers on AsyncClient init; verify get was called
         assert mock_ip_success.get.called
 
 
 # ---------------------------------------------------------------------------
 # Domain target detection and general endpoint parsing
 # ---------------------------------------------------------------------------
+
 
 class TestOTXDomainTarget:
     """hunt() with a domain target calls /domain/ endpoints and parses correctly."""
@@ -435,6 +437,7 @@ class TestOTXDomainTarget:
 # Pulse extraction tests
 # ---------------------------------------------------------------------------
 
+
 class TestOTXPulseExtraction:
     """Pulse names and tags are extracted correctly from the general endpoint."""
 
@@ -471,13 +474,16 @@ class TestOTXPulseExtraction:
         """PULSE_LIMIT=1 restricts x_pulses to 1 entry."""
         mod = AlienVaultOTX()
         mod.initialize({"api_key": "test-key"})
-        results = asyncio.run(mod.hunt("1.2.3.4", {"INCLUDE_PASSIVE_DNS": "false", "PULSE_LIMIT": "1"}))
+        results = asyncio.run(
+            mod.hunt("1.2.3.4", {"INCLUDE_PASSIVE_DNS": "false", "PULSE_LIMIT": "1"})
+        )
         assert len(results[0].get("x_pulses", [])) == 1
 
 
 # ---------------------------------------------------------------------------
 # Passive DNS tests
 # ---------------------------------------------------------------------------
+
 
 class TestOTXPassiveDNS:
     """Passive DNS endpoint adds related IPs and domains to results."""
@@ -487,7 +493,9 @@ class TestOTXPassiveDNS:
         mod = AlienVaultOTX()
         mod.initialize({"api_key": "test-key"})
         results = asyncio.run(mod.hunt("1.2.3.4", {}))
-        ip_results = [r for r in results if r.get("type") == "ipv4-addr" and r.get("value") == "10.0.0.1"]
+        ip_results = [
+            r for r in results if r.get("type") == "ipv4-addr" and r.get("value") == "10.0.0.1"
+        ]
         assert len(ip_results) == 1
 
     def test_passive_dns_adds_related_domain_from_hostname(self, mock_ip_success):
@@ -495,7 +503,11 @@ class TestOTXPassiveDNS:
         mod = AlienVaultOTX()
         mod.initialize({"api_key": "test-key"})
         results = asyncio.run(mod.hunt("1.2.3.4", {}))
-        domain_results = [r for r in results if r.get("type") == "domain-name" and r.get("value") == "host-a.example.com"]
+        domain_results = [
+            r
+            for r in results
+            if r.get("type") == "domain-name" and r.get("value") == "host-a.example.com"
+        ]
         assert len(domain_results) == 1
 
     def test_passive_dns_adds_non_ip_address_as_domain(self, mock_ip_success):
@@ -550,6 +562,7 @@ class TestOTXPassiveDNS:
 # Production sequence test
 # ---------------------------------------------------------------------------
 
+
 class TestOTXProductionSequence:
     """Simulates the production call sequence for end-to-end validation."""
 
@@ -590,6 +603,7 @@ class TestOTXProductionSequence:
 # Plugin manager discovery tests
 # ---------------------------------------------------------------------------
 
+
 class TestOTXDiscovery:
     """AlienVaultOTX is discoverable via PluginManager."""
 
@@ -623,3 +637,72 @@ class TestOTXDiscovery:
         results = mgr.search("cti")
         names = [r["name"] for r in results]
         assert "cti/otx" in names
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for Bug 3: OTX ReadTimeout
+# ---------------------------------------------------------------------------
+
+
+class TestOTXTimeoutRegression:
+    """Regression tests verifying the OTX module uses a sufficient HTTP timeout.
+
+    Root cause: the default httpx timeout (5 seconds) was too short for OTX's
+    passive DNS endpoint, causing ReadTimeout errors in production. The fix
+    configures the client with timeout=30.0 seconds, which is sufficient for
+    OTX's API latency profile.
+
+    These tests verify the timeout is configured on the AsyncClient constructor
+    so it cannot silently revert to the 5-second default.
+    """
+
+    def test_client_configured_with_30s_timeout(self, mock_ip_success):
+        """AsyncClient is instantiated with timeout=30.0 (not the default 5.0).
+
+        Inspects the constructor kwargs of the patched AsyncClient to verify
+        the timeout value, preventing silent regression to a shorter timeout.
+        """
+        import asyncio
+
+        with patch(
+            "adversary_pursuit.modules.cti.otx.httpx.AsyncClient",
+        ) as mock_cls:
+            mock_cls.return_value = mock_ip_success
+            mod = AlienVaultOTX()
+            mod.initialize({"api_key": "test-key"})
+            asyncio.run(mod.hunt("1.2.3.4", {}))
+
+            _, kwargs = mock_cls.call_args
+            timeout = kwargs.get("timeout")
+            assert timeout is not None, (
+                "AlienVaultOTX must pass a timeout to httpx.AsyncClient "
+                "to avoid ReadTimeout on OTX's passive DNS endpoint."
+            )
+            # Accept either a numeric value >= 30 or an httpx.Timeout object
+            # with a read timeout >= 30.
+            import httpx as _httpx
+
+            if isinstance(timeout, _httpx.Timeout):
+                effective = timeout.read or timeout.connect or 0
+            else:
+                effective = float(timeout)
+            assert effective >= 30.0, (
+                f"OTX client timeout must be >= 30.0 seconds (got {effective}). "
+                "The default 5s causes ReadTimeout on OTX passive DNS responses."
+            )
+
+    def test_hunt_does_not_raise_default_timeout(self, mock_ip_success):
+        """hunt() completes successfully without raising ReadTimeout.
+
+        With timeout=30.0 the mock response is returned before any real network
+        call, so the timeout does not fire. This test documents that the module
+        can complete a successful hunt() call in the expected happy path.
+        """
+        import asyncio
+
+        mod = AlienVaultOTX()
+        mod.initialize({"api_key": "test-key"})
+        # Should not raise httpx.ReadTimeout or any other timeout exception
+        results = asyncio.run(mod.hunt("1.2.3.4", {}))
+        assert len(results) >= 1
+        assert results[0]["type"] == "ipv4-addr"

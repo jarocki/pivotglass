@@ -27,27 +27,22 @@ production call chain: hunt() → workspace.store_stix_objects() → get_stix_ob
 from __future__ import annotations
 
 import pytest
-from pathlib import Path
 
+from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.models.database import (
+    AnalystNote,
+    Base,
+)
 from adversary_pursuit.models.stix import (
+    create_bundle,
+    create_domain,
+    create_email,
     create_ipv4,
     create_ipv6,
-    create_domain,
-    create_url,
-    create_email,
     create_relationship,
-    create_bundle,
+    create_url,
     dict_to_stix,
 )
-from adversary_pursuit.models.database import (
-    Base,
-    StixObject,
-    Relationship as RelationshipModel,
-    ModuleRun,
-    AnalystNote,
-)
-from adversary_pursuit.core.workspace import WorkspaceManager
-
 
 # ---------------------------------------------------------------------------
 # STIX helper layer tests
@@ -169,12 +164,14 @@ class TestDictToStix:
         Before the fix, python-stix2 raised ExtraPropertiesError for these fields.
         allow_custom=True permits them.
         """
-        obj = dict_to_stix({
-            "type": "ipv4-addr",
-            "value": "203.0.113.42",
-            "x_creation_date": "2020-06-15",
-            "x_org": "Example Corp",
-        })
+        obj = dict_to_stix(
+            {
+                "type": "ipv4-addr",
+                "value": "203.0.113.42",
+                "x_creation_date": "2020-06-15",
+                "x_org": "Example Corp",
+            }
+        )
         assert obj.type == "ipv4-addr"
         assert obj.value == "203.0.113.42"
         # Custom fields are preserved on the STIX object
@@ -183,12 +180,14 @@ class TestDictToStix:
 
     def test_custom_x_fields_domain(self):
         """Custom x_ fields work for domain-name type (whois_lookup common case)."""
-        obj = dict_to_stix({
-            "type": "domain-name",
-            "value": "threat-actor.example",
-            "x_registrar": "Evil Registrar Inc",
-            "x_expiry": "2025-12-31",
-        })
+        obj = dict_to_stix(
+            {
+                "type": "domain-name",
+                "value": "threat-actor.example",
+                "x_registrar": "Evil Registrar Inc",
+                "x_expiry": "2025-12-31",
+            }
+        )
         assert obj.type == "domain-name"
         assert obj.value == "threat-actor.example"
         assert obj.x_registrar == "Evil Registrar Inc"
@@ -204,6 +203,7 @@ class TestDatabaseSchema:
 
     def test_all_tables_created(self, tmp_path):
         from sqlalchemy import create_engine, inspect
+
         engine = create_engine(f"sqlite:///{tmp_path / 'schema_test.db'}")
         Base.metadata.create_all(engine)
         inspector = inspect(engine)
@@ -215,6 +215,7 @@ class TestDatabaseSchema:
 
     def test_stix_objects_columns(self, tmp_path):
         from sqlalchemy import create_engine, inspect
+
         engine = create_engine(f"sqlite:///{tmp_path / 'cols_test.db'}")
         Base.metadata.create_all(engine)
         inspector = inspect(engine)
@@ -223,14 +224,23 @@ class TestDatabaseSchema:
 
     def test_relationships_columns(self, tmp_path):
         from sqlalchemy import create_engine, inspect
+
         engine = create_engine(f"sqlite:///{tmp_path / 'rel_test.db'}")
         Base.metadata.create_all(engine)
         inspector = inspect(engine)
         cols = {c["name"] for c in inspector.get_columns("relationships")}
-        assert {"id", "source_ref", "target_ref", "relationship_type", "json_blob", "created_at"}.issubset(cols)
+        assert {
+            "id",
+            "source_ref",
+            "target_ref",
+            "relationship_type",
+            "json_blob",
+            "created_at",
+        }.issubset(cols)
 
     def test_module_runs_columns(self, tmp_path):
         from sqlalchemy import create_engine, inspect
+
         engine = create_engine(f"sqlite:///{tmp_path / 'runs_test.db'}")
         Base.metadata.create_all(engine)
         inspector = inspect(engine)
@@ -239,6 +249,7 @@ class TestDatabaseSchema:
 
     def test_notes_columns(self, tmp_path):
         from sqlalchemy import create_engine, inspect
+
         engine = create_engine(f"sqlite:///{tmp_path / 'notes_test.db'}")
         Base.metadata.create_all(engine)
         inspector = inspect(engine)
@@ -403,7 +414,10 @@ class TestStoreAndRetrieve:
             target="1.1.1.1",
         )
         wm.store_stix_objects(
-            [{"type": "domain-name", "value": "cloudflare.com"}, {"type": "ipv4-addr", "value": "1.0.0.1"}],
+            [
+                {"type": "domain-name", "value": "cloudflare.com"},
+                {"type": "ipv4-addr", "value": "1.0.0.1"},
+            ],
             module_name="osint/dns_resolve",
             target="cloudflare.com",
         )
@@ -482,6 +496,7 @@ class TestAnalystNotes:
     def test_notes_persisted(self, tmp_path):
         """Notes round-trip through the database."""
         from sqlalchemy import select
+
         wm = WorkspaceManager(workspace_dir=tmp_path)
         wm.create("default")
         wm.switch("default")
@@ -634,3 +649,93 @@ class TestProductionSequence:
         # But both module runs are logged
         runs = wm.get_module_runs()
         assert len(runs) == 2
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for Bug 1: UnboundExecutionError when no workspace active
+# ---------------------------------------------------------------------------
+
+
+class TestWorkspaceBindRegression:
+    """Regression tests for the SQLAlchemy UnboundExecutionError bug.
+
+    Root cause: store_stix_objects() and add_note() opened Session(self._engine)
+    without first calling _ensure_active(), so self._engine remained None when
+    no workspace had been explicitly switched to. This caused SQLAlchemy to raise
+    UnboundExecutionError on session.get() / session.add().
+
+    Fix: _ensure_active() is now called at the top of both methods, auto-creating
+    and switching to the 'default' workspace when none is active (same lazy-init
+    semantics already used by all other data methods).
+
+    See DEC-WS-006.
+    """
+
+    def test_store_stix_objects_does_not_raise_unbound_execution_error(self, tmp_path):
+        """store_stix_objects() must not raise UnboundExecutionError with a fresh
+        WorkspaceManager that has never had switch() called.
+
+        This reproduces the user's exact bug: the production agent creates a fresh
+        WorkspaceManager, calls store_stix_objects() without an explicit switch(),
+        and gets UnboundExecutionError because self._engine is None.
+        """
+        from sqlalchemy.exc import UnboundExecutionError
+
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        # Deliberately do NOT call wm.create() or wm.switch() — this is the
+        # production failure mode. _ensure_active() must auto-create 'default'.
+        objects = [
+            {"type": "ipv4-addr", "value": "72.62.35.76"},
+            {"type": "domain-name", "value": "example.com"},
+        ]
+        try:
+            count = wm.store_stix_objects(
+                objects,
+                module_name="osint/censys_host",
+                target="72.62.35.76",
+            )
+        except UnboundExecutionError as exc:
+            pytest.fail(
+                f"store_stix_objects raised UnboundExecutionError — "
+                f"_ensure_active() was not called before opening the Session: {exc}"
+            )
+        # Auto-created default workspace and stored both objects
+        assert count == 2
+        assert wm.active == "default"
+
+    def test_get_stix_objects_returns_persisted_objects_round_trip(self, tmp_path):
+        """Round-trip: store via a fresh manager, retrieve from the same manager.
+
+        Verifies that the auto-created default workspace persists objects that can
+        subsequently be retrieved with get_stix_objects().
+        """
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        # Fresh manager — no explicit create/switch
+        wm.store_stix_objects(
+            [
+                {"type": "ipv4-addr", "value": "1.1.1.1"},
+                {"type": "domain-name", "value": "cloudflare.com"},
+            ],
+            module_name="cti/otx",
+            target="1.1.1.1",
+        )
+        objects = wm.get_stix_objects()
+        assert len(objects) == 2
+        types = {o["type"] for o in objects}
+        assert "ipv4-addr" in types
+        assert "domain-name" in types
+
+    def test_add_note_does_not_raise_unbound_execution_error_on_fresh_manager(self, tmp_path):
+        """add_note() must not raise UnboundExecutionError on a fresh WorkspaceManager.
+
+        add_note() had the same missing _ensure_active() call as store_stix_objects().
+        """
+        from sqlalchemy.exc import UnboundExecutionError
+
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        try:
+            wm.add_note("Investigation note — no UnboundExecutionError expected.")
+        except UnboundExecutionError as exc:
+            pytest.fail(
+                f"add_note raised UnboundExecutionError — _ensure_active() was not called: {exc}"
+            )

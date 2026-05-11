@@ -153,7 +153,7 @@ class CensysHost(BaseModule):
                 "or obtain credentials at https://search.censys.io/account/api."
             )
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             response = await client.get(
                 f"{_API_BASE}/hosts/{target}",
                 auth=(censys_id, censys_secret),
@@ -199,6 +199,7 @@ class CensysHost(BaseModule):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _build_service_entry(service: dict[str, Any]) -> dict[str, Any]:
     """Build a single service dict from a Censys service object.
@@ -249,17 +250,18 @@ def _build_results(target: str, data: dict[str, Any]) -> list[dict]:
     location_country = raw_location.get("country", "") if raw_location else ""
 
     raw_asn = data.get("autonomous_system") or {}
-    autonomous_system: dict[str, Any] = {
-        "asn": raw_asn.get("asn", 0),
-        "name": raw_asn.get("name", ""),
-        "bgp_prefix": raw_asn.get("bgp_prefix", ""),
-        "country_code": raw_asn.get("country_code", ""),
-    } if raw_asn else {"asn": 0, "name": "", "bgp_prefix": "", "country_code": ""}
+    autonomous_system: dict[str, Any] = (
+        {
+            "asn": raw_asn.get("asn", 0),
+            "name": raw_asn.get("name", ""),
+            "bgp_prefix": raw_asn.get("bgp_prefix", ""),
+            "country_code": raw_asn.get("country_code", ""),
+        }
+        if raw_asn
+        else {"asn": 0, "name": "", "bgp_prefix": "", "country_code": ""}
+    )
 
-    services = [
-        _build_service_entry(svc)
-        for svc in data.get("services", [])
-    ]
+    services = [_build_service_entry(svc) for svc in data.get("services", [])]
 
     ip_sco: dict[str, Any] = {
         "type": "ipv4-addr",

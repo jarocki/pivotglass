@@ -24,19 +24,17 @@ endpoint, INCLUDE_WHOIS=false, deduplication, and all error paths.
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
 from adversary_pursuit.modules.cti.passivetotal import PassiveTotal
-from adversary_pursuit.core.plugin_mgr import PluginManager
-
 
 # ---------------------------------------------------------------------------
 # Sample API responses
@@ -186,6 +184,7 @@ SAMPLE_DUPLICATE_PASSIVE_DNS = {
 # Mock helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_mock_response(
     status_code: int,
     body: dict,
@@ -213,6 +212,7 @@ def _make_client(responses: list[MagicMock]) -> MagicMock:
 # Fixtures: domain target
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_domain_with_whois():
     """Patch httpx.AsyncClient for domain query with passive DNS + WHOIS."""
@@ -221,7 +221,9 @@ def mock_domain_with_whois():
         _make_mock_response(200, SAMPLE_DOMAIN_WHOIS),
     ]
     mock_client = _make_client(responses)
-    with patch("adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
@@ -232,7 +234,9 @@ def mock_domain_no_whois():
         _make_mock_response(200, SAMPLE_DOMAIN_PASSIVE_DNS),
     ]
     mock_client = _make_client(responses)
-    with patch("adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
@@ -243,7 +247,9 @@ def mock_domain_empty_pdns():
         _make_mock_response(200, SAMPLE_EMPTY_PASSIVE_DNS),
     ]
     mock_client = _make_client(responses)
-    with patch("adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
@@ -254,13 +260,16 @@ def mock_domain_duplicates():
         _make_mock_response(200, SAMPLE_DUPLICATE_PASSIVE_DNS),
     ]
     mock_client = _make_client(responses)
-    with patch("adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
 # ---------------------------------------------------------------------------
 # Fixtures: IP target
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_ip_with_whois():
@@ -270,7 +279,9 @@ def mock_ip_with_whois():
         _make_mock_response(200, SAMPLE_IP_WHOIS),
     ]
     mock_client = _make_client(responses)
-    with patch("adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
@@ -281,13 +292,16 @@ def mock_ip_no_whois():
         _make_mock_response(200, SAMPLE_IP_PASSIVE_DNS),
     ]
     mock_client = _make_client(responses)
-    with patch("adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
 # ---------------------------------------------------------------------------
 # Fixtures: error paths
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_401():
@@ -296,7 +310,9 @@ def mock_401():
         _make_mock_response(401, {"error": "Could not authenticate."}),
     ]
     mock_client = _make_client(responses)
-    with patch("adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
@@ -311,13 +327,16 @@ def mock_429():
         ),
     ]
     mock_client = _make_client(responses)
-    with patch("adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client):
+    with patch(
+        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+    ):
         yield mock_client
 
 
 # ---------------------------------------------------------------------------
 # Protocol and metadata tests
 # ---------------------------------------------------------------------------
+
 
 class TestPassiveTotalMetadata:
     """Module satisfies PursuitModule protocol and declares correct metadata."""
@@ -358,6 +377,7 @@ class TestPassiveTotalMetadata:
 # ---------------------------------------------------------------------------
 # Authentication / error path tests
 # ---------------------------------------------------------------------------
+
 
 class TestPassiveTotalErrors:
     """hunt() error handling: missing credentials, 401, 429."""
@@ -415,6 +435,7 @@ class TestPassiveTotalErrors:
 # ---------------------------------------------------------------------------
 # Domain target tests
 # ---------------------------------------------------------------------------
+
 
 class TestPassiveTotalDomainTarget:
     """hunt() with a domain target returns correct STIX SCOs."""
@@ -485,6 +506,7 @@ class TestPassiveTotalDomainTarget:
 # IPv4 target tests
 # ---------------------------------------------------------------------------
 
+
 class TestPassiveTotalIPv4Target:
     """hunt() with an IPv4 target returns correct STIX SCOs."""
 
@@ -536,6 +558,7 @@ class TestPassiveTotalIPv4Target:
 # ---------------------------------------------------------------------------
 # WHOIS option tests
 # ---------------------------------------------------------------------------
+
 
 class TestPassiveTotalWHOIS:
     """INCLUDE_WHOIS controls whether the WHOIS endpoint is queried."""
@@ -592,6 +615,7 @@ class TestPassiveTotalWHOIS:
 # Deduplication tests
 # ---------------------------------------------------------------------------
 
+
 class TestPassiveTotalDeduplication:
     """Duplicate and self-referential passive DNS entries are suppressed."""
 
@@ -624,6 +648,7 @@ class TestPassiveTotalDeduplication:
 # Empty results test
 # ---------------------------------------------------------------------------
 
+
 class TestPassiveTotalEmptyResults:
     """Empty passive DNS results return only the primary SCO."""
 
@@ -640,6 +665,7 @@ class TestPassiveTotalEmptyResults:
 # ---------------------------------------------------------------------------
 # HTTP auth tests
 # ---------------------------------------------------------------------------
+
 
 class TestPassiveTotalHTTPAuth:
     """PassiveTotal uses HTTP Basic Auth (user:key) on all requests."""
@@ -671,6 +697,7 @@ class TestPassiveTotalHTTPAuth:
 # ---------------------------------------------------------------------------
 # Production sequence test
 # ---------------------------------------------------------------------------
+
 
 class TestPassiveTotalProductionSequence:
     """Simulates the production call sequence end-to-end."""
@@ -712,6 +739,7 @@ class TestPassiveTotalProductionSequence:
 # Plugin manager discovery tests
 # ---------------------------------------------------------------------------
 
+
 class TestPassiveTotalDiscovery:
     """PassiveTotal is discoverable via PluginManager."""
 
@@ -745,3 +773,74 @@ class TestPassiveTotalDiscovery:
         results = mgr.search("cti")
         names = [r["name"] for r in results]
         assert "cti/passivetotal" in names
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for Bug 4: PassiveTotal stale error message
+# ---------------------------------------------------------------------------
+
+
+class TestPassiveTotalErrorMessageRegression:
+    """Regression tests verifying the missing-credentials error message is accurate.
+
+    Root cause: the error message referenced 'ap config set api_keys.passivetotal_user'
+    which does not exist as a CLI command. Updated to reference the three accurate
+    configuration paths: the 'model select' wizard, env vars, and ~/.ap/config.toml.
+    """
+
+    def test_missing_credentials_error_message_does_not_mention_ap_config_set(self):
+        """Error message must NOT reference the non-existent 'ap config set' command."""
+        import asyncio
+
+        mod = PassiveTotal()
+        mod.initialize({})
+        with pytest.raises(AuthenticationError) as exc_info:
+            asyncio.run(mod.hunt("google.com", {}))
+        message = str(exc_info.value)
+        assert "ap config set" not in message, (
+            "Error message still references 'ap config set' which does not exist. "
+            "Update the message to reference the wizard, env vars, or config.toml."
+        )
+
+    def test_missing_credentials_error_message_references_wizard(self):
+        """Error message must reference 'model select' (the setup wizard)."""
+        import asyncio
+
+        mod = PassiveTotal()
+        mod.initialize({})
+        with pytest.raises(AuthenticationError) as exc_info:
+            asyncio.run(mod.hunt("google.com", {}))
+        message = str(exc_info.value)
+        assert "model select" in message, (
+            "Error message must mention 'model select' so users know how to "
+            "configure PassiveTotal credentials via the wizard."
+        )
+
+    def test_missing_credentials_error_message_references_env_vars(self):
+        """Error message must reference the correct env var names."""
+        import asyncio
+
+        mod = PassiveTotal()
+        mod.initialize({})
+        with pytest.raises(AuthenticationError) as exc_info:
+            asyncio.run(mod.hunt("google.com", {}))
+        message = str(exc_info.value)
+        # Must mention at least one of the correct env var names
+        assert "AP_PASSIVETOTAL_USER" in message or "PT_USERNAME" in message, (
+            "Error message must mention the correct env var names "
+            "(AP_PASSIVETOTAL_USER / PT_USERNAME) so users can configure via env."
+        )
+
+    def test_missing_credentials_error_message_references_config_toml(self):
+        """Error message must reference ~/.ap/config.toml as a configuration path."""
+        import asyncio
+
+        mod = PassiveTotal()
+        mod.initialize({})
+        with pytest.raises(AuthenticationError) as exc_info:
+            asyncio.run(mod.hunt("google.com", {}))
+        message = str(exc_info.value)
+        assert "config.toml" in message, (
+            "Error message must mention ~/.ap/config.toml so users know they can "
+            "hand-edit their configuration file directly."
+        )
