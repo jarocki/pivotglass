@@ -3,9 +3,13 @@
 # @mock-exempt: httpx.get is an external HTTP boundary (provider list-models
 # endpoints). All provider HTTP calls are mocked via unittest.mock.patch so
 # tests run hermetically without live API keys or network access.
+# Console.input/print/status wrap terminal I/O (external boundary).
+# MagicMock is used only for the Rich Console context-manager protocol
+# (status().__enter__) which has no real in-process equivalent.
 
 Production sequence tested here:
   ProviderSpec registry → list_models() → _build_model_string() → wizard flow
+  → save-destination prompt → _write_rc_with_marker() / stdout fallback
 
 @decision DEC-TEST-PROVIDER-SETUP-001
 @title Mock httpx.get at the HTTP boundary for hermetic provider tests
@@ -14,13 +18,16 @@ Production sequence tested here:
            list-models endpoints. Mocking at this boundary lets us exercise:
            (1) all provider-specific JSON parsing paths, (2) auth header
            construction, (3) ProviderAuthError on 401/403, (4) ProviderConnectionError
-           on network failure, (5) the full wizard flow with mocked Rich prompts.
+           on network failure, (5) the full wizard flow with mocked Rich prompts,
+           (6) dotfile export helpers (_detect_shell_rc, _compose_export_lines,
+           _write_rc_with_marker) and all three save-destination wizard paths.
            We do NOT mock internal functions — the production dispatch path is
            exercised end-to-end up to the HTTP boundary.
 """
 
 from __future__ import annotations
 
+import stat
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -33,10 +40,12 @@ from adversary_pursuit.agent.provider_setup import (
     ProviderAuthError,
     ProviderConnectionError,
     _build_model_string,
+    _compose_export_lines,
+    _detect_shell_rc,
+    _write_rc_with_marker,
     list_models,
 )
 from adversary_pursuit.core.config import ConfigManager
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -98,9 +107,7 @@ class TestProviderRegistry:
 class TestBuildModelString:
     def test_anthropic_bare_model_id(self):
         """Anthropic prefix is empty — litellm accepts bare model IDs."""
-        result = _build_model_string(
-            PROVIDER_BY_ID["anthropic"], "claude-3-5-sonnet-20241022"
-        )
+        result = _build_model_string(PROVIDER_BY_ID["anthropic"], "claude-3-5-sonnet-20241022")
         assert result == "claude-3-5-sonnet-20241022"
 
     def test_openai_bare_model_id(self):
@@ -109,15 +116,11 @@ class TestBuildModelString:
         assert result == "gpt-4o"
 
     def test_openrouter_prefixed(self):
-        result = _build_model_string(
-            PROVIDER_BY_ID["openrouter"], "anthropic/claude-3.5-sonnet"
-        )
+        result = _build_model_string(PROVIDER_BY_ID["openrouter"], "anthropic/claude-3.5-sonnet")
         assert result == "openrouter/anthropic/claude-3.5-sonnet"
 
     def test_google_prefixed(self):
-        result = _build_model_string(
-            PROVIDER_BY_ID["google"], "models/gemini-2.0-flash-exp"
-        )
+        result = _build_model_string(PROVIDER_BY_ID["google"], "models/gemini-2.0-flash-exp")
         assert result == "gemini/models/gemini-2.0-flash-exp"
 
     def test_ollama_prefixed(self):
@@ -146,17 +149,13 @@ class TestListModelsAnthropic:
         assert models == ["claude-3-5-sonnet-20241022", "claude-3-haiku-20240307"]
 
     def test_sends_api_key_header(self):
-        with patch(
-            "httpx.get", return_value=_mock_response(200, self._RESPONSE_JSON)
-        ) as mock_get:
+        with patch("httpx.get", return_value=_mock_response(200, self._RESPONSE_JSON)) as mock_get:
             list_models(PROVIDER_BY_ID["anthropic"], "sk-ant-test-key")
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs["headers"]["x-api-key"] == "sk-ant-test-key"
 
     def test_sends_anthropic_version_header(self):
-        with patch(
-            "httpx.get", return_value=_mock_response(200, self._RESPONSE_JSON)
-        ) as mock_get:
+        with patch("httpx.get", return_value=_mock_response(200, self._RESPONSE_JSON)) as mock_get:
             list_models(PROVIDER_BY_ID["anthropic"], "sk-ant-test-key")
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs["headers"]["anthropic-version"] == "2023-06-01"
@@ -180,9 +179,7 @@ class TestListModelsOpenAI:
         assert "gpt-4o-mini" in models
 
     def test_sends_bearer_token(self):
-        with patch(
-            "httpx.get", return_value=_mock_response(200, self._RESPONSE_JSON)
-        ) as mock_get:
+        with patch("httpx.get", return_value=_mock_response(200, self._RESPONSE_JSON)) as mock_get:
             list_models(PROVIDER_BY_ID["openai"], "sk-test-key")
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs["headers"]["Authorization"] == "Bearer sk-test-key"
@@ -207,9 +204,7 @@ class TestListModelsOpenRouter:
         assert "google/gemini-2.0-flash" in models
 
     def test_sends_bearer_token(self):
-        with patch(
-            "httpx.get", return_value=_mock_response(200, self._RESPONSE_JSON)
-        ) as mock_get:
+        with patch("httpx.get", return_value=_mock_response(200, self._RESPONSE_JSON)) as mock_get:
             list_models(PROVIDER_BY_ID["openrouter"], "sk-or-key")
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs["headers"]["Authorization"] == "Bearer sk-or-key"
@@ -232,17 +227,13 @@ class TestListModelsGoogle:
         assert "models/gemini-1.5-pro" in models
 
     def test_sends_key_as_query_param(self):
-        with patch(
-            "httpx.get", return_value=_mock_response(200, self._RESPONSE_JSON)
-        ) as mock_get:
+        with patch("httpx.get", return_value=_mock_response(200, self._RESPONSE_JSON)) as mock_get:
             list_models(PROVIDER_BY_ID["google"], "AIza-test-key")
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs["params"]["key"] == "AIza-test-key"
 
     def test_no_auth_header_sent(self):
-        with patch(
-            "httpx.get", return_value=_mock_response(200, self._RESPONSE_JSON)
-        ) as mock_get:
+        with patch("httpx.get", return_value=_mock_response(200, self._RESPONSE_JSON)) as mock_get:
             list_models(PROVIDER_BY_ID["google"], "AIza-test-key")
         call_kwargs = mock_get.call_args[1]
         # No Authorization header — Google uses query param
@@ -266,9 +257,7 @@ class TestListModelsOllama:
         assert "llama3.2:3b" in models
 
     def test_sends_no_auth_header(self):
-        with patch(
-            "httpx.get", return_value=_mock_response(200, self._RESPONSE_JSON)
-        ) as mock_get:
+        with patch("httpx.get", return_value=_mock_response(200, self._RESPONSE_JSON)) as mock_get:
             list_models(PROVIDER_BY_ID["ollama"], None)
         call_kwargs = mock_get.call_args[1]
         headers = call_kwargs.get("headers", {})
@@ -302,9 +291,7 @@ class TestListModelsErrors:
         with patch("httpx.get", side_effect=httpx.ConnectError("connection refused")):
             with pytest.raises(ProviderConnectionError) as exc_info:
                 list_models(PROVIDER_BY_ID["anthropic"], "sk-ant-test")
-        assert "connect" in str(exc_info.value).lower() or "Anthropic" in str(
-            exc_info.value
-        )
+        assert "connect" in str(exc_info.value).lower() or "Anthropic" in str(exc_info.value)
 
     def test_timeout_raises_provider_connection_error(self):
         with patch(
@@ -315,9 +302,7 @@ class TestListModelsErrors:
                 list_models(PROVIDER_BY_ID["ollama"], None)
 
     def test_generic_request_error_raises_provider_connection_error(self):
-        with patch(
-            "httpx.get", side_effect=httpx.RequestError("generic", request=MagicMock())
-        ):
+        with patch("httpx.get", side_effect=httpx.RequestError("generic", request=MagicMock())):
             with pytest.raises(ProviderConnectionError):
                 list_models(PROVIDER_BY_ID["openai"], "sk-test")
 
@@ -349,6 +334,9 @@ class TestWizardFlow:
         ]
     }
 
+    # @mock-exempt: Console.input/print/status and httpx.get are external I/O boundaries.
+    # MagicMock is used only for the Rich Console context-manager protocol (status().__enter__)
+    # which wraps terminal output and has no real in-process equivalent.
     def _run_wizard_with_inputs(
         self,
         tmp_path: Path,
@@ -357,20 +345,38 @@ class TestWizardFlow:
         model_choice: int,
         http_json: dict,
         http_status: int = 200,
+        save_destination: int = 1,
     ) -> tuple[str, ConfigManager]:
-        """Helper: run wizard with mocked console input and HTTP."""
+        """Helper: run wizard with mocked console input and HTTP.
+
+        Parameters
+        ----------
+        save_destination:
+            The save-destination choice (1=config only, 2=config+rc, 3=stdout).
+            Defaults to 1 (config.toml only) for regression-safe behavior.
+            Only injected as an input when the provider has an API key
+            (Ollama skips the save-destination prompt entirely).
+        """
         from adversary_pursuit.agent.provider_setup import run_provider_wizard
 
         config_mgr = make_config_mgr(tmp_path)
 
-        # Sequence of console.input() calls: provider choice, api_key, model choice
-        input_side_effects = [str(provider_choice), api_key, str(model_choice)]
+        # Sequence of console.input() calls:
+        #   provider choice, api_key (if needed), model choice, save destination (if key)
+        # Ollama (no key) does not reach the save-destination prompt.
+        has_key = bool(api_key)
+        inputs = [str(provider_choice)]
+        if has_key:
+            inputs.append(api_key)
+        inputs.append(str(model_choice))
+        if has_key:
+            inputs.append(str(save_destination))
 
         with (
             patch("httpx.get", return_value=_mock_response(http_status, http_json)),
             patch(
                 "adversary_pursuit.agent.provider_setup.Console.input",
-                side_effect=input_side_effects,
+                side_effect=inputs,
             ),
             patch(
                 "adversary_pursuit.agent.provider_setup.Console.status",
@@ -418,7 +424,7 @@ class TestWizardFlow:
         config_mgr = make_config_mgr(tmp_path)
         ollama_response = {"models": [{"name": "qwen2.5:8b"}, {"name": "llama3.2:3b"}]}
 
-        # Ollama only needs 2 inputs: provider choice + model choice (no key)
+        # Ollama only needs 2 inputs: provider choice + model choice (no key, no save dest)
         input_side_effects = ["5", "1"]
 
         with (
@@ -427,9 +433,7 @@ class TestWizardFlow:
                 "adversary_pursuit.agent.provider_setup.Console.input",
                 side_effect=input_side_effects,
             ),
-            patch(
-                "adversary_pursuit.agent.provider_setup.Console.status"
-            ) as mock_status,
+            patch("adversary_pursuit.agent.provider_setup.Console.status") as mock_status,
             patch("adversary_pursuit.agent.provider_setup.Console.print"),
         ):
             mock_status.return_value.__enter__ = MagicMock(return_value=None)
@@ -453,7 +457,9 @@ class TestWizardFlow:
             ]
         }
 
-        input_side_effects = ["4", "AIza-test-key", "1"]  # provider 4 = Google
+        # @mock-exempt: httpx.get is external HTTP; Console is terminal I/O boundary
+        # provider choice, api key, model choice, save destination (1=config only)
+        input_side_effects = ["4", "AIza-test-key", "1", "1"]  # provider 4 = Google
 
         with (
             patch("httpx.get", return_value=_mock_response(200, google_response)),
@@ -461,9 +467,7 @@ class TestWizardFlow:
                 "adversary_pursuit.agent.provider_setup.Console.input",
                 side_effect=input_side_effects,
             ),
-            patch(
-                "adversary_pursuit.agent.provider_setup.Console.status"
-            ) as mock_status,
+            patch("adversary_pursuit.agent.provider_setup.Console.status") as mock_status,
             patch("adversary_pursuit.agent.provider_setup.Console.print"),
         ):
             mock_status.return_value.__enter__ = MagicMock(return_value=None)
@@ -486,9 +490,7 @@ class TestWizardFlow:
                 "adversary_pursuit.agent.provider_setup.Console.input",
                 side_effect=["1", "bad-key"],
             ),
-            patch(
-                "adversary_pursuit.agent.provider_setup.Console.status"
-            ) as mock_status,
+            patch("adversary_pursuit.agent.provider_setup.Console.status") as mock_status,
             patch("adversary_pursuit.agent.provider_setup.Console.print"),
         ):
             mock_status.return_value.__enter__ = MagicMock(return_value=None)
@@ -508,15 +510,356 @@ class TestWizardFlow:
                 "adversary_pursuit.agent.provider_setup.Console.input",
                 side_effect=["1", "sk-ant-test"],
             ),
-            patch(
-                "adversary_pursuit.agent.provider_setup.Console.status"
-            ) as mock_status,
+            patch("adversary_pursuit.agent.provider_setup.Console.status") as mock_status,
             patch("adversary_pursuit.agent.provider_setup.Console.print"),
         ):
             mock_status.return_value.__enter__ = MagicMock(return_value=None)
             mock_status.return_value.__exit__ = MagicMock(return_value=False)
             with pytest.raises(SystemExit):
                 run_provider_wizard(config_mgr)
+
+
+# ---------------------------------------------------------------------------
+# Dotfile export helpers — unit tests (no mocks; use tmp_path + monkeypatch)
+# ---------------------------------------------------------------------------
+
+
+class TestDotfileExport:
+    """Tests for _detect_shell_rc, _compose_export_lines, _write_rc_with_marker,
+    and the wizard save-destination flow.
+
+    All tests are hermetic: shell detection uses monkeypatch on os.environ,
+    file I/O uses tmp_path, and no network calls are made.
+    """
+
+    # ------------------------------------------------------------------
+    # _detect_shell_rc
+    # ------------------------------------------------------------------
+
+    def test_detect_shell_rc_zsh(self, monkeypatch):
+        monkeypatch.setenv("SHELL", "/bin/zsh")
+        result = _detect_shell_rc()
+        assert result == Path.home() / ".zshrc"
+
+    def test_detect_shell_rc_bash(self, monkeypatch):
+        monkeypatch.setenv("SHELL", "/bin/bash")
+        result = _detect_shell_rc()
+        assert result == Path.home() / ".bashrc"
+
+    def test_detect_shell_rc_fish(self, monkeypatch):
+        monkeypatch.setenv("SHELL", "/usr/local/bin/fish")
+        result = _detect_shell_rc()
+        assert result == Path.home() / ".config" / "fish" / "config.fish"
+
+    def test_detect_shell_rc_unknown(self, monkeypatch):
+        monkeypatch.setenv("SHELL", "/bin/csh")
+        result = _detect_shell_rc()
+        assert result is None
+
+    def test_detect_shell_rc_missing_env(self, monkeypatch):
+        monkeypatch.delenv("SHELL", raising=False)
+        result = _detect_shell_rc()
+        assert result is None
+
+    # ------------------------------------------------------------------
+    # _compose_export_lines
+    # ------------------------------------------------------------------
+
+    def test_compose_export_lines_anthropic(self):
+        lines = _compose_export_lines("anthropic", "sk-ant-abc123")
+        assert lines == ['export ANTHROPIC_API_KEY="sk-ant-abc123"']
+
+    def test_compose_export_lines_openai(self):
+        lines = _compose_export_lines("openai", "sk-openai-test")
+        assert lines == ['export OPENAI_API_KEY="sk-openai-test"']
+
+    def test_compose_export_lines_openrouter(self):
+        lines = _compose_export_lines("openrouter", "sk-or-test")
+        assert lines == ['export OPENROUTER_API_KEY="sk-or-test"']
+
+    def test_compose_export_lines_google(self):
+        lines = _compose_export_lines("google", "AIza-test")
+        assert lines == ['export GOOGLE_API_KEY="AIza-test"']
+
+    def test_compose_export_lines_ollama_returns_empty(self):
+        """Ollama has no API key so export lines should be empty."""
+        lines = _compose_export_lines("ollama", "")
+        assert lines == []
+
+    def test_compose_export_lines_unknown_provider_returns_empty(self):
+        lines = _compose_export_lines("unknown_provider", "some-key")
+        assert lines == []
+
+    # ------------------------------------------------------------------
+    # _write_rc_with_marker — core idempotency logic (real file I/O)
+    # ------------------------------------------------------------------
+
+    def test_write_rc_with_marker_creates_block(self, tmp_path):
+        """Empty rc file gets the marker block appended."""
+        rc = tmp_path / ".zshrc"
+        rc.write_text("", encoding="utf-8")
+
+        _write_rc_with_marker(rc, ['export ANTHROPIC_API_KEY="sk-test"'])
+
+        content = rc.read_text(encoding="utf-8")
+        assert "# >>> ap chat wizard exports" in content
+        assert 'export ANTHROPIC_API_KEY="sk-test"' in content
+        assert "# <<< ap chat wizard exports" in content
+
+    def test_write_rc_with_marker_appends_after_existing_content(self, tmp_path):
+        """Existing rc lines are preserved above the marker block."""
+        rc = tmp_path / ".bashrc"
+        rc.write_text("export PATH=$HOME/bin:$PATH\n", encoding="utf-8")
+
+        _write_rc_with_marker(rc, ['export OPENAI_API_KEY="sk-openai"'])
+
+        content = rc.read_text(encoding="utf-8")
+        # Existing content preserved
+        assert "export PATH=$HOME/bin:$PATH" in content
+        # New block present
+        assert 'export OPENAI_API_KEY="sk-openai"' in content
+        # Existing content appears before the marker
+        assert content.index("export PATH") < content.index("# >>> ap chat wizard exports")
+
+    def test_write_rc_with_marker_idempotent_same_key(self, tmp_path):
+        """Running twice with the same key produces exactly one marker block."""
+        rc = tmp_path / ".zshrc"
+        rc.write_text("", encoding="utf-8")
+        export = ['export ANTHROPIC_API_KEY="sk-ant-v1"']
+
+        _write_rc_with_marker(rc, export)
+        _write_rc_with_marker(rc, export)
+
+        content = rc.read_text(encoding="utf-8")
+        assert content.count("# >>> ap chat wizard exports") == 1
+        assert content.count("# <<< ap chat wizard exports") == 1
+
+    def test_write_rc_with_marker_replaces_existing_block(self, tmp_path):
+        """Re-running with a new key replaces the old block; no duplication."""
+        rc = tmp_path / ".zshrc"
+        rc.write_text("# my existing config\n", encoding="utf-8")
+
+        _write_rc_with_marker(rc, ['export ANTHROPIC_API_KEY="sk-ant-old"'])
+        _write_rc_with_marker(rc, ['export ANTHROPIC_API_KEY="sk-ant-new"'])
+
+        content = rc.read_text(encoding="utf-8")
+        # Exactly one marker block
+        assert content.count("# >>> ap chat wizard exports") == 1
+        # Only the new key is present
+        assert 'sk-ant-new"' in content
+        assert "sk-ant-old" not in content
+        # Surrounding user content preserved
+        assert "# my existing config" in content
+
+    def test_write_rc_preserves_permissions(self, tmp_path):
+        """File permissions on the rc file are unchanged after write."""
+        rc = tmp_path / ".zshrc"
+        rc.write_text("", encoding="utf-8")
+        rc.chmod(0o644)
+
+        _write_rc_with_marker(rc, ['export ANTHROPIC_API_KEY="sk-test"'])
+
+        mode = stat.S_IMODE(rc.stat().st_mode)
+        assert mode == 0o644
+
+    def test_write_rc_creates_file_if_not_exists(self, tmp_path):
+        """If the rc file doesn't exist yet it is created."""
+        rc = tmp_path / ".zshrc"
+        assert not rc.exists()
+
+        _write_rc_with_marker(rc, ['export OPENAI_API_KEY="sk-new"'])
+
+        assert rc.exists()
+        assert 'export OPENAI_API_KEY="sk-new"' in rc.read_text(encoding="utf-8")
+
+    # ------------------------------------------------------------------
+    # Wizard flow — save-destination paths (compound integration)
+    #
+    # Production sequence:
+    #   1. Wizard collects provider/key/model from console.input()
+    #   2. config.toml written (always)
+    #   3. _prompt_save_destination() called when export_lines non-empty
+    #   4. User picks destination → rc written / stdout printed / no-op
+    # ------------------------------------------------------------------
+
+    _ANTHROPIC_RESPONSE = {
+        "data": [
+            {"id": "claude-3-5-sonnet-20241022", "display_name": "Claude 3.5 Sonnet"},
+        ]
+    }
+
+    def _run_wizard(
+        self,
+        tmp_path: Path,
+        inputs: list[str],
+        http_json: dict,
+        rc_path: Path | None = None,
+    ) -> tuple[str, "ConfigManager"]:
+        """Run wizard end-to-end with controlled inputs and isolated config dir.
+
+        Uses real file I/O for rc file tests (tmp_path). Console I/O and
+        httpx.get are patched as external boundaries.
+        # @mock-exempt: httpx.get is external HTTP; Console wraps terminal I/O
+        """
+        from adversary_pursuit.agent.provider_setup import run_provider_wizard
+
+        config_mgr = make_config_mgr(tmp_path)
+
+        with (
+            patch("httpx.get", return_value=_mock_response(200, http_json)),
+            patch(
+                "adversary_pursuit.agent.provider_setup.Console.input",
+                side_effect=inputs,
+            ),
+            patch("adversary_pursuit.agent.provider_setup.Console.status") as mock_status,
+            patch("adversary_pursuit.agent.provider_setup.Console.print"),
+        ):
+            mock_status.return_value.__enter__ = MagicMock(return_value=None)
+            mock_status.return_value.__exit__ = MagicMock(return_value=False)
+            if rc_path is not None:
+                with patch(
+                    "adversary_pursuit.agent.provider_setup._detect_shell_rc",
+                    return_value=rc_path,
+                ):
+                    result = run_provider_wizard(config_mgr)
+            else:
+                result = run_provider_wizard(config_mgr)
+
+        return result, config_mgr
+
+    def test_wizard_save_option_1_config_only(self, tmp_path):
+        """Option 1: config.toml written, rc file untouched."""
+        rc = tmp_path / ".zshrc"
+        rc.write_text("# existing\n", encoding="utf-8")
+
+        # provider=1(anthropic), key, model=1, save=1
+        inputs = ["1", "sk-ant-test", "1", "1"]
+        result, config_mgr = self._run_wizard(
+            tmp_path, inputs, self._ANTHROPIC_RESPONSE, rc_path=rc
+        )
+
+        assert result == "claude-3-5-sonnet-20241022"
+        assert config_mgr.get_provider_api_key("anthropic") == "sk-ant-test"
+        # RC file unchanged — option 1 writes config only
+        assert rc.read_text(encoding="utf-8") == "# existing\n"
+
+    def test_wizard_save_option_2_config_plus_rc(self, tmp_path):
+        """Option 2: both config.toml and rc file written."""
+        rc = tmp_path / ".zshrc"
+        rc.write_text("# existing zshrc\n", encoding="utf-8")
+
+        # provider=1(anthropic), key, model=1, save=2
+        inputs = ["1", "sk-ant-key", "1", "2"]
+        result, config_mgr = self._run_wizard(
+            tmp_path, inputs, self._ANTHROPIC_RESPONSE, rc_path=rc
+        )
+
+        assert config_mgr.get_provider_api_key("anthropic") == "sk-ant-key"
+        rc_content = rc.read_text(encoding="utf-8")
+        assert "# >>> ap chat wizard exports" in rc_content
+        assert 'export ANTHROPIC_API_KEY="sk-ant-key"' in rc_content
+        assert "# existing zshrc" in rc_content
+
+    def test_wizard_save_option_2_idempotent(self, tmp_path):
+        """Running wizard twice with option 2 leaves exactly one marker block."""
+        rc = tmp_path / ".zshrc"
+        rc.write_text("", encoding="utf-8")
+
+        for key in ["sk-ant-first", "sk-ant-second"]:
+            inputs = ["1", key, "1", "2"]
+            self._run_wizard(tmp_path, inputs, self._ANTHROPIC_RESPONSE, rc_path=rc)
+
+        content = rc.read_text(encoding="utf-8")
+        assert content.count("# >>> ap chat wizard exports") == 1
+        assert "sk-ant-first" not in content
+        assert 'sk-ant-second"' in content
+
+    def test_wizard_save_option_3_stdout_only(self, tmp_path):
+        """Option 3: config.toml written, rc untouched, stdout receives export lines."""
+        rc = tmp_path / ".zshrc"
+        rc.write_text("# untouched\n", encoding="utf-8")
+
+        printed_args: list = []
+
+        def capture_print(*args, **kwargs):
+            printed_args.extend(args)
+
+        # @mock-exempt: httpx.get/Console are external I/O boundaries
+        # provider=1(anthropic), key, model=1, save=3
+        inputs = ["1", "sk-ant-stdout", "1", "3"]
+        from adversary_pursuit.agent.provider_setup import run_provider_wizard
+
+        config_mgr = make_config_mgr(tmp_path)
+        with (
+            patch("httpx.get", return_value=_mock_response(200, self._ANTHROPIC_RESPONSE)),
+            patch(
+                "adversary_pursuit.agent.provider_setup.Console.input",
+                side_effect=inputs,
+            ),
+            patch("adversary_pursuit.agent.provider_setup.Console.status") as mock_status,
+            patch(
+                "adversary_pursuit.agent.provider_setup.Console.print",
+                side_effect=capture_print,
+            ),
+            patch(
+                "adversary_pursuit.agent.provider_setup._detect_shell_rc",
+                return_value=rc,
+            ),
+        ):
+            mock_status.return_value.__enter__ = MagicMock(return_value=None)
+            mock_status.return_value.__exit__ = MagicMock(return_value=False)
+            run_provider_wizard(config_mgr)
+
+        # Config written
+        assert config_mgr.get_provider_api_key("anthropic") == "sk-ant-stdout"
+        # RC file untouched
+        assert rc.read_text(encoding="utf-8") == "# untouched\n"
+        # Panel with export lines was printed (Panel object in printed args)
+        from rich.panel import Panel as RichPanel
+
+        panel_args = [a for a in printed_args if isinstance(a, RichPanel)]
+        assert panel_args, "Expected a Rich Panel to be printed for option 3"
+        panel_text = str(panel_args[0].renderable)
+        assert "ANTHROPIC_API_KEY" in panel_text
+
+    def test_wizard_save_falls_back_to_stdout_when_shell_unknown(self, tmp_path, monkeypatch):
+        """Option 2 + unknown shell → fallback to stdout with a warning."""
+        monkeypatch.setenv("SHELL", "/bin/csh")
+
+        printed_args: list = []
+
+        def capture_print(*args, **kwargs):
+            printed_args.extend(args)
+
+        # @mock-exempt: httpx.get/Console are external I/O boundaries
+        # provider=1(anthropic), key, model=1, save=2 (rc requested but shell unknown)
+        inputs = ["1", "sk-ant-csh", "1", "2"]
+        from adversary_pursuit.agent.provider_setup import run_provider_wizard
+
+        config_mgr = make_config_mgr(tmp_path)
+        with (
+            patch("httpx.get", return_value=_mock_response(200, self._ANTHROPIC_RESPONSE)),
+            patch(
+                "adversary_pursuit.agent.provider_setup.Console.input",
+                side_effect=inputs,
+            ),
+            patch("adversary_pursuit.agent.provider_setup.Console.status") as mock_status,
+            patch(
+                "adversary_pursuit.agent.provider_setup.Console.print",
+                side_effect=capture_print,
+            ),
+        ):
+            mock_status.return_value.__enter__ = MagicMock(return_value=None)
+            mock_status.return_value.__exit__ = MagicMock(return_value=False)
+            run_provider_wizard(config_mgr)
+
+        # Config written despite shell fallback
+        assert config_mgr.get_provider_api_key("anthropic") == "sk-ant-csh"
+        # Panel printed as fallback
+        from rich.panel import Panel as RichPanel
+
+        panel_args = [a for a in printed_args if isinstance(a, RichPanel)]
+        assert panel_args, "Expected a Rich Panel when falling back from unknown shell"
 
 
 # ---------------------------------------------------------------------------
@@ -536,8 +879,6 @@ class TestProviderConfigRoundTrip:
     """
 
     def test_full_round_trip_anthropic(self, tmp_path):
-        import stat
-
         config_mgr = make_config_mgr(tmp_path)
         # Simulate what wizard would do after user picks Anthropic + model
         config_mgr.set_provider_api_key("anthropic", "sk-ant-prod-key")

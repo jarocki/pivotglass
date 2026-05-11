@@ -19,15 +19,37 @@ by listing available models, and persist the selection to ~/.ap/config.toml.
            frozen-dataclass list so adding a new provider is a one-line change;
            the rest of the wizard is generic. httpx is a core project dependency
            (pyproject.toml) so no optional-dep guard is needed here.
+
+@decision DEC-AGENT-WIZARD-DOTFILE-001
+@title Wizard optionally appends export lines to shell rc with idempotent marker
+@status accepted
+@rationale User request: the wizard should bootstrap env-var dotfiles on first
+           run, not just config.toml. Three save destinations let users choose:
+           (1) config.toml only (existing default, always written), (2) config.toml
+           plus shell rc append (idempotent marker block prevents duplicate exports
+           on re-runs; block is REPLACED rather than duplicated when the wizard
+           runs a second time with a different key), (3) stdout-only (user copies
+           export lines themselves). Vendor env var names (ANTHROPIC_API_KEY, etc.)
+           are preferred so existing shells work out of the box without any
+           additional configuration. Shell auto-detected via $SHELL env var so
+           zsh users get ~/.zshrc without being asked; fish uses set -x syntax.
+           Unknown shells fall back to stdout with a warning rather than writing
+           to an unrecognised file. File permissions are preserved across the
+           replace-in-place operation.
 """
 
 from __future__ import annotations
 
+import os
+import re
+import stat
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import httpx
 from rich.console import Console
+from rich.panel import Panel
 from rich.table import Table
 
 if TYPE_CHECKING:
@@ -166,6 +188,111 @@ class ProviderConnectionError(Exception):
 
 
 # ---------------------------------------------------------------------------
+# Dotfile export helpers
+# ---------------------------------------------------------------------------
+
+# Marker strings used to wrap the idempotent export block in shell rc files.
+# These must be unique and stable — changing them breaks idempotency for users
+# who already have a block from a previous wizard run.
+_RC_MARKER_BEGIN = "# >>> ap chat wizard exports — managed by ap; edit at your own risk"
+_RC_MARKER_END = "# <<< ap chat wizard exports"
+
+# Map from provider id to the vendor-convention env var name for the API key.
+# These names match the entries in core/config._VENDOR_ENV_VAR_MAP so that
+# shells configured via this wizard need no additional ap-specific variables.
+_PROVIDER_ENV_VAR: dict[str, str] = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+    "google": "GOOGLE_API_KEY",
+}
+
+
+def _detect_shell_rc() -> Path | None:
+    """Return the rc file Path for the user's current shell, or None if unknown.
+
+    Detection is based on the ``$SHELL`` environment variable only — we do not
+    inspect running processes.  The mapping covers the three shells most likely
+    to be encountered:
+
+    * zsh  → ``~/.zshrc``
+    * bash → ``~/.bashrc``
+    * fish → ``~/.config/fish/config.fish``
+
+    Any other shell returns ``None`` and the caller falls back to stdout.
+    """
+    shell = os.environ.get("SHELL", "")
+    shell_name = Path(shell).name  # e.g. "zsh", "bash", "fish"
+    if shell_name == "zsh":
+        return Path.home() / ".zshrc"
+    if shell_name == "bash":
+        return Path.home() / ".bashrc"
+    if shell_name == "fish":
+        return Path.home() / ".config" / "fish" / "config.fish"
+    return None
+
+
+def _compose_export_lines(provider_id: str, api_key: str) -> list[str]:
+    """Return the shell export line(s) for *provider_id* with *api_key*.
+
+    Uses vendor-convention env var names (e.g. ``ANTHROPIC_API_KEY``) so
+    existing shell sessions and third-party tools work without additional
+    configuration.  Returns an empty list for providers that do not use an API
+    key (e.g. Ollama) or for unrecognised provider IDs.
+    """
+    env_var = _PROVIDER_ENV_VAR.get(provider_id)
+    if not env_var:
+        return []
+    return [f'export {env_var}="{api_key}"']
+
+
+def _write_rc_with_marker(rc_path: Path, export_lines: list[str]) -> None:
+    """Append or replace the wizard's export block in *rc_path* idempotently.
+
+    The block is delimited by ``_RC_MARKER_BEGIN`` / ``_RC_MARKER_END`` lines.
+    If the markers are already present the entire block (including markers) is
+    replaced in place.  If they are absent the block is appended at the end of
+    the file with a leading blank line.
+
+    Original file permissions are preserved after the write.
+
+    Parameters
+    ----------
+    rc_path:
+        Absolute path to the shell rc file (``~/.zshrc``, ``~/.bashrc``, etc.).
+        The file is created if it does not exist.
+    export_lines:
+        Lines to place between the begin and end markers, without newlines.
+    """
+    new_block = "\n".join([_RC_MARKER_BEGIN, *export_lines, _RC_MARKER_END])
+
+    # Preserve original permissions; default 0o644 for new files
+    original_mode: int | None = None
+    if rc_path.exists():
+        original_mode = stat.S_IMODE(rc_path.stat().st_mode)
+        existing = rc_path.read_text(encoding="utf-8")
+    else:
+        existing = ""
+
+    # Replace an existing marker block, or append a new one
+    pattern = re.compile(
+        r"\n?" + re.escape(_RC_MARKER_BEGIN) + r".*?" + re.escape(_RC_MARKER_END),
+        re.DOTALL,
+    )
+    if pattern.search(existing):
+        updated = pattern.sub("\n" + new_block, existing)
+    else:
+        # No existing block — append after a blank separator line
+        separator = "\n" if existing.endswith("\n") else "\n\n"
+        updated = existing + separator + new_block + "\n"
+
+    rc_path.parent.mkdir(parents=True, exist_ok=True)
+    rc_path.write_text(updated, encoding="utf-8")
+    if original_mode is not None:
+        os.chmod(rc_path, original_mode)
+
+
+# ---------------------------------------------------------------------------
 # Core helpers
 # ---------------------------------------------------------------------------
 
@@ -235,17 +362,13 @@ def list_models(provider: ProviderSpec, api_key: str | None) -> list[str]:
             timeout=15.0,
         )
     except httpx.ConnectError as exc:
-        raise ProviderConnectionError(
-            f"Cannot connect to {provider.display_name}: {exc}"
-        ) from exc
+        raise ProviderConnectionError(f"Cannot connect to {provider.display_name}: {exc}") from exc
     except httpx.TimeoutException as exc:
         raise ProviderConnectionError(
             f"Timeout connecting to {provider.display_name}: {exc}"
         ) from exc
     except httpx.RequestError as exc:
-        raise ProviderConnectionError(
-            f"Network error for {provider.display_name}: {exc}"
-        ) from exc
+        raise ProviderConnectionError(f"Network error for {provider.display_name}: {exc}") from exc
 
     if response.status_code in (401, 403):
         raise ProviderAuthError(
@@ -257,11 +380,7 @@ def list_models(provider: ProviderSpec, api_key: str | None) -> list[str]:
 
     # Navigate the provider-specific JSON path to the model list
     model_objects: list = data.get(provider.models_json_path, [])
-    return [
-        obj[provider.model_id_field]
-        for obj in model_objects
-        if provider.model_id_field in obj
-    ]
+    return [obj[provider.model_id_field] for obj in model_objects if provider.model_id_field in obj]
 
 
 # ---------------------------------------------------------------------------
@@ -275,7 +394,8 @@ def run_provider_wizard(
     """Run the full interactive provider/model setup wizard.
 
     Prompts the user for provider, API key, lists available models, asks the
-    user to pick one, then persists provider+model+key to config.toml.
+    user to pick one, persists provider+model+key to config.toml, and
+    optionally exports the API key to the user's shell rc file.
 
     Parameters
     ----------
@@ -347,9 +467,7 @@ def run_provider_wizard(
     except ProviderConnectionError as exc:
         console.print(f"\n[red]Connection failed:[/red] {exc}")
         if provider.id == "ollama":
-            console.print(
-                "[yellow]Is Ollama running? Start it with: ollama serve[/yellow]"
-            )
+            console.print("[yellow]Is Ollama running? Start it with: ollama serve[/yellow]")
         raise SystemExit(1) from exc
 
     if not models:
@@ -379,10 +497,16 @@ def run_provider_wizard(
     chosen_model = _build_model_string(provider, chosen_raw)
     console.print(f"\n[green]Model:[/green] {chosen_model}")
 
-    # --- Step 6: Persist ---
+    # --- Step 6: Persist to config.toml (always) ---
     if api_key:
         config_mgr.set_provider_api_key(provider.id, api_key)
     config_mgr.set_agent_selection(provider.id, chosen_model)
+
+    # --- Step 7: Save destination prompt (only when there is an API key to export) ---
+    if api_key:
+        export_lines = _compose_export_lines(provider.id, api_key)
+        if export_lines:
+            _prompt_save_destination(console, provider.id, export_lines)
 
     console.print(
         "\n[bold green]Setup complete![/bold green] "
@@ -390,6 +514,77 @@ def run_provider_wizard(
         "Run [bold]model select[/bold] at any time to change your selection.\n"
     )
     return chosen_model
+
+
+def _prompt_save_destination(
+    console: Console,
+    provider_id: str,
+    export_lines: list[str],
+) -> None:
+    """Prompt the user for where to save the API key export lines.
+
+    Called after config.toml has already been written (option 1 is always
+    applied before this function is invoked).
+
+    Options:
+      1. config.toml only — already done, nothing extra needed.
+      2. config.toml + append to shell rc file (auto-detected via $SHELL).
+      3. Print export lines to stdout for the user to paste manually.
+
+    Falls back to stdout (with a warning) when the user selects option 2 but
+    the shell is not recognised.
+    """
+    rc_path = _detect_shell_rc()
+    rc_label = str(rc_path) if rc_path else "~/.zshrc / ~/.bashrc"
+
+    dest_table = Table(show_header=True, header_style="bold cyan", show_lines=False)
+    dest_table.add_column("#", style="bold", width=3)
+    dest_table.add_column("Save destination", style="cyan")
+    dest_table.add_row("1", "~/.ap/config.toml only (already saved)")
+    dest_table.add_row(
+        "2",
+        f"~/.ap/config.toml + append export line(s) to {rc_label}",
+    )
+    dest_table.add_row("3", "Print export line(s) to stdout (I'll paste them myself)")
+    console.print("\n[bold]Where would you like to save these credentials?[/bold]")
+    console.print(dest_table)
+
+    choice = _prompt_int(console, "Choose save destination [1-3]", 1, 3)
+
+    if choice == 1:
+        # config.toml already written — nothing more to do
+        return
+
+    if choice == 2:
+        if rc_path is None:
+            console.print(
+                "[yellow]Unknown shell — cannot determine rc file. Falling back to stdout.[/yellow]"
+            )
+            _print_export_lines(console, export_lines)
+            return
+        _write_rc_with_marker(rc_path, export_lines)
+        console.print(
+            f"\n[green]Export line(s) written to[/green] {rc_path}\n"
+            "[dim]Restart your shell or run [bold]source "
+            f"{rc_path}[/bold] to apply.[/dim]"
+        )
+        return
+
+    # choice == 3
+    _print_export_lines(console, export_lines)
+
+
+def _print_export_lines(console: Console, export_lines: list[str]) -> None:
+    """Render *export_lines* inside a Rich Panel for easy copying."""
+    content = "\n".join(export_lines)
+    console.print(
+        Panel(
+            f"[bold green]{content}[/bold green]",
+            title="[bold]Paste into your shell rc file[/bold]",
+            subtitle="[dim]e.g. ~/.zshrc  ~/.bashrc  ~/.config/fish/config.fish[/dim]",
+            expand=False,
+        )
+    )
 
 
 def _prompt_int(console: Console, prompt: str, lo: int, hi: int) -> int:
@@ -400,8 +595,6 @@ def _prompt_int(console: Console, prompt: str, lo: int, hi: int) -> int:
             value = int(raw)
             if lo <= value <= hi:
                 return value
-            console.print(
-                f"[yellow]Please enter a number between {lo} and {hi}.[/yellow]"
-            )
+            console.print(f"[yellow]Please enter a number between {lo} and {hi}.[/yellow]")
         except ValueError:
             console.print(f"[yellow]Invalid input '{raw}'. Enter a number.[/yellow]")

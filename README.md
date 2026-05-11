@@ -89,7 +89,12 @@ On first run of `ap chat`, the agent runs an interactive setup wizard that:
 2. Prompts for an API key (skipped for Ollama since it's local)
 3. Calls the provider's list-models endpoint to fetch available models
 4. Lets you select one
-5. Persists provider, model, and key to `~/.ap/config.toml` (chmod 0600)
+5. Asks where to save your credentials — three options:
+   1. `~/.ap/config.toml` only (default — used by `ap chat`)
+   2. `~/.ap/config.toml` + append `export …_API_KEY=...` lines to your shell rc (`~/.zshrc` / `~/.bashrc` / `~/.config/fish/config.fish`, auto-detected via `$SHELL`)
+   3. Print export lines to stdout so you can paste them anywhere
+
+Re-running the wizard with option 2 replaces the existing export block rather than duplicating it (idempotent marker comment). Unknown shells fall back to option 3 with a warning.
 
 Subsequent `ap chat` launches use the saved config — no prompts.
 
