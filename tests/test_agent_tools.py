@@ -3105,6 +3105,7 @@ class TestRunChatHelp:
         mock_cfg_mgr.get_agent_model.return_value = model
         mock_cfg_mgr.get_agent_provider.return_value = provider
         mock_cfg_mgr.get_provider_api_key.return_value = "test-api-key"
+        mock_cfg_mgr.get_editing_mode.return_value = "vi"
         mock_cfg_mgr.set_agent_selection = MagicMock()
         mock_cfg_mgr.set_provider_api_key = MagicMock()
         return mock_cfg_mgr
@@ -3124,14 +3125,17 @@ class TestRunChatHelp:
         # I/O boundaries (LLM network call, TTY), not internal business logic.
         # ConfigManager is mocked to return a pre-configured model so that the
         # interactive wizard is never triggered during tests.
+        # ChatPromptSession is mocked because it wraps a blocking PTY call.
 
         Patch strategy:
           - adversary_pursuit.agent.runner.AgentRunner → mock class whose call
             returns mock_runner (chat.py does 'from ... import AgentRunner; AgentRunner()')
           - adversary_pursuit.agent.chat.ConfigManager → mock class returning a
             pre-configured mock_cfg_mgr (prevents wizard trigger when AP_MODEL unset)
+          - adversary_pursuit.agent.chat.ChatPromptSession → mock whose .prompt()
+            reads from the canned input sequence (replaces blocking PTY call)
           - Console (rich.console.Console) → in-memory StringIO console so Rich
-            output can be inspected and fake_input can be injected
+            output can be inspected without a real terminal.
         """
         from io import StringIO
 
@@ -3146,11 +3150,16 @@ class TestRunChatHelp:
 
         input_seq = iter(inputs)
 
-        def fake_input(_prompt=""):
+        def fake_prompt(_prefix=""):
             try:
                 return next(input_seq)
             except StopIteration:
                 raise EOFError
+
+        # Mock ChatPromptSession so .prompt() reads from the canned sequence
+        mock_session = MagicMock()
+        mock_session.prompt.side_effect = fake_prompt
+        mock_prompt_session_class = MagicMock(return_value=mock_session)
 
         # Build a mock class whose instantiation returns mock_runner
         mock_agent_runner_class = MagicMock(return_value=mock_runner)
@@ -3166,8 +3175,12 @@ class TestRunChatHelp:
                 "adversary_pursuit.agent.chat.ConfigManager",
                 mock_config_mgr_class,
             ),
-            patch.object(test_console, "input", side_effect=fake_input),
+            patch(
+                "adversary_pursuit.agent.chat.ChatPromptSession",
+                mock_prompt_session_class,
+            ),
             patch("adversary_pursuit.agent.chat.Console", return_value=test_console),
+            patch("adversary_pursuit.agent.chat.render_boot_banner"),
         ):
             run_chat()
 
@@ -3315,6 +3328,7 @@ class TestModelMetaCommands:
         mock_cfg_mgr.get_agent_model.return_value = model
         mock_cfg_mgr.get_agent_provider.return_value = provider
         mock_cfg_mgr.get_provider_api_key.return_value = "test-key"
+        mock_cfg_mgr.get_editing_mode.return_value = "vi"
         mock_cfg_mgr.set_agent_selection = MagicMock()
         mock_cfg_mgr.set_provider_api_key = MagicMock()
 
@@ -3323,11 +3337,16 @@ class TestModelMetaCommands:
 
         input_seq = iter(inputs)
 
-        def fake_input(_prompt=""):
+        def fake_prompt(_prefix=""):
             try:
                 return next(input_seq)
             except StopIteration:
                 raise EOFError
+
+        # @mock-exempt: ChatPromptSession wraps blocking PTY I/O
+        mock_session = MagicMock()
+        mock_session.prompt.side_effect = fake_prompt
+        mock_prompt_session_class = MagicMock(return_value=mock_session)
 
         mock_agent_runner_class = MagicMock(return_value=mock_runner)
         mock_config_mgr_class = MagicMock(return_value=mock_cfg_mgr)
@@ -3346,9 +3365,13 @@ class TestModelMetaCommands:
                 "adversary_pursuit.agent.chat.run_provider_wizard",
                 return_value=wizard_return,
             ),
+            patch(
+                "adversary_pursuit.agent.chat.ChatPromptSession",
+                mock_prompt_session_class,
+            ),
             patch.dict(os.environ, env_overrides, clear=False),
-            patch.object(test_console, "input", side_effect=fake_input),
             patch("adversary_pursuit.agent.chat.Console", return_value=test_console),
+            patch("adversary_pursuit.agent.chat.render_boot_banner"),
         ):
             if ap_model_env is None:
                 os.environ.pop("AP_MODEL", None)
@@ -3442,16 +3465,22 @@ class TestModelMetaCommands:
         mock_cfg_mgr = MagicMock()
         mock_cfg_mgr.get_agent_model.return_value = "test-model"
         mock_cfg_mgr.get_agent_provider.return_value = "anthropic"
+        mock_cfg_mgr.get_editing_mode.return_value = "vi"
 
         buf = StringIO()
         test_console = Console(file=buf, width=120, highlight=False, markup=False)
         input_seq = iter(["help"])
 
-        def fake_input(_prompt=""):
+        def fake_prompt(_prefix=""):
             try:
                 return next(input_seq)
             except StopIteration:
                 raise EOFError
+
+        # @mock-exempt: ChatPromptSession wraps blocking PTY I/O
+        mock_session = MagicMock()
+        mock_session.prompt.side_effect = fake_prompt
+        mock_prompt_session_class = MagicMock(return_value=mock_session)
 
         mock_agent_runner_class = MagicMock(return_value=mock_runner)
         mock_config_mgr_class = MagicMock(return_value=mock_cfg_mgr)
@@ -3461,8 +3490,12 @@ class TestModelMetaCommands:
                 "adversary_pursuit.agent.runner.AgentRunner", mock_agent_runner_class
             ),
             patch("adversary_pursuit.agent.chat.ConfigManager", mock_config_mgr_class),
-            patch.object(test_console, "input", side_effect=fake_input),
+            patch(
+                "adversary_pursuit.agent.chat.ChatPromptSession",
+                mock_prompt_session_class,
+            ),
             patch("adversary_pursuit.agent.chat.Console", return_value=test_console),
+            patch("adversary_pursuit.agent.chat.render_boot_banner"),
         ):
             os.environ.pop("AP_MODEL", None)
             run_chat()

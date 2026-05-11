@@ -1,17 +1,21 @@
-"""Minimal terminal chat interface for AP agent.
+"""Terminal chat interface for AP agent — prompt_toolkit-powered REPL.
 
 Provides a Rich-based interactive REPL that wraps AgentRunner.
 Launched via `ap chat` or `python -m adversary_pursuit chat`.
 
 @decision DEC-AGENT-CHAT-001
-@title Minimal Rich REPL — no readline/prompt_toolkit complexity
-@status accepted
-@rationale The chat interface is a thin shell around AgentRunner. Rich's
-           console.input() + status spinner is sufficient for a v1 terminal
-           chat. Prompt_toolkit (used by cmd2) would add complexity without
-           meaningful benefit at this stage. The existing cmd2 console
-           (APConsole) handles the structured `use/set/run` workflow; chat.py
-           handles the conversational interface.
+@title prompt_toolkit REPL with history, autocomplete, vi keybindings
+@status accepted (supersedes: "Minimal Rich REPL — no readline/prompt_toolkit complexity")
+@rationale Upgraded from bare console.input() to prompt_toolkit ChatPromptSession
+           (repl_input.py) which provides: persistent FileHistory (~/.ap/chat_history),
+           tab-completion of meta-commands and their arguments, vi/emacs editing
+           modes, and AutoSuggestFromHistory.  All input now flows through
+           repl_input.prompt_user() which is tested and mockable.  Errors that
+           would previously dump raw tracebacks are now routed through
+           error_handler.handle_error() which classifies, optionally explains via
+           a debug-LLM call, and renders a one-line problem + fix in a Rich Panel.
+           The boot banner is replaced by banner.render_boot_banner() which shows
+           ASCII art + a brief typewriter animation; AP_NO_BANNER=1 skips it for CI.
 
 @decision DEC-AGENT-CHAT-002
 @title mode meta-command mirrors APConsole.do_mode — parsed before LLM dispatch
@@ -53,7 +57,14 @@ from rich.table import Table
 # tests can patch 'adversary_pursuit.agent.chat.ConfigManager' and
 # 'adversary_pursuit.agent.chat.run_provider_wizard' cleanly.
 # Neither pulls in optional dependencies (litellm), so this is safe.
+from adversary_pursuit.agent.banner import (
+    get_mode_color,
+    render_boot_banner,
+    thinking_status,
+)
+from adversary_pursuit.agent.error_handler import handle_error
 from adversary_pursuit.agent.provider_setup import run_provider_wizard
+from adversary_pursuit.agent.repl_input import ChatPromptSession
 from adversary_pursuit.core.config import ConfigManager
 
 
@@ -61,7 +72,7 @@ def run_chat() -> None:
     """Run the conversational CTI interface.
 
     Starts an interactive terminal chat session using AgentRunner.
-    Prints a welcome banner, then loops reading user input until the user
+    Displays the boot banner, then loops reading user input until the user
     types 'quit', 'exit', or sends EOF (Ctrl+D).
 
     On first launch (when no model is configured via AP_MODEL env var or
@@ -85,12 +96,8 @@ def run_chat() -> None:
     """
     console = Console()
 
-    console.print(
-        Panel.fit(
-            "[bold green]Adversary Pursuit[/bold green] v2 — Conversational CTI",
-            subtitle="Type 'quit' to exit | 'workspace <name>' | 'mode <name>'",
-        )
-    )
+    # Boot banner (AP_NO_BANNER=1 disables for CI)
+    render_boot_banner(console)
 
     try:
         # AgentRunner stays as a lazy import — it pulls in litellm (optional dep).
@@ -114,21 +121,28 @@ def run_chat() -> None:
 
         runner = AgentRunner(model=resolved_model, config_mgr=config_mgr)
         console.print("[dim]Agent ready. Ask me about any indicator.[/dim]\n")
-    except ImportError as e:
-        console.print(f"[red]Missing dependency: {e}[/red]")
-        console.print(
-            "[yellow]Install with: uv pip install 'adversary-pursuit[agent]'[/yellow]"
-        )
+    except ImportError as exc:
+        handle_error(exc, console, None, None)
         return
 
+    # Build a single PromptSession that persists history across the loop
+    editing_mode = config_mgr.get_editing_mode()
+    prompt_session = ChatPromptSession(editing_mode=editing_mode)
+
     def _mode_prompt() -> str:
-        """Return a prompt string reflecting the active mode's prefix."""
-        prefix = runner.ctx.mode_mgr.active.prompt_prefix
-        return f"{prefix}[bold cyan]ap>[/bold cyan] "
+        """Return a Rich-markup prompt string reflecting the active mode's prefix.
+
+        The emoji prefix comes from the CharacterMode; the mode-specific colour
+        is applied to the 'ap>' portion via get_mode_color() from banner.py.
+        """
+        mode = runner.ctx.mode_mgr.active
+        color = get_mode_color(mode.name)
+        prefix = mode.prompt_prefix  # e.g. "🥷" or "" for default
+        return f"{prefix}[{color}]ap>[/{color}] "
 
     while True:
         try:
-            user_input = console.input(_mode_prompt())
+            user_input = prompt_session.prompt(_mode_prompt())
         except (EOFError, KeyboardInterrupt):
             console.print("\nBye!")
             break
@@ -630,8 +644,10 @@ def run_chat() -> None:
             continue
 
         # Normal chat — send to LLM
+        # thinking_status shows a spinner while the LLM/tools are running.
+        # handle_error replaces raw tracebacks with a Rich Panel explanation.
         try:
-            with console.status("[bold green]Thinking...[/bold green]"):
+            with thinking_status(console):
                 response = runner.chat(stripped)
             console.print(Markdown(response))
             console.print()
@@ -670,11 +686,10 @@ def run_chat() -> None:
                         style="yellow",
                     )
                 )
-        except ImportError as e:
-            console.print(f"[red]Missing dependency: {e}[/red]")
-            console.print(
-                "[yellow]Install with: uv pip install 'adversary-pursuit[agent]'[/yellow]"
-            )
-            break
-        except Exception as e:
-            console.print(f"[red]Error: {e}[/red]")
+        except Exception as exc:
+            # Route ALL exceptions through error_handler — no raw tracebacks.
+            # handle_error returns True (recoverable) → continue the loop,
+            # False (fatal) → break and exit.
+            should_continue = handle_error(exc, console, runner, config_mgr)
+            if not should_continue:
+                break

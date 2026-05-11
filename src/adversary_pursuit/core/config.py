@@ -86,6 +86,9 @@ class GeneralConfig(BaseModel):
     # None means "not configured"; wizard will prompt on first chat launch.
     agent_provider: str | None = None
     agent_model: str | None = None
+    # REPL editing mode for prompt_toolkit — "vi" or "emacs".
+    # None means "not configured"; defaults to "vi" at runtime.
+    editing_mode: str | None = None
 
     @field_validator("auto_pivot_depth")
     @classmethod
@@ -346,6 +349,46 @@ class ConfigManager:
         cfg = self._cache if self._cache is not None else self.load()
         cfg.general.agent_provider = provider
         cfg.general.agent_model = model
+        self.save(cfg)
+
+    def get_editing_mode(self) -> str:
+        """Return the configured REPL editing mode, defaulting to ``"vi"``.
+
+        Checks the ``AP_EDITING_MODE`` environment variable first (values:
+        ``"vi"`` or ``"emacs"``), then falls back to the config field, then
+        to ``"vi"`` as the hard default.
+
+        Returns
+        -------
+        str
+            ``"vi"`` or ``"emacs"``.
+        """
+        env_mode = os.environ.get("AP_EDITING_MODE", "").lower()
+        if env_mode in ("vi", "emacs"):
+            return env_mode
+        cfg = self._cache if self._cache is not None else self.load()
+        stored = cfg.general.editing_mode
+        if stored and stored.lower() in ("vi", "emacs"):
+            return stored.lower()
+        return "vi"
+
+    def set_editing_mode(self, mode: str) -> None:
+        """Persist the REPL editing mode to config.
+
+        Parameters
+        ----------
+        mode:
+            ``"vi"`` or ``"emacs"``.
+
+        Raises
+        ------
+        ValueError:
+            If *mode* is not one of the recognised values.
+        """
+        if mode.lower() not in ("vi", "emacs"):
+            raise ValueError(f"editing_mode must be 'vi' or 'emacs', got {mode!r}")
+        cfg = self._cache if self._cache is not None else self.load()
+        cfg.general.editing_mode = mode.lower()
         self.save(cfg)
 
     def get_provider_api_key(self, provider_id: str) -> str | None:
