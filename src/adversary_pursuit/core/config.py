@@ -14,13 +14,35 @@ variable overrides for API keys, Pydantic validation, and 0600 file permissions.
            override logic co-located with the fields it applies to.
 
 @decision DEC-CONFIG-003
-@title Environment variables applied at load time, not via BaseSettings
+@title Environment variables applied at query time via get_api_key(), not at load time
 @status accepted
-@rationale Pydantic BaseSettings performs env-var injection at model construction
-           time and requires pydantic-settings as an extra install. Since we already
-           need post-load mutation (dotted-key set), and because env vars only apply
-           to api_keys (not general settings), a manual override step in ConfigManager.load()
-           is simpler, more explicit, and avoids an additional dependency.
+@rationale Previously, env vars were applied at load() time, which silently overwrote
+           config-stored values. The correct precedence (config wins over env) requires
+           the lookup to happen at get_api_key() call time, not at load time. load()
+           now returns the raw config values from disk without env mutation. This means
+           the cached Config object always reflects what the user explicitly persisted,
+           and get_api_key() implements the full 3-layer chain on each call.
+
+@decision DEC-AGENT-CONFIG-KEY-RESOLUTION-001
+@title API key resolution: config.toml > AP_<SERVICE>_API_KEY env > <SERVICE>_API_KEY env
+@status accepted
+@rationale The user-reported bug was that wizard-saved config values were silently
+           overridden by env vars because load() stomped stored values with env values.
+           The correct precedence, from highest to lowest:
+             1. Explicit value in ~/.ap/config.toml (set by wizard or hand-edit).
+                User's explicit persistent choice must always win — this is the
+                "I configured this tool" assertion.
+             2. AP_<SERVICE>_API_KEY — project-namespaced env var for per-session
+                override without touching config. Takes precedence over vendor-default
+                env var so operators can inject AP_SHODAN_API_KEY to override a
+                shell-level SHODAN_API_KEY without editing the file.
+             3. <SERVICE>_API_KEY — vendor-convention env var (SHODAN_API_KEY,
+                ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.). Honoring vendor convention
+                means users don't need to double-set keys they already have in .zshrc.
+             4. None — the caller decides how to handle a missing key.
+           This same precedence applies to CTI service keys and LLM provider keys.
+           load() no longer mutates cfg.api_keys with env values — those overrides
+           belonged to get_api_key(), not to load().
 
 @decision DEC-AGENT-CONFIG-PROVIDER-001
 @title Agent provider/model selection persisted in GeneralConfig + ApiKeysConfig
@@ -53,20 +75,64 @@ from pydantic import BaseModel, Field, field_validator
 _DEFAULT_CONFIG_DIR = Path.home() / ".ap"
 
 # ---------------------------------------------------------------------------
-# Environment variable mapping: api_keys field name → env var name
+# Environment variable mappings for API key resolution
+#
+# Two layers of env var support (DEC-AGENT-CONFIG-KEY-RESOLUTION-001):
+#   Layer 2: AP_<SERVICE>_API_KEY — project-namespaced, takes precedence over vendor.
+#   Layer 3: <SERVICE>_API_KEY   — vendor convention (SHODAN_API_KEY, ANTHROPIC_API_KEY…)
+#
+# For services whose vendor env var name differs from <SERVICE>_API_KEY the
+# canonical name is listed explicitly in _VENDOR_ENV_VAR_MAP.  When no entry
+# exists the code falls back to f"{service.upper()}_API_KEY" automatically.
 # ---------------------------------------------------------------------------
 
-_ENV_VAR_MAP: dict[str, str] = {
+# Layer 2: AP-prefixed project env vars.  Checked after config, before vendor env.
+_AP_ENV_VAR_MAP: dict[str, str] = {
     "shodan": "AP_SHODAN_API_KEY",
-    "virustotal": "AP_VT_API_KEY",
-    "censys_id": "AP_CENSYS_API_ID",
-    "censys_secret": "AP_CENSYS_API_SECRET",
+    "virustotal": "AP_VIRUSTOTAL_API_KEY",
+    "censys_id": "AP_CENSYS_ID",
+    "censys_secret": "AP_CENSYS_SECRET",
     "urlscan": "AP_URLSCAN_API_KEY",
     "abuseipdb": "AP_ABUSEIPDB_API_KEY",
     "hibp": "AP_HIBP_API_KEY",
     "otx": "AP_OTX_API_KEY",
-    "passivetotal_user": "AP_PT_USER",
-    "passivetotal_key": "AP_PT_API_KEY",
+    "passivetotal_user": "AP_PASSIVETOTAL_USER",
+    "passivetotal_key": "AP_PASSIVETOTAL_KEY",
+    # Provider keys — AP-prefixed form
+    "agent_anthropic": "AP_ANTHROPIC_API_KEY",
+    "agent_openai": "AP_OPENAI_API_KEY",
+    "agent_openrouter": "AP_OPENROUTER_API_KEY",
+    "agent_google": "AP_GOOGLE_API_KEY",
+}
+
+# Layer 3: Vendor-convention env vars.  Non-obvious names listed explicitly;
+# the fallback for unlisted services is f"{service.upper()}_API_KEY".
+_VENDOR_ENV_VAR_MAP: dict[str, str] = {
+    "shodan": "SHODAN_API_KEY",
+    "virustotal": "VIRUSTOTAL_API_KEY",
+    "censys_id": "CENSYS_API_ID",
+    "censys_secret": "CENSYS_API_SECRET",
+    "urlscan": "URLSCAN_API_KEY",
+    "abuseipdb": "ABUSEIPDB_API_KEY",
+    "hibp": "HIBP_API_KEY",
+    "otx": "OTX_API_KEY",
+    "passivetotal_user": "PT_USERNAME",
+    "passivetotal_key": "PT_API_KEY",
+    # Provider keys — vendor/standard env var names
+    "agent_anthropic": "ANTHROPIC_API_KEY",
+    "agent_openai": "OPENAI_API_KEY",
+    "agent_openrouter": "OPENROUTER_API_KEY",
+    "agent_google": "GOOGLE_API_KEY",
+}
+
+# Backward-compat alias: old AP_VT_API_KEY and AP_PT_* names still honoured.
+# These are checked as additional AP-layer fallbacks in get_api_key().
+_LEGACY_AP_ENV_VAR_MAP: dict[str, list[str]] = {
+    "virustotal": ["AP_VT_API_KEY"],
+    "censys_id": ["AP_CENSYS_API_ID"],
+    "censys_secret": ["AP_CENSYS_API_SECRET"],
+    "passivetotal_user": ["AP_PT_USER"],
+    "passivetotal_key": ["AP_PT_API_KEY"],
 }
 
 
@@ -102,7 +168,10 @@ class ApiKeysConfig(BaseModel):
     """API keys for supported intelligence services.
 
     Fields default to empty string (not configured).
-    Environment variables override these at load time — see _ENV_VAR_MAP.
+    Environment variables are resolved at query time via get_api_key() and
+    get_provider_api_key(), NOT at load time. See _AP_ENV_VAR_MAP and
+    _VENDOR_ENV_VAR_MAP for the env var name lookup tables. Precedence is:
+    stored value > AP_<SERVICE>_API_KEY > <SERVICE>_API_KEY > None.
     Provider-specific keys for the agent wizard are also stored here so they
     receive the same 0600 file-permission protection as other service keys.
     """
@@ -140,12 +209,8 @@ class Config(BaseModel):
         representation for "not yet configured" optional fields.
         """
         return {
-            "general": {
-                k: v for k, v in self.general.model_dump().items() if v is not None
-            },
-            "api_keys": {
-                k: v for k, v in self.api_keys.model_dump().items() if v is not None
-            },
+            "general": {k: v for k, v in self.general.model_dump().items() if v is not None},
+            "api_keys": {k: v for k, v in self.api_keys.model_dump().items() if v is not None},
         }
 
 
@@ -179,9 +244,7 @@ class ConfigManager:
             Directory that contains config.toml.  Defaults to ~/.ap/.
             Pass ``tmp_path`` in tests to avoid touching the real user config.
         """
-        self._config_dir: Path = (
-            Path(config_dir) if config_dir is not None else _DEFAULT_CONFIG_DIR
-        )
+        self._config_dir: Path = Path(config_dir) if config_dir is not None else _DEFAULT_CONFIG_DIR
         self._config_path: Path = self._config_dir / "config.toml"
         self._cache: Config | None = None
 
@@ -190,11 +253,17 @@ class ConfigManager:
     # ------------------------------------------------------------------
 
     def load(self) -> Config:
-        """Load config from file, applying environment variable overrides.
+        """Load config from file and cache it.
 
         If the config file does not exist, returns a Config with all defaults.
-        Environment variables always take precedence over file values.
         The loaded config is cached so subsequent get() calls don't re-parse.
+
+        NOTE: Environment variable resolution is intentionally NOT applied here.
+        Use get_api_key() to resolve a key with the full 3-layer precedence:
+          config.toml > AP_<SERVICE>_API_KEY env > <SERVICE>_API_KEY env.
+        Applying env overrides at load time would invert that precedence (env
+        would silently win over config), breaking the documented contract
+        (DEC-AGENT-CONFIG-KEY-RESOLUTION-001).
         """
         if self._config_path.exists():
             with self._config_path.open("rb") as fh:
@@ -204,12 +273,6 @@ class ConfigManager:
             cfg = Config(general=general, api_keys=api_keys)
         else:
             cfg = Config()
-
-        # Apply environment variable overrides
-        for field_name, env_var in _ENV_VAR_MAP.items():
-            env_value = os.environ.get(env_var)
-            if env_value is not None:
-                setattr(cfg.api_keys, field_name, env_value)
 
         self._cache = cfg
         return cfg
@@ -284,32 +347,51 @@ class ConfigManager:
         self.save(cfg)
 
     def get_api_key(self, service: str) -> str | None:
-        """Return the API key for *service*, with env var taking precedence.
+        """Return the API key for *service* using the documented 3-layer precedence.
 
-        Checks the environment variable first (same mapping as _ENV_VAR_MAP),
-        then falls back to the config file value.  Returns ``None`` if the
-        service is unknown or the key is unset.
+        Precedence (highest → lowest) per DEC-AGENT-CONFIG-KEY-RESOLUTION-001:
+          1. Stored config value (~/.ap/config.toml, written by wizard or hand).
+             User's explicit persistent choice wins — this is the "I configured
+             this tool" assertion.
+          2. AP_<SERVICE>_API_KEY env var — project-namespaced per-session override.
+             Also checks legacy AP_* variant names (e.g. AP_VT_API_KEY for VT).
+          3. <SERVICE>_API_KEY env var — vendor convention (SHODAN_API_KEY, etc.).
+             Honoured so users don't need to double-set keys they already export.
+          4. None — key not configured; caller decides how to handle.
 
         Parameters
         ----------
         service:
-            One of the field names in ApiKeysConfig (e.g. "shodan", "virustotal").
+            Field name in ApiKeysConfig (e.g. "shodan", "virustotal",
+            "censys_id", "censys_secret", "passivetotal_user", "passivetotal_key").
+            Unknown service names fall through to None at layer 4.
         """
-        # Check env var first
-        env_var = _ENV_VAR_MAP.get(service)
-        if env_var:
-            env_value = os.environ.get(env_var)
-            if env_value is not None:
-                return env_value
-
-        # Fall back to config file value
-        if service not in _ENV_VAR_MAP:
-            return None
-
+        # Layer 1: config-stored value (highest precedence)
         cfg = self._cache if self._cache is not None else self.load()
-        value = getattr(cfg.api_keys, service, None)
-        # Return None for empty string (not configured)
-        return value if value else None
+        stored = getattr(cfg.api_keys, service, None)
+        if stored:  # empty-string counts as "not set"
+            return stored
+
+        # Layer 2: AP-prefixed project env var
+        ap_var = _AP_ENV_VAR_MAP.get(service)
+        if ap_var:
+            val = os.environ.get(ap_var)
+            if val:
+                return val
+        # Also check legacy AP_* names (e.g. AP_VT_API_KEY, AP_PT_USER)
+        for legacy_var in _LEGACY_AP_ENV_VAR_MAP.get(service, []):
+            val = os.environ.get(legacy_var)
+            if val:
+                return val
+
+        # Layer 3: vendor-convention env var
+        vendor_var = _VENDOR_ENV_VAR_MAP.get(service)
+        if vendor_var:
+            val = os.environ.get(vendor_var)
+            if val:
+                return val
+
+        return None
 
     # ------------------------------------------------------------------
     # Agent provider/model helpers (DEC-AGENT-CONFIG-PROVIDER-001)
@@ -392,20 +474,43 @@ class ConfigManager:
         self.save(cfg)
 
     def get_provider_api_key(self, provider_id: str) -> str | None:
-        """Return the stored API key for *provider_id*, or None.
+        """Return the API key for *provider_id* using the 3-layer precedence.
+
+        Precedence (highest → lowest) per DEC-AGENT-CONFIG-KEY-RESOLUTION-001:
+          1. Stored config value (config.toml field, e.g. agent_anthropic).
+          2. AP_<PROVIDER>_API_KEY env var (e.g. AP_ANTHROPIC_API_KEY).
+          3. <PROVIDER>_API_KEY vendor convention (e.g. ANTHROPIC_API_KEY).
+          4. None — key not configured.
+
+        The env-layer lookup delegates to get_api_key() using the canonical
+        service name "agent_<provider_id>" which maps to the correct AP_ and
+        vendor env var entries in _AP_ENV_VAR_MAP / _VENDOR_ENV_VAR_MAP.
 
         Parameters
         ----------
         provider_id:
             One of "anthropic", "openai", "openrouter", "google".
-            Returns None immediately for "ollama" (no key needed).
+            Returns None immediately for "ollama" (no key needed) and for
+            any unknown provider id.
         """
         field = self._PROVIDER_KEY_FIELD.get(provider_id)
         if field is None:
             return None
+
+        # Layer 1: stored config value (highest precedence)
         cfg = self._cache if self._cache is not None else self.load()
         value = getattr(cfg.api_keys, field, None)
-        return value if value else None
+        if value:
+            return value
+
+        # Layers 2 + 3: env vars via the shared 3-layer resolver.
+        # The service name "agent_<provider_id>" is the key used in
+        # _AP_ENV_VAR_MAP and _VENDOR_ENV_VAR_MAP for provider keys.
+        # We skip layer 1 here (config already checked above) by passing
+        # a synthetic service name that has no ApiKeysConfig field — the
+        # stored-value lookup in get_api_key() returns falsy for unknown
+        # fields, so the env layers fire correctly.
+        return self.get_api_key(f"agent_{provider_id.lower()}")
 
     def set_provider_api_key(self, provider_id: str, key: str) -> None:
         """Persist the API key for *provider_id*.

@@ -118,6 +118,46 @@ uv run ap chat   # bypasses wizard, uses env vars
 See [litellm provider docs](https://docs.litellm.ai/docs/providers) for the full
 list of supported model strings.
 
+## API Keys
+
+Configure API keys for any LLM provider or CTI service via three methods (highest precedence first):
+
+1. **`~/.ap/config.toml`** (set by `model select` wizard or hand-edited):
+   ```toml
+   [api_keys]
+   agent_anthropic = "sk-ant-..."
+   shodan = "..."
+   abuseipdb = "..."
+   ```
+2. **`AP_<SERVICE>_API_KEY`** env vars (project-namespaced, for per-session override without touching config):
+   ```bash
+   export AP_SHODAN_API_KEY=...
+   ```
+3. **`<SERVICE>_API_KEY`** env vars (vendor convention — works out of the box if you already have these set):
+   ```bash
+   export SHODAN_API_KEY=...
+   export ANTHROPIC_API_KEY=...
+   ```
+
+| Service | config.toml field | AP env var | Vendor env var |
+|---|---|---|---|
+| Anthropic | `agent_anthropic` | `AP_ANTHROPIC_API_KEY` | `ANTHROPIC_API_KEY` |
+| OpenAI | `agent_openai` | `AP_OPENAI_API_KEY` | `OPENAI_API_KEY` |
+| OpenRouter | `agent_openrouter` | `AP_OPENROUTER_API_KEY` | `OPENROUTER_API_KEY` |
+| Google | `agent_google` | `AP_GOOGLE_API_KEY` | `GOOGLE_API_KEY` |
+| Shodan | `shodan` | `AP_SHODAN_API_KEY` | `SHODAN_API_KEY` |
+| VirusTotal | `virustotal` | `AP_VIRUSTOTAL_API_KEY` | `VIRUSTOTAL_API_KEY` |
+| AbuseIPDB | `abuseipdb` | `AP_ABUSEIPDB_API_KEY` | `ABUSEIPDB_API_KEY` |
+| HIBP | `hibp` | `AP_HIBP_API_KEY` | `HIBP_API_KEY` |
+| OTX | `otx` | `AP_OTX_API_KEY` | `OTX_API_KEY` |
+| URLScan | `urlscan` | `AP_URLSCAN_API_KEY` | `URLSCAN_API_KEY` |
+| Censys (ID) | `censys_id` | `AP_CENSYS_ID` | `CENSYS_API_ID` |
+| Censys (Secret) | `censys_secret` | `AP_CENSYS_SECRET` | `CENSYS_API_SECRET` |
+| PassiveTotal (user) | `passivetotal_user` | `AP_PASSIVETOTAL_USER` | `PT_USERNAME` |
+| PassiveTotal (key) | `passivetotal_key` | `AP_PASSIVETOTAL_KEY` | `PT_API_KEY` |
+
+DNS resolve and WHOIS lookup require no API key.
+
 ## Chat Interface (Primary v1 Interface)
 
 `ap chat` is the v1 entry point. The LLM agent selects and invokes modules as tools, narrates findings, and emits gamification events as part of the conversation.

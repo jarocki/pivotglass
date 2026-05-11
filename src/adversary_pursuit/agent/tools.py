@@ -258,9 +258,7 @@ class ToolContext:
         # and hunt() on the pivoted indicator value (see _make_cascade_callback).
         for module_path, stix_types in DEFAULT_SUBSCRIPTIONS.items():
             callback = self._make_cascade_callback(module_path)
-            self.event_bus.register_module_subscriptions(
-                module_path, stix_types, callback
-            )
+            self.event_bus.register_module_subscriptions(module_path, stix_types, callback)
 
     def run_module(self, module_path: str, target: str, options: dict = None) -> dict:
         """Run a module and return formatted results with scoring.
@@ -348,17 +346,10 @@ class ToolContext:
         if mod is None:
             return {"error": f"Module '{module_path}' not found"}
 
-        # Build init_config for this module. Most modules use a single api_key;
-        # multi-key modules (Censys, PassiveTotal) use _CREDENTIAL_BUILDERS.
-        # See DEC-AGENT-TOOLS-003.
-        credential_builder = _CREDENTIAL_BUILDERS.get(module_path)
-        if credential_builder is not None:
-            init_config = credential_builder(self.config_mgr)
-        else:
-            # Legacy path: "osint/abuseipdb" -> service "abuseipdb"
-            service_name = module_path.split("/")[-1]
-            api_key = self.config_mgr.get_api_key(service_name) or ""
-            init_config = {"api_key": api_key}
+        # Build init_config for this module via the shared credential resolver.
+        # See _resolve_module_credentials() for the full precedence logic
+        # (DEC-AGENT-SERVICE-NAME-MAP-001, DEC-AGENT-TOOLS-003).
+        init_config = _resolve_module_credentials(module_path, self.config_mgr)
         mod.initialize(init_config)
 
         # Run hunt() via asyncio — modules are async
@@ -382,9 +373,7 @@ class ToolContext:
         celebration: str | None = None
         if total > 0:
             art = self.celebration.celebrate(total)
-            mode_points_line = self.mode_mgr.active.score_celebration.format(
-                points=total
-            )
+            mode_points_line = self.mode_mgr.active.score_celebration.format(points=total)
             celebration = art + "\n" + mode_points_line
             # Check milestone against post-storage total score
             try:
@@ -426,9 +415,7 @@ class ToolContext:
         if self.autopivot_enabled and results:
             try:
                 cascade_results = asyncio.run(
-                    self.event_bus.process_results(
-                        results, source_module=module_path, depth=0
-                    )
+                    self.event_bus.process_results(results, source_module=module_path, depth=0)
                 )
                 # Count how many distinct subscribed callbacks fired by checking
                 # how many PivotEvents were published (one per indicator).
@@ -477,9 +464,7 @@ class ToolContext:
         if total > 0:
             summary_lines.append(f"\n+{total} points!")
             for e in events:
-                summary_lines.append(
-                    f"  {e['action']}: +{e['points']} ({e['indicator']})"
-                )
+                summary_lines.append(f"  {e['action']}: +{e['points']} ({e['indicator']})")
         if newly_earned_badges:
             summary_lines.append("\nBadge(s) earned:")
             for badge in newly_earned_badges:
@@ -539,14 +524,9 @@ class ToolContext:
             mod = self.plugin_mgr.get_module(module_path)
             if mod is None:
                 return []
-            # Build credentials the same way run_module does (DEC-AGENT-TOOLS-003)
-            credential_builder = _CREDENTIAL_BUILDERS.get(module_path)
-            if credential_builder is not None:
-                init_config = credential_builder(self.config_mgr)
-            else:
-                service_name = module_path.split("/")[-1]
-                api_key = self.config_mgr.get_api_key(service_name) or ""
-                init_config = {"api_key": api_key}
+            # Build credentials via the shared resolver — identical to run_module().
+            # (DEC-AGENT-SERVICE-NAME-MAP-001, DEC-AGENT-TOOLS-003)
+            init_config = _resolve_module_credentials(module_path, self.config_mgr)
             mod.initialize(init_config)
             try:
                 return await mod.hunt(event.value, {})
@@ -593,8 +573,7 @@ def create_tools(ctx: ToolContext) -> list[dict]:
             "function": {
                 "name": "dns_resolve",
                 "description": (
-                    "Resolve DNS records for a domain. "
-                    "Returns IP addresses and domain information."
+                    "Resolve DNS records for a domain. Returns IP addresses and domain information."
                 ),
                 "parameters": {
                     "type": "object",
@@ -855,17 +834,14 @@ def create_tools(ctx: ToolContext) -> list[dict]:
             "type": "function",
             "function": {
                 "name": "search_workspace",
-                "description": (
-                    "Search the current workspace for STIX objects by type or value."
-                ),
+                "description": ("Search the current workspace for STIX objects by type or value."),
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "type_filter": {
                             "type": "string",
                             "description": (
-                                "STIX type to filter by "
-                                "(ipv4-addr, domain-name, url, email-addr)"
+                                "STIX type to filter by (ipv4-addr, domain-name, url, email-addr)"
                             ),
                         },
                     },
@@ -1092,6 +1068,32 @@ def create_tools(ctx: ToolContext) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Service-name map for single-key modules (DEC-AGENT-SERVICE-NAME-MAP-001)
+# ---------------------------------------------------------------------------
+
+# @decision DEC-AGENT-SERVICE-NAME-MAP-001
+# @title _SERVICE_NAMES map fixes module_path-tail ≠ ConfigManager service-name mismatch
+# @status accepted
+# @rationale The legacy path in run_module() derived the service name from the
+#   module path tail: "osint/shodan_ip" → "shodan_ip". But ConfigManager.get_api_key()
+#   expects "shodan" (the field name in ApiKeysConfig), so Shodan keys were never
+#   resolved from config or env vars via the 3-layer chain. The fix is an explicit
+#   map from module_path to canonical service name. None signals that the module
+#   needs no API key (dns_resolve, whois_lookup). Modules absent from the map fall
+#   back to the path tail for forward-compat with future plugins. Multi-key modules
+#   (Censys, PassiveTotal) stay in _CREDENTIAL_BUILDERS and are never looked up here.
+_SERVICE_NAMES: dict[str, str | None] = {
+    "osint/shodan_ip": "shodan",
+    "osint/abuseipdb": "abuseipdb",
+    "osint/urlscan": "urlscan",
+    "osint/hibp": "hibp",
+    "cti/virustotal": "virustotal",
+    "cti/otx": "otx",
+    "osint/dns_resolve": None,  # no key needed
+    "osint/whois_lookup": None,  # no key needed
+}
+
+# ---------------------------------------------------------------------------
 # Credential builders for multi-key auth modules (DEC-AGENT-TOOLS-003)
 # ---------------------------------------------------------------------------
 
@@ -1108,6 +1110,49 @@ _CREDENTIAL_BUILDERS: dict[str, Any] = {
         "passivetotal_key": cfg.get_api_key("passivetotal_key") or "",
     },
 }
+
+
+def _resolve_module_credentials(module_path: str, config_mgr: Any) -> dict:
+    """Return the init_config dict for *module_path* using the canonical precedence.
+
+    This is the single authority for credential resolution used by both
+    run_module() and _make_cascade_callback() (DEC-AGENT-SERVICE-NAME-MAP-001,
+    DEC-AGENT-TOOLS-003).  Factoring the logic here prevents the two paths
+    from diverging again.
+
+    Precedence:
+    1. _CREDENTIAL_BUILDERS: multi-key modules (Censys, PassiveTotal).
+    2. _SERVICE_NAMES: maps module_path → canonical service name for get_api_key().
+       None means no API key needed (e.g. dns_resolve, whois_lookup).
+    3. Fallback: path tail used as service name (forward-compat with future plugins).
+
+    Parameters
+    ----------
+    module_path:
+        Canonical module path (e.g. "osint/shodan_ip", "cti/virustotal").
+    config_mgr:
+        ConfigManager instance to resolve keys from.
+
+    Returns
+    -------
+    dict
+        init_config dict ready for PursuitModule.initialize().  Empty dict
+        for key-free modules; {"api_key": ...} for standard single-key modules;
+        multi-field dict for Censys/PassiveTotal.
+    """
+    credential_builder = _CREDENTIAL_BUILDERS.get(module_path)
+    if credential_builder is not None:
+        return credential_builder(config_mgr)
+
+    # Resolve canonical service name; fall back to path tail for unknown modules.
+    service_name = _SERVICE_NAMES.get(module_path, module_path.split("/")[-1])
+    if service_name is None:
+        # No key needed (e.g. dns_resolve, whois_lookup)
+        return {}
+
+    api_key = config_mgr.get_api_key(service_name) or ""
+    return {"api_key": api_key}
+
 
 # ---------------------------------------------------------------------------
 # Module → tool name mapping
@@ -1167,9 +1212,7 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
 }
 
 
-def execute_tool(
-    ctx: ToolContext, tool_name: str, arguments: dict
-) -> tuple[str, str | None, list]:
+def execute_tool(ctx: ToolContext, tool_name: str, arguments: dict) -> tuple[str, str | None, list]:
     """Execute a tool call and return (summary, celebration, badges).
 
     This is the dispatcher that maps LLM tool call names to module invocations.
@@ -1355,10 +1398,7 @@ def _execute_get_next_hint(ctx: ToolContext, module: str | None = None) -> str:
     result: HintResult | None = ctx.hint_mgr.get_next_hint(module=module)
     if result is None:
         ctx_label = f" for module '{module}'" if module else ""
-        return (
-            f"No more free hints available{ctx_label}. "
-            "Use buy_hint to unlock paid hints."
-        )
+        return f"No more free hints available{ctx_label}. Use buy_hint to unlock paid hints."
     return f"Hint: {result.hint.text}"
 
 
@@ -1560,9 +1600,7 @@ def _execute_render_graph(ctx: ToolContext) -> str:
 
     text = g.render_text()
     stats = g.get_stats()
-    return (
-        text.rstrip() + f"\n\n{stats['node_count']} nodes, {stats['edge_count']} edges"
-    )
+    return text.rstrip() + f"\n\n{stats['node_count']} nodes, {stats['edge_count']} edges"
 
 
 def _execute_export_workspace(ctx: ToolContext, fmt: str) -> str:
@@ -1685,10 +1723,7 @@ def _execute_answer_report_question(
         Confirmation with question text, or an error message.
     """
     if ctx.report_generator is None:
-        return (
-            "Report interview has not been started. "
-            "Call start_report_interview() first."
-        )
+        return "Report interview has not been started. Call start_report_interview() first."
     if question_index is None:
         return "question_index is required (0-4)."
     try:

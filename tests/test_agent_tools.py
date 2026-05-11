@@ -37,13 +37,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from adversary_pursuit.agent.tools import (
-    ToolContext,
     _CREDENTIAL_BUILDERS,
     _MODULE_MAP,
+    ToolContext,
     create_tools,
     execute_tool,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -206,9 +205,7 @@ class TestCreateTools:
             fn = tool["function"]
             assert "parameters" in fn, f"Missing parameters in tool: {fn['name']}"
             params = fn["parameters"]
-            assert params["type"] == "object", (
-                f"Parameters type must be 'object': {fn['name']}"
-            )
+            assert params["type"] == "object", f"Parameters type must be 'object': {fn['name']}"
 
     def test_expected_tool_names(self, tmp_ctx):
         """create_tools includes all expected tool names including hint, challenge, graph/export, and report tools."""
@@ -264,9 +261,7 @@ class TestCreateTools:
     def test_workspace_tools_have_no_required_params(self, tmp_ctx):
         """get_workspace_summary takes no required parameters."""
         tools = create_tools(tmp_ctx)
-        tool = next(
-            t for t in tools if t["function"]["name"] == "get_workspace_summary"
-        )
+        tool = next(t for t in tools if t["function"]["name"] == "get_workspace_summary")
         params = tool["function"]["parameters"]
         # Empty properties or no required
         assert "required" not in params or len(params.get("required", [])) == 0
@@ -290,9 +285,7 @@ class TestCreateTools:
         assert "target" in params["required"]
         # target_type is optional
         assert "target_type" in params["properties"]
-        assert "required" not in params or "target_type" not in params.get(
-            "required", []
-        )
+        assert "required" not in params or "target_type" not in params.get("required", [])
 
     def test_censys_host_lookup_has_required_ip(self, tmp_ctx):
         """censys_host_lookup tool has 'ip_address' as a required parameter."""
@@ -343,9 +336,7 @@ class TestExecuteToolDispatch:
     def test_dns_resolve_dispatches_to_dns_module(self, tmp_ctx):
         """execute_tool('dns_resolve') runs the osint/dns_resolve module."""
         mock_mod = self._make_mock_module(SAMPLE_DOMAIN_RESULTS)
-        with patch.object(
-            tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
-        ) as mock_get:
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
             summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "dns_resolve", {"domain": "example.com"}
             )
@@ -357,9 +348,7 @@ class TestExecuteToolDispatch:
     def test_whois_lookup_dispatches(self, tmp_ctx):
         """execute_tool('whois_lookup') runs the osint/whois_lookup module."""
         mock_mod = self._make_mock_module(SAMPLE_DOMAIN_RESULTS)
-        with patch.object(
-            tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
-        ) as mock_get:
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
             summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "whois_lookup", {"target": "example.com"}
             )
@@ -369,9 +358,7 @@ class TestExecuteToolDispatch:
     def test_check_ip_reputation_dispatches(self, tmp_ctx):
         """execute_tool('check_ip_reputation') runs abuseipdb module."""
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
-        with patch.object(
-            tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
-        ) as mock_get:
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
             summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
@@ -381,9 +368,7 @@ class TestExecuteToolDispatch:
     def test_shodan_host_lookup_dispatches(self, tmp_ctx):
         """execute_tool('shodan_host_lookup') runs osint/shodan_ip module."""
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
-        with patch.object(
-            tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
-        ) as mock_get:
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
             summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "shodan_host_lookup", {"ip_address": "1.2.3.4"}
             )
@@ -392,12 +377,8 @@ class TestExecuteToolDispatch:
 
     def test_check_breaches_dispatches(self, tmp_ctx):
         """execute_tool('check_breaches') runs osint/hibp module."""
-        mock_mod = self._make_mock_module(
-            [{"type": "email-addr", "value": "user@example.com"}]
-        )
-        with patch.object(
-            tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
-        ) as mock_get:
+        mock_mod = self._make_mock_module([{"type": "email-addr", "value": "user@example.com"}])
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
             summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "check_breaches", {"email": "user@example.com"}
             )
@@ -407,9 +388,7 @@ class TestExecuteToolDispatch:
     def test_otx_threat_intel_dispatches(self, tmp_ctx):
         """execute_tool('otx_threat_intel') runs cti/otx module."""
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
-        with patch.object(
-            tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
-        ) as mock_get:
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
             summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "otx_threat_intel", {"target": "1.2.3.4"}
             )
@@ -418,12 +397,8 @@ class TestExecuteToolDispatch:
 
     def test_scan_url_dispatches(self, tmp_ctx):
         """execute_tool('scan_url') runs osint/urlscan module."""
-        mock_mod = self._make_mock_module(
-            [{"type": "url", "value": "http://evil.example.com"}]
-        )
-        with patch.object(
-            tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
-        ) as mock_get:
+        mock_mod = self._make_mock_module([{"type": "url", "value": "http://evil.example.com"}])
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
             summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "scan_url", {"url": "http://evil.example.com"}
             )
@@ -456,9 +431,7 @@ class TestExecuteToolDispatch:
     def test_virustotal_lookup_dispatches(self, tmp_ctx):
         """execute_tool('virustotal_lookup') runs cti/virustotal module."""
         mock_mod = self._make_mock_module(SAMPLE_VT_RESULTS)
-        with patch.object(
-            tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
-        ) as mock_get:
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
             summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "virustotal_lookup", {"target": "1.2.3.4"}
             )
@@ -470,9 +443,7 @@ class TestExecuteToolDispatch:
         """execute_tool('virustotal_lookup') passes TARGET_TYPE option to module."""
         mock_mod = self._make_mock_module(SAMPLE_VT_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            execute_tool(
-                tmp_ctx, "virustotal_lookup", {"target": "1.2.3.4", "target_type": "ip"}
-            )
+            execute_tool(tmp_ctx, "virustotal_lookup", {"target": "1.2.3.4", "target_type": "ip"})
         mock_mod.hunt.assert_called_once_with("1.2.3.4", {"TARGET_TYPE": "ip"})
 
     def test_virustotal_lookup_empty_target_type_default(self, tmp_ctx):
@@ -485,9 +456,7 @@ class TestExecuteToolDispatch:
     def test_censys_host_lookup_dispatches(self, tmp_ctx):
         """execute_tool('censys_host_lookup') runs osint/censys_host module."""
         mock_mod = self._make_mock_module(SAMPLE_CENSYS_RESULTS)
-        with patch.object(
-            tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
-        ) as mock_get:
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
             summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "censys_host_lookup", {"ip_address": "8.8.8.8"}
             )
@@ -505,9 +474,7 @@ class TestExecuteToolDispatch:
     def test_passivetotal_lookup_dispatches(self, tmp_ctx):
         """execute_tool('passivetotal_lookup') runs cti/passivetotal module."""
         mock_mod = self._make_mock_module(SAMPLE_PT_RESULTS)
-        with patch.object(
-            tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod
-        ) as mock_get:
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
             summary, _celebration, _badges = execute_tool(
                 tmp_ctx, "passivetotal_lookup", {"target": "evil.example.com"}
             )
@@ -520,9 +487,7 @@ class TestExecuteToolDispatch:
         mock_mod = self._make_mock_module(SAMPLE_PT_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             execute_tool(tmp_ctx, "passivetotal_lookup", {"target": "evil.example.com"})
-        mock_mod.hunt.assert_called_once_with(
-            "evil.example.com", {"INCLUDE_WHOIS": "true"}
-        )
+        mock_mod.hunt.assert_called_once_with("evil.example.com", {"INCLUDE_WHOIS": "true"})
 
     def test_passivetotal_lookup_passes_include_whois_false(self, tmp_ctx):
         """execute_tool('passivetotal_lookup') passes INCLUDE_WHOIS=false when requested."""
@@ -533,9 +498,7 @@ class TestExecuteToolDispatch:
                 "passivetotal_lookup",
                 {"target": "evil.example.com", "include_whois": False},
             )
-        mock_mod.hunt.assert_called_once_with(
-            "evil.example.com", {"INCLUDE_WHOIS": "false"}
-        )
+        mock_mod.hunt.assert_called_once_with("evil.example.com", {"INCLUDE_WHOIS": "false"})
 
 
 # ---------------------------------------------------------------------------
@@ -551,18 +514,14 @@ class TestWorkspaceTools:
 
     def test_get_workspace_summary_returns_string(self, tmp_ctx):
         """execute_tool('get_workspace_summary', {}) returns (summary, None)."""
-        summary, celebration, _badges = execute_tool(
-            tmp_ctx, "get_workspace_summary", {}
-        )
+        summary, celebration, _badges = execute_tool(tmp_ctx, "get_workspace_summary", {})
         assert isinstance(summary, str)
         assert "Workspace" in summary or "workspace" in summary.lower()
         assert celebration is None
 
     def test_get_workspace_summary_includes_counts(self, tmp_ctx):
         """Workspace summary includes total indicators and score."""
-        summary, _celebration, _badges = execute_tool(
-            tmp_ctx, "get_workspace_summary", {}
-        )
+        summary, _celebration, _badges = execute_tool(tmp_ctx, "get_workspace_summary", {})
         assert "indicators" in summary.lower() or "Total" in summary
 
     def test_search_workspace_empty_returns_message(self, tmp_ctx):
@@ -895,9 +854,7 @@ class TestNewToolsProductionSequence:
         assert "Found" in summary
 
         # Verify INCLUDE_WHOIS was passed as string "true"
-        mock_mod.hunt.assert_called_once_with(
-            "evil.example.com", {"INCLUDE_WHOIS": "true"}
-        )
+        mock_mod.hunt.assert_called_once_with("evil.example.com", {"INCLUDE_WHOIS": "true"})
 
         # Verify multi-key credentials
         init_arg = mock_mod.initialize.call_args[0][0]
@@ -1321,9 +1278,7 @@ class TestBadgeWiring:
 
     def test_execute_tool_badges_empty_for_workspace_meta_tools(self, tmp_ctx):
         """Workspace meta-tools return badges=[] — no badge check on workspace queries."""
-        summary, celebration, badges = execute_tool(
-            tmp_ctx, "get_workspace_summary", {}
-        )
+        summary, celebration, badges = execute_tool(tmp_ctx, "get_workspace_summary", {})
         assert badges == []
         summary2, celebration2, badges2 = execute_tool(tmp_ctx, "search_workspace", {})
         assert badges2 == []
@@ -1425,7 +1380,7 @@ class TestAgentRunnerImport:
 
     def test_chat_raises_without_litellm(self, tmp_ctx):
         """AgentRunner.chat() raises ImportError when litellm is not available."""
-        from adversary_pursuit.agent.runner import AgentRunner, HAS_LITELLM
+        from adversary_pursuit.agent.runner import HAS_LITELLM, AgentRunner
 
         if HAS_LITELLM:
             pytest.skip("litellm is installed — ImportError path not tested")
@@ -1745,18 +1700,14 @@ class TestModeWiring:
 # _DEFAULT_HINTS order or count.
 from adversary_pursuit.gamification.hints import Hint as _Hint  # noqa: E402
 
-_FREE_HINT_GENERAL = _Hint(
-    id="test-free-001", text="Free general hint text.", cost=0, module=None
-)
+_FREE_HINT_GENERAL = _Hint(id="test-free-001", text="Free general hint text.", cost=0, module=None)
 _FREE_HINT_DNS = _Hint(
     id="test-free-dns-001",
     text="Free DNS hint text.",
     cost=0,
     module="dns_resolve",
 )
-_PAID_HINT_GENERAL = _Hint(
-    id="test-paid-001", text="Paid general hint text.", cost=10, module=None
-)
+_PAID_HINT_GENERAL = _Hint(id="test-paid-001", text="Paid general hint text.", cost=10, module=None)
 _PAID_HINT_DNS = _Hint(
     id="test-paid-dns-001",
     text="Paid DNS hint text.",
@@ -1779,9 +1730,7 @@ def hint_ctx(tmp_path):
     workspace_dir = tmp_path / "workspaces"
     config_dir.mkdir()
     workspace_dir.mkdir()
-    ctx = ToolContext(
-        config_dir=config_dir, workspace_dir=workspace_dir, hints=_TEST_HINTS
-    )
+    ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir, hints=_TEST_HINTS)
     ctx.workspace_mgr.create("default")
     ctx.workspace_mgr.switch("default")
     # Seed score so paid-hint tests have a balance to spend (cheapest paid = 10 pts)
@@ -1933,9 +1882,7 @@ class TestHintWiring:
         workspace_dir = tmp_path / "workspaces"
         config_dir.mkdir()
         workspace_dir.mkdir()
-        ctx = ToolContext(
-            config_dir=config_dir, workspace_dir=workspace_dir, hints=_TEST_HINTS
-        )
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir, hints=_TEST_HINTS)
         ctx.workspace_mgr.create("default")
         ctx.workspace_mgr.switch("default")
         # Score = 0 — cannot afford any paid hint (cheapest is 10 pts)
@@ -1954,9 +1901,7 @@ class TestHintWiring:
         workspace_dir = tmp_path / "workspaces"
         config_dir.mkdir()
         workspace_dir.mkdir()
-        ctx = ToolContext(
-            config_dir=config_dir, workspace_dir=workspace_dir, hints=_TEST_HINTS
-        )
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir, hints=_TEST_HINTS)
         ctx.workspace_mgr.create("default")
         ctx.workspace_mgr.switch("default")
         # Score = 0
@@ -2025,9 +1970,7 @@ class TestHintWiring:
         assert celebration is not None  # ninja mode scored points → celebration present
 
         # (c) Get a free hint — same HintProvider, same revealed-set
-        hint_summary, hint_celebration, hint_badges = execute_tool(
-            hint_ctx, "get_next_hint", {}
-        )
+        hint_summary, hint_celebration, hint_badges = execute_tool(hint_ctx, "get_next_hint", {})
         assert "Free general hint text." in hint_summary
         assert hint_celebration is None
         assert hint_badges == []
@@ -2171,9 +2114,7 @@ class TestAutopivotWiring:
         tmp_ctx.set_autopivot(True)
         tmp_ctx.event_bus.config.max_depth = 0  # depth=0 means no cascades allowed
 
-        cascade_callback = AsyncMock(
-            return_value=[{"type": "ipv4-addr", "value": "9.9.9.9"}]
-        )
+        cascade_callback = AsyncMock(return_value=[{"type": "ipv4-addr", "value": "9.9.9.9"}])
         tmp_ctx.event_bus.subscribe("ipv4-addr", cascade_callback)
 
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
@@ -2215,9 +2156,7 @@ class TestAutopivotWiring:
 
         for module_path, stix_types in DEFAULT_SUBSCRIPTIONS.items():
             callback = ctx._make_cascade_callback(module_path)
-            ctx.event_bus.register_module_subscriptions(
-                module_path, stix_types, callback
-            )
+            ctx.event_bus.register_module_subscriptions(module_path, stix_types, callback)
 
         ctx.autopivot_enabled = True
 
@@ -2370,9 +2309,7 @@ class TestChallengeWiring:
     def test_challenge_mgr_has_builtin_challenges(self, tmp_ctx):
         """ChallengeManager loads built-in challenges on ToolContext init."""
         items = tmp_ctx.challenge_mgr.list_challenges()
-        assert (
-            len(items) >= 5
-        )  # 5 starter challenges defined in _load_builtin_challenges
+        assert len(items) >= 5  # 5 starter challenges defined in _load_builtin_challenges
 
     # ------------------------------------------------------------------
     # list_challenges LLM tool
@@ -2403,9 +2340,7 @@ class TestChallengeWiring:
         """list_challenges output references all 5 built-in challenge IDs."""
         summary, _, _ = execute_tool(tmp_ctx, "list_challenges", {})
         for ch_id in ["ch-001", "ch-002", "ch-003", "ch-004", "ch-005"]:
-            assert ch_id in summary, (
-                f"Challenge {ch_id} missing from list_challenges output"
-            )
+            assert ch_id in summary, f"Challenge {ch_id} missing from list_challenges output"
 
     # ------------------------------------------------------------------
     # check_challenges LLM tool
@@ -2422,9 +2357,7 @@ class TestChallengeWiring:
         summary, celebration, badges = execute_tool(tmp_ctx, "check_challenges", {})
         assert isinstance(summary, str)
         assert (
-            "No new challenges" in summary
-            or "none" in summary.lower()
-            or "keep" in summary.lower()
+            "No new challenges" in summary or "none" in summary.lower() or "keep" in summary.lower()
         )
         assert celebration is None
         assert badges == []
@@ -2616,9 +2549,7 @@ class TestGraphExportWiring:
             tmp_ctx,
             [{"type": "ipv4-addr", "value": "1.2.3.4"}],
         )
-        summary, celebration, badges = execute_tool(
-            tmp_ctx, "export_workspace", {"format": "gexf"}
-        )
+        summary, celebration, badges = execute_tool(tmp_ctx, "export_workspace", {"format": "gexf"})
         assert isinstance(summary, str)
         assert celebration is None
         assert badges == []
@@ -2649,9 +2580,7 @@ class TestGraphExportWiring:
             tmp_ctx,
             [{"type": "ipv4-addr", "value": "1.2.3.4"}],
         )
-        summary, celebration, badges = execute_tool(
-            tmp_ctx, "export_workspace", {"format": "stix"}
-        )
+        summary, celebration, badges = execute_tool(tmp_ctx, "export_workspace", {"format": "stix"})
         assert isinstance(summary, str)
         assert celebration is None
         assert badges == []
@@ -2808,9 +2737,7 @@ class TestReportWiring:
     def test_answer_report_question_has_required_params(self, tmp_ctx):
         """answer_report_question schema declares question_index and answer as required."""
         tools = create_tools(tmp_ctx)
-        tool = next(
-            t for t in tools if t["function"]["name"] == "answer_report_question"
-        )
+        tool = next(t for t in tools if t["function"]["name"] == "answer_report_question")
         params = tool["function"]["parameters"]
         assert "question_index" in params["properties"]
         assert "answer" in params["properties"]
@@ -2823,9 +2750,7 @@ class TestReportWiring:
 
     def test_start_report_interview_returns_string(self, tmp_ctx):
         """start_report_interview returns a plain string with no celebration or badges."""
-        summary, celebration, badges = execute_tool(
-            tmp_ctx, "start_report_interview", {}
-        )
+        summary, celebration, badges = execute_tool(tmp_ctx, "start_report_interview", {})
         assert isinstance(summary, str)
         assert celebration is None
         assert badges == []
@@ -3111,9 +3036,7 @@ class TestRunChatHelp:
         return mock_cfg_mgr
 
     @staticmethod
-    def _run_chat_with_inputs(
-        inputs: list[str], tmp_ctx, model: str = "test-model-001"
-    ):
+    def _run_chat_with_inputs(inputs: list[str], tmp_ctx, model: str = "test-model-001"):
         """Run run_chat() with canned console inputs, returning captured output.
 
         # @mock-exempt: AgentRunner connects to LLM backends (litellm / Ollama).
@@ -3232,9 +3155,7 @@ class TestRunChatHelp:
         """Help output must include the runner's active model identifier."""
         model_name = "claude-3-5-sonnet-20241022"
         output, _ = self._run_chat_with_inputs(["help"], tmp_ctx, model=model_name)
-        assert model_name in output, (
-            f"Expected model name '{model_name}' in help output"
-        )
+        assert model_name in output, f"Expected model name '{model_name}' in help output"
 
     # ------------------------------------------------------------------
     # (5) help output shows the active workspace
@@ -3390,9 +3311,7 @@ class TestModelMetaCommands:
 
     def test_model_show_prints_model_name(self, tmp_ctx):
         """'model show' output contains the configured model string."""
-        output, _runner, _cfg = self._run_chat_model_cmd(
-            ["model show"], tmp_ctx, model="gpt-4o"
-        )
+        output, _runner, _cfg = self._run_chat_model_cmd(["model show"], tmp_ctx, model="gpt-4o")
         assert "gpt-4o" in output
 
     def test_model_show_prints_provider(self, tmp_ctx):
@@ -3486,9 +3405,7 @@ class TestModelMetaCommands:
         mock_config_mgr_class = MagicMock(return_value=mock_cfg_mgr)
 
         with (
-            patch(
-                "adversary_pursuit.agent.runner.AgentRunner", mock_agent_runner_class
-            ),
+            patch("adversary_pursuit.agent.runner.AgentRunner", mock_agent_runner_class),
             patch("adversary_pursuit.agent.chat.ConfigManager", mock_config_mgr_class),
             patch(
                 "adversary_pursuit.agent.chat.ChatPromptSession",
@@ -3502,3 +3419,223 @@ class TestModelMetaCommands:
 
         output = buf.getvalue()
         assert "model" in output, "Expected 'model' meta-command listed in help output"
+
+
+# ---------------------------------------------------------------------------
+# Service-name map tests — DEC-AGENT-SERVICE-NAME-MAP-001
+# ---------------------------------------------------------------------------
+
+
+class TestServiceNameMap:
+    """_SERVICE_NAMES correctly maps module paths to ConfigManager service names.
+
+    The canonical bug: "osint/shodan_ip".split("/")[-1] == "shodan_ip", but
+    ConfigManager.get_api_key() expects "shodan". Without _SERVICE_NAMES the
+    Shodan key was never resolved. These tests prove the fix is wired end-to-end.
+
+    # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+    # Credential resolution is tested by patching get_api_key() directly to
+    # assert the correct service name argument is passed to it — not the wrong
+    # path-tail ("shodan_ip" instead of "shodan").
+    """
+
+    from adversary_pursuit.agent.tools import _SERVICE_NAMES  # noqa: PLC0415
+
+    def test_service_names_map_has_shodan_fix(self):
+        """_SERVICE_NAMES maps 'osint/shodan_ip' -> 'shodan' (not 'shodan_ip')."""
+        from adversary_pursuit.agent.tools import _SERVICE_NAMES
+
+        assert _SERVICE_NAMES.get("osint/shodan_ip") == "shodan"
+
+    def test_service_names_map_dns_is_none(self):
+        """dns_resolve maps to None — no API key required."""
+        from adversary_pursuit.agent.tools import _SERVICE_NAMES
+
+        assert _SERVICE_NAMES.get("osint/dns_resolve") is None
+
+    def test_service_names_map_whois_is_none(self):
+        """whois_lookup maps to None — no API key required."""
+        from adversary_pursuit.agent.tools import _SERVICE_NAMES
+
+        assert _SERVICE_NAMES.get("osint/whois_lookup") is None
+
+    def test_run_module_shodan_resolves_via_service_name_map(self, tmp_ctx, monkeypatch):
+        """run_module('osint/shodan_ip') calls get_api_key('shodan'), not 'shodan_ip'.
+
+        This is the canonical bug regression test. Before _SERVICE_NAMES was added,
+        'shodan_ip' was passed to get_api_key(), which would return None (unknown
+        service), so the Shodan module always received an empty api_key even when
+        SHODAN_API_KEY was set in the environment.
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        calls_made: list[str] = []
+
+        original_get_api_key = tmp_ctx.config_mgr.get_api_key
+
+        def spy_get_api_key(service: str) -> str | None:
+            calls_made.append(service)
+            return original_get_api_key(service)
+
+        tmp_ctx.config_mgr.get_api_key = spy_get_api_key
+
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=SAMPLE_IP_RESULTS)
+        mock_mod.initialize = MagicMock()
+
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            tmp_ctx.run_module("osint/shodan_ip", "1.2.3.4", {})
+
+        # Must have been called with "shodan", NOT "shodan_ip"
+        assert "shodan" in calls_made, (
+            f"get_api_key('shodan') was not called; actual calls: {calls_made}"
+        )
+        assert "shodan_ip" not in calls_made, (
+            f"get_api_key('shodan_ip') must not be called; actual calls: {calls_made}"
+        )
+
+    def test_run_module_dns_resolve_initializes_empty(self, tmp_ctx):
+        """run_module('osint/dns_resolve') passes empty init_config (no API key needed)."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=SAMPLE_DOMAIN_RESULTS)
+        mock_mod.initialize = MagicMock()
+
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            tmp_ctx.run_module("osint/dns_resolve", "example.com", {})
+
+        mock_mod.initialize.assert_called_once_with({})
+
+    def test_run_module_whois_lookup_initializes_empty(self, tmp_ctx):
+        """run_module('osint/whois_lookup') passes empty init_config (no API key needed)."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=SAMPLE_DOMAIN_RESULTS)
+        mock_mod.initialize = MagicMock()
+
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            tmp_ctx.run_module("osint/whois_lookup", "example.com", {})
+
+        mock_mod.initialize.assert_called_once_with({})
+
+    def test_credential_builders_env_fallback_censys(self, tmp_ctx, monkeypatch):
+        """Censys credential builder falls back to AP_ env vars when config is empty."""
+        monkeypatch.setenv("AP_CENSYS_ID", "censys-env-id")
+        monkeypatch.setenv("AP_CENSYS_SECRET", "censys-env-secret")
+        monkeypatch.delenv("CENSYS_API_ID", raising=False)
+        monkeypatch.delenv("CENSYS_API_SECRET", raising=False)
+
+        from adversary_pursuit.agent.tools import _CREDENTIAL_BUILDERS
+
+        builder = _CREDENTIAL_BUILDERS["osint/censys_host"]
+        config = builder(tmp_ctx.config_mgr)
+
+        assert config["censys_id"] == "censys-env-id"
+        assert config["censys_secret"] == "censys-env-secret"
+
+    def test_credential_builders_env_fallback_passivetotal(self, tmp_ctx, monkeypatch):
+        """PassiveTotal credential builder falls back to vendor env vars when config is empty."""
+        monkeypatch.delenv("AP_PASSIVETOTAL_USER", raising=False)
+        monkeypatch.delenv("AP_PT_USER", raising=False)
+        monkeypatch.setenv("PT_USERNAME", "pt-vendor-user")
+        monkeypatch.delenv("AP_PASSIVETOTAL_KEY", raising=False)
+        monkeypatch.delenv("AP_PT_API_KEY", raising=False)
+        monkeypatch.setenv("PT_API_KEY", "pt-vendor-key")
+
+        from adversary_pursuit.agent.tools import _CREDENTIAL_BUILDERS
+
+        builder = _CREDENTIAL_BUILDERS["cti/passivetotal"]
+        config = builder(tmp_ctx.config_mgr)
+
+        assert config["passivetotal_user"] == "pt-vendor-user"
+        assert config["passivetotal_key"] == "pt-vendor-key"
+
+    def test_shodan_key_resolves_from_env_via_run_module(self, tmp_ctx, monkeypatch):
+        """End-to-end: SHODAN_API_KEY in env reaches module.initialize() via run_module.
+
+        This is the full production sequence proving DEC-AGENT-SERVICE-NAME-MAP-001
+        and DEC-AGENT-CONFIG-KEY-RESOLUTION-001 work together: env var → get_api_key()
+        → _SERVICE_NAMES lookup → correct service name → non-empty api_key in init_config.
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        monkeypatch.delenv("AP_SHODAN_API_KEY", raising=False)
+        monkeypatch.setenv("SHODAN_API_KEY", "shodan-from-vendor-env")
+
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=SAMPLE_IP_RESULTS)
+        mock_mod.initialize = MagicMock()
+
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            tmp_ctx.run_module("osint/shodan_ip", "1.2.3.4", {})
+
+        mock_mod.initialize.assert_called_once()
+        init_arg = mock_mod.initialize.call_args[0][0]
+        assert init_arg.get("api_key") == "shodan-from-vendor-env", (
+            f"Expected 'shodan-from-vendor-env' but got: {init_arg}"
+        )
+
+    def test_cascade_callback_uses_service_name_map_for_shodan(self, tmp_ctx, monkeypatch):
+        # @mock-exempt: mock_mod replaces ShodanIPModule.hunt() — an async HTTP
+        # external service boundary (Shodan API). recording_get_api_key is a pure
+        # observation shim that calls through to the real ConfigManager.get_api_key()
+        # and records arguments; it does not replace any internal logic.
+        # get_module is patched because no live Shodan credentials or network exist.
+        """Cascade path uses _SERVICE_NAMES — 'osint/shodan_ip' resolves to 'shodan'.
+
+        Regression guard: _make_cascade_callback() previously derived the service
+        name as module_path.split('/')[-1] == 'shodan_ip', bypassing _SERVICE_NAMES
+        and causing get_api_key('shodan_ip') to return None (no such field).
+        Now both run_module() and _make_cascade_callback() delegate to
+        _resolve_module_credentials() which applies _SERVICE_NAMES uniformly.
+
+        Production sequence:
+          EventBus callback fires → _resolve_module_credentials('osint/shodan_ip') →
+          get_api_key('shodan') [NOT 'shodan_ip'] → key resolved → initialize().
+        """
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        monkeypatch.delenv("AP_SHODAN_API_KEY", raising=False)
+        monkeypatch.setenv("SHODAN_API_KEY", "shodan-cascade-key")
+
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=[])
+        mock_mod.initialize = MagicMock()
+
+        # Recording shim: calls through to real get_api_key(); captures service names.
+        original_get_api_key = tmp_ctx.config_mgr.get_api_key
+        get_api_key_calls: list[str] = []
+
+        def recording_get_api_key(service: str) -> str | None:
+            get_api_key_calls.append(service)
+            return original_get_api_key(service)
+
+        with patch.object(tmp_ctx.config_mgr, "get_api_key", side_effect=recording_get_api_key):
+            with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+                from adversary_pursuit.core.event_bus import PivotEvent
+
+                callback = tmp_ctx._make_cascade_callback("osint/shodan_ip")
+                asyncio.run(
+                    callback(
+                        PivotEvent(
+                            stix_type="ipv4-addr",
+                            value="1.2.3.4",
+                            source_module="osint/abuseipdb",
+                        )
+                    )
+                )
+
+        assert "shodan" in get_api_key_calls, (
+            f"Expected get_api_key('shodan') but got: {get_api_key_calls}"
+        )
+        assert "shodan_ip" not in get_api_key_calls, (
+            f"Regression: path-tail 'shodan_ip' used instead of _SERVICE_NAMES: {get_api_key_calls}"
+        )
+        mock_mod.initialize.assert_called_once()
+        init_arg = mock_mod.initialize.call_args[0][0]
+        assert init_arg.get("api_key") == "shodan-cascade-key", (
+            f"Expected 'shodan-cascade-key' in init_config but got: {init_arg}"
+        )
