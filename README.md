@@ -96,6 +96,37 @@ On first run of `ap chat`, the agent runs an interactive setup wizard that:
 
 Re-running the wizard with option 2 replaces the existing export block rather than duplicating it (idempotent marker comment). Unknown shells fall back to option 3 with a warning.
 
+**CTI service credentials:**
+
+After the LLM provider step, the wizard offers to also configure CTI service credentials:
+
+```
+Configure CTI service credentials too? (y/N)
+```
+
+If you answer `y`, the wizard walks through all 8 supported services. Each is optional — you can skip any service and configure it later. For each service, the wizard:
+
+1. Shows the documentation URL where you obtain an API key
+2. Prompts for credentials (input is masked, not echoed)
+3. Makes a single validation call to prove the key works before saving
+4. Saves to `~/.ap/config.toml` with the same 0600 permissions
+
+**Supported CTI services:**
+
+| Service | Credential | Env var |
+|---------|------------|---------|
+| Shodan | API Key | `SHODAN_API_KEY` |
+| VirusTotal | API Key | `VIRUSTOTAL_API_KEY` |
+| AbuseIPDB | API Key | `ABUSEIPDB_API_KEY` |
+| HaveIBeenPwned | API Key | `HIBP_API_KEY` |
+| AlienVault OTX | API Key | `OTX_API_KEY` |
+| URLScan | API Key | `URLSCAN_API_KEY` |
+| Censys (Platform PAT) | Personal Access Token | `CENSYS_PAT` |
+| PassiveTotal / RiskIQ | Username + API Key | `PT_USERNAME`, `PT_API_KEY` |
+
+CTI keys also support the same 3-layer precedence chain as LLM keys:
+`~/.ap/config.toml` > `AP_<SERVICE>_KEY` env > `<SERVICE>_KEY` env.
+
 Subsequent `ap chat` launches use the saved config — no prompts.
 
 **Reconfigure during a session:**

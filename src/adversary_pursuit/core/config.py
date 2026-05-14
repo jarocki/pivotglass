@@ -56,6 +56,19 @@ variable overrides for API keys, Pydantic validation, and 0600 file permissions.
            the same 0600 file permission protection. get_provider_api_key() and
            set_provider_api_key() use a stable string-keyed lookup so new providers
            can be added to the registry without changing this module.
+
+@decision DEC-CONFIG-CENSYS-PAT-001
+@title Replace legacy censys_id/censys_secret fields with censys_pat (Platform PAT)
+@status accepted
+@rationale Censys migrated from id+secret HTTP Basic Auth to a Platform Personal
+           Access Token (PAT) bearer scheme in the v3 API (commit fef6bfd, issue #43).
+           Adding censys_pat as a nullable field follows the same pattern as the agent
+           provider keys (agent_anthropic etc.) — stored as None so TOML round-trips
+           cleanly when not yet configured. The legacy censys_id and censys_secret
+           fields are retained in ApiKeysConfig for backward compatibility with users
+           who hand-edited them into config.toml, but get_censys_pat() supersedes
+           get_censys_id()/get_censys_secret() for all new code. _CREDENTIAL_BUILDERS
+           in tools.py is updated to call get_censys_pat() only (resolves #45).
 """
 
 from __future__ import annotations
@@ -92,6 +105,7 @@ _AP_ENV_VAR_MAP: dict[str, str] = {
     "virustotal": "AP_VIRUSTOTAL_API_KEY",
     "censys_id": "AP_CENSYS_ID",
     "censys_secret": "AP_CENSYS_SECRET",
+    "censys_pat": "AP_CENSYS_PAT",
     "urlscan": "AP_URLSCAN_API_KEY",
     "abuseipdb": "AP_ABUSEIPDB_API_KEY",
     "hibp": "AP_HIBP_API_KEY",
@@ -112,6 +126,7 @@ _VENDOR_ENV_VAR_MAP: dict[str, str] = {
     "virustotal": "VIRUSTOTAL_API_KEY",
     "censys_id": "CENSYS_API_ID",
     "censys_secret": "CENSYS_API_SECRET",
+    "censys_pat": "CENSYS_PAT",
     "urlscan": "URLSCAN_API_KEY",
     "abuseipdb": "ABUSEIPDB_API_KEY",
     "hibp": "HIBP_API_KEY",
@@ -180,6 +195,7 @@ class ApiKeysConfig(BaseModel):
     virustotal: str = ""
     censys_id: str = ""
     censys_secret: str = ""
+    censys_pat: str | None = None
     urlscan: str = ""
     abuseipdb: str = ""
     hibp: str = ""
@@ -533,6 +549,22 @@ class ConfigManager:
         cfg = self._cache if self._cache is not None else self.load()
         setattr(cfg.api_keys, field, key)
         self.save(cfg)
+
+
+    def get_censys_pat(self) -> str | None:
+        """Return the Censys Platform PAT using the documented 3-layer precedence.
+
+        This supersedes the legacy get_censys_id() / get_censys_secret() pattern
+        (DEC-CONFIG-CENSYS-PAT-001). The PAT is used as a Bearer token in the
+        Censys v3 Platform API (commit fef6bfd, issue #43, #45).
+
+        Precedence (highest → lowest) per DEC-AGENT-CONFIG-KEY-RESOLUTION-001:
+          1. Stored config value (~/.ap/config.toml censys_pat field).
+          2. AP_CENSYS_PAT env var.
+          3. CENSYS_PAT env var (vendor convention for PAT-based auth).
+          4. None — not configured.
+        """
+        return self.get_api_key("censys_pat")
 
 
 # ---------------------------------------------------------------------------

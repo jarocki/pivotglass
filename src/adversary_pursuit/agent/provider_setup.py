@@ -383,6 +383,478 @@ def list_models(provider: ProviderSpec, api_key: str | None) -> list[str]:
     return [obj[provider.model_id_field] for obj in model_objects if provider.model_id_field in obj]
 
 
+
+# ---------------------------------------------------------------------------
+# CTI service registry
+# ---------------------------------------------------------------------------
+# @decision DEC-AGENT-CTI-WIZARD-001
+# @title CTI credential wizard as a post-LLM wizard step with per-service validate
+# @status accepted
+# @rationale The LLM setup wizard only configures the LLM provider. Users of the
+#            Adversary Pursuit agent also need CTI service credentials (Shodan,
+#            VirusTotal, etc.). Adding a second wizard step after LLM setup keeps
+#            the flow cohesive: user finishes LLM config, is immediately offered
+#            CTI config. Each service has a single-shot validation call that proves
+#            the key works before saving it. Multi-key services (PassiveTotal) use
+#            basic_auth validation. validate_method strings are an explicit enum to
+#            keep _validate_cti_key() free of magic string guessing. The dotfile
+#            export for CTI keys uses a separate marker block so LLM and CTI exports
+#            don't collide on re-runs. All 8 services are optional/skippable.
+
+
+@dataclass(frozen=True)
+class CTIServiceSpec:
+    """Immutable descriptor for one CTI intelligence service.
+
+    Attributes
+    ----------
+    id:
+        Internal service identifier; must match the ApiKeysConfig field name
+        (or the first of config_keys for multi-key services).
+    display_name:
+        Human-readable name shown in the wizard UI.
+    config_keys:
+        List of ApiKeysConfig field names that store credentials for this service.
+        Single-key services have one entry; PassiveTotal has two.
+    prompt_labels:
+        Labels shown when prompting the user for each credential in config_keys.
+    validate_url:
+        URL for the single-shot validation GET/POST request.
+    validate_method:
+        Auth method to use when building the validation request:
+          "query_param"    — key appended as ?key=<key>
+          "bearer"         — Authorization: Bearer <key>
+          "header_x_apikey"— x-apikey: <key>
+          "header_key"     — Key: <key>  (AbuseIPDB, HIBP)
+          "header_x_otx"   — X-OTX-API-KEY: <key>
+          "header_api_key" — API-Key: <key>  (URLScan)
+          "basic_auth"     — HTTP Basic Auth (username, password)
+    validate_header_name:
+        Header name for header_* methods. Empty string for others.
+    docs_url:
+        Where the user obtains an API key; shown in the wizard.
+    """
+
+    id: str
+    display_name: str
+    config_keys: list[str]
+    prompt_labels: list[str]
+    validate_url: str
+    validate_method: str
+    validate_header_name: str
+    docs_url: str
+
+
+CTI_SERVICES: list[CTIServiceSpec] = [
+    CTIServiceSpec(
+        id="shodan",
+        display_name="Shodan",
+        config_keys=["shodan"],
+        prompt_labels=["API Key"],
+        validate_url="https://api.shodan.io/api-info?key={key}",
+        validate_method="query_param",
+        validate_header_name="",
+        docs_url="https://account.shodan.io",
+    ),
+    CTIServiceSpec(
+        id="virustotal",
+        display_name="VirusTotal",
+        config_keys=["virustotal"],
+        prompt_labels=["API Key"],
+        validate_url="https://www.virustotal.com/api/v3/users/current",
+        validate_method="header_x_apikey",
+        validate_header_name="x-apikey",
+        docs_url="https://www.virustotal.com/gui/my-apikey",
+    ),
+    CTIServiceSpec(
+        id="abuseipdb",
+        display_name="AbuseIPDB",
+        config_keys=["abuseipdb"],
+        prompt_labels=["API Key"],
+        validate_url="https://api.abuseipdb.com/api/v2/check?ipAddress=8.8.8.8",
+        validate_method="header_key",
+        validate_header_name="Key",
+        docs_url="https://www.abuseipdb.com/account/api",
+    ),
+    CTIServiceSpec(
+        id="hibp",
+        display_name="HaveIBeenPwned",
+        config_keys=["hibp"],
+        prompt_labels=["API Key"],
+        validate_url="https://haveibeenpwned.com/api/v3/breaches",
+        validate_method="header_key",
+        validate_header_name="hibp-api-key",
+        docs_url="https://haveibeenpwned.com/API/Key",
+    ),
+    CTIServiceSpec(
+        id="otx",
+        display_name="AlienVault OTX",
+        config_keys=["otx"],
+        prompt_labels=["API Key"],
+        validate_url="https://otx.alienvault.com/api/v1/user/me",
+        validate_method="header_x_otx",
+        validate_header_name="X-OTX-API-KEY",
+        docs_url="https://otx.alienvault.com/settings",
+    ),
+    CTIServiceSpec(
+        id="urlscan",
+        display_name="URLScan",
+        config_keys=["urlscan"],
+        prompt_labels=["API Key"],
+        validate_url="https://urlscan.io/user/profile/",
+        validate_method="header_api_key",
+        validate_header_name="API-Key",
+        docs_url="https://urlscan.io/user/profile/",
+    ),
+    CTIServiceSpec(
+        id="censys_pat",
+        display_name="Censys (Platform PAT)",
+        config_keys=["censys_pat"],
+        prompt_labels=["Personal Access Token"],
+        validate_url="https://api.platform.censys.io/v3/global/asset/host/8.8.8.8",
+        validate_method="bearer",
+        validate_header_name="",
+        docs_url="https://app.censys.io/user/tokens",
+    ),
+    CTIServiceSpec(
+        id="passivetotal",
+        display_name="PassiveTotal / RiskIQ",
+        config_keys=["passivetotal_user", "passivetotal_key"],
+        prompt_labels=["Username (email)", "API Key"],
+        validate_url="https://api.passivetotal.org/v2/account",
+        validate_method="basic_auth",
+        validate_header_name="",
+        docs_url="https://community.riskiq.com/settings",
+    ),
+]
+
+# Map from CTI service config_key to vendor env var for dotfile export.
+# Keys match the ApiKeysConfig field names that store the credential.
+_CTI_ENV_VAR: dict[str, str] = {
+    "shodan": "SHODAN_API_KEY",
+    "virustotal": "VIRUSTOTAL_API_KEY",
+    "abuseipdb": "ABUSEIPDB_API_KEY",
+    "hibp": "HIBP_API_KEY",
+    "otx": "OTX_API_KEY",
+    "urlscan": "URLSCAN_API_KEY",
+    "censys_pat": "CENSYS_PAT",
+    "passivetotal_user": "PT_USERNAME",
+    "passivetotal_key": "PT_API_KEY",
+}
+
+# Marker strings for the CTI dotfile export block — separate from the LLM block
+# so that re-running either wizard only replaces its own section.
+_CTI_RC_MARKER_BEGIN = "# >>> ap cti wizard exports — managed by ap; edit at your own risk"
+_CTI_RC_MARKER_END = "# <<< ap cti wizard exports"
+
+
+def mask_secret(value: str, visible: int = 4) -> str:
+    """Return *value* with all but the last *visible* characters replaced by *.
+
+    Used to safely display existing credential values in the wizard without
+    exposing the full secret.
+
+    Parameters
+    ----------
+    value:
+        The secret string to mask.
+    visible:
+        Number of trailing characters to reveal.  Defaults to 4.
+    """
+    if len(value) < visible:
+        return "*" * len(value)
+    if len(value) == visible:
+        return value
+    return "*" * (len(value) - visible) + value[-visible:]
+
+
+def _compose_cti_export_lines(values: dict[str, str]) -> list[str]:
+    """Return export lines for all non-empty CTI credential values.
+
+    Parameters
+    ----------
+    values:
+        Mapping from ApiKeysConfig field name (e.g. "shodan") to the key value.
+        Empty or None values are skipped.
+    """
+    lines: list[str] = []
+    for config_key, key_value in values.items():
+        if not key_value:
+            continue
+        env_var = _CTI_ENV_VAR.get(config_key)
+        if env_var:
+            lines.append(f'export {env_var}="{key_value}"')
+    return lines
+
+
+def _write_cti_rc_with_marker(rc_path: "Path", export_lines: list[str]) -> None:
+    """Write CTI export lines into *rc_path* using the CTI marker block.
+
+    Uses the same idempotent replace-or-append logic as _write_rc_with_marker
+    but with a different marker string so LLM and CTI sections coexist.
+    """
+    new_block = "\n".join([_CTI_RC_MARKER_BEGIN, *export_lines, _CTI_RC_MARKER_END])
+
+    original_mode: int | None = None
+    if rc_path.exists():
+        import stat as _stat
+        original_mode = _stat.S_IMODE(rc_path.stat().st_mode)
+        existing = rc_path.read_text(encoding="utf-8")
+    else:
+        existing = ""
+
+    pattern = re.compile(
+        r"\n?" + re.escape(_CTI_RC_MARKER_BEGIN) + r".*?" + re.escape(_CTI_RC_MARKER_END),
+        re.DOTALL,
+    )
+    if pattern.search(existing):
+        updated = pattern.sub("\n" + new_block, existing)
+    else:
+        separator = "\n" if existing.endswith("\n") else "\n\n"
+        updated = existing + separator + new_block + "\n"
+
+    rc_path.parent.mkdir(parents=True, exist_ok=True)
+    rc_path.write_text(updated, encoding="utf-8")
+    if original_mode is not None:
+        import os as _os
+        _os.chmod(rc_path, original_mode)
+
+
+def _validate_cti_key(spec: CTIServiceSpec, values: list[str]) -> tuple[bool, str]:
+    """Make a single validation HTTP request and report success or failure.
+
+    Parameters
+    ----------
+    spec:
+        The CTIServiceSpec describing how to authenticate.
+    values:
+        List of credential strings in the same order as spec.config_keys.
+        Single-key services have one value; PassiveTotal has [username, key].
+
+    Returns
+    -------
+    tuple[bool, str]
+        (success, message) where message is shown to the user.
+
+    Notes
+    -----
+    HTTP 429 is treated as success (key is valid, just rate-limited).
+    Timeout (10 s) returns (True, "Validation timed out — saving anyway").
+    Network errors return (False, "Network unreachable: <error>").
+    """
+    headers: dict[str, str] = {}
+    params: dict[str, str] = {}
+    auth = None
+    url = spec.validate_url
+    key = values[0] if values else ""
+
+    method = spec.validate_method
+    if method == "query_param":
+        url = url.format(key=key)
+    elif method == "bearer":
+        headers["Authorization"] = f"Bearer {key}"
+    elif method in ("header_x_apikey", "header_key", "header_x_otx", "header_api_key"):
+        headers[spec.validate_header_name] = key
+    elif method == "basic_auth":
+        username = values[0] if len(values) > 0 else ""
+        password = values[1] if len(values) > 1 else ""
+        auth = (username, password)
+
+    try:
+        response = httpx.get(url, headers=headers, params=params, auth=auth, timeout=10.0)
+    except httpx.TimeoutException:
+        return True, "Validation timed out — saving anyway"
+    except httpx.ConnectError as exc:
+        return False, f"Network unreachable: {exc}"
+    except httpx.RequestError as exc:
+        return False, f"Network error: {exc}"
+
+    if response.status_code == 429:
+        return True, "Rate-limited — key appears valid"
+    if response.status_code in (401, 403):
+        return False, "Authentication failed"
+    if response.status_code >= 400:
+        return False, f"Unexpected status {response.status_code}"
+    return True, "Validated successfully"
+
+
+def _set_cti_credentials(
+    config_mgr: "ConfigManager", config_keys: list[str], values: list[str]
+) -> None:
+    """Persist CTI credentials to config using dotted-key set().
+
+    Parameters
+    ----------
+    config_mgr:
+        ConfigManager instance to write to.
+    config_keys:
+        ApiKeysConfig field names (e.g. ["shodan"] or ["passivetotal_user", "passivetotal_key"]).
+    values:
+        Corresponding credential strings.
+    """
+    for key, value in zip(config_keys, values):
+        config_mgr.set(f"api_keys.{key}", value)
+
+
+def run_cti_credentials_wizard(
+    config_mgr: "ConfigManager",
+    console: "Console | None" = None,
+) -> dict[str, bool]:
+    """Walk the user through configuring CTI service credentials.
+
+    Called after the LLM wizard step.  Iterates CTI_SERVICES in order,
+    offering Skip / Configure for each.  If a key already exists in config,
+    shows the masked value and asks Keep / Replace / Skip.
+
+    Parameters
+    ----------
+    config_mgr:
+        ConfigManager instance for credential persistence.
+    console:
+        Rich Console instance.  Created fresh if None (supports testing).
+
+    Returns
+    -------
+    dict[str, bool]
+        Mapping from service id → True if credentials were saved for that service.
+    """
+    if console is None:
+        console = Console()
+
+    configured: dict[str, bool] = {}
+    # Track all newly-saved values for the dotfile export offer at the end
+    saved_values: dict[str, str] = {}
+
+    for spec in CTI_SERVICES:
+        # Check if any credential is already set for this service
+        existing: list[str] = []
+        for key in spec.config_keys:
+            val = config_mgr.get_api_key(key) or ""
+            existing.append(val)
+
+        has_existing = any(v for v in existing)
+
+        if has_existing:
+            # Show masked existing value
+            masked_display = ", ".join(
+                f"{lbl}: {mask_secret(v)}" if v else f"{lbl}: (not set)"
+                for lbl, v in zip(spec.prompt_labels, existing)
+            )
+            console.print(
+                f"\n[cyan]{spec.display_name}[/cyan] — existing: {masked_display}"
+            )
+            choice_raw = console.input(
+                f"  [bold]{spec.display_name}[/bold]: Keep / Replace / Skip [K/r/s]: "
+            ).strip().lower()
+            if choice_raw in ("s", "skip"):
+                configured[spec.id] = False
+                continue
+            if choice_raw not in ("r", "replace"):
+                # Default is Keep
+                configured[spec.id] = True
+                # Count existing as still configured
+                continue
+        else:
+            console.print(
+                f"\n[cyan]{spec.display_name}[/cyan]"
+                f" — docs: [dim]{spec.docs_url}[/dim]"
+            )
+            configure_raw = console.input(
+                f"  Configure {spec.display_name}? [y/N]: "
+            ).strip().lower()
+            if configure_raw != "y":
+                configured[spec.id] = False
+                continue
+
+        # Prompt for credentials
+        values: list[str] = []
+        for label in spec.prompt_labels:
+            val = console.input(f"  {label}: ", password=True).strip()
+            values.append(val)
+
+        if not any(values):
+            console.print(f"  [yellow]No credentials entered for {spec.display_name} — skipping.[/yellow]")
+            configured[spec.id] = False
+            continue
+
+        # Validate
+        console.print(f"  [dim]Validating {spec.display_name}…[/dim]")
+        ok, msg = _validate_cti_key(spec, values)
+        if ok:
+            console.print(f"  [green]{msg}[/green]")
+            _set_cti_credentials(config_mgr, spec.config_keys, values)
+            configured[spec.id] = True
+            for key, value in zip(spec.config_keys, values):
+                if value:
+                    saved_values[key] = value
+        else:
+            console.print(f"  [red]Validation failed:[/red] {msg}")
+            keep_anyway = console.input("  Save anyway? [y/N]: ").strip().lower()
+            if keep_anyway == "y":
+                _set_cti_credentials(config_mgr, spec.config_keys, values)
+                configured[spec.id] = True
+                for key, value in zip(spec.config_keys, values):
+                    if value:
+                        saved_values[key] = value
+            else:
+                configured[spec.id] = False
+
+    # Offer dotfile export for all newly-saved CTI credentials
+    if saved_values:
+        export_lines = _compose_cti_export_lines(saved_values)
+        if export_lines:
+            _prompt_cti_save_destination(console, export_lines)
+
+    return configured
+
+
+def _prompt_cti_save_destination(
+    console: "Console",
+    export_lines: list[str],
+) -> None:
+    """Prompt the user to optionally export CTI keys to shell rc.
+
+    Mirrors _prompt_save_destination() for LLM keys but uses the CTI marker
+    block so the two sections remain independent and idempotent separately.
+    """
+    rc_path = _detect_shell_rc()
+    rc_label = str(rc_path) if rc_path else "~/.zshrc / ~/.bashrc"
+
+    dest_table = Table(show_header=True, header_style="bold cyan", show_lines=False)
+    dest_table.add_column("#", style="bold", width=3)
+    dest_table.add_column("Save CTI credential destination", style="cyan")
+    dest_table.add_row("1", "~/.ap/config.toml only (already saved)")
+    dest_table.add_row(
+        "2",
+        f"~/.ap/config.toml + append CTI export line(s) to {rc_label}",
+    )
+    dest_table.add_row("3", "Print CTI export line(s) to stdout (I'll paste them myself)")
+    console.print("\n[bold]Where would you like to also export these CTI credentials?[/bold]")
+    console.print(dest_table)
+
+    choice = _prompt_int(console, "Choose save destination [1-3]", 1, 3)
+
+    if choice == 1:
+        return
+
+    if choice == 2:
+        if rc_path is None:
+            console.print(
+                "[yellow]Unknown shell — cannot determine rc file. Falling back to stdout.[/yellow]"
+            )
+            _print_export_lines(console, export_lines)
+            return
+        _write_cti_rc_with_marker(rc_path, export_lines)
+        console.print(
+            f"\n[green]CTI export line(s) written to[/green] {rc_path}\n"
+            "[dim]Restart your shell or run [bold]source "
+            f"{rc_path}[/bold] to apply.[/dim]"
+        )
+        return
+
+    # choice == 3
+    _print_export_lines(console, export_lines)
+
 # ---------------------------------------------------------------------------
 # Interactive wizard
 # ---------------------------------------------------------------------------
@@ -507,6 +979,11 @@ def run_provider_wizard(
         export_lines = _compose_export_lines(provider.id, api_key)
         if export_lines:
             _prompt_save_destination(console, provider.id, export_lines)
+
+    # --- Step 8: Offer CTI credential setup ---
+    cti_prompt = console.input("\nConfigure CTI service credentials too? (y/N) ").strip().lower()
+    if cti_prompt == "y":
+        run_cti_credentials_wizard(config_mgr, console=console)
 
     console.print(
         "\n[bold green]Setup complete![/bold green] "

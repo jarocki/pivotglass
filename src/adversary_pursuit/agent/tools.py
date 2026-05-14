@@ -1102,8 +1102,7 @@ _SERVICE_NAMES: dict[str, str | None] = {
 # are listed here. run_module() falls back to {"api_key": ...} for all others.
 _CREDENTIAL_BUILDERS: dict[str, Any] = {
     "osint/censys_host": lambda cfg: {
-        "censys_id": cfg.get_api_key("censys_id") or "",
-        "censys_secret": cfg.get_api_key("censys_secret") or "",
+        "censys_pat": cfg.get_censys_pat() or "",
     },
     "cti/passivetotal": lambda cfg: {
         "passivetotal_user": cfg.get_api_key("passivetotal_user") or "",

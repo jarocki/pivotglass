@@ -656,15 +656,13 @@ class TestCredentialBuilders:
         assert "osint/censys_host" in _CREDENTIAL_BUILDERS
         assert "cti/passivetotal" in _CREDENTIAL_BUILDERS
 
-    def test_censys_builder_returns_id_and_secret(self, tmp_ctx):
-        """Censys credential builder produces censys_id and censys_secret keys."""
+    def test_censys_builder_returns_censys_pat(self, tmp_ctx):
+        """Censys credential builder produces censys_pat key (PAT-based auth, resolves #45)."""
         builder = _CREDENTIAL_BUILDERS["osint/censys_host"]
         config = builder(tmp_ctx.config_mgr)
-        assert "censys_id" in config
-        assert "censys_secret" in config
-        # Both should be strings (empty when not configured)
-        assert isinstance(config["censys_id"], str)
-        assert isinstance(config["censys_secret"], str)
+        assert "censys_pat" in config
+        # Should be a string (empty when not configured)
+        assert isinstance(config["censys_pat"], str)
 
     def test_passivetotal_builder_returns_user_and_key(self, tmp_ctx):
         """PassiveTotal credential builder produces passivetotal_user and passivetotal_key."""
@@ -676,7 +674,7 @@ class TestCredentialBuilders:
         assert isinstance(config["passivetotal_key"], str)
 
     def test_run_module_uses_censys_credentials(self, tmp_ctx):
-        """run_module initializes censys_host with censys_id + censys_secret."""
+        """run_module initializes censys_host with censys_pat (PAT-based auth, resolves #45)."""
         mock_mod = MagicMock()
         mock_mod.hunt = AsyncMock(return_value=SAMPLE_CENSYS_RESULTS)
         mock_mod.initialize = MagicMock()
@@ -685,10 +683,11 @@ class TestCredentialBuilders:
 
         mock_mod.initialize.assert_called_once()
         init_arg = mock_mod.initialize.call_args[0][0]
-        # Must NOT be the legacy single-key format
+        # Must use PAT-based auth — legacy id/secret path removed (resolves #45)
         assert "api_key" not in init_arg
-        assert "censys_id" in init_arg
-        assert "censys_secret" in init_arg
+        assert "censys_pat" in init_arg
+        assert "censys_id" not in init_arg
+        assert "censys_secret" not in init_arg
 
     def test_run_module_uses_passivetotal_credentials(self, tmp_ctx):
         """run_module initializes passivetotal with passivetotal_user + passivetotal_key."""
@@ -824,11 +823,12 @@ class TestNewToolsProductionSequence:
         assert isinstance(summary, str)
         assert "Found" in summary
 
-        # Verify multi-key credentials were used
+        # Verify PAT-based credentials were used (resolves #45, DEC-CONFIG-CENSYS-PAT-001)
         mock_mod.initialize.assert_called_once()
         init_arg = mock_mod.initialize.call_args[0][0]
-        assert "censys_id" in init_arg
-        assert "censys_secret" in init_arg
+        assert "censys_pat" in init_arg
+        assert "censys_id" not in init_arg
+        assert "censys_secret" not in init_arg
 
         # Workspace updated
         objects = tmp_ctx.workspace_mgr.get_stix_objects()
@@ -3521,19 +3521,18 @@ class TestServiceNameMap:
         mock_mod.initialize.assert_called_once_with({})
 
     def test_credential_builders_env_fallback_censys(self, tmp_ctx, monkeypatch):
-        """Censys credential builder falls back to AP_ env vars when config is empty."""
-        monkeypatch.setenv("AP_CENSYS_ID", "censys-env-id")
-        monkeypatch.setenv("AP_CENSYS_SECRET", "censys-env-secret")
-        monkeypatch.delenv("CENSYS_API_ID", raising=False)
-        monkeypatch.delenv("CENSYS_API_SECRET", raising=False)
+        """Censys credential builder falls back to AP_CENSYS_PAT env var (resolves #45)."""
+        monkeypatch.setenv("AP_CENSYS_PAT", "censys-env-pat")
+        monkeypatch.delenv("CENSYS_PAT", raising=False)
 
         from adversary_pursuit.agent.tools import _CREDENTIAL_BUILDERS
 
         builder = _CREDENTIAL_BUILDERS["osint/censys_host"]
         config = builder(tmp_ctx.config_mgr)
 
-        assert config["censys_id"] == "censys-env-id"
-        assert config["censys_secret"] == "censys-env-secret"
+        assert config["censys_pat"] == "censys-env-pat"
+        assert "censys_id" not in config
+        assert "censys_secret" not in config
 
     def test_credential_builders_env_fallback_passivetotal(self, tmp_ctx, monkeypatch):
         """PassiveTotal credential builder falls back to vendor env vars when config is empty."""
@@ -3639,3 +3638,40 @@ class TestServiceNameMap:
         assert init_arg.get("api_key") == "shodan-cascade-key", (
             f"Expected 'shodan-cascade-key' in init_config but got: {init_arg}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Censys PAT credential builder — explicit tests (resolves #45)
+# ---------------------------------------------------------------------------
+
+
+class TestCensysPATCredentialBuilder:
+    """Verify _CREDENTIAL_BUILDERS["osint/censys_host"] uses censys_pat only."""
+
+    def test_credential_builders_censys_uses_censys_pat(self, tmp_ctx):
+        """Builder passes censys_pat from get_censys_pat() to init_config."""
+        tmp_ctx.config_mgr.set("api_keys.censys_pat", "test-pat-value")
+        builder = _CREDENTIAL_BUILDERS["osint/censys_host"]
+        config = builder(tmp_ctx.config_mgr)
+        assert config == {"censys_pat": "test-pat-value"}
+
+    def test_credential_builders_censys_no_legacy_id_secret_path(self, tmp_ctx):
+        """Builder output must NOT contain censys_id or censys_secret keys."""
+        builder = _CREDENTIAL_BUILDERS["osint/censys_host"]
+        config = builder(tmp_ctx.config_mgr)
+        assert "censys_id" not in config
+        assert "censys_secret" not in config
+
+    def test_credential_builders_censys_empty_when_not_configured(self, tmp_ctx):
+        """Builder returns empty string for censys_pat when no key configured."""
+        builder = _CREDENTIAL_BUILDERS["osint/censys_host"]
+        config = builder(tmp_ctx.config_mgr)
+        assert config["censys_pat"] == ""
+
+    def test_credential_builders_censys_reads_from_env_var(self, tmp_ctx, monkeypatch):
+        """Builder picks up CENSYS_PAT env var via the 3-layer config chain."""
+        monkeypatch.delenv("AP_CENSYS_PAT", raising=False)
+        monkeypatch.setenv("CENSYS_PAT", "env-pat-value")
+        builder = _CREDENTIAL_BUILDERS["osint/censys_host"]
+        config = builder(tmp_ctx.config_mgr)
+        assert config["censys_pat"] == "env-pat-value"

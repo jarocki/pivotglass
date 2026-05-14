@@ -671,3 +671,84 @@ class TestThreeLayerPrecedence:
         mgr = make_manager(tmp_path)
         assert mgr.get_api_key("censys_id") == "censys-vendor-id"
         assert mgr.get_api_key("passivetotal_user") == "pt-vendor-user"
+
+
+# ---------------------------------------------------------------------------
+# censys_pat — new field + 3-layer chain (resolves #45, DEC-CONFIG-CENSYS-PAT-001)
+# ---------------------------------------------------------------------------
+
+
+class TestCensysPat:
+    """Tests for the censys_pat field and get_censys_pat() helper."""
+
+    def test_ApiKeysConfig_has_censys_pat_field(self, tmp_path):
+        """ApiKeysConfig includes censys_pat as a nullable field."""
+        from adversary_pursuit.core.config import ApiKeysConfig
+        cfg = ApiKeysConfig()
+        assert hasattr(cfg, "censys_pat")
+        assert cfg.censys_pat is None
+
+    def test_ApiKeysConfig_round_trip_includes_censys_pat(self, tmp_path):
+        """censys_pat persists correctly through a config.toml round-trip."""
+        mgr = make_manager(tmp_path)
+        cfg = mgr.load()
+        cfg.api_keys.censys_pat = "test-pat-value"
+        mgr.save(cfg)
+
+        mgr2 = make_manager(tmp_path)
+        cfg2 = mgr2.load()
+        assert cfg2.api_keys.censys_pat == "test-pat-value"
+
+    def test_get_censys_pat_returns_none_when_not_configured(self, tmp_path, monkeypatch):
+        """get_censys_pat() returns None when no config, AP env, or vendor env is set."""
+        monkeypatch.delenv("AP_CENSYS_PAT", raising=False)
+        monkeypatch.delenv("CENSYS_PAT", raising=False)
+        mgr = make_manager(tmp_path)
+        assert mgr.get_censys_pat() is None
+
+    def test_get_censys_pat_layer1_config_value(self, tmp_path, monkeypatch):
+        """Layer 1: stored config value takes highest precedence."""
+        monkeypatch.setenv("AP_CENSYS_PAT", "env-pat-layer2")
+        monkeypatch.setenv("CENSYS_PAT", "env-pat-layer3")
+
+        mgr = make_manager(tmp_path)
+        cfg = mgr.load()
+        cfg.api_keys.censys_pat = "config-pat-layer1"
+        mgr.save(cfg)
+
+        # Config layer wins over both env layers
+        assert mgr.get_censys_pat() == "config-pat-layer1"
+
+    def test_get_censys_pat_layer2_ap_env_var(self, tmp_path, monkeypatch):
+        """Layer 2: AP_CENSYS_PAT env var used when config has no value."""
+        monkeypatch.setenv("AP_CENSYS_PAT", "ap-env-pat")
+        monkeypatch.delenv("CENSYS_PAT", raising=False)
+
+        mgr = make_manager(tmp_path)
+        assert mgr.get_censys_pat() == "ap-env-pat"
+
+    def test_get_censys_pat_layer3_vendor_env_var(self, tmp_path, monkeypatch):
+        """Layer 3: CENSYS_PAT vendor env var used as final fallback."""
+        monkeypatch.delenv("AP_CENSYS_PAT", raising=False)
+        monkeypatch.setenv("CENSYS_PAT", "vendor-env-pat")
+
+        mgr = make_manager(tmp_path)
+        assert mgr.get_censys_pat() == "vendor-env-pat"
+
+    def test_get_censys_pat_3_layer_chain_precedence(self, tmp_path, monkeypatch):
+        """Full 3-layer chain: config > AP_CENSYS_PAT > CENSYS_PAT."""
+        # Start with only vendor env — should return it
+        monkeypatch.delenv("AP_CENSYS_PAT", raising=False)
+        monkeypatch.setenv("CENSYS_PAT", "vendor-only")
+        mgr = make_manager(tmp_path)
+        assert mgr.get_censys_pat() == "vendor-only"
+
+        # Add AP env — should win over vendor
+        monkeypatch.setenv("AP_CENSYS_PAT", "ap-env-wins")
+        assert mgr.get_censys_pat() == "ap-env-wins"
+
+        # Add config value — should win over both env layers
+        cfg = mgr.load()
+        cfg.api_keys.censys_pat = "config-wins"
+        mgr.save(cfg)
+        assert mgr.get_censys_pat() == "config-wins"
