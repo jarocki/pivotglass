@@ -35,6 +35,28 @@ Exit codes
            give a useful pass/fail signal for the integrations that ARE configured.
            Only actual runtime errors (HTTP errors, exceptions, wrong output shape)
            count as FAIL.
+
+@decision DEC-SMOKE-003
+@title Key lookup delegates entirely to ConfigManager; no duplicate field-name logic
+@status accepted
+@rationale The prior _resolve_keys() helper read config.toml directly with
+           WRONG field names (e.g. "shodan_api_key" instead of the real
+           ApiKeysConfig field "shodan"). This caused "no API key configured"
+           false-positives even when the user had valid keys in config.toml.
+           Delegating to ConfigManager.get_api_key() / get_censys_pat() gives
+           the correct 3-layer chain (config > AP_* env > vendor env) automatically
+           and keeps this file free of field-name duplication that can drift.
+
+@decision DEC-SMOKE-004
+@title Source layer identified via Option B: raw model attribute check + env probe
+@status accepted
+@rationale Identifying which layer supplied a key ("config", "AP env", "vendor env")
+           for diagnostic display requires per-layer probing. ConfigManager does not
+           expose a get_api_key_with_source() method (adding one would require
+           touching the forbidden src/ scope). Option B: the smoke test probes each
+           layer directly using the already-loaded config model's attribute + os.environ
+           lookups that mirror ConfigManager's precedence logic. This is a read-only
+           diagnostic path only — the actual key VALUE always comes from ConfigManager.
 """
 
 from __future__ import annotations
@@ -87,99 +109,125 @@ def mask_secret(s: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Key resolution helpers — read from config/env, never hardcoded
+# Key resolution helpers — delegate to ConfigManager, never duplicate field logic
 # ---------------------------------------------------------------------------
 
+# AP-prefixed env var names for each service (mirrors ConfigManager._AP_ENV_VAR_MAP).
+# Used only for source-layer reporting in _source_for(); the actual value always
+# comes from ConfigManager.get_api_key() / get_censys_pat().
+_AP_ENV_NAMES: dict[str, str] = {
+    "shodan": "AP_SHODAN_API_KEY",
+    "virustotal": "AP_VIRUSTOTAL_API_KEY",
+    "urlscan": "AP_URLSCAN_API_KEY",
+    "abuseipdb": "AP_ABUSEIPDB_API_KEY",
+    "hibp": "AP_HIBP_API_KEY",
+    "otx": "AP_OTX_API_KEY",
+    "censys_pat": "AP_CENSYS_PAT",
+    "passivetotal_user": "AP_PASSIVETOTAL_USER",
+    "passivetotal_key": "AP_PASSIVETOTAL_KEY",
+}
 
-def _env(*names: str) -> str:
-    """Return the first non-empty value from the given environment variable names."""
-    for name in names:
-        val = os.environ.get(name, "").strip()
-        if val:
-            return val
-    return ""
+# Vendor-convention env var names for each service (mirrors ConfigManager._VENDOR_ENV_VAR_MAP).
+# Used only for source-layer reporting.
+_VENDOR_ENV_NAMES: dict[str, str] = {
+    "shodan": "SHODAN_API_KEY",
+    "virustotal": "VIRUSTOTAL_API_KEY",
+    "urlscan": "URLSCAN_API_KEY",
+    "abuseipdb": "ABUSEIPDB_API_KEY",
+    "hibp": "HIBP_API_KEY",
+    "otx": "OTX_API_KEY",
+    "censys_pat": "CENSYS_PAT",
+    "passivetotal_user": "PT_USERNAME",
+    "passivetotal_key": "PT_API_KEY",
+}
 
 
-def _load_config_toml() -> dict[str, Any]:
-    """Load ~/.ap/config.toml and return its contents as a dict.
+def _source_for(
+    cm: Any,
+    service_id: str,
+    value: str | None,
+) -> str:
+    """Return which config layer supplied the value for *service_id*.
 
-    Returns an empty dict if the file does not exist or cannot be parsed.
+    This is a DIAGNOSTIC-ONLY helper (DEC-SMOKE-004). It probes the same
+    three layers that ConfigManager.get_api_key() checks, in the same order,
+    to determine WHERE the value came from so the user can see e.g.
+    "(config)" vs "(AP env)" vs "(vendor env)" next to each detected key.
+
+    The actual key VALUE is not re-derived here — it is passed in as *value*
+    (already resolved by ConfigManager) so there is no duplication of key
+    resolution logic, only source attribution.
+
+    Parameters
+    ----------
+    cm:
+        A loaded ConfigManager instance.
+    service_id:
+        ApiKeysConfig field name (e.g. "shodan", "censys_pat").
+    value:
+        The resolved key value from ConfigManager.get_api_key() or
+        get_censys_pat(). None/empty means "not configured" — returns "".
+
+    Returns
+    -------
+    str
+        One of "config", "AP env", "vendor env", or "" (not configured).
     """
-    config_path = Path.home() / ".ap" / "config.toml"
-    if not config_path.exists():
-        return {}
+    if not value:
+        return ""
+
+    # Layer 1: stored in config.toml — check the model attribute directly.
+    # cm.config is the loaded Config object; we probe api_keys.<service_id>.
     try:
-        import tomllib  # Python 3.11+
-    except ImportError:
-        try:
-            import tomli as tomllib  # type: ignore[no-redef]
-        except ImportError:
-            return {}
-    try:
-        with open(config_path, "rb") as f:
-            return tomllib.load(f)
-    except Exception:
-        return {}
+        cfg = cm._cache  # already loaded; safe to access the cache directly
+        if cfg is not None:
+            stored = getattr(cfg.api_keys, service_id, None)
+            if stored:
+                return "config"
+    except AttributeError:
+        pass
+
+    # Layer 2: AP-prefixed env var
+    ap_var = _AP_ENV_NAMES.get(service_id)
+    if ap_var and os.environ.get(ap_var):
+        return "AP env"
+
+    # Layer 3: vendor-convention env var
+    vendor_var = _VENDOR_ENV_NAMES.get(service_id)
+    if vendor_var and os.environ.get(vendor_var):
+        return "vendor env"
+
+    # Fallback: value exists but source is unclear (e.g. legacy AP_* alias)
+    return "env"
 
 
-def _resolve_keys(config: dict[str, Any]) -> dict[str, tuple[str, str]]:
-    """Resolve all module API keys from config + env.
+def _resolve_keys(cm: Any) -> dict[str, tuple[str, str]]:
+    """Resolve all module API keys via ConfigManager and annotate each with its source layer.
 
-    Returns a mapping of logical key name -> (value, source) where source is
-    one of "config", "env", or "". Empty value means not configured.
+    Returns a mapping of logical key name -> (value, source) where source is one of
+    "config", "AP env", "vendor env", "env", or "". Empty value means not configured.
 
-    NEVER returns hardcoded key values — all values come from runtime sources.
+    Delegates ALL key lookup to ConfigManager so field names are always correct
+    (DEC-SMOKE-003). Source attribution uses _source_for() (DEC-SMOKE-004).
+
+    NEVER returns hardcoded key values — all values come from ConfigManager.
     """
-    api_keys = config.get("api_keys", {})
-
-    def from_config(key: str) -> str:
-        return str(api_keys.get(key, "")).strip()
-
     results: dict[str, tuple[str, str]] = {}
 
-    def resolve(logical: str, config_key: str, *env_names: str) -> None:
-        val = from_config(config_key)
-        if val:
-            results[logical] = (val, "config")
-            return
-        val = _env(*env_names)
-        if val:
-            results[logical] = (val, "env")
-            return
-        results[logical] = ("", "")
+    def _add(logical: str, value: str | None) -> None:
+        val = value or ""
+        src = _source_for(cm, logical, val) if val else ""
+        results[logical] = (val, src)
 
-    resolve("shodan", "shodan_api_key", "SHODAN_API_KEY", "AP_SHODAN_API_KEY")
-    resolve("censys_id", "censys_id", "CENSYS_API_ID", "AP_CENSYS_ID", "CENSYS_ID")
-    resolve(
-        "censys_secret",
-        "censys_secret",
-        "CENSYS_API_SECRET",
-        "AP_CENSYS_SECRET",
-        "CENSYS_SECRET",
-    )
-    resolve("abuseipdb", "abuseipdb_api_key", "ABUSEIPDB_API_KEY", "AP_ABUSEIPDB_API_KEY")
-    resolve("urlscan", "urlscan_api_key", "URLSCAN_API_KEY", "AP_URLSCAN_API_KEY")
-    resolve("hibp", "hibp_api_key", "HIBP_API_KEY", "AP_HIBP_API_KEY")
-    resolve(
-        "virustotal",
-        "virustotal_api_key",
-        "VIRUSTOTAL_API_KEY",
-        "AP_VIRUSTOTAL_API_KEY",
-        "VT_API_KEY",
-    )
-    resolve("otx", "otx_api_key", "OTX_API_KEY", "AP_OTX_API_KEY")
-    resolve(
-        "passivetotal_user",
-        "passivetotal_user",
-        "AP_PASSIVETOTAL_USER",
-        "PT_USERNAME",
-    )
-    resolve(
-        "passivetotal_key",
-        "passivetotal_key",
-        "AP_PASSIVETOTAL_KEY",
-        "PT_API_KEY",
-    )
+    _add("shodan", cm.get_api_key("shodan"))
+    _add("virustotal", cm.get_api_key("virustotal"))
+    _add("urlscan", cm.get_api_key("urlscan"))
+    _add("abuseipdb", cm.get_api_key("abuseipdb"))
+    _add("hibp", cm.get_api_key("hibp"))
+    _add("otx", cm.get_api_key("otx"))
+    _add("censys_pat", cm.get_censys_pat())
+    _add("passivetotal_user", cm.get_api_key("passivetotal_user"))
+    _add("passivetotal_key", cm.get_api_key("passivetotal_key"))
 
     return results
 
@@ -257,9 +305,15 @@ def _run_shodan(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]:
 
 
 def _run_censys(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]:
-    cid, _ = keys.get("censys_id", ("", ""))
-    csec, _ = keys.get("censys_secret", ("", ""))
-    if not cid or not csec:
+    """Run osint/censys_host using the Censys Platform PAT (censys_pat).
+
+    The legacy censys_id/censys_secret check has been removed; this now uses
+    the Platform PAT as the sole auth mechanism (DEC-CONFIG-CENSYS-PAT-001).
+    Missing PAT → SKIP (not FAIL — the migration error message belongs in the
+    module, not here).
+    """
+    pat, _ = keys.get("censys_pat", ("", ""))
+    if not pat:
         return SKIP, "no API key configured", 0
     try:
         from adversary_pursuit.core.plugin_mgr import PluginManager
@@ -269,7 +323,7 @@ def _run_censys(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]:
         mod = mgr.get_module("osint/censys_host")
         if mod is None:
             return FAIL, "module not found", 0
-        mod.initialize({"censys_id": cid, "censys_secret": csec})
+        mod.initialize({"censys_pat": pat})
         results = asyncio.run(_run_module(mod, target, {}))
         return PASS, "", len(results)
     except Exception as exc:
@@ -443,7 +497,7 @@ def _check_workspace_persistence(
 
 
 def _print_key_summary(keys: dict, quiet: bool) -> None:
-    """Print masked key detection summary."""
+    """Print masked key detection summary showing source layer for each key."""
     if quiet:
         return
     configured = []
@@ -498,15 +552,21 @@ def main() -> int:
         print("=" * 60)
         print()
 
-    # Load runtime config (never hardcoded)
-    config = _load_config_toml()
+    # Load runtime config via ConfigManager (never raw toml read + wrong field names).
+    # ConfigManager.get_api_key() implements the correct 3-layer chain:
+    #   config.toml > AP_<SERVICE>_API_KEY env > <SERVICE>_API_KEY env.
+    # (DEC-SMOKE-003)
+    from adversary_pursuit.core.config import ConfigManager
+
+    cm = ConfigManager()
+    cm.load()
     config_path = Path.home() / ".ap" / "config.toml"
 
     if not args.quiet:
         print("Config sources:")
         print(f"  ~/.ap/config.toml: {'found' if config_path.exists() else 'NOT FOUND'}")
 
-    keys = _resolve_keys(config)
+    keys = _resolve_keys(cm)
     _print_key_summary(keys, args.quiet)
 
     if not args.quiet:
