@@ -51,14 +51,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
 from adversary_pursuit.modules.osint.urlscan import URLScan
-from adversary_pursuit.core.plugin_mgr import PluginManager
-
 
 # ---------------------------------------------------------------------------
 # Shared test data
@@ -140,6 +139,7 @@ def _make_client(post_resp: MagicMock, get_resp) -> AsyncMock:
 # Protocol and metadata tests
 # ---------------------------------------------------------------------------
 
+
 class TestURLScanMetadata:
     """Module satisfies PursuitModule protocol and declares correct metadata."""
 
@@ -191,6 +191,7 @@ class TestURLScanMetadata:
 # ---------------------------------------------------------------------------
 # Authentication / error path tests
 # ---------------------------------------------------------------------------
+
 
 class TestURLScanErrors:
     """hunt() error handling: missing key, 401, 429."""
@@ -275,10 +276,27 @@ class TestURLScanErrors:
                 asyncio.run(mod.hunt(TARGET_URL, {}))
         assert exc_info.value.retry_after is None
 
+    def test_hunt_403_on_submit_raises_auth_error(self):
+        """403 on submit POST raises AuthenticationError mentioning 403/forbidden.
+
+        # @mock-exempt: httpx.AsyncClient mocked at HTTP boundary (external URLScan API).
+        """
+        submit_resp = _make_mock_response(403, {"message": "Forbidden"})
+        mock_client = _make_client(submit_resp, MagicMock())
+        with patch(
+            "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+            return_value=mock_client,
+        ):
+            mod = URLScan()
+            mod.initialize({"api_key": "test-key"})
+            with pytest.raises(AuthenticationError, match="(?i)403|forbidden"):
+                asyncio.run(mod.hunt(TARGET_URL, {}))
+
 
 # ---------------------------------------------------------------------------
 # Successful hunt() submit+poll flow
 # ---------------------------------------------------------------------------
+
 
 class TestURLScanHuntResults:
     """hunt() result structure with mocked submit and poll responses."""
@@ -290,7 +308,10 @@ class TestURLScanHuntResults:
         mock_client = _make_client(submit_resp, poll_resp)
 
         with (
-            patch("adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
             patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
@@ -399,6 +420,7 @@ class TestURLScanHuntResults:
 # Poll behavior tests
 # ---------------------------------------------------------------------------
 
+
 class TestURLScanPollBehavior:
     """Poll loop: timeout, retry on 404, TIMEOUT and POLL_INTERVAL options."""
 
@@ -410,7 +432,10 @@ class TestURLScanPollBehavior:
         mock_client = _make_client(submit_resp, poll_404)
 
         with (
-            patch("adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
             patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
@@ -433,14 +458,15 @@ class TestURLScanPollBehavior:
         mock_client = _make_client(submit_resp, [poll_404, poll_200])
 
         with (
-            patch("adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
             patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
             mod.initialize({"api_key": "test-key"})
-            results = asyncio.run(
-                mod.hunt(TARGET_URL, {"TIMEOUT": "30", "POLL_INTERVAL": "5"})
-            )
+            results = asyncio.run(mod.hunt(TARGET_URL, {"TIMEOUT": "30", "POLL_INTERVAL": "5"}))
 
         assert results[0]["type"] == "url"
         assert results[0].get("x_scan_uuid") == SCAN_UUID
@@ -454,7 +480,10 @@ class TestURLScanPollBehavior:
 
         sleep_mock = AsyncMock()
         with (
-            patch("adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
             patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", sleep_mock),
         ):
             mod = URLScan()
@@ -470,7 +499,10 @@ class TestURLScanPollBehavior:
         mock_client = _make_client(submit_resp, poll_resp)
 
         with (
-            patch("adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
             patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
@@ -488,7 +520,10 @@ class TestURLScanPollBehavior:
         mock_client = _make_client(submit_resp, poll_resp)
 
         with (
-            patch("adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
             patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
@@ -505,7 +540,10 @@ class TestURLScanPollBehavior:
         mock_client = _make_client(submit_resp, poll_resp)
 
         with (
-            patch("adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
             patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
@@ -519,6 +557,7 @@ class TestURLScanPollBehavior:
 # ---------------------------------------------------------------------------
 # Lists cap test
 # ---------------------------------------------------------------------------
+
 
 class TestURLScanListsCap:
     """hunt() caps IPs and domains from lists at 15 each."""
@@ -536,7 +575,10 @@ class TestURLScanListsCap:
         mock_client = _make_client(submit_resp, poll_resp)
 
         with (
-            patch("adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
             patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
@@ -560,7 +602,10 @@ class TestURLScanListsCap:
         mock_client = _make_client(submit_resp, poll_resp)
 
         with (
-            patch("adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient", return_value=mock_client),
+            patch(
+                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
             patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
@@ -572,8 +617,88 @@ class TestURLScanListsCap:
 
 
 # ---------------------------------------------------------------------------
+# Request shape tests — assert exact URL, method, header, and body contract
+# ---------------------------------------------------------------------------
+
+
+class TestURLScanRequestShape:
+    """Verify the submit POST conforms to the canonical urlscan.io API contract.
+
+    These tests exercise the full production sequence (initialize -> hunt) with
+    the HTTP boundary mocked, then inspect the captured call arguments to assert
+    the exact URL string, HTTP method, Content-Type header, and JSON body keys.
+
+    # @mock-exempt: httpx.AsyncClient is mocked at the external HTTP boundary only.
+    # The full internal code path (key validation, option resolution, request
+    # construction) executes unmodified. See DEC-TEST-URLSCAN-001.
+    """
+
+    def _run_hunt_and_capture(self) -> AsyncMock:
+        """Run hunt() through to submit and return the mock_client for call inspection."""
+        submit_resp = _make_mock_response(200, SUBMIT_RESPONSE)
+        poll_resp = _make_mock_response(200, RESULT_RESPONSE)
+        mock_client = _make_client(submit_resp, poll_resp)
+
+        with (
+            patch(
+                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
+            patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+        ):
+            mod = URLScan()
+            mod.initialize({"api_key": "test-key"})
+            asyncio.run(mod.hunt(TARGET_URL, {}))
+
+        return mock_client
+
+    def test_submit_endpoint_url_matches_spec(self):
+        """Submit POST is called with the exact canonical URL including trailing slash.
+
+        Asserts the literal string 'https://urlscan.io/api/v1/scan/' — the
+        trailing slash is required; Cloudflare returns 403 for the slash-less
+        variant. See DEC-MODULE-URLSCAN-005.
+        """
+        mock_client = self._run_hunt_and_capture()
+        post_call_args = mock_client.post.call_args
+        called_url = (
+            post_call_args.args[0] if post_call_args.args else post_call_args.kwargs.get("url")
+        )
+        assert called_url == "https://urlscan.io/api/v1/scan/", (
+            f"Expected submit URL 'https://urlscan.io/api/v1/scan/' (with trailing slash), "
+            f"got {called_url!r}. Missing slash causes Cloudflare 403."
+        )
+
+    def test_submit_method_is_post(self):
+        """Submit request uses the POST method (not GET, PUT, etc.)."""
+        mock_client = self._run_hunt_and_capture()
+        # The mock records the call on .post — if .post was called, method is POST
+        assert mock_client.post.called, (
+            "Expected httpx.AsyncClient.post() to be called for scan submission"
+        )
+
+    def test_submit_content_type_is_json(self):
+        """Submit POST includes Content-Type: application/json header."""
+        mock_client = self._run_hunt_and_capture()
+        headers = mock_client.post.call_args.kwargs.get("headers", {})
+        assert headers.get("Content-Type") == "application/json", (
+            f"Expected Content-Type 'application/json', got {headers.get('Content-Type')!r}"
+        )
+
+    def test_submit_body_required_keys(self):
+        """Submit POST body is JSON containing the 'url' key set to the target."""
+        mock_client = self._run_hunt_and_capture()
+        body = mock_client.post.call_args.kwargs.get("json", {})
+        assert "url" in body, f"Expected 'url' key in POST body, got keys: {list(body.keys())}"
+        assert body["url"] == TARGET_URL, (
+            f"Expected body['url'] == {TARGET_URL!r}, got {body['url']!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Plugin manager integration test
 # ---------------------------------------------------------------------------
+
 
 class TestURLScanDiscovery:
     """URLScan is discoverable via PluginManager."""

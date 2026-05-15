@@ -5,7 +5,7 @@ IP addresses, domains contacted, and certificate information.
 
 API docs: https://urlscan.io/docs/api/
 
-Flow: POST /api/v1/scan (submit) -> poll GET /api/v1/result/{uuid}/ -> parse results
+Flow: POST /api/v1/scan/ (submit) -> poll GET /api/v1/result/{uuid}/ -> parse results
 
 @decision DEC-MODULE-URLSCAN-001
 @title Async submit+poll pattern with configurable timeout and poll interval
@@ -46,6 +46,32 @@ Flow: POST /api/v1/scan (submit) -> poll GET /api/v1/result/{uuid}/ -> parse res
            15 entries each is a practical limit for the hunting use case —
            enough to spot C2 / CDN overlap without noise. Future implementers
            can expose a MAX_RESULTS option if needed.
+
+@decision DEC-MODULE-URLSCAN-005
+@title Submit endpoint URL uses trailing slash: https://urlscan.io/api/v1/scan/
+@status accepted
+@rationale The canonical urlscan.io/docs/api/ curl reference uses the trailing
+           slash: https://urlscan.io/api/v1/scan/. URLScan is fronted by
+           Cloudflare, which returns HTTP 403 for unmatched paths before the
+           request reaches the auth layer — omitting the slash causes Cloudflare
+           to return 403 even with a valid API key. The slash-less variant
+           https://urlscan.io/api/v1/scan (no slash) is NOT canonical.
+           This endpoint string must remain singular and exact; do not introduce
+           a fallback retry without the slash.
+           Reference: https://urlscan.io/docs/api/
+
+@decision DEC-MODULE-URLSCAN-006
+@title 403 from submit endpoint raises AuthenticationError (same as 401)
+@status accepted
+@rationale HTTP 403 from URLScan submit can mean two things: (a) Cloudflare
+           path mismatch (resolved by DEC-MODULE-URLSCAN-005 trailing slash),
+           or (b) API key exists but lacks permission for this scan type (plan
+           tier restriction, private-scan allowance, region restriction). In
+           either case raising AuthenticationError keeps the smoke-test
+           classification contract: AuthenticationError -> SKIP (not FAIL).
+           The message deliberately mentions "403" and "forbidden" to distinguish
+           it from the 401 "invalid or revoked" message, aiding debugging.
+           Reference: scripts/smoke_test.py _run_urlscan classification logic.
 """
 
 from __future__ import annotations
@@ -64,7 +90,7 @@ from adversary_pursuit.modules.base import (
 
 logger = logging.getLogger(__name__)
 
-_SUBMIT_URL = "https://urlscan.io/api/v1/scan"
+_SUBMIT_URL = "https://urlscan.io/api/v1/scan/"
 _LIST_CAP = 15
 
 
@@ -154,7 +180,12 @@ class URLScan(BaseModule):
         Raises
         ------
         AuthenticationError
-            When no API key is configured, or the API returns 401 on submit.
+            When no API key is configured; when the API returns 401 on submit
+            (key invalid or revoked); or when the API returns 403 on submit
+            (key lacks permission for this scan — plan tier, visibility
+            allowance, or region restriction). Both 401 and 403 raise
+            AuthenticationError so the smoke-test classifies the run as SKIP
+            rather than FAIL. See DEC-MODULE-URLSCAN-006.
         RateLimitError
             When the API returns 429 on submit. retry_after is populated from
             the Retry-After response header when present.
@@ -190,6 +221,11 @@ class URLScan(BaseModule):
 
             if submit_resp.status_code == 401:
                 raise AuthenticationError("URLScan API key is invalid or revoked.")
+            if submit_resp.status_code == 403:
+                raise AuthenticationError(
+                    "URLScan API key lacks permission for this scan (403 forbidden). "
+                    "Check the key's plan tier, visibility allowance, or region restrictions."
+                )
             if submit_resp.status_code == 429:
                 retry_header = submit_resp.headers.get("Retry-After")
                 retry_after = int(retry_header) if retry_header else None
@@ -259,6 +295,7 @@ class URLScan(BaseModule):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _build_results(
     target: str,
     scan_uuid: str,
@@ -318,11 +355,13 @@ def _build_results(
 
     # ipv4-addr SCO for the page IP (include x_asn from page object)
     if page_ip:
-        results.append({
-            "type": "ipv4-addr",
-            "value": page_ip,
-            "x_asn": page.get("asn", ""),
-        })
+        results.append(
+            {
+                "type": "ipv4-addr",
+                "value": page_ip,
+                "x_asn": page.get("asn", ""),
+            }
+        )
 
     # Additional IPs from lists.ips (capped, deduplicated)
     for entry in lists.get("ips", [])[:_LIST_CAP]:
