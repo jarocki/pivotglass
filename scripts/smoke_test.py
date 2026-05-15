@@ -57,6 +57,21 @@ Exit codes
            layer directly using the already-loaded config model's attribute + os.environ
            lookups that mirror ConfigManager's precedence logic. This is a read-only
            diagnostic path only — the actual key VALUE always comes from ConfigManager.
+
+@decision DEC-SMOKE-005
+@title AuthenticationError is SKIP (not FAIL) in smoke test — closes backlog #48
+@status accepted
+@rationale AuthenticationError means one of:
+             (a) credentials not configured (key missing entirely), or
+             (b) credentials present but rejected/insufficient for the endpoint
+           Neither case indicates a module bug — they both indicate a user-config
+           signal. Case (a) is already SKIP-gated at the top of each _run_* function
+           (key-presence check). Case (b) was reaching the except-Exception path and
+           returning FAIL, which falsely conflated "module broken" with "needs Platform
+           subscription". The fix: catch AuthenticationError specifically before the
+           generic Exception handler and return SKIP with the error message as the
+           reason. Real failures (HTTPStatusError, ReadTimeout, network errors) continue
+           to propagate to the generic handler and return FAIL.
 """
 
 from __future__ import annotations
@@ -69,6 +84,8 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from adversary_pursuit.modules.base import AuthenticationError
 
 # ---------------------------------------------------------------------------
 # Secret masking helper
@@ -300,6 +317,8 @@ def _run_shodan(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]:
         mod.initialize({"api_key": val})
         results = asyncio.run(_run_module(mod, target, {}))
         return PASS, "", len(results)
+    except AuthenticationError as exc:
+        return SKIP, f"auth: {exc}", 0
     except Exception as exc:
         return FAIL, _fmt_exc(exc, verbose), 0
 
@@ -326,6 +345,8 @@ def _run_censys(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]:
         mod.initialize({"censys_pat": pat})
         results = asyncio.run(_run_module(mod, target, {}))
         return PASS, "", len(results)
+    except AuthenticationError as exc:
+        return SKIP, f"auth: {exc}", 0
     except Exception as exc:
         return FAIL, _fmt_exc(exc, verbose), 0
 
@@ -345,6 +366,8 @@ def _run_abuseipdb(target: str, keys: dict, verbose: bool) -> tuple[str, str, in
         mod.initialize({"api_key": val})
         results = asyncio.run(_run_module(mod, target, {}))
         return PASS, "", len(results)
+    except AuthenticationError as exc:
+        return SKIP, f"auth: {exc}", 0
     except Exception as exc:
         return FAIL, _fmt_exc(exc, verbose), 0
 
@@ -364,6 +387,8 @@ def _run_urlscan(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]
         mod.initialize({"api_key": val})
         results = asyncio.run(_run_module(mod, target, {}))
         return PASS, "", len(results)
+    except AuthenticationError as exc:
+        return SKIP, f"auth: {exc}", 0
     except Exception as exc:
         return FAIL, _fmt_exc(exc, verbose), 0
 
@@ -383,6 +408,8 @@ def _run_hibp(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]:
         mod.initialize({"api_key": val})
         results = asyncio.run(_run_module(mod, target, {}))
         return PASS, "", len(results)
+    except AuthenticationError as exc:
+        return SKIP, f"auth: {exc}", 0
     except Exception as exc:
         return FAIL, _fmt_exc(exc, verbose), 0
 
@@ -402,6 +429,8 @@ def _run_virustotal(target: str, keys: dict, verbose: bool) -> tuple[str, str, i
         mod.initialize({"api_key": val})
         results = asyncio.run(_run_module(mod, target, {}))
         return PASS, "", len(results)
+    except AuthenticationError as exc:
+        return SKIP, f"auth: {exc}", 0
     except Exception as exc:
         return FAIL, _fmt_exc(exc, verbose), 0
 
@@ -421,6 +450,8 @@ def _run_otx(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]:
         mod.initialize({"api_key": val})
         results = asyncio.run(_run_module(mod, target, {}))
         return PASS, "", len(results)
+    except AuthenticationError as exc:
+        return SKIP, f"auth: {exc}", 0
     except Exception as exc:
         return FAIL, _fmt_exc(exc, verbose), 0
 
@@ -441,6 +472,8 @@ def _run_passivetotal(target: str, keys: dict, verbose: bool) -> tuple[str, str,
         mod.initialize({"passivetotal_user": user, "passivetotal_key": key})
         results = asyncio.run(_run_module(mod, target, {}))
         return PASS, "", len(results)
+    except AuthenticationError as exc:
+        return SKIP, f"auth: {exc}", 0
     except Exception as exc:
         return FAIL, _fmt_exc(exc, verbose), 0
 

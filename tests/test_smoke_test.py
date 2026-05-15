@@ -7,12 +7,22 @@
 # I/O. All patched callees are themselves tested independently with real
 # implementations. The mocks here represent the "all external boundaries
 # already tested elsewhere" pattern described in DEC-TEST-OTX-001 and
-# DEC-TEST-CENSYS-001. The mask_secret, SKIP-semantics, and _resolve_keys
-# tests use NO mocks — they exercise real code directly.
+# DEC-TEST-CENSYS-001.
+# The TestAuthErrorClassification tests use AsyncMock on mod.hunt() — this IS
+# the external HTTP boundary. The _run_* functions under test call asyncio.run()
+# on mod.hunt(), which would make a live network request. Patching hunt() with
+# AsyncMock that raises a specific exception exercises the exception-routing logic
+# (AuthenticationError→SKIP, httpx errors→FAIL) without a real API call. The
+# PluginManager.get_module() stub returns the mock module so plugin loading is
+# bypassed. This is the canonical external-boundary mock pattern.
+# The mask_secret, SKIP-semantics, and _resolve_keys tests use NO mocks —
+# they exercise real code directly.
 
 Tests cover:
 - mask_secret() helper: normal, short, and empty inputs
 - Module-iteration logic: SKIP when key not configured
+- AuthenticationError classification: _run_* handlers return SKIP (not FAIL)
+- HTTPStatusError / ReadTimeout classification: _run_* handlers return FAIL
 - Pass/fail exit code semantics
 - _resolve_keys: delegates to ConfigManager, reads from config/env, no hardcoded values
 - _source_for: returns correct layer label ("config", "AP env", "vendor env")
@@ -42,9 +52,16 @@ import importlib.util
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import (  # @mock-exempt: hunt() is the external HTTP boundary; see module docstring
+    AsyncMock,
+    MagicMock,
+    patch,
+)
 
+import httpx
 import pytest
+
+from adversary_pursuit.modules.base import AuthenticationError
 
 # ---------------------------------------------------------------------------
 # Import smoke_test module via importlib (not a package, so direct import)
@@ -594,6 +611,118 @@ class TestResolveKeys:
         # Legacy keys must NOT be present
         assert "censys_id" not in keys, "Legacy censys_id should not appear in resolved keys"
         assert "censys_secret" not in keys, "Legacy censys_secret should not appear"
+
+
+# ---------------------------------------------------------------------------
+# AuthenticationError classification: SKIP vs FAIL (closes backlog #48)
+# @mock-exempt: mod.hunt() is the external HTTP boundary — it would make a
+# live API call. AsyncMock patches the coroutine so we can inject specific
+# exception types and verify the _run_* routing logic (AuthenticationError→SKIP,
+# httpx errors→FAIL) without network I/O. PluginManager.get_module is patched
+# only to return the mock module; all routing logic under test is real Python.
+# ---------------------------------------------------------------------------
+
+
+class TestAuthErrorClassification:
+    """_run_* handlers classify AuthenticationError as SKIP and HTTP errors as FAIL.
+
+    Production sequence: _run_shodan (and peers) call asyncio.run(_run_module(mod, ...))
+    which calls mod.hunt(). These tests patch mod.hunt() with an AsyncMock that raises
+    a controlled exception, then call the real _run_shodan/_run_censys functions to
+    verify the try/except routing table is correct.
+    """
+
+    def _keys_with_shodan(self) -> dict:
+        return {"shodan": ("fake-api-key-32-chars-xxxxxxxxxx", "config")}
+
+    def _keys_with_censys(self) -> dict:
+        return {"censys_pat": ("fake-censys-pat-token", "config")}
+
+    def test_authentication_error_classified_as_skip(self, smoke):
+        """AuthenticationError from hunt() → SKIP with 'auth: ...' message, count=0.
+
+        This is the canonical DEC-SMOKE-005 test: a module that raises
+        AuthenticationError must not produce FAIL (which would signal a broken
+        module). The _run_shodan handler catches it and returns SKIP.
+        """
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(side_effect=AuthenticationError("invalid token"))
+
+        mock_mgr = MagicMock()
+        mock_mgr.get_module.return_value = mock_mod
+
+        with patch("adversary_pursuit.core.plugin_mgr.PluginManager", return_value=mock_mgr):
+            status, msg, count = smoke._run_shodan("8.8.8.8", self._keys_with_shodan(), False)
+
+        assert status == smoke.SKIP, f"Expected SKIP, got {status!r}"
+        assert msg.startswith("auth:"), f"Expected 'auth: ...' message, got {msg!r}"
+        assert count == 0
+
+    def test_http_status_error_still_classified_as_fail(self, smoke):
+        """httpx.HTTPStatusError from hunt() → FAIL (real HTTP error, not auth).
+
+        An HTTP 500 from the upstream API is a real module failure — it must not
+        be silently converted to SKIP. Only AuthenticationError gets SKIP treatment.
+        """
+        request = httpx.Request("GET", "https://api.shodan.io/shodan/host/8.8.8.8")
+        response = httpx.Response(500, request=request)
+        exc = httpx.HTTPStatusError("500 Internal Server Error", request=request, response=response)
+
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(side_effect=exc)
+
+        mock_mgr = MagicMock()
+        mock_mgr.get_module.return_value = mock_mod
+
+        with patch("adversary_pursuit.core.plugin_mgr.PluginManager", return_value=mock_mgr):
+            status, msg, count = smoke._run_shodan("8.8.8.8", self._keys_with_shodan(), False)
+
+        assert status == smoke.FAIL, f"Expected FAIL for HTTPStatusError, got {status!r}"
+        assert count == 0
+
+    def test_read_timeout_still_classified_as_fail(self, smoke):
+        """httpx.ReadTimeout from hunt() → FAIL (network error, not auth).
+
+        A timeout is a real operational failure. It must propagate to FAIL so
+        the smoke test correctly signals an environment problem rather than
+        silently skipping a broken module.
+        """
+        request = httpx.Request("GET", "https://api.shodan.io/shodan/host/8.8.8.8")
+        exc = httpx.ReadTimeout("timed out reading response", request=request)
+
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(side_effect=exc)
+
+        mock_mgr = MagicMock()
+        mock_mgr.get_module.return_value = mock_mod
+
+        with patch("adversary_pursuit.core.plugin_mgr.PluginManager", return_value=mock_mgr):
+            status, msg, count = smoke._run_shodan("8.8.8.8", self._keys_with_shodan(), False)
+
+        assert status == smoke.FAIL, f"Expected FAIL for ReadTimeout, got {status!r}"
+        assert count == 0
+
+    def test_censys_authentication_error_classified_as_skip(self, smoke):
+        """AuthenticationError from censys hunt() → SKIP (not FAIL).
+
+        Regression guard for the censys-specific handler added in DEC-SMOKE-005.
+        Censys PAT rejected by the API raises AuthenticationError; the smoke test
+        must return SKIP so a free-tier user with an invalid PAT sees [SKIP] not [FAIL].
+        """
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(
+            side_effect=AuthenticationError("PAT rejected — check https://app.censys.io")
+        )
+
+        mock_mgr = MagicMock()
+        mock_mgr.get_module.return_value = mock_mod
+
+        with patch("adversary_pursuit.core.plugin_mgr.PluginManager", return_value=mock_mgr):
+            status, msg, count = smoke._run_censys("8.8.8.8", self._keys_with_censys(), False)
+
+        assert status == smoke.SKIP, f"Expected SKIP for Censys AuthenticationError, got {status!r}"
+        assert msg.startswith("auth:"), f"Expected 'auth: ...' message, got {msg!r}"
+        assert count == 0
 
 
 # ---------------------------------------------------------------------------
