@@ -72,6 +72,24 @@ Flow: POST /api/v1/scan/ (submit) -> poll GET /api/v1/result/{uuid}/ -> parse re
            The message deliberately mentions "403" and "forbidden" to distinguish
            it from the 401 "invalid or revoked" message, aiding debugging.
            Reference: scripts/smoke_test.py _run_urlscan classification logic.
+
+@decision DEC-MODULE-URLSCAN-007
+@title API-Key header on poll GET; 403-during-poll retried like 404
+@status accepted
+@rationale urlscan.io/docs/api/ recommends including the API-Key header for
+           all API requests, including result polling GETs. Without it,
+           URLScan returns HTTP 403 (not 404) while the result is still
+           processing — indicating "not yet authorized for this UUID" rather
+           than a permanent permission denial. This is a different semantic
+           from 403 on submit (DEC-MODULE-URLSCAN-006, which means the key
+           lacks permission for that scan type). The fix: (1) send the
+           existing `headers` dict (already holding API-Key and Content-Type)
+           on every poll GET — no new dict is allocated; (2) treat poll-403
+           as a transient not-ready condition and retry it the same way as
+           poll-404, with a debug log and `continue`. Only the two recognized
+           not-ready codes (403, 404) are retried; all other non-200 codes
+           still reach raise_for_status().
+           Reference: https://urlscan.io/docs/api/
 """
 
 from __future__ import annotations
@@ -190,7 +208,9 @@ class URLScan(BaseModule):
             When the API returns 429 on submit. retry_after is populated from
             the Retry-After response header when present.
         httpx.HTTPStatusError
-            For unexpected 4xx/5xx responses not handled above.
+            For unexpected 4xx/5xx responses not handled above. Note: 403 and
+            404 during poll are retried (not raised) — they indicate the result
+            is not yet ready. See DEC-MODULE-URLSCAN-007.
         httpx.RequestError
             For network-level failures (DNS, timeout, connection refused).
         """
@@ -252,7 +272,7 @@ class URLScan(BaseModule):
                 await asyncio.sleep(poll_interval)
                 elapsed += poll_interval
 
-                result_resp = await client.get(result_url)
+                result_resp = await client.get(result_url, headers=headers)
                 if result_resp.status_code == 200:
                     result_data = result_resp.json()
                     logger.debug(
@@ -264,6 +284,13 @@ class URLScan(BaseModule):
                 elif result_resp.status_code == 404:
                     logger.debug(
                         "URLScan result not ready (elapsed=%ds, uuid=%s) — retrying",
+                        elapsed,
+                        scan_uuid,
+                    )
+                    continue
+                elif result_resp.status_code == 403:
+                    logger.debug(
+                        "URLScan result not yet authorized (403, elapsed=%ds, uuid=%s) — retrying",
                         elapsed,
                         scan_uuid,
                     )

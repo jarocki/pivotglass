@@ -553,6 +553,57 @@ class TestURLScanPollBehavior:
         body = mock_client.post.call_args.kwargs.get("json", {})
         assert body.get("url") == TARGET_URL
 
+    def test_poll_request_has_api_key_header(self):
+        """GET poll uses API-Key header with the configured API key.
+
+        # @mock-exempt: httpx.AsyncClient at HTTP boundary
+        """
+        submit_resp = _make_mock_response(200, SUBMIT_RESPONSE)
+        poll_resp = _make_mock_response(200, RESULT_RESPONSE)
+        mock_client = _make_client(submit_resp, poll_resp)
+
+        with (
+            patch(
+                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
+            patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+        ):
+            mod = URLScan()
+            mod.initialize({"api_key": "my-secret-urlscan-key"})
+            asyncio.run(mod.hunt(TARGET_URL, {}))
+
+        assert (
+            mock_client.get.call_args.kwargs.get("headers", {}).get("API-Key")
+            == "my-secret-urlscan-key"
+        )
+
+    def test_poll_retries_on_403_then_succeeds(self):
+        """Poll loop retries when result is 403, then parses 200 results.
+
+        # @mock-exempt: httpx.AsyncClient at HTTP boundary
+        """
+        submit_resp = _make_mock_response(200, SUBMIT_RESPONSE)
+        # First poll returns 403 (transient not-ready), second returns 200
+        poll_403 = _make_mock_response(403, {})
+        poll_200 = _make_mock_response(200, RESULT_RESPONSE)
+        mock_client = _make_client(submit_resp, [poll_403, poll_200])
+
+        with (
+            patch(
+                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                return_value=mock_client,
+            ),
+            patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+        ):
+            mod = URLScan()
+            mod.initialize({"api_key": "test-key"})
+            results = asyncio.run(mod.hunt(TARGET_URL, {"TIMEOUT": "30", "POLL_INTERVAL": "5"}))
+
+        assert results[0]["type"] == "url"
+        assert results[0].get("x_scan_uuid") == SCAN_UUID
+        assert results[0].get("x_page_title") == "Malware Example Page"
+
 
 # ---------------------------------------------------------------------------
 # Lists cap test
