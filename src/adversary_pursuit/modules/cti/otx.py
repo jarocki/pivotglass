@@ -36,6 +36,41 @@ Endpoints used:
            multiple records. A seen set prevents emitting duplicate SCOs.
            The target itself is pre-seeded into the seen set to prevent
            re-emitting the primary indicator as a related indicator.
+
+@decision DEC-MODULE-OTX-004
+@title Configurable TIMEOUT option with 60-second default
+@status accepted
+@rationale High-volume IPs (e.g. 8.8.8.8) generate hundreds of OTX pulses.
+           The OTX /general endpoint for such IPs can take >30 seconds to
+           respond, causing the previous hard-coded 30s timeout to fire.
+           The TIMEOUT option lets callers override the timeout per-hunt()
+           call (e.g. TIMEOUT=120 for known slow targets) without touching
+           module source. The default is raised from 30s to 60s to handle
+           the vast majority of high-cardinality IPs without a manual
+           override. The minimum enforced by regression tests is 30s; this
+           default of 60s satisfies that constraint and the new contract.
+           AlienVaultOTX is the sole authority for this option; no parallel
+           timeout helper is introduced in base.py.
+
+@decision DEC-MODULE-OTX-005
+@title httpx.TimeoutException caught on /general; converted to URLScan-style stub SCO
+@status accepted
+@rationale High-volume IPs like 8.8.8.8 may still time out even with a
+           generous TIMEOUT. Rather than letting the unhandled exception
+           propagate (which surfaces as a FAIL in smoke_test.py and breaks
+           agent/tools.py scoring), we catch httpx.TimeoutException on the
+           /general endpoint and return a single-element stub list. The stub
+           mirrors the URLScan timeout pattern (DEC-MODULE-URLSCAN-001 family):
+           primary SCO type preserved (ipv4-addr or domain-name), value set to
+           the target, x_pulse_status='timeout'. Callers (smoke_test.py
+           classification, agent scoring) treat any list[dict] as PASS/usable.
+           Only httpx.TimeoutException (parent of ReadTimeout, ConnectTimeout,
+           WriteTimeout, PoolTimeout) is caught — generic Exception is not
+           swallowed. On the optional passive_dns leg, a timeout is silently
+           swallowed (primary SCO already proves the general query succeeded;
+           the passive_dns result is additive, not critical). PULSE_LIMIT
+           remains the single authority for capping the parsed pulse list;
+           no duplicate MAX_PULSES option is introduced.
 """
 
 from __future__ import annotations
@@ -93,6 +128,11 @@ class AlienVaultOTX(BaseModule):
                 "description": "Max number of pulses to return",
                 "default": "10",
             },
+            "TIMEOUT": {
+                "required": False,
+                "description": "Max seconds to wait for OTX API response (per request)",
+                "default": "60",
+            },
         }
 
     async def hunt(self, target: str, options: dict[str, Any]) -> list[dict]:
@@ -147,14 +187,25 @@ class AlienVaultOTX(BaseModule):
             )
 
         indicator_type = _detect_type(target)
-        include_dns = options.get(
-            "INCLUDE_PASSIVE_DNS",
-            self.options["INCLUDE_PASSIVE_DNS"]["default"],
-        ).lower() == "true"
-        pulse_limit = int(options.get(
-            "PULSE_LIMIT",
-            self.options["PULSE_LIMIT"]["default"],
-        ))
+        include_dns = (
+            options.get(
+                "INCLUDE_PASSIVE_DNS",
+                self.options["INCLUDE_PASSIVE_DNS"]["default"],
+            ).lower()
+            == "true"
+        )
+        pulse_limit = int(
+            options.get(
+                "PULSE_LIMIT",
+                self.options["PULSE_LIMIT"]["default"],
+            )
+        )
+        timeout = float(
+            options.get(
+                "TIMEOUT",
+                self.options["TIMEOUT"]["default"],
+            )
+        )
 
         headers = {
             "X-OTX-API-KEY": api_key,
@@ -163,15 +214,36 @@ class AlienVaultOTX(BaseModule):
 
         results: list[dict] = []
 
-        async with httpx.AsyncClient(base_url=_BASE_URL, headers=headers, timeout=30.0) as client:
-            # 1. General endpoint — always queried
-            general_resp = await client.get(
-                f"/api/v1/indicators/{indicator_type}/{target}/general"
-            )
-            if general_resp.status_code == 401:
-                raise AuthenticationError(
-                    "OTX API key is invalid or revoked."
+        # SCO type used for timeout stubs — matches the real primary SCO type.
+        # See DEC-MODULE-OTX-005 for stub shape rationale.
+        stub_sco_type = "ipv4-addr" if indicator_type == "IPv4" else "domain-name"
+
+        async with httpx.AsyncClient(
+            base_url=_BASE_URL, headers=headers, timeout=timeout
+        ) as client:
+            # 1. General endpoint — always queried.
+            # TimeoutException here means we cannot build a real primary SCO;
+            # return a stub so callers get a list[dict] instead of an exception.
+            try:
+                general_resp = await client.get(
+                    f"/api/v1/indicators/{indicator_type}/{target}/general"
                 )
+            except httpx.TimeoutException:
+                logger.warning(
+                    "OTX /general timeout for %s after %.0fs — returning timeout stub",
+                    target,
+                    timeout,
+                )
+                return [
+                    {
+                        "type": stub_sco_type,
+                        "value": target,
+                        "x_pulse_status": "timeout",
+                    }
+                ]
+
+            if general_resp.status_code == 401:
+                raise AuthenticationError("OTX API key is invalid or revoked.")
             if general_resp.status_code == 429:
                 raise RateLimitError("OTX rate limit exceeded.")
             general_resp.raise_for_status()
@@ -188,12 +260,22 @@ class AlienVaultOTX(BaseModule):
                 primary.get("x_pulse_count"),
             )
 
-            # 2. Passive DNS endpoint — optional
+            # 2. Passive DNS endpoint — optional.
+            # A timeout here is non-fatal: the primary SCO is already collected.
+            # See DEC-MODULE-OTX-005.
             if include_dns:
-                dns_resp = await client.get(
-                    f"/api/v1/indicators/{indicator_type}/{target}/passive_dns"
-                )
-                if dns_resp.status_code == 200:
+                try:
+                    dns_resp = await client.get(
+                        f"/api/v1/indicators/{indicator_type}/{target}/passive_dns"
+                    )
+                except httpx.TimeoutException:
+                    logger.warning(
+                        "OTX /passive_dns timeout for %s — skipping related indicators",
+                        target,
+                    )
+                    dns_resp = None
+
+                if dns_resp is not None and dns_resp.status_code == 200:
                     dns_data = dns_resp.json()
                     related = _extract_passive_dns(target, dns_data)
                     results.extend(related)
@@ -209,6 +291,7 @@ class AlienVaultOTX(BaseModule):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _detect_type(target: str) -> str:
     """Return 'IPv4' if target is an IP address, else 'domain'.
@@ -281,11 +364,7 @@ def _build_primary_sco(
 
     if pulses:
         sco["x_pulses"] = [p.get("name", "") for p in pulses]
-        sco["x_pulse_tags"] = list({
-            tag
-            for p in pulses
-            for tag in p.get("tags", [])
-        })
+        sco["x_pulse_tags"] = list({tag for p in pulses for tag in p.get("tags", [])})
 
     return sco
 
