@@ -23,9 +23,13 @@ pulse extraction, INCLUDE_PASSIVE_DNS=false, PULSE_LIMIT, and error paths.
 
 from __future__ import annotations
 
+# @mock-exempt: httpx.AsyncClient is an external HTTP boundary (OTX REST API).
+# All mock usage in this file targets httpx.AsyncClient or httpx exceptions only —
+# never internal module code. This annotation covers the full file per the gate policy.
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from adversary_pursuit.core.plugin_mgr import PluginManager
@@ -706,3 +710,171 @@ class TestOTXTimeoutRegression:
         results = asyncio.run(mod.hunt("1.2.3.4", {}))
         assert len(results) >= 1
         assert results[0]["type"] == "ipv4-addr"
+
+
+# ---------------------------------------------------------------------------
+# TIMEOUT option tests (DEC-MODULE-OTX-004)
+# ---------------------------------------------------------------------------
+
+# @mock-exempt: httpx.AsyncClient is an external HTTP boundary (OTX REST API).
+# Mocking is necessary to inspect constructor kwargs and inject timeout errors
+# without making real network calls. See module-level @mock-exempt annotation.
+
+
+class TestOTXTimeoutOption:
+    """TIMEOUT option is declared, defaults to '60', and propagates to the httpx client.
+
+    Production sequence: hunt() reads TIMEOUT from options (falling back to the
+    module default), converts it to float, and passes it directly to
+    httpx.AsyncClient(timeout=...). These tests verify that chain without a live
+    API key by patching AsyncClient at the module level.
+    """
+
+    def test_timeout_option_default_60(self):
+        """AlienVaultOTX.options['TIMEOUT'] default is '60' (DEC-MODULE-OTX-004)."""
+        mod = AlienVaultOTX()
+        assert "TIMEOUT" in mod.options
+        assert mod.options["TIMEOUT"]["default"] == "60"
+
+    def test_timeout_option_in_options_dict(self):
+        """TIMEOUT option is not required and carries a human-readable description."""
+        mod = AlienVaultOTX()
+        opt = mod.options["TIMEOUT"]
+        assert opt["required"] is False
+        assert "seconds" in opt["description"].lower() or "timeout" in opt["description"].lower()
+
+    def test_timeout_option_honored_when_overridden(self, mock_ip_success):
+        """TIMEOUT override is propagated as float to httpx.AsyncClient(timeout=...)."""
+        with patch(
+            "adversary_pursuit.modules.cti.otx.httpx.AsyncClient",
+        ) as mock_cls:
+            mock_cls.return_value = mock_ip_success
+            mod = AlienVaultOTX()
+            mod.initialize({"api_key": "test-key"})
+            asyncio.run(mod.hunt("1.2.3.4", {"TIMEOUT": "120"}))
+
+            _, kwargs = mock_cls.call_args
+            assert kwargs.get("timeout") == 120.0, (
+                f"Expected timeout=120.0, got {kwargs.get('timeout')}. "
+                "TIMEOUT option override must propagate to httpx.AsyncClient."
+            )
+
+
+# ---------------------------------------------------------------------------
+# ReadTimeout behavior tests (DEC-MODULE-OTX-005)
+# ---------------------------------------------------------------------------
+
+# @mock-exempt: httpx.AsyncClient is an external HTTP boundary. ReadTimeout is
+# injected via side_effect so the test exercises the exception-handling path
+# that would fire on a real slow API response (e.g. 8.8.8.8 with many pulses).
+
+
+class TestOTXReadTimeoutBehavior:
+    """hunt() converts httpx.TimeoutException on /general to a URLScan-style stub.
+
+    Production sequence for the timeout path:
+      1. AsyncClient.get('/general') raises httpx.ReadTimeout (subclass of
+         httpx.TimeoutException).
+      2. hunt() catches TimeoutException, logs a warning, and returns a
+         single-element list containing a stub SCO.
+      3. The stub carries the correct type (ipv4-addr or domain-name),
+         the original target value, and x_pulse_status='timeout'.
+      4. Callers (smoke_test.py, agent/tools.py) see a non-empty list[dict]
+         and continue normally — no unhandled exception propagates.
+
+    On the passive_dns leg, a TimeoutException is non-fatal: the primary SCO
+    was already collected, so hunt() continues and returns results so far.
+    """
+
+    def test_read_timeout_on_general_returns_stub_not_raise(self):
+        """ReadTimeout on /general returns a list[dict], not an unhandled exception."""
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=httpx.ReadTimeout("timed out"))
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+            mod = AlienVaultOTX()
+            mod.initialize({"api_key": "test-key"})
+            results = asyncio.run(mod.hunt("1.2.3.4", {}))
+
+        assert isinstance(results, list), "hunt() must return list[dict] on timeout"
+        assert len(results) == 1, "Timeout stub must be a single-element list"
+
+    def test_read_timeout_stub_carries_target_value(self):
+        """Timeout stub SCO 'value' field matches the queried target."""
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=httpx.ReadTimeout("timed out"))
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+            mod = AlienVaultOTX()
+            mod.initialize({"api_key": "test-key"})
+            results = asyncio.run(mod.hunt("8.8.8.8", {}))
+
+        assert results[0]["value"] == "8.8.8.8"
+
+    def test_read_timeout_stub_marks_x_pulse_status_timeout(self):
+        """Timeout stub SCO carries x_pulse_status='timeout' (mirrors URLScan pattern)."""
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=httpx.ReadTimeout("timed out"))
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+            mod = AlienVaultOTX()
+            mod.initialize({"api_key": "test-key"})
+            results = asyncio.run(mod.hunt("1.2.3.4", {}))
+
+        assert results[0].get("x_pulse_status") == "timeout"
+
+    def test_read_timeout_on_domain_target_returns_domain_stub(self):
+        """Timeout stub for a domain target has type='domain-name', not 'ipv4-addr'."""
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=httpx.ReadTimeout("timed out"))
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+            mod = AlienVaultOTX()
+            mod.initialize({"api_key": "test-key"})
+            results = asyncio.run(mod.hunt("evil.example.com", {}))
+
+        assert results[0]["type"] == "domain-name"
+        assert results[0]["value"] == "evil.example.com"
+
+    def test_read_timeout_on_passive_dns_keeps_primary_result(self):
+        """ReadTimeout on /passive_dns is non-fatal: primary SCO is returned.
+
+        Production sequence: /general succeeds (primary SCO collected), then
+        /passive_dns raises ReadTimeout. hunt() swallows the passive_dns
+        timeout and returns the primary SCO only. This verifies that a
+        slow passive_dns response does not discard already-collected data.
+        """
+        general_resp = _make_mock_response(200, SAMPLE_IP_GENERAL)
+
+        call_count = 0
+
+        async def _side_effect(url):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return general_resp
+            raise httpx.ReadTimeout("passive dns timed out")
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=_side_effect)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+            mod = AlienVaultOTX()
+            mod.initialize({"api_key": "test-key"})
+            results = asyncio.run(mod.hunt("1.2.3.4", {}))
+
+        # Primary SCO must be present; no stub since /general succeeded
+        assert len(results) >= 1
+        assert results[0]["type"] == "ipv4-addr"
+        assert results[0]["value"] == "1.2.3.4"
+        assert results[0].get("x_pulse_status") != "timeout"
