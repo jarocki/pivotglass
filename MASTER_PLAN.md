@@ -75,10 +75,12 @@ These are explicitly out of scope for v1. They may appear in future versions but
 | Phase 2 — Gamification (was Phase 3) (#14-#18) | completed | Scoring, Challenges, Modes, Badges, Hints all landed. Fully wired into both the cmd2 console and the agent path (all 9 W-AGENT-* slices complete). |
 | Phase 3 — Auto-Pivot & Graph (was Phase 4) (#19-#20) | completed | Event bus opt-in (DEC-EVENTBUS-002); graph + GEXF + STIX bundle export. Wired into both cmd2 console and agent path (W-AGENT-AUTOPIVOT `8e48256`, W-AGENT-GRAPH-EXPORT `0b83eb2`). |
 | Phase 4 — Agentic Chat Interface (#25 + W-AGENT-*) | **completed** | All 9 W-AGENT-* slices landed. 21 LLM tools covering all 10 modules + celebrations + badges + hints + modes + autopivot + challenges + graph/export + reports. Full gamification parity with cmd2 console achieved. |
-| Phase 5 — Polish & Release (#21-#24) | in-progress | #21, #22, #23 done; #24 CI/CD landed, PyPI publish needs verification (W-V1-PYPI-VERIFY). |
+| Phase 5 — Polish & Release (#21-#24) | in-progress | #21, #22, #23 done; #24 CI/CD landed. **Distribution strategy pivoted PyPI → GitHub Releases (`02fed4d`, 2026-05-03)**; W-V1-PYPI-VERIFY retired, replaced by `W-V1-RELEASE-VERIFY` (verify the GitHub-Releases artifact install path). |
 | Phase 6 — Agent Docs (W-AGENT-DOCS) | **completed** | README rewritten for agent-first v1: `ap chat` primary interface documented, all 21 LLM tools, 8 meta-commands, 10 modes, and persona-prompt protocol. MASTER_PLAN Phase 4 status and W-AGENT-* table updated with all merge SHAs. |
+| Phase 7 — Post-Phase-6 CTI Pipeline & TUI Polish (unscheduled, landed organically 2026-05-03..2026-05-15) | **completed** | ~12 user-driven commits hardening CTI reliability, setup UX, and TUI polish: setup wizard `b44968c` (#45), 3-layer key resolution `a4cc341`, Censys Platform API v3 `fef6bfd` (#43), CTI pipeline repairs `9e6daa0`, URLScan submit/poll fixes `26c5b54` + `5cc2be6`, smoke SKIP classification `137fb45` (#48), smoke ConfigManager fix `823d54e`, TUI polish `db576b9`, provider/model wizard `4e11dde`, help meta-commands `70ede27`, `AP_MODEL` env override `9129c1b`, wizard dotfile export `4b9d030`. |
+| Phase 8 — Smoke Test Reliability | in-progress | Surfaced by live smoke runs after Phase 7 polish landed. Current open slice: **`W-OTX-TIMEOUT`** (cti/otx `httpx.ReadTimeout` on high-cardinality IPs — Guardian provisioning worktree). Subsequent slices will be filed as live-smoke regressions are observed. |
 
-**Aggregate (final):** Phases 0–4 complete; all W-AGENT-* slices landed; Phase 6 docs complete. The agentic chat (`ap chat`) is the v1 primary interface with full gamification parity. The cmd2 REPL is a supported power-user surface. The only remaining v1 item is Phase 5 PyPI publish verification (W-V1-PYPI-VERIFY).
+**Aggregate (reconciled 2026-05-15):** Phases 0–4 complete; all W-AGENT-* slices landed; Phase 6 docs complete; Phase 7 post-polish complete; Phase 8 in-progress with one active slice (`W-OTX-TIMEOUT`). The agentic chat (`ap chat`) is the v1 primary interface with full gamification parity. The cmd2 REPL is a supported power-user surface. Remaining v1 items are Phase 5 `W-V1-RELEASE-VERIFY` (GitHub-Releases install path) and Phase 8 `W-OTX-TIMEOUT` (in flight).
 
 > **Note:** The previous "Beyond v1 — smolagents" framing is retired. Agentic chat is in v1 by user direction (ADR-010). Phase numbering in this status table is the **revised** ordering; the per-phase Decision Log sections below retain their original numbering for traceability with prior plan revisions.
 
@@ -452,11 +454,11 @@ Configurable per-workspace: `auto_pivot = true/false`, depth limit, module white
 | #21 Report Generation | done | `9e55bca` | DEC-REPORT-001 (interview-first structure), DEC-REPORT-002 (Markdown over PDF/HTML for v1), DEC-REPORT-003 (in-memory interview state, no DB persistence). Console exposes `do_report`. |
 | #22 Celebrations | done | `f175a70` | DEC-CELEBRATION-001 (4-level ASCII art keyed on points), DEC-CELEBRATION-002 (milestone messages fire at exact thresholds). |
 | #23 Documentation | done | `167df88` (consolidated `8710aa0`) | README rewrite: usage, modules, plugin guide, architecture. |
-| #24 PyPI Release | partial | `18a64b4` (CI/CD merged) | `.github/workflows/{ci,release}.yml` shipped; `pyproject.toml` is release-ready. **Open verification:** confirm `pip install adversary-pursuit` resolves to a published artifact (or that a release tag exists triggering the publish workflow). Recent commits `c46903f` and `5895560` fixed `[project.urls]` regressions, suggesting publish is being iterated but not yet proven landed. |
+| #24 Release Distribution | partial (pivoted) | `18a64b4` (CI/CD merged) → `02fed4d` (PyPI → GitHub Releases pivot, 2026-05-03) | `.github/workflows/{ci,release}.yml` shipped. **Distribution decision updated:** v1 distributes via **GitHub Releases** (tagged artifact downloads + `pip install` from release URL) rather than PyPI. Rationale: reduces credential/trusted-publisher surface for a solo-maintainer pre-1.0 project; release tags remain the trigger. The earlier `[project.urls]` regressions (`c46903f`, `5895560`) were corrections during the pivot. **Open verification:** `W-V1-RELEASE-VERIFY` confirms the GitHub-Releases install path is reachable end-to-end (tag → workflow → uploaded artifact → installable). |
 
 ### Remaining Work (next work items)
 
-- **W-V1-PYPI-VERIFY** — verify PyPI publish completed. Possible outcomes: (a) confirm a published version on PyPI and close #24; (b) cut a release tag to trigger `release.yml` and verify it succeeds; (c) document any blocker (missing `PYPI_API_TOKEN`, trusted-publisher OIDC config, etc.). Doc-only or workflow-only work — no source code changes expected.
+- **W-V1-RELEASE-VERIFY** — verify the GitHub-Releases distribution path completed end-to-end. Possible outcomes: (a) confirm a tagged release exposes an installable artifact (sdist/wheel) and `pip install` from the release URL resolves; (b) cut a release tag to trigger `release.yml` and verify the artifact is uploaded; (c) document any blocker (workflow misconfiguration, missing artifact build step, asset naming mismatch). Doc-only or workflow-only work — no source code changes expected. **Supersedes** the retired `W-V1-PYPI-VERIFY` per the `02fed4d` pivot.
 
 ### #21 -- Report Generation
 
@@ -483,11 +485,15 @@ Output: Markdown report with embedded graphs, timeline, IOC table.
 - Example challenge packs
 - Example playbooks (chained module sequences)
 
-### #24 -- PyPI Release
+### #24 -- Release Distribution
 
-- Package on PyPI: `pip install adversary-pursuit`
+**Pivoted 2026-05-03 (`02fed4d`): PyPI → GitHub Releases.** For v1 the canonical install path is `pip install <github-release-url>` (or `pipx install` against a tagged release artifact), not `pip install adversary-pursuit` from PyPI.
+
+- GitHub Releases with tagged sdist + wheel artifacts (replaces PyPI for v1)
 - GitHub releases with changelog
-- CI/CD via GitHub Actions (lint, test, publish)
+- CI/CD via GitHub Actions (lint, test, build artifact, attach to release)
+
+PyPI distribution is deferred (not abandoned) — a credible candidate post-v1 once the project has a stable user base and a maintained trusted-publisher posture. v1 keeps the supply-chain surface small.
 
 ---
 
@@ -549,6 +555,47 @@ These files contain no architectural decisions — they are namespace markers an
 
 ---
 
+## Post-Phase 6 Maintenance Fixes (2026-05-03..2026-05-15)
+
+After Phase 6 closeout, ~12 user-driven commits landed organically as live-use revealed CTI reliability and UX rough edges. These were not planned slices — they were reactive fixes/polish driven by smoke runs and direct user feedback. Captured here for historical traceability; the strategic pivot (`02fed4d`) is also called out separately in Phase 5.
+
+| SHA | Title | Rationale (one-line) |
+|-----|-------|----------------------|
+| `02fed4d` | Replace PyPI distribution with GitHub Releases | Reduces credential/trusted-publisher surface for solo-maintainer v1; supersedes `W-V1-PYPI-VERIFY`. |
+| `b44968c` | Add setup wizard for CTI credentials (closes #45) | First-run friction: users had no guided way to enter API keys; wizard collects + persists to `~/.ap/config.toml`. |
+| `a4cc341` | 3-layer API key resolution (CLI → env → config) | Deterministic precedence so env-driven CI and config-driven dev/local don't surprise users. |
+| `fef6bfd` | Censys Platform API v3 migration (closes #43) | Censys deprecated the v2 search endpoint; v3 Platform API + bearer token. |
+| `9e6daa0` | CTI pipeline repairs (workspace bind, Censys 302, OTX timeout msg, PT error msg) | Bundle of small reliability fixes surfaced by live runs. |
+| `26c5b54` | URLScan submit fix (trailing slash + 403 → AuthenticationError) | Submit endpoint required trailing slash; 403 was being swallowed as a generic error. |
+| `5cc2be6` | URLScan poll auth fix (API-Key header + 403-during-poll retry) | Poll path was using a different auth shape than submit; added retry on transient 403. |
+| `137fb45` | Smoke test SKIP classification (closes #48) | Smoke runs without API keys must SKIP, not FAIL — they were poisoning red/green signal. |
+| `823d54e` | Smoke test ConfigManager fix | Smoke harness was instantiating ConfigManager incorrectly after the 3-layer resolution change. |
+| `db576b9` | TUI polish (autocomplete, history, vi, ASCII flair) | prompt_toolkit-driven polish lifting the chat REPL to feel native. |
+| `4e11dde` | Provider/model setup wizard | Mirrors the CTI credentials wizard for LLM provider selection (Ollama/OpenAI/Anthropic). |
+| `70ede27` | Help / `?` meta-commands | Discoverability: users couldn't see the meta-command catalog without reading docs. |
+| `9129c1b` | `AP_MODEL` env override | One-shot model selection without rewriting config. |
+| `4b9d030` | Wizard dotfile export | Wizard can emit a shell dotfile snippet so env vars persist across sessions. |
+
+These commits did not pass through canonical planner → guardian (provision) → implementer → reviewer → guardian (land) flow. They are valid landed work; the lesson for Phase 8 is that **live-smoke regressions should be filed as discrete slices** so the canonical chain owns them.
+
+## In Flight
+
+| ID | Title | Status | Scope | Rationale |
+|----|-------|--------|-------|-----------|
+| `W-OTX-TIMEOUT` (workflow id `w-otx-timeout`) | cti/otx `httpx.ReadTimeout` on high-cardinality IPs | planner done; Guardian provisioning worktree | `src/adversary_pursuit/modules/cti/otx.py` + `tests/test_otx.py` (~2 files) | Live smoke FAIL on IPs with large pulse counts. Adds `TIMEOUT` option + `httpx.ReadTimeout` → timeout-stub SCO mirroring the URLScan pattern (`5cc2be6`). Pattern: classify transient/timeout failures as observable stubs rather than hard errors so the agent path can score and continue. |
+
+## Runtime Hygiene Backlog
+
+Cross-cutting runtime issues surfaced during recent dispatch chains. Tracked as GitHub issues (not v1 plan slices) — they affect orchestrator/Guardian quality of life but not the AP product surface:
+
+- **#49** — `cc-policy test-state` should reconcile worktree↔main-repo paths on Guardian preflight (currently a path-shape mismatch can wedge readiness).
+- **#50** — lease op vocabulary classifies straightforward FF push as `high_risk` (should be `routine` post-evaluation).
+- **#51** — worktree `.venv` lacks the `[agent]` extra; full `pytest` collection fails on agent-dependent test modules.
+
+Fix order is opportunistic — whoever hits one first files the slice. Not blocking on v1.
+
+---
+
 ## Next Work Items
 
 These are the concrete follow-ups identified by the 2026-04-28 reckoning and updated by the 2026-04-29 interface-model correction (ADR-010). Each is sized to be a single Guardian-bound work item with its own Evaluation Contract when dispatched.
@@ -572,11 +619,12 @@ These are the concrete follow-ups identified by the 2026-04-28 reckoning and upd
 
 | ID | Title | Type | Blocked By |
 |----|-------|------|------------|
-| W-V1-PYPI-VERIFY | Verify PyPI publish for #24 — either confirm an existing release or cut a tag to trigger `release.yml` | release / ops | publish credentials access |
+| W-V1-RELEASE-VERIFY | Verify the GitHub-Releases distribution path for #24 — confirm an existing tagged release exposes an installable artifact, or cut a tag to trigger `release.yml` and verify upload | release / ops | nothing — can be planned anytime |
+| W-OTX-TIMEOUT | cti/otx `httpx.ReadTimeout` on high-cardinality IPs — add `TIMEOUT` option + timeout-stub SCO mirroring URLScan pattern | source + tests | in flight (Guardian provisioning) |
 
-> **Recommended next work item:** **`W-AGENT-MODULES-VT-CENSYS-PT`**. Smallest, lowest-risk, has no dependencies, restores the *catalog parity* claim (10 modules in cmd2 vs. 10 modules in chat) before the larger gamification work begins. After it lands, **`W-AGENT-CELEBRATIONS`** is the natural next slice — it's the highest-visibility gamification gap and unblocks W-AGENT-BADGES + W-AGENT-MODES (all share the same per-tool-call hook point in `run_module`).
+> **Recommended next work item:** The Phase 6 agent-parity initiative is complete; the previously recommended `W-AGENT-MODULES-VT-CENSYS-PT` has landed (`66f89dd`). Remaining v1 work is **`W-V1-RELEASE-VERIFY`** (release path verification, doc/workflow only) plus **`W-OTX-TIMEOUT`** (in flight). Phase 8 will continue to surface live-smoke regressions as discrete slices — file them through the canonical planner chain rather than landing them ad-hoc.
 >
-> The previously listed `W-SCOPE-25` is retired by ADR-010. The previously listed `W-COVERAGE-METRIC` (cosmetic `@decision` ratio) is deferred — it is not a v1 release blocker and was always optional.
+> The previously listed `W-SCOPE-25` is retired by ADR-010. The previously listed `W-COVERAGE-METRIC` (cosmetic `@decision` ratio) is deferred — it is not a v1 release blocker and was always optional. `W-V1-PYPI-VERIFY` is retired by the 2026-05-03 GitHub-Releases pivot (`02fed4d`).
 
 ---
 
@@ -604,7 +652,7 @@ Phase 1 (Foundation):    #1 -> #5 -> #3 -> #4 -> #2                 [done]
 Phase 2 (Modules):       #10, #12, #9 -> #11 -> #6, #8 -> #7 -> #13 [done]
 Phase 3 (Gamification):  #14 -> #15 -> #16 -> #17 -> #18            [done]
 Phase 4 (Auto-Pivot):    #19 -> #20                                 [done]
-Phase 5 (Polish):        #21 -> #22 -> #23 -> #24                   [in-progress: PyPI verify]
+Phase 5 (Polish):        #21 -> #22 -> #23 -> #24                   [in-progress: W-V1-RELEASE-VERIFY (GitHub Releases, pivoted from PyPI 02fed4d)]
 Phase 6 (Agent — primary v1 interface):
                          #25 (landed) ->
                          W-AGENT-MODULES-VT-CENSYS-PT ->
@@ -625,9 +673,10 @@ Phase 6 (Agent — primary v1 interface):
 **MLP (Minimum Lovable Product, revised 2026-04-29):**
 - *Original MLP:* working cmd2 console + 3 OSINT modules + scoring.
 - *Revised MLP:* working **`ap chat` agent** + 3 OSINT modules wired as agent tools + scoring + **at least one visible gamification signal in the chat path** (celebrations is the recommended one — highest signal-to-effort ratio). The cmd2 console is bundled but is not the front door.
-- *MLP Status (Phase 6 closeout, 2026-05-01):* MLP threshold crossed. `ap chat` provides 10 modules, full gamification (scoring + celebrations + badges + modes + hints), auto-pivot, challenges, graph/export, and reports — exceeds the revised MLP. Remaining v1 work is Phase 5 release polish (`W-V1-PYPI-VERIFY`).
+- *MLP Status (Phase 6 closeout, 2026-05-01):* MLP threshold crossed. `ap chat` provides 10 modules, full gamification (scoring + celebrations + badges + modes + hints), auto-pivot, challenges, graph/export, and reports — exceeds the revised MLP.
+- *Post-MLP Status (reconciled 2026-05-15):* Phase 7 (post-Phase-6 CTI pipeline + TUI polish, ~12 commits) landed organically as live use surfaced rough edges. Phase 8 (smoke test reliability) is open with `W-OTX-TIMEOUT` in flight. Remaining v1 release work is `W-V1-RELEASE-VERIFY` (GitHub Releases path, pivoted from PyPI per `02fed4d`).
 
-The previous "Start with #1 (scaffolding) immediately" instruction is retired — Phase 1-6 are landed. The next concrete step is `W-V1-PYPI-VERIFY`.
+The previous "Start with #1 (scaffolding) immediately" instruction is retired — Phase 1-6 are landed and Phase 7 polish has landed organically. The next concrete steps are `W-OTX-TIMEOUT` (in flight) and `W-V1-RELEASE-VERIFY`.
 
 ---
 
