@@ -8,7 +8,7 @@ The **v1 primary interface is `ap chat`** — a conversational AI agent powered 
 
 ## Features
 
-- **10 OSINT/CTI Modules** — Shodan, VirusTotal, AbuseIPDB, HIBP, OTX, URLScan, Censys, PassiveTotal, DNS, WHOIS
+- **11 OSINT/CTI Modules** — Shodan, VirusTotal, AbuseIPDB, HIBP, OTX, URLScan, Censys, PassiveTotal, GreyNoise, DNS, WHOIS
 - **21 LLM Tools** — All modules plus gamification, reports, graph, and workspace exposed to the agent
 - **Conversational AI Interface** — Chat with an LLM-powered analyst (`ap chat`)
 - **Classic CLI** — Metasploit-style REPL (`ap`) as a power-user surface
@@ -23,53 +23,27 @@ The **v1 primary interface is `ap chat`** — a conversational AI agent powered 
 
 ## Installation
 
-Adversary Pursuit is currently a development version. Install locally from a clone for testing and iteration. PyPI distribution is planned for a future polished release.
+### Install from GitHub Releases (recommended)
 
-### Local dev install (recommended)
+```bash
+# Latest pre-release (replace <VERSION> with the actual release version, e.g., 0.1.0rc1)
+pip install "https://github.com/jarocki/ap/releases/download/v<VERSION>/adversary_pursuit-<VERSION>-py3-none-any.whl[agent]"
+```
+
+The `[agent]` extras include `prompt-toolkit`, `litellm`, and other dependencies needed for the conversational `ap chat` interface. Omit `[agent]` if you only need the cmd2 REPL (`ap`).
+
+### Install from source (development)
 
 ```bash
 git clone https://github.com/jarocki/ap.git
 cd ap
-
-# With uv (fast, isolated — installs all extras including litellm for ap chat)
-uv sync --all-extras
-
-# Then launch
-uv run ap chat    # primary v1 interface — conversational AI agent (per ADR-010)
-uv run ap         # classic cmd2 REPL (power-user surface)
+uv sync --extra agent
+uv run ap --help
 ```
 
-Alternatively, install as an editable package in a virtualenv so source changes take effect immediately:
+### Configuration
 
-```bash
-python -m venv .venv
-source .venv/bin/activate          # on Windows: .venv\Scripts\activate
-pip install -e ".[agent]"          # [agent] pulls in litellm, required for ap chat
-
-ap chat    # primary v1 interface
-ap         # classic REPL
-```
-
-### Alternative: install from a git tag
-
-```bash
-# pip
-pip install "git+https://github.com/jarocki/ap.git@v0.1.0[agent]"
-
-# or with uv
-uv tool install "git+https://github.com/jarocki/ap.git@v0.1.0[agent]"
-```
-
-### Alternative: install from a downloaded wheel
-
-```bash
-# Each tagged release attaches a wheel to https://github.com/jarocki/ap/releases
-pip install adversary_pursuit-0.1.0-py3-none-any.whl
-```
-
-### Future: PyPI
-
-Once a polished release is ready, the package will be published to PyPI as `adversary-pursuit`. Until then, use the local dev install above.
+Create `~/.ap/config.toml` and add your API keys under `[api_keys]`, OR set environment variables like `AP_SHODAN_API_KEY`, `AP_VIRUSTOTAL_API_KEY`, etc. Run `ap config setup` for the interactive wizard.
 
 ## Quick Start
 
