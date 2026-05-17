@@ -142,6 +142,7 @@ _AP_ENV_NAMES: dict[str, str] = {
     "censys_pat": "AP_CENSYS_PAT",
     "passivetotal_user": "AP_PASSIVETOTAL_USER",
     "passivetotal_key": "AP_PASSIVETOTAL_KEY",
+    "greynoise": "AP_GREYNOISE_API_KEY",
 }
 
 # Vendor-convention env var names for each service (mirrors ConfigManager._VENDOR_ENV_VAR_MAP).
@@ -156,6 +157,7 @@ _VENDOR_ENV_NAMES: dict[str, str] = {
     "censys_pat": "CENSYS_PAT",
     "passivetotal_user": "PT_USERNAME",
     "passivetotal_key": "PT_API_KEY",
+    "greynoise": "GREYNOISE_API_KEY",
 }
 
 
@@ -245,6 +247,7 @@ def _resolve_keys(cm: Any) -> dict[str, tuple[str, str]]:
     _add("censys_pat", cm.get_censys_pat())
     _add("passivetotal_user", cm.get_api_key("passivetotal_user"))
     _add("passivetotal_key", cm.get_api_key("passivetotal_key"))
+    _add("greynoise", cm.get_api_key("greynoise"))
 
     return results
 
@@ -478,6 +481,28 @@ def _run_passivetotal(target: str, keys: dict, verbose: bool) -> tuple[str, str,
         return FAIL, _fmt_exc(exc, verbose), 0
 
 
+def _run_greynoise(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]:
+    """Run osint/greynoise — requires a GreyNoise Community API key."""
+    val, _ = keys.get("greynoise", ("", ""))
+    if not val:
+        return SKIP, "no API key configured", 0
+    try:
+        from adversary_pursuit.core.plugin_mgr import PluginManager
+
+        mgr = PluginManager()
+        mgr.load_plugins()
+        mod = mgr.get_module("osint/greynoise")
+        if mod is None:
+            return FAIL, "module not found", 0
+        mod.initialize({"api_key": val})
+        results = asyncio.run(_run_module(mod, target, {}))
+        return PASS, "", len(results)
+    except AuthenticationError as exc:
+        return SKIP, f"auth: {exc}", 0
+    except Exception as exc:
+        return FAIL, _fmt_exc(exc, verbose), 0
+
+
 def _fmt_exc(exc: Exception, verbose: bool) -> str:
     """Format an exception for output. Full traceback in verbose mode."""
     if verbose:
@@ -626,6 +651,7 @@ def main() -> int:
             lambda: _run_passivetotal(domain_target, keys, args.verbose),
             domain_target,
         ),
+        ("osint/greynoise", lambda: _run_greynoise(ip_target, keys, args.verbose), ip_target),
     ]
 
     pass_count = 0

@@ -87,6 +87,7 @@ _MODULE_NAMES: list[str] = [
     "hibp",
     "otx",
     "passivetotal",
+    "greynoise",
 ]
 
 #: Export format choices.

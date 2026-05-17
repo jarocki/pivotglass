@@ -19,10 +19,9 @@ modules on the new indicators.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable, Coroutine
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +29,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PivotEvent:
     """An event representing a discovered indicator."""
+
     stix_type: str
     value: str
     source_module: str
@@ -39,6 +39,7 @@ class PivotEvent:
 @dataclass
 class PivotConfig:
     """Configuration for auto-pivoting."""
+
     enabled: bool = False
     max_depth: int = 2
     module_whitelist: list[str] = field(default_factory=list)
@@ -53,6 +54,7 @@ DEFAULT_SUBSCRIPTIONS: dict[str, list[str]] = {
     "cti/otx": ["ipv4-addr", "domain-name"],
     "osint/hibp": ["email-addr"],
     "osint/urlscan": ["url"],
+    "osint/greynoise": ["ipv4-addr"],
 }
 
 
@@ -126,10 +128,7 @@ class EventBus:
         self, module_name: str, stix_types: list[str], hunt_callback: Callable
     ) -> None:
         """Register a module to auto-trigger on specific STIX types."""
-        if (
-            self.config.module_whitelist
-            and module_name not in self.config.module_whitelist
-        ):
+        if self.config.module_whitelist and module_name not in self.config.module_whitelist:
             return
         for stype in stix_types:
             self.subscribe(stype, hunt_callback)

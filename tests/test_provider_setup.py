@@ -38,6 +38,7 @@ from adversary_pursuit.agent.provider_setup import (
     CTI_SERVICES,
     PROVIDER_BY_ID,
     PROVIDERS,
+    CTIServiceSpec,
     ProviderAuthError,
     ProviderConnectionError,
     _build_model_string,
@@ -962,11 +963,11 @@ class TestCTIServicesRegistry:
 
     SERVICE_IDS = {
         "shodan", "virustotal", "abuseipdb", "hibp", "otx",
-        "urlscan", "censys_pat", "passivetotal",
+        "urlscan", "censys_pat", "greynoise", "passivetotal",
     }
 
-    def test_eight_services_defined(self):
-        assert len(CTI_SERVICES) == 8
+    def test_nine_services_defined(self):
+        assert len(CTI_SERVICES) == 9
 
     def test_all_expected_service_ids_present(self):
         ids = {s.id for s in CTI_SERVICES}
@@ -1199,7 +1200,7 @@ class TestCTIExportHelpers:
 
     def test_compose_cti_export_lines_skips_empty(self):
         lines = _compose_cti_export_lines({"shodan": "", "virustotal": "vt-key"})
-        assert not any("SHODAN" in l for l in lines)
+        assert not any("SHODAN" in line for line in lines)
         assert 'export VIRUSTOTAL_API_KEY="vt-key"' in lines
 
     def test_compose_cti_export_lines_censys_pat(self):
@@ -1260,13 +1261,13 @@ class TestRunCTICredentialsWizard:
 
     def test_no_returns_empty_configured(self, tmp_path):
         """User declines CTI setup for all services → empty configured dict."""
-        # For all 8 services: user says "n" to configure prompt
+        # For all 9 services: user says "n" to configure prompt
         # run_cti_credentials_wizard iterates over services and shows
         # "Configure X? [y/N]:" for each; user replies "n" each time.
         # The wizard itself also has dotfile export prompt logic.
         config_mgr = make_config_mgr_cti(tmp_path)
-        # "n" for each of the 8 services
-        inputs = ["n"] * 8
+        # "n" for each of the 9 services (added greynoise)
+        inputs = ["n"] * 9
         with (
             patch(
                 "adversary_pursuit.agent.provider_setup.Console.input",
@@ -1281,7 +1282,7 @@ class TestRunCTICredentialsWizard:
     def test_skip_each_service(self, tmp_path):
         """Explicit 's' (skip) for each service produces all-False result."""
         config_mgr = make_config_mgr_cti(tmp_path)
-        inputs = ["s"] * 8
+        inputs = ["s"] * 9
         with (
             patch(
                 "adversary_pursuit.agent.provider_setup.Console.input",
@@ -1296,8 +1297,8 @@ class TestRunCTICredentialsWizard:
         """Shodan key: user enters key, validation passes, key saved to config."""
         config_mgr = make_config_mgr_cti(tmp_path)
         # For Shodan (first service): "y" configure, enter key "shdn-test"
-        # For all remaining 7 services: "n" skip
-        inputs = ["y", "shdn-test"] + ["n"] * 7 + ["1"]  # save dest = 1
+        # For all remaining 8 services: "n" skip (added greynoise)
+        inputs = ["y", "shdn-test"] + ["n"] * 8 + ["1"]  # save dest = 1
         with (
             patch(
                 "adversary_pursuit.agent.provider_setup.Console.input",
@@ -1325,8 +1326,8 @@ class TestRunCTICredentialsWizard:
             printed_args.extend(str(a) for a in args)
 
         # For Shodan: existing key shown, user picks "k" (keep)
-        # For remaining 7: "n"
-        inputs = ["k"] + ["n"] * 7
+        # For remaining 8: "n" (added greynoise)
+        inputs = ["k"] + ["n"] * 8
         with (
             patch(
                 "adversary_pursuit.agent.provider_setup.Console.input",
@@ -1337,7 +1338,7 @@ class TestRunCTICredentialsWizard:
                 side_effect=capture_print,
             ),
         ):
-            result = run_cti_credentials_wizard(config_mgr)
+            run_cti_credentials_wizard(config_mgr)
         # Masked value must appear in output, not the raw key
         all_output = " ".join(printed_args)
         assert "supersecretkey12345" not in all_output
@@ -1348,8 +1349,8 @@ class TestRunCTICredentialsWizard:
         """When user keeps existing value, it remains in config unchanged."""
         config_mgr = make_config_mgr_cti(tmp_path)
         config_mgr.set("api_keys.shodan", "existing-shodan-key")
-        # "k" = keep for shodan, "n" for rest
-        inputs = ["k"] + ["n"] * 7
+        # "k" = keep for shodan, "n" for rest (added greynoise)
+        inputs = ["k"] + ["n"] * 8
         with (
             patch(
                 "adversary_pursuit.agent.provider_setup.Console.input",
@@ -1367,7 +1368,7 @@ class TestRunCTICredentialsWizard:
         # Shodan: configure, enter key, validation returns 401, save anyway=y
         # After validation failure + "save anyway=y": the wizard collects the key
         # and offers dotfile export (save_dest=1 = config only)
-        inputs = ["y", "bad-key", "y"] + ["n"] * 7 + ["1"]
+        inputs = ["y", "bad-key", "y"] + ["n"] * 8 + ["1"]
         with (
             patch(
                 "adversary_pursuit.agent.provider_setup.Console.input",
@@ -1386,7 +1387,7 @@ class TestRunCTICredentialsWizard:
     def test_validation_failure_save_anyway_no(self, tmp_path):
         """Validation fails and user declines to save → service not configured."""
         config_mgr = make_config_mgr_cti(tmp_path)
-        inputs = ["y", "bad-key", "n"] + ["n"] * 7
+        inputs = ["y", "bad-key", "n"] + ["n"] * 8
         with (
             patch(
                 "adversary_pursuit.agent.provider_setup.Console.input",
@@ -1405,9 +1406,9 @@ class TestRunCTICredentialsWizard:
     def test_multi_key_passivetotal_both_saved(self, tmp_path):
         """PassiveTotal: both username and API key are prompted and saved."""
         config_mgr = make_config_mgr_cti(tmp_path)
-        # Skip all 7 services before passivetotal, configure passivetotal
-        # Order: shodan, virustotal, abuseipdb, hibp, otx, urlscan, censys_pat, passivetotal
-        inputs = ["n"] * 7 + ["y", "user@example.com", "pt-api-key"] + ["1"]
+        # Skip all 8 services before passivetotal, configure passivetotal
+        # Order: shodan, virustotal, abuseipdb, hibp, otx, urlscan, censys_pat, greynoise, passivetotal
+        inputs = ["n"] * 8 + ["y", "user@example.com", "pt-api-key"] + ["1"]
         with (
             patch(
                 "adversary_pursuit.agent.provider_setup.Console.input",
@@ -1427,7 +1428,7 @@ class TestRunCTICredentialsWizard:
     def test_passivetotal_basic_auth_validation(self, tmp_path):
         """PassiveTotal validation uses basic_auth (username, password) args."""
         config_mgr = make_config_mgr_cti(tmp_path)
-        inputs = ["n"] * 7 + ["y", "user@example.com", "pt-api-key"] + ["1"]
+        inputs = ["n"] * 8 + ["y", "user@example.com", "pt-api-key"] + ["1"]
         with (
             patch(
                 "adversary_pursuit.agent.provider_setup.Console.input",
@@ -1472,9 +1473,9 @@ class TestWizardFlowWithCTI:
         # LLM wizard inputs: provider=1 (Anthropic), key, model=1, save_dest=1
         # CTI wizard offer: y
         # Shodan: y configure, enter key
-        # Remaining 7 CTI services: n skip
+        # Remaining 8 CTI services: n skip (added greynoise)
         # CTI dotfile export: 1 (config only)
-        inputs = ["1", "sk-ant-key", "1", "1", "y", "y", "shdn-key"] + ["n"] * 7 + ["1"]
+        inputs = ["1", "sk-ant-key", "1", "1", "y", "y", "shdn-key"] + ["n"] * 8 + ["1"]
 
         # Both LLM and CTI validation use httpx.get; use side_effect to return
         # different responses. First call is the LLM list-models endpoint,

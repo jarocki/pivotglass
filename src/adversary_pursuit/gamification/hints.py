@@ -98,9 +98,7 @@ class InsufficientBalanceError(Exception):
     def __init__(self, required: int, available: int) -> None:
         self.required = required
         self.available = available
-        super().__init__(
-            f"Insufficient score: need {required} pts but have {available} pts"
-        )
+        super().__init__(f"Insufficient score: need {required} pts but have {available} pts")
 
 
 # ---------------------------------------------------------------------------
@@ -492,6 +490,52 @@ _DEFAULT_HINTS: list[Hint] = [
         cost=15,
         module="urlscan",
     ),
+    # -----------------------------------------------------------------------
+    # greynoise — free
+    # -----------------------------------------------------------------------
+    Hint(
+        id="hint-greynoise-001",
+        text=(
+            "GreyNoise classifies IPs as 'benign', 'malicious', or 'unknown'. "
+            "noise=True means the IP is a known internet scanner (mass-scanner); "
+            "riot=True means it belongs to a known benign service like Google DNS or Cloudflare. "
+            "A malicious IP with noise=True is an active scanner — high-priority pivot."
+        ),
+        cost=0,
+        module="greynoise",
+    ),
+    Hint(
+        id="hint-greynoise-002",
+        text=(
+            "GreyNoise Community API is limited to ~50 queries/day on the free tier. "
+            "Prioritise IPs with no other known classification first — GreyNoise context "
+            "often resolves 'unknown' IPs faster than a full Shodan or AbuseIPDB lookup."
+        ),
+        cost=0,
+        module="greynoise",
+    ),
+    # greynoise — paid
+    Hint(
+        id="hint-greynoise-paid-001",
+        text=(
+            "Cross-reference GreyNoise noise=True IPs with Shodan banners. "
+            "A scanner IP with an unusual banner (non-standard scanning tool) may be "
+            "a targeted adversary masquerading as background internet noise."
+        ),
+        cost=10,
+        module="greynoise",
+    ),
+    Hint(
+        id="hint-greynoise-paid-002",
+        text=(
+            "GreyNoise RIOT (Rules of Internet) IPs are known benign services — safe to "
+            "de-prioritise in triage. If an IP is RIOT=True but also appears in your threat "
+            "data, verify the IP range: adversaries sometimes use IP addresses adjacent to "
+            "known-benign ranges to benefit from implicit trust."
+        ),
+        cost=15,
+        module="greynoise",
+    ),
 ]
 
 
@@ -560,8 +604,7 @@ class HintProvider:
             All free hints applicable to the context, in definition order.
         """
         return [
-            h for h in self._all_hints
-            if h.cost == 0 and (h.module is None or h.module == module)
+            h for h in self._all_hints if h.cost == 0 and (h.module is None or h.module == module)
         ]
 
     def get_module_hints(self, module: str) -> list[Hint]:
@@ -580,10 +623,7 @@ class HintProvider:
         list[Hint]
             All applicable hints, ordered by cost ascending.
         """
-        applicable = [
-            h for h in self._all_hints
-            if h.module is None or h.module == module
-        ]
+        applicable = [h for h in self._all_hints if h.module is None or h.module == module]
         return sorted(applicable, key=lambda h: h.cost)
 
     def get_next_hint(self, module: str | None = None) -> HintResult | None:
@@ -653,10 +693,7 @@ class HintProvider:
                 key=lambda h: h.cost,
             )
 
-        applicable_paid = [
-            h for h in candidate_pool
-            if h.cost > 0 and h.id not in self._revealed
-        ]
+        applicable_paid = [h for h in candidate_pool if h.cost > 0 and h.id not in self._revealed]
 
         if not applicable_paid:
             return None

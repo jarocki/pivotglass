@@ -177,10 +177,10 @@ class TestCreateTools:
         tools = create_tools(tmp_ctx)
         assert isinstance(tools, list)
 
-    def test_returns_twenty_one_tools(self, tmp_ctx):
-        """create_tools returns exactly 21 tool definitions (18 previous + 3 report interview tools)."""
+    def test_returns_twenty_two_tools(self, tmp_ctx):
+        """create_tools returns exactly 22 tool definitions (21 previous + greynoise_lookup)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 21
+        assert len(tools) == 22
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -223,6 +223,8 @@ class TestCreateTools:
             "virustotal_lookup",
             "censys_host_lookup",
             "passivetotal_lookup",
+            # GreyNoise Community API IP classification
+            "greynoise_lookup",
             # Workspace tools
             "get_workspace_summary",
             "search_workspace",
@@ -272,7 +274,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 21
+        assert len(roundtripped) == 22
 
     # --- New tool schema tests ---
 
@@ -304,6 +306,14 @@ class TestCreateTools:
         assert "target" in params["required"]
         # include_whois is optional
         assert "include_whois" in params["properties"]
+
+    def test_greynoise_lookup_has_required_ip_address(self, tmp_ctx):
+        """greynoise_lookup tool has 'ip_address' as a required parameter."""
+        tools = create_tools(tmp_ctx)
+        tool = next(t for t in tools if t["function"]["name"] == "greynoise_lookup")
+        params = tool["function"]["parameters"]
+        assert "ip_address" in params["properties"]
+        assert "ip_address" in params["required"]
 
 
 # ---------------------------------------------------------------------------
@@ -724,11 +734,11 @@ class TestCredentialBuilders:
 
 
 class TestModuleMap:
-    """_MODULE_MAP contains entries for all 10 module-backed tools."""
+    """_MODULE_MAP contains entries for all 11 module-backed tools."""
 
-    def test_module_map_has_ten_entries(self):
-        """_MODULE_MAP has exactly 10 entries (7 original + 3 new)."""
-        assert len(_MODULE_MAP) == 10
+    def test_module_map_has_eleven_entries(self):
+        """_MODULE_MAP has exactly 11 entries (7 original + 3 prior + greynoise)."""
+        assert len(_MODULE_MAP) == 11
 
     def test_module_map_contains_new_tools(self):
         """_MODULE_MAP contains virustotal_lookup, censys_host_lookup, passivetotal_lookup."""
@@ -1358,7 +1368,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 21
+        assert len(r.tools) == 22
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""
@@ -3675,3 +3685,124 @@ class TestCensysPATCredentialBuilder:
         builder = _CREDENTIAL_BUILDERS["osint/censys_host"]
         config = builder(tmp_ctx.config_mgr)
         assert config["censys_pat"] == "env-pat-value"
+
+
+# ---------------------------------------------------------------------------
+# GreyNoise lookup tool — dispatch, arg mapping, and error surfacing
+# ---------------------------------------------------------------------------
+
+SAMPLE_GN_RESULTS = [
+    {
+        "type": "ipv4-addr",
+        "value": "8.8.8.8",
+        "x_greynoise_classification": "benign",
+        "x_greynoise_noise": False,
+        "x_greynoise_riot": True,
+        "x_greynoise_name": "Google Public DNS",
+        "x_greynoise_last_seen": "2026-05-01",
+        "x_greynoise_link": "https://viz.greynoise.io/ip/8.8.8.8",
+    }
+]
+
+
+class TestGreyNoiseLookupTool:
+    """greynoise_lookup tool is discoverable, dispatches correctly, and surfaces errors.
+
+    # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+    # The tool layer is tested by mocking module.hunt() so no live GreyNoise
+    # API call is made. This is the same exemption used throughout TestExecuteToolDispatch.
+    """
+
+    def _make_mock_module(self, results: list) -> MagicMock:
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=results)
+        mock_mod.initialize = MagicMock()
+        return mock_mod
+
+    def test_greynoise_lookup_in_module_map(self):
+        """greynoise_lookup must appear in _MODULE_MAP."""
+        assert "greynoise_lookup" in _MODULE_MAP
+
+    def test_greynoise_lookup_maps_to_osint_greynoise(self):
+        """greynoise_lookup maps to the 'osint/greynoise' module path."""
+        module_path, _ = _MODULE_MAP["greynoise_lookup"]
+        assert module_path == "osint/greynoise"
+
+    def test_greynoise_lookup_dispatches_to_module(self, tmp_ctx):
+        """execute_tool('greynoise_lookup') runs the osint/greynoise module."""
+        mock_mod = self._make_mock_module(SAMPLE_GN_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
+            summary, _celebration, _badges = execute_tool(
+                tmp_ctx, "greynoise_lookup", {"ip_address": "8.8.8.8"}
+            )
+            assert isinstance(summary, str)
+            assert "Found" in summary
+            mock_get.assert_called_once_with("osint/greynoise")
+
+    def test_greynoise_lookup_passes_ip_as_target(self, tmp_ctx):
+        """execute_tool('greynoise_lookup') passes ip_address as the hunt() target."""
+        mock_mod = self._make_mock_module(SAMPLE_GN_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            execute_tool(tmp_ctx, "greynoise_lookup", {"ip_address": "1.2.3.4"})
+        mock_mod.hunt.assert_called_once_with("1.2.3.4", {})
+
+    def test_greynoise_lookup_auth_error_surfaces_to_llm(self, tmp_ctx):
+        """AuthenticationError from greynoise hunt() surfaces as an error string (not exception).
+
+        The tool layer catches AuthenticationError and returns a human-readable string
+        to the LLM rather than propagating the exception. This is the standard
+        execute_tool error-surfacing contract for all module tools.
+        """
+        from adversary_pursuit.modules.base import AuthenticationError as AuthErr
+
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(side_effect=AuthErr("GreyNoise API key invalid/revoked."))
+        mock_mod.initialize = MagicMock()
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            summary, celebration, _badges = execute_tool(
+                tmp_ctx, "greynoise_lookup", {"ip_address": "8.8.8.8"}
+            )
+        assert "Error" in summary
+        assert celebration is None
+
+    def test_greynoise_lookup_rate_limit_error_surfaces(self, tmp_ctx):
+        """RateLimitError from greynoise hunt() surfaces as an error string (not exception)."""
+        from adversary_pursuit.modules.base import RateLimitError as RLErr
+
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(
+            side_effect=RLErr("GreyNoise Community API rate limit exceeded.", retry_after=3600)
+        )
+        mock_mod.initialize = MagicMock()
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            summary, celebration, _badges = execute_tool(
+                tmp_ctx, "greynoise_lookup", {"ip_address": "8.8.8.8"}
+            )
+        assert "Error" in summary
+        assert celebration is None
+
+    def test_greynoise_lookup_404_returns_graceful_result(self, tmp_ctx):
+        """greynoise_lookup gracefully handles 404 (unknown IP) — no error, one SCO returned.
+
+        The GreyNoise module converts 404 into an 'unknown' stub SCO (DEC-MODULE-GREYNOISE-002).
+        The tool layer must receive a non-empty results list and return a summary string.
+        """
+        unknown_stub = [
+            {
+                "type": "ipv4-addr",
+                "value": "203.0.113.99",
+                "x_greynoise_classification": "unknown",
+                "x_greynoise_noise": False,
+                "x_greynoise_riot": False,
+                "x_greynoise_name": "",
+                "x_greynoise_last_seen": "",
+                "x_greynoise_link": "",
+            }
+        ]
+        mock_mod = self._make_mock_module(unknown_stub)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            summary, _celebration, _badges = execute_tool(
+                tmp_ctx, "greynoise_lookup", {"ip_address": "203.0.113.99"}
+            )
+        assert isinstance(summary, str)
+        assert "Error" not in summary

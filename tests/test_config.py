@@ -684,6 +684,7 @@ class TestCensysPat:
     def test_ApiKeysConfig_has_censys_pat_field(self, tmp_path):
         """ApiKeysConfig includes censys_pat as a nullable field."""
         from adversary_pursuit.core.config import ApiKeysConfig
+
         cfg = ApiKeysConfig()
         assert hasattr(cfg, "censys_pat")
         assert cfg.censys_pat is None
@@ -752,3 +753,57 @@ class TestCensysPat:
         cfg.api_keys.censys_pat = "config-wins"
         mgr.save(cfg)
         assert mgr.get_censys_pat() == "config-wins"
+
+
+# ---------------------------------------------------------------------------
+# GreyNoise API key — TOML round-trip and env-var resolution
+# ---------------------------------------------------------------------------
+
+
+class TestGreyNoiseApiKey:
+    """ApiKeysConfig.greynoise field persists and resolves via the 3-layer chain.
+
+    Tests mirror the shodan/abuseipdb patterns so all module keys have symmetric
+    coverage. The env var names follow the convention declared in config.py:
+      AP_GREYNOISE_API_KEY (layer 2) and GREYNOISE_API_KEY (layer 3).
+    """
+
+    def test_greynoise_api_key_resolution_from_toml(self, tmp_path):
+        """Config-stored greynoise key is returned by get_api_key('greynoise').
+
+        Writes the key via ConfigManager.set(), then reads it back via get_api_key()
+        to confirm the TOML round-trip (layer 1 of the 3-layer precedence chain).
+        """
+        mgr = make_manager(tmp_path)
+        mgr.set("api_keys.greynoise", "gn-config-key")
+        assert mgr.get_api_key("greynoise") == "gn-config-key"
+
+    def test_greynoise_api_key_resolution_from_env(self, tmp_path, monkeypatch):
+        """AP_GREYNOISE_API_KEY env var resolves via get_api_key() when no config is set.
+
+        This exercises layer 2 of the 3-layer precedence chain (AP_<SERVICE>_API_KEY).
+        No key is written to the TOML file so the env var must be the winning source.
+        """
+        monkeypatch.setenv("AP_GREYNOISE_API_KEY", "gn-env-key")
+        monkeypatch.delenv("GREYNOISE_API_KEY", raising=False)
+        assert make_manager(tmp_path).get_api_key("greynoise") == "gn-env-key"
+
+    def test_greynoise_default_is_empty_string(self, tmp_path, monkeypatch):
+        """ApiKeysConfig.greynoise defaults to '' when no config file and no env var."""
+        monkeypatch.delenv("AP_GREYNOISE_API_KEY", raising=False)
+        monkeypatch.delenv("GREYNOISE_API_KEY", raising=False)
+        cfg = make_manager(tmp_path).load()
+        assert cfg.api_keys.greynoise == ""
+
+    def test_greynoise_config_wins_over_env(self, tmp_path, monkeypatch):
+        """Stored config beats AP_GREYNOISE_API_KEY env var (layer 1 > layer 2)."""
+        mgr = make_manager(tmp_path)
+        mgr.set("api_keys.greynoise", "gn-stored")
+        monkeypatch.setenv("AP_GREYNOISE_API_KEY", "gn-env-value")
+        assert mgr.get_api_key("greynoise") == "gn-stored"
+
+    def test_greynoise_vendor_env_var_resolves(self, tmp_path, monkeypatch):
+        """GREYNOISE_API_KEY vendor env var is the layer-3 fallback."""
+        monkeypatch.delenv("AP_GREYNOISE_API_KEY", raising=False)
+        monkeypatch.setenv("GREYNOISE_API_KEY", "gn-vendor-key")
+        assert make_manager(tmp_path).get_api_key("greynoise") == "gn-vendor-key"

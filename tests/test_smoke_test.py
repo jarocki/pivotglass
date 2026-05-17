@@ -736,3 +736,126 @@ def _assert_not_skipped(keys: dict) -> tuple:
     assert val, "Shodan key is empty — module would be skipped"
     # Return a synthetic PASS-like tuple (we're not calling the real module here)
     return "PASS", "", 0
+
+
+# ---------------------------------------------------------------------------
+# GreyNoise _run_greynoise handler — SKIP, PASS, and FAIL classification
+# ---------------------------------------------------------------------------
+
+# @mock-exempt: mod.hunt() is an async external HTTP boundary (GreyNoise REST API).
+# AsyncMock on hunt() exercises the AuthenticationError→SKIP, HTTPStatusError→FAIL
+# routing table without a live network call — same exemption as TestAuthErrorClassification.
+
+
+class TestGreyNoiseRunHandler:
+    """_run_greynoise classifies AuthenticationError as SKIP and success as PASS.
+
+    Production sequence: _run_greynoise calls asyncio.run(_run_module(mod, ...))
+    which calls mod.hunt(). These tests patch mod.hunt() with AsyncMock that raises
+    or returns a controlled value, then call the real _run_greynoise to verify the
+    try/except routing table mirrors the DEC-SMOKE-005 contract.
+
+    @decision DEC-TEST-SMOKE-GREYNOISE-001
+    @title Mirror TestAuthErrorClassification pattern for GreyNoise handler
+    @status accepted
+    @rationale _run_greynoise follows the same AuthenticationError→SKIP,
+               httpx.HTTPStatusError→FAIL, unhandled→FAIL contract as shodan/censys.
+               Tests exercise that contract at the module boundary without live
+               network calls, using AsyncMock on hunt() per DEC-TEST-SMOKE-002.
+    """
+
+    def _keys_with_greynoise(self) -> dict:
+        return {"greynoise": ("fake-gn-api-key-32chars-xxxxx", "config")}
+
+    def test_run_greynoise_skip_on_auth_error(self, smoke):
+        """AuthenticationError from hunt() → SKIP with 'auth: ...' message, count=0.
+
+        Exercises DEC-SMOKE-005 for the greynoise handler: a bad API key
+        must produce SKIP, not FAIL, so users see [SKIP] not [FAIL] in smoke output.
+        """
+        mock_mod = MagicMock()  # @mock-exempt: PursuitModule with external hunt() boundary
+        mock_mod.hunt = AsyncMock(
+            side_effect=AuthenticationError("GreyNoise API key invalid/revoked.")
+        )
+
+        mock_mgr = MagicMock()
+        mock_mgr.get_module.return_value = mock_mod
+
+        with patch("adversary_pursuit.core.plugin_mgr.PluginManager", return_value=mock_mgr):
+            status, msg, count = smoke._run_greynoise("8.8.8.8", self._keys_with_greynoise(), False)
+
+        assert status == smoke.SKIP, f"Expected SKIP for AuthenticationError, got {status!r}"
+        assert msg.startswith("auth:"), f"Expected 'auth: ...' prefix, got {msg!r}"
+        assert count == 0
+
+    def test_run_greynoise_pass_on_success(self, smoke):
+        """A successful hunt() → PASS with result count > 0.
+
+        The 200-response path (or 404→unknown stub) returns a list of SCOs.
+        _run_greynoise must map this to PASS.
+        """
+        mock_mod = MagicMock()  # @mock-exempt: PursuitModule with external hunt() boundary
+        mock_mod.hunt = AsyncMock(
+            return_value=[
+                {
+                    "type": "ipv4-addr",
+                    "value": "8.8.8.8",
+                    "x_greynoise_classification": "benign",
+                    "x_greynoise_noise": False,
+                    "x_greynoise_riot": True,
+                    "x_greynoise_name": "Google Public DNS",
+                    "x_greynoise_last_seen": "2026-05-01",
+                    "x_greynoise_link": "https://viz.greynoise.io/ip/8.8.8.8",
+                }
+            ]
+        )
+
+        mock_mgr = MagicMock()
+        mock_mgr.get_module.return_value = mock_mod
+
+        with patch("adversary_pursuit.core.plugin_mgr.PluginManager", return_value=mock_mgr):
+            status, _msg, count = smoke._run_greynoise(
+                "8.8.8.8", self._keys_with_greynoise(), False
+            )
+
+        assert status == smoke.PASS, f"Expected PASS for successful hunt(), got {status!r}"
+        assert count == 1
+
+    def test_run_greynoise_fail_on_unhandled_exception(self, smoke):
+        """An unhandled exception from hunt() → FAIL, not SKIP.
+
+        A network error or unexpected API response is a real failure. It must not
+        be silently converted to SKIP — only AuthenticationError gets that treatment.
+        """
+        import httpx as httpx_mod
+
+        request = httpx_mod.Request("GET", "https://api.greynoise.io/v3/community/8.8.8.8")
+        response = httpx_mod.Response(500, request=request)
+        exc = httpx_mod.HTTPStatusError(
+            "500 Internal Server Error", request=request, response=response
+        )
+
+        mock_mod = MagicMock()  # @mock-exempt: PursuitModule with external hunt() boundary
+        mock_mod.hunt = AsyncMock(side_effect=exc)
+
+        mock_mgr = MagicMock()
+        mock_mgr.get_module.return_value = mock_mod
+
+        with patch("adversary_pursuit.core.plugin_mgr.PluginManager", return_value=mock_mgr):
+            status, _msg, count = smoke._run_greynoise(
+                "8.8.8.8", self._keys_with_greynoise(), False
+            )
+
+        assert status == smoke.FAIL, f"Expected FAIL for HTTPStatusError, got {status!r}"
+        assert count == 0
+
+    def test_run_greynoise_skip_when_no_key(self, smoke):
+        """_run_greynoise returns SKIP immediately when the greynoise key is empty.
+
+        No HTTP call is made — the handler short-circuits before any network access.
+        No mocks needed: the function exits before touching the module layer.
+        """
+        keys: dict = {"greynoise": ("", "")}
+        status, msg, count = smoke._run_greynoise("8.8.8.8", keys, verbose=False)
+        assert status == smoke.SKIP
+        assert count == 0

@@ -260,7 +260,7 @@ class ToolContext:
             callback = self._make_cascade_callback(module_path)
             self.event_bus.register_module_subscriptions(module_path, stix_types, callback)
 
-    def run_module(self, module_path: str, target: str, options: dict = None) -> dict:
+    def run_module(self, module_path: str, target: str, options: dict | None = None) -> dict:
         """Run a module and return formatted results with scoring.
 
         Dispatches to the named PursuitModule, runs hunt(), stores results in
@@ -819,6 +819,29 @@ def create_tools(ctx: ToolContext) -> list[dict]:
         {
             "type": "function",
             "function": {
+                "name": "greynoise_lookup",
+                "description": (
+                    "Query GreyNoise Community API for IP address classification. "
+                    "Identifies whether an IP is a known internet scanner (noise=True), "
+                    "a benign service like Google DNS (riot=True), or unknown. "
+                    "Returns classification (benign/malicious/unknown), noise status, "
+                    "RIOT status, and scanner/service name when available."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "ip_address": {
+                            "type": "string",
+                            "description": "IPv4 address to classify",
+                        },
+                    },
+                    "required": ["ip_address"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "get_workspace_summary",
                 "description": (
                     "Get a summary of the current workspace — total indicators, "
@@ -1089,6 +1112,7 @@ _SERVICE_NAMES: dict[str, str | None] = {
     "osint/hibp": "hibp",
     "cti/virustotal": "virustotal",
     "cti/otx": "otx",
+    "osint/greynoise": "greynoise",
     "osint/dns_resolve": None,  # no key needed
     "osint/whois_lookup": None,  # no key needed
 }
@@ -1207,6 +1231,10 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
             a["target"],
             {"INCLUDE_WHOIS": str(a.get("include_whois", True)).lower()},
         ),
+    ),
+    "greynoise_lookup": (
+        "osint/greynoise",
+        lambda a: (a["ip_address"], {}),
     ),
 }
 

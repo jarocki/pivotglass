@@ -108,6 +108,7 @@ _AP_ENV_VAR_MAP: dict[str, str] = {
     "censys_pat": "AP_CENSYS_PAT",
     "urlscan": "AP_URLSCAN_API_KEY",
     "abuseipdb": "AP_ABUSEIPDB_API_KEY",
+    "greynoise": "AP_GREYNOISE_API_KEY",
     "hibp": "AP_HIBP_API_KEY",
     "otx": "AP_OTX_API_KEY",
     "passivetotal_user": "AP_PASSIVETOTAL_USER",
@@ -129,6 +130,7 @@ _VENDOR_ENV_VAR_MAP: dict[str, str] = {
     "censys_pat": "CENSYS_PAT",
     "urlscan": "URLSCAN_API_KEY",
     "abuseipdb": "ABUSEIPDB_API_KEY",
+    "greynoise": "GREYNOISE_API_KEY",
     "hibp": "HIBP_API_KEY",
     "otx": "OTX_API_KEY",
     "passivetotal_user": "PT_USERNAME",
@@ -198,6 +200,7 @@ class ApiKeysConfig(BaseModel):
     censys_pat: str | None = None
     urlscan: str = ""
     abuseipdb: str = ""
+    greynoise: str = ""
     hibp: str = ""
     otx: str = ""
     passivetotal_user: str = ""
@@ -549,7 +552,6 @@ class ConfigManager:
         cfg = self._cache if self._cache is not None else self.load()
         setattr(cfg.api_keys, field, key)
         self.save(cfg)
-
 
     def get_censys_pat(self) -> str | None:
         """Return the Censys Platform PAT using the documented 3-layer precedence.

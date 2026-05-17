@@ -383,7 +383,6 @@ def list_models(provider: ProviderSpec, api_key: str | None) -> list[str]:
     return [obj[provider.model_id_field] for obj in model_objects if provider.model_id_field in obj]
 
 
-
 # ---------------------------------------------------------------------------
 # CTI service registry
 # ---------------------------------------------------------------------------
@@ -517,6 +516,16 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         docs_url="https://app.censys.io/user/tokens",
     ),
     CTIServiceSpec(
+        id="greynoise",
+        display_name="GreyNoise",
+        config_keys=["greynoise"],
+        prompt_labels=["API Key"],
+        validate_url="https://api.greynoise.io/v3/community/8.8.8.8",
+        validate_method="header_key",
+        validate_header_name="key",
+        docs_url="https://viz.greynoise.io/account/api-key",
+    ),
+    CTIServiceSpec(
         id="passivetotal",
         display_name="PassiveTotal / RiskIQ",
         config_keys=["passivetotal_user", "passivetotal_key"],
@@ -538,6 +547,7 @@ _CTI_ENV_VAR: dict[str, str] = {
     "otx": "OTX_API_KEY",
     "urlscan": "URLSCAN_API_KEY",
     "censys_pat": "CENSYS_PAT",
+    "greynoise": "GREYNOISE_API_KEY",
     "passivetotal_user": "PT_USERNAME",
     "passivetotal_key": "PT_API_KEY",
 }
@@ -598,6 +608,7 @@ def _write_cti_rc_with_marker(rc_path: "Path", export_lines: list[str]) -> None:
     original_mode: int | None = None
     if rc_path.exists():
         import stat as _stat
+
         original_mode = _stat.S_IMODE(rc_path.stat().st_mode)
         existing = rc_path.read_text(encoding="utf-8")
     else:
@@ -617,6 +628,7 @@ def _write_cti_rc_with_marker(rc_path: "Path", export_lines: list[str]) -> None:
     rc_path.write_text(updated, encoding="utf-8")
     if original_mode is not None:
         import os as _os
+
         _os.chmod(rc_path, original_mode)
 
 
@@ -740,12 +752,14 @@ def run_cti_credentials_wizard(
                 f"{lbl}: {mask_secret(v)}" if v else f"{lbl}: (not set)"
                 for lbl, v in zip(spec.prompt_labels, existing)
             )
-            console.print(
-                f"\n[cyan]{spec.display_name}[/cyan] — existing: {masked_display}"
+            console.print(f"\n[cyan]{spec.display_name}[/cyan] — existing: {masked_display}")
+            choice_raw = (
+                console.input(
+                    f"  [bold]{spec.display_name}[/bold]: Keep / Replace / Skip [K/r/s]: "
+                )
+                .strip()
+                .lower()
             )
-            choice_raw = console.input(
-                f"  [bold]{spec.display_name}[/bold]: Keep / Replace / Skip [K/r/s]: "
-            ).strip().lower()
             if choice_raw in ("s", "skip"):
                 configured[spec.id] = False
                 continue
@@ -755,13 +769,10 @@ def run_cti_credentials_wizard(
                 # Count existing as still configured
                 continue
         else:
-            console.print(
-                f"\n[cyan]{spec.display_name}[/cyan]"
-                f" — docs: [dim]{spec.docs_url}[/dim]"
+            console.print(f"\n[cyan]{spec.display_name}[/cyan] — docs: [dim]{spec.docs_url}[/dim]")
+            configure_raw = (
+                console.input(f"  Configure {spec.display_name}? [y/N]: ").strip().lower()
             )
-            configure_raw = console.input(
-                f"  Configure {spec.display_name}? [y/N]: "
-            ).strip().lower()
             if configure_raw != "y":
                 configured[spec.id] = False
                 continue
@@ -773,7 +784,9 @@ def run_cti_credentials_wizard(
             values.append(val)
 
         if not any(values):
-            console.print(f"  [yellow]No credentials entered for {spec.display_name} — skipping.[/yellow]")
+            console.print(
+                f"  [yellow]No credentials entered for {spec.display_name} — skipping.[/yellow]"
+            )
             configured[spec.id] = False
             continue
 
@@ -854,6 +867,7 @@ def _prompt_cti_save_destination(
 
     # choice == 3
     _print_export_lines(console, export_lines)
+
 
 # ---------------------------------------------------------------------------
 # Interactive wizard

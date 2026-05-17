@@ -50,6 +50,7 @@ _BUILTIN_MODULES: list[tuple[str, str]] = [
     ("cti/virustotal", "adversary_pursuit.modules.cti.virustotal:VirusTotal"),
     ("cti/passivetotal", "adversary_pursuit.modules.cti.passivetotal:PassiveTotal"),
     ("cti/otx", "adversary_pursuit.modules.cti.otx:AlienVaultOTX"),
+    ("osint/greynoise", "adversary_pursuit.modules.osint.greynoise:GreyNoise"),
 ]
 
 
@@ -57,6 +58,7 @@ def _import_class(dotted: str) -> type:
     """Import a class from a 'module.path:ClassName' string."""
     module_path, class_name = dotted.split(":", 1)
     import importlib
+
     mod = importlib.import_module(module_path)
     return getattr(mod, class_name)
 
@@ -64,6 +66,7 @@ def _import_class(dotted: str) -> type:
 # ---------------------------------------------------------------------------
 # PluginManager
 # ---------------------------------------------------------------------------
+
 
 class PluginManager:
     """Discovers and manages PursuitModule implementations.
@@ -180,16 +183,14 @@ class PluginManager:
             name = getattr(cls, "name", path)
             description = getattr(cls, "description", "")
             module_type = getattr(cls, "module_type", "")
-            if (
-                kw in name.lower()
-                or kw in description.lower()
-                or kw in module_type.lower()
-            ):
-                results.append({
-                    "name": name,
-                    "description": description,
-                    "type": module_type,
-                })
+            if kw in name.lower() or kw in description.lower() or kw in module_type.lower():
+                results.append(
+                    {
+                        "name": name,
+                        "description": description,
+                        "type": module_type,
+                    }
+                )
         return results
 
     def list_modules(self) -> list[dict[str, Any]]:
@@ -201,10 +202,12 @@ class PluginManager:
         """
         modules = []
         for path, cls in self._modules.items():
-            modules.append({
-                "name": getattr(cls, "name", path),
-                "description": getattr(cls, "description", ""),
-                "type": getattr(cls, "module_type", ""),
-                "author": getattr(cls, "author", ""),
-            })
+            modules.append(
+                {
+                    "name": getattr(cls, "name", path),
+                    "description": getattr(cls, "description", ""),
+                    "type": getattr(cls, "module_type", ""),
+                    "author": getattr(cls, "author", ""),
+                }
+            )
         return modules
