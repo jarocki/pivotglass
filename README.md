@@ -25,9 +25,10 @@ The **v1 primary interface is `ap chat`** — a conversational AI agent powered 
 
 ### Install from GitHub Releases (recommended)
 
+Latest pre-release: v0.1.0rc1 (2026-05-18). For the development install, use `git clone` + `uv sync --extra agent` per the next section.
+
 ```bash
-# Latest pre-release (replace <VERSION> with the actual release version, e.g., 0.1.0rc1)
-pip install "https://github.com/jarocki/ap/releases/download/v<VERSION>/adversary_pursuit-<VERSION>-py3-none-any.whl[agent]"
+pip install "https://github.com/jarocki/ap/releases/download/v0.1.0rc1/adversary_pursuit-0.1.0rc1-py3-none-any.whl[agent]"
 ```
 
 The `[agent]` extras include `prompt-toolkit`, `litellm`, and other dependencies needed for the conversational `ap chat` interface. Omit `[agent]` if you only need the cmd2 REPL (`ap`).
