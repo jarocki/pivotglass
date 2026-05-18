@@ -66,7 +66,21 @@ These are explicitly out of scope for v1. They may appear in future versions but
 
 ---
 
-## Plan Status (Reconciled 2026-04-28, Reframed 2026-04-29, Closed 2026-04-28)
+## v1 RELEASE SHIPPED (2026-05-18)
+
+> **First public release artifact: `v0.1.0rc1` pre-release tag, cut and verified.**
+>
+> - **Release page:** https://github.com/jarocki/ap/releases/tag/v0.1.0rc1
+> - **Annotated tag SHA:** `d392debca0fed01317b0db335ee7a27f8cea9858` (points at commit `1af235f`)
+> - **Closeout merge SHA on `main`:** `cd3709a11a9bd7b0bd79ea0b0163916207b16173` (`docs(release): fill v0.1.0rc1 placeholders in README install instructions`)
+> - **Artifacts attached:** `adversary_pursuit-0.1.0rc1-py3-none-any.whl` (176 KB) + `adversary_pursuit-0.1.0rc1.tar.gz` (489 KB), produced by `.github/workflows/release.yml`.
+> - **Install path verified end-to-end** in a fresh venv from the public release URL with the `[agent]` extra: `ap --help` runs; 11 module entry-points (`adversary_pursuit.modules`) are discoverable from the installed wheel; `ap chat` module imports cleanly (no `ImportError: litellm`).
+>
+> v1 boundary is closed. The three v1 boundary work items — `W-V1-RELEASE-VERIFY`, `W-OTX-TIMEOUT`, `W-GREYNOISE` — have all landed (see Phase 5 closeout, Phase 8 closeout, and Phase 9 closeout below). The `v0.1.0` (no `rc`) ship tag is a future decision: cut it from a post-verification HEAD when the project is ready to drop the pre-release flag. The pre-existing local `v0.1.0` tag from prior planning is preserved as-is and is out of scope for any current slice.
+
+---
+
+## Plan Status (Reconciled 2026-04-28, Reframed 2026-04-29, v1 Closed 2026-05-18)
 
 | Phase | Status | Notes |
 |-------|--------|-------|
@@ -75,12 +89,13 @@ These are explicitly out of scope for v1. They may appear in future versions but
 | Phase 2 — Gamification (was Phase 3) (#14-#18) | completed | Scoring, Challenges, Modes, Badges, Hints all landed. Fully wired into both the cmd2 console and the agent path (all 9 W-AGENT-* slices complete). |
 | Phase 3 — Auto-Pivot & Graph (was Phase 4) (#19-#20) | completed | Event bus opt-in (DEC-EVENTBUS-002); graph + GEXF + STIX bundle export. Wired into both cmd2 console and agent path (W-AGENT-AUTOPIVOT `8e48256`, W-AGENT-GRAPH-EXPORT `0b83eb2`). |
 | Phase 4 — Agentic Chat Interface (#25 + W-AGENT-*) | **completed** | All 9 W-AGENT-* slices landed. 21 LLM tools covering all 10 modules + celebrations + badges + hints + modes + autopivot + challenges + graph/export + reports. Full gamification parity with cmd2 console achieved. |
-| Phase 5 — Polish & Release (#21-#24) | in-progress | #21, #22, #23 done; #24 CI/CD landed. **Distribution strategy pivoted PyPI → GitHub Releases (`02fed4d`, 2026-05-03)**; W-V1-PYPI-VERIFY retired, replaced by `W-V1-RELEASE-VERIFY` (verify the GitHub-Releases artifact install path). |
+| Phase 5 — Polish & Release (#21-#24) | **completed** (2026-05-18) | #21, #22, #23 done; #24 CI/CD landed. **Distribution strategy pivoted PyPI → GitHub Releases (`02fed4d`, 2026-05-03).** `W-V1-PYPI-VERIFY` retired; replaced by `W-V1-RELEASE-VERIFY` which landed at merge `cd3709a` (2026-05-18) — `v0.1.0rc1` pre-release published at https://github.com/jarocki/ap/releases/tag/v0.1.0rc1 (tag SHA `d392deb`), wheel+sdist attached, fresh-venv install with `[agent]` extras verified end-to-end. See "Phase 5 closeout" section below. |
 | Phase 6 — Agent Docs (W-AGENT-DOCS) | **completed** | README rewritten for agent-first v1: `ap chat` primary interface documented, all 21 LLM tools, 8 meta-commands, 10 modes, and persona-prompt protocol. MASTER_PLAN Phase 4 status and W-AGENT-* table updated with all merge SHAs. |
 | Phase 7 — Post-Phase-6 CTI Pipeline & TUI Polish (unscheduled, landed organically 2026-05-03..2026-05-15) | **completed** | ~12 user-driven commits hardening CTI reliability, setup UX, and TUI polish: setup wizard `b44968c` (#45), 3-layer key resolution `a4cc341`, Censys Platform API v3 `fef6bfd` (#43), CTI pipeline repairs `9e6daa0`, URLScan submit/poll fixes `26c5b54` + `5cc2be6`, smoke SKIP classification `137fb45` (#48), smoke ConfigManager fix `823d54e`, TUI polish `db576b9`, provider/model wizard `4e11dde`, help meta-commands `70ede27`, `AP_MODEL` env override `9129c1b`, wizard dotfile export `4b9d030`. |
-| Phase 8 — Smoke Test Reliability | in-progress | Surfaced by live smoke runs after Phase 7 polish landed. Current open slice: **`W-OTX-TIMEOUT`** (cti/otx `httpx.ReadTimeout` on high-cardinality IPs — Guardian provisioning worktree). Subsequent slices will be filed as live-smoke regressions are observed. |
+| Phase 8 — Smoke Test Reliability | **completed** (W-OTX-TIMEOUT landed `b877574`, impl `72fd3eb`) | `W-OTX-TIMEOUT` added `TIMEOUT` option to `cti/otx` + classified `httpx.ReadTimeout` as a timeout-stub SCO, mirroring the URLScan transient-failure pattern (`5cc2be6`). No other smoke regressions open at v1 ship; future live-smoke regressions will be filed as discrete slices through the canonical planner chain. |
+| Phase 9 — Pre-v1 Module Catalog Top-Off (W-GREYNOISE) | **completed** (2026-05-16, merge `6884317`) | Per 2026-05-16 user directive ("Is GreyNoise one of the API lookup sources? If not, please add it before we ship v1.0."), added `osint/greynoise` as the 11th catalog module using the free-tier GreyNoise Community API (`/v3/community/{ip}`). Closes the noise/RIOT classification gap in the v1 IP-reputation surface. See "Phase 9 closeout" section below. |
 
-**Aggregate (reconciled 2026-05-15):** Phases 0–4 complete; all W-AGENT-* slices landed; Phase 6 docs complete; Phase 7 post-polish complete; Phase 8 in-progress with one active slice (`W-OTX-TIMEOUT`). The agentic chat (`ap chat`) is the v1 primary interface with full gamification parity. The cmd2 REPL is a supported power-user surface. Remaining v1 items are Phase 5 `W-V1-RELEASE-VERIFY` (GitHub-Releases install path) and Phase 8 `W-OTX-TIMEOUT` (in flight).
+**Aggregate (reconciled 2026-05-18, v1 ship gate closed):** Phases 0–9 complete. All W-AGENT-* slices landed; Phase 5 release path verified (`v0.1.0rc1` pre-release at `cd3709a`); Phase 6 docs complete; Phase 7 post-polish complete; Phase 8 `W-OTX-TIMEOUT` landed (`b877574`); Phase 9 `W-GREYNOISE` landed (`6884317`). The agentic chat (`ap chat`) is the v1 primary interface with full gamification parity over 11 modules. The cmd2 REPL is a supported power-user surface. No v1 boundary work items remain; subsequent work is post-v1 (a future `v0.1.0` ship tag without the `rc` suffix is a discrete product decision, not an open plan slice).
 
 > **Note:** The previous "Beyond v1 — smolagents" framing is retired. Agentic chat is in v1 by user direction (ADR-010). Phase numbering in this status table is the **revised** ordering; the per-phase Decision Log sections below retain their original numbering for traceability with prior plan revisions.
 
@@ -445,20 +460,49 @@ Configurable per-workspace: `auto_pivot = true/false`, depth limit, module white
 ---
 
 ## Phase 5: Polish & Release (Issues #21-#24)
-**Status:** in-progress
+**Status:** completed (2026-05-18 — W-V1-RELEASE-VERIFY landed; v1 release path verified end-to-end)
 
-### Reconciliation (2026-04-28)
+### Reconciliation (2026-04-28, closed 2026-05-18)
 
 | Issue | Status | Merge SHA | Notes |
 |-------|--------|-----------|-------|
 | #21 Report Generation | done | `9e55bca` | DEC-REPORT-001 (interview-first structure), DEC-REPORT-002 (Markdown over PDF/HTML for v1), DEC-REPORT-003 (in-memory interview state, no DB persistence). Console exposes `do_report`. |
 | #22 Celebrations | done | `f175a70` | DEC-CELEBRATION-001 (4-level ASCII art keyed on points), DEC-CELEBRATION-002 (milestone messages fire at exact thresholds). |
 | #23 Documentation | done | `167df88` (consolidated `8710aa0`) | README rewrite: usage, modules, plugin guide, architecture. |
-| #24 Release Distribution | partial (pivoted) | `18a64b4` (CI/CD merged) → `02fed4d` (PyPI → GitHub Releases pivot, 2026-05-03) | `.github/workflows/{ci,release}.yml` shipped. **Distribution decision updated:** v1 distributes via **GitHub Releases** (tagged artifact downloads + `pip install` from release URL) rather than PyPI. Rationale: reduces credential/trusted-publisher surface for a solo-maintainer pre-1.0 project; release tags remain the trigger. The earlier `[project.urls]` regressions (`c46903f`, `5895560`) were corrections during the pivot. **Open verification:** `W-V1-RELEASE-VERIFY` confirms the GitHub-Releases install path is reachable end-to-end (tag → workflow → uploaded artifact → installable). |
+| #24 Release Distribution | **completed** | `18a64b4` (CI/CD) → `02fed4d` (PyPI → GitHub Releases pivot, 2026-05-03) → **`cd3709a` (W-V1-RELEASE-VERIFY closeout, 2026-05-18)** | `.github/workflows/{ci,release}.yml` shipped. v1 distributes via **GitHub Releases** (tagged artifact downloads + `pip install` from release URL) rather than PyPI. Rationale: reduces credential/trusted-publisher surface for a solo-maintainer pre-1.0 project; release tags remain the trigger. The earlier `[project.urls]` regressions (`c46903f`, `5895560`) were corrections during the pivot. **Verification closed:** `v0.1.0rc1` cut, `release.yml` produced wheel+sdist, public release at https://github.com/jarocki/ap/releases/tag/v0.1.0rc1, fresh-venv install + 11 entry-points + `ap chat` import all green. |
 
-### Remaining Work (next work items)
+### Phase 5 Closeout — W-V1-RELEASE-VERIFY (2026-05-18)
 
-- **W-V1-RELEASE-VERIFY** — verify the GitHub-Releases distribution path completed end-to-end. Possible outcomes: (a) confirm a tagged release exposes an installable artifact (sdist/wheel) and `pip install` from the release URL resolves; (b) cut a release tag to trigger `release.yml` and verify the artifact is uploaded; (c) document any blocker (workflow misconfiguration, missing artifact build step, asset naming mismatch). Doc-only or workflow-only work — no source code changes expected. **Supersedes** the retired `W-V1-PYPI-VERIFY` per the `02fed4d` pivot.
+**What shipped:**
+
+- **Tag:** `v0.1.0rc1` (annotated, SHA `d392debca0fed01317b0db335ee7a27f8cea9858`, points at commit `1af235f` — `chore(release): bump to 0.1.0rc1 + rewrite README install for GitHub Releases`).
+- **Pre-release flag:** correctly set by `release.yml`'s `prerelease` substring detection (`rc` in the tag name).
+- **Release URL:** https://github.com/jarocki/ap/releases/tag/v0.1.0rc1
+- **Artifacts attached:** `adversary_pursuit-0.1.0rc1-py3-none-any.whl` (176 KB) and `adversary_pursuit-0.1.0rc1.tar.gz` (489 KB), both produced by `uv build` inside `release.yml` and uploaded via `softprops/action-gh-release@v2`.
+- **Closeout merge SHA on `main`:** `cd3709a11a9bd7b0bd79ea0b0163916207b16173` — `docs(release): fill v0.1.0rc1 placeholders in README install instructions`. This is the final commit on main that fills the README install block with the verified release URL after the tag cut and CI run completed.
+
+**Fresh-venv verification evidence:**
+
+- `pip install "adversary-pursuit[agent] @ <release-wheel-url>"` succeeded from the public URL — `[agent]` extras (litellm, prompt-toolkit) resolved and installed.
+- `ap --help` runs in the installed venv; the dispatcher banner and subcommand list render correctly.
+- `importlib.metadata.entry_points(group='adversary_pursuit.modules')` returns **11** entries from the installed wheel: `abuseipdb`, `censys`, `dns_resolve`, `greynoise`, `hibp`, `otx`, `passivetotal`, `shodan_ip`, `urlscan`, `virustotal`, `whois_lookup`. (Matches `[project.entry-points."adversary_pursuit.modules"]` in `pyproject.toml` 1:1.)
+- `ap chat` module imports without `ImportError: litellm` — proves the `[agent]` extras install path is real, not a documentation aspiration.
+
+**State authorities exercised (no parallel mechanism introduced):**
+
+- `.github/workflows/release.yml` remained the **sole** authority for artifact production. No alternate build/publish script, no Makefile target, no fork.
+- `pyproject.toml::[project].version` remained the **sole** authority for the package version string; the bump to `0.1.0rc1` was a single-line edit. The pre-existing local `v0.1.0` tag was preserved as-is (neither pushed nor deleted) and is out of scope for this slice.
+- README's "Installation" section was promoted to be the canonical wheel-install path with the real release URL; the "Future: PyPI" subsection was reframed as deferred-rather-than-promised.
+
+### Decision Log (Phase 5 closeout)
+
+| Decision ID | Title | Rationale |
+|-------------|-------|-----------|
+| DEC-V1-RELEASE-VERIFY-001 | Cut a pre-release tag (`v0.1.0rc1`), not a final tag (`v0.1.0`), for the verification | Decouples "we proved the install path works" from "we shipped v1.0". A failed verification on an `rc` tag is recoverable; a failed verification on `v0.1.0` would burn the v1.0 namespace. The `prerelease` flag in `release.yml` correctly fires on the `rc` substring, so users browsing the releases page see a Pre-release label rather than mistaking it for stable v1.0. |
+| DEC-V1-RELEASE-VERIFY-002 | Verify via fresh-venv `pip install <release-URL>` outside the worktree, not via `pip install -e .` from source | The user-facing install path IS the URL form. A source-tree editable install proves nothing the dev loop hasn't already exercised. Installing into a venv outside the worktree eliminates the chance that worktree-resident dependencies contaminate the test. |
+| DEC-V1-RELEASE-VERIFY-003 | Bundle README install-block update into this slice rather than a follow-up `W-V1-DOCS` slice | The verification evidence IS the install command, so writing the README block with the verified URL in the same slice is single-authority for "the canonical v1 install command." Splitting into a follow-up would create a doc-drift window where users see an unverified install command. |
+| DEC-V1-RELEASE-VERIFY-004 | Tag push to upstream (`git push origin v0.1.0rc1`) is a routine Guardian (land) operation, not a user-decision bounce | Tag-push on the established upstream is Guardian's canonical landing surface (CLAUDE.md §"Approval Gates"). It is not a force-push, not a history rewrite. Pre-asking for user approval on a routine Guardian op violates the Question Merit Test. Tag deletion as part of rollback would be destructive and would require explicit user approval — that asymmetry is preserved. |
+| DEC-V1-RELEASE-VERIFY-005 | Leave the pre-existing local `v0.1.0` tag in place (neither pushed nor deleted) | The local `v0.1.0` tag was created speculatively in prior planning and never pushed. Deleting it expands scope into "cleanup of unrelated refs"; pushing it would claim "v1.0 shipped" before verification. Inert preservation is the minimum-surprise choice. A future ship-v1.0 slice will decide whether to move it to the post-verification HEAD or recreate it — that's a product decision, not a verification-mechanics decision. |
 
 ### #21 -- Report Generation
 
@@ -578,11 +622,57 @@ After Phase 6 closeout, ~12 user-driven commits landed organically as live-use r
 
 These commits did not pass through canonical planner → guardian (provision) → implementer → reviewer → guardian (land) flow. They are valid landed work; the lesson for Phase 8 is that **live-smoke regressions should be filed as discrete slices** so the canonical chain owns them.
 
-## In Flight
+---
 
-| ID | Title | Status | Scope | Rationale |
-|----|-------|--------|-------|-----------|
-| `W-OTX-TIMEOUT` (workflow id `w-otx-timeout`) | cti/otx `httpx.ReadTimeout` on high-cardinality IPs | planner done; Guardian provisioning worktree | `src/adversary_pursuit/modules/cti/otx.py` + `tests/test_otx.py` (~2 files) | Live smoke FAIL on IPs with large pulse counts. Adds `TIMEOUT` option + `httpx.ReadTimeout` → timeout-stub SCO mirroring the URLScan pattern (`5cc2be6`). Pattern: classify transient/timeout failures as observable stubs rather than hard errors so the agent path can score and continue. |
+## Phase 8: Smoke Test Reliability — Closeout (W-OTX-TIMEOUT, 2026-05-15)
+**Status:** completed
+
+**What shipped:** `W-OTX-TIMEOUT` (workflow id `w-otx-timeout`) landed via merge `b877574` (implementer commit `72fd3eb` — `fix(otx): TIMEOUT option + httpx.TimeoutException -> stub SCO`).
+
+`cti/otx` now accepts a `TIMEOUT` module option (seconds, configurable per call) and classifies `httpx.ReadTimeout` / `httpx.TimeoutException` as a single timeout-stub `ipv4-addr` SCO with `x_otx_status = "timeout"` rather than raising. This mirrors the URLScan transient-failure pattern (`5cc2be6` / `26c5b54`) where the agent path needs an observable to score and continue rather than a hard error that breaks the chat flow.
+
+**Pattern established:** classify transient/timeout failures as observable stubs (`x_<vendor>_status = "timeout"` / `"unknown"`) rather than hard errors. AbuseIPDB / OTX / URLScan / GreyNoise (404) all follow this pattern now; future modules added to the catalog should adopt it by default.
+
+**State of Phase 8 at v1 ship:** No further smoke regressions are open. Future live-smoke regressions, if surfaced, will be filed as discrete planner slices through the canonical chain rather than landed ad-hoc (the lesson from the Phase 7 organic-landing pattern).
+
+### Decision Log (Phase 8)
+
+| Decision ID | Title | Rationale |
+|-------------|-------|-----------|
+| DEC-MODULE-OTX-TIMEOUT-001 | Add a configurable `TIMEOUT` module option to `cti/otx` rather than a hardcoded constant | High-cardinality IPs (those with large pulse counts) routinely exceed any single fixed timeout. Making `TIMEOUT` a module option lets users tune for slow networks or aggressive timeouts without code edits, matching the `set TARGET ...` ergonomics they already use for other module parameters. |
+| DEC-MODULE-OTX-TIMEOUT-002 | Map `httpx.ReadTimeout` / `httpx.TimeoutException` to a single timeout-stub `ipv4-addr` SCO (`x_otx_status = "timeout"`) rather than raising | Mirrors the URLScan transient-failure pattern (`5cc2be6` / `26c5b54`) and the GreyNoise 404 pattern (DEC-MODULE-GREYNOISE-002). The agent path needs an observable to score and continue the chat flow; a hard exception breaks the conversation and hides the partial signal that the host was at least reachable enough to timeout on the pulse query. The smoke runner SKIP/PASS classifier (`137fb45`) classifies timeout-stub SCOs as PASS-with-stub, preserving the SKIP-means-no-key invariant. |
+
+---
+
+## Phase 9: Pre-v1 Module Catalog Top-Off — Closeout (W-GREYNOISE, 2026-05-16)
+**Status:** completed
+
+**What shipped:** `W-GREYNOISE` (workflow id `w-greynoise`) landed via merge `6884317` — `feat(modules): add osint/greynoise (GreyNoise Community API IP reputation)`.
+
+**User directive (2026-05-16, verbatim):** *"Is GreyNoise one of the API lookup sources? If not, please add it before we ship v1.0."*
+
+**Why this was a pre-v1 catalog top-off, not a post-v1 follow-up:** GreyNoise is the canonical free-tier source for the "is this IP internet-background-noise / opportunistic scanner / known benign service / known malicious actor" (noise/RIOT) classification axis. Before this slice, the v1 IP-reputation surface covered reputation (AbuseIPDB), multi-engine verdicts (VirusTotal), attack-surface (Shodan/Censys), and passive DNS (OTX/PassiveTotal), but had no source for the noise/RIOT axis. Adding it before the v1 ship gate avoided a "we know there's a gap, but ship anyway" caveat in the release notes.
+
+**API choice:** GreyNoise **Community API** (`GET https://api.greynoise.io/v3/community/{ip}`) — free tier, 10,000 queries/day, header `key: <api_key>` (lowercase). The Enterprise API (CVE tags, JA3 fingerprints, raw scanner traffic) was rejected for v1 because it requires a paid plan and would be unreachable in CI or for free-tier users.
+
+**Integration surfaces extended (no parallel mechanism created):**
+
+- Module catalog: `core/plugin_mgr.py::_BUILTIN_MODULES` + `pyproject.toml [project.entry-points."adversary_pursuit.modules"]` (both updated — dual registration is the established invariant; 11/11 modules now appear in both).
+- API key config: `core/config.py::ApiKeysConfig` (new `greynoise` field) + `_AP_ENV_VAR_MAP` (`AP_GREYNOISE_API_KEY`) + `_VENDOR_ENV_VAR_MAP` (`GREYNOISE_API_KEY`).
+- Agent tool catalog: `agent/tools.py` — `greynoise_lookup` tool definition + `_SERVICE_NAMES["osint/greynoise"] = "greynoise"` + `_MODULE_MAP` entry.
+- Smoke test runner: `scripts/smoke_test.py` — `_run_greynoise` handler + `module_runs` row.
+- Setup wizard CTI catalog: `agent/provider_setup.py::CTI_SERVICES` + `_CTI_ENV_VAR`.
+- Auto-pivot subscriptions: `core/event_bus.py::DEFAULT_SUBSCRIPTIONS["osint/greynoise"] = ["ipv4-addr"]`.
+- Hint catalog: `gamification/hints.py` (free + paid hints).
+- REPL autocomplete: `agent/repl_input.py::_MODULE_NAMES`.
+
+### Decision Log (Phase 9)
+
+| Decision ID | Title | Rationale |
+|-------------|-------|-----------|
+| DEC-MODULE-GREYNOISE-001 | Use the free Community API (`/v3/community/{ip}`) with `key:` HTTP header (lowercase) | Free tier covers the v1 use case (single-IP lookup, one SCO per call). The lowercase `key` header is the documented auth shape and must be verbatim — `API-Key` / `Authorization: Bearer` will silently 401. Uses `httpx.AsyncClient` with 30s timeout, matching the AbuseIPDB / Shodan pattern (DEC-MODULE-ABUSEIPDB-001 / ADR-009). |
+| DEC-MODULE-GREYNOISE-002 | 404 → single SCO with `x_greynoise_classification = "unknown"`; 401 → `AuthenticationError`; 429 → `RateLimitError` | Distinguishes "no data" from "no auth" so the smoke runner can classify SKIP/PASS correctly and the agent path can render "unknown" as a legitimate answer rather than an error toast. Mirrors the URLScan / OTX transient-failure pattern established by `5cc2be6` and reaffirmed by `W-OTX-TIMEOUT`. |
+| DEC-MODULE-GREYNOISE-003 | Output is a single-element list with one `ipv4-addr` SCO carrying `x_greynoise_*` custom fields | One API call → one IP → one SCO is the simplest faithful representation. Custom `x_greynoise_*` fields (classification, noise, riot, name, last_seen, link) are absorbed by `dict_to_stix(allow_custom=True)` per DEC-STIX-001/002 — the same path AbuseIPDB and the other reputation modules use. |
 
 ## Runtime Hygiene Backlog
 
@@ -617,12 +707,17 @@ These are the concrete follow-ups identified by the 2026-04-28 reckoning and upd
 
 ### Other v1 boundaries
 
-| ID | Title | Type | Blocked By |
-|----|-------|------|------------|
-| W-V1-RELEASE-VERIFY | Verify the GitHub-Releases distribution path for #24 — confirm an existing tagged release exposes an installable artifact, or cut a tag to trigger `release.yml` and verify upload | release / ops | nothing — can be planned anytime |
-| W-OTX-TIMEOUT | cti/otx `httpx.ReadTimeout` on high-cardinality IPs — add `TIMEOUT` option + timeout-stub SCO mirroring URLScan pattern | source + tests | in flight (Guardian provisioning) |
+**All v1 boundary work items have landed (closed 2026-05-18).** The table below preserves the traceability ledger; no rows remain open.
 
-> **Recommended next work item:** The Phase 6 agent-parity initiative is complete; the previously recommended `W-AGENT-MODULES-VT-CENSYS-PT` has landed (`66f89dd`). Remaining v1 work is **`W-V1-RELEASE-VERIFY`** (release path verification, doc/workflow only) plus **`W-OTX-TIMEOUT`** (in flight). Phase 8 will continue to surface live-smoke regressions as discrete slices — file them through the canonical planner chain rather than landing them ad-hoc.
+| ID | Title | Type | Merge SHA | Status |
+|----|-------|------|-----------|--------|
+| W-V1-RELEASE-VERIFY | Verify the GitHub-Releases distribution path for #24 — cut `v0.1.0rc1`, run `release.yml`, install wheel in fresh venv with `[agent]` extras, confirm 11 entry-points + `ap chat` work, finalize README install block | release / docs / ops | `cd3709a` (closeout 2026-05-18; tag `v0.1.0rc1` SHA `d392deb`) | completed |
+| W-OTX-TIMEOUT | cti/otx `httpx.ReadTimeout` on high-cardinality IPs — add `TIMEOUT` option + timeout-stub SCO mirroring URLScan pattern | source + tests | `b877574` (merge) / `72fd3eb` (impl) | completed |
+| W-GREYNOISE | Add `osint/greynoise` (Community API IP reputation) as the 11th catalog module — per 2026-05-16 user directive, pre-v1 catalog top-off | source + tests + docs | `6884317` | completed |
+
+> **Recommended next work item:** None — v1 ship gate is closed. `v0.1.0rc1` is published; all v1 boundary work items have landed. The next product-level direction (e.g., cut a final `v0.1.0` tag without the `rc` suffix; promote the pre-release to a stable release; begin v2 planning; resolve the dangling local `v0.1.0` tag) is a user decision rather than a scheduled plan slice.
+>
+> Non-blocking ops/hygiene work remains as an opportunistic backlog under "Runtime Hygiene Backlog" above (GitHub issues #35, #37, #40, #42, #49, #50, #51, #52, #53, #54, #55). Those affect orchestrator/Guardian quality of life, not the AP product surface; they will be filed and landed through the canonical planner chain as discrete slices when prioritized.
 >
 > The previously listed `W-SCOPE-25` is retired by ADR-010. The previously listed `W-COVERAGE-METRIC` (cosmetic `@decision` ratio) is deferred — it is not a v1 release blocker and was always optional. `W-V1-PYPI-VERIFY` is retired by the 2026-05-03 GitHub-Releases pivot (`02fed4d`).
 
@@ -652,7 +747,7 @@ Phase 1 (Foundation):    #1 -> #5 -> #3 -> #4 -> #2                 [done]
 Phase 2 (Modules):       #10, #12, #9 -> #11 -> #6, #8 -> #7 -> #13 [done]
 Phase 3 (Gamification):  #14 -> #15 -> #16 -> #17 -> #18            [done]
 Phase 4 (Auto-Pivot):    #19 -> #20                                 [done]
-Phase 5 (Polish):        #21 -> #22 -> #23 -> #24                   [in-progress: W-V1-RELEASE-VERIFY (GitHub Releases, pivoted from PyPI 02fed4d)]
+Phase 5 (Polish):        #21 -> #22 -> #23 -> #24                   [done — W-V1-RELEASE-VERIFY landed cd3709a; v0.1.0rc1 published 2026-05-18]
 Phase 6 (Agent — primary v1 interface):
                          #25 (landed) ->
                          W-AGENT-MODULES-VT-CENSYS-PT ->
@@ -674,9 +769,9 @@ Phase 6 (Agent — primary v1 interface):
 - *Original MLP:* working cmd2 console + 3 OSINT modules + scoring.
 - *Revised MLP:* working **`ap chat` agent** + 3 OSINT modules wired as agent tools + scoring + **at least one visible gamification signal in the chat path** (celebrations is the recommended one — highest signal-to-effort ratio). The cmd2 console is bundled but is not the front door.
 - *MLP Status (Phase 6 closeout, 2026-05-01):* MLP threshold crossed. `ap chat` provides 10 modules, full gamification (scoring + celebrations + badges + modes + hints), auto-pivot, challenges, graph/export, and reports — exceeds the revised MLP.
-- *Post-MLP Status (reconciled 2026-05-15):* Phase 7 (post-Phase-6 CTI pipeline + TUI polish, ~12 commits) landed organically as live use surfaced rough edges. Phase 8 (smoke test reliability) is open with `W-OTX-TIMEOUT` in flight. Remaining v1 release work is `W-V1-RELEASE-VERIFY` (GitHub Releases path, pivoted from PyPI per `02fed4d`).
+- *Post-MLP Status (reconciled 2026-05-18, v1 closed):* Phase 7 (post-Phase-6 CTI pipeline + TUI polish, ~12 commits) landed organically. Phase 8 closed with `W-OTX-TIMEOUT` landing (`b877574`). Phase 9 closed with `W-GREYNOISE` landing (`6884317` — 11th module). Phase 5 closed with `W-V1-RELEASE-VERIFY` landing (`cd3709a` — `v0.1.0rc1` published, install path verified end-to-end). The v1 ship gate is open: `v0.1.0rc1` is the published pre-release; a future `v0.1.0` (no `rc`) ship tag is a discrete product decision rather than a scheduled slice.
 
-The previous "Start with #1 (scaffolding) immediately" instruction is retired — Phase 1-6 are landed and Phase 7 polish has landed organically. The next concrete steps are `W-OTX-TIMEOUT` (in flight) and `W-V1-RELEASE-VERIFY`.
+The previous "Start with #1 (scaffolding) immediately" instruction is retired — Phase 1-9 are landed. There are no open v1 plan slices. Next direction is user-determined (cut final `v0.1.0` tag, begin v2 planning, address the runtime-hygiene backlog opportunistically).
 
 ---
 
