@@ -66,21 +66,23 @@ These are explicitly out of scope for v1. They may appear in future versions but
 
 ---
 
-## v1 RELEASE SHIPPED (2026-05-18)
+## v1 RELEASE SHIPPED (2026-05-19)
 
-> **First public release artifact: `v0.1.0rc1` pre-release tag, cut and verified.**
+> **Stable public release: `v0.1.0` (no rc suffix), cut and verified. Pre-release flag: false.**
 >
-> - **Release page:** https://github.com/jarocki/ap/releases/tag/v0.1.0rc1
-> - **Annotated tag SHA:** `d392debca0fed01317b0db335ee7a27f8cea9858` (points at commit `1af235f`)
-> - **Closeout merge SHA on `main`:** `cd3709a11a9bd7b0bd79ea0b0163916207b16173` (`docs(release): fill v0.1.0rc1 placeholders in README install instructions`)
-> - **Artifacts attached:** `adversary_pursuit-0.1.0rc1-py3-none-any.whl` (176 KB) + `adversary_pursuit-0.1.0rc1.tar.gz` (489 KB), produced by `.github/workflows/release.yml`.
-> - **Install path verified end-to-end** in a fresh venv from the public release URL with the `[agent]` extra: `ap --help` runs; 11 module entry-points (`adversary_pursuit.modules`) are discoverable from the installed wheel; `ap chat` module imports cleanly (no `ImportError: litellm`).
+> - **Release page:** https://github.com/jarocki/ap/releases/tag/v0.1.0
+> - **Annotated tag object SHA:** `e669b5df5c6bb7c98e38a84144f9bc9ab6dcc72f` (points at commit `e8e9b137e116d7a70040c6b3ab9931c08ec73fc4`)
+> - **Tagged commit:** `e8e9b137e116d7a70040c6b3ab9931c08ec73fc4` (`chore(release): promote to v0.1.0 stable`)
+> - **GitHub Actions workflow run:** https://github.com/jarocki/ap/actions/runs/26104027477 (status: success)
+> - **Artifacts attached:** `adversary_pursuit-0.1.0-py3-none-any.whl` (176 KB) + `adversary_pursuit-0.1.0.tar.gz` (493 KB), produced by `.github/workflows/release.yml`.
+> - **rc1 preserved:** `v0.1.0rc1` (tag SHA `d392debca0fed01317b0db335ee7a27f8cea9858`, commit `1af235f`) remains intact as the verification record.
+> - **Stale v0.1.0 replaced:** A stale published v0.1.0 release (2026-05-02, pointing at pre-rc1 commit `1debf76`) was discovered by Guardian during tag-push and replaced with the rc1-verified stable release (DEC-V1-FINAL-SHIP-004; user-authorized destructive operation).
 >
-> v1 boundary is closed. The three v1 boundary work items — `W-V1-RELEASE-VERIFY`, `W-OTX-TIMEOUT`, `W-GREYNOISE` — have all landed (see Phase 5 closeout, Phase 8 closeout, and Phase 9 closeout below). The `v0.1.0` (no `rc`) ship tag is a future decision: cut it from a post-verification HEAD when the project is ready to drop the pre-release flag. The pre-existing local `v0.1.0` tag from prior planning is preserved as-is and is out of scope for any current slice.
+> v1 boundary is fully closed. All four v1 boundary work items — `W-V1-RELEASE-VERIFY`, `W-OTX-TIMEOUT`, `W-GREYNOISE`, and `W-V1-FINAL-SHIP` — have landed (see Phase 5 closeout, Phase 8 closeout, Phase 9 closeout, and Phase 5 Stable Closeout below).
 
 ---
 
-## Plan Status (Reconciled 2026-04-28, Reframed 2026-04-29, v1 Closed 2026-05-18)
+## Plan Status (Reconciled 2026-04-28, Reframed 2026-04-29, v1 Closed 2026-05-18, Stable Shipped 2026-05-19)
 
 | Phase | Status | Notes |
 |-------|--------|-------|
@@ -95,7 +97,7 @@ These are explicitly out of scope for v1. They may appear in future versions but
 | Phase 8 — Smoke Test Reliability | **completed** (W-OTX-TIMEOUT landed `b877574`, impl `72fd3eb`) | `W-OTX-TIMEOUT` added `TIMEOUT` option to `cti/otx` + classified `httpx.ReadTimeout` as a timeout-stub SCO, mirroring the URLScan transient-failure pattern (`5cc2be6`). No other smoke regressions open at v1 ship; future live-smoke regressions will be filed as discrete slices through the canonical planner chain. |
 | Phase 9 — Pre-v1 Module Catalog Top-Off (W-GREYNOISE) | **completed** (2026-05-16, merge `6884317`) | Per 2026-05-16 user directive ("Is GreyNoise one of the API lookup sources? If not, please add it before we ship v1.0."), added `osint/greynoise` as the 11th catalog module using the free-tier GreyNoise Community API (`/v3/community/{ip}`). Closes the noise/RIOT classification gap in the v1 IP-reputation surface. See "Phase 9 closeout" section below. |
 
-**Aggregate (reconciled 2026-05-18, v1 ship gate closed):** Phases 0–9 complete. All W-AGENT-* slices landed; Phase 5 release path verified (`v0.1.0rc1` pre-release at `cd3709a`); Phase 6 docs complete; Phase 7 post-polish complete; Phase 8 `W-OTX-TIMEOUT` landed (`b877574`); Phase 9 `W-GREYNOISE` landed (`6884317`). The agentic chat (`ap chat`) is the v1 primary interface with full gamification parity over 11 modules. The cmd2 REPL is a supported power-user surface. No v1 boundary work items remain; subsequent work is post-v1 (a future `v0.1.0` ship tag without the `rc` suffix is a discrete product decision, not an open plan slice).
+**Aggregate (reconciled 2026-05-19, v1 stable shipped):** Phases 0–9 complete. All W-AGENT-* slices landed; Phase 5 release path verified (`v0.1.0rc1` pre-release at `cd3709a`) then promoted to stable `v0.1.0` (`e8e9b13`, 2026-05-19); Phase 6 docs complete; Phase 7 post-polish complete; Phase 8 `W-OTX-TIMEOUT` landed (`b877574`); Phase 9 `W-GREYNOISE` landed (`6884317`); `W-V1-FINAL-SHIP` landed (`e8e9b13`). The agentic chat (`ap chat`) is the v1 primary interface with full gamification parity over 11 modules. The cmd2 REPL is a supported power-user surface. All four v1 boundary work items have landed; `v0.1.0` is stable and public. Subsequent work is post-v1 and user-determined.
 
 > **Note:** The previous "Beyond v1 — smolagents" framing is retired. Agentic chat is in v1 by user direction (ADR-010). Phase numbering in this status table is the **revised** ordering; the per-phase Decision Log sections below retain their original numbering for traceability with prior plan revisions.
 
@@ -503,6 +505,33 @@ Configurable per-workspace: `auto_pivot = true/false`, depth limit, module white
 | DEC-V1-RELEASE-VERIFY-003 | Bundle README install-block update into this slice rather than a follow-up `W-V1-DOCS` slice | The verification evidence IS the install command, so writing the README block with the verified URL in the same slice is single-authority for "the canonical v1 install command." Splitting into a follow-up would create a doc-drift window where users see an unverified install command. |
 | DEC-V1-RELEASE-VERIFY-004 | Tag push to upstream (`git push origin v0.1.0rc1`) is a routine Guardian (land) operation, not a user-decision bounce | Tag-push on the established upstream is Guardian's canonical landing surface (CLAUDE.md §"Approval Gates"). It is not a force-push, not a history rewrite. Pre-asking for user approval on a routine Guardian op violates the Question Merit Test. Tag deletion as part of rollback would be destructive and would require explicit user approval — that asymmetry is preserved. |
 | DEC-V1-RELEASE-VERIFY-005 | Leave the pre-existing local `v0.1.0` tag in place (neither pushed nor deleted) | The local `v0.1.0` tag was created speculatively in prior planning and never pushed. Deleting it expands scope into "cleanup of unrelated refs"; pushing it would claim "v1.0 shipped" before verification. Inert preservation is the minimum-surprise choice. A future ship-v1.0 slice will decide whether to move it to the post-verification HEAD or recreate it — that's a product decision, not a verification-mechanics decision. |
+### Phase 5 Stable Closeout — W-V1-FINAL-SHIP (2026-05-19)
+**Status:** completed
+
+**What shipped:**
+
+- **Tag:** `v0.1.0` (annotated, tag object SHA `e669b5df5c6bb7c98e38a84144f9bc9ab6dcc72f`, points at commit `e8e9b137e116d7a70040c6b3ab9931c08ec73fc4` — `chore(release): promote to v0.1.0 stable`).
+- **Pre-release flag:** false (confirmed via `gh release view v0.1.0 --json isPrerelease`).
+- **Release URL:** https://github.com/jarocki/ap/releases/tag/v0.1.0
+- **Workflow run:** https://github.com/jarocki/ap/actions/runs/26104027477 (status: success)
+- **Artifacts attached:** `adversary_pursuit-0.1.0-py3-none-any.whl` (176 KB) and `adversary_pursuit-0.1.0.tar.gz` (493 KB), produced by `uv build` inside `release.yml` and uploaded via `softprops/action-gh-release@v2`.
+- **Stale release replaced:** A published v0.1.0 GitHub Release from 2026-05-02 (pointing at pre-rc1 commit `1debf76`) was discovered by Guardian during tag-push audit. It predated the GitHub Releases pivot (`02fed4d`), the URLScan poll auth fix (`5cc2be6`), OTX TIMEOUT (`b877574`), GreyNoise (`6884317`), and all Phase 5 reconciliation work. User authorized destructive replacement ("B"). `gh release delete v0.1.0 --cleanup-tag` atomically removed the stale release page and remote ref; the new `v0.1.0` was cut at `e8e9b13` and re-published via the same `release.yml` workflow.
+- **rc1 preserved:** `v0.1.0rc1` (tag SHA `d392debca0fed01317b0db335ee7a27f8cea9858`, commit `1af235f`) remains intact as the verification record.
+
+**State authorities exercised (no parallel mechanism introduced):**
+
+- `.github/workflows/release.yml` remained the **sole** authority for artifact production. No alternate build/publish path.
+- `pyproject.toml::[project].version` was the **sole** authority for the stable package version string (`0.1.0`, without rc suffix).
+- The stale v0.1.0 release (download count: 0; no PyPI artifact; release was 16 days old) was removed atomically before the stable release was published — no window of dual-release ambiguity.
+
+### Decision Log (Phase 5 stable closeout)
+
+| Decision ID | Title | Rationale |
+|-------------|-------|-----------|
+| DEC-V1-FINAL-SHIP-001 | Promote directly from rc1-verified HEAD (`e8e9b13`) to stable `v0.1.0` without an additional integration period | `v0.1.0rc1` was already verified end-to-end (fresh-venv install, 11 entry-points, `ap chat` import, full pytest pass). The rc cycle existed to decouple "verify the install path" from "ship stable." That purpose was fulfilled; no new regressions were surfaced between rc1 and stable promotion. Additional waiting would manufacture a gap, not reduce risk. |
+| DEC-V1-FINAL-SHIP-002 | Set the `pre-release` flag to false on the stable release (not a pre-release) | The `release.yml` workflow sets `prerelease: true` only when the tag name contains `rc`, `alpha`, or `beta`. `v0.1.0` contains none of those substrings, so the flag is false by default — no code change needed. Confirmed post-push via `gh release view v0.1.0 --json isPrerelease`. |
+| DEC-V1-FINAL-SHIP-003 | Preserve `v0.1.0rc1` intact; do not delete or retag it | `v0.1.0rc1` is the verification record showing the install path was proven before the stable tag was cut. Deleting it would destroy that audit trail. It also serves as a reference for any user who pinned the rc URL. |
+| DEC-V1-FINAL-SHIP-004 | Force-replaced the stale published v0.1.0 release (2026-05-02 at commit `1debf76`) with the rc1-verified stable release (2026-05-19 at commit `e8e9b13`) | The planner's #56/#57 framing assumed v0.1.0 was a local-only dangling tag, but a Guardian audit at tag-push time discovered an actual published GitHub Release from 2026-05-02 pointing at a pre-rc1 CI-fix commit (`1debf76`) — predating the GitHub Releases pivot (`02fed4d`), the URLScan poll auth fix (`5cc2be6`), OTX TIMEOUT (`b877574`), GreyNoise (`6884317`), and all Phase 5 reconciliation work. The stale release would have misled users into installing fundamentally older code with broken CTI modules. User explicitly authorized destructive replacement ("B") after Guardian surfaced the boundary. `gh release delete v0.1.0 --cleanup-tag` removed both the release page and the remote ref atomically; the new `v0.1.0` was cut at `e8e9b13` and re-published via the same `release.yml` workflow. Consumer-breakage risk was assessed as ~zero (download count was 0; no PyPI artifact exists per the pivot; release was 16 days old). `v0.1.0rc1` was preserved as the verification record. |
 
 ### #21 -- Report Generation
 
@@ -714,8 +743,9 @@ These are the concrete follow-ups identified by the 2026-04-28 reckoning and upd
 | W-V1-RELEASE-VERIFY | Verify the GitHub-Releases distribution path for #24 — cut `v0.1.0rc1`, run `release.yml`, install wheel in fresh venv with `[agent]` extras, confirm 11 entry-points + `ap chat` work, finalize README install block | release / docs / ops | `cd3709a` (closeout 2026-05-18; tag `v0.1.0rc1` SHA `d392deb`) | completed |
 | W-OTX-TIMEOUT | cti/otx `httpx.ReadTimeout` on high-cardinality IPs — add `TIMEOUT` option + timeout-stub SCO mirroring URLScan pattern | source + tests | `b877574` (merge) / `72fd3eb` (impl) | completed |
 | W-GREYNOISE | Add `osint/greynoise` (Community API IP reputation) as the 11th catalog module — per 2026-05-16 user directive, pre-v1 catalog top-off | source + tests + docs | `6884317` | completed |
+| W-V1-FINAL-SHIP | Promote `v0.1.0rc1` to stable `v0.1.0`: update pyproject.toml + uv.lock + README, force-replace the stale v0.1.0 GitHub Release (2026-05-02, pre-rc1 commit `1debf76`) with the rc1-verified stable release, amend MASTER_PLAN.md closeout | release / docs / ops | `e8e9b13` (prep commit, 2026-05-19; tag object SHA `e669b5d`) | completed |
 
-> **Recommended next work item:** None — v1 ship gate is closed. `v0.1.0rc1` is published; all v1 boundary work items have landed. The next product-level direction (e.g., cut a final `v0.1.0` tag without the `rc` suffix; promote the pre-release to a stable release; begin v2 planning; resolve the dangling local `v0.1.0` tag) is a user decision rather than a scheduled plan slice.
+> **Recommended next work item:** None — v1 ship gate is fully closed. `v0.1.0` (stable, no rc suffix) is published at https://github.com/jarocki/ap/releases/tag/v0.1.0 with `isPrerelease: false`. All v1 boundary work items have landed (`W-V1-RELEASE-VERIFY`, `W-OTX-TIMEOUT`, `W-GREYNOISE`, `W-V1-FINAL-SHIP`). The project is at stable v1. Future directions (v2 planning, runtime hygiene backlog, additional CTI modules, PyPI distribution) are user decisions rather than scheduled plan slices.
 >
 > Non-blocking ops/hygiene work remains as an opportunistic backlog under "Runtime Hygiene Backlog" above (GitHub issues #35, #37, #40, #42, #49, #50, #51, #52, #53, #54, #55). Those affect orchestrator/Guardian quality of life, not the AP product surface; they will be filed and landed through the canonical planner chain as discrete slices when prioritized.
 >
@@ -747,7 +777,7 @@ Phase 1 (Foundation):    #1 -> #5 -> #3 -> #4 -> #2                 [done]
 Phase 2 (Modules):       #10, #12, #9 -> #11 -> #6, #8 -> #7 -> #13 [done]
 Phase 3 (Gamification):  #14 -> #15 -> #16 -> #17 -> #18            [done]
 Phase 4 (Auto-Pivot):    #19 -> #20                                 [done]
-Phase 5 (Polish):        #21 -> #22 -> #23 -> #24                   [done — W-V1-RELEASE-VERIFY landed cd3709a; v0.1.0rc1 published 2026-05-18]
+Phase 5 (Polish):        #21 -> #22 -> #23 -> #24                   [done — W-V1-RELEASE-VERIFY landed cd3709a (v0.1.0rc1, 2026-05-18); W-V1-FINAL-SHIP stable v0.1.0 published 2026-05-19 at e8e9b13]
 Phase 6 (Agent — primary v1 interface):
                          #25 (landed) ->
                          W-AGENT-MODULES-VT-CENSYS-PT ->
@@ -769,7 +799,7 @@ Phase 6 (Agent — primary v1 interface):
 - *Original MLP:* working cmd2 console + 3 OSINT modules + scoring.
 - *Revised MLP:* working **`ap chat` agent** + 3 OSINT modules wired as agent tools + scoring + **at least one visible gamification signal in the chat path** (celebrations is the recommended one — highest signal-to-effort ratio). The cmd2 console is bundled but is not the front door.
 - *MLP Status (Phase 6 closeout, 2026-05-01):* MLP threshold crossed. `ap chat` provides 10 modules, full gamification (scoring + celebrations + badges + modes + hints), auto-pivot, challenges, graph/export, and reports — exceeds the revised MLP.
-- *Post-MLP Status (reconciled 2026-05-18, v1 closed):* Phase 7 (post-Phase-6 CTI pipeline + TUI polish, ~12 commits) landed organically. Phase 8 closed with `W-OTX-TIMEOUT` landing (`b877574`). Phase 9 closed with `W-GREYNOISE` landing (`6884317` — 11th module). Phase 5 closed with `W-V1-RELEASE-VERIFY` landing (`cd3709a` — `v0.1.0rc1` published, install path verified end-to-end). The v1 ship gate is open: `v0.1.0rc1` is the published pre-release; a future `v0.1.0` (no `rc`) ship tag is a discrete product decision rather than a scheduled slice.
+- *Post-MLP Status (reconciled 2026-05-19, v1 stable shipped):* Phase 7 (post-Phase-6 CTI pipeline + TUI polish, ~12 commits) landed organically. Phase 8 closed with `W-OTX-TIMEOUT` landing (`b877574`). Phase 9 closed with `W-GREYNOISE` landing (`6884317` — 11th module). Phase 5 closed with `W-V1-RELEASE-VERIFY` landing (`cd3709a` — `v0.1.0rc1` published, install path verified end-to-end) and `W-V1-FINAL-SHIP` landing (`e8e9b13` — stable `v0.1.0` published 2026-05-19, `isPrerelease: false`). The v1 ship gate is fully closed: `v0.1.0` is the stable public release. All four v1 boundary work items have landed. Future work is user-determined post-v1.
 
 The previous "Start with #1 (scaffolding) immediately" instruction is retired — Phase 1-9 are landed. There are no open v1 plan slices. Next direction is user-determined (cut final `v0.1.0` tag, begin v2 planning, address the runtime-hygiene backlog opportunistically).
 
