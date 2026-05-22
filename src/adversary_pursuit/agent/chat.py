@@ -108,9 +108,7 @@ def run_chat() -> None:
 
         # Determine if a model is already configured; if not, run the wizard.
         # Precedence: AP_MODEL env > config.toml > (wizard needed)
-        resolved_model: str | None = (
-            os.environ.get("AP_MODEL") or config_mgr.get_agent_model()
-        )
+        resolved_model: str | None = os.environ.get("AP_MODEL") or config_mgr.get_agent_model()
         if not resolved_model:
             # No model configured — run the interactive setup wizard.
             try:
@@ -161,9 +159,7 @@ def run_chat() -> None:
             if workspace_name:
                 try:
                     runner.ctx.workspace_mgr.switch(workspace_name)
-                    console.print(
-                        f"[green]Switched to workspace: {workspace_name}[/green]"
-                    )
+                    console.print(f"[green]Switched to workspace: {workspace_name}[/green]")
                 except ValueError as e:
                     console.print(f"[yellow]{e}[/yellow]")
             continue
@@ -228,16 +224,14 @@ def run_chat() -> None:
                 try:
                     current_score = workspace_mgr.get_total_score()
                 except Exception as e:
-                    console.print(f"[red]Error reading score: {e}[/red]")
+                    handle_error(e, console, runner, config_mgr)
                     continue
                 try:
                     from adversary_pursuit.gamification.hints import (
                         InsufficientBalanceError,
                     )
 
-                    result = hint_mgr.buy_hint(
-                        current_score=current_score, module=module_arg
-                    )
+                    result = hint_mgr.buy_hint(current_score=current_score, module=module_arg)
                 except InsufficientBalanceError as exc:
                     console.print(
                         f"[yellow]Not enough points: need {exc.required} pts "
@@ -245,14 +239,12 @@ def run_chat() -> None:
                     )
                     continue
                 except Exception as e:
-                    console.print(f"[red]Error buying hint: {e}[/red]")
+                    handle_error(e, console, runner, config_mgr)
                     continue
 
                 if result is None:
                     ctx_label = f" for '{module_arg}'" if module_arg else ""
-                    console.print(
-                        f"[dim]No more paid hints available{ctx_label}.[/dim]"
-                    )
+                    console.print(f"[dim]No more paid hints available{ctx_label}.[/dim]")
                     continue
 
                 # Persist score deduction (DEC-HINT-001: caller owns deduction)
@@ -268,9 +260,7 @@ def run_chat() -> None:
                         ]
                     )
                 except Exception as e:
-                    console.print(
-                        f"[yellow]Warning: score deduction failed: {e}[/yellow]"
-                    )
+                    handle_error(e, console, runner, config_mgr)
 
                 # Render with mode-flavored header
                 mode_name = runner.ctx.mode_mgr.active.name
@@ -381,7 +371,7 @@ def run_chat() -> None:
             try:
                 raw_objects = runner.ctx.workspace_mgr.get_stix_objects()
             except Exception as e:
-                console.print(f"[red]Error reading workspace: {e}[/red]")
+                handle_error(e, console, runner, config_mgr)
                 continue
             g = RelationshipGraph()
             g.build_from_workspace(raw_objects)
@@ -409,12 +399,10 @@ def run_chat() -> None:
             try:
                 raw_objects = runner.ctx.workspace_mgr.get_stix_objects()
             except Exception as e:
-                console.print(f"[red]Error reading workspace: {e}[/red]")
+                handle_error(e, console, runner, config_mgr)
                 continue
             if not raw_objects:
-                console.print(
-                    "[dim]No objects in workspace to export. Run a module first.[/dim]"
-                )
+                console.print("[dim]No objects in workspace to export. Run a module first.[/dim]")
                 continue
             g = RelationshipGraph()
             g.build_from_workspace(raw_objects)
@@ -510,9 +498,7 @@ def run_chat() -> None:
             except RuntimeError:
                 active_workspace = "default"
             console.print(f"\n[dim]Active model: [bold]{runner.model}[/bold][/dim]")
-            console.print(
-                f"[dim]Active workspace: [bold]{active_workspace}[/bold][/dim]"
-            )
+            console.print(f"[dim]Active workspace: [bold]{active_workspace}[/bold][/dim]")
             continue
 
         # Report meta-command — mirrors APConsole.do_report (DEC-AGENT-REPORT-001).
@@ -538,9 +524,7 @@ def run_chat() -> None:
             if rest_lower == "generate":
                 # Generate and render the Markdown report
                 report_md = _execute_generate_report(runner.ctx)
-                if report_md.startswith("Report interview") or report_md.startswith(
-                    "Error"
-                ):
+                if report_md.startswith("Report interview") or report_md.startswith("Error"):
                     console.print(f"[yellow]{report_md}[/yellow]")
                 else:
                     console.print(
@@ -556,23 +540,17 @@ def run_chat() -> None:
                 args_str = rest[7:].strip()  # everything after "answer "
                 parts = args_str.split(None, 1)
                 if len(parts) < 2:
-                    console.print(
-                        "[yellow]Usage: report answer <index> <answer text>[/yellow]"
-                    )
+                    console.print("[yellow]Usage: report answer <index> <answer text>[/yellow]")
                 else:
                     try:
                         idx = int(parts[0])
                     except ValueError:
-                        console.print(
-                            f"[yellow]Invalid index '{parts[0]}': must be 0-4[/yellow]"
-                        )
+                        console.print(f"[yellow]Invalid index '{parts[0]}': must be 0-4[/yellow]")
                     else:
                         # Lazily initialise if not yet started
                         if runner.ctx.report_generator is None:
                             _execute_start_report_interview(runner.ctx)
-                        result = _execute_answer_report_question(
-                            runner.ctx, idx, parts[1]
-                        )
+                        result = _execute_answer_report_question(runner.ctx, idx, parts[1])
                         console.print(f"[green]{result}[/green]")
 
             else:

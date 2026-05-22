@@ -57,18 +57,19 @@ from rich.panel import Panel
 from rich.table import Table
 
 from adversary_pursuit.core.config import ConfigManager
+from adversary_pursuit.core.error_interpreter import interpret, render_interactive
 from adversary_pursuit.core.graph import RelationshipGraph
 from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.report import ReportGenerator
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.badges import BadgeManager
-from adversary_pursuit.gamification.challenges import ChallengeManager
 from adversary_pursuit.gamification.celebrations import CelebrationEngine
+from adversary_pursuit.gamification.challenges import ChallengeManager
 from adversary_pursuit.gamification.hints import HintProvider, InsufficientBalanceError
 from adversary_pursuit.gamification.modes import ModeManager
 from adversary_pursuit.gamification.scoring import ScoringEngine
-from adversary_pursuit.modules.base import ModuleError
 from adversary_pursuit.models.stix import create_bundle, dict_to_stix
+from adversary_pursuit.modules.base import ModuleError
 
 
 class APConsole(cmd2.Cmd):
@@ -127,8 +128,8 @@ class APConsole(cmd2.Cmd):
         self.celebration_engine = CelebrationEngine()
 
         # Active module state
-        self._active_module: Any = None          # PursuitModule instance or None
-        self._active_module_path: str = ""       # e.g. "osint/whois_lookup"
+        self._active_module: Any = None  # PursuitModule instance or None
+        self._active_module_path: str = ""  # e.g. "osint/whois_lookup"
         self._active_module_options: dict[str, str] = {}
 
         # Report generator — instantiated lazily when 'report' is first used
@@ -149,6 +150,34 @@ class APConsole(cmd2.Cmd):
         See DEC-CONSOLE-001 for the rationale.
         """
         return Console(file=io.StringIO(), highlight=False, markup=True)
+
+    # ------------------------------------------------------------------
+    # cmd2 framework error hook (DEC-ERROR-INTERPRETER-001)
+    # ------------------------------------------------------------------
+
+    def pexcept(self, exception: BaseException, **kwargs: object) -> None:
+        """Override cmd2's framework-level exception handler.
+
+        cmd2 calls ``pexcept(ex)`` inside ``onecmd_plus_hooks`` for any
+        unhandled exception that escapes a do_* command handler.  The default
+        implementation prints the exception type+message to stderr (and a full
+        traceback when ``self.debug`` is True).
+
+        We replace that with the friendly-error pipeline so the user always
+        sees a Rich panel with a diagnostic ID instead of a raw traceback.
+        The full traceback is still captured in ``~/.ap/debug.log`` via
+        ``interpret()``.
+
+        ``**kwargs`` are accepted for forward-compatibility with the cmd2
+        base-class signature.
+        """
+        interp = interpret(exception, context={"surface": "cmd2_pexcept"})
+        render_interactive(
+            interp,
+            self.rich_console,
+            mode=self.mode_mgr.active if hasattr(self, "mode_mgr") else None,
+            interactive=False,  # cmd2 exception path is non-interactive
+        )
 
     # ------------------------------------------------------------------
     # search
@@ -317,17 +346,29 @@ class APConsole(cmd2.Cmd):
             return
 
         try:
-            results = asyncio.run(
-                self._active_module.hunt(target, self._active_module_options)
-            )
+            results = asyncio.run(self._active_module.hunt(target, self._active_module_options))
         except ModuleError as exc:
-            self.rich_console.print(
-                Panel(str(exc), title="Module Error", style="red")
+            interp = interpret(
+                exc,
+                context={"surface": "cmd2_execute_hunt", "module": self._active_module_path},
+            )
+            render_interactive(
+                interp,
+                self.rich_console,
+                mode=self.mode_mgr.active,
+                interactive=False,
             )
             return
         except Exception as exc:  # noqa: BLE001
-            self.rich_console.print(
-                Panel(f"Unexpected error: {exc}", title="Error", style="red")
+            interp = interpret(
+                exc,
+                context={"surface": "cmd2_execute_hunt", "module": self._active_module_path},
+            )
+            render_interactive(
+                interp,
+                self.rich_console,
+                mode=self.mode_mgr.active,
+                interactive=False,
             )
             return
 
@@ -350,18 +391,14 @@ class APConsole(cmd2.Cmd):
                 module_name=self._active_module_path,
                 target=target,
             )
-            self.poutput(
-                f"\n{count} objects stored in workspace '{self.workspace_mgr.active}'"
-            )
+            self.poutput(f"\n{count} objects stored in workspace '{self.workspace_mgr.active}'")
 
             # Score the discoveries and show point gains using active mode celebration
             scoring_events = self.scoring_engine.score_results(results, stats)
             if scoring_events:
                 total_gained = self.scoring_engine.total_score(scoring_events)
                 self.workspace_mgr.store_score_events(scoring_events)
-                celebration = self.mode_mgr.active.score_celebration.format(
-                    points=total_gained
-                )
+                celebration = self.mode_mgr.active.score_celebration.format(points=total_gained)
                 self.rich_console.print(celebration)
                 for event in scoring_events:
                     self.rich_console.print(
@@ -546,9 +583,7 @@ class APConsole(cmd2.Cmd):
             self.poutput(f"Score: 0  (workspace not yet initialized: {exc})")
             return
 
-        self.rich_console.print(
-            f"\n[bold yellow]Total Score: {total} pts[/bold yellow]\n"
-        )
+        self.rich_console.print(f"\n[bold yellow]Total Score: {total} pts[/bold yellow]\n")
 
         if not recent:
             self.poutput("No scoring events yet. Run a module to start earning points.")
@@ -688,7 +723,9 @@ class APConsole(cmd2.Cmd):
             return
 
         if not awarded:
-            self.poutput("No badges earned yet. Run modules to discover indicators and earn badges!")
+            self.poutput(
+                "No badges earned yet. Run modules to discover indicators and earn badges!"
+            )
             return
 
         # Get badge metadata from BadgeManager for rarity display
@@ -1052,7 +1089,9 @@ class APConsole(cmd2.Cmd):
         module_name: str | None = None
         if self._active_module_path:
             # "osint/dns_resolve" -> "dns_resolve"; "dns_resolve" -> "dns_resolve"
-            module_name = self._active_module_path.split("/")[-1] if self._active_module_path else None
+            module_name = (
+                self._active_module_path.split("/")[-1] if self._active_module_path else None
+            )
 
         if sub == "free":
             self._hint_show_free(module_name)
@@ -1076,7 +1115,11 @@ class APConsole(cmd2.Cmd):
                 "[dim]All hints revealed. You're on your own now, analyst.[/dim]"
             )
             return
-        cost_label = "[green]FREE[/green]" if result.hint.cost == 0 else f"[yellow]{result.hint.cost} pts[/yellow]"
+        cost_label = (
+            "[green]FREE[/green]"
+            if result.hint.cost == 0
+            else f"[yellow]{result.hint.cost} pts[/yellow]"
+        )
         self.rich_console.print(
             Panel(
                 result.hint.text,
@@ -1134,14 +1177,16 @@ class APConsole(cmd2.Cmd):
 
         # Deduct the hint cost from workspace score (DEC-HINT-001)
         try:
-            self.workspace_mgr.store_score_events([
-                {
-                    "action": "hint_purchase",
-                    "points": -result.cost_paid,
-                    "indicator": result.hint.id,
-                    "rule_description": f"Paid hint purchased: -{result.cost_paid} pts",
-                }
-            ])
+            self.workspace_mgr.store_score_events(
+                [
+                    {
+                        "action": "hint_purchase",
+                        "points": -result.cost_paid,
+                        "indicator": result.hint.id,
+                        "rule_description": f"Paid hint purchased: -{result.cost_paid} pts",
+                    }
+                ]
+            )
         except Exception:  # noqa: BLE001
             pass  # Workspace not initialized — cost tracking skipped, hint still shown
 

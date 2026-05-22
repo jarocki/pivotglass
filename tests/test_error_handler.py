@@ -32,13 +32,12 @@ from unittest.mock import MagicMock, patch
 from rich.console import Console
 
 from adversary_pursuit.agent.error_handler import (
-    FriendlyError,
     _CANNED_FALLBACK,
+    FriendlyError,
     classify_error,
     debug_llm_explain,
     handle_error,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -82,9 +81,7 @@ class TestClassifyErrorConnectionErrors:
         exc = ConnectionRefusedError("connection refused to localhost:11434")
         result = classify_error(exc)
         assert result is not None
-        assert (
-            "ollama" in result.summary.lower() or "ollama" in result.suggestion.lower()
-        )
+        assert "ollama" in result.summary.lower() or "ollama" in result.suggestion.lower()
         assert result.recoverable is True
 
     def test_generic_connection_error(self):
@@ -191,9 +188,7 @@ class TestClassifyErrorFileSystem:
         assert result is None or isinstance(result, FriendlyError)
 
     def test_permission_error_on_ap_dir(self, tmp_path):
-        exc = PermissionError(
-            13, "Permission denied", str(tmp_path / ".ap" / "chat_history")
-        )
+        exc = PermissionError(13, "Permission denied", str(tmp_path / ".ap" / "chat_history"))
         result = classify_error(exc)
         # classify_error checks for ".ap" in the path — this path doesn't contain ".ap"
         # so it should return None for the tmp_path version
@@ -245,10 +240,7 @@ class TestDebugLLMExplain:
             result = debug_llm_explain(exc, model="ollama/qwen2.5:8b", api_key=None)
 
         assert isinstance(result, FriendlyError)
-        assert (
-            "out of range" in result.summary.lower()
-            or "value" in result.summary.lower()
-        )
+        assert "out of range" in result.summary.lower() or "value" in result.summary.lower()
         assert result.recoverable is True
 
     def test_populates_summary_and_suggestion_fields(self):
@@ -421,9 +413,7 @@ class TestHandleErrorEndToEnd:
         class APIConnectionError(Exception):
             pass
 
-        exc = APIConnectionError(
-            "Error connecting to ollama at http://localhost:11434/v1"
-        )
+        exc = APIConnectionError("Error connecting to ollama at http://localhost:11434/v1")
         runner = MagicMock()
         runner.model = "ollama/qwen2.5:8b"
         config_mgr = MagicMock()
@@ -485,6 +475,87 @@ class TestHandleErrorEndToEnd:
         assert "Problem:" in output
         assert "Fix:" in output
         assert recoverable is True
+
+
+# ---------------------------------------------------------------------------
+# Delegation invariant: classify_error() delegates to core.error_interpreter
+# (evaluation contract: DEC-ERROR-INTERPRETER-001)
+# ---------------------------------------------------------------------------
+
+
+class TestClassifyErrorDelegation:
+    """Verify that classify_error() delegates catalog-matched errors to
+    core.error_interpreter (DEC-ERROR-INTERPRETER-001).
+
+    Since interpret() is lazily imported inside classify_error(), we verify the
+    delegation contract by asserting that the resulting FriendlyError values
+    match what core.error_interpreter.interpret() would return — not via
+    call-count mocking (which would require a module-level import to patch).
+    """
+
+    def test_rate_limit_delegates_to_core_interpreter(self):
+        """RateLimitError (modules.base) is handled by the core catalog.
+
+        Verify: result summary/suggestion matches what interpret() returns,
+        confirming the delegation path ran (not a parallel inline catalog).
+        """
+        from adversary_pursuit.core.error_interpreter import interpret
+        from adversary_pursuit.modules.base import RateLimitError
+
+        exc = RateLimitError("Rate limited", retry_after=5)
+
+        result = classify_error(exc)
+        core_interp = interpret(exc)
+
+        assert result is not None
+        assert isinstance(result, FriendlyError)
+        # The FriendlyError must be adapted from the core interpretation
+        assert result.summary == core_interp.summary
+        assert result.suggestion == core_interp.suggested_fix
+        assert "rate" in result.summary.lower() or "limit" in result.summary.lower()
+
+    def test_auth_error_from_modules_base_delegates_to_core(self):
+        """AuthenticationError (modules.base) routes through core catalog."""
+        from adversary_pursuit.core.error_interpreter import interpret
+        from adversary_pursuit.modules.base import AuthenticationError
+
+        exc = AuthenticationError("AP_SHODAN_API_KEY not configured")
+
+        result = classify_error(exc)
+        core_interp = interpret(exc)
+
+        assert result is not None
+        assert isinstance(result, FriendlyError)
+        assert result.summary == core_interp.summary
+        assert result.suggestion == core_interp.suggested_fix
+
+    def test_unknown_error_returns_none_after_core_returns_unknown(self):
+        """Unknown errors: core returns 'Unknown' category → classify_error returns None.
+
+        This ensures stage 2 (debug_llm_explain) still fires for unrecognised errors.
+        """
+        from adversary_pursuit.core.error_interpreter import interpret
+
+        exc = ValueError("some completely unexpected thing")
+        core_interp = interpret(exc)
+        assert core_interp.category == "Unknown", "Precondition: ValueError is unknown"
+
+        result = classify_error(exc)
+        # Unknown → None so debug_llm_explain fires (stage 2 of the pipeline)
+        assert result is None
+
+    def test_friendly_error_adapter_shape_preserved(self):
+        """Adapted FriendlyError has summary, suggestion, and recoverable fields."""
+        from adversary_pursuit.modules.base import RateLimitError
+
+        exc = RateLimitError("Too many requests")
+        result = classify_error(exc)
+
+        assert result is not None
+        assert hasattr(result, "summary")
+        assert hasattr(result, "suggestion")
+        assert hasattr(result, "recoverable")
+        assert result.recoverable is True
 
 
 # ---------------------------------------------------------------------------

@@ -11,10 +11,10 @@ Production sequence tested:
 from __future__ import annotations
 
 import io
+
 import pytest
 
 from adversary_pursuit.core.console import APConsole
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -322,3 +322,136 @@ def test_export_runs_without_crash(console):
     run_cmd(console, "workspace switch expws")
     out = run_cmd(console, "export")
     assert isinstance(out, str)
+
+
+# ---------------------------------------------------------------------------
+# Error interpreter integration — exception-injection tests
+# Evaluation contract: ≥3 exception cases; no raw Traceback in output.
+# ---------------------------------------------------------------------------
+
+
+class _RaisingModule:
+    """In-memory fake PursuitModule that raises a configurable exception from hunt().
+
+    Used to exercise the _execute_hunt() error path without needing a real
+    API key or network connection.
+    """
+
+    name = "test/raiser"
+    description = "Raises for testing"
+    author = "test"
+    module_type = "osint"
+    options: dict = {}
+
+    def __init__(self, exc: BaseException) -> None:
+        self._exc = exc
+
+    def initialize(self, config: dict) -> None:
+        pass
+
+    async def hunt(self, target: str, options: dict) -> list:
+        raise self._exc
+
+
+def _inject_module(console: APConsole, exc: BaseException) -> str:
+    """Register a raising module directly in the plugin manager, load, and run it.
+
+    PluginManager._modules stores *classes* (callables returning instances).
+    We inject a factory class whose __init__ captures the desired exception,
+    so get_module() can call factory() and receive the raising instance.
+    """
+
+    # Build a class (not an instance) so plugin_mgr.get_module() can call cls()
+    class _Factory(_RaisingModule):
+        def __init__(self_inner) -> None:  # noqa: N805
+            super().__init__(exc)
+
+    _Factory.name = "test/raiser"  # type: ignore[attr-defined]
+
+    # Direct injection into the in-memory module registry — no mock required.
+    console.plugin_mgr._modules["test/raiser"] = _Factory  # type: ignore[attr-defined]
+
+    run_cmd(console, "use test/raiser")
+    run_cmd(console, "set TARGET 1.2.3.4")
+    out = run_cmd(console, "run")
+    return out
+
+
+class TestConsoleErrorInterpreter:
+    """Exception-injection tests verifying no raw tracebacks escape to the user.
+
+    Production sequence: use <module> → set TARGET → run → hunt() raises →
+    _execute_hunt catches → interpret() → render_interactive() → friendly panel.
+    """
+
+    def test_module_error_produces_friendly_panel_no_traceback(self, console):
+        """ModuleError from hunt() → friendly panel, no 'Traceback (most recent call last):'."""
+        from adversary_pursuit.modules.base import ModuleError
+
+        exc = ModuleError("API key missing")
+        out = _inject_module(console, exc)
+
+        assert "Traceback (most recent call last):" not in out
+        # Friendly panel contains a diagnostic ID (8 hex chars)
+        import re
+
+        assert re.search(r"[a-f0-9]{8}", out), "Expected 8-char diagnostic ID in output"
+
+    def test_generic_exception_in_execute_hunt_produces_friendly_panel(self, console):
+        """Generic Exception from hunt() → friendly panel, no raw traceback."""
+        exc = RuntimeError("unexpected internal error in module")
+        out = _inject_module(console, exc)
+
+        assert "Traceback (most recent call last):" not in out
+        import re
+
+        assert re.search(r"[a-f0-9]{8}", out), "Expected diagnostic ID in output"
+        # Ensure the raw exception repr is not shown verbatim as the only output
+        assert "What happened" in out or "diag" in out
+
+    def test_authentication_error_produces_api_key_suggestion(self, console):
+        """AuthenticationError from hunt() → friendly panel with API key fix hint."""
+        from adversary_pursuit.modules.base import AuthenticationError
+
+        exc = AuthenticationError("AP_SHODAN_API_KEY not configured")
+        out = _inject_module(console, exc)
+
+        assert "Traceback (most recent call last):" not in out
+        # The interpreter should classify this as API key category
+        assert "API key" in out or "config setup" in out or "AP_" in out
+
+    def test_file_not_found_goes_through_pexcept_hook(self, console):
+        """FileNotFoundError via pexcept hook → friendly panel, no traceback.
+
+        cmd2 calls self.pexcept(ex) inside onecmd_plus_hooks for any unhandled
+        exception from a do_* handler. Our override routes through interpret().
+        """
+        import re
+
+        exc = FileNotFoundError("workspace db not found")
+        console.rich_console = console._make_rich_console()
+        console.pexcept(exc)
+        out = console.rich_console.file.getvalue()
+
+        assert "Traceback (most recent call last):" not in out
+        assert re.search(r"[a-f0-9]{8}", out), "Expected diagnostic ID from pexcept"
+
+    def test_pexcept_hook_produces_friendly_panel(self, console):
+        """APConsole.pexcept() renders a friendly panel for any exception."""
+        exc = ValueError("totally unexpected state")
+        console.rich_console = console._make_rich_console()
+        console.pexcept(exc)
+        out = console.rich_console.file.getvalue()
+
+        assert "Traceback (most recent call last):" not in out
+        assert "What happened" in out or "diag" in out
+
+    def test_rate_limit_error_shows_wait_suggestion(self, console):
+        """RateLimitError → friendly panel with rate-limit suggestion."""
+        from adversary_pursuit.modules.base import RateLimitError
+
+        exc = RateLimitError("Too many requests", retry_after=30)
+        out = _inject_module(console, exc)
+
+        assert "Traceback (most recent call last):" not in out
+        assert "rate" in out.lower() or "limit" in out.lower() or "wait" in out.lower()

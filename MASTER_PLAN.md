@@ -703,6 +703,129 @@ These commits did not pass through canonical planner → guardian (provision) �
 | DEC-MODULE-GREYNOISE-002 | 404 → single SCO with `x_greynoise_classification = "unknown"`; 401 → `AuthenticationError`; 429 → `RateLimitError` | Distinguishes "no data" from "no auth" so the smoke runner can classify SKIP/PASS correctly and the agent path can render "unknown" as a legitimate answer rather than an error toast. Mirrors the URLScan / OTX transient-failure pattern established by `5cc2be6` and reaffirmed by `W-OTX-TIMEOUT`. |
 | DEC-MODULE-GREYNOISE-003 | Output is a single-element list with one `ipv4-addr` SCO carrying `x_greynoise_*` custom fields | One API call → one IP → one SCO is the simplest faithful representation. Custom `x_greynoise_*` fields (classification, noise, riot, name, last_seen, link) are absorbed by `dict_to_stix(allow_custom=True)` per DEC-STIX-001/002 — the same path AbuseIPDB and the other reputation modules use. |
 
+---
+
+## Phase 10: Friendly Errors (W-FRIENDLY-ERRORS, post-v1, 2026-05-14)
+**Status:** in-progress (planner stage complete, implementer next)
+**Workflow id:** `w-friendly-errors` · **Goal id:** `g-friendly-errors` · **Work item id:** `wi-friendly-errors`
+**Branch:** `feature/friendly-errors` · **Worktree:** `.worktrees/feature-friendly-errors` · **Base:** `main` @ `ba32fa6`
+
+### User directive (2026-05-14, verbatim)
+
+> "Make sure that all errors are always caught so they are not displayed directly to the user. Instead, interpret the error, debug it, and display a fix. If you can automate the fix, prompt the player with an offer to fix it."
+
+### Why this is post-v1, not v2
+
+The `ap chat` REPL already has a friendly-error pipeline (`agent/error_handler.py`, DEC-AGENT-ERROR-HANDLER-001 — three-stage classify→LLM-explain→canned). That pipeline replaces raw tracebacks in the **main chat loop** but does not cover three real residual gaps that v0.1.0 users will hit:
+
+1. **cmd2 console (`core/console.py`):** `_execute_hunt` catches `ModuleError` and generic `Exception` into red Panels, but cmd2's framework-level exception path (anything raised before our handler) prints a default traceback. There are also ~20 handler sites that render `poutput(f"Error: {exc}")` with no fix-suggestion.
+2. **`ap chat` meta-command sub-handlers (`agent/chat.py` lines ~230, ~247, ~270):** these render raw `[red]Error: {e}[/red]` strings inside `hint`/`hint buy`/`score` flows, bypassing the main-loop `handle_error()` and producing no fix-suggestion, no diagnostic ID, and no debug-log entry.
+3. **`scripts/smoke_test.py`:** the FAIL summary shows `httpx.ReadTimeout: ...` (concise) or a full traceback (`--verbose`) but never tells the user *what to do about it*. The user sees what broke, not how to fix it.
+
+And the user's directive adds a new product capability that v0.1.0 simply doesn't have anywhere yet: **interactive auto-fix prompts**. When the fix is mechanically safe (rerun `ap config setup`, restore `~/.ap/config.toml.bak`, sleep-and-retry after a `Retry-After` header), the panel should offer `[y/n]` rather than make the user re-derive the command.
+
+### Code-as-truth audit (what already exists vs. what's missing)
+
+| Surface | Today (post-v0.1.0) | Gap closed by this slice |
+|---|---|---|
+| `agent/chat.py` main loop (line 689) | Protected — `handle_error()` 3-stage pipeline, Rich Panel, no traceback leaks | None (preserved) |
+| `agent/chat.py` meta-command sites (lines ~230, ~247, ~270) | Raw `[red]Error: {e}[/red]` rendering | Migrated to `handle_error()` — uniform friendly-panel path |
+| `core/console.py` `_execute_hunt` | Wrapped — red Panel, no traceback | Replaced with interpreter call — gains diagnostic ID + fix-suggestion + auto-fix prompt |
+| `core/console.py` cmd2 framework default error | Default cmd2 behavior — prints traceback to stdout on unhandled command exceptions | Overridden via `APConsole.default_error` hook → interpreter |
+| `scripts/smoke_test.py` FAIL summary | `{type}: {msg}` (concise) or `traceback.format_exc()` (`--verbose`) | Interpreter-driven summary: `[CATEGORY] fix-suggestion (diag <id>)` — `--verbose` still appends traceback |
+| Debug log of full tracebacks | None — verbose-only stdout dump | New `~/.ap/debug.log` (JSONL, line-rotated to 1000, `fcntl.flock`-guarded) |
+| Auto-fix prompt | None | New `AutoFix` registry + `[y/n/d]` prompt in interactive renderer |
+| Mode-flavored error tone | None | Renderer accepts `CharacterMode` and reflects ninja/full_troll/sun_tzu/etc. tone in panel title |
+
+### Architecture
+
+**Single new authority:** `src/adversary_pursuit/core/error_interpreter.py` (~400 LOC). Placed under `core/` (not `agent/`) because it is consumed by cmd2 console, agent chat, and smoke_test alike — and must work without the `[agent]` extra installed (no litellm import). Public surface:
+
+- `interpret(exc, *, surface, context=None) -> ErrorInterpretation`
+- `render_interactive(interp, console, *, mode=None, interactive=True) -> AutoFixOutcome`
+- `render_summary_line(interp) -> str` (non-interactive, no Rich markup)
+- `ErrorInterpretation` and `AutoFix` frozen dataclasses
+- `_CATALOG` registry — 8 entries, data-driven (each entry is a `match: Callable[[BaseException], bool]` + `interpret: Callable[[BaseException], ErrorInterpretation]` + optional `auto_fix_factory: Callable[[BaseException], AutoFix | None]`). Future catalog additions are single-tuple appends.
+
+**Existing authority preserved:** `agent/error_handler.py` keeps its DEC-AGENT-ERROR-HANDLER-001 three-stage pipeline. Stage 1's catalog body relocates to `core/error_interpreter.py`; `classify_error()` becomes a thin delegate that returns a `FriendlyError` adapted from `ErrorInterpretation`. Stages 2 (LLM explain) and 3 (canned fallback) are **untouched** — that chat-specific behavior stays where it belongs.
+
+**State-authority map:**
+
+| State domain | Canonical authority | Notes |
+|---|---|---|
+| Error classification + fix catalog | `core/error_interpreter.py` `_CATALOG` | NEW. Sole authority. |
+| Chat LLM-explain fallback | `agent/error_handler.py` `debug_llm_explain` | Unchanged. |
+| Friendly panel rendering (chat) | `agent/error_handler.py` `handle_error` | Unchanged externally. |
+| Friendly panel rendering (cmd2) | `core/error_interpreter.py` `render_interactive` | NEW. Wired from `APConsole.default_error`. |
+| Friendly summary line (smoke) | `core/error_interpreter.py` `render_summary_line` | NEW. Wired from `_fmt_exc`. |
+| Debug log (JSONL, rotated 1000 lines, `fcntl.flock`) | `~/.ap/debug.log` | NEW. Sole authority. |
+| Diagnostic ID generation | `core/error_interpreter.py` `_make_diagnostic_id()` (8-hex-char `secrets.token_bytes(4)`) | NEW. Sole authority. |
+| Auto-fix callable registry | `core/error_interpreter.py` `_CATALOG` entries | NEW. Sole authority. |
+| Mode-flavored tone | Renderer reads `CharacterMode` fields; `gamification/modes.py` unchanged | Soft-coupled; `mode=None` falls back to neutral phrasing. |
+
+**Removal targets (addition without subtraction is debt):**
+
+- Catalog body in `agent/error_handler.classify_error()` — relocated, not duplicated. The function name stays so the single import site in `agent/chat.py` line 65 keeps working.
+- Raw `[red]Error: {e}[/red]` and `[yellow]Warning: ...[/yellow]` `console.print` calls in `agent/chat.py` meta-command handlers (lines ~230, ~247, ~270) — migrated to `handle_error()`. No new mechanism; just stop bypassing the existing one.
+- `scripts/smoke_test.py::_fmt_exc` body — becomes a thin wrapper over `render_summary_line()`. Signature preserved.
+
+### Decisions (planner stage)
+
+| Decision ID | Title | Rationale |
+|---|---|---|
+| DEC-ERROR-INTERPRETER-001 | New `core/error_interpreter.py` as sole catalog authority; `agent/error_handler.classify_error()` delegates | The existing `classify_error` is correctly factored for chat-LLM use but coupling `core/console.py` and `scripts/smoke_test.py` to an `agent/` namespace would pull litellm transitively. Placing the catalog under `core/` reflects that error interpretation is shared infrastructure. Preserves DEC-AGENT-ERROR-HANDLER-001 by extracting only stage 1; stages 2 and 3 stay in agent. Single authority avoids the parallel-catalog drift CLAUDE.md §12 forbids. |
+| DEC-ERROR-INTERPRETER-002 | Debug log at user-global `~/.ap/config`-adjacent `~/.ap/debug.log`, not workspace-scoped | Errors can occur before a workspace is loaded (config corruption, plugin discovery failure). The debug log must always have a stable target. User-global also keeps the diagnostic ID copy-pasteable in bug reports regardless of which workspace was active when the error fired. |
+| DEC-ERROR-INTERPRETER-003 | JSONL append with `fcntl.flock` rotation to most-recent 1000 lines | Worktree concurrency (CLAUDE.md "Worktrees Mean Concurrency") means two `ap` processes may interpret errors simultaneously. `fcntl.flock` on the log file makes append atomic. Line-count rotation (read-trim-write under lock) bounds disk use without external dependencies (logrotate / structlog handlers). 1000 entries ≈ ~500 KB ceiling. |
+| DEC-ERROR-INTERPRETER-004 | 8-character lowercase hex diagnostic ID (`secrets.token_bytes(4).hex()`) | Short enough to copy-paste from a terminal without wrapping; long enough that collision in a 1000-line log is negligible (~1 in 2³². With 1000 entries, collision probability is ~1.2 × 10⁻⁷). |
+| DEC-ERROR-INTERPRETER-005 | Auto-fix prompts limited to non-destructive operations behind explicit `[y/n]` confirmation | "Mechanically safe" means the operation either touches no user data (rerun `ap config setup`, sleep-and-retry on rate-limit) or restores from a known backup (`~/.ap/config.toml.bak` when present). Never auto-key-generate, never auto-delete, never auto-edit user files. Each AutoFix surfaces a label + description before the prompt so the user knows exactly what they're consenting to. |
+| DEC-ERROR-INTERPRETER-006 | Renderer accepts `CharacterMode | None` for mode-flavored tone; `gamification/modes.py` is read-only consumed | The user's directive ("prompt the player") confirms the gamification framing. Mode-flavored panel titles serve that framing without coupling — passing `mode=None` (e.g., from smoke_test) yields neutral phrasing. No edits to `DEFAULT_MODES` or `CharacterMode` dataclass keep the modes authority unchanged. |
+| DEC-ERROR-INTERPRETER-007 | Smoke test FAIL summary becomes `[CATEGORY] fix-suggestion (diag <id>)`; `--verbose` still appends full traceback | Concise mode tells the user what to do, not just what broke. `--verbose` retains today's traceback behavior for power-user / CI debugging. Signature of `_fmt_exc(exc, verbose)` is preserved so both call sites at `--quiet` and `--verbose` keep working. |
+| DEC-ERROR-INTERPRETER-008 | Catalog v1 covers 8 known-issue patterns; unknown-fallback is mandatory | Initial coverage: missing API key, rate limit, network/connection-refused, network timeout, config TOML decode error, SQLite locked, LiteLLM/provider auth, and a mandatory unknown-fallback. The unknown-fallback must produce a friendly panel with a diagnostic ID even when no catalog entry matches — the contract is that **no Python traceback ever reaches the user without going through the interpreter**, including the case where the interpreter itself doesn't recognize the error. If the interpreter raises during interpretation, the renderer's outer-catch emits a canned "Something unexpected happened (diag &lt;id&gt;)" panel and writes a debug-log entry. |
+
+### Work item
+
+| ID | Title | Type | Worktree | Status |
+|---|---|---|---|---|
+| W-FRIENDLY-ERRORS | ErrorInterpreter: catch all errors, render friendly fix-suggestion, optional auto-apply | source + tests + evidence | `.worktrees/feature-friendly-errors` | in progress (planner complete; implementer next) |
+
+**Implementer sub-task order** (one worktree, sequential — explicitly serial within this slice to avoid the parallel-mechanism trap):
+
+1. WI-FE-1.1 — `core/error_interpreter.py`: dataclasses, `interpret()`, `_CATALOG` (8 entries), diagnostic-ID gen, debug-log JSONL append + flock rotation.
+2. WI-FE-1.2 — `tests/test_error_interpreter.py`: 8 catalog entries, unknown fallback, diagnostic ID format, debug-log append + rotation, two-thread concurrency.
+3. WI-FE-1.3 — Renderer (same module): `render_interactive()` + `render_summary_line()`; tests cover panel content, `[y/n/d]` prompt paths, mode-flavored title.
+4. WI-FE-1.4 — Refactor `agent/error_handler.classify_error()` to delegate; preserve `FriendlyError` adapter; update existing `tests/test_error_handler.py` to assert delegation; add `@decision DEC-ERROR-INTERPRETER-001 (supersedes inline catalog)` annotation.
+5. WI-FE-1.5 — Wire cmd2 console: override `APConsole.default_error`; replace bare `_execute_hunt` `except Exception` panel with interpreter call; extend `tests/test_console.py` with 3+ exception-injection cases asserting no `Traceback` in stdout.
+6. WI-FE-1.6 — Migrate `agent/chat.py` meta-command sub-handlers to call `handle_error()`; add `tests/test_agent_chat.py` (new file — chat.py is currently only covered indirectly).
+7. WI-FE-1.7 — `scripts/smoke_test.py::_fmt_exc` becomes a wrapper over `render_summary_line()`; extend `tests/test_smoke_test.py`.
+8. WI-FE-1.8 — Live evidence captures in `tmp/evidence-friendly-errors/`: three transcripts (cmd2 corrupted config, chat no-provider, smoke invalid key) + a debug.log sample, all proven to contain zero `Traceback (most recent call last):` strings.
+9. WI-FE-1.9 — Amend this MASTER_PLAN.md section with closeout merge SHA + evidence summary.
+
+**Critical path:** strictly sequential 1.1 → 1.9 (each step depends on the registry built in 1.1).
+
+### Evaluation Contract
+
+Persisted in runtime via `cc-policy workflow work-item-set ... --evaluation-json` (9 legal keys per DEC-CLAUDEX-EVAL-CONTRACT-SCHEMA-PARITY-001). Authoritative copy lives in runtime; the canonical summary is:
+
+- **Required tests:** 9 test scenarios spanning catalog entries, diagnostic-ID format, debug-log rotation + concurrency, renderer behavior, delegation invariant, cmd2 wiring, chat meta-command migration, smoke FAIL summary shape.
+- **Required evidence:** 4 artifacts in `tmp/evidence-friendly-errors/` — three live-run transcripts + a debug-log sample, all proving zero `Traceback (most recent call last):` strings in user-facing stdout/stderr.
+- **Required real-path checks:** `uv run pytest` (full suite, zero regression vs ~1497 baseline; expected delta +30 to +40 tests); `uv run ruff check` on all scope files; live cmd2 capture with corrupted config matching panel ↔ debug-log diagnostic ID.
+- **Required authority invariants:** `core/error_interpreter.py` is sole catalog authority; `modules/base.py` exception types unchanged; `~/.ap/debug.log` is sole error-history authority; DEC-AGENT-ERROR-HANDLER-001 preserved; `core/error_interpreter.py` has no `litellm` dep.
+- **Required integration points:** `agent/chat.py` line 693 call site unchanged; `APConsole` wires `default_error` hook; `_fmt_exc(exc, verbose)` signature preserved; `gamification/modes.py` read-only consumed.
+- **Forbidden shortcuts:** no parallel catalog; no `litellm` import in `core/error_interpreter.py`; no silent exception swallowing (debug-log write failure → loud stderr fallback); no destructive auto-fix without `[y/n]`; no edits to `modules/base.py`; no parallel debug-log location; no raw `[red]Error: {e}[/red]` inside scope files.
+- **Rollback boundary:** one merge revert restores prior behavior in full; no schema migrations; `~/.ap/debug.log` is purely additive (delete-to-rollback).
+- **Ready-for-guardian:** pytest green + ruff green + 4 evidence artifacts present + MASTER_PLAN.md amended + reviewer `REVIEW_VERDICT=ready_for_guardian` on current HEAD.
+
+### Scope Manifest
+
+Persisted in runtime via `cc-policy workflow scope-sync` (work item + workflow rows, parity verified — `matches_work_item_scope: True`). Authoritative copy at `tmp/scope-w-friendly-errors.json`. Summary:
+
+- **Allowed (12 paths):** the new `core/error_interpreter.py`, the three integration files (`core/console.py`, `agent/error_handler.py`, `agent/chat.py`), `scripts/smoke_test.py`, five test files, `tmp/evidence-friendly-errors/**`, and `MASTER_PLAN.md`.
+- **Required (7 paths):** the new module, its test file, the three integration files, the smoke script, and `MASTER_PLAN.md`.
+- **Forbidden (22 paths):** all `modules/**`, `models/**`, `gamification/**`, every other file in `core/` and `agent/`, `pyproject.toml`, `uv.lock`, `.github/**`, `.claude/**`, `DECISIONS.md`, `README.md`, `CLAUDE.md`, `AGENTS.md`.
+- **State domains touched:** `error_classification_catalog` (new), `diagnostic_id_generation` (new), `debug_log_jsonl` (new), `friendly_panel_rendering` (extended), `cmd2_default_error_hook` (extended), `smoke_test_fail_summary` (extended).
+
+---
+
 ## Runtime Hygiene Backlog
 
 Cross-cutting runtime issues surfaced during recent dispatch chains. Tracked as GitHub issues (not v1 plan slices) — they affect orchestrator/Guardian quality of life but not the AP product surface:
@@ -745,7 +868,15 @@ These are the concrete follow-ups identified by the 2026-04-28 reckoning and upd
 | W-GREYNOISE | Add `osint/greynoise` (Community API IP reputation) as the 11th catalog module — per 2026-05-16 user directive, pre-v1 catalog top-off | source + tests + docs | `6884317` | completed |
 | W-V1-FINAL-SHIP | Promote `v0.1.0rc1` to stable `v0.1.0`: update pyproject.toml + uv.lock + README, force-replace the stale v0.1.0 GitHub Release (2026-05-02, pre-rc1 commit `1debf76`) with the rc1-verified stable release, amend MASTER_PLAN.md closeout | release / docs / ops | `e8e9b13` (prep commit, 2026-05-19; tag object SHA `e669b5d`) | completed |
 
-> **Recommended next work item:** None — v1 ship gate is fully closed. `v0.1.0` (stable, no rc suffix) is published at https://github.com/jarocki/ap/releases/tag/v0.1.0 with `isPrerelease: false`. All v1 boundary work items have landed (`W-V1-RELEASE-VERIFY`, `W-OTX-TIMEOUT`, `W-GREYNOISE`, `W-V1-FINAL-SHIP`). The project is at stable v1. Future directions (v2 planning, runtime hygiene backlog, additional CTI modules, PyPI distribution) are user decisions rather than scheduled plan slices.
+### Post-v1 user-driven work items
+
+| ID | Title | Type | Merge SHA | Status |
+|----|-------|------|-----------|--------|
+| W-FRIENDLY-ERRORS | Universal `core/error_interpreter.py` — catches all errors at the cmd2 + ap chat + smoke_test surfaces, renders friendly Rich panels with fix-suggestions + 8-char diagnostic IDs, offers `[y/n]` auto-fix prompts on mechanically safe fixes (rerun `ap config setup`, restore `~/.ap/config.toml.bak`, sleep-and-retry on rate-limit), preserves full tracebacks in `~/.ap/debug.log` (JSONL, fcntl-locked, 1000-line rotated). Per 2026-05-14 user directive. See "Phase 10" section above. | source + tests + evidence | _pending implementer_ | in-progress |
+
+> **Recommended next work item:** `W-FRIENDLY-ERRORS` — planner stage complete (this commit). Scope manifest synced to runtime (`matches_work_item_scope: True`), evaluation contract written (9 keys, 9 required tests, 4 required evidence artifacts). Implementer next; canonical chain continues `planner → guardian (provision) → implementer → reviewer → guardian (land)`.
+>
+> _Historical note (2026-05-19):_ v1 ship gate fully closed — `v0.1.0` (stable, no rc suffix) published at https://github.com/jarocki/ap/releases/tag/v0.1.0 with `isPrerelease: false`. All four v1 boundary work items landed (`W-V1-RELEASE-VERIFY`, `W-OTX-TIMEOUT`, `W-GREYNOISE`, `W-V1-FINAL-SHIP`).
 >
 > Non-blocking ops/hygiene work remains as an opportunistic backlog under "Runtime Hygiene Backlog" above (GitHub issues #35, #37, #40, #42, #49, #50, #51, #52, #53, #54, #55). Those affect orchestrator/Guardian quality of life, not the AP product surface; they will be filed and landed through the canonical planner chain as discrete slices when prioritized.
 >

@@ -504,10 +504,28 @@ def _run_greynoise(target: str, keys: dict, verbose: bool) -> tuple[str, str, in
 
 
 def _fmt_exc(exc: Exception, verbose: bool) -> str:
-    """Format an exception for output. Full traceback in verbose mode."""
+    """Format an exception for the FAIL summary line.
+
+    Non-verbose mode (default):
+        Delegates to core.error_interpreter for a friendly one-liner:
+        ``[CATEGORY] suggested_fix (diag <id>)``
+
+    Verbose mode (--verbose flag):
+        Appends the full traceback after the friendly summary so power-users
+        and CI pipelines can see exactly what went wrong.
+
+    Signature is preserved per DEC-ERROR-INTERPRETER-007 — both call sites
+    in the runner functions already pass (exc, verbose).
+    """
+    from adversary_pursuit.core.error_interpreter import interpret, render_summary_line
+
+    interp = interpret(exc, context={"surface": "smoke_test"})
+    summary = render_summary_line(interp)
     if verbose:
-        return traceback.format_exc().strip()
-    return f"{type(exc).__name__}: {exc}"
+        tb = traceback.format_exc().strip()
+        if tb and tb != "NoneType: None":
+            return f"{summary}\n{tb}"
+    return summary
 
 
 # ---------------------------------------------------------------------------

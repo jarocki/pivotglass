@@ -9,6 +9,9 @@ Three-stage pipeline
 --------------------
 1. ``classify_error(exc)`` — instant, local, pattern-based classification.
    Returns ``FriendlyError`` for known error shapes, ``None`` for unknown.
+   Stage 1 **delegates** to ``core.error_interpreter.interpret()`` as the sole
+   catalog authority (DEC-ERROR-INTERPRETER-001).  This keeps the three-stage
+   pipeline intact while removing the parallel inline catalog.
 2. ``debug_llm_explain(exc, ...)`` — one LLM round-trip for unknown errors.
    Wrapped in its own try/except so a broken LLM layer never leaks raw errors.
 3. ``handle_error(exc, console, runner, config_mgr)`` — orchestrates (1) and
@@ -27,6 +30,17 @@ Three-stage pipeline
            a canned message is shown — the REPL never crashes due to error
            rendering.  ``recoverable`` lets callers decide whether to continue
            the loop or exit cleanly.
+
+@decision DEC-ERROR-INTERPRETER-001
+@title classify_error() delegates to core.error_interpreter — sole catalog authority
+@status accepted (supersedes: inline catalog body in this module)
+@rationale The inline catalog body has been relocated to core/error_interpreter.py
+           so that cmd2 console, smoke_test, and agent chat share one catalog
+           without a litellm transitive dependency in core/.  classify_error()
+           now adapts ErrorInterpretation → FriendlyError so the three-stage
+           pipeline and all call sites remain unchanged.  The "Unknown" category
+           from the interpreter maps to None so stage 2 (LLM explain) still fires
+           for unrecognised errors, preserving the original chat-specific behavior.
 """
 
 from __future__ import annotations
@@ -83,9 +97,7 @@ class FriendlyError:
 
 _CANNED_FALLBACK = FriendlyError(
     summary="Something unexpected went wrong.",
-    suggestion=(
-        "Try 'model show' to verify your setup, or rerun the wizard with 'model select'."
-    ),
+    suggestion=("Try 'model show' to verify your setup, or rerun the wizard with 'model select'."),
     recoverable=True,
 )
 
@@ -97,8 +109,19 @@ _CANNED_FALLBACK = FriendlyError(
 def classify_error(exc: BaseException) -> FriendlyError | None:
     """Classify *exc* against known error patterns.
 
-    Returns a ``FriendlyError`` for recognised exception shapes, or ``None``
-    if the exception is unknown and should be forwarded to ``debug_llm_explain``.
+    Delegates to ``core.error_interpreter.interpret()`` as the sole catalog
+    authority (DEC-ERROR-INTERPRETER-001).  Adapts ``ErrorInterpretation`` to
+    ``FriendlyError`` so the three-stage pipeline and all call sites remain
+    unchanged.
+
+    Returns ``None`` for the "Unknown" category so that stage 2
+    (``debug_llm_explain``) still fires for unrecognised errors — preserving
+    the original chat-specific LLM-explain behavior.
+
+    Additional chat-specific classification not in the shared catalog:
+    - ``ImportError`` for missing agent extras → fatal (not recoverable)
+    - Ollama-specific connection-refused with localhost hint
+    - ``FileNotFoundError``/``PermissionError`` on ``~/.ap/`` paths
 
     Parameters
     ----------
@@ -110,12 +133,16 @@ def classify_error(exc: BaseException) -> FriendlyError | None:
     FriendlyError | None
         A pre-built friendly error for known patterns, or ``None``.
     """
+    # ----------------------------------------------------------------
+    # Chat-specific pre-checks that are NOT in the shared catalog:
+    # ImportError (agent extras) and Ollama localhost connection.
+    # These are handled here because they are agent/chat-only concerns;
+    # the shared catalog is for module/console/smoke surfaces.
+    # ----------------------------------------------------------------
     exc_type = type(exc).__name__
     exc_str = str(exc).lower()
 
-    # ----------------------------------------------------------------
-    # ImportError — litellm not installed
-    # ----------------------------------------------------------------
+    # ImportError — litellm not installed (fatal; not in shared catalog)
     if isinstance(exc, ImportError):
         if "litellm" in exc_str or "litellm" in exc_type.lower():
             return FriendlyError(
@@ -129,9 +156,10 @@ def classify_error(exc: BaseException) -> FriendlyError | None:
             recoverable=False,
         )
 
-    # ----------------------------------------------------------------
-    # Connection / network errors (covers litellm wrappers + stdlib)
-    # ----------------------------------------------------------------
+    # Connection / network errors — chat-specific LLM-provider path.
+    # Covers both Ollama-specific (localhost hint) and generic provider errors.
+    # The shared catalog covers httpx.ConnectError and similar by class hierarchy;
+    # here we handle by class NAME (for litellm wrapper classes) and stdlib.
     _conn_names = {
         "APIConnectionError",
         "ConnectionError",
@@ -142,11 +170,8 @@ def classify_error(exc: BaseException) -> FriendlyError | None:
         "TimeoutError",
         "ReadTimeout",
         "ConnectTimeout",
-        "httpx.ConnectError",
-        "httpx.ReadTimeout",
     }
     if exc_type in _conn_names or any(n in exc_type for n in _conn_names):
-        # Ollama-specific: connection refused on localhost
         if "ollama" in exc_str or "localhost" in exc_str or "127.0.0.1" in exc_str:
             return FriendlyError(
                 summary="Ollama isn't running (connection refused).",
@@ -161,7 +186,7 @@ def classify_error(exc: BaseException) -> FriendlyError | None:
             recoverable=True,
         )
 
-    # Also catch stdlib ConnectionRefusedError / ConnectionResetError / etc.
+    # stdlib ConnectionError / TimeoutError (includes ConnectionRefusedError etc.)
     if isinstance(exc, (ConnectionError, TimeoutError)):
         if "ollama" in exc_str or "localhost" in exc_str or "127.0.0.1" in exc_str:
             return FriendlyError(
@@ -177,21 +202,7 @@ def classify_error(exc: BaseException) -> FriendlyError | None:
             recoverable=True,
         )
 
-    # ----------------------------------------------------------------
-    # Authentication errors
-    # ----------------------------------------------------------------
-    _auth_names = {
-        "AuthenticationError",
-        "AuthorizationError",
-        "InvalidAPIKeyError",
-        "PermissionDeniedError",
-    }
-    if exc_type in _auth_names or any(n in exc_type for n in _auth_names):
-        return FriendlyError(
-            summary="Your API key was rejected by the provider.",
-            suggestion="Run 'model select' to re-enter your API key.",
-            recoverable=True,
-        )
+    # Auth errors by message content — covers generic Exception raised by LLM providers
     if "invalid api key" in exc_str or "authentication" in exc_str:
         return FriendlyError(
             summary="Your API key was rejected by the provider.",
@@ -199,23 +210,9 @@ def classify_error(exc: BaseException) -> FriendlyError | None:
             recoverable=True,
         )
 
-    # ----------------------------------------------------------------
-    # Rate limit / quota
-    # ----------------------------------------------------------------
-    _rate_names = {"RateLimitError", "QuotaExceededError", "TooManyRequestsError"}
-    if exc_type in _rate_names or any(n in exc_type for n in _rate_names):
-        return FriendlyError(
-            summary="Rate limit hit — the provider is throttling requests.",
-            suggestion="Wait a moment and try again, or run 'model select' to switch models.",
-            recoverable=True,
-        )
-
-    # ----------------------------------------------------------------
-    # File system errors relating to ~/.ap/
-    # ----------------------------------------------------------------
+    # File system errors relating to ~/.ap/ (chat-specific path)
     if isinstance(exc, (FileNotFoundError, PermissionError)):
-        path_str = exc_str
-        if ".ap" in path_str or "chat_history" in path_str or "config.toml" in path_str:
+        if ".ap" in exc_str or "chat_history" in exc_str or "config.toml" in exc_str:
             return FriendlyError(
                 summary=f"Cannot access AP data directory: {exc.filename if hasattr(exc, 'filename') else ''}",
                 suggestion="Check permissions on ~/.ap/ or delete the directory to reset.",
@@ -223,9 +220,26 @@ def classify_error(exc: BaseException) -> FriendlyError | None:
             )
 
     # ----------------------------------------------------------------
-    # Unknown — caller should try debug_llm_explain
+    # Delegate to the shared catalog (DEC-ERROR-INTERPRETER-001)
+    # core.error_interpreter has no litellm dependency; safe to import here.
     # ----------------------------------------------------------------
-    return None
+    from adversary_pursuit.core.error_interpreter import interpret  # noqa: PLC0415
+
+    interp = interpret(exc)
+
+    # "Unknown" category means no catalog match → return None so stage 2 fires.
+    if interp.category == "Unknown":
+        return None
+
+    # Adapt ErrorInterpretation → FriendlyError.
+    # recoverable = True for warn/info; False only for errors that are fatal
+    # (none in the shared catalog are fatal — only the chat-specific ImportError above).
+    return FriendlyError(
+        summary=interp.summary,
+        suggestion=interp.suggested_fix,
+        recoverable=True,
+        _exc=exc,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -378,9 +392,7 @@ def handle_error(
             provider_id = config_mgr.get_agent_provider()
             if provider_id:
                 api_key = config_mgr.get_provider_api_key(provider_id)
-        friendly = debug_llm_explain(
-            exc, model=model, api_key=api_key, config_mgr=config_mgr
-        )
+        friendly = debug_llm_explain(exc, model=model, api_key=api_key, config_mgr=config_mgr)
 
     # Stage 3: render
     body = f"[bold]Problem:[/bold] {friendly.summary}\n[bold]Fix:[/bold] {friendly.suggestion}"
