@@ -53,6 +53,7 @@ renders text-based trees using Rich Tree widget, and exports to GEXF/STIX.
 from __future__ import annotations
 
 import io
+import logging
 import xml.etree.ElementTree as ET
 from collections import Counter
 from dataclasses import dataclass, field
@@ -60,6 +61,8 @@ from typing import Any
 
 from rich.console import Console
 from rich.tree import Tree
+
+_LOG = logging.getLogger(__name__)
 
 
 @dataclass
@@ -74,6 +77,12 @@ class GraphNode:
         The STIX object type (e.g. "ipv4-addr", "domain-name").
     value:
         The observable value (e.g. "1.2.3.4", "evil.com").
+    blob:
+        Full source dict as returned by WorkspaceManager.get_stix_objects().
+        When present, export_stix_bundle() uses it verbatim so that provenance
+        fields (x_ap_*) and all stored properties survive into the bundle.
+        None for nodes constructed synthetically (e.g. in tests or from
+        non-workspace sources). See DEC-59-STIX-PROVENANCE-005.
     children:
         Direct child GraphNode objects — populated during tree construction,
         not during build_from_workspace(). Not used by RelationshipGraph
@@ -84,6 +93,7 @@ class GraphNode:
     stix_id: str
     stix_type: str
     value: str
+    blob: dict | None = None
     children: list[GraphNode] = field(default_factory=list)
 
 
@@ -103,7 +113,7 @@ class RelationshipGraph:
     """
 
     def __init__(self) -> None:
-        self._nodes: dict[str, GraphNode] = {}       # stix_id -> node
+        self._nodes: dict[str, GraphNode] = {}  # stix_id -> node
         self._edges: list[tuple[str, str, str]] = []  # (source, target, rel_type)
 
     # ------------------------------------------------------------------
@@ -138,6 +148,7 @@ class RelationshipGraph:
                 stix_id=obj.get("id", ""),
                 stix_type=obj.get("type", ""),
                 value=obj.get("value", ""),
+                blob=obj,  # preserve full dict so export_stix_bundle can include provenance
             )
             if node.stix_id:
                 self._nodes[node.stix_id] = node
@@ -266,32 +277,47 @@ class RelationshipGraph:
         GEXF 1.2draft is used for maximum Gephi compatibility. See DEC-GRAPH-003.
         """
         # Root gexf element
-        gexf = ET.Element("gexf", {
-            "xmlns": "http://gexf.net/1.2",
-            "version": "1.2",
-        })
-        graph_el = ET.SubElement(gexf, "graph", {
-            "defaultedgetype": "directed",
-            "mode": "static",
-        })
+        gexf = ET.Element(
+            "gexf",
+            {
+                "xmlns": "http://gexf.net/1.2",
+                "version": "1.2",
+            },
+        )
+        graph_el = ET.SubElement(
+            gexf,
+            "graph",
+            {
+                "defaultedgetype": "directed",
+                "mode": "static",
+            },
+        )
 
         # Nodes
         nodes_el = ET.SubElement(graph_el, "nodes")
         for stix_id, node in self._nodes.items():
-            ET.SubElement(nodes_el, "node", {
-                "id": stix_id,
-                "label": f"{node.stix_type}: {node.value}",
-            })
+            ET.SubElement(
+                nodes_el,
+                "node",
+                {
+                    "id": stix_id,
+                    "label": f"{node.stix_type}: {node.value}",
+                },
+            )
 
         # Edges
         edges_el = ET.SubElement(graph_el, "edges")
         for idx, (src, tgt, rel_type) in enumerate(self._edges):
-            ET.SubElement(edges_el, "edge", {
-                "id": str(idx),
-                "source": src,
-                "target": tgt,
-                "label": rel_type,
-            })
+            ET.SubElement(
+                edges_el,
+                "edge",
+                {
+                    "id": str(idx),
+                    "source": src,
+                    "target": tgt,
+                    "label": rel_type,
+                },
+            )
 
         return ET.tostring(gexf, encoding="unicode", xml_declaration=False)
 
@@ -302,42 +328,100 @@ class RelationshipGraph:
     def export_stix_bundle(self) -> dict[str, Any]:
         """Export the graph as a STIX 2.1 bundle dict.
 
-        Returns a plain dict (not a python-stix2 object) containing all
-        graph nodes as STIX objects and all edges as STIX relationship objects.
-        See DEC-GRAPH-004.
+        Returns a plain dict (not a python-stix2 object) so that callers can
+        serialize it with json.dumps() without importing stix2. The dict is a
+        fully spec-compliant STIX 2.1 bundle that round-trips through
+        stix2.parse(bundle, allow_custom=True). See DEC-GRAPH-004 and
+        DEC-59-STIX-PROVENANCE-005.
+
+        Each node's json_blob (stored by WorkspaceManager, including any x_ap_*
+        provenance fields) is recovered via stix2.parse() so that provenance
+        survives into the exported bundle unchanged.
+
+        @decision DEC-59-STIX-PROVENANCE-005
+        @title export_stix_bundle rebuilds via stix2.v21.Bundle — no hand-rolled dicts
+        @status accepted
+        @rationale Hand-rolled construction produced a non-spec-compliant bundle
+                   (missing spec_version on SCOs, random bundle id, no stix2
+                   validation). Going through python-stix2 makes spec compliance
+                   automatic and surfaces regressions at export time rather than
+                   silently producing invalid output. The plain-dict return shape
+                   (DEC-GRAPH-004) is preserved via json.loads(bundle.serialize()).
 
         Returns
         -------
         dict
-            STIX 2.1 bundle with type="bundle", id, and objects list.
+            STIX 2.1 bundle with type="bundle", id, spec_version, and objects list.
+            Every SCO in objects carries spec_version="2.1" and a deterministic id.
         """
-        import uuid
+        import json
 
-        objects: list[dict] = []
+        import stix2
 
-        # Nodes as STIX observable/object dicts
-        for stix_id, node in self._nodes.items():
-            objects.append({
-                "type": node.stix_type,
-                "id": stix_id,
-                "value": node.value,
-            })
+        stix_objects: list = []
 
-        # Edges as STIX relationship dicts
-        for idx, (src, tgt, rel_type) in enumerate(self._edges):
-            objects.append({
-                "type": "relationship",
-                "id": f"relationship--{uuid.uuid4()}",
-                "relationship_type": rel_type,
-                "source_ref": src,
-                "target_ref": tgt,
-            })
+        # Recover each node as a typed stix2 object.
+        #
+        # When node.blob is present (set by build_from_workspace() from the full
+        # workspace dict), use it verbatim so that provenance fields (x_ap_*) and
+        # all custom properties survive into the bundle unchanged.
+        #
+        # When node.blob is absent (synthetic nodes built by callers that only
+        # supply id/type/value, e.g. in direct graph construction tests), fall back
+        # to a minimal blob that still produces a spec-valid SCO.
+        #
+        # allow_custom=True is required for both paths: the workspace blobs carry
+        # x_ap_* and x_vendor_* custom fields; the minimal fallback carries none
+        # but the flag is harmless.
+        for _stix_id, node in self._nodes.items():
+            if node.blob is not None:
+                # Full workspace blob — may contain x_ap_* provenance and other
+                # custom fields. Ensure spec_version is present (old rows may lack it).
+                source_blob = dict(node.blob)
+                source_blob.setdefault("spec_version", "2.1")
+            else:
+                # Synthetic node — build minimal spec-compliant blob from node fields.
+                source_blob = {
+                    "type": node.stix_type,
+                    "id": node.stix_id,
+                    "spec_version": "2.1",
+                    "value": node.value,
+                }
+            try:
+                stix_obj = stix2.parse(source_blob, allow_custom=True)
+                stix_objects.append(stix_obj)
+            except Exception:  # noqa: BLE001
+                _LOG.warning(
+                    "export_stix_bundle: could not parse node %s as stix2 object; skipping",
+                    node.stix_id,
+                )
 
-        return {
-            "type": "bundle",
-            "id": f"bundle--{uuid.uuid4()}",
-            "objects": objects,
-        }
+        # Rebuild relationship SROs from edge tuples.
+        # RelationshipGraph stores only (src, tgt, rel_type) — the full Relationship
+        # blob is not kept in memory. Re-construct via stix2.Relationship; the library
+        # assigns a deterministic id from the relationship properties.
+        for src, tgt, rel_type in self._edges:
+            try:
+                rel = stix2.Relationship(
+                    relationship_type=rel_type,
+                    source_ref=src,
+                    target_ref=tgt,
+                )
+                stix_objects.append(rel)
+            except Exception:  # noqa: BLE001
+                _LOG.warning(
+                    "export_stix_bundle: could not build Relationship %s→%s; skipping",
+                    src,
+                    tgt,
+                )
+
+        bundle = stix2.v21.Bundle(objects=stix_objects, allow_custom=True)
+        result = json.loads(bundle.serialize())
+        # stix2.v21.Bundle omits the "objects" key when the bundle is empty.
+        # Ensure the key is always present for consumers that rely on it
+        # (DEC-GRAPH-004: callers expect "objects" in the returned dict).
+        result.setdefault("objects", [])
+        return result
 
     # ------------------------------------------------------------------
     # Statistics
@@ -354,9 +438,7 @@ class RelationshipGraph:
             - "edge_count" (int): total number of edges
             - "types" (dict[str, int]): count of nodes per STIX type
         """
-        type_counts: dict[str, int] = Counter(
-            node.stix_type for node in self._nodes.values()
-        )
+        type_counts: dict[str, int] = Counter(node.stix_type for node in self._nodes.values())
         return {
             "node_count": self.node_count,
             "edge_count": self.edge_count,

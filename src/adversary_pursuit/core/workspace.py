@@ -55,7 +55,10 @@ storage layer.
 from __future__ import annotations
 
 import json
+import logging
+import warnings
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Generator
 
@@ -74,6 +77,8 @@ from adversary_pursuit.models.database import (
     Relationship as RelationshipModel,
 )
 from adversary_pursuit.models.stix import dict_to_stix
+
+_LOG = logging.getLogger(__name__)
 
 # Default workspace directory
 _DEFAULT_WORKSPACE_DIR = Path.home() / ".ap" / "workspaces"
@@ -236,6 +241,11 @@ class WorkspaceManager:
         objects: list,
         module_name: str,
         target: str,
+        *,
+        source_url: str | None = None,
+        api_version: str | None = None,
+        response_sha256: str | None = None,
+        fetched_at: str | None = None,
     ) -> int:
         """Store STIX objects from a module run.
 
@@ -243,6 +253,11 @@ class WorkspaceManager:
         Plain dicts are converted via dict_to_stix(). Unrecognized types are
         skipped. Relationships are stored in the relationships table; SCOs go
         to stix_objects. Deduplication is by STIX ID (INSERT OR IGNORE).
+
+        Provenance fields (x_ap_*) are written exclusively by this method —
+        callers MUST NOT pre-set x_ap_* keys on their SCO dicts. Any x_ap_*
+        key found on an incoming dict is stripped and a warning is emitted.
+        See DEC-59-STIX-PROVENANCE-001.
 
         Parameters
         ----------
@@ -252,11 +267,50 @@ class WorkspaceManager:
             Canonical module name for the audit log (e.g. "osint/whois_lookup").
         target:
             The hunt() target string for the audit log.
+        source_url:
+            URL of the vendor API endpoint that produced these objects.
+            Stored verbatim as x_ap_source_url. Pass None for legacy call sites.
+        api_version:
+            Vendor API version string (e.g. "v2"). Stored verbatim as
+            x_ap_api_version. Pass None for legacy call sites.
+        response_sha256:
+            SHA-256 hex digest of the raw vendor response bytes, computed by the
+            caller. Stored verbatim as x_ap_response_sha256.
+            See DEC-59-STIX-PROVENANCE-003.
+        fetched_at:
+            RFC 3339 / ISO 8601 timestamp string (Z-suffixed) indicating when
+            the data was fetched. Defaults to the current UTC wall-clock time
+            when not supplied. See DEC-59-STIX-PROVENANCE-004.
 
         Returns
         -------
         int
             Count of objects stored (after conversion; excludes skipped dicts).
+
+        @decision DEC-59-STIX-PROVENANCE-001
+        @title workspace.store_stix_objects() is the sole authority for the x_ap_* namespace
+        @status accepted
+        @rationale Single-source-of-truth (CLAUDE.md §12). If modules could also emit
+                   x_ap_*, two authorities would silently diverge. Caller-supplied dicts
+                   that already contain x_ap_* keys are stripped with a warning so the
+                   invariant is enforced at the storage boundary, not by convention.
+
+        @decision DEC-59-STIX-PROVENANCE-002
+        @title Provenance fields added to json_blob AFTER obj.serialize()
+        @status accepted
+        @rationale obj.serialize() feeds the python-stix2 deterministic-id derivation.
+                   Adding provenance before serialization would make the same observable
+                   fetched at two different times produce two different STIX IDs, breaking
+                   deduplication (DEC-WS-004). Post-serialization augmentation keeps the
+                   ID stable: same SCO content → same ID, regardless of provenance.
+
+        @decision DEC-59-STIX-PROVENANCE-004
+        @title Legacy SCOs (no provenance kwargs) get x_ap_fetched_at defaulted to storage-time UTC
+        @status accepted
+        @rationale x_ap_fetched_at is the only provenance field that the workspace can
+                   populate without module cooperation. The other three require the caller
+                   to supply them. Defaulting fetched_at here ensures every SCO has at
+                   least a storage timestamp, making the minimum provenance record non-null.
         """
         # @decision DEC-WS-006
         # @title _ensure_active() called at top of store_stix_objects
@@ -271,8 +325,37 @@ class WorkspaceManager:
         self._ensure_active()
         stored_count = 0
 
+        # Resolve fetched_at default once for the entire batch (DEC-59-STIX-PROVENANCE-004)
+        effective_fetched_at = fetched_at or datetime.now(timezone.utc).isoformat().replace(
+            "+00:00", "Z"
+        )
+
+        # Build provenance overlay — only x_ap_fetched_at is always non-null;
+        # the other three are omitted from the overlay when None so that the
+        # json_blob contains null (absent) rather than the key with a null value.
+        provenance: dict = {"x_ap_fetched_at": effective_fetched_at}
+        if source_url is not None:
+            provenance["x_ap_source_url"] = source_url
+        if api_version is not None:
+            provenance["x_ap_api_version"] = api_version
+        if response_sha256 is not None:
+            provenance["x_ap_response_sha256"] = response_sha256
+
         with Session(self._engine) as session:
             for obj in objects:
+                # Strip caller-supplied x_ap_* fields from dicts before conversion
+                # (DEC-59-STIX-PROVENANCE-001: workspace is the sole x_ap_* authority)
+                if isinstance(obj, dict):
+                    x_ap_keys = [k for k in obj if k.startswith("x_ap_")]
+                    if x_ap_keys:
+                        warnings.warn(
+                            f"store_stix_objects: caller-supplied x_ap_* keys stripped "
+                            f"({', '.join(sorted(x_ap_keys))}); only the workspace layer "
+                            "may set x_ap_* provenance fields (DEC-59-STIX-PROVENANCE-001).",
+                            stacklevel=2,
+                        )
+                        obj = {k: v for k, v in obj.items() if not k.startswith("x_ap_")}
+
                 # Convert plain dicts to stix2 objects
                 if isinstance(obj, dict):
                     obj = dict_to_stix(obj)
@@ -285,7 +368,7 @@ class WorkspaceManager:
                 if obj_type == "relationship":
                     self._store_relationship(session, obj)
                 else:
-                    self._store_sco(session, obj)
+                    self._store_sco(session, obj, provenance)
                 stored_count += 1
 
             # Log the module run
@@ -577,18 +660,26 @@ class WorkspaceManager:
                 self.create("default")
             self.switch("default")
 
-    def _store_sco(self, session: Session, obj) -> None:
+    def _store_sco(self, session: Session, obj, provenance: dict | None = None) -> None:
         """Insert a STIX SCO into stix_objects, ignoring duplicate IDs.
 
         Uses ORM session.get() for deduplication: if a row with this STIX ID
         already exists, skip the insert. STIX SCO IDs are deterministic, so the
         same observable always has the same ID (DEC-WS-004). Using the ORM
         (not raw SQL) ensures the Python-side created_at default fires correctly.
+
+        Provenance fields (x_ap_*) are merged into json_blob AFTER obj.serialize()
+        so they do not feed back into the deterministic-id derivation.
+        See DEC-59-STIX-PROVENANCE-002.
         """
         existing = session.get(StixObject, obj.id)
         if existing is not None:
             return  # already stored — deduplicated
+        # Serialize first so deterministic-id derivation is already complete,
+        # then augment the dict with provenance fields (DEC-59-STIX-PROVENANCE-002).
         json_dict = json.loads(obj.serialize())
+        if provenance:
+            json_dict.update(provenance)
         row = StixObject(
             id=obj.id,
             type=obj.type,

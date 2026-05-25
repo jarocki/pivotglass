@@ -826,6 +826,164 @@ Persisted in runtime via `cc-policy workflow scope-sync` (work item + workflow r
 
 ---
 
+## Phase 11: STIX 2.1 Spec Compliance + Per-SCO Provenance (W-59-STIX-PROVENANCE, post-v1, 2026-05-22)
+**Status:** in-progress (planner stage complete, implementer next)
+**Workflow id:** `w-59-stix-provenance` · **Goal id:** `g-59-stix-provenance` · **Work item id:** `wi-59-impl`
+**Branch:** `feature/59-stix-provenance` · **Worktree:** `.worktrees/feature-59-stix-provenance` · **Base:** `main` @ `1ccf13b`
+**Closes:** [GitHub issue #59](https://github.com/jarocki/ap/issues/59)
+
+### User directive (verbatim, via Threat Hunter expert assessment 2026-05-22)
+
+> "I cannot put this in an advisory. Until every result is timestamped + URL-attributed + content-hashed at the workspace layer, this is a research toy."
+
+### Why this is a v1-hardening slice, not a v2 feature
+
+`v0.1.0` ships with STIX 2.1 as the internal data model (ADR-005) but two real spec-compliance gaps that break the downstream-consumer story:
+
+1. **`export_stix_bundle()` in `core/graph.py` (line 302) is not STIX 2.1 valid.** It synthesizes a random `bundle--<uuid4>` id and emits a plain dict `{type: "bundle", id, objects}` with no `spec_version` field on the objects. SCO objects in the bundle are reduced to `{type, id, value}` — missing `spec_version: "2.1"` (required for every STIX 2.1 SDO/SCO). The bundle will not round-trip through `stix2.parse()`.
+2. **No provenance metadata on any SCO.** Modules produce raw SCO dicts (`{type, value, x_<vendor>_*}`), `dict_to_stix()` converts them into python-stix2 SCO objects (which DO carry deterministic content-based ids and `spec_version` thanks to the library), and `workspace.store_stix_objects()` serializes those to `stix_objects.json_blob`. But nothing records WHEN AP fetched the data, WHICH endpoint produced it, or the cryptographic hash of the raw vendor response. Downstream analysts and threat-hunter peers cannot audit the forensic chain.
+
+This slice closes both gaps in one bounded change without rewriting any module. Module SCO production stays exactly the same; provenance is added post-hoc at the workspace storage layer (single-authority principle, CLAUDE.md §12).
+
+### Code-as-truth audit (what already exists vs. what's missing)
+
+| Surface | Today (post-v0.1.0) | Gap closed by this slice |
+|---|---|---|
+| `models/stix.py::dict_to_stix()` | Converts plain dicts into python-stix2 SCO objects with `allow_custom=True`; the resulting object already carries deterministic content-based `id` and `spec_version: "2.1"` (the library does this) | Preserved unchanged. The provenance fields are added at the storage layer, after this conversion — so the deterministic-id derivation continues to depend only on the SCO's defining-property values, not on provenance timestamps. |
+| `core/workspace.py::store_stix_objects()` | Accepts `objects: list, module_name: str, target: str`. Serializes via `obj.serialize()` and stores `json_blob` keyed by `obj.id`. No provenance fields written. | Signature extended with four optional kwargs (`source_url=None`, `api_version=None`, `response_sha256=None`, `fetched_at=None`). When provided, augments the serialized `json_blob` with `x_ap_source_url`, `x_ap_api_version`, `x_ap_response_sha256`, and `x_ap_fetched_at`. `fetched_at` defaults to `datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")` when not passed. |
+| `core/graph.py::export_stix_bundle()` | Returns plain dict `{type: "bundle", id: "bundle--<uuid4>", objects: [{type, id, value}, ...]}` with no `spec_version` on objects. Will not round-trip through `stix2.parse()`. | Rebuilt via `models/stix.py::create_bundle()` + the existing SCO creator helpers — reading the full `json_blob` from the workspace so provenance fields survive into the exported bundle. Returned object is still a plain dict (DEC-GRAPH-004 preserved via `.serialize()` round-trip), but it is now a `stix2.v21.Bundle`-equivalent dict that round-trips through `stix2.parse()`. |
+| `tests/` | `test_workspace.py` covers store/retrieve/dedup; `test_graph.py` covers tree rendering and GEXF export. No round-trip test against python-stix2. | New `tests/test_stix_roundtrip.py` — bundle parses via `stix2.parse()` and yields a `stix2.v21.Bundle`; every SCO carries `id`, `spec_version: "2.1"`, `x_ap_fetched_at` (non-null), and pass-through provenance when supplied. Existing tests extended for the new kwargs. |
+| Call sites for `store_stix_objects` (production) | `core/console.py:389` and `agent/tools.py:359` — both pass `results, module_name, target` and have no current way to surface vendor URL / API version / response hash | Both call sites updated to pass `None` for the four provenance kwargs (legacy modules don't surface this yet — surfacing through `hunt()` is a deliberate follow-up slice, see "Out-of-scope" below). This preserves the contract that the workspace is the single provenance authority and that legacy SCOs get null provenance rather than fabricated values. |
+
+### Architecture
+
+**Single new authority:** the `x_ap_*` provenance namespace inside `stix_objects.json_blob`, owned exclusively by `workspace.store_stix_objects()`. Modules MUST NOT emit `x_ap_*` fields. Tests assert this invariant.
+
+**No schema migration.** `stix_objects.json_blob` is a `JSON` column (`models/database.py` line 73); the existing schema already accepts the augmented blob. Pre-existing rows (which lack `x_ap_*` fields) remain valid — the round-trip test treats `x_ap_fetched_at`-absent SCOs as a documented legacy state rather than a parse failure.
+
+**Deterministic id mechanism:** Unchanged from current behavior. `stix2.IPv4Address(value=...)` already produces `ipv4-addr--<uuidv5(NAMESPACE_OASIS, canonical_serialization)>` via the python-stix2 library's STIX 2.1-compliant id derivation. We do NOT introduce a custom namespace UUID — the library's deterministic-id behavior is the authority (DEC-STIX-001). Critically, provenance fields are added to `json_blob` AFTER `.serialize()` so they do not feed back into id derivation. Same SCO content → same id, regardless of when it was fetched or from which endpoint. This is the property tests verify.
+
+**Content-hash semantics for `x_ap_response_sha256`:** The hash is computed by the CALLER (the module producer or its call site) over the raw vendor response bytes, then passed to `store_stix_objects(..., response_sha256=...)`. The workspace does NOT recompute or canonicalize — it stores the hex string verbatim. This keeps the workspace stateless about response shape and lets future modules choose what "raw response" means for their wire format (JSON body, full HTTP response, etc.). Documented in DEC-59-STIX-PROVENANCE-003.
+
+**Bundle export reconstruction strategy:** `export_stix_bundle()` rebuilds via two paths:
+1. SCOs: round-trip each `json_blob` dict through `stix2.parse(blob, allow_custom=True)` to recover a typed stix2 object, then collect them.
+2. Relationships: same approach using `Relationship` from the existing `models/stix.py` helpers.
+3. Wrap the collection with `stix2.v21.Bundle(objects=[...])` and serialize back to dict via `json.loads(bundle.serialize())`.
+
+This guarantees that whatever the workspace stored (provenance fields included) survives unchanged into the exported bundle, AND that the result parses via `stix2.parse()`.
+
+**State-authority map:**
+
+| State domain | Canonical authority | Notes |
+|---|---|---|
+| STIX SCO deterministic id derivation | `python-stix2` library (called via `models/stix.py::dict_to_stix()`) | Unchanged. The library is the spec-compliance authority (DEC-STIX-001). |
+| STIX `spec_version` on every SCO | `python-stix2` library SCO classes (set automatically on construction) | Unchanged for SCO production; `export_stix_bundle()` newly relies on this property at export time. |
+| Per-SCO provenance fields (`x_ap_*`) | `core/workspace.py::store_stix_objects()` | NEW. Sole authority. Augments `json_blob` after stix2 serialization. |
+| Provenance default for `x_ap_fetched_at` | `core/workspace.py::store_stix_objects()` — `datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")` | NEW. Sole authority. Module-supplied `fetched_at` overrides the default. |
+| Provenance pass-through (`x_ap_source_url`, `x_ap_api_version`, `x_ap_response_sha256`) | `core/workspace.py::store_stix_objects()` kwargs | NEW. Sole authority. Caller (console.py / agent/tools.py / direct tests) supplies; workspace stores verbatim. |
+| STIX bundle construction | `core/graph.py::export_stix_bundle()` (via `stix2.v21.Bundle`) | Extended. Returns plain dict per DEC-GRAPH-004; the dict is now a parse-able STIX 2.1 bundle. |
+| Bundle round-trip validation | `tests/test_stix_roundtrip.py` (new file) | NEW. Sole authority for the contract. |
+
+**Removal targets (addition without subtraction is debt):**
+
+- `core/graph.py::export_stix_bundle()` lines 314-340 — the hand-rolled `{type, id, value}` dict construction and the inline `uuid.uuid4()` bundle/relationship id generation. Replaced wholesale by the `stix2.v21.Bundle` round-trip path. No parallel mechanism remains.
+- The unused `import uuid` inside `export_stix_bundle()` (line 314) — removed once the new path lands.
+
+### Decisions (planner stage)
+
+| Decision ID | Title | Rationale |
+|---|---|---|
+| DEC-59-STIX-PROVENANCE-001 | `workspace.store_stix_objects()` is the sole authority for the `x_ap_*` provenance namespace; modules MUST NOT emit `x_ap_*` fields | Single-source-of-truth (CLAUDE.md §12). If modules could also emit `x_ap_*`, two authorities would silently diverge: a module's `x_ap_source_url` could disagree with the workspace's record of WHO called the API. Tests assert that no production module sets `x_ap_*` fields in its `hunt()` output. The `x_ap_` prefix is reserved per STIX 2.1 custom-property naming convention (vendor-specific extensions) and is a deliberate AP-namespace choice. |
+| DEC-59-STIX-PROVENANCE-002 | Provenance fields added to `json_blob` AFTER `obj.serialize()` so they do not feed back into deterministic-id derivation | The python-stix2 library derives SCO ids from a canonical content hash of the SCO's spec-defining properties (DEC-STIX-001). If provenance fields were included in that derivation, the same observable fetched at two different times would get two different ids, breaking deduplication (DEC-WS-004) and the cache-friendliness of the SCO model. Augmenting `json_blob` post-serialization keeps the id stable while preserving provenance for downstream consumers. |
+| DEC-59-STIX-PROVENANCE-003 | `x_ap_response_sha256` is caller-supplied (stored verbatim); workspace does not recompute over response bodies | Different modules have different "raw response" shapes (REST JSON body, full HTTP response with headers, paginated batch). Standardizing the hash subject at the workspace layer would either be wrong for some modules or require module-specific canonicalization that the workspace shouldn't know about. The caller (module, call site, or test) computes `hashlib.sha256(raw_response_bytes).hexdigest()` and passes the hex string. Workspace stores it verbatim. Future contract: documented in module-author guide as a 64-char lowercase hex string when supplied. |
+| DEC-59-STIX-PROVENANCE-004 | Legacy SCOs (no provenance kwargs supplied) get `x_ap_fetched_at` defaulted to storage-time UTC and `null` for the other three fields | Backward compatibility: the two existing production call sites (`core/console.py:389`, `agent/tools.py:359`) do not yet have a way to surface vendor URL / API version / response hash because module `hunt()` signatures don't return them. Rather than gating this slice on a module-author API rewrite (out-of-scope, larger surface), we accept null provenance as a documented degraded state. `x_ap_fetched_at` is always populated because the workspace knows storage time unambiguously — it's the only field that doesn't require module cooperation. Surfacing the other three through `hunt()` is a deliberate follow-up. |
+| DEC-59-STIX-PROVENANCE-005 | `export_stix_bundle()` rebuilds via `stix2.v21.Bundle` + `stix2.parse()` round-trip, not by hand-rolled dict construction | Hand-rolled construction is what produced the spec-non-compliant bundle in the first place. Going through python-stix2 makes spec compliance automatic and lets the library catch any future regression at export time (it raises if a required field is missing). The plain-dict return shape (DEC-GRAPH-004) is preserved by `json.loads(bundle.serialize())`. The performance cost (one round-trip per export) is negligible for AP's typical bundle size (tens to hundreds of objects, DEC-GRAPH-001). |
+| DEC-59-STIX-PROVENANCE-006 | No DB schema migration; `stix_objects.json_blob` accepts the augmented blob as-is | The column is already `JSON`-typed (`models/database.py:73`). Pre-existing rows remain valid (older SCOs lack `x_ap_*` fields, which the round-trip test handles via a documented legacy-state assertion). Adding columns for provenance would create dual authority (column AND blob), the exact anti-pattern §12 forbids. |
+| DEC-59-STIX-PROVENANCE-007 | The `file` SCO type produced by `cti/virustotal.py` remains a silently-dropped path in this slice; documented as a known gap | `dict_to_stix()` returns the original dict for unrecognized types (DEC-STIX-002), and `store_stix_objects()` skips plain dicts (workspace.py line 281). `cti/virustotal` produces `file` SCOs when the target type is `"hash"` — those are currently dropped. Fixing this requires adding a `file` SCO creator to `_SCO_CREATORS` in `models/stix.py`, which expands scope to vendor-specific defining-properties decisions (hash algorithm choice, `hashes` dict shape). Out of scope for this slice; filed as a follow-up. The Evaluation Contract DOES require that the new round-trip test exercises only the SCO types that today's `_SCO_CREATORS` recognizes (`ipv4-addr`, `ipv6-addr`, `domain-name`, `url`, `email-addr`). |
+
+### Work item
+
+| ID | Title | Type | Worktree | Status |
+|---|---|---|---|---|
+| W-59-STIX-PROVENANCE | STIX 2.1 spec compliance + per-SCO provenance — workspace as single authority for `x_ap_*` fields; `export_stix_bundle` rebuilt via stix2 round-trip | source + tests | `.worktrees/feature-59-stix-provenance` | in progress (planner complete; implementer next) |
+
+**Implementer sub-task order** (one worktree, sequential — explicitly serial to keep authority changes atomic):
+
+1. WI-59-1.1 — `core/workspace.py::store_stix_objects()`: extend signature with `source_url=None, api_version=None, response_sha256=None, fetched_at=None` kwargs; add provenance-augmentation step that mutates the parsed `json_dict` before `StixObject(json_blob=json_dict)`. Default `fetched_at` to current UTC RFC3339 (`Z`-suffixed). `_store_sco` and `_store_relationship` receive the augmented dict.
+2. WI-59-1.2 — `core/graph.py::export_stix_bundle()`: replace the hand-rolled construction with `stix2.parse()` round-trip per SCO/relationship + `stix2.v21.Bundle(objects=[...])`. Return `json.loads(bundle.serialize())`. Remove the inline `import uuid` and the synthetic `relationship--<uuid4>` / `bundle--<uuid4>` generation (the library handles bundle id and relationship ids carry through from `json_blob`).
+3. WI-59-1.3 — `tests/test_stix_roundtrip.py` (NEW): build a workspace with mixed SCOs (`ipv4-addr`, `ipv6-addr`, `domain-name`, `url`, `email-addr`), some with full provenance kwargs and some without; call `export_stix_bundle()`; assert `stix2.parse(bundle, allow_custom=True)` returns a `stix2.v21.Bundle`; assert every SCO has `id`, `spec_version == "2.1"`, and non-null `x_ap_fetched_at`; assert pass-through provenance matches what was supplied; assert deterministic-id idempotency (same SCO stored twice → same id); assert content-hash pass-through (same `response_sha256` → same stored value).
+4. WI-59-1.4 — Extend `tests/test_workspace.py` with: (a) provenance kwargs persist into `json_blob`, (b) `x_ap_fetched_at` always populated, (c) legacy call sites (no provenance kwargs) still work and produce `x_ap_fetched_at` only, (d) modules MUST NOT emit `x_ap_*` invariant (assert that direct-emission is detected — design: workspace logs or raises on caller-supplied dict that already contains `x_ap_*` keys; choose one in implementer stage and document as a follow-up `@decision`).
+5. WI-59-1.5 — Extend `tests/test_graph.py`: `export_stix_bundle()` returns a parse-able dict; existing tree-rendering and GEXF tests must continue to pass (no regression).
+6. WI-59-1.6 — Update production call sites in `core/console.py:389` and `agent/tools.py:359` to pass `None` for the four provenance kwargs explicitly (documents the legacy degraded state at the call site; future module-API change will populate them). No behavior change today; just makes the gap visible to future implementers.
+7. WI-59-1.7 — Live evidence captures in `tmp/evidence-59-stix-provenance/`: (a) a workspace export saved as `bundle.json` and verified via `python -c "import stix2, json; print(type(stix2.parse(json.load(open('bundle.json')), allow_custom=True)))"` printing `<class 'stix2.v21.bundle.Bundle'>`; (b) a JSONL of three stored SCOs proving `x_ap_fetched_at` non-null and pass-through provenance present; (c) a transcript of `pytest tests/test_stix_roundtrip.py -v` green.
+8. WI-59-1.8 — Close issue #59 with a comment linking the merge SHA and amend this MASTER_PLAN.md section with the closeout SHA + evidence summary.
+
+**Critical path:** strictly sequential 1.1 → 1.8 (1.2 depends on 1.1's blob shape; 1.3-1.5 depend on 1.1+1.2 landing; 1.6 is a thin pass-through; 1.7-1.8 are closeout).
+
+### Evaluation Contract
+
+To be persisted in runtime via `cc-policy workflow work-item-set ... --evaluation-json` (9 legal keys per DEC-CLAUDEX-EVAL-CONTRACT-SCHEMA-PARITY-001). Authoritative copy summary:
+
+- **Required tests (8 scenarios):**
+  1. `tests/test_stix_roundtrip.py::test_bundle_parses_through_stix2_parse` — `stix2.parse(bundle, allow_custom=True)` returns `stix2.v21.Bundle`; `.objects` length matches stored SCO + relationship count.
+  2. `tests/test_stix_roundtrip.py::test_every_sco_has_required_spec_fields` — every SCO in the parsed bundle has `id` matching `<type>--<uuid>`, `spec_version == "2.1"`, and non-null `x_ap_fetched_at`.
+  3. `tests/test_stix_roundtrip.py::test_provenance_passthrough` — supplied `source_url`, `api_version`, `response_sha256` survive verbatim into the parsed bundle SCOs.
+  4. `tests/test_stix_roundtrip.py::test_deterministic_id_independent_of_provenance` — same SCO content stored twice at different times → same id; provenance differs but `id`, `spec_version` unchanged (DEC-59-STIX-PROVENANCE-002 invariant).
+  5. `tests/test_stix_roundtrip.py::test_legacy_call_no_provenance_kwargs` — store with no provenance kwargs, bundle still parses; `x_ap_fetched_at` populated by workspace default; other three fields absent from `json_blob` (or present as `null` — implementer chooses, must be consistent across the four).
+  6. `tests/test_workspace.py::test_workspace_rejects_caller_supplied_x_ap_fields` — when caller-supplied SCO dict contains `x_ap_*`, workspace either raises or strips with a logged warning (DEC-59-STIX-PROVENANCE-001 invariant; behavior choice documented in implementer-stage `@decision`).
+  7. `tests/test_graph.py::test_export_stix_bundle_is_spec_compliant` — `export_stix_bundle()` return value round-trips through `stix2.parse()`; existing tree/GEXF assertions continue to pass.
+  8. `tests/test_workspace.py` + `tests/test_graph.py` baseline — full file passes with no regression in non-stix tests (deduplication, type filtering, GEXF export, tree rendering).
+- **Required evidence (3 artifacts in `tmp/evidence-59-stix-provenance/`):**
+  - `bundle.json` — a captured workspace export with at least one SCO of each recognized type, proving parse via the one-liner shown in WI-59-1.7.
+  - `sco_provenance_sample.jsonl` — three stored SCOs serialized one per line, proving `x_ap_fetched_at` non-null and pass-through provenance present where supplied.
+  - `pytest_roundtrip.txt` — `pytest tests/test_stix_roundtrip.py -v` transcript, green.
+- **Required real-path checks:**
+  - `uv run pytest tests/test_stix_roundtrip.py tests/test_workspace.py tests/test_graph.py -v` — green.
+  - `uv run pytest` (full suite) — zero regression vs the ~1497-test post-Phase 10 baseline; expected delta +6 to +10 tests.
+  - `uv run ruff check src/adversary_pursuit/core/workspace.py src/adversary_pursuit/core/graph.py src/adversary_pursuit/models/stix.py tests/test_stix_roundtrip.py` — clean.
+  - `python -c "import stix2, json; bundle = json.load(open('tmp/evidence-59-stix-provenance/bundle.json')); parsed = stix2.parse(bundle, allow_custom=True); assert isinstance(parsed, stix2.v21.Bundle); print('OK', len(parsed.objects), 'objects')"` — prints `OK <n> objects`.
+- **Required authority invariants:**
+  - `workspace.store_stix_objects()` is the sole writer of `x_ap_*` fields (DEC-59-STIX-PROVENANCE-001).
+  - Provenance fields are NOT part of deterministic-id derivation (DEC-59-STIX-PROVENANCE-002).
+  - `export_stix_bundle()` returns a plain dict that parses through `stix2.parse()` (DEC-59-STIX-PROVENANCE-005 + DEC-GRAPH-004 preserved).
+  - No DB schema change; `stix_objects.json_blob` shape stays JSON-typed (DEC-59-STIX-PROVENANCE-006).
+  - No module under `src/adversary_pursuit/modules/**` is modified.
+  - `models/stix.py::dict_to_stix()` and `_SCO_CREATORS` unchanged for `ipv4-addr`, `ipv6-addr`, `domain-name`, `url`, `email-addr` (DEC-STIX-001/002 preserved).
+- **Required integration points:**
+  - `core/console.py:389` updated to pass `None` for the four provenance kwargs (explicit-legacy marker; no behavior change).
+  - `agent/tools.py:359` updated to pass `None` for the four provenance kwargs (explicit-legacy marker; no behavior change).
+  - `models/database.py::StixObject` unchanged.
+  - `dict_to_stix()` continues to be the path from plain dict → typed stix2 SCO.
+- **Forbidden shortcuts:**
+  - No edits to any file under `src/adversary_pursuit/modules/**`.
+  - No edits to `models/database.py` (no schema change).
+  - No parallel provenance authority (e.g., a separate `provenance` table or a separate `x_ap_*` writer outside `workspace.store_stix_objects()`).
+  - No silent suppression of `stix2.exceptions.STIXError` during `export_stix_bundle()` — if a stored blob can't be parsed back, the test must surface it; runtime behavior is to raise.
+  - No custom namespace UUID for SCO id derivation (let the python-stix2 library own this per DEC-STIX-001).
+  - No hand-rolled bundle dict construction left behind in `core/graph.py`.
+  - No fabricated provenance values (e.g., don't generate a fake `x_ap_source_url` when the caller passes `None` — leave it null/absent).
+  - No edits to `pyproject.toml` or `uv.lock` (stix2 is already a dep).
+- **Rollback boundary:** one merge revert restores prior behavior in full; no schema migrations; pre-existing `json_blob` rows remain valid both before and after this slice (the augmentation is additive, not transformative).
+- **Ready-for-guardian:** pytest green (8 new tests pass; full suite no regression) + ruff green on scope files + 3 evidence artifacts present in `tmp/evidence-59-stix-provenance/` + MASTER_PLAN.md amended with closeout SHA + reviewer `REVIEW_VERDICT=ready_for_guardian` on current HEAD.
+
+### Scope Manifest
+
+To be persisted in runtime via `cc-policy workflow scope-sync w-59-stix-provenance --work-item-id wi-59-impl --scope-file tmp/scope-w-59-stix-provenance.json` (file already authored, this commit). Summary:
+
+- **Allowed (11 paths):** `core/workspace.py`, `core/graph.py`, `core/console.py`, `agent/tools.py`, `models/stix.py`, three test files (`tests/test_stix_roundtrip.py` NEW, `tests/test_workspace.py`, `tests/test_graph.py`), `tmp/evidence-59-stix-provenance/**`, `tmp/scope-w-59-stix-provenance.json`, `MASTER_PLAN.md`.
+- **Required (5 paths):** `core/workspace.py`, `core/graph.py`, `models/stix.py` (touch may be limited to a re-verification — see implementer-stage decision), `tests/test_stix_roundtrip.py`, `MASTER_PLAN.md`.
+- **Forbidden (19 paths):** all `modules/**` (this is the issue's #1 invariant), `models/database.py`, all `gamification/**`, `agent/chat.py`, `agent/error_handler.py`, `core/error_interpreter.py`, `core/config.py`, `core/plugin_mgr.py`, `core/event_bus.py`, `core/scoring.py`, all `scripts/**`, `pyproject.toml`, `uv.lock`, `.github/**`, `.claude/**`, `DECISIONS.md`, `README.md`, `CLAUDE.md`, `AGENTS.md`.
+- **State domains touched:** `stix_sco_provenance_augmentation` (new), `stix_bundle_export_construction` (extended — now goes through stix2 round-trip), `deterministic_stix_id_namespace` (verified-unchanged — library-owned), `stix_response_content_hash` (new — caller-supplied, workspace-stored).
+
+### Out-of-scope (deliberately deferred)
+
+- **Surfacing per-vendor URL / API version / response hash through the module `hunt()` signature.** This is the larger architectural change that would populate the four kwargs at the production call sites. Filed as a follow-up planner slice. Until then, the four kwargs are populated only by direct callers (tests, future migration helpers).
+- **`file` SCO type round-trip.** The `cti/virustotal.py` hash path produces `file` SCOs that today are silently dropped by `dict_to_stix()` (DEC-STIX-002 fall-through). Closing this requires extending `_SCO_CREATORS` and making spec-compliance decisions about the `hashes` dict shape. Filed as a follow-up.
+- **Backfilling provenance for SCOs already in production workspace files.** This slice changes write-path behavior only. A future "workspace migrate" command (out-of-scope) would walk existing `json_blob`s and stamp `x_ap_fetched_at = "unknown"` or similar for forensic-chain transparency.
+- **Schema migration to dedicated provenance columns.** Per DEC-59-STIX-PROVENANCE-006, the JSON-column path is the v1-correct authority. A future schema-level provenance authority can be considered if cross-workspace provenance querying becomes a real workflow.
+
+---
+
 ## Runtime Hygiene Backlog
 
 Cross-cutting runtime issues surfaced during recent dispatch chains. Tracked as GitHub issues (not v1 plan slices) — they affect orchestrator/Guardian quality of life but not the AP product surface:
@@ -872,9 +1030,10 @@ These are the concrete follow-ups identified by the 2026-04-28 reckoning and upd
 
 | ID | Title | Type | Merge SHA | Status |
 |----|-------|------|-----------|--------|
-| W-FRIENDLY-ERRORS | Universal `core/error_interpreter.py` — catches all errors at the cmd2 + ap chat + smoke_test surfaces, renders friendly Rich panels with fix-suggestions + 8-char diagnostic IDs, offers `[y/n]` auto-fix prompts on mechanically safe fixes (rerun `ap config setup`, restore `~/.ap/config.toml.bak`, sleep-and-retry on rate-limit), preserves full tracebacks in `~/.ap/debug.log` (JSONL, fcntl-locked, 1000-line rotated). Per 2026-05-14 user directive. See "Phase 10" section above. | source + tests + evidence | _pending implementer_ | in-progress |
+| W-FRIENDLY-ERRORS | Universal `core/error_interpreter.py` — catches all errors at the cmd2 + ap chat + smoke_test surfaces, renders friendly Rich panels with fix-suggestions + 8-char diagnostic IDs, offers `[y/n]` auto-fix prompts on mechanically safe fixes (rerun `ap config setup`, restore `~/.ap/config.toml.bak`, sleep-and-retry on rate-limit), preserves full tracebacks in `~/.ap/debug.log` (JSONL, fcntl-locked, 1000-line rotated). Per 2026-05-14 user directive. See "Phase 10" section above. | source + tests + evidence | `1ccf13b` (impl) | completed |
+| W-59-STIX-PROVENANCE | STIX 2.1 spec compliance + per-SCO provenance — workspace single authority for `x_ap_*` fields (`x_ap_fetched_at`, `x_ap_source_url`, `x_ap_api_version`, `x_ap_response_sha256`); `export_stix_bundle()` rebuilt via `stix2.v21.Bundle` round-trip. Closes issue #59. Per 2026-05-22 Threat Hunter expert assessment. See "Phase 11" section above. | source + tests + evidence | _pending implementer_ | in-progress |
 
-> **Recommended next work item:** `W-FRIENDLY-ERRORS` — planner stage complete (this commit). Scope manifest synced to runtime (`matches_work_item_scope: True`), evaluation contract written (9 keys, 9 required tests, 4 required evidence artifacts). Implementer next; canonical chain continues `planner → guardian (provision) → implementer → reviewer → guardian (land)`.
+> **Recommended next work item:** `W-59-STIX-PROVENANCE` — planner stage complete (this commit). Scope manifest authored at `tmp/scope-w-59-stix-provenance.json` (implementer will `cc-policy workflow scope-sync` it), evaluation contract written (9 keys, 8 required tests, 3 required evidence artifacts, 7 architecture decisions DEC-59-STIX-PROVENANCE-001..007). Implementer next; canonical chain continues `planner → guardian (provision) → implementer → reviewer → guardian (land)`.
 >
 > _Historical note (2026-05-19):_ v1 ship gate fully closed — `v0.1.0` (stable, no rc suffix) published at https://github.com/jarocki/ap/releases/tag/v0.1.0 with `isPrerelease: false`. All four v1 boundary work items landed (`W-V1-RELEASE-VERIFY`, `W-OTX-TIMEOUT`, `W-GREYNOISE`, `W-V1-FINAL-SHIP`).
 >

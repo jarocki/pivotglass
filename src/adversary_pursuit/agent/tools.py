@@ -356,7 +356,18 @@ class ToolContext:
         results = asyncio.run(mod.hunt(target, options or {}))
 
         # Store in workspace (auto-creates default if none active)
-        count = self.workspace_mgr.store_stix_objects(results, module_path, target)
+        # Provenance kwargs: None until hunt() surfaces vendor metadata
+        # (DEC-59-STIX-PROVENANCE-004). x_ap_fetched_at is defaulted by
+        # workspace; the other three require module-author API changes.
+        count = self.workspace_mgr.store_stix_objects(
+            results,
+            module_path,
+            target,
+            source_url=None,
+            api_version=None,
+            response_sha256=None,
+            fetched_at=None,
+        )
 
         # Score using current workspace state
         stats = self.workspace_mgr.get_stix_type_counts()
