@@ -390,6 +390,13 @@ class APConsole(cmd2.Cmd):
                 results,
                 module_name=self._active_module_path,
                 target=target,
+                # Provenance kwargs: None until hunt() surfaces vendor metadata
+                # (DEC-59-STIX-PROVENANCE-004). x_ap_fetched_at is defaulted by
+                # workspace; the other three require module-author API changes.
+                source_url=None,
+                api_version=None,
+                response_sha256=None,
+                fetched_at=None,
             )
             self.poutput(f"\n{count} objects stored in workspace '{self.workspace_mgr.active}'")
 

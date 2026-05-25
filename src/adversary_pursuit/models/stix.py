@@ -24,13 +24,13 @@ authors. Module authors call helpers; the library handles validation.
 from __future__ import annotations
 
 from stix2 import (
+    URL,
+    Bundle,
+    DomainName,
+    EmailAddress,
     IPv4Address,
     IPv6Address,
-    DomainName,
-    URL,
-    EmailAddress,
     Relationship,
-    Bundle,
 )
 
 

@@ -739,3 +739,173 @@ class TestWorkspaceBindRegression:
             pytest.fail(
                 f"add_note raised UnboundExecutionError — _ensure_active() was not called: {exc}"
             )
+
+
+# ---------------------------------------------------------------------------
+# Provenance augmentation tests (DEC-59-STIX-PROVENANCE-001..004, #59)
+# ---------------------------------------------------------------------------
+
+
+class TestProvenanceAugmentation:
+    """Tests for store_stix_objects() provenance kwargs (Evaluation Contract #59).
+
+    Covers:
+    - Evaluation Contract test 6: test_workspace_rejects_caller_supplied_x_ap_fields
+    - Provenance kwargs persist into json_blob
+    - x_ap_fetched_at always populated (even without kwargs)
+    - Legacy call (no kwargs) produces x_ap_fetched_at only
+    - Caller-supplied x_ap_* keys stripped with a warning (DEC-59-STIX-PROVENANCE-001)
+    """
+
+    def _make_wm(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        return wm
+
+    def test_provenance_kwargs_persist_into_json_blob(self, tmp_path):
+        """All four provenance kwargs survive into the stored json_blob."""
+        wm = self._make_wm(tmp_path)
+        wm.store_stix_objects(
+            [{"type": "ipv4-addr", "value": "1.2.3.4"}],
+            module_name="test/mod",
+            target="1.2.3.4",
+            source_url="https://api.example/ip/1.2.3.4",
+            api_version="v2",
+            response_sha256="d" * 64,
+            fetched_at="2025-01-15T09:00:00Z",
+        )
+
+        objects = wm.get_stix_objects()
+        assert len(objects) == 1
+        obj = objects[0]
+        assert obj["x_ap_source_url"] == "https://api.example/ip/1.2.3.4"
+        assert obj["x_ap_api_version"] == "v2"
+        assert obj["x_ap_response_sha256"] == "d" * 64
+        assert obj["x_ap_fetched_at"] == "2025-01-15T09:00:00Z"
+
+    def test_x_ap_fetched_at_always_populated(self, tmp_path):
+        """x_ap_fetched_at is always present even when no kwargs supplied."""
+        wm = self._make_wm(tmp_path)
+        wm.store_stix_objects(
+            [{"type": "domain-name", "value": "always-ts.example.com"}],
+            module_name="test/mod",
+            target="always-ts.example.com",
+        )
+        objects = wm.get_stix_objects()
+        assert len(objects) == 1
+        assert "x_ap_fetched_at" in objects[0]
+        assert objects[0]["x_ap_fetched_at"] is not None
+        # Must be a non-empty string ending in Z (RFC 3339)
+        ts = objects[0]["x_ap_fetched_at"]
+        assert isinstance(ts, str) and ts.endswith("Z")
+
+    def test_legacy_call_produces_fetched_at_only(self, tmp_path):
+        """Legacy call (no provenance kwargs) only adds x_ap_fetched_at."""
+        wm = self._make_wm(tmp_path)
+        wm.store_stix_objects(
+            [{"type": "ipv4-addr", "value": "5.6.7.8"}],
+            module_name="test/legacy",
+            target="5.6.7.8",
+        )
+        obj = wm.get_stix_objects()[0]
+        # fetched_at is always present
+        assert "x_ap_fetched_at" in obj
+        # The other three must be absent (not null — absent from dict entirely)
+        assert "x_ap_source_url" not in obj
+        assert "x_ap_api_version" not in obj
+        assert "x_ap_response_sha256" not in obj
+
+    def test_workspace_rejects_caller_supplied_x_ap_fields(self, tmp_path):
+        """Evaluation Contract test 6: caller-supplied x_ap_* keys are stripped.
+
+        DEC-59-STIX-PROVENANCE-001: the workspace is the sole x_ap_* authority.
+        When a module dict contains x_ap_* keys, the workspace strips them and
+        emits a UserWarning. The stored object uses the workspace-supplied
+        provenance values, not the caller's.
+        """
+        wm = self._make_wm(tmp_path)
+
+        bad_dict = {
+            "type": "ipv4-addr",
+            "value": "9.8.7.6",
+            "x_ap_source_url": "https://caller-injected.bad/endpoint",
+            "x_ap_api_version": "evil-v999",
+            "x_ap_response_sha256": "e" * 64,
+            "x_ap_fetched_at": "1970-01-01T00:00:00Z",
+        }
+
+        # The workspace must emit a UserWarning about the stripped keys
+        with pytest.warns(UserWarning, match="x_ap_"):
+            wm.store_stix_objects(
+                [bad_dict],
+                module_name="osint/bad_module",
+                target="9.8.7.6",
+                # Workspace-authoritative provenance
+                source_url="https://workspace-real.example/endpoint",
+                api_version="v1",
+                response_sha256="f" * 64,
+            )
+
+        objects = wm.get_stix_objects()
+        assert len(objects) == 1
+        obj = objects[0]
+
+        # The caller's injected values must NOT appear in the stored blob
+        assert obj.get("x_ap_source_url") != "https://caller-injected.bad/endpoint", (
+            "Caller-injected x_ap_source_url was not stripped"
+        )
+        assert obj.get("x_ap_api_version") != "evil-v999", (
+            "Caller-injected x_ap_api_version was not stripped"
+        )
+        assert obj.get("x_ap_response_sha256") != "e" * 64, (
+            "Caller-injected x_ap_response_sha256 was not stripped"
+        )
+
+        # The workspace-supplied provenance must appear
+        assert obj.get("x_ap_source_url") == "https://workspace-real.example/endpoint"
+        assert obj.get("x_ap_api_version") == "v1"
+        assert obj.get("x_ap_response_sha256") == "f" * 64
+
+    def test_caller_supplied_x_ap_without_workspace_kwargs(self, tmp_path):
+        """Caller-supplied x_ap_* stripped even when workspace supplies no kwargs.
+
+        The warning is still emitted; the stored blob gets only the workspace
+        default x_ap_fetched_at (not the caller's injected timestamp).
+        """
+        wm = self._make_wm(tmp_path)
+
+        bad_dict = {
+            "type": "domain-name",
+            "value": "stripped-only.example.com",
+            "x_ap_fetched_at": "1970-01-01T00:00:00Z",  # injected by caller
+        }
+
+        with pytest.warns(UserWarning, match="x_ap_"):
+            wm.store_stix_objects(
+                [bad_dict],
+                module_name="test/bad",
+                target="stripped-only.example.com",
+                # No workspace kwargs — defaults apply
+            )
+
+        obj = wm.get_stix_objects()[0]
+        # The workspace-default fetched_at must NOT be the caller's epoch value
+        assert obj["x_ap_fetched_at"] != "1970-01-01T00:00:00Z", (
+            "Caller-injected x_ap_fetched_at was not replaced by workspace default"
+        )
+        # But x_ap_fetched_at must still be present (workspace default)
+        assert obj["x_ap_fetched_at"] is not None
+
+    def test_fetched_at_caller_override_accepted(self, tmp_path):
+        """Caller-supplied fetched_at kwarg overrides the workspace default."""
+        wm = self._make_wm(tmp_path)
+        custom_ts = "2024-06-15T08:30:00Z"
+        wm.store_stix_objects(
+            [{"type": "url", "value": "https://custom-ts.example/path"}],
+            module_name="test/mod",
+            target="custom-ts.example",
+            fetched_at=custom_ts,
+        )
+        obj = wm.get_stix_objects()[0]
+        assert obj["x_ap_fetched_at"] == custom_ts
