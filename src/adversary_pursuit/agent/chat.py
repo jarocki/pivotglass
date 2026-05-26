@@ -664,6 +664,20 @@ def run_chat() -> None:
                         style="yellow",
                     )
                 )
+            # Render challenge panels after badges — one per newly-completed challenge.
+            # DEC-64-LLM-PANEL-SEPARATION-001: challenges are surfaced here via the
+            # sidecar runner.last_challenges list, NOT parsed from the LLM summary string.
+            # Silent when no challenges completed this turn (list will be empty).
+            for challenge in getattr(runner, "last_challenges", []):
+                console.print(
+                    Panel(
+                        f"[bold]{challenge.name}[/bold]\n"
+                        f"{challenge.description}\n"
+                        f"[bold green]+{challenge.points} pts[/bold green]",
+                        title="[bold cyan]Challenge Complete![/bold cyan]",
+                        style="cyan",
+                    )
+                )
         except Exception as exc:
             # Route ALL exceptions through error_handler — no raw tracebacks.
             # handle_error returns True (recoverable) → continue the loop,

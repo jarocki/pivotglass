@@ -1125,6 +1125,133 @@ Persisted in runtime via `cc-policy workflow scope-sync w-60-auto-pivot-policy -
 
 ---
 
+## Phase 13: De-duplicate LLM narration vs Rich Panel for gamification events (W-64-DEDUP-LLM-NARRATION, post-v1, 2026-05-26)
+
+> **Status:** in-progress · **Workflow:** `w-64-dedup-llm-narration` · **Branch:** `feature/64-dedup-llm-narration` · **Worktree:** `.worktrees/feature-64-dedup-llm-narration` · **GitHub issue:** #64
+
+### Problem
+
+The agent path narrates every gamification event twice. When the LLM completes a tool call that earns a badge or completes a challenge, two things happen:
+
+1. **`tools.py::ToolContext.run_module()`** appends gamification text directly into the LLM-facing `summary` field (lines 540–566): `Badge(s) earned: [LEGENDARY] Supreme Hunter: …` and `Challenge(s) completed: …`. The LLM reads this tool result as a `tool`-role conversation message and dutifully narrates the award in its next assistant response.
+2. **`chat.py:632–666`** then renders a separate Rich Panel for the same celebration (lines 638–646) and for each newly-earned badge (lines 657–666) immediately after the LLM response prints.
+
+The user sees the same badge named twice: once in the LLM's prose, once in the panel. Atwood (user) called the discipline boundary explicitly: "Pick one: either the LLM gets to be the announcer, or the panel does. Not both." The panel is the gamification surface; the LLM should react to the **discovery** (IOCs, +points, pivot opportunities) without naming the badge.
+
+A parallel gap exists for challenges: `result['challenges']` is populated in `run_module` but the agent runner has **no `last_challenges` accumulator** and `chat.py` has **no challenge-panel render loop** — so challenges currently leak only into the LLM summary string. The cleanup must also build the missing challenge-panel surface, otherwise removing challenge text from `summary` silently deletes user-visible challenge announcements.
+
+### Goal
+
+After F64:
+
+- The LLM-facing tool summary contains ONLY findings: `Found N indicators:`, the type/value lines (up to 10), the `+{total} points!` line and per-event scoring breakdown, and the `Auto-pivoted: K additional discoveries from M cascaded module subscriptions.` line when cascades fire.
+- The LLM-facing summary contains NO badge name/rarity/description, NO celebration ASCII art, NO `first_blood_message`, NO challenge name, and NO streak phrasing.
+- `result['badges']`, `result['celebration']`, and `result['challenges']` continue to carry the full typed payload — these sidecar fields are the single source of truth for the Rich Panel surfaces.
+- `chat.py` renders the same user-visible badge + celebration panels as pre-F64, **plus** a new challenge panel loop driven by `runner.last_challenges`.
+- `runner.last_challenges` is populated by `AgentRunner.chat()` from `result['challenges']`, parallel to `last_badges` and `last_celebrations`.
+
+### State-Authority Map
+
+| Domain | Pre-F64 owner | Post-F64 owner | Notes |
+|--------|---------------|----------------|-------|
+| LLM-visible tool result text | `ToolContext.run_module` summary composition (`summary_lines`) | `ToolContext.run_module` summary composition (`summary_lines`) | Same authority, narrower content scope. |
+| Panel payload (typed) | `result['badges']` + `result['celebration']` + `result['challenges']` in `run_module` | Same — UNCHANGED authority and shape | Sidecar fields ARE the panel surface; their typed structure is preserved. |
+| Agent-side panel accumulator | `runner.last_badges`, `runner.last_celebrations` | **Add** `runner.last_challenges` | Closes a pre-existing gap: challenges had no panel surface. |
+| Rich panel rendering | `chat.py:632–666` (celebration + badge loops) | `chat.py:632–666` plus new challenge loop | Renders typed objects only; never parses `summary`. |
+| Badge/Celebration/Challenge/Streak emission | `gamification/badges.py`, `gamification/celebrations.py`, `gamification/challenges.py`, `core/streak.py` | **UNCHANGED** | F64 is at the agent-presentation boundary, NOT the gamification-emission boundary. |
+
+### Architecture Decision
+
+DEC-64-LLM-PANEL-SEPARATION-001 — Adopt the **sidecar-payload (option-c) design** with a single source of truth in `run_module`. The composer in `run_module` emits two parallel surfaces from one place: the LLM-facing `summary` string (findings only) and the typed panel-payload sidecars (`badges`, `celebration`, `challenges`). `chat.py` never parses the summary string; it reads `runner.last_*` typed accumulators only.
+
+Alternatives considered and rejected:
+
+- **Option (a) — two separate compose calls** (`llm_summary` and `panel_payload` as independent producers): rejected. Would duplicate the findings-extraction logic in two functions, increasing the chance of divergence (CLAUDE.md Sacred Practice 12 — single source of truth).
+- **Option (b) — build one summary then regex-filter at the LLM boundary**: rejected by Atwood directly: "no string-filtering fragility." Build-then-filter is brittle; the gamification emission text format can change without the filter noticing, silently re-leaking the legacy text into the LLM context.
+- **Option (c) — sidecar payload, one composer** (CHOSEN): the summary composer in `run_module` simply omits gamification lines; the panel-payload sidecars are already returned in the result dict; chat.py and runner are extended to consume the challenge sidecar (the only missing accumulator). This is the unified-implementation answer that respects Sacred Practice 12 and the existing badge-channel architecture.
+
+### Wave Decomposition
+
+Single wave; one implementer slice.
+
+| W-ID | Title | Weight | Gate | Deps | Integration |
+|------|-------|--------|------|------|-------------|
+| `wi-64-impl-01` | Strip gamification text from LLM summary; add challenge-panel surface | M | review | none | `agent/tools.py`, `agent/chat.py`, `agent/runner.py`, `tests/test_agent_tools.py` |
+
+Critical path: one slice; max width 1.
+
+### Scope Manifest (wi-64-impl-01)
+
+Runtime authority: `cc-policy workflow scope-get w-64-dedup-llm-narration` (synced via `scope-sync` from `tmp/f64-scope.json`).
+
+- **Allowed paths:** `src/adversary_pursuit/agent/tools.py`, `src/adversary_pursuit/agent/chat.py`, `src/adversary_pursuit/agent/runner.py`, `tests/test_agent_tools.py`, `MASTER_PLAN.md`.
+- **Required paths:** `src/adversary_pursuit/agent/tools.py`, `src/adversary_pursuit/agent/chat.py`, `src/adversary_pursuit/agent/runner.py`, `tests/test_agent_tools.py`.
+- **Forbidden paths:** `src/adversary_pursuit/gamification/**`, `src/adversary_pursuit/core/streak.py`, `src/adversary_pursuit/core/pivot_policy.py`, `src/adversary_pursuit/core/workspace.py`, `src/adversary_pursuit/core/event_bus.py`, `src/adversary_pursuit/modules/**`, `src/adversary_pursuit/console/**`, `pyproject.toml`, `.claude/**`, `settings*.json`, `agents/**`, `hooks/**`, `CLAUDE.md`, `AGENTS.md`.
+- **Authority/state domains touched:** `llm_tool_summary`, `panel_payload`, `agent_runner_panel_state`.
+
+### Evaluation Contract (9-key, wi-64-impl-01)
+
+Runtime authority: stored on `wi-64-impl-01.evaluation_json` (loaded from `tmp/f64-evaluation.json` via `work-item-set --evaluation-json`).
+
+- **required_tests** (16 named tests in `tests/test_agent_tools.py`):
+  1. `test_llm_summary_excludes_badge_text` — summary contains no "Badge(s) earned" or earned badge name/rarity/description.
+  2. `test_llm_summary_excludes_challenge_text` — summary contains no "Challenge(s) completed" or completed challenge name.
+  3. `test_llm_summary_excludes_celebration_art` — summary contains no CelebrationEngine ASCII art tokens or active mode's score_celebration template.
+  4. `test_llm_summary_excludes_first_blood_text` — when badge-first-blood is awarded, summary contains no `first_blood_message()` output (it remains on `result['celebration']`).
+  5. `test_llm_summary_excludes_streak_text` — summary mentions no streak state across consecutive-date `run_module` calls.
+  6. `test_llm_summary_keeps_findings_and_points` — summary still contains `Found {N} indicators`, type/value lines (≤10), `+{total} points!`, and per-event scoring breakdown.
+  7. `test_llm_summary_keeps_autopivot_count` — summary still contains `Auto-pivoted: K additional discoveries from M cascaded module subscriptions.` when cascades fire.
+  8. `test_panel_payload_carries_badges` — `result['badges']` still returns the full `list[Badge]`.
+  9. `test_panel_payload_carries_challenges` — `result['challenges']` still returns the full `list[Challenge]`.
+  10. `test_panel_payload_carries_celebration` — `result['celebration']` still returns the ASCII art + mode score line + optional milestone + optional first_blood prefix.
+  11. `test_runner_last_challenges_populated` — `AgentRunner.chat()` accumulates `result['challenges']` into `runner.last_challenges`.
+  12. `test_chat_renders_badge_panel_unchanged` — existing badge-panel render still matches pre-F64 user-visible bytes.
+  13. `test_chat_renders_challenge_panel` — `chat.py` renders a new Rich Panel per item in `runner.last_challenges`.
+  14. `test_chat_renders_celebration_panel_unchanged` — existing celebration-panel render still matches pre-F64 user-visible bytes.
+  15. `test_compound_hunt_badge_only_panel_user_visible` — compound integration: LLM tool-role message has no badge name; mocked console shows exactly one badge panel + one celebration panel + one challenge panel.
+  16. `test_existing_badge_in_summary_test_inverted` — the legacy `test_badge_info_appended_to_llm_summary` and `test_run_module_challenge_in_summary` are intentionally inverted/replaced; both replacement tests cite DEC-64-LLM-PANEL-SEPARATION-001 in their docstrings.
+
+- **required_evidence:** `tmp/evidence-64-dedup-llm-narration/` containing `pytest_targeted.txt` (16-test slice), `pytest_full_agent_tools.txt` (full file), `pytest_full_suite.txt` (full repo), `ruff_clean.txt`, `diff_summary.txt`.
+
+- **required_real_path_checks:** (a) high-score `ToolContext` → `execute_tool('check_ip_reputation', ...)` → `AgentRunner.chat()` → mocked console; assert LLM tool-role message contains no badge name and exactly one of each panel renders; (b) two-date streak update across two `run_module` calls produces no streak text in either summary.
+
+- **required_authority_invariants:** `gamification/**`, `modules/**`, `core/streak.py`, `core/pivot_policy.py`, `core/event_bus.py`, `core/workspace.py` unchanged; F59/F60/F62 invariants preserved; DEC-AGENT-BADGES-001 / DEC-AGENT-CHALLENGES-001 surface contracts preserved; `run_module` is the sole composer of (summary, badges, challenges, celebration); chat.py never parses the summary string.
+
+- **required_integration_points:**
+  1. `agent/tools.py:540–578` — remove the Badge and Challenge text blocks from `summary_lines`; keep findings/+points/auto-pivot blocks; return dict shape unchanged.
+  2. `agent/runner.py:165–206` — add `self.last_challenges: list[Challenge] = []` and thread `result['challenges']` through `execute_tool`.
+  3. `agent/tools.py:1344–1452` — `execute_tool` return contract: extend to a 4-tuple `(summary, celebration, badges, challenges)` (recommended), updating all 14 return sites. Workspace meta-tools / hints / report tools return `[]` for challenges (parallel to badges).
+  4. `agent/chat.py:632–666` — add a third Rich-Panel loop after badges, iterating `runner.last_challenges` with consistent styling.
+
+- **forbidden_shortcuts:** no env-var bypass; no build-then-regex-filter; no silent dropping of all summary content; no chat.py parsing of `summary`; no edits to `gamification/**`, `modules/**`, `core/streak.py`, `core/pivot_policy.py`, `core/workspace.py`, `core/event_bus.py`; no new state authority for gamification text; no removal of typed sidecar payload fields.
+
+- **rollback_boundary:** single revertable feature commit on `feature/64-dedup-llm-narration`. All four file changes ship in one commit so there is no partial migration.
+
+- **acceptance_notes:** live `ap chat` against a real LLM with workspace seeded to ~99 points and a hunt that crosses 100 → LLM narrates IOCs + `+points` + pivot opportunity without naming the Century badge; exactly one Achievement Unlocked panel + one Badge Earned! panel + (if applicable) one Challenge panel render below.
+
+- **ready_for_guardian_definition:** all 16 required tests PASS; full pytest suite PASS; ruff clean on changed files; `result['summary']` text-free of gamification names/art/messages across all scenarios; sidecar payloads unchanged in shape and content; `runner.last_challenges` populated; chat.py renders all three panel surfaces; evidence files exist; git diff touches only allowed-scope files; DEC-64-LLM-PANEL-SEPARATION-001 recorded here.
+
+### Decision Log (Phase 13)
+
+| DEC ID | Decision | Rationale |
+|--------|----------|-----------|
+| DEC-64-LLM-PANEL-SEPARATION-001 | Sidecar-payload, single-composer split (option c). `run_module` emits the LLM-facing summary (findings only) AND the typed panel-payload sidecars (`badges`, `celebration`, `challenges`) from one place. `chat.py` reads typed `runner.last_*` accumulators only; never parses the summary string. Add the missing `runner.last_challenges` accumulator + `chat.py` challenge-panel loop in the same commit. | Atwood's discipline boundary: "Pick one — either the LLM gets to be the announcer, or the panel does. Not both." Build-then-filter (option b) was explicitly rejected as fragile. Two-composer (option a) would duplicate findings-extraction logic (Sacred Practice 12 violation). Option c keeps the single source of truth in `run_module`, preserves the typed sidecar contract that's already wired through for badges/celebration, and closes the pre-existing challenge-panel gap in the same change so we don't leave addition-without-subtraction behind. The split is unconditional (no env-var bypass) because dual-authority "transition aid" creates exactly the drift this slice exists to eliminate. |
+
+### What is NOT in scope
+
+- **Changing gamification emission.** `BadgeManager`, `CelebrationEngine`, `ChallengeManager`, `StreakManager` are NOT touched. Their outputs are unchanged; only their presentation at the agent boundary is reorganized.
+- **The cmd2 REPL surface.** `console.py` renders its own gamification panels via the Rich console directly; that path was never double-narrating because there is no LLM in the loop. No `console/**` changes.
+- **Streak surface design.** F62 deliberately kept streak as a side-effect-only update (no surfacing). F64 codifies that "no streak text in LLM summary" is now an invariant (test 5). A future slice may add a streak panel; that is out of scope here.
+- **Module-level changes.** All 11 modules under `modules/**` are untouched.
+- **STIX/provenance / autopivot policy / event bus.** F59 / F60 invariants are preserved by forbidden-paths.
+
+### Follow-ups (not in F64)
+
+- **Streak panel surface.** Today streak state has no user-visible Rich Panel either; once the LLM-summary leak is closed, a future slice may add a streak Rich Panel parallel to badge/challenge surfaces.
+- **Persona-aware panel styling.** Modes (`ModeManager`) already influence the celebration string; panels could pick up mode color palettes. Filed as a follow-up.
+
+---
+
 ## Runtime Hygiene Backlog
 
 Cross-cutting runtime issues surfaced during recent dispatch chains. Tracked as GitHub issues (not v1 plan slices) — they affect orchestrator/Guardian quality of life but not the AP product surface:

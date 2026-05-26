@@ -547,17 +547,16 @@ class ToolContext:
             summary_lines.append(f"\n+{total} points!")
             for e in events:
                 summary_lines.append(f"  {e['action']}: +{e['points']} ({e['indicator']})")
-        if newly_earned_badges:
-            summary_lines.append("\nBadge(s) earned:")
-            for badge in newly_earned_badges:
-                summary_lines.append(
-                    f"  [{badge.rarity.value.upper()}] {badge.name}: {badge.description}"
-                )
-        # Surface newly-completed challenges in the LLM summary.
-        if newly_completed_challenges:
-            summary_lines.append("\nChallenge(s) completed:")
-            for ch in newly_completed_challenges:
-                summary_lines.append(f"  {ch.name} (+{ch.points} pts)")
+        # NOTE: badge and challenge award text is intentionally NOT added to summary_lines.
+        # @decision DEC-64-LLM-PANEL-SEPARATION-001
+        # @title Strip gamification text from LLM-facing summary; surface via sidecar typed fields
+        # @status accepted
+        # @rationale The LLM receives summary as a tool result and narrates it to the user.
+        #            Badge/challenge award text in summary caused double-narration: the LLM would
+        #            announce the award *and* chat.py Rich Panels would show it again. F64 removes
+        #            badge/challenge lines from summary. The sidecar fields (result["badges"],
+        #            result["challenges"], result["celebration"]) are the sole source of truth for
+        #            gamification display in chat.py. The LLM narrates discovery findings only.
         # Surface cascade discoveries so the LLM and user see what fired secondarily.
         if cascade_results:
             summary_lines.append(
@@ -1341,27 +1340,41 @@ def _strip_rich_markup(text: str) -> str:
     return re.sub(r"\[/?[^\]]+\]", "", text)
 
 
-def execute_tool(ctx: ToolContext, tool_name: str, arguments: dict) -> tuple[str, str | None, list]:
-    """Execute a tool call and return (summary, celebration, badges).
+def execute_tool(
+    ctx: ToolContext, tool_name: str, arguments: dict
+) -> tuple[str, str | None, list, list]:
+    """Execute a tool call and return (summary, celebration, badges, challenges).
 
     This is the dispatcher that maps LLM tool call names to module invocations.
     The summary string is suitable for inclusion in the LLM conversation as a
     "tool" role message. The celebration string is ASCII art for the user
     terminal (None when no points were awarded — silent path). The badges list
     contains newly-earned Badge objects for Rich panel rendering in chat.py
-    ([] when no new badges earned — silent path).
+    ([] when no new badges earned — silent path). The challenges list contains
+    newly-completed Challenge objects for Rich panel rendering in chat.py
+    ([] when no challenges completed — silent path).
 
     Workspace meta-tools (get_workspace_summary, search_workspace) always
-    return celebration=None and badges=[] because they do not trigger scoring
-    or badge evaluation.
+    return celebration=None, badges=[], challenges=[] because they do not
+    trigger scoring or badge/challenge evaluation.
 
     @decision DEC-AGENT-BADGES-001
     (see run_module docstring for full rationale)
-    Triple return chosen over a unified user_messages list because celebration
-    (plain string) and badges (Badge objects with rarity metadata for styled
-    panels) have different rendering logic at the chat.py boundary. Keeping
-    them as separate typed values preserves testability and avoids conflating
-    two distinct display artifacts into an untyped list.
+    Four-tuple return chosen over a unified user_messages list because
+    celebration (plain string), badges (Badge objects with rarity metadata for
+    styled panels), and challenges (Challenge objects) all have different
+    rendering logic at the chat.py boundary. Keeping them as separate typed
+    values preserves testability and avoids conflating distinct display
+    artifacts into an untyped list.
+
+    @decision DEC-64-LLM-PANEL-SEPARATION-001
+    @title Strip gamification text from LLM-facing summary; surface via sidecar typed fields
+    @status accepted
+    @rationale The LLM receives summary as a tool result and narrates it to the user.
+               Badge/challenge award text in summary caused double-narration: the LLM would
+               announce the award *and* chat.py Rich Panels would show it again. F64 removes
+               badge/challenge lines from summary. challenges is now the fourth element of the
+               return tuple so chat.py can render challenge panels independently of the LLM.
 
     Parameters
     ----------
@@ -1374,46 +1387,48 @@ def execute_tool(ctx: ToolContext, tool_name: str, arguments: dict) -> tuple[str
 
     Returns
     -------
-    tuple[str, str | None, list]
-        (summary, celebration, badges) where summary is the LLM-facing result
-        string, celebration is the ASCII art to display to the user or None,
-        and badges is a list of newly-earned Badge objects ([] when none).
-        Returns (error_string, None, []) when the tool fails — errors are
+    tuple[str, str | None, list, list]
+        (summary, celebration, badges, challenges) where summary is the
+        LLM-facing result string (findings only — no badge/challenge text),
+        celebration is the ASCII art to display to the user or None, badges is
+        a list of newly-earned Badge objects ([] when none), and challenges is
+        a list of newly-completed Challenge objects ([] when none).
+        Returns (error_string, None, [], []) when the tool fails — errors are
         reported to the LLM as tool results.
     """
-    # Workspace meta-tools — no scoring, no celebration, no badge check
+    # Workspace meta-tools — no scoring, no celebration, no badge/challenge check
     if tool_name == "get_workspace_summary":
-        return _workspace_summary(ctx), None, []
+        return _workspace_summary(ctx), None, [], []
 
     if tool_name == "search_workspace":
-        return _search_workspace(ctx, arguments.get("type_filter")), None, []
+        return _search_workspace(ctx, arguments.get("type_filter")), None, [], []
 
     # Hint tools — free and paid, no scoring/celebration/badge side-effects
     # (DEC-AGENT-HINTS-001: hints are dispatched here to keep execute_tool as
     # the single dispatch point for all LLM-callable tools)
     if tool_name == "get_next_hint":
-        return _execute_get_next_hint(ctx, arguments.get("module")), None, []
+        return _execute_get_next_hint(ctx, arguments.get("module")), None, [], []
 
     if tool_name == "buy_hint":
-        return _execute_buy_hint(ctx, arguments.get("module")), None, []
+        return _execute_buy_hint(ctx, arguments.get("module")), None, [], []
 
     # Challenge tools — DEC-AGENT-CHALLENGES-001
     if tool_name == "list_challenges":
-        return _execute_list_challenges(ctx), None, []
+        return _execute_list_challenges(ctx), None, [], []
 
     if tool_name == "check_challenges":
-        return _execute_check_challenges(ctx), None, []
+        return _execute_check_challenges(ctx), None, [], []
 
     # Graph/export tools — DEC-AGENT-GRAPH-EXPORT-001
     if tool_name == "render_graph":
-        return _execute_render_graph(ctx), None, []
+        return _execute_render_graph(ctx), None, [], []
 
     if tool_name == "export_workspace":
-        return _execute_export_workspace(ctx, arguments.get("format", "stix")), None, []
+        return _execute_export_workspace(ctx, arguments.get("format", "stix")), None, [], []
 
     # Report interview tools — DEC-AGENT-REPORT-001
     if tool_name == "start_report_interview":
-        return _execute_start_report_interview(ctx), None, []
+        return _execute_start_report_interview(ctx), None, [], []
 
     if tool_name == "answer_report_question":
         return (
@@ -1424,22 +1439,28 @@ def execute_tool(ctx: ToolContext, tool_name: str, arguments: dict) -> tuple[str
             ),
             None,
             [],
+            [],
         )
 
     if tool_name == "generate_report":
-        return _execute_generate_report(ctx), None, []
+        return _execute_generate_report(ctx), None, [], []
 
     # Module dispatch
     if tool_name not in _MODULE_MAP:
-        return f"Unknown tool: {tool_name}", None, []
+        return f"Unknown tool: {tool_name}", None, [], []
 
     module_path, arg_mapper = _MODULE_MAP[tool_name]
     try:
         target, options = arg_mapper(arguments)
         result = ctx.run_module(module_path, target, options)
         if "error" in result:
-            return f"Error: {result['error']}", None, []
-        return result["summary"], result.get("celebration"), result.get("badges", [])
+            return f"Error: {result['error']}", None, [], []
+        return (
+            result["summary"],
+            result.get("celebration"),
+            result.get("badges", []),
+            result.get("challenges", []),
+        )
     except Exception as e:
         logger.exception("Tool execution failed: %s", tool_name)
         # Wire run_fail: mode-flavored failure voice in agent exception path
@@ -1448,7 +1469,7 @@ def execute_tool(ctx: ToolContext, tool_name: str, arguments: dict) -> tuple[str
         # tags. Mirrors console.py _execute_hunt exception paths which print
         # mode_mgr.active.run_fail to the Rich console.
         run_fail_plain = _strip_rich_markup(ctx.mode_mgr.active.run_fail)
-        return f"{run_fail_plain} Error running {tool_name}: {e}", None, []
+        return f"{run_fail_plain} Error running {tool_name}: {e}", None, [], []
 
 
 def _workspace_summary(ctx: ToolContext) -> str:

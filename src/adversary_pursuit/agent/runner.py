@@ -162,11 +162,14 @@ class AgentRunner:
 
         self.conversation.append({"role": "user", "content": user_message})
 
-        # Accumulate celebration strings and newly-earned Badge objects from all
-        # tool calls this turn. chat.py reads both after chat() returns to render
-        # Rich panels for the user — separate from the LLM conversation content.
+        # Accumulate celebration strings, newly-earned Badge objects, and
+        # newly-completed Challenge objects from all tool calls this turn.
+        # chat.py reads all three after chat() returns to render Rich panels for
+        # the user — separate from the LLM conversation content.
+        # DEC-64-LLM-PANEL-SEPARATION-001: challenges surface here, not via LLM summary.
         self.last_celebrations: list[str] = []
         self.last_badges: list = []  # list[Badge] — newly earned this turn
+        self.last_challenges: list = []  # list[Challenge] — newly completed this turn
 
         max_rounds = 5
         for _ in range(max_rounds):
@@ -177,9 +180,7 @@ class AgentRunner:
             if not tool_calls:
                 # No tool calls — this is the final text response
                 assistant_msg = self._extract_text(response)
-                self.conversation.append(
-                    {"role": "assistant", "content": assistant_msg}
-                )
+                self.conversation.append({"role": "assistant", "content": assistant_msg})
                 return assistant_msg
 
             # Execute all tool calls in this round
@@ -195,7 +196,7 @@ class AgentRunner:
                     args = json.loads(tc["function"]["arguments"])
                 except (json.JSONDecodeError, KeyError):
                     args = {}
-                summary, celebration, badges = execute_tool(
+                summary, celebration, badges, challenges = execute_tool(
                     self.ctx,
                     tc["function"]["name"],
                     args,
@@ -204,6 +205,8 @@ class AgentRunner:
                     self.last_celebrations.append(celebration)
                 if badges:
                     self.last_badges.extend(badges)
+                if challenges:
+                    self.last_challenges.extend(challenges)
                 self.conversation.append(
                     {
                         "role": "tool",
@@ -213,10 +216,7 @@ class AgentRunner:
                 )
 
         # Fallback if we hit max_rounds without a final text response
-        return (
-            "I've completed several tool calls. "
-            "Here's what I found based on the results above."
-        )
+        return "I've completed several tool calls. Here's what I found based on the results above."
 
     def _call_llm(self) -> object:
         """Call the LLM with current conversation and tools.
@@ -290,7 +290,6 @@ class AgentRunner:
         """
         logger.debug("Setting character mode: %s", mode.name)
         self.system_prompt = (
-            f"Character mode: {mode.name}\n{mode.personality}\n\n"
-            + self._default_system_prompt()
+            f"Character mode: {mode.name}\n{mode.personality}\n\n" + self._default_system_prompt()
         )
         self.conversation[0] = {"role": "system", "content": self.system_prompt}

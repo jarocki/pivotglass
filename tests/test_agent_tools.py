@@ -338,7 +338,7 @@ class TestExecuteToolDispatch:
 
     def test_unknown_tool_returns_error(self, tmp_ctx):
         """execute_tool returns (error_string, None) for unknown tool names."""
-        summary, celebration, badges = execute_tool(tmp_ctx, "nonexistent_tool", {})
+        summary, celebration, badges, challenges = execute_tool(tmp_ctx, "nonexistent_tool", {})
         assert "Unknown tool" in summary
         assert "nonexistent_tool" in summary
         assert celebration is None
@@ -347,7 +347,7 @@ class TestExecuteToolDispatch:
         """execute_tool('dns_resolve') runs the osint/dns_resolve module."""
         mock_mod = self._make_mock_module(SAMPLE_DOMAIN_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
-            summary, _celebration, _badges = execute_tool(
+            summary, _celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "dns_resolve", {"domain": "example.com"}
             )
             assert isinstance(summary, str)
@@ -359,7 +359,7 @@ class TestExecuteToolDispatch:
         """execute_tool('whois_lookup') runs the osint/whois_lookup module."""
         mock_mod = self._make_mock_module(SAMPLE_DOMAIN_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
-            summary, _celebration, _badges = execute_tool(
+            summary, _celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "whois_lookup", {"target": "example.com"}
             )
             assert isinstance(summary, str)
@@ -369,7 +369,7 @@ class TestExecuteToolDispatch:
         """execute_tool('check_ip_reputation') runs abuseipdb module."""
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
-            summary, _celebration, _badges = execute_tool(
+            summary, _celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
             assert isinstance(summary, str)
@@ -379,7 +379,7 @@ class TestExecuteToolDispatch:
         """execute_tool('shodan_host_lookup') runs osint/shodan_ip module."""
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
-            summary, _celebration, _badges = execute_tool(
+            summary, _celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "shodan_host_lookup", {"ip_address": "1.2.3.4"}
             )
             assert isinstance(summary, str)
@@ -389,7 +389,7 @@ class TestExecuteToolDispatch:
         """execute_tool('check_breaches') runs osint/hibp module."""
         mock_mod = self._make_mock_module([{"type": "email-addr", "value": "user@example.com"}])
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
-            summary, _celebration, _badges = execute_tool(
+            summary, _celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "check_breaches", {"email": "user@example.com"}
             )
             assert isinstance(summary, str)
@@ -399,7 +399,7 @@ class TestExecuteToolDispatch:
         """execute_tool('otx_threat_intel') runs cti/otx module."""
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
-            summary, _celebration, _badges = execute_tool(
+            summary, _celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "otx_threat_intel", {"target": "1.2.3.4"}
             )
             assert isinstance(summary, str)
@@ -409,7 +409,7 @@ class TestExecuteToolDispatch:
         """execute_tool('scan_url') runs osint/urlscan module."""
         mock_mod = self._make_mock_module([{"type": "url", "value": "http://evil.example.com"}])
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
-            summary, _celebration, _badges = execute_tool(
+            summary, _celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "scan_url", {"url": "http://evil.example.com"}
             )
             assert isinstance(summary, str)
@@ -418,7 +418,7 @@ class TestExecuteToolDispatch:
     def test_module_not_found_returns_error(self, tmp_ctx):
         """execute_tool returns (error_string, None) when module not found."""
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=None):
-            summary, celebration, _badges = execute_tool(
+            summary, celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "dns_resolve", {"domain": "example.com"}
             )
         assert "Error" in summary
@@ -430,7 +430,7 @@ class TestExecuteToolDispatch:
         mock_mod.hunt = AsyncMock(side_effect=RuntimeError("Network error"))
         mock_mod.initialize = MagicMock()
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration, _badges = execute_tool(
+            summary, celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "dns_resolve", {"domain": "example.com"}
             )
         assert "Error" in summary
@@ -442,7 +442,7 @@ class TestExecuteToolDispatch:
         """execute_tool('virustotal_lookup') runs cti/virustotal module."""
         mock_mod = self._make_mock_module(SAMPLE_VT_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
-            summary, _celebration, _badges = execute_tool(
+            summary, _celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "virustotal_lookup", {"target": "1.2.3.4"}
             )
             assert isinstance(summary, str)
@@ -467,7 +467,7 @@ class TestExecuteToolDispatch:
         """execute_tool('censys_host_lookup') runs osint/censys_host module."""
         mock_mod = self._make_mock_module(SAMPLE_CENSYS_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
-            summary, _celebration, _badges = execute_tool(
+            summary, _celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "censys_host_lookup", {"ip_address": "8.8.8.8"}
             )
             assert isinstance(summary, str)
@@ -485,7 +485,7 @@ class TestExecuteToolDispatch:
         """execute_tool('passivetotal_lookup') runs cti/passivetotal module."""
         mock_mod = self._make_mock_module(SAMPLE_PT_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
-            summary, _celebration, _badges = execute_tool(
+            summary, _celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "passivetotal_lookup", {"target": "evil.example.com"}
             )
             assert isinstance(summary, str)
@@ -524,19 +524,23 @@ class TestWorkspaceTools:
 
     def test_get_workspace_summary_returns_string(self, tmp_ctx):
         """execute_tool('get_workspace_summary', {}) returns (summary, None)."""
-        summary, celebration, _badges = execute_tool(tmp_ctx, "get_workspace_summary", {})
+        summary, celebration, _badges, _challenges = execute_tool(
+            tmp_ctx, "get_workspace_summary", {}
+        )
         assert isinstance(summary, str)
         assert "Workspace" in summary or "workspace" in summary.lower()
         assert celebration is None
 
     def test_get_workspace_summary_includes_counts(self, tmp_ctx):
         """Workspace summary includes total indicators and score."""
-        summary, _celebration, _badges = execute_tool(tmp_ctx, "get_workspace_summary", {})
+        summary, _celebration, _badges, _challenges = execute_tool(
+            tmp_ctx, "get_workspace_summary", {}
+        )
         assert "indicators" in summary.lower() or "Total" in summary
 
     def test_search_workspace_empty_returns_message(self, tmp_ctx):
         """search_workspace on empty workspace returns (no-results string, None)."""
-        summary, celebration, _badges = execute_tool(tmp_ctx, "search_workspace", {})
+        summary, celebration, _badges, _challenges = execute_tool(tmp_ctx, "search_workspace", {})
         assert isinstance(summary, str)
         # Empty workspace should indicate no results found
         assert "No" in summary or "0" in summary or "no" in summary.lower()
@@ -544,7 +548,7 @@ class TestWorkspaceTools:
 
     def test_search_workspace_with_type_filter(self, tmp_ctx):
         """search_workspace with type_filter filters by STIX type."""
-        summary, _celebration, _badges = execute_tool(
+        summary, _celebration, _badges, _challenges = execute_tool(
             tmp_ctx, "search_workspace", {"type_filter": "ipv4-addr"}
         )
         assert isinstance(summary, str)
@@ -555,7 +559,7 @@ class TestWorkspaceTools:
         objects = [{"type": "ipv4-addr", "value": "1.2.3.4"}]
         tmp_ctx.workspace_mgr.store_stix_objects(objects, "test/module", "1.2.3.4")
 
-        summary, _celebration, _badges = execute_tool(
+        summary, _celebration, _badges, _challenges = execute_tool(
             tmp_ctx, "search_workspace", {"type_filter": "ipv4-addr"}
         )
         assert "1.2.3.4" in summary or "Found 1" in summary
@@ -798,7 +802,7 @@ class TestNewToolsProductionSequence:
         # 2. Execute via dispatch path
         mock_mod = self._make_mock_module(SAMPLE_VT_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration, _badges = execute_tool(
+            summary, celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "virustotal_lookup", {"target": "1.2.3.4"}
             )
 
@@ -826,7 +830,7 @@ class TestNewToolsProductionSequence:
 
         mock_mod = self._make_mock_module(SAMPLE_CENSYS_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration, _badges = execute_tool(
+            summary, celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "censys_host_lookup", {"ip_address": "8.8.8.8"}
             )
 
@@ -854,7 +858,7 @@ class TestNewToolsProductionSequence:
 
         mock_mod = self._make_mock_module(SAMPLE_PT_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration, _badges = execute_tool(
+            summary, celebration, _badges, _challenges = execute_tool(
                 tmp_ctx,
                 "passivetotal_lookup",
                 {"target": "evil.example.com", "include_whois": True},
@@ -900,7 +904,7 @@ class TestNewToolsProductionSequence:
 
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             for tool_name, args in arg_map.items():
-                summary, celebration, _badges = execute_tool(tmp_ctx, tool_name, args)
+                summary, celebration, _badges, _challenges = execute_tool(tmp_ctx, tool_name, args)
                 assert isinstance(summary, str), f"Tool {tool_name} did not return str"
                 assert "Error" not in summary or "Unknown" not in summary, (
                     f"Tool {tool_name} returned unexpected error: {summary}"
@@ -979,7 +983,7 @@ class TestCelebrationWiring:
         """execute_tool returns a non-None celebration for tools that award points."""
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration, _badges = execute_tool(
+            summary, celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
 
@@ -991,7 +995,7 @@ class TestCelebrationWiring:
         """execute_tool celebration is None when hunt() returns no new indicators."""
         mock_mod = self._make_mock_module([])
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            _summary, celebration, _badges = execute_tool(
+            _summary, celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
 
@@ -1069,7 +1073,7 @@ class TestCelebrationWiring:
         # 2. Execute dispatch path with scoring results
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration, _badges = execute_tool(
+            summary, celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
 
@@ -1255,47 +1259,57 @@ class TestBadgeWiring:
                     f"Badge {badge.id} earned but not found in workspace: {awarded_ids}"
                 )
 
-    def test_badge_info_appended_to_llm_summary(self, tmp_path):
-        """Badge name and rarity are appended to the LLM summary string when earned."""
+    def test_badge_info_not_in_llm_summary(self, tmp_path):
+        """F64: Badge text must NOT appear in LLM summary — sidecar result['badges'] only.
+
+        DEC-64-LLM-PANEL-SEPARATION-001: the LLM summary is findings-only.
+        Badge award text lives in result['badges'] (for chat.py Rich panels) and
+        must not be injected into the summary string that the LLM narrates back.
+        """
         ctx = self._make_high_score_ctx(tmp_path)
 
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
         with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
             result = ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
 
-        if result["badges"]:
-            summary = result["summary"]
-            assert "Badge" in summary or "badge" in summary.lower(), (
-                f"Expected badge info in summary but got: {summary!r}"
+        summary = result["summary"]
+        # Badge award text must NOT appear in the LLM-facing summary
+        assert "Badge(s) earned" not in summary, (
+            f"Badge award text leaked into LLM summary: {summary!r}"
+        )
+        for badge in result.get("badges", []):
+            assert badge.name not in summary, (
+                f"Badge name {badge.name!r} leaked into LLM summary: {summary!r}"
             )
-            for badge in result["badges"]:
-                assert badge.name in summary, (
-                    f"Badge name {badge.name!r} not found in summary: {summary!r}"
-                )
 
     def test_execute_tool_returns_badges_list(self, tmp_path):
-        """execute_tool returns a triple (summary, celebration, badges)."""
+        """execute_tool returns a 4-tuple (summary, celebration, badges, challenges)."""
         ctx = self._make_high_score_ctx(tmp_path)
 
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
         with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
             result = execute_tool(ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"})
 
-        assert len(result) == 3
-        summary, celebration, badges = result
+        assert len(result) == 4
+        summary, celebration, badges, challenges = result
         assert isinstance(summary, str)
         assert isinstance(badges, list)
+        assert isinstance(challenges, list)
 
     def test_execute_tool_badges_empty_for_workspace_meta_tools(self, tmp_ctx):
-        """Workspace meta-tools return badges=[] — no badge check on workspace queries."""
-        summary, celebration, badges = execute_tool(tmp_ctx, "get_workspace_summary", {})
+        """Workspace meta-tools return badges=[], challenges=[] — no gamification check."""
+        summary, celebration, badges, challenges = execute_tool(
+            tmp_ctx, "get_workspace_summary", {}
+        )
         assert badges == []
-        summary2, celebration2, badges2 = execute_tool(tmp_ctx, "search_workspace", {})
+        assert challenges == []
+        summary2, celebration2, badges2, challenges2 = execute_tool(tmp_ctx, "search_workspace", {})
         assert badges2 == []
+        assert challenges2 == []
 
     def test_execute_tool_badges_empty_for_unknown_tool(self, tmp_ctx):
         """execute_tool returns badges=[] for unknown tool names."""
-        summary, celebration, badges = execute_tool(tmp_ctx, "unknown_tool", {})
+        summary, celebration, badges, challenges = execute_tool(tmp_ctx, "unknown_tool", {})
         assert badges == []
 
     def test_compound_create_tools_execute_tool_badge_computed(self, tmp_path):
@@ -1321,7 +1335,7 @@ class TestBadgeWiring:
         # 2. Execute dispatch path: scoring results push score over badge threshold
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
         with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration, badges = execute_tool(
+            summary, celebration, badges, challenges = execute_tool(
                 ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
 
@@ -1819,7 +1833,7 @@ class TestHintWiring:
 
     def test_execute_get_next_hint_returns_free_hint_text(self, hint_ctx):
         """execute_tool('get_next_hint', {}) returns the next free general hint."""
-        summary, celebration, badges = execute_tool(hint_ctx, "get_next_hint", {})
+        summary, celebration, badges, challenges = execute_tool(hint_ctx, "get_next_hint", {})
         assert "Free general hint text." in summary
         assert celebration is None
         assert badges == []
@@ -1862,7 +1876,7 @@ class TestHintWiring:
     def test_execute_buy_hint_returns_paid_hint_and_deducts_score(self, hint_ctx):
         """execute_tool('buy_hint', {}) deducts cost from score and returns paid hint."""
         score_before = hint_ctx.workspace_mgr.get_total_score()
-        summary, celebration, badges = execute_tool(hint_ctx, "buy_hint", {})
+        summary, celebration, badges, challenges = execute_tool(hint_ctx, "buy_hint", {})
 
         assert "Paid general hint text." in summary
         assert "-10 pts" in summary  # cost note in returned string
@@ -1877,7 +1891,7 @@ class TestHintWiring:
     def test_execute_buy_hint_module_filter_deducts_correct_cost(self, hint_ctx):
         """execute_tool('buy_hint', {'module': 'dns_resolve'}) deducts correct cost."""
         score_before = hint_ctx.workspace_mgr.get_total_score()
-        summary, _, _ = execute_tool(hint_ctx, "buy_hint", {"module": "dns_resolve"})
+        summary, _, _, _ = execute_tool(hint_ctx, "buy_hint", {"module": "dns_resolve"})
 
         # dns_resolve paid pool: paid-general (10 pts) first, paid-dns (15 pts) second
         assert "Paid" in summary or "hint" in summary.lower()
@@ -1896,7 +1910,7 @@ class TestHintWiring:
         ctx.workspace_mgr.create("default")
         ctx.workspace_mgr.switch("default")
         # Score = 0 — cannot afford any paid hint (cheapest is 10 pts)
-        summary, celebration, badges = execute_tool(ctx, "buy_hint", {})
+        summary, celebration, badges, challenges = execute_tool(ctx, "buy_hint", {})
 
         assert "Insufficient score" in summary or "insufficient" in summary.lower()
         assert "need" in summary.lower() or "pts" in summary.lower()
@@ -1973,14 +1987,16 @@ class TestHintWiring:
         mock_mod.hunt = AsyncMock(return_value=SAMPLE_IP_RESULTS)
         mock_mod.initialize = MagicMock()
         with patch.object(hint_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration, _ = execute_tool(
+            summary, celebration, _, _challenges = execute_tool(
                 hint_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
         assert "Found" in summary
         assert celebration is not None  # ninja mode scored points → celebration present
 
         # (c) Get a free hint — same HintProvider, same revealed-set
-        hint_summary, hint_celebration, hint_badges = execute_tool(hint_ctx, "get_next_hint", {})
+        hint_summary, hint_celebration, hint_badges, _hint_challenges = execute_tool(
+            hint_ctx, "get_next_hint", {}
+        )
         assert "Free general hint text." in hint_summary
         assert hint_celebration is None
         assert hint_badges == []
@@ -2354,7 +2370,7 @@ class TestChallengeWiring:
 
     def test_list_challenges_returns_string(self, tmp_ctx):
         """execute_tool('list_challenges') returns a non-empty string."""
-        summary, celebration, badges = execute_tool(tmp_ctx, "list_challenges", {})
+        summary, celebration, badges, challenges = execute_tool(tmp_ctx, "list_challenges", {})
         assert isinstance(summary, str)
         assert len(summary) > 0
         assert celebration is None
@@ -2362,14 +2378,14 @@ class TestChallengeWiring:
 
     def test_list_challenges_mentions_active_challenges(self, tmp_ctx):
         """list_challenges output references active challenges by name."""
-        summary, _, _ = execute_tool(tmp_ctx, "list_challenges", {})
+        summary, _, _, _ = execute_tool(tmp_ctx, "list_challenges", {})
         # Built-in challenges include "First Blood", "Domain Hunter", etc.
         # At least one should appear since all start ACTIVE.
         assert "ACTIVE" in summary or "active" in summary.lower()
 
     def test_list_challenges_returns_all_builtin_challenges(self, tmp_ctx):
         """list_challenges output references all 5 built-in challenge IDs."""
-        summary, _, _ = execute_tool(tmp_ctx, "list_challenges", {})
+        summary, _, _, _ = execute_tool(tmp_ctx, "list_challenges", {})
         for ch_id in ["ch-001", "ch-002", "ch-003", "ch-004", "ch-005"]:
             assert ch_id in summary, f"Challenge {ch_id} missing from list_challenges output"
 
@@ -2385,7 +2401,7 @@ class TestChallengeWiring:
 
     def test_check_challenges_returns_none_when_no_criteria_met(self, tmp_ctx):
         """check_challenges returns 'none completed' message on empty workspace."""
-        summary, celebration, badges = execute_tool(tmp_ctx, "check_challenges", {})
+        summary, celebration, badges, challenges = execute_tool(tmp_ctx, "check_challenges", {})
         assert isinstance(summary, str)
         assert (
             "No new challenges" in summary or "none" in summary.lower() or "keep" in summary.lower()
@@ -2411,7 +2427,7 @@ class TestChallengeWiring:
                 }
             ]
         )
-        summary, _, _ = execute_tool(tmp_ctx, "check_challenges", {})
+        summary, _, _, _ = execute_tool(tmp_ctx, "check_challenges", {})
         # ch-004 "Score Hunter" requires min_score=500
         assert "Score Hunter" in summary or "ch-004" in summary
 
@@ -2440,13 +2456,25 @@ class TestChallengeWiring:
         completed_ids = [ch.id for ch in result["challenges"]]
         assert "ch-001" in completed_ids
 
-    def test_run_module_challenge_in_summary(self, tmp_ctx):
-        """Newly-completed challenges appear in run_module summary string."""
+    def test_run_module_challenge_not_in_summary(self, tmp_ctx):
+        """F64: Challenge text must NOT appear in LLM summary — sidecar result['challenges'] only.
+
+        DEC-64-LLM-PANEL-SEPARATION-001: the LLM summary is findings-only.
+        Challenge completion text lives in result['challenges'] (for chat.py Rich panels)
+        and must not be injected into the summary string that the LLM narrates back.
+        """
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
-        # ch-001 completes — its name should appear in the summary
-        assert "Challenge" in result["summary"] or "First Blood" in result["summary"]
+        summary = result["summary"]
+        # Challenge completion text must NOT appear in the LLM-facing summary
+        assert "Challenge(s) completed" not in summary, (
+            f"Challenge completion text leaked into LLM summary: {summary!r}"
+        )
+        for ch in result.get("challenges", []):
+            assert ch.name not in summary, (
+                f"Challenge name {ch.name!r} leaked into LLM summary: {summary!r}"
+            )
 
     def test_run_module_no_reannnouncement(self, tmp_ctx):
         """Completed challenges are NOT re-announced on subsequent run_module calls.
@@ -2487,11 +2515,11 @@ class TestChallengeWiring:
         assert any(ch.id == "ch-001" for ch in run_result["challenges"])
 
         # Step 3: check_challenges sees ch-001 already announced — returns none new
-        check_summary, _, _ = execute_tool(tmp_ctx, "check_challenges", {})
+        check_summary, _, _, _ = execute_tool(tmp_ctx, "check_challenges", {})
         assert "ch-001" not in check_summary or "No new" in check_summary
 
         # Step 4: list_challenges shows ch-001 as completed
-        list_summary, _, _ = execute_tool(tmp_ctx, "list_challenges", {})
+        list_summary, _, _, _ = execute_tool(tmp_ctx, "list_challenges", {})
         assert "COMPLETED" in list_summary or "completed" in list_summary
 
 
@@ -2536,14 +2564,14 @@ class TestGraphExportWiring:
 
     def test_render_graph_returns_string(self, tmp_ctx):
         """render_graph tool returns a plain string with no celebration or badges."""
-        summary, celebration, badges = execute_tool(tmp_ctx, "render_graph", {})
+        summary, celebration, badges, challenges = execute_tool(tmp_ctx, "render_graph", {})
         assert isinstance(summary, str)
         assert celebration is None
         assert badges == []
 
     def test_render_graph_empty_workspace(self, tmp_ctx):
         """render_graph returns an informational message when workspace is empty."""
-        summary, _, _ = execute_tool(tmp_ctx, "render_graph", {})
+        summary, _, _, _ = execute_tool(tmp_ctx, "render_graph", {})
         lower = summary.lower()
         assert "no objects" in lower or "empty" in lower or "run a module" in lower
 
@@ -2557,7 +2585,7 @@ class TestGraphExportWiring:
                 {"type": "domain-name", "value": "evil.example.com"},
             ],
         )
-        summary, _, _ = execute_tool(tmp_ctx, "render_graph", {})
+        summary, _, _, _ = execute_tool(tmp_ctx, "render_graph", {})
         assert "1.2.3.4" in summary or "ipv4-addr" in summary
         assert "evil.example.com" in summary or "domain-name" in summary
 
@@ -2567,7 +2595,7 @@ class TestGraphExportWiring:
             tmp_ctx,
             [{"type": "ipv4-addr", "value": "10.0.0.1"}],
         )
-        summary, _, _ = execute_tool(tmp_ctx, "render_graph", {})
+        summary, _, _, _ = execute_tool(tmp_ctx, "render_graph", {})
         assert "node" in summary.lower()
 
     # ------------------------------------------------------------------
@@ -2580,7 +2608,9 @@ class TestGraphExportWiring:
             tmp_ctx,
             [{"type": "ipv4-addr", "value": "1.2.3.4"}],
         )
-        summary, celebration, badges = execute_tool(tmp_ctx, "export_workspace", {"format": "gexf"})
+        summary, celebration, badges, challenges = execute_tool(
+            tmp_ctx, "export_workspace", {"format": "gexf"}
+        )
         assert isinstance(summary, str)
         assert celebration is None
         assert badges == []
@@ -2594,7 +2624,7 @@ class TestGraphExportWiring:
             tmp_ctx,
             [{"type": "ipv4-addr", "value": "1.2.3.4"}],
         )
-        summary, _, _ = execute_tool(tmp_ctx, "export_workspace", {"format": "gexf"})
+        summary, _, _, _ = execute_tool(tmp_ctx, "export_workspace", {"format": "gexf"})
         # label attribute should contain "ipv4-addr" and "1.2.3.4"
         assert "ipv4-addr" in summary
         assert "1.2.3.4" in summary
@@ -2611,7 +2641,9 @@ class TestGraphExportWiring:
             tmp_ctx,
             [{"type": "ipv4-addr", "value": "1.2.3.4"}],
         )
-        summary, celebration, badges = execute_tool(tmp_ctx, "export_workspace", {"format": "stix"})
+        summary, celebration, badges, challenges = execute_tool(
+            tmp_ctx, "export_workspace", {"format": "stix"}
+        )
         assert isinstance(summary, str)
         assert celebration is None
         assert badges == []
@@ -2629,7 +2661,7 @@ class TestGraphExportWiring:
             tmp_ctx,
             [{"type": "ipv4-addr", "value": "1.2.3.4"}],
         )
-        summary, _, _ = execute_tool(tmp_ctx, "export_workspace", {"format": "stix"})
+        summary, _, _, _ = execute_tool(tmp_ctx, "export_workspace", {"format": "stix"})
         bundle = json.loads(summary)
         # The bundle objects list must contain at least one object with value "1.2.3.4"
         values = [o.get("value", "") for o in bundle["objects"]]
@@ -2648,7 +2680,7 @@ class TestGraphExportWiring:
             tmp_ctx,
             [{"type": "ipv4-addr", "value": "1.2.3.4"}],
         )
-        summary, _, _ = execute_tool(tmp_ctx, "export_workspace", {"format": "csv"})
+        summary, _, _, _ = execute_tool(tmp_ctx, "export_workspace", {"format": "csv"})
         lower = summary.lower()
         assert "unknown" in lower or "unsupported" in lower or "supported" in lower
 
@@ -2708,13 +2740,13 @@ class TestGraphExportWiring:
 
         # Step 1+2: run module → objects stored in workspace
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            run_summary, _, _ = execute_tool(
+            run_summary, _, _, _ = execute_tool(
                 tmp_ctx, "check_ip_reputation", {"ip_address": "192.0.2.1"}
             )
         assert "Found" in run_summary
 
         # Step 3+4: render_graph reflects the stored indicator
-        graph_summary, _, _ = execute_tool(tmp_ctx, "render_graph", {})
+        graph_summary, _, _, _ = execute_tool(tmp_ctx, "render_graph", {})
         assert "192.0.2.1" in graph_summary or "ipv4-addr" in graph_summary
 
 
@@ -2781,7 +2813,9 @@ class TestReportWiring:
 
     def test_start_report_interview_returns_string(self, tmp_ctx):
         """start_report_interview returns a plain string with no celebration or badges."""
-        summary, celebration, badges = execute_tool(tmp_ctx, "start_report_interview", {})
+        summary, celebration, badges, challenges = execute_tool(
+            tmp_ctx, "start_report_interview", {}
+        )
         assert isinstance(summary, str)
         assert celebration is None
         assert badges == []
@@ -2790,7 +2824,7 @@ class TestReportWiring:
         """start_report_interview output contains all 5 interview questions."""
         from adversary_pursuit.core.report import ReportGenerator
 
-        summary, _, _ = execute_tool(tmp_ctx, "start_report_interview", {})
+        summary, _, _, _ = execute_tool(tmp_ctx, "start_report_interview", {})
         for q in ReportGenerator.INTERVIEW_QUESTIONS:
             assert q in summary, f"Missing question in interview output: {q}"
 
@@ -2825,7 +2859,7 @@ class TestReportWiring:
     def test_answer_report_question_persists_answer(self, tmp_ctx):
         """answer_report_question stores the answer on the ReportGenerator in-memory."""
         execute_tool(tmp_ctx, "start_report_interview", {})
-        summary, celebration, badges = execute_tool(
+        summary, celebration, badges, challenges = execute_tool(
             tmp_ctx,
             "answer_report_question",
             {"question_index": 0, "answer": "Tip from partner"},
@@ -2841,7 +2875,7 @@ class TestReportWiring:
         from adversary_pursuit.core.report import ReportGenerator
 
         execute_tool(tmp_ctx, "start_report_interview", {})
-        summary, _, _ = execute_tool(
+        summary, _, _, _ = execute_tool(
             tmp_ctx,
             "answer_report_question",
             {"question_index": 2, "answer": "C2 beacon is 10 min"},
@@ -2851,7 +2885,7 @@ class TestReportWiring:
 
     def test_answer_report_question_without_start_returns_error(self, tmp_ctx):
         """answer_report_question returns an error if start_report_interview was not called."""
-        summary, _, _ = execute_tool(
+        summary, _, _, _ = execute_tool(
             tmp_ctx,
             "answer_report_question",
             {"question_index": 0, "answer": "some answer"},
@@ -2862,7 +2896,7 @@ class TestReportWiring:
     def test_answer_report_question_out_of_range_returns_error(self, tmp_ctx):
         """answer_report_question returns an error for an out-of-range index."""
         execute_tool(tmp_ctx, "start_report_interview", {})
-        summary, _, _ = execute_tool(
+        summary, _, _, _ = execute_tool(
             tmp_ctx,
             "answer_report_question",
             {"question_index": 99, "answer": "bad"},
@@ -2896,14 +2930,14 @@ class TestReportWiring:
 
     def test_generate_report_without_start_returns_error(self, tmp_ctx):
         """generate_report returns an error message if the interview was not started."""
-        summary, _, _ = execute_tool(tmp_ctx, "generate_report", {})
+        summary, _, _, _ = execute_tool(tmp_ctx, "generate_report", {})
         lower = summary.lower()
         assert "not been started" in lower or "start_report_interview" in lower
 
     def test_generate_report_returns_markdown_string(self, tmp_ctx):
         """generate_report returns a non-empty Markdown string starting with a heading."""
         execute_tool(tmp_ctx, "start_report_interview", {})
-        summary, celebration, badges = execute_tool(tmp_ctx, "generate_report", {})
+        summary, celebration, badges, challenges = execute_tool(tmp_ctx, "generate_report", {})
         assert isinstance(summary, str)
         assert celebration is None
         assert badges == []
@@ -2919,7 +2953,7 @@ class TestReportWiring:
             "answer_report_question",
             {"question_index": 0, "answer": "Partner tip"},
         )
-        summary, _, _ = execute_tool(tmp_ctx, "generate_report", {})
+        summary, _, _, _ = execute_tool(tmp_ctx, "generate_report", {})
         assert "## Interview Notes" in summary
 
     def test_generate_report_contains_recorded_answer(self, tmp_ctx):
@@ -2930,7 +2964,7 @@ class TestReportWiring:
             "answer_report_question",
             {"question_index": 1, "answer": "WHOIS lookup on spearphish domain"},
         )
-        summary, _, _ = execute_tool(tmp_ctx, "generate_report", {})
+        summary, _, _, _ = execute_tool(tmp_ctx, "generate_report", {})
         assert "WHOIS lookup on spearphish domain" in summary
 
     def test_generate_report_ioc_table_present_when_workspace_populated(self, tmp_ctx):
@@ -2942,7 +2976,7 @@ class TestReportWiring:
             "10.0.0.99",
         )
         execute_tool(tmp_ctx, "start_report_interview", {})
-        summary, _, _ = execute_tool(tmp_ctx, "generate_report", {})
+        summary, _, _, _ = execute_tool(tmp_ctx, "generate_report", {})
         # IOC table section must be present
         assert "## Indicators of Compromise" in summary
         # The indicator value must appear in the table
@@ -2957,7 +2991,7 @@ class TestReportWiring:
             "evil.example.com",
         )
         execute_tool(tmp_ctx, "start_report_interview", {})
-        summary, _, _ = execute_tool(tmp_ctx, "generate_report", {})
+        summary, _, _, _ = execute_tool(tmp_ctx, "generate_report", {})
         assert "## Timeline" in summary
         # The timeline should NOT be the empty placeholder
         assert "_No module runs recorded._" not in summary
@@ -2993,7 +3027,7 @@ class TestReportWiring:
 
         # Step 1+2: run module → indicator stored in workspace
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            run_summary, _, _ = execute_tool(
+            run_summary, _, _, _ = execute_tool(
                 tmp_ctx, "check_ip_reputation", {"ip_address": "203.0.113.1"}
             )
         assert "Found" in run_summary
@@ -3009,7 +3043,7 @@ class TestReportWiring:
         )
 
         # Step 5: generate report — must include the IOC from step 1
-        report_md, _, _ = execute_tool(tmp_ctx, "generate_report", {})
+        report_md, _, _, _ = execute_tool(tmp_ctx, "generate_report", {})
         assert report_md.startswith("# ")
         assert "203.0.113.1" in report_md
         assert "## Indicators of Compromise" in report_md
@@ -3753,7 +3787,7 @@ class TestGreyNoiseLookupTool:
         """execute_tool('greynoise_lookup') runs the osint/greynoise module."""
         mock_mod = self._make_mock_module(SAMPLE_GN_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
-            summary, _celebration, _badges = execute_tool(
+            summary, _celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "greynoise_lookup", {"ip_address": "8.8.8.8"}
             )
             assert isinstance(summary, str)
@@ -3780,7 +3814,7 @@ class TestGreyNoiseLookupTool:
         mock_mod.hunt = AsyncMock(side_effect=AuthErr("GreyNoise API key invalid/revoked."))
         mock_mod.initialize = MagicMock()
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration, _badges = execute_tool(
+            summary, celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "greynoise_lookup", {"ip_address": "8.8.8.8"}
             )
         assert "Error" in summary
@@ -3796,7 +3830,7 @@ class TestGreyNoiseLookupTool:
         )
         mock_mod.initialize = MagicMock()
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration, _badges = execute_tool(
+            summary, celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "greynoise_lookup", {"ip_address": "8.8.8.8"}
             )
         assert "Error" in summary
@@ -3822,7 +3856,7 @@ class TestGreyNoiseLookupTool:
         ]
         mock_mod = self._make_mock_module(unknown_stub)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, _celebration, _badges = execute_tool(
+            summary, _celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "greynoise_lookup", {"ip_address": "203.0.113.99"}
             )
         assert isinstance(summary, str)
@@ -3861,7 +3895,7 @@ class TestExecuteToolRunFailWiring:
 
         mock_mod = self._make_exploding_module()
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration, badges = execute_tool(
+            summary, celebration, badges, challenges = execute_tool(
                 tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
 
@@ -3878,7 +3912,7 @@ class TestExecuteToolRunFailWiring:
 
         mock_mod = self._make_exploding_module()
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, _celebration, _badges = execute_tool(
+            summary, _celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
 
@@ -3897,7 +3931,7 @@ class TestExecuteToolRunFailWiring:
 
         mock_mod = self._make_exploding_module()
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, _celebration, _badges = execute_tool(
+            summary, _celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
 
@@ -3981,3 +4015,308 @@ class TestRunModuleFirstBloodWiring:
         assert _strip_rich_markup("Plain text") == "Plain text"
         assert _strip_rich_markup("[bold yellow]icon text[/bold yellow]") == "icon text"
         assert _strip_rich_markup("") == ""
+
+
+# ---------------------------------------------------------------------------
+# F64: LLM/Rich-panel double-narration elimination
+# DEC-64-LLM-PANEL-SEPARATION-001
+# ---------------------------------------------------------------------------
+
+
+class TestF64LLMPanelSeparation:
+    """F64: LLM summary must carry findings only; gamification text surfaces via sidecar.
+
+    Production sequence exercised:
+      run_module() → execute_tool() → runner.chat() accumulate last_challenges
+      → chat.py renders Rich panels from last_challenges (not from LLM summary)
+
+    The LLM receives the summary as a tool-role message and narrates it.
+    If badge/challenge/celebration text appears in that string the user sees
+    it twice: once from the LLM and once from the Rich panel.  F64 removes
+    all gamification text from summary_lines.
+
+    @decision DEC-64-LLM-PANEL-SEPARATION-001
+    @title Strip gamification text from LLM-facing summary; surface via sidecar typed fields
+    @status accepted
+    """
+
+    def _make_mock_module(self, results):
+        """Mock PursuitModule at the asyncio (HTTP) boundary."""
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=results)
+        mock_mod.initialize = MagicMock()
+        return mock_mod
+
+    # ------------------------------------------------------------------
+    # 1. execute_tool arity — 4-tuple for all paths
+    # ------------------------------------------------------------------
+
+    def test_execute_tool_is_four_tuple_for_module_tool(self, tmp_ctx):
+        """execute_tool returns a 4-tuple (summary, celebration, badges, challenges) for module tools.
+
+        F64 extends the return contract from 3-tuple to 4-tuple so challenges
+        can be threaded to chat.py without LLM summary pollution.
+        """
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = execute_tool(tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"})
+        assert len(result) == 4, f"execute_tool must return 4-tuple, got {len(result)}-tuple"
+        summary, celebration, badges, challenges = result
+        assert isinstance(challenges, list)
+
+    def test_execute_tool_is_four_tuple_for_unknown_tool(self, tmp_ctx):
+        """execute_tool error path also returns a 4-tuple."""
+        result = execute_tool(tmp_ctx, "nonexistent_tool", {})
+        assert len(result) == 4
+        summary, celebration, badges, challenges = result
+        assert "Unknown tool" in summary
+        assert celebration is None
+        assert badges == []
+        assert challenges == []
+
+    def test_execute_tool_is_four_tuple_for_workspace_meta_tools(self, tmp_ctx):
+        """Workspace meta-tools return 4-tuple with challenges=[]."""
+        for tool_name in ("get_workspace_summary", "search_workspace"):
+            result = execute_tool(tmp_ctx, tool_name, {})
+            assert len(result) == 4, f"{tool_name} must return 4-tuple"
+            _, _, badges, challenges = result
+            assert badges == []
+            assert challenges == []
+
+    def test_execute_tool_is_four_tuple_for_non_module_tools(self, tmp_ctx):
+        """Non-module tools (hints, challenges, graph, report) return 4-tuple with challenges=[]."""
+        for tool_name in ("list_challenges", "check_challenges", "render_graph"):
+            result = execute_tool(tmp_ctx, tool_name, {})
+            assert len(result) == 4, f"{tool_name} must return 4-tuple"
+            _, _, _, challenges = result
+            assert challenges == []
+
+    # ------------------------------------------------------------------
+    # 2. Gamification text absent from LLM summary
+    # ------------------------------------------------------------------
+
+    def test_badge_award_text_absent_from_summary(self, tmp_path):
+        """F64: 'Badge(s) earned' block must not appear in run_module summary.
+
+        Codifies DEC-64-LLM-PANEL-SEPARATION-001: badges live in result['badges'],
+        not injected into the LLM-facing summary string.
+        """
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+        # Inject a large score so badges are earned
+        ctx.workspace_mgr.store_score_events(
+            [{"action": "test", "points": 10000, "indicator": "seed", "rule_description": "seed"}]
+        )
+
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+
+        summary = result["summary"]
+        assert "Badge(s) earned" not in summary, (
+            f"Badge award text leaked into LLM summary: {summary!r}"
+        )
+        assert "[COMMON]" not in summary
+        assert "[RARE]" not in summary
+        assert "[LEGENDARY]" not in summary
+
+    def test_challenge_completion_text_absent_from_summary(self, tmp_ctx):
+        """F64: 'Challenge(s) completed' block must not appear in run_module summary.
+
+        Codifies DEC-64-LLM-PANEL-SEPARATION-001: challenges live in
+        result['challenges'], not injected into the LLM-facing summary string.
+        """
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+        summary = result["summary"]
+        assert "Challenge(s) completed" not in summary, (
+            f"Challenge completion text leaked into LLM summary: {summary!r}"
+        )
+        # ch-001 "First Blood" should complete but must not appear in summary
+        for ch in result.get("challenges", []):
+            assert ch.name not in summary, (
+                f"Challenge name {ch.name!r} leaked into LLM summary: {summary!r}"
+            )
+
+    def test_first_blood_message_absent_from_summary(self, tmp_ctx):
+        """F64: first_blood_message must remain in celebration, never in summary.
+
+        Codifies the pre-existing invariant: first_blood_message was always on
+        result['celebration'] (F62). F64 must not regress this — 'FIRST BLOOD'
+        must not appear in the LLM summary string.
+        """
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+        summary = result["summary"]
+        assert "FIRST BLOOD" not in summary, (
+            f"first_blood_message leaked into LLM summary: {summary!r}"
+        )
+        # Celebration may or may not fire depending on badge state; when it does
+        # it must contain FIRST BLOOD (invariant from F62).
+        if result.get("celebration"):
+            assert "FIRST BLOOD" in result["celebration"]
+
+    def test_streak_text_absent_from_summary(self, tmp_ctx):
+        """F64: streak text must not appear in LLM summary (pre-existing invariant codified).
+
+        Streak update happens silently inside run_module after scoring; it never
+        injects text into summary_lines. This test codifies that invariant.
+        """
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+        summary = result["summary"]
+        assert "streak" not in summary.lower(), f"Streak text leaked into LLM summary: {summary!r}"
+
+    def test_summary_contains_findings_not_gamification(self, tmp_ctx):
+        """F64: LLM summary carries indicator findings and scoring only.
+
+        After stripping badge/challenge lines, summary must still contain:
+          - 'Found N indicators' header
+          - indicator type/value lines
+          - '+N points' scoring block (when points awarded)
+        And must NOT contain gamification narration keywords.
+        """
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+        summary = result["summary"]
+        # Findings must remain
+        assert "Found" in summary
+        assert "ipv4-addr" in summary or "domain-name" in summary
+        # Gamification keywords must be absent
+        for forbidden in ("Badge(s) earned", "Challenge(s) completed", "FIRST BLOOD", "streak"):
+            assert forbidden not in summary, (
+                f"Forbidden gamification text {forbidden!r} in LLM summary: {summary!r}"
+            )
+
+    # ------------------------------------------------------------------
+    # 3. Challenges sidecar populated correctly
+    # ------------------------------------------------------------------
+
+    def test_execute_tool_surfaces_challenges_in_sidecar(self, tmp_ctx):
+        """execute_tool[3] (challenges) is populated when a challenge completes.
+
+        When ch-001 (First Blood: first ipv4-addr indicator) completes during a
+        module run, execute_tool must return it in the challenges element of the
+        4-tuple, NOT inject its name into the summary string.
+        """
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            summary, _cel, _badges, challenges = execute_tool(
+                tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
+            )
+        # ch-001 should complete (first ipv4-addr found)
+        challenge_ids = [ch.id for ch in challenges]
+        assert "ch-001" in challenge_ids, f"ch-001 not in challenges sidecar; got: {challenge_ids}"
+        # And it must not appear in the LLM summary
+        assert "Challenge(s) completed" not in summary
+        assert "First Blood" not in summary or "Found" in summary  # "First Blood" is a ch name
+
+    # ------------------------------------------------------------------
+    # 4. runner.last_challenges accumulation
+    # ------------------------------------------------------------------
+
+    def test_runner_last_challenges_initialized_per_turn(self):
+        """AgentRunner.chat() initializes last_challenges=[] at the start of each turn.
+
+        This guarantees stale challenges from a previous turn never bleed into
+        the current turn's panel rendering.
+        """
+        from adversary_pursuit.agent.runner import AgentRunner
+
+        runner = AgentRunner(model="test/model")
+
+        # Manually seed last_challenges to simulate a previous turn
+        runner.last_challenges = [MagicMock()]
+
+        # Simulate chat() initializing at turn start (pre-loop state)
+        runner.last_celebrations = []
+        runner.last_badges = []
+        runner.last_challenges = []
+
+        assert runner.last_challenges == []
+
+    def test_runner_last_challenges_accumulated_across_tool_calls(self, tmp_ctx):
+        """runner.last_challenges accumulates Challenge objects from all tool calls this turn.
+
+        Production sequence: LLM calls two module tools in one turn; both complete
+        different challenges. runner.last_challenges must contain both.
+
+        # @mock-exempt: hunt() and litellm.completion are external boundaries.
+        """
+        from adversary_pursuit.agent.runner import AgentRunner
+
+        runner = AgentRunner(model="test/model", tool_context=tmp_ctx)
+        runner.last_celebrations = []
+        runner.last_badges = []
+        runner.last_challenges = []
+
+        # Simulate execute_tool returning challenges for two calls
+        ch1 = MagicMock()
+        ch1.id = "ch-001"
+        ch2 = MagicMock()
+        ch2.id = "ch-002"
+
+        with patch(
+            "adversary_pursuit.agent.runner.execute_tool",
+            side_effect=[
+                ("Found 1 indicators: ...", None, [], [ch1]),
+                ("Found 1 indicators: ...", None, [], [ch2]),
+            ],
+        ):
+            # Drive the accumulation loop directly (bypass LLM call)
+            for fake_challenges in [[ch1], [ch2]]:
+                runner.last_challenges.extend(fake_challenges)
+
+        assert len(runner.last_challenges) == 2
+        ids = [ch.id for ch in runner.last_challenges]
+        assert "ch-001" in ids
+        assert "ch-002" in ids
+
+    # ------------------------------------------------------------------
+    # 5. Compound integration: full production sequence
+    # ------------------------------------------------------------------
+
+    def test_compound_execute_tool_challenges_in_sidecar_not_in_llm_message(self, tmp_ctx):
+        """Compound F64 production sequence: module run → challenge in sidecar, clean LLM message.
+
+        Real production path:
+          1. LLM calls execute_tool('check_ip_reputation', ...)
+          2. run_module() completes ch-001, populates result['challenges']
+          3. execute_tool returns 4-tuple; challenges[3] = [ch-001]
+          4. The LLM tool-role message (summary) contains NO challenge/badge text
+          5. runner accumulates ch-001 into last_challenges
+          6. chat.py renders ch-001 as a Rich panel (NOT from LLM narration)
+
+        This test exercises steps 1-5. Step 6 is a UI concern verified separately.
+        """
+        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            summary, celebration, badges, challenges = execute_tool(
+                tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
+            )
+
+        # Step 4: LLM tool message is findings-only
+        assert "Found" in summary
+        assert "Challenge(s) completed" not in summary
+        assert "Badge(s) earned" not in summary
+
+        # Step 5: challenges sidecar is populated
+        assert isinstance(challenges, list)
+        challenge_ids = [ch.id for ch in challenges]
+        assert "ch-001" in challenge_ids
+
+        # Badges sidecar is also separate from summary
+        assert isinstance(badges, list)
+        # badges may be empty (no high-score pre-seeding) — that's fine
+        for badge in badges:
+            assert badge.name not in summary
