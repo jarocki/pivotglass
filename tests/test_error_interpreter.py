@@ -729,3 +729,61 @@ class TestEndToEndProduction:
         # Both must contain the diagnostic ID
         assert interp.diagnostic_id in default_output
         assert interp.diagnostic_id in troll_output
+
+
+# ---------------------------------------------------------------------------
+# F62-R0-003: _panel_title strips Rich markup from mode.run_fail (informational)
+# ---------------------------------------------------------------------------
+
+
+class TestPanelTitleRichStripping:
+    """_panel_title strips Rich markup from mode.run_fail before embedding (F62-R0-003).
+
+    full_troll run_fail is "[bold red]BRUH. Even my grandma...[/bold red]".
+    If not stripped before wrapping in [bold yellow], the inner [bold red] bleeds
+    through and the title renders red instead of yellow. The fix strips inner markup
+    so [bold yellow] wraps cleanly around plain text.
+    """
+
+    def test_full_troll_panel_title_contains_no_nested_markup(self, tmp_path):
+        """_panel_title for full_troll must not contain [bold red] in the output.
+
+        The rendered console output should contain the troll text (e.g. 'BRUH' or
+        'grandma') but NOT the [bold red] literal tag — Rich would have consumed it
+        during rendering, but by stripping first we ensure no nested-markup artefacts.
+        """
+        from adversary_pursuit.gamification.modes import DEFAULT_MODES
+
+        mode = DEFAULT_MODES["full_troll"]
+        assert "[bold red]" in mode.run_fail  # guard: confirms markup is present in source
+
+        console, buf = _make_console()
+        interp = _make_interp_with_log(tmp_path)
+        render_interactive(interp, console, mode=mode, interactive=False)
+        output = buf.getvalue()
+
+        # After stripping, the troll text (stripped of tags) should be in the title
+        stripped = re.sub(r"\[/?[^\]]+\]", "", mode.run_fail)
+        assert any(word in output for word in stripped.split()), (
+            f"Expected troll run_fail words in output. stripped={stripped!r}"
+        )
+
+    def test_panel_title_no_raw_bold_red_tag_in_output(self, tmp_path):
+        """Rendered panel output must not contain the literal string '[bold red]'.
+
+        Before the fix, the literal tag could leak into the panel title string.
+        After the fix, _panel_title strips it before embedding in [bold yellow].
+        """
+        from adversary_pursuit.gamification.modes import DEFAULT_MODES
+
+        mode = DEFAULT_MODES["full_troll"]
+        console, buf = _make_console()
+        interp = _make_interp_with_log(tmp_path)
+        render_interactive(interp, console, mode=mode, interactive=False)
+        output = buf.getvalue()
+
+        # The literal tag should NOT appear in the rendered output (Rich consumed or stripped)
+        # Rich would normally consume [bold red] as markup; this test guards against
+        # the pre-fix path where double-nesting could cause literal tag leakage
+        # in the panel title fallback string.
+        assert "[bold red]" not in output

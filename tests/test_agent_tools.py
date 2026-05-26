@@ -3827,3 +3827,157 @@ class TestGreyNoiseLookupTool:
             )
         assert isinstance(summary, str)
         assert "Error" not in summary
+
+
+# ---------------------------------------------------------------------------
+# F62-R0-001: execute_tool exception path wires mode.run_fail (Rich-stripped)
+# ---------------------------------------------------------------------------
+
+
+class TestExecuteToolRunFailWiring:
+    """execute_tool exception path prepends Rich-stripped mode.run_fail (F62-R0-001).
+
+    Production sequence: agent LLM calls hunt tool → module raises → execute_tool
+    catches exception → returns error string prefixed with mode-flavored voice.
+
+    # @mock-exempt: hunt() mocked at asyncio boundary — external HTTP module call.
+    # badge_mgr, mode_mgr are NOT mocked; they use real in-memory instances on tmp_ctx.
+
+    @decision DEC-62-KILL-DOC-LIES-002
+    Tests that _strip_rich_markup is applied and mode.run_fail is prepended.
+    """
+
+    def _make_exploding_module(self):
+        # @mock-exempt: hunt() is the external HTTP boundary; RuntimeError simulates
+        # network/upstream failure without any real network call.
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(side_effect=RuntimeError("upstream timeout"))
+        mock_mod.initialize = MagicMock()
+        return mock_mod
+
+    def test_exception_path_starts_with_mode_run_fail(self, tmp_ctx):
+        """execute_tool exception returns string prefixed with stripped run_fail."""
+        from adversary_pursuit.agent.tools import _strip_rich_markup
+
+        mock_mod = self._make_exploding_module()
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            summary, celebration, badges = execute_tool(
+                tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
+            )
+
+        expected_prefix = _strip_rich_markup(tmp_ctx.mode_mgr.active.run_fail)
+        assert summary.startswith(expected_prefix), (
+            f"Expected summary to start with '{expected_prefix}', got: {summary!r}"
+        )
+        assert celebration is None
+        assert badges == []
+
+    def test_exception_path_contains_no_rich_markup(self, tmp_ctx):
+        """execute_tool exception string has no residual [bold...] markup tags."""
+        import re
+
+        mock_mod = self._make_exploding_module()
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            summary, _celebration, _badges = execute_tool(
+                tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
+            )
+
+        markup_tags = re.findall(r"\[/?[^\]]+\]", summary)
+        assert markup_tags == [], f"Rich markup tags found in error summary: {markup_tags!r}"
+
+    def test_exception_path_full_troll_mode_stripped(self, tmp_ctx):
+        """full_troll run_fail has bold-red markup — must be stripped in exception path."""
+        import re
+
+        from adversary_pursuit.gamification.modes import DEFAULT_MODES
+
+        tmp_ctx.mode_mgr.switch("full_troll")
+        assert tmp_ctx.mode_mgr.active == DEFAULT_MODES["full_troll"]
+        assert "[bold red]" in tmp_ctx.mode_mgr.active.run_fail  # confirm markup present
+
+        mock_mod = self._make_exploding_module()
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            summary, _celebration, _badges = execute_tool(
+                tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
+            )
+
+        assert "[bold red]" not in summary
+        assert re.findall(r"\[/?[^\]]+\]", summary) == []
+        # Stripped text content should still appear
+        assert "BRUH" in summary or "grandma" in summary
+
+
+# ---------------------------------------------------------------------------
+# F62-R0-002: run_module wires first_blood_message after badge check
+# ---------------------------------------------------------------------------
+
+
+class TestRunModuleFirstBloodWiring:
+    """run_module calls first_blood_message() after badge check (F62-R0-002).
+
+    Production sequence: first hunt → real BadgeManager earns badge-first-blood
+    (total_indicators >= 1) → first_blood_message() fires from CelebrationEngine
+    → message returned in celebration string.
+
+    # @mock-exempt: hunt() mocked at asyncio boundary — external HTTP module call.
+    # BadgeManager.check_all is NOT mocked; real workspace stats trigger the badge.
+
+    @decision DEC-62-CELEBRATIONS-001
+    Mirrors console.py _execute_hunt:467-477 in the agent surface.
+    """
+
+    def _make_mock_module(self, results):
+        # @mock-exempt: hunt() is the external HTTP boundary.
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=results)
+        mock_mod.initialize = MagicMock()
+        return mock_mod
+
+    def test_first_blood_message_fires_on_first_successful_hunt(self, tmp_ctx):
+        """first_blood_message included in celebration on first hunt with >= 1 indicator.
+
+        Real BadgeManager.check_all sees total_indicators=1 and awards badge-first-blood.
+        CelebrationEngine.first_blood_message() fires exactly once and its text appears
+        in the returned celebration string.
+        """
+        results = [{"type": "ipv4-addr", "value": "10.0.0.1"}]
+        mock_mod = self._make_mock_module(results)
+
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/abuseipdb", "10.0.0.1", {})
+
+        celebration = result.get("celebration")
+        assert celebration is not None, "Expected celebration to be set on first hunt"
+        # first_blood_message returns the FIRST BLOOD banner
+        assert "FIRST BLOOD" in celebration
+
+    def test_first_blood_message_fires_at_most_once_per_session(self, tmp_ctx):
+        """CelebrationEngine._first_blood_used guard prevents double-fire.
+
+        Two consecutive run_module calls: first_blood appears only in the first.
+        """
+        results = [{"type": "ipv4-addr", "value": "10.0.0.1"}]
+        mock_mod = self._make_mock_module(results)
+
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result1 = tmp_ctx.run_module("osint/abuseipdb", "10.0.0.1", {})
+            # Second target — badge-first-blood already awarded; no new badge
+            results2 = [{"type": "ipv4-addr", "value": "10.0.0.2"}]
+            mock_mod.hunt = AsyncMock(return_value=results2)
+            result2 = tmp_ctx.run_module("osint/abuseipdb", "10.0.0.2", {})
+
+        cel1 = result1.get("celebration") or ""
+        cel2 = result2.get("celebration") or ""
+
+        assert "FIRST BLOOD" in cel1, "Expected first_blood message on first run"
+        assert "FIRST BLOOD" not in cel2, "first_blood message must not fire twice"
+
+    def test_strip_rich_markup_helper_removes_all_tags(self):
+        """_strip_rich_markup removes Rich markup tags from arbitrary strings."""
+        from adversary_pursuit.agent.tools import _strip_rich_markup
+
+        assert _strip_rich_markup("[bold red]BRUH.[/bold red]") == "BRUH."
+        assert _strip_rich_markup("[dim]Missed. Regroup.[/dim]") == "Missed. Regroup."
+        assert _strip_rich_markup("Plain text") == "Plain text"
+        assert _strip_rich_markup("[bold yellow]icon text[/bold yellow]") == "icon text"
+        assert _strip_rich_markup("") == ""

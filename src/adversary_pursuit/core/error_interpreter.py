@@ -651,9 +651,12 @@ def _panel_title(interp: ErrorInterpretation, mode: "CharacterMode | None") -> s
     """
     icon = _SEVERITY_ICON.get(interp.severity, "✗")
     if mode is not None and mode.run_fail:
-        # Strip Rich markup for the title slot — the panel border already
-        # provides the yellow styling context.
-        return f"[bold yellow]{icon} {mode.run_fail}[/bold yellow]"
+        # Strip inner Rich markup before embedding in [bold yellow] so that
+        # modes like full_troll (run_fail = "[bold red]BRUH...[/bold red]")
+        # render yellow as designed instead of bleeding the inner colour.
+        # Comment previously claimed stripping was done but it was not (F62-R0-003).
+        run_fail_plain = re.sub(r"\[/?[^\]]+\]", "", mode.run_fail)
+        return f"[bold yellow]{icon} {run_fail_plain}[/bold yellow]"
     # Neutral title
     return f"[bold yellow]{icon} What happened[/bold yellow]"
 
