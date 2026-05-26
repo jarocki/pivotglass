@@ -178,9 +178,9 @@ class TestCreateTools:
         assert isinstance(tools, list)
 
     def test_returns_twenty_two_tools(self, tmp_ctx):
-        """create_tools returns exactly 22 tool definitions (21 previous + greynoise_lookup)."""
+        """create_tools returns exactly 26 tool definitions (22 previous + 4 keyless hunters F61)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 22
+        assert len(tools) == 26
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -225,6 +225,11 @@ class TestCreateTools:
             "passivetotal_lookup",
             # GreyNoise Community API IP classification
             "greynoise_lookup",
+            # F61 keyless hunters
+            "urlhaus_lookup",
+            "threatfox_lookup",
+            "malwarebazaar_lookup",
+            "crtsh_lookup",
             # Workspace tools
             "get_workspace_summary",
             "search_workspace",
@@ -274,7 +279,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 22
+        assert len(roundtripped) == 26
 
     # --- New tool schema tests ---
 
@@ -741,8 +746,8 @@ class TestModuleMap:
     """_MODULE_MAP contains entries for all 11 module-backed tools."""
 
     def test_module_map_has_eleven_entries(self):
-        """_MODULE_MAP has exactly 11 entries (7 original + 3 prior + greynoise)."""
-        assert len(_MODULE_MAP) == 11
+        """_MODULE_MAP has exactly 15 entries (11 prior + 4 keyless hunters F61)."""
+        assert len(_MODULE_MAP) == 15
 
     def test_module_map_contains_new_tools(self):
         """_MODULE_MAP contains virustotal_lookup, censys_host_lookup, passivetotal_lookup."""
@@ -1382,7 +1387,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 22
+        assert len(r.tools) == 26
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""
@@ -2110,8 +2115,20 @@ class TestAutopivotWiring:
         # We mock both the primary module (plugin_mgr.get_module) and the cascade
         # module callbacks to verify that process_results fires subscribed callbacks
         # for the STIX types present in SAMPLE_IP_RESULTS (ipv4-addr, domain-name).
+
+        F61 adds urlhaus + threatfox as ipv4-addr subscribers (6 total). The default
+        max_per_cascade=5 would exhaust budget before the mock callback (appended
+        last) fires. Raise the budget to 20 so the mock callback is guaranteed a
+        slot regardless of subscriber count.
         """
         tmp_ctx.set_autopivot(True)
+
+        # Raise per-cascade budget so the mock callback (appended last after all
+        # real module callbacks) is not blocked by budget exhaustion (F61 adds
+        # urlhaus+threatfox as ipv4-addr subscribers, raising subscriber count to 6).
+        tmp_ctx.event_bus._policy._cfg = tmp_ctx.event_bus._policy._cfg.model_copy(
+            update={"max_per_cascade": 20}
+        )
 
         # Cascade callback mock: returns one result so cascade_results is non-empty
         cascade_result = [{"type": "ipv4-addr", "value": "9.9.9.9"}]
@@ -2287,6 +2304,14 @@ class TestAutopivotWiring:
         tmp_ctx.set_autopivot(True)
         assert tmp_ctx.autopivot_enabled is True
         assert tmp_ctx.event_bus.config.enabled is True
+
+        # Raise per-cascade budget so the mock callback (appended last after all
+        # real module callbacks) is not blocked by budget exhaustion. F61 adds
+        # urlhaus + threatfox as ipv4-addr subscribers, raising the count to 6;
+        # the default max_per_cascade=5 exhausts before the mock fires.
+        tmp_ctx.event_bus._policy._cfg = tmp_ctx.event_bus._policy._cfg.model_copy(
+            update={"max_per_cascade": 20}
+        )
 
         # Subscribe a mock cascade callback for ipv4-addr
         cascade_result = [{"type": "domain-name", "value": "cascade.example.com"}]

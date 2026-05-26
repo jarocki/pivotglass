@@ -54,6 +54,10 @@ censys_host = "adversary_pursuit.modules.osint.censys_host:CensysHost"
 virustotal = "adversary_pursuit.modules.cti.virustotal:VirusTotal"
 passivetotal = "adversary_pursuit.modules.cti.passivetotal:PassiveTotal"
 greynoise = "adversary_pursuit.modules.osint.greynoise:GreyNoise"
+urlhaus = "adversary_pursuit.modules.cti.urlhaus:URLHaus"
+threatfox = "adversary_pursuit.modules.cti.threatfox:ThreatFox"
+malwarebazaar = "adversary_pursuit.modules.cti.malwarebazaar:MalwareBazaar"
+crtsh = "adversary_pursuit.modules.osint.crtsh:CrtSh"
 
 [build-system]
 requires = ["hatchling"]

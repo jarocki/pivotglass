@@ -51,6 +51,10 @@ _BUILTIN_MODULES: list[tuple[str, str]] = [
     ("cti/passivetotal", "adversary_pursuit.modules.cti.passivetotal:PassiveTotal"),
     ("cti/otx", "adversary_pursuit.modules.cti.otx:AlienVaultOTX"),
     ("osint/greynoise", "adversary_pursuit.modules.osint.greynoise:GreyNoise"),
+    ("cti/urlhaus", "adversary_pursuit.modules.cti.urlhaus:URLHaus"),
+    ("cti/threatfox", "adversary_pursuit.modules.cti.threatfox:ThreatFox"),
+    ("cti/malwarebazaar", "adversary_pursuit.modules.cti.malwarebazaar:MalwareBazaar"),
+    ("osint/crtsh", "adversary_pursuit.modules.osint.crtsh:CrtSh"),
 ]
 
 
