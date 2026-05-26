@@ -738,6 +738,10 @@ def main() -> int:
             domain_target,
         ),
         ("osint/greynoise", lambda: _run_greynoise(ip_target, keys, args.verbose), ip_target),
+        ("cti/urlhaus", lambda: _run_urlhaus(domain_target, args.verbose), domain_target),
+        ("cti/threatfox", lambda: _run_threatfox(ip_target, args.verbose), ip_target),
+        ("cti/malwarebazaar", lambda: _run_malwarebazaar(ip_target, args.verbose), ip_target),
+        ("osint/crtsh", lambda: _run_crtsh(domain_target, args.verbose), domain_target),
     ]
 
     pass_count = 0

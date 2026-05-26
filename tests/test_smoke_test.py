@@ -319,12 +319,21 @@ class TestExitCodeSemantics:
         )
 
     def test_exit_0_when_all_pass_or_skip(self, smoke):
-        """main() exits 0 when all modules pass or skip and workspace check passes."""
+        """main() exits 0 when all modules pass or skip and workspace check passes.
+
+        Patches all keyless runner functions (dns_resolve, whois_lookup, urlhaus,
+        threatfox, malwarebazaar, crtsh) added in F61 so the test remains hermetic
+        and doesn't require network access.
+        """
         empty_keys = self._empty_keys(smoke)
         with (
             patch.object(smoke, "_resolve_keys", return_value=empty_keys),
             patch.object(smoke, "_run_dns_resolve", return_value=(smoke.PASS, "", 1)),
             patch.object(smoke, "_run_whois_lookup", return_value=(smoke.PASS, "", 1)),
+            patch.object(smoke, "_run_urlhaus", return_value=(smoke.PASS, "", 1)),
+            patch.object(smoke, "_run_threatfox", return_value=(smoke.PASS, "", 1)),
+            patch.object(smoke, "_run_malwarebazaar", return_value=(smoke.PASS, "", 1)),
+            patch.object(smoke, "_run_crtsh", return_value=(smoke.PASS, "", 1)),
             patch.object(smoke, "_check_workspace_persistence", return_value=(smoke.PASS, "")),
             patch("adversary_pursuit.core.config.ConfigManager"),
             patch("sys.argv", ["smoke_test.py", "--quiet"]),
@@ -339,6 +348,10 @@ class TestExitCodeSemantics:
             patch.object(smoke, "_resolve_keys", return_value=empty_keys),
             patch.object(smoke, "_run_dns_resolve", return_value=(smoke.PASS, "", 1)),
             patch.object(smoke, "_run_whois_lookup", return_value=(smoke.PASS, "", 1)),
+            patch.object(smoke, "_run_urlhaus", return_value=(smoke.PASS, "", 1)),
+            patch.object(smoke, "_run_threatfox", return_value=(smoke.PASS, "", 1)),
+            patch.object(smoke, "_run_malwarebazaar", return_value=(smoke.PASS, "", 1)),
+            patch.object(smoke, "_run_crtsh", return_value=(smoke.PASS, "", 1)),
             patch.object(
                 smoke,
                 "_check_workspace_persistence",
@@ -357,6 +370,10 @@ class TestExitCodeSemantics:
             patch.object(smoke, "_resolve_keys", return_value=empty_keys),
             patch.object(smoke, "_run_dns_resolve", return_value=(smoke.FAIL, "DNS error", 0)),
             patch.object(smoke, "_run_whois_lookup", return_value=(smoke.PASS, "", 1)),
+            patch.object(smoke, "_run_urlhaus", return_value=(smoke.PASS, "", 1)),
+            patch.object(smoke, "_run_threatfox", return_value=(smoke.PASS, "", 1)),
+            patch.object(smoke, "_run_malwarebazaar", return_value=(smoke.PASS, "", 1)),
+            patch.object(smoke, "_run_crtsh", return_value=(smoke.PASS, "", 1)),
             patch.object(smoke, "_check_workspace_persistence", return_value=(smoke.PASS, "")),
             patch("adversary_pursuit.core.config.ConfigManager"),
             patch("sys.argv", ["smoke_test.py", "--quiet"]),
@@ -365,12 +382,21 @@ class TestExitCodeSemantics:
         assert code == 1
 
     def test_exit_0_when_all_skip(self, smoke):
-        """main() exits 0 when all modules skip (no keys configured) and workspace passes."""
+        """main() exits 0 when all modules skip (no keys configured) and workspace passes.
+
+        Patches all keyless runner functions (dns_resolve, whois_lookup, urlhaus,
+        threatfox, malwarebazaar, crtsh) added in F61 so the test remains hermetic
+        and doesn't require network access.
+        """
         empty_keys = self._empty_keys(smoke)
         with (
             patch.object(smoke, "_resolve_keys", return_value=empty_keys),
             patch.object(smoke, "_run_dns_resolve", return_value=(smoke.SKIP, "no key", 0)),
             patch.object(smoke, "_run_whois_lookup", return_value=(smoke.SKIP, "no key", 0)),
+            patch.object(smoke, "_run_urlhaus", return_value=(smoke.SKIP, "no key", 0)),
+            patch.object(smoke, "_run_threatfox", return_value=(smoke.SKIP, "no key", 0)),
+            patch.object(smoke, "_run_malwarebazaar", return_value=(smoke.SKIP, "no key", 0)),
+            patch.object(smoke, "_run_crtsh", return_value=(smoke.SKIP, "no key", 0)),
             patch.object(smoke, "_check_workspace_persistence", return_value=(smoke.PASS, "")),
             patch("adversary_pursuit.core.config.ConfigManager"),
             patch("sys.argv", ["smoke_test.py", "--quiet"]),
