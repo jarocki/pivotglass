@@ -1,7 +1,7 @@
 """Character modes for Adversary Pursuit.
 
 Each mode is a configuration profile that affects prompt style, celebration
-messages, hint flavor text, and suggested next actions.
+messages, and run success/failure voice.
 
 The active mode is managed via ModeManager and consulted by APConsole for:
 - prompt prefix (do_back, do_use restore mode-aware prompt)
@@ -27,6 +27,20 @@ The active mode is managed via ModeManager and consulted by APConsole for:
            that callers format with .format(points=total). This keeps the
            template strings readable as data and avoids eval(). Callers are
            responsible for the format call — they know the point total.
+
+@decision DEC-62-KILL-DOC-LIES-001
+@title Delete hint_style (zero consumers, undefined semantics); rewrite personality
+@status accepted
+@rationale hint_style was added speculatively in Phase 3 planning but never wired
+           to any hint subsystem. It has zero consumers and its values ("speed bonuses",
+           "combo multipliers", "chaos mode") are false advertising — the feature does
+           not exist. Deleting the field removes a documentation lie without any
+           behavioural change. personality strings that referenced unimplemented mechanics
+           ("speed bonuses", "combo multipliers", "random pivot suggestions") are rewritten
+           to describe what the mode actually does: its voice, tone, and message style.
+           run_fail is now the single authority for failure voice (DEC-62-KILL-DOC-LIES-001);
+           _MODE_TITLE_FLAVORS in error_interpreter.py (F61 drift) is deleted in the same
+           change so there is never a parallel authority for mode-error phrasing.
 """
 
 from __future__ import annotations
@@ -50,13 +64,16 @@ class CharacterMode:
         Rich-markup string displayed after a successful module hunt().
     run_fail:
         Rich-markup string displayed after a hunt() failure (error/no results).
-    hint_style:
-        Descriptor for how hints are presented. Used by hint subsystem (Phase 3+).
+        This is the single authority for mode-flavored failure voice.
+        render_interactive() in error_interpreter.py uses this field directly;
+        the parallel _MODE_TITLE_FLAVORS dict was removed in F62.
     score_celebration:
         Rich-markup template string. Must contain {points} placeholder.
         Callers format with .format(points=total_gained).
     personality:
-        One-line description shown in mode list tables.
+        One-line description shown in mode list tables. Must describe only
+        what the mode actually does (voice, tone, message style) — no
+        unimplemented mechanics ("speed bonuses", "combo multipliers").
     """
 
     name: str
@@ -64,7 +81,6 @@ class CharacterMode:
     greeting: str
     run_success: str
     run_fail: str
-    hint_style: str
     score_celebration: str
     personality: str
 
@@ -76,9 +92,8 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
         greeting="Welcome to Adversary Pursuit.",
         run_success="Hunt complete. Results stored.",
         run_fail="Hunt failed.",
-        hint_style="standard",
         score_celebration="+{points} points!",
-        personality="Standard analyst mode",
+        personality="Standard analyst mode — neutral tone",
     ),
     "ninja": CharacterMode(
         name="ninja",
@@ -86,9 +101,8 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
         greeting="[dim]...[/dim]",
         run_success="[dim]Target acquired. Moving on.[/dim]",
         run_fail="[dim]Missed. Regroup.[/dim]",
-        hint_style="minimal",
         score_celebration="[dim]+{points}[/dim]",
-        personality="Minimal output, speed bonuses, stealth tips",
+        personality="Minimal output, silent and concise messaging",
     ),
     "full_troll": CharacterMode(
         name="full_troll",
@@ -96,9 +110,8 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
         greeting="[bold magenta]LEEEEEROYYY JENKINS![/bold magenta] Welcome to the party!",
         run_success="[bold green]GET REKT ADVERSARY! 🎉🎉🎉[/bold green]",
         run_fail="[bold red]BRUH. Even my grandma could've found that.[/bold red]",
-        hint_style="maximum memes",
         score_celebration="[bold magenta]🔥 +{points} POINTS BABY! 🔥[/bold magenta]",
-        personality="Maximum memes, taunt messages",
+        personality="Maximum memes, loud taunt messages",
     ),
     "drunken_master": CharacterMode(
         name="drunken_master",
@@ -106,9 +119,8 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
         greeting="*hiccup* Oh hey... we doing this? Let's goooo...",
         run_success="*stumbles* Whoa, we actually found something! Nice!",
         run_fail="*falls over* Ehh, try again... maybe pivot... somewhere...",
-        hint_style="random suggestions",
         score_celebration="*hiccup* +{points} pointsss!",
-        personality="Random pivot suggestions, chaos mode",
+        personality="Rambling tipsy energy, unpredictable commentary",
     ),
     "sun_tzu": CharacterMode(
         name="sun_tzu",
@@ -116,9 +128,8 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
         greeting='"Know thy enemy and know thyself." Let us begin.',
         run_success='"Opportunities multiply as they are seized." Excellent work.',
         run_fail='"In the midst of chaos, there is also opportunity." Try another approach.',
-        hint_style="strategic quotes",
         score_celebration='"Supreme excellence." +{points} points earned.',
-        personality="Strategic quotes, methodical approach rewards",
+        personality="Strategic Sun Tzu quotes for every action",
     ),
     "chuck_norris": CharacterMode(
         name="chuck_norris",
@@ -126,9 +137,8 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
         greeting="Chuck Norris doesn't hunt threats. Threats surrender to Chuck Norris.",
         run_success="Chuck Norris found all the indicators. On the first try. Obviously.",
         run_fail="This never happens to Chuck Norris. Must be a glitch in the Matrix.",
-        hint_style="overpowered hints",
         score_celebration="Chuck Norris earned +{points} points. The points are honored.",
-        personality="Overpowered hints, confidence boosters",
+        personality="Unstoppable confidence, Chuck Norris facts as flavor",
     ),
     "bureaucrat": CharacterMode(
         name="bureaucrat",
@@ -136,9 +146,8 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
         greeting="Please sign form TPS-001 before proceeding. In triplicate.",
         run_success="Results filed under Form IR-7734. Please initial here, here, and here.",
         run_fail="Your request has been denied. Please submit Form ERR-404 to the help desk.",
-        hint_style="TPS report format",
         score_celebration="Per Policy §4.2.1, you have been awarded +{points} compliance points.",
-        personality="Office Space vibes, TPS report formatting",
+        personality="Office Space vibes, everything is a TPS report",
     ),
     "bobby_hill": CharacterMode(
         name="bobby_hill",
@@ -146,9 +155,8 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
         greeting="That's my purse! I DON'T KNOW YOU! ...Oh wait, this is my workstation.",
         run_success="THAT'S MY PURSE! I mean... nice find!",
         run_fail="I don't know you! And I don't know what went wrong either.",
-        hint_style="bobby energy",
         score_celebration="That boy ain't right... but +{points} points IS right!",
-        personality="'That's my purse!' energy",
+        personality="'That's my purse!' energy, King of the Hill flavor",
     ),
     "bruce_lee": CharacterMode(
         name="bruce_lee",
@@ -156,9 +164,8 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
         greeting='"Be water, my friend." Adapt and flow through the data.',
         run_success='"I fear not the man who has practiced 10,000 kicks once." Focused strike. Clean hit.',
         run_fail='"Don\'t fear failure." Adjust and flow to the next approach.',
-        hint_style="flow state",
-        score_celebration="Combo multiplier! +{points} points! 🐉",
-        personality="Flow state, combo multipliers",
+        score_celebration="Flow state! +{points} points! 🐉",
+        personality="Bruce Lee philosophy, flow-state zen commentary",
     ),
     "columbo": CharacterMode(
         name="columbo",
@@ -166,7 +173,6 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
         greeting="Oh, uh, just one more thing... I'm investigating a little something.",
         run_success="Oh! Would you look at that... very interesting. Just one more thing...",
         run_fail="You know, my wife always says I miss the obvious things. She might be right.",
-        hint_style="investigative prompts",
         score_celebration="Oh, almost forgot... +{points} points. Just one more thing...",
         personality="'Just one more thing...' investigative prompts",
     ),
@@ -231,7 +237,4 @@ class ModeManager:
         list[dict]
             Each entry is ``{"name": str, "personality": str}``.
         """
-        return [
-            {"name": m.name, "personality": m.personality}
-            for m in self._modes.values()
-        ]
+        return [{"name": m.name, "personality": m.personality} for m in self._modes.values()]

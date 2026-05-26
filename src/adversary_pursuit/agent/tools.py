@@ -166,6 +166,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Any
 
 from adversary_pursuit.core.config import ConfigManager
@@ -177,6 +178,7 @@ from adversary_pursuit.core.event_bus import (
 from adversary_pursuit.core.graph import RelationshipGraph
 from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.report import ReportGenerator
+from adversary_pursuit.core.streak import StreakManager
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.badges import BadgeManager
 from adversary_pursuit.gamification.celebrations import CelebrationEngine
@@ -211,7 +213,7 @@ class ToolContext:
         (uses the built-in catalogue). Pass a custom list in tests.
     """
 
-    def __init__(self, config_dir=None, workspace_dir=None, hints=None):
+    def __init__(self, config_dir=None, workspace_dir=None, hints=None, streak_path=None):
         self.config_mgr = ConfigManager(config_dir=config_dir)
         self.config = self.config_mgr.load()
         self.workspace_mgr = WorkspaceManager(workspace_dir=workspace_dir)
@@ -221,6 +223,9 @@ class ToolContext:
         self.celebration = CelebrationEngine()
         self.badge_mgr = BadgeManager()
         self.mode_mgr = ModeManager()
+        # StreakManager: sole authority for streak.json (DEC-62-STREAK-007).
+        # streak_path is injectable for tests (DEC-62-STREAK-001).
+        self.streak_mgr: StreakManager = StreakManager(path=streak_path)
         # HintProvider is session-scoped: revealed-ID set persists across all hint calls
         # in this session so the same hint is never shown twice (DEC-HINT-002).
         # Shared by both the LLM tool path and the chat meta-command path (DEC-AGENT-HINTS-001).
@@ -433,6 +438,28 @@ class ToolContext:
         except Exception:  # noqa: BLE001
             pass  # badge check must never block tool result delivery
 
+        # Fire first_blood_message when badge-first-blood was earned this run
+        # (F62-R0-002, DEC-62-CELEBRATIONS-001).
+        # Console.py calls first_blood_message() unconditionally after _check_badges_after_run
+        # (console.py:467-477) and prints it to the terminal. In the agent path there is no
+        # Rich console to print to, so the message is appended to the celebration string for
+        # chat.py to surface. We condition on newly_earned_badges containing badge-first-blood
+        # rather than calling unconditionally — this preserves the invariant that celebration
+        # is None when no indicators were found (existing tests rely on this contract).
+        # The CelebrationEngine._first_blood_used guard also prevents double-fire.
+        try:
+            if newly_earned_badges and any(
+                b.id == "badge-first-blood" for b in newly_earned_badges
+            ):
+                fb_msg = self.celebration.first_blood_message()
+                if fb_msg is not None:
+                    if celebration:
+                        celebration = fb_msg + "\n\n" + celebration
+                    else:
+                        celebration = fb_msg
+        except Exception:  # noqa: BLE001
+            pass  # first_blood display must never block tool result delivery
+
         # Auto-pivot cascade (DEC-AGENT-AUTOPIVOT-001, DEC-60-PIVOT-POLICY-005).
         # When autopivot is enabled (or dry_run is True) and results are non-empty,
         # feed the STIX results into the event bus.  process_results() publishes a
@@ -498,6 +525,17 @@ class ToolContext:
                     self._announced_challenges.add(ch.id)
         except Exception:  # noqa: BLE001
             pass  # challenge check must never block tool result delivery
+
+        # Update streak after a successful hunt (DEC-62-STREAK-007).
+        # Called here — after all badge/challenge checks — so failed hunts
+        # (which return {"error": ...} before reaching this point) never advance
+        # the streak. run_module only reaches this point when hunt() succeeded.
+        try:
+            from datetime import date
+
+            self.streak_mgr.update(date.today())
+        except Exception:  # noqa: BLE001
+            pass  # streak errors must never block tool result delivery
 
         # Build human-readable summary for the LLM response
         summary_lines = [f"Found {count} indicators:"]
@@ -1284,6 +1322,25 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
 }
 
 
+def _strip_rich_markup(text: str) -> str:
+    """Remove Rich markup tags from a string (e.g. ``[bold red]...[/bold red]``).
+
+    Used to sanitise mode.run_fail before embedding in plain-text error returns
+    or in Rich markup contexts where inner tags would nest incorrectly.
+
+    @decision DEC-62-KILL-DOC-LIES-002
+    @title Rich-strip helper for mode.run_fail in agent error paths
+    @status accepted
+    @rationale mode.run_fail strings may contain Rich markup (e.g. ``[bold red]``
+               for full_troll mode). When prepended to agent error strings — or
+               when embedded inside a ``[bold yellow]`` panel title — the nested
+               markup produces incorrect rendering. Stripping with a simple regex
+               is the correct, self-contained solution: no Rich import required,
+               no external dependency, trivially testable.
+    """
+    return re.sub(r"\[/?[^\]]+\]", "", text)
+
+
 def execute_tool(ctx: ToolContext, tool_name: str, arguments: dict) -> tuple[str, str | None, list]:
     """Execute a tool call and return (summary, celebration, badges).
 
@@ -1385,7 +1442,13 @@ def execute_tool(ctx: ToolContext, tool_name: str, arguments: dict) -> tuple[str
         return result["summary"], result.get("celebration"), result.get("badges", [])
     except Exception as e:
         logger.exception("Tool execution failed: %s", tool_name)
-        return f"Error running {tool_name}: {e}", None, []
+        # Wire run_fail: mode-flavored failure voice in agent exception path
+        # (F62-R0-001, DEC-62-KILL-DOC-LIES-001). Rich markup is stripped so
+        # the plain-text error string returned to the LLM contains no markup
+        # tags. Mirrors console.py _execute_hunt exception paths which print
+        # mode_mgr.active.run_fail to the Rich console.
+        run_fail_plain = _strip_rich_markup(ctx.mode_mgr.active.run_fail)
+        return f"{run_fail_plain} Error running {tool_name}: {e}", None, []
 
 
 def _workspace_summary(ctx: ToolContext) -> str:

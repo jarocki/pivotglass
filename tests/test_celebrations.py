@@ -30,9 +30,8 @@ import io
 
 import pytest
 
-from adversary_pursuit.gamification.celebrations import CelebrationEngine
 from adversary_pursuit.core.console import APConsole
-
+from adversary_pursuit.gamification.celebrations import CelebrationEngine
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -92,11 +91,15 @@ class TestCelebrateLevel:
         assert isinstance(result, str)
         assert len(result) > 0
 
-    def test_small_celebration_returns_consistent_art(self, engine):
-        """All small-level calls return the same art string."""
+    def test_small_celebration_returns_art_from_small_pool(self, engine):
+        """All small-level calls return art from the small pool (F62: random.choice fix)."""
+        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
+
         a = engine.celebrate(10)
         b = engine.celebrate(30)
-        assert a == b
+        # Both must be members of the small pool — random.choice picks from it
+        assert a in CELEBRATION_ART["small"]
+        assert b in CELEBRATION_ART["small"]
 
     # ---- medium: 50 <= points < 200 ----
 
@@ -108,15 +111,19 @@ class TestCelebrateLevel:
 
     def test_medium_celebration_at_199_points(self, engine):
         """199 points — just below large threshold — returns medium art."""
-        result = engine.celebrate(199)
-        result_medium = engine.celebrate(50)
-        assert result == result_medium
+        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
 
-    def test_medium_celebration_returns_consistent_art(self, engine):
-        """All medium-level calls return the same art string."""
+        result = engine.celebrate(199)
+        assert result in CELEBRATION_ART["medium"]
+
+    def test_medium_celebration_returns_art_from_medium_pool(self, engine):
+        """All medium-level calls return art from the medium pool (F62: random.choice fix)."""
+        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
+
         a = engine.celebrate(50)
         b = engine.celebrate(150)
-        assert a == b
+        assert a in CELEBRATION_ART["medium"]
+        assert b in CELEBRATION_ART["medium"]
 
     # ---- large: 200 <= points < 500 ----
 
@@ -128,15 +135,19 @@ class TestCelebrateLevel:
 
     def test_large_celebration_at_499_points(self, engine):
         """499 points — just below epic threshold — returns large art."""
-        result = engine.celebrate(499)
-        result_large = engine.celebrate(200)
-        assert result == result_large
+        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
 
-    def test_large_celebration_returns_consistent_art(self, engine):
-        """All large-level calls return the same art string."""
+        result = engine.celebrate(499)
+        assert result in CELEBRATION_ART["large"]
+
+    def test_large_celebration_returns_art_from_large_pool(self, engine):
+        """All large-level calls return art from the large pool (F62: random.choice fix)."""
+        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
+
         a = engine.celebrate(200)
         b = engine.celebrate(400)
-        assert a == b
+        assert a in CELEBRATION_ART["large"]
+        assert b in CELEBRATION_ART["large"]
 
     # ---- epic: points >= 500 ----
 
@@ -148,15 +159,19 @@ class TestCelebrateLevel:
 
     def test_epic_celebration_at_high_points(self, engine):
         """Very high points still returns epic art."""
-        result = engine.celebrate(9999)
-        result_epic = engine.celebrate(500)
-        assert result == result_epic
+        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
 
-    def test_epic_celebration_returns_consistent_art(self, engine):
-        """All epic-level calls return the same art string."""
+        result = engine.celebrate(9999)
+        assert result in CELEBRATION_ART["epic"]
+
+    def test_epic_celebration_returns_art_from_epic_pool(self, engine):
+        """All epic-level calls return art from the epic pool (F62: random.choice fix)."""
+        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
+
         a = engine.celebrate(500)
         b = engine.celebrate(1000)
-        assert a == b
+        assert a in CELEBRATION_ART["epic"]
+        assert b in CELEBRATION_ART["epic"]
 
     # ---- edge cases ----
 
@@ -257,23 +272,39 @@ class TestMilestoneMessage:
 
 
 class TestFirstBloodMessage:
-    """Verify first_blood_message returns a usable string."""
+    """Verify first_blood_message fires at most once per session (F62 wire).
 
-    def test_first_blood_returns_str(self, engine):
-        """first_blood_message() returns a str."""
+    F62 wired _first_blood_used so the method returns str on first call,
+    None on all subsequent calls within the same CelebrationEngine instance.
+    """
+
+    def test_first_blood_first_call_returns_str(self, engine):
+        """first_blood_message() returns a str on first call."""
         msg = engine.first_blood_message()
         assert isinstance(msg, str)
 
-    def test_first_blood_non_empty(self, engine):
-        """first_blood_message() is non-empty."""
+    def test_first_blood_first_call_non_empty(self, engine):
+        """first_blood_message() first call is non-empty."""
         msg = engine.first_blood_message()
+        assert msg is not None
         assert len(msg.strip()) > 0
 
-    def test_first_blood_consistent(self, engine):
-        """Multiple calls to first_blood_message() return the same string."""
-        a = engine.first_blood_message()
-        b = engine.first_blood_message()
-        assert a == b
+    def test_first_blood_second_call_returns_none(self, engine):
+        """Second call within same session returns None (already fired)."""
+        first = engine.first_blood_message()
+        second = engine.first_blood_message()
+        assert first is not None  # first call succeeds
+        assert second is None  # guard fires
+
+    def test_first_blood_fresh_engine_fires_again(self):
+        """A new CelebrationEngine instance can fire first_blood again."""
+        eng1 = CelebrationEngine()
+        eng2 = CelebrationEngine()
+        msg1 = eng1.first_blood_message()
+        eng1.first_blood_message()  # exhaust eng1
+        msg2 = eng2.first_blood_message()
+        assert msg1 is not None
+        assert msg2 is not None  # fresh instance, independent guard
 
 
 # ---------------------------------------------------------------------------

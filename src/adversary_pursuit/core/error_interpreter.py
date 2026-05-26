@@ -637,36 +637,26 @@ _SEVERITY_ICON = {
     "error": "✗",
 }
 
-# Mode name → panel title flavor text overrides
-_MODE_TITLE_FLAVORS: dict[str, str] = {
-    "ninja": "Silent failure",
-    "full_troll": "BRUH. Something broke",
-    "drunken_master": "*hiccup* Uh oh...",
-    "sun_tzu": '"In the midst of chaos..." Error',
-    "chuck_norris": "Even Chuck Norris hits errors (rarely)",
-    "bureaucrat": "Form ERR-{category}: Incident Report",
-    "bobby_hill": "I don't know you, Error!",
-    "bruce_lee": "Flow interrupted — adapt",
-    "columbo": "Just one more thing... it broke",
-}
-
 
 def _panel_title(interp: ErrorInterpretation, mode: "CharacterMode | None") -> str:
     """Build the Rich-markup panel title string.
 
-    Uses mode-flavored title when a CharacterMode is provided and its name
-    appears in the flavor map. Falls back to a neutral title otherwise.
+    Uses mode.run_fail as the panel title when a CharacterMode is provided.
+    This makes run_fail the single authority for mode-flavored failure voice,
+    replacing the parallel _MODE_TITLE_FLAVORS dict that was removed in F62
+    (DEC-62-KILL-DOC-LIES-001: one authority, no parallel dict drift).
+
+    Falls back to a neutral title when mode is None (e.g. pexcept before
+    mode_mgr is initialised) or when run_fail is empty.
     """
     icon = _SEVERITY_ICON.get(interp.severity, "✗")
-    if mode is not None:
-        flavor = _MODE_TITLE_FLAVORS.get(mode.name)
-        if flavor:
-            # Some flavors have {category} format slots
-            try:
-                flavor = flavor.format(category=interp.category)
-            except (KeyError, IndexError):
-                pass
-            return f"[bold yellow]{icon} {flavor}[/bold yellow]"
+    if mode is not None and mode.run_fail:
+        # Strip inner Rich markup before embedding in [bold yellow] so that
+        # modes like full_troll (run_fail = "[bold red]BRUH...[/bold red]")
+        # render yellow as designed instead of bleeding the inner colour.
+        # Comment previously claimed stripping was done but it was not (F62-R0-003).
+        run_fail_plain = re.sub(r"\[/?[^\]]+\]", "", mode.run_fail)
+        return f"[bold yellow]{icon} {run_fail_plain}[/bold yellow]"
     # Neutral title
     return f"[bold yellow]{icon} What happened[/bold yellow]"
 

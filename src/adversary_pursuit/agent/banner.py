@@ -105,7 +105,7 @@ def get_mode_color(mode_name: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def render_boot_banner(console: Console) -> None:
+def render_boot_banner(console: Console, streak_path=None) -> None:
     """Render the colourful ASCII art boot banner.
 
     Respects ``AP_NO_BANNER=1`` — returns immediately without any output when
@@ -114,12 +114,16 @@ def render_boot_banner(console: Console) -> None:
     The animation consists of:
     1. Printing the ASCII art art block with gradient colours.
     2. A staggered typewriter effect on the tagline (~300 ms total).
+    3. A streak banner line if the analyst has an active streak (DEC-62-STREAK-006).
 
     Parameters
     ----------
     console:
         Rich Console to write to.  Pass ``Console(file=StringIO())`` in tests
         to capture output without touching stdout.
+    streak_path:
+        Override path for StreakManager. Pass tmp_path/streak.json in tests
+        to avoid touching ~/.ap/streak.json (DEC-62-STREAK-001).
     """
     if os.environ.get("AP_NO_BANNER"):
         return
@@ -160,6 +164,22 @@ def render_boot_banner(console: Console) -> None:
 
     # --- Typewriter animation on tagline ---
     _typewriter(console, _TAGLINE, style="bold cyan", delay=0.012)
+
+    # --- Streak banner line (DEC-62-STREAK-006) ---
+    # StreakManager is the single authority for streak display. Importing here
+    # (inside the function body) avoids a top-level circular import risk since
+    # banner.py is imported at agent session startup before all core modules
+    # are guaranteed to be initialised.
+    try:
+        from adversary_pursuit.core.streak import StreakManager
+
+        streak_mgr = StreakManager(path=streak_path)
+        banner_line = streak_mgr.format_banner_line()
+        if banner_line:
+            console.print(f"[bold yellow]{banner_line}[/bold yellow]")
+    except Exception:  # noqa: BLE001
+        pass  # streak display must never crash the boot banner
+
     console.print()  # trailing newline
 
 
@@ -195,9 +215,7 @@ def _typewriter(
 
 
 @contextmanager
-def thinking_status(
-    console: Console, message: str = "Thinking..."
-) -> Generator[None, None, None]:
+def thinking_status(console: Console, message: str = "Thinking...") -> Generator[None, None, None]:
     """Context manager that shows a Rich Status spinner while the LLM is busy.
 
     Usage::
