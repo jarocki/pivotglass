@@ -921,6 +921,104 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                 },
             },
         },
+        # F61 keyless hunter tools — DEC-61-SCOPING-001
+        {
+            "type": "function",
+            "function": {
+                "name": "urlhaus_lookup",
+                "description": (
+                    "Check a URL or host (IP/domain) against the abuse.ch URLhaus malicious "
+                    "URL blocklist. No API key required. Returns url SCO records with threat "
+                    "type, tags, reporter, and date-added for each known malicious URL "
+                    "associated with the target. Returns empty list when the target is clean."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": (
+                                "Full URL (https://...) or host value (IPv4 address or "
+                                "domain name) to check against URLhaus"
+                            ),
+                        },
+                    },
+                    "required": ["target"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "threatfox_lookup",
+                "description": (
+                    "Search the abuse.ch ThreatFox IOC platform for threat intelligence on "
+                    "IPs, domains, URLs, and file hashes. No API key required. Returns typed "
+                    "STIX SCOs (ipv4-addr, url, domain-name, or file) with malware family, "
+                    "confidence score, first/last seen, and reporter metadata."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": (
+                                "IOC value to search: IPv4 address, domain name, URL, "
+                                "MD5 hash, or SHA-256 hash"
+                            ),
+                        },
+                    },
+                    "required": ["target"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "malwarebazaar_lookup",
+                "description": (
+                    "Query the abuse.ch MalwareBazaar repository for malware sample metadata "
+                    "by hash. No API key required. Accepts MD5, SHA1, or SHA256 hashes. "
+                    "Returns a file SCO with all three hash values, malware signature/family, "
+                    "first-seen timestamp, and file type."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "hash_value": {
+                            "type": "string",
+                            "description": "MD5, SHA1, or SHA256 hash of the sample to look up",
+                        },
+                    },
+                    "required": ["hash_value"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "crtsh_lookup",
+                "description": (
+                    "Search Certificate Transparency logs via crt.sh for subdomains and "
+                    "SSL/TLS certificates associated with a domain. No API key required. "
+                    "Returns domain-name SCOs for each unique SAN/subdomain discovered in "
+                    "public CT logs, with issuer CA ID, certificate expiry, and entry timestamp."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "domain": {
+                            "type": "string",
+                            "description": (
+                                "Domain name to search CT logs for (e.g. 'example.com'). "
+                                "Subdomains are included automatically."
+                            ),
+                        },
+                    },
+                    "required": ["domain"],
+                },
+            },
+        },
         {
             "type": "function",
             "function": {
@@ -1197,6 +1295,11 @@ _SERVICE_NAMES: dict[str, str | None] = {
     "osint/greynoise": "greynoise",
     "osint/dns_resolve": None,  # no key needed
     "osint/whois_lookup": None,  # no key needed
+    # F61 keyless modules — no API key needed (DEC-61-SCOPING-001)
+    "cti/urlhaus": None,
+    "cti/threatfox": None,
+    "cti/malwarebazaar": None,
+    "osint/crtsh": None,
 }
 
 # ---------------------------------------------------------------------------
@@ -1317,6 +1420,23 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
     "greynoise_lookup": (
         "osint/greynoise",
         lambda a: (a["ip_address"], {}),
+    ),
+    # F61 keyless hunters (DEC-61-SCOPING-001)
+    "urlhaus_lookup": (
+        "cti/urlhaus",
+        lambda a: (a["target"], {}),
+    ),
+    "threatfox_lookup": (
+        "cti/threatfox",
+        lambda a: (a["target"], {}),
+    ),
+    "malwarebazaar_lookup": (
+        "cti/malwarebazaar",
+        lambda a: (a["hash_value"], {}),
+    ),
+    "crtsh_lookup": (
+        "osint/crtsh",
+        lambda a: (a["domain"], {}),
     ),
 }
 

@@ -503,6 +503,74 @@ def _run_greynoise(target: str, keys: dict, verbose: bool) -> tuple[str, str, in
         return FAIL, _fmt_exc(exc, verbose), 0
 
 
+def _run_urlhaus(target: str, verbose: bool) -> tuple[str, str, int]:
+    """Run cti/urlhaus — keyless, no API key required (F61)."""
+    try:
+        from adversary_pursuit.core.plugin_mgr import PluginManager
+
+        mgr = PluginManager()
+        mgr.load_plugins()
+        mod = mgr.get_module("cti/urlhaus")
+        if mod is None:
+            return FAIL, "module not found", 0
+        mod.initialize({})
+        results = asyncio.run(_run_module(mod, target, {}))
+        return PASS, "", len(results)
+    except Exception as exc:
+        return FAIL, _fmt_exc(exc, verbose), 0
+
+
+def _run_threatfox(target: str, verbose: bool) -> tuple[str, str, int]:
+    """Run cti/threatfox — keyless, no API key required (F61)."""
+    try:
+        from adversary_pursuit.core.plugin_mgr import PluginManager
+
+        mgr = PluginManager()
+        mgr.load_plugins()
+        mod = mgr.get_module("cti/threatfox")
+        if mod is None:
+            return FAIL, "module not found", 0
+        mod.initialize({})
+        results = asyncio.run(_run_module(mod, target, {}))
+        return PASS, "", len(results)
+    except Exception as exc:
+        return FAIL, _fmt_exc(exc, verbose), 0
+
+
+def _run_malwarebazaar(target: str, verbose: bool) -> tuple[str, str, int]:
+    """Run cti/malwarebazaar — keyless, no API key required (F61)."""
+    try:
+        from adversary_pursuit.core.plugin_mgr import PluginManager
+
+        mgr = PluginManager()
+        mgr.load_plugins()
+        mod = mgr.get_module("cti/malwarebazaar")
+        if mod is None:
+            return FAIL, "module not found", 0
+        mod.initialize({})
+        results = asyncio.run(_run_module(mod, target, {}))
+        return PASS, "", len(results)
+    except Exception as exc:
+        return FAIL, _fmt_exc(exc, verbose), 0
+
+
+def _run_crtsh(target: str, verbose: bool) -> tuple[str, str, int]:
+    """Run osint/crtsh — keyless, no API key required (F61)."""
+    try:
+        from adversary_pursuit.core.plugin_mgr import PluginManager
+
+        mgr = PluginManager()
+        mgr.load_plugins()
+        mod = mgr.get_module("osint/crtsh")
+        if mod is None:
+            return FAIL, "module not found", 0
+        mod.initialize({})
+        results = asyncio.run(_run_module(mod, target, {}))
+        return PASS, "", len(results)
+    except Exception as exc:
+        return FAIL, _fmt_exc(exc, verbose), 0
+
+
 def _fmt_exc(exc: Exception, verbose: bool) -> str:
     """Format an exception for the FAIL summary line.
 

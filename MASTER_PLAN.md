@@ -1252,6 +1252,139 @@ Runtime authority: stored on `wi-64-impl-01.evaluation_json` (loaded from `tmp/f
 
 ---
 
+## Phase 14: Keyless Hunter Modules — abuse.ch family + Certificate Transparency (W-61-KEYLESS-HUNTERS, post-v1, 2026-05-26)
+
+> **Status:** in-progress (planner stage complete, implementer next) · **Workflow:** `w-61-keyless-hunters` · **Goal:** `g-61-keyless-hunters` · **Branch:** `feature/61-keyless-hunters` · **Worktree:** `.worktrees/feature-61-keyless-hunters` · **GitHub issue:** #61
+
+### Problem
+
+Threat-Hunter advisory (2026-05): the v0.1.0 module catalog covers 11 sources but is heavily key-gated. New users hitting `ap chat` for the first time face a SKIP wall — every CTI/OSINT module except `dns_resolve` and `whois_lookup` requires a configured API key before it returns evidence. The "first five minutes" experience is degraded: the agent demos beautifully on a key-fed dev box and silently gates on a fresh user's machine. Two missing capability axes are also material:
+
+1. **No abuse.ch coverage.** abuse.ch operates three of the most-cited free OSINT/CTI services in modern hunting workflows (URLhaus, ThreatFox, MalwareBazaar). All three are keyless and serve JSON over HTTPS. Their absence means AP cannot answer "is this URL on the URLhaus blocklist?", "is this IOC in ThreatFox?", or "what's the metadata on this sample hash?" — three of the highest-value first-pass questions in a threat-hunting flow.
+2. **No Certificate Transparency search.** crt.sh is the canonical free interface for CT log discovery (subdomain enumeration, certificate-pivoting against a target apex). Without it the agent cannot answer "what subdomains has this domain registered TLS certs for?" — a foundational pivot for any infrastructure-mapping investigation.
+
+The slice fills both gaps with strictly-keyless modules so the fresh-install experience demonstrates real evidence return on the first query.
+
+### Goal
+
+After F61:
+
+- AP ships **15 catalog modules** (up from 11): existing 11 + `cti/urlhaus` + `cti/threatfox` + `cti/malwarebazaar` + `osint/crtsh`.
+- All 4 new modules are **strictly keyless** — no `ApiKeysConfig` field, no `AP_*_API_KEY` env var, no wizard `CTI_SERVICES` row. A fresh-install user runs `ap chat`, asks about a URL or domain, and sees real evidence in the first response.
+- All 4 modules satisfy the canonical `PursuitModule` Protocol (DEC-MODULE-002) via `BaseModule` subclassing — no parallel module contract.
+- `core/event_bus.py::DEFAULT_SUBSCRIPTIONS` is extended so the 4 new modules participate in F60 auto-pivot cascades (no new gate authority created — `PivotPolicy.evaluate` remains the sole gate per DEC-60-PIVOT-POLICY-001).
+- `scripts/smoke_test.py` shows `[PASS]` for each new module against live keyless endpoints (no SKIP-on-no-key paths — these modules have no keys).
+- `pyproject.toml [project.entry-points."adversary_pursuit.modules"]` and `core/plugin_mgr.py::_BUILTIN_MODULES` are both extended with 4 new entries, preserving the dual-registration invariant established by W-GREYNOISE.
+- F59 provenance authority preserved: modules emit zero `x_ap_*` fields in `hunt()` output. `workspace.store_stix_objects()` remains the sole writer of the `x_ap_*` namespace.
+
+### Scoping Decision (DEC-61-SCOPING-001)
+
+**Ship 4 modules in one slice; defer `circl_pdns` to F61b.**
+
+The goal contract names 5 candidates (urlhaus, threatfox, malwarebazaar, crtsh, circl_pdns). The planner ships the first 4 in one bounded slice and explicitly defers `circl_pdns`.
+
+Rationale:
+
+- The 3 abuse.ch modules share HTTP shape (POST/GET against `https://*.abuse.ch/api/v1/`) and benefit from a small shared `_abuse_ch.py` helper (single auth-less `AsyncClient` post + typed error mapping). Splitting them into separate waves would triplicate boilerplate review cycles for no risk reduction.
+- `osint/crtsh` is independent but architecturally identical complexity to the abuse.ch trio. Slicing it separately doubles dispatch/review overhead with no shared state contention.
+- **`circl_pdns` is not strictly keyless.** It requires a CIRCL free-registration API key. Including it here would force ApiKeysConfig + `_AP_ENV_VAR_MAP` + `_VENDOR_ENV_VAR_MAP` + `provider_setup.CTI_SERVICES` + smoke-runner SKIP-on-no-key extensions that the other 4 modules don't need — diluting the "no key needed" smoke invariant that distinguishes this slice. F61b will pick up `circl_pdns` cleanly with its own ApiKeysConfig + wizard rows.
+- The full 9-surface integration playbook is already proven (Phase 9 W-GREYNOISE closeout). One slice with 4 modules each repeating that playbook is reviewable as a single mechanical pattern — not 4 independent patterns.
+
+### State-Authority Map
+
+| Domain | Pre-F61 owner | Post-F61 owner | Notes |
+|--------|---------------|----------------|-------|
+| Module catalog (entry-point side) | `pyproject.toml [project.entry-points."adversary_pursuit.modules"]` (11 rows) | Same authority + 4 new rows | Single-purpose pyproject.toml expansion (DEC-61-PYPROJECT-SCOPE-001). No dependency, build-system, or version-bump edits. |
+| Module catalog (builtin side) | `core/plugin_mgr.py::_BUILTIN_MODULES` (11 rows) | Same authority + 4 new rows | Dual-registration invariant preserved (W-GREYNOISE precedent — 11/11 modules in both surfaces). |
+| Auto-pivot default subscriptions | `core/event_bus.py::DEFAULT_SUBSCRIPTIONS` (8 rows) | Same authority + 4 new rows | Per DEC-61-EVENT-BUS-SUBSCRIPTIONS-001. |
+| Agent tool catalog | `agent/tools.py` — schemas list + `_SERVICE_NAMES` + `_MODULE_MAP` | Same authority + 4 new entries per surface | `_SERVICE_NAMES` value is `None` for keyless modules (no `get_api_key()` call). |
+| REPL module autocomplete | `agent/repl_input.py::_MODULE_NAMES` | Same authority + 4 tail-name entries | |
+| Smoke test runner | `scripts/smoke_test.py` — `_run_*` functions + `module_runs` rows | Same authority + 4 new functions + 4 rows | The 4 functions OMIT the SKIP-on-no-key gate that keyed-module runners use — they go directly to live call. |
+| Per-SCO provenance (`x_ap_*`) | `core/workspace.py::store_stix_objects()` (DEC-59-001) | **UNCHANGED — out of scope** | New modules MUST NOT emit `x_ap_*` fields. Tests enforce this per module. |
+| Auto-pivot gate authority | `core/pivot_policy.py::PivotPolicy.evaluate` (DEC-60-001) | **UNCHANGED — out of scope** | New subscriptions flow through the existing F60 gate; no new gate logic. |
+| API key configuration surface | `core/config.py::ApiKeysConfig` + `_AP_ENV_VAR_MAP` + `_VENDOR_ENV_VAR_MAP` | **UNCHANGED — out of scope** | Keyless modules don't extend this surface. F61b will (for circl_pdns). |
+
+### Module Specifics
+
+| Module | Endpoint | Method | Target type(s) | SCO output |
+|--------|----------|--------|----------------|------------|
+| `cti/urlhaus` | `https://urlhaus-api.abuse.ch/v1/url/` and `https://urlhaus-api.abuse.ch/v1/host/` | POST form-encoded `url=<target>` or `host=<target>` | URL or domain/IP | One `url` SCO (when querying `/v1/url/`) with `x_urlhaus_threat`, `x_urlhaus_tags` (list), `x_urlhaus_url_status`, `x_urlhaus_date_added`, `x_urlhaus_reporter`, `x_urlhaus_reference`; OR one `domain-name`/`ipv4-addr` SCO (when querying `/v1/host/`) plus child `url` SCOs (capped at 15) for each `urls[]` entry on the host. |
+| `cti/threatfox` | `https://threatfox-api.abuse.ch/api/v1/` | POST JSON `{"query":"search_ioc","search_term":"<target>"}` | IP, domain, URL, hash | One SCO per match (capped at 15). SCO type inferred from `ioc_type`: `ip:port` → `ipv4-addr` (value pre-colon); `domain` → `domain-name`; `url` → `url`; `md5_hash`/`sha1_hash`/`sha256_hash` → `file` (with `hashes` dict). Custom fields: `x_threatfox_threat_type`, `x_threatfox_malware`, `x_threatfox_confidence_level`, `x_threatfox_first_seen`, `x_threatfox_reference`. |
+| `cti/malwarebazaar` | `https://mb-api.abuse.ch/api/v1/` | POST form-encoded `query=get_info&hash=<sha256_or_sha1_or_md5>` | Sample hash | One `file` SCO with `hashes` dict (`SHA-256`, `SHA-1`, `MD5`) + `name` (from `file_name`) + `size` (from `file_size`) + `x_mb_signature`, `x_mb_file_type`, `x_mb_first_seen`, `x_mb_reference`, `x_mb_tags` (list). |
+| `osint/crtsh` | `https://crt.sh/?q=%25.<domain>&output=json` | GET (URL-encoded `q` parameter, `output=json`) | Domain | One `domain-name` SCO per unique `common_name`/`name_value` (split on `\n`, wildcard `*.` prefix stripped, dedup against a `seen` set seeded with the query target, capped at 50). Custom fields: `x_crtsh_issuer_ca_id`, `x_crtsh_issuer_name`, `x_crtsh_not_before`, `x_crtsh_not_after` (taken from the first CT-log entry that surfaced the name). |
+
+**Common module shape (all 4):**
+
+- Class subclasses `BaseModule`; `name`, `description`, `author = "Adversary Pursuit"`, `module_type` set at class scope.
+- `options` defines a single `TARGET` entry.
+- `initialize()` is a no-op for keyless modules (the `_config` dict from `BaseModule.__init__` stays empty).
+- `hunt()` uses `httpx.AsyncClient` with a 30s default timeout (`TIMEOUT` option optional).
+- Error mapping: HTTP 429 → `RateLimitError` (with `Retry-After` honored when present); `httpx.TimeoutException` → `ModuleError("<module> request timed out")`; malformed JSON → `ModuleError("<module> returned non-JSON response")`; other 4xx/5xx → `response.raise_for_status()` (propagates `httpx.HTTPStatusError`).
+- NEVER raises `AuthenticationError` — keyless modules have no auth surface. (Helper file `tests/test_*` includes `test_no_api_key_required_no_auth_error` to enforce this.)
+- NEVER emits `x_ap_*` fields. Per-module test `test_module_emits_no_x_ap_provenance_fields` asserts this.
+
+**Optional shared helper:** `src/adversary_pursuit/modules/cti/_abuse_ch.py` may extract the abuse.ch POST pattern (`async def post_json(url, payload, timeout=30.0) -> dict`) plus the typed error mapping. Leading underscore signals private — it is NOT added to `pyproject.toml` entry_points or `plugin_mgr._BUILTIN_MODULES`. If the implementer judges the helper too small to extract (3 thin sites), they may inline it; the helper file then becomes an unused-allowed-path and is dropped from the diff (acceptable). DEC-61-ABUSE-CH-HELPER-001 documents the recommendation but does not force extraction.
+
+### Architecture Decisions
+
+| DEC ID | Decision | Rationale |
+|--------|----------|-----------|
+| DEC-61-SCOPING-001 | Ship 4 strictly-keyless modules in F61 (urlhaus, threatfox, malwarebazaar, crtsh); defer `circl_pdns` to F61b | The goal contract names 5 candidates but `circl_pdns` requires a CIRCL free-registration API key — it is not keyless. Mixing it into this slice would force ApiKeysConfig + AP_*_API_KEY env + wizard + SKIP-on-no-key smoke logic that the other 4 modules don't need, diluting the "no key needed" Evaluation Contract invariant. Single-purpose slice scope is preferred over a mixed slice that needs a partial roll-back if circl_pdns hits an authentication wall. The 4 chosen modules also share a tight integration shape (9 surfaces, exactly the W-GREYNOISE precedent) — one slice, one mechanical pattern, four parallel applications. |
+| DEC-61-EVENT-BUS-SUBSCRIPTIONS-001 | `DEFAULT_SUBSCRIPTIONS` extended with: `cti/urlhaus`: `["domain-name", "ipv4-addr", "url"]`; `cti/threatfox`: `["ipv4-addr", "domain-name", "url", "file"]`; `cti/malwarebazaar`: `["file"]`; `osint/crtsh`: `["domain-name"]` | These subscriptions match each module's TARGET capability. URLhaus accepts URL/host targets (both ipv4 and domain forms). ThreatFox searches by any IOC. MalwareBazaar is hash-only (`file` SCO with `hashes`). crtsh is domain-only (CT logs are domain-keyed). The subscriptions flow through `PivotPolicy.evaluate` unchanged — no new gate logic — so the F60 quota-bomb protection (per-cascade and per-session budgets) applies automatically. The `file` SCO type subscription for malwarebazaar/threatfox is currently a no-op against today's stix2-recognized SCO_CREATORS set (DEC-59-PROVENANCE-007 documents `file` as silently-dropped at workspace.store time); the subscription is still declared so when a future `file` SCO creator lands, malwarebazaar/threatfox cascades activate automatically without an event_bus.py edit. |
+| DEC-61-PYPROJECT-SCOPE-001 | `pyproject.toml` is touched ONLY to extend `[project.entry-points."adversary_pursuit.modules"]` with 4 new lines. No dependency changes, no version bump, no build-system edits, no other table modifications | `pyproject.toml` is normally a forbidden file for planner-strict-scope. AP's plugin discovery requires both `pyproject.toml` entry_points AND `plugin_mgr._BUILTIN_MODULES` to be updated for a new module to be discoverable post-install (the dual-registration invariant). Forbidding `pyproject.toml` would either: (a) break module discovery for installed wheels, or (b) force a parallel mechanism. The single-purpose scope amendment — entry_points additions ONLY — preserves the architectural rule (one authority for module entry points) while permitting the necessary surface extension. Reviewer enforces the surgical-edit invariant: the `pyproject.toml` diff MUST be 4 added lines under `[project.entry-points."adversary_pursuit.modules"]` and zero other changes. |
+| DEC-61-ABUSE-CH-HELPER-001 | Optional shared `modules/cti/_abuse_ch.py` helper recommended for the POST + typed-error-mapping shape; leading underscore + no entry_point registration to mark it private | Reuse is a Sacred Practice 12 reflex when 3 modules share a wire pattern. The helper centralizes the POST shape, the 429 / timeout / malformed-JSON branching, and the `httpx.AsyncClient` invocation. Extraction is RECOMMENDED but not REQUIRED — if the implementer judges the helper too thin (3 sites, ~15 LOC each), they may inline. In that case the unused-allowed-path is dropped from the diff and the DEC's "as-implemented" footnote documents the decision. The helper MUST NOT be added to `pyproject.toml` entry_points or `plugin_mgr._BUILTIN_MODULES` — the underscore prefix and absence from those registries is what marks it private. |
+| DEC-61-CRTSH-001 | crt.sh `?output=json` is the canonical JSON interface; an HTML response signals rate-limit/error and MUST raise `ModuleError`, not return a synthesized SCO list | crt.sh occasionally serves HTML (a status page or rate-limit error) when the JSON endpoint is degraded. Parsing HTML to extract names would create a parallel, fragile data path that drifts the moment crt.sh changes its template. The canonical contract is JSON — anything else is an error. The test `test_html_response_raises_module_error_not_returns_html` asserts this invariant. Dedup uses a `seen` set seeded with the query target plus an empty string (mirroring URLScan's DEC-MODULE-URLSCAN-003 pattern); wildcard `*.` prefix is stripped before dedup. Cap at 50 unique domain-name SCOs per call — large apex domains routinely have hundreds of certificates and unbounded output overwhelms downstream consumers (mirrors URLScan's 15-cap, scaled up because subdomain enumeration legitimately surfaces more entities than a single page-load IP/domain list). |
+| DEC-61-MODULES-EMIT-NO-PROVENANCE-001 | New modules emit zero `x_ap_*` provenance fields in `hunt()` output; `workspace.store_stix_objects()` remains the sole writer of the `x_ap_*` namespace | Direct re-affirmation of DEC-59-STIX-PROVENANCE-001 against the new module surface. Without this explicit assertion (and the matching per-module test), a well-meaning implementer might add `x_ap_source_url` to the SCO output thinking "more provenance is better" — creating exactly the dual-authority bug F59 was built to prevent. The per-module test is therefore part of the Evaluation Contract, not an after-the-fact lint. |
+
+### Wave Decomposition
+
+Single wave; one implementer slice (no parallelism — all 4 modules touch the same 9 integration surfaces and must land atomically to preserve the dual-registration invariant).
+
+| W-ID | Title | Weight | Gate | Deps | Integration |
+|------|-------|--------|------|------|-------------|
+| `wi-61-impl-01` | Add 4 keyless modules (urlhaus, threatfox, malwarebazaar, crtsh) + optional `_abuse_ch.py` helper + 9-surface integration + smoke test + per-module tests | L | review | none | `modules/cti/{urlhaus,threatfox,malwarebazaar,_abuse_ch}.py` (NEW), `modules/osint/crtsh.py` (NEW), `core/plugin_mgr.py`, `core/event_bus.py`, `agent/tools.py`, `agent/repl_input.py`, `scripts/smoke_test.py`, `pyproject.toml`, `tests/test_{urlhaus,threatfox,malwarebazaar,crtsh,abuse_ch_helper}.py` (NEW), `MASTER_PLAN.md` |
+
+Critical path: one slice; max width 1.
+
+### Scope Manifest (wi-61-impl-01)
+
+Runtime authority: `cc-policy workflow scope-get w-61-keyless-hunters` (synced from `tmp/f61-scope.json` via `scope-sync --work-item-id wi-61-impl-01`). The Scope Manifest is also persisted on `work_items.scope_json` for `wi-61-impl-01` (2843 bytes).
+
+- **Allowed paths (18):** `src/adversary_pursuit/modules/cti/_abuse_ch.py`, `src/adversary_pursuit/modules/cti/urlhaus.py`, `src/adversary_pursuit/modules/cti/threatfox.py`, `src/adversary_pursuit/modules/cti/malwarebazaar.py`, `src/adversary_pursuit/modules/osint/crtsh.py`, `src/adversary_pursuit/core/plugin_mgr.py`, `src/adversary_pursuit/core/event_bus.py`, `src/adversary_pursuit/agent/tools.py`, `src/adversary_pursuit/agent/repl_input.py`, `src/adversary_pursuit/gamification/hints.py`, `scripts/smoke_test.py`, `pyproject.toml`, `tests/test_urlhaus.py`, `tests/test_threatfox.py`, `tests/test_malwarebazaar.py`, `tests/test_crtsh.py`, `tests/test_abuse_ch_helper.py`, `MASTER_PLAN.md`.
+- **Required paths (15):** `modules/cti/{urlhaus,threatfox,malwarebazaar}.py`, `modules/osint/crtsh.py`, `core/plugin_mgr.py`, `core/event_bus.py`, `agent/tools.py`, `agent/repl_input.py`, `scripts/smoke_test.py`, `pyproject.toml`, `tests/test_{urlhaus,threatfox,malwarebazaar,crtsh}.py`, `MASTER_PLAN.md`. (The `_abuse_ch.py` helper, its tests, and the `gamification/hints.py` entries are allowed-but-not-required — see DEC-61-ABUSE-CH-HELPER-001.)
+- **Forbidden paths (29):** `modules/base.py` (Protocol authority), `core/workspace.py` (F59), `core/pivot_policy.py` (F60), `core/streak.py` (F62), `core/console.py`, `core/config.py` (would imply keyed-module scope), `core/graph.py`, `core/report.py`, `core/error_interpreter.py`, `agent/chat.py`, `agent/runner.py`, `agent/provider_setup.py` (would imply wizard CTI_SERVICES row), `agent/error_handler.py`, all `gamification/{badges,celebrations,challenges,scoring}.py`, `models/stix.py`, `models/database.py`, `uv.lock`, `CLAUDE.md`, `AGENTS.md`, `DECISIONS.md`, `README.md`, `.github/**`, `.claude/**`, `settings.json`, `hooks/**`, `agents/**`.
+- **State/authority domains touched:** `osint_module_catalog`, `event_bus_default_subscriptions`, `agent_tool_catalog`, `smoke_test_classification`, `module_entry_point_registration`.
+
+### Evaluation Contract (9-key, wi-61-impl-01)
+
+Runtime authority: stored on `wi-61-impl-01.evaluation_json` (11247 bytes; loaded from `tmp/f61-evaluation.json`). Summary below; the runtime contract is the binding artifact.
+
+- **required_tests (38):** ~9 per module (happy path, no-results, 429, timeout, malformed JSON, SCO shape, no `x_ap_*`, plus module-specific edge cases: urlhaus URL-vs-host routing, threatfox SCO-type inference, malwarebazaar required-hashes-dict, crtsh dedup + wildcard-strip + HTML-not-allowed + 50-cap), plus 1 helper test (`test_post_json_*`), plus 1 each in `test_event_bus.py` and `test_smoke_test.py` for catalog parity.
+- **required_evidence:** `tmp/evidence-61-keyless-hunters/{pytest_targeted.txt, pytest_full_suite.txt, ruff_clean.txt, smoke_test_keyless_pass.txt, diff_summary.txt, pyproject_entry_points.txt, plugin_mgr_discovery.txt}`.
+- **required_real_path_checks (4):** (a) `python scripts/smoke_test.py` shows `[PASS]` for `cti/urlhaus`, `cti/threatfox`, `cti/malwarebazaar`, `osint/crtsh` against default targets WITHOUT any API key configured; (b) `importlib.metadata.entry_points(group="adversary_pursuit.modules")` lists 15 modules after `pip install -e .` in the worktree venv; (c) `PluginManager().list_modules()` returns all 15 module paths; (d) `core.event_bus.DEFAULT_SUBSCRIPTIONS` contains the 4 new entries per DEC-61-EVENT-BUS-SUBSCRIPTIONS-001.
+- **required_authority_invariants (10):** Protocol satisfaction, httpx.AsyncClient + 30s timeout + typed errors, zero `x_ap_*` in module output, workspace.py untouched, pivot_policy.py untouched, event_bus.py touched only in `DEFAULT_SUBSCRIPTIONS`, dual-registration parity, smoke-PASS-on-keyless (no SKIP-for-auth path), private `_abuse_ch.py` helper not entry_point-registered, pyproject.toml surgical-edit invariant (4 added lines under `[project.entry-points."adversary_pursuit.modules"]` only).
+- **required_integration_points (7):** plugin_mgr `_BUILTIN_MODULES`+4 rows, event_bus `DEFAULT_SUBSCRIPTIONS`+4 rows, tools.py schemas+`_SERVICE_NAMES`+`_MODULE_MAP`+4 each, repl_input `_MODULE_NAMES`+4 rows, gamification/hints.py optional, smoke_test.py 4 new `_run_*` functions + 4 `module_runs` rows (omitting SKIP-for-auth), pyproject.toml 4 entry_point lines.
+- **forbidden_shortcuts (12):** no live HTTP in unit tests (respx/MockTransport only); no HTML parsing for crtsh; no API-key gating; no swallowing of typed errors; no in-module retry loop; no edits to base.py / workspace.py / pivot_policy.py / config.py; no partial shipments without smoke+real-path-check; no `x_ap_*` suppression-test bypass; no circl_pdns scaffolding; no synthesized "no result" SCOs to hide upstream failures.
+- **rollback_boundary:** single revertable feature commit on `feature/61-keyless-hunters`. Revert restores 11-module catalog; no DB schema or state migration involved.
+- **acceptance_notes:** `python scripts/smoke_test.py` exits 0 with `[PASS]` on the 4 new keyless modules; each returns ≥1 STIX SCO; `ap chat` tool catalog discovery shows 4 new tools; auto-pivot cascades over crtsh-emitted `domain-name` SCOs respect the F60 PivotPolicy gate; full pytest suite green; ruff clean across changed files.
+- **ready_for_guardian_definition:** all 38 required tests PASS; full pytest suite green with zero regressions; ruff clean; smoke shows `[PASS]` on the 4 new keyless modules against live endpoints (no SKIP-for-auth path); `importlib.metadata` discovers 15 modules; `PluginManager.list_modules()` returns 15; `DEFAULT_SUBSCRIPTIONS` contains the 4 new entries; git diff touches ONLY Scope Manifest allowed paths; reviewer issues `REVIEW_VERDICT=ready_for_guardian` on current HEAD; all 7 evidence files exist in `tmp/evidence-61-keyless-hunters/`.
+
+### What is NOT in scope (out-of-scope, deferred, or follow-up)
+
+- **`osint/circl_pdns`** — deferred to F61b per DEC-61-SCOPING-001. Requires CIRCL free-registration API key; needs `ApiKeysConfig.circl_pdns`, `_AP_ENV_VAR_MAP["circl_pdns"]`, `_VENDOR_ENV_VAR_MAP["circl_pdns"]`, `agent/provider_setup.CTI_SERVICES` row, and SKIP-on-no-key smoke handling — none of which the 4 keyless modules need.
+- **F62 stretch modules** named in the goal context (misp_import, yara_match, GreyNoise riot-only) — out of scope. `misp_import` requires a workspace authority extension (importing third-party STIX bundles); `yara_match` is a local-execution module (not an HTTP-fetched OSINT/CTI source) with different testing semantics; "GreyNoise riot-only" is already covered by the existing `osint/greynoise` module (the `riot` field is in its output). None belong in F61.
+- **`file` SCO creator support in `models/stix.py`** — DEC-59-STIX-PROVENANCE-007 documented `file` SCOs as silently-dropped at `workspace.store_stix_objects` time because `_SCO_CREATORS` does not include `file`. F61 inherits this gap: ThreatFox and MalwareBazaar both produce `file` SCOs that are accepted by `dict_to_stix()` (passthrough on unknown types per DEC-STIX-002) but **dropped on store** (workspace.py line ~281). A separate slice will add `file` to `_SCO_CREATORS` with a chosen `hashes`-dict shape and defining-properties policy. F61's `DEFAULT_SUBSCRIPTIONS` declares `file` subscriptions for malwarebazaar/threatfox anyway, so when the future slice lands, cascades activate automatically without an event_bus.py edit.
+- **Wizard CTI_SERVICES rows for keyless modules** — keyless modules don't have keys to configure, so `agent/provider_setup.CTI_SERVICES` and `_CTI_ENV_VAR` are forbidden. Wizard discovery of keyless modules happens via the standard catalog (after plugin_mgr loads).
+- **API key configuration** in `core/config.py` — explicitly forbidden. Adding ApiKeysConfig fields for keyless modules would imply key-required and would expand the rollback surface beyond a single revertable commit.
+
+### Follow-ups (filed, not in F61)
+
+- **F61b: `osint/circl_pdns`** — CIRCL Passive DNS module with single free-registration key. ApiKeysConfig + AP_*_API_KEY env + wizard CTI_SERVICES row + SKIP-on-no-key smoke logic. Independent slice; depends on F61 only insofar as the 4 keyless modules have demonstrated the integration playbook.
+- **`file` SCO creator in `models/stix.py`** — adds `file` to `_SCO_CREATORS` with `hashes` dict shape and defining-properties policy. Unblocks malwarebazaar / threatfox / virustotal hash SCOs reaching the workspace store. Separate slice; touches F59 authority surface so it goes through its own planner round.
+- **`misp_import` and `yara_match`** — separate planner slices when prioritized. Both touch workspace authority or introduce local-execution semantics, neither belongs in a keyless-HTTP-fetch slice.
+
+---
+
 ## Runtime Hygiene Backlog
 
 Cross-cutting runtime issues surfaced during recent dispatch chains. Tracked as GitHub issues (not v1 plan slices) — they affect orchestrator/Guardian quality of life but not the AP product surface:

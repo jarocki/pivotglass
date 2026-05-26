@@ -92,6 +92,11 @@ DEFAULT_SUBSCRIPTIONS: dict[str, list[str]] = {
     "osint/hibp": ["email-addr"],
     "osint/urlscan": ["url"],
     "osint/greynoise": ["ipv4-addr"],
+    # F61 keyless hunters
+    "cti/urlhaus": ["domain-name", "ipv4-addr", "url"],
+    "cti/threatfox": ["ipv4-addr", "domain-name", "url", "file"],
+    "cti/malwarebazaar": ["file"],
+    "osint/crtsh": ["domain-name"],
 }
 
 

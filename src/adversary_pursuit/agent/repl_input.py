@@ -88,6 +88,11 @@ _MODULE_NAMES: list[str] = [
     "otx",
     "passivetotal",
     "greynoise",
+    # F61 keyless hunters (DEC-61-SCOPING-001)
+    "urlhaus",
+    "threatfox",
+    "malwarebazaar",
+    "crtsh",
 ]
 
 #: Export format choices.
