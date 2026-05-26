@@ -2115,23 +2115,44 @@ class TestAutopivotWiring:
 
     # --- (5) depth limit respected ---
 
-    def test_depth_limit_zero_prevents_cascades(self, tmp_ctx):
-        """PivotConfig.max_depth=0 prevents any cascade from firing.
+    def test_zero_cascade_budget_prevents_cascades(self, tmp_path):
+        """PivotPolicy.max_per_cascade=0 prevents any cascade from firing.
 
-        EventBus.publish() gates on event.depth >= config.max_depth. Setting
-        max_depth=0 means depth=1 events (the first cascade level) are blocked.
+        max_depth was removed in F60 (DEC-60-PIVOT-POLICY-006). Budget-based
+        flow control replaces it: max_per_cascade=0 exhausts immediately so no
+        callbacks are invoked.
         """
-        tmp_ctx.set_autopivot(True)
-        tmp_ctx.event_bus.config.max_depth = 0  # depth=0 means no cascades allowed
+        from adversary_pursuit.core.config import AutoPivotPolicyConfig
+        from adversary_pursuit.core.event_bus import EventBus, PivotConfig
+
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+
+        # Rebuild event bus with max_per_cascade=0 so budget is immediately exhausted
+        policy_cfg = AutoPivotPolicyConfig(
+            max_per_cascade=0,
+            max_per_session=1000,
+            allowlist_path="/dev/null",
+            denylist_path="/dev/null",
+        )
+        ctx.event_bus = EventBus(config=PivotConfig(enabled=False, policy=policy_cfg))
+        ctx.autopivot_enabled = False
+        ctx.set_autopivot(True)
 
         cascade_callback = AsyncMock(return_value=[{"type": "ipv4-addr", "value": "9.9.9.9"}])
-        tmp_ctx.event_bus.subscribe("ipv4-addr", cascade_callback)
+        cascade_callback._module_path = "test"
+        ctx.event_bus.subscribe("ipv4-addr", cascade_callback)
 
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
-        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
 
-        # With max_depth=0, publish() returns [] because event.depth(1) >= max_depth(0)
+        # With max_per_cascade=0, PivotPolicy budget gate blocks all callbacks
         assert result["cascade_results"] == []
         cascade_callback.assert_not_called()
 

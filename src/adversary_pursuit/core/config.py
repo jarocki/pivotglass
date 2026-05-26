@@ -158,13 +158,72 @@ _LEGACY_AP_ENV_VAR_MAP: dict[str, list[str]] = {
 # ---------------------------------------------------------------------------
 
 
+class AutoPivotPolicyConfig(BaseModel):
+    """Policy configuration for the auto-pivot gate engine.
+
+    This submodel is the runtime read source for PivotPolicy construction
+    (DEC-60-PIVOT-POLICY-001). PivotPolicy is constructed once per EventBus
+    from this submodel and carries all five budget/threshold/path settings.
+
+    @decision DEC-60-PIVOT-POLICY-CONFIG-001
+    @title AutoPivotPolicyConfig as the canonical runtime config submodel for pivot gates
+    @status accepted
+    @rationale Keeping pivot policy parameters in a dedicated submodel isolates
+               them from the top-level GeneralConfig scalar fields and allows
+               round-trip TOML parsing via Pydantic's nested model support.
+               PivotPolicy reads this once at construction; no re-reads per call.
+               All five fields (confidence_threshold, max_per_cascade,
+               max_per_session, allowlist_path, denylist_path) are documented
+               here with their default values so downstream consumers can rely
+               on a single authoritative default registry (DEC-60-PIVOT-POLICY-002).
+    """
+
+    confidence_threshold: int = Field(default=75, ge=0, le=100)
+    """Minimum x_abuse_confidence_score (0-100) for a confidence-scored SCO to pass
+    the confidence gate. SCOs without the field use the per-type missing-field policy
+    (optimistic by default). (DEC-60-PIVOT-POLICY-004)"""
+
+    max_per_cascade: int = Field(default=5, ge=0)
+    """Maximum allowed callbacks per single process_results invocation (one source SCO).
+    Resets per cascade. Default 5 caps a URLScan SCO yielding 15 CDN domains to 5
+    callback invocations instead of 45. (DEC-60-PIVOT-POLICY-002)"""
+
+    max_per_session: int = Field(default=50, ge=0)
+    """Maximum allowed callbacks across the full EventBus lifetime (reset by
+    clear_history()). Default 50 provides a session-wide quota floor.
+    (DEC-60-PIVOT-POLICY-002)"""
+
+    allowlist_path: str | None = Field(default=None)
+    """Path to user-supplied pivot allowlist. Defaults to ~/.ap/pivot-allowlist.txt
+    when None. Missing file is silently treated as empty. (DEC-60-PIVOT-POLICY-007)"""
+
+    denylist_path: str | None = Field(default=None)
+    """Path to user-supplied pivot denylist. Defaults to ~/.ap/pivot-denylist.txt
+    when None. Missing file is silently treated as empty. (DEC-60-PIVOT-POLICY-007)"""
+
+
 class GeneralConfig(BaseModel):
     """General application settings."""
 
     default_workspace: str = "default"
     theme: Literal["dark", "light"] = "dark"
     auto_pivot: bool = False
+
+    # @decision DEC-60-PIVOT-POLICY-006
+    # @title auto_pivot_depth retained for TOML backward compatibility; informational only post-F60
+    # @status accepted
+    # @rationale The pre-F60 recursion limit (max_depth=2) is superseded by per-cascade and
+    #            per-session budgets in AutoPivotPolicyConfig. This field is no longer consulted
+    #            by any F60+ code. It is retained so v0.1.0 config.toml files containing
+    #            auto_pivot_depth= round-trip cleanly through the Pydantic parser without error.
+    #            A future slice (after one minor-release migration window) removes it after
+    #            documenting the migration in the changelog. (DEC-60-PIVOT-POLICY-006)
     auto_pivot_depth: int = Field(default=2, ge=1)
+
+    auto_pivot_policy: AutoPivotPolicyConfig = Field(default_factory=AutoPivotPolicyConfig)
+    """Policy parameters for the pivot gate engine. PivotPolicy is constructed once
+    per EventBus from this submodel. (DEC-60-PIVOT-POLICY-001, DEC-60-PIVOT-POLICY-CONFIG-001)"""
+
     # Agent provider/model selection — set by the interactive wizard.
     # None means "not configured"; wizard will prompt on first chat launch.
     agent_provider: str | None = None
@@ -226,9 +285,22 @@ class Config(BaseModel):
         TOML has no null type; absent fields round-trip as their Pydantic default
         (None) when the key is not present in the file — this is the correct
         representation for "not yet configured" optional fields.
+
+        The auto_pivot_policy submodel is serialised as a nested TOML table
+        ([general.auto_pivot_policy]) by keeping only non-None fields. When all
+        policy fields are at their defaults (no user customisation), the submodel
+        is still included so that the TOML file records the active policy parameters
+        — this avoids a round-trip gap where defaults change across versions but
+        a user's file silently continues to supply stale values.
         """
+        general_raw = self.general.model_dump()
+        # Flatten None values from top-level general fields; handle the nested
+        # auto_pivot_policy submodel separately to strip its own None entries.
+        policy_raw = general_raw.pop("auto_pivot_policy", {}) or {}
+        general_dict: dict[str, Any] = {k: v for k, v in general_raw.items() if v is not None}
+        general_dict["auto_pivot_policy"] = {k: v for k, v in policy_raw.items() if v is not None}
         return {
-            "general": {k: v for k, v in self.general.model_dump().items() if v is not None},
+            "general": general_dict,
             "api_keys": {k: v for k, v in self.api_keys.model_dump().items() if v is not None},
         }
 

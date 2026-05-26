@@ -247,9 +247,14 @@ class ToolContext:
 
         # EventBus for auto-pivot cascades (DEC-AGENT-AUTOPIVOT-001).
         # Starts disabled (autopivot_enabled=False) per DEC-EVENTBUS-002.
-        # The PivotConfig.enabled flag is kept in sync with autopivot_enabled so
-        # EventBus.publish() correctly gates on the enabled state.
-        self.event_bus: EventBus = EventBus(config=PivotConfig(enabled=False))
+        # PivotConfig receives AutoPivotPolicyConfig so PivotPolicy is constructed
+        # with user-configured thresholds and budgets (DEC-60-PIVOT-POLICY-CONFIG-001).
+        self.event_bus: EventBus = EventBus(
+            config=PivotConfig(
+                enabled=False,
+                policy=self.config.general.auto_pivot_policy,
+            )
+        )
         self.autopivot_enabled: bool = False
 
         # Register module subscriptions from DEFAULT_SUBSCRIPTIONS so the event
@@ -260,12 +265,20 @@ class ToolContext:
             callback = self._make_cascade_callback(module_path)
             self.event_bus.register_module_subscriptions(module_path, stix_types, callback)
 
-    def run_module(self, module_path: str, target: str, options: dict | None = None) -> dict:
+    def run_module(  # noqa: PLR0912
+        self, module_path: str, target: str, options: dict | None = None
+    ) -> dict:
         """Run a module and return formatted results with scoring.
 
         Dispatches to the named PursuitModule, runs hunt(), stores results in
         the workspace, applies scoring, computes the celebration artifact, and
         returns a summary dict.
+
+        The ``dry_run`` key in ``options`` (default ``False``) is threaded to
+        ``EventBus.process_results`` so that policy gates are evaluated without
+        invoking any cascade callbacks (DEC-60-PIVOT-POLICY-005).  In dry-run
+        mode ``cascade_results`` and ``cascade_count`` are ``[]``/``0``;
+        ``decision_log`` carries the full gate verdicts.
 
         @decision DEC-AGENT-CELEBRATIONS-001
         @title CelebrationEngine wired into run_module return value
@@ -327,6 +340,8 @@ class ToolContext:
             The target string (IP, domain, URL, email) to hunt.
         options:
             Optional options dict passed to hunt(). Defaults to {}.
+            Special key: ``dry_run`` (bool, default False) — when True,
+            evaluate pivot policy gates but do NOT invoke cascade callbacks.
 
         Returns
         -------
@@ -339,6 +354,8 @@ class ToolContext:
                 when no points were awarded (silent path).
             badges (list[Badge]): newly-earned Badge objects this run, or []
                 when no new badges earned (silent path).
+            decision_log (list[dict]): policy decision log entries; populated on
+                dry_run=True, empty list otherwise (DEC-60-PIVOT-POLICY-005).
 
         Returns {"error": str} if the module is not found.
         """
@@ -416,21 +433,37 @@ class ToolContext:
         except Exception:  # noqa: BLE001
             pass  # badge check must never block tool result delivery
 
-        # Auto-pivot cascade (DEC-AGENT-AUTOPIVOT-001).
-        # When autopivot is enabled and results are non-empty, feed the STIX
-        # results into the event bus. process_results() publishes a PivotEvent
-        # for each (type, value) pair and triggers all subscribed module callbacks.
+        # Auto-pivot cascade (DEC-AGENT-AUTOPIVOT-001, DEC-60-PIVOT-POLICY-005).
+        # When autopivot is enabled (or dry_run is True) and results are non-empty,
+        # feed the STIX results into the event bus.  process_results() publishes a
+        # PivotEvent for each (type, value) pair and routes through PivotPolicy gates
+        # before invoking subscribed module callbacks.
+        # In dry_run mode, policy gates fire but no callbacks are invoked — the
+        # decision_log records each gate verdict.
         # Cascade errors are non-fatal — hunt flow must not be blocked.
+        dry_run: bool = bool((options or {}).get("dry_run", False))
         cascade_results: list[dict] = []
         cascade_module_count: int = 0
-        if self.autopivot_enabled and results:
+        decision_log: list[dict] = []
+        if (self.autopivot_enabled or dry_run) and results:
             try:
                 cascade_results = asyncio.run(
-                    self.event_bus.process_results(results, source_module=module_path, depth=0)
+                    self.event_bus.process_results(
+                        results,
+                        source_module=module_path,
+                        depth=0,
+                        dry_run=dry_run,
+                    )
                 )
-                # Count how many distinct subscribed callbacks fired by checking
-                # how many PivotEvents were published (one per indicator).
-                cascade_module_count = self.event_bus.subscriber_count
+                # In dry_run mode cascade_results is always [] — callbacks were
+                # not invoked; surface the decision log instead.
+                if dry_run:
+                    decision_log = list(self.event_bus.get_decision_log())
+                    cascade_results = []
+                    cascade_module_count = 0
+                else:
+                    # Count how many distinct subscribed callbacks fired
+                    cascade_module_count = self.event_bus.subscriber_count
             except Exception:  # noqa: BLE001
                 pass  # cascade errors must never block primary tool result
 
@@ -504,6 +537,7 @@ class ToolContext:
             "challenges": newly_completed_challenges,
             "cascade_results": cascade_results,
             "cascade_count": len(cascade_results),
+            "decision_log": decision_log,
         }
 
     def _make_cascade_callback(self, module_path: str):
