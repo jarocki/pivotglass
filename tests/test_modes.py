@@ -30,15 +30,15 @@ Production sequence tested:
 from __future__ import annotations
 
 import io
+
 import pytest
 
+from adversary_pursuit.core.console import APConsole
 from adversary_pursuit.gamification.modes import (
-    CharacterMode,
     DEFAULT_MODES,
+    CharacterMode,
     ModeManager,
 )
-from adversary_pursuit.core.console import APConsole
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -143,7 +143,8 @@ REQUIRED_FIELDS = (
     "greeting",
     "run_success",
     "run_fail",
-    "hint_style",
+    # hint_style deleted in F62 (DEC-62-KILL-DOC-LIES-001): zero consumers,
+    # undefined semantics, was never wired to any hint subsystem.
     "score_celebration",
     "personality",
 )
@@ -188,6 +189,38 @@ class TestCharacterModeFields:
         mode = DEFAULT_MODES[mode_name]
         result = mode.score_celebration.format(points=42)
         assert "42" in result
+
+    def test_hint_style_field_deleted(self):
+        """hint_style must NOT exist on CharacterMode (F62 DEC-62-KILL-DOC-LIES-001).
+
+        hint_style had zero consumers and advertised unimplemented semantics.
+        This test ensures it is not re-introduced accidentally.
+        """
+        assert not hasattr(CharacterMode, "hint_style"), (
+            "hint_style field was re-introduced on CharacterMode — "
+            "it was deliberately deleted in F62 (DEC-62-KILL-DOC-LIES-001)"
+        )
+        # Also verify no DEFAULT_MODE entry carries hint_style
+        for name, mode in DEFAULT_MODES.items():
+            assert not hasattr(mode, "hint_style"), (
+                f"Mode '{name}' unexpectedly has hint_style attribute"
+            )
+
+    @pytest.mark.parametrize("mode_name", list(DEFAULT_MODES.keys()))
+    def test_personality_contains_no_unimplemented_mechanics(self, mode_name: str):
+        """personality must not advertise unimplemented mechanics (F62 DEC-62-KILL-DOC-LIES-001).
+
+        Banned phrases: "speed bonus", "combo multiplier", "chaos mode",
+        "random pivot suggestions". These were false advertising for features
+        that were never implemented.
+        """
+        mode = DEFAULT_MODES[mode_name]
+        banned = ["speed bonus", "combo multiplier", "chaos mode", "random pivot"]
+        for phrase in banned:
+            assert phrase.lower() not in mode.personality.lower(), (
+                f"Mode '{mode_name}'.personality contains banned phrase {phrase!r} — "
+                "this is false advertising for an unimplemented feature"
+            )
 
 
 # ---------------------------------------------------------------------------

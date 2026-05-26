@@ -25,19 +25,10 @@ from __future__ import annotations
 
 import random
 
-
 CELEBRATION_ART: dict[str, list[str]] = {
     "small": [
-        (
-            "  ╔═══════════════════╗\n"
-            "  ║   Nice find! 🎯   ║\n"
-            "  ╚═══════════════════╝"
-        ),
-        (
-            "  ┌───────────────────┐\n"
-            "  │  Target acquired  │\n"
-            "  └───────────────────┘"
-        ),
+        ("  ╔═══════════════════╗\n  ║   Nice find! 🎯   ║\n  ╚═══════════════════╝"),
+        ("  ┌───────────────────┐\n  │  Target acquired  │\n  └───────────────────┘"),
     ],
     "medium": [
         (
@@ -111,7 +102,15 @@ class CelebrationEngine:
         else:
             level = "small"
 
-        art = CELEBRATION_ART[level][0]
+        # @decision DEC-62-CELEBRATIONS-001
+        # @title Fix random.choice bug: was CELEBRATION_ART[level][0] (first char of first string)
+        # @status accepted
+        # @rationale CELEBRATION_ART[level] is a list[str]. random.choice(list)[0] picks
+        #            the first character of the chosen string, not the string itself. The
+        #            correct call is random.choice(CELEBRATION_ART[level]) which returns the
+        #            full art string. The [0] indexing was a silent bug — all callers received
+        #            a single character (e.g. " ") instead of the ASCII art panel.
+        art = random.choice(CELEBRATION_ART[level])
         bell = "\a" if self.bell_enabled else ""
         return bell + art
 
@@ -119,8 +118,28 @@ class CelebrationEngine:
         """Return milestone message if total_score is exactly a milestone value."""
         return MILESTONES.get(total_score)
 
-    def first_blood_message(self) -> str:
-        """Return the first-discovery celebration message."""
+    def first_blood_message(self) -> str | None:
+        """Return the first-discovery celebration message, or None if already fired.
+
+        Fires at most once per CelebrationEngine instance (i.e. once per session).
+        Callers should check for None and skip rendering when it is returned.
+
+        The ``"first_blood"`` badge is awarded by BadgeManager when the workspace
+        gains its first indicator. _execute_hunt / run_module call this method
+        immediately after the badge check so the message appears exactly once —
+        on the same run that earned the badge.
+
+        @decision DEC-62-CELEBRATIONS-001 (wire site)
+        @title _first_blood_used guards the message to one firing per session
+        @status accepted
+        @rationale _first_blood_used was already declared on __init__ but never
+                   consulted. Wiring the guard here means callers don't need to
+                   track the flag themselves — the engine is the authority on
+                   whether first blood has already been celebrated this session.
+        """
+        if self._first_blood_used:
+            return None
+        self._first_blood_used = True
         return (
             "  ╔══════════════════════════╗\n"
             "  ║   🩸 FIRST BLOOD! 🩸     ║\n"

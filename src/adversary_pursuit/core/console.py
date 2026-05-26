@@ -61,6 +61,7 @@ from adversary_pursuit.core.error_interpreter import interpret, render_interacti
 from adversary_pursuit.core.graph import RelationshipGraph
 from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.report import ReportGenerator
+from adversary_pursuit.core.streak import StreakManager
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.badges import BadgeManager
 from adversary_pursuit.gamification.celebrations import CelebrationEngine
@@ -99,6 +100,7 @@ class APConsole(cmd2.Cmd):
         self,
         config_dir: Path | None = None,
         workspace_dir: Path | None = None,
+        streak_path: Path | None = None,
     ) -> None:
         """Initialise console with optional directory overrides for testability.
 
@@ -108,6 +110,9 @@ class APConsole(cmd2.Cmd):
             Override for ConfigManager. Pass tmp_path in tests.
         workspace_dir:
             Override for WorkspaceManager. Pass tmp_path in tests.
+        streak_path:
+            Override for StreakManager path. Pass tmp_path / "streak.json" in
+            tests to avoid touching ~/.ap/streak.json (DEC-62-STREAK-001).
         """
         super().__init__()
 
@@ -126,6 +131,10 @@ class APConsole(cmd2.Cmd):
         self.hint_provider = HintProvider()
         self.mode_mgr = ModeManager()
         self.celebration_engine = CelebrationEngine()
+        # StreakManager is the sole authority for streak.json (DEC-62-STREAK-007).
+        # streak_path is injectable for tests so real ~/.ap/streak.json is never
+        # touched during the test suite.
+        self.streak_mgr = StreakManager(path=streak_path)
 
         # Active module state
         self._active_module: Any = None  # PursuitModule instance or None
@@ -150,6 +159,27 @@ class APConsole(cmd2.Cmd):
         See DEC-CONSOLE-001 for the rationale.
         """
         return Console(file=io.StringIO(), highlight=False, markup=True)
+
+    # ------------------------------------------------------------------
+    # cmd2 lifecycle hooks
+    # ------------------------------------------------------------------
+
+    def preloop(self) -> None:
+        """Display the streak banner line once at REPL startup.
+
+        Called by cmd2 before the command loop begins. Respects AP_NO_BANNER=1
+        so CI environments stay clean. The streak line is rendered only when the
+        current streak is > 0 (format_banner_line returns empty string otherwise).
+
+        DEC-62-STREAK-006: shared banner line with agent/banner.render_boot_banner.
+        """
+        import os
+
+        if os.environ.get("AP_NO_BANNER"):
+            return
+        banner_line = self.streak_mgr.format_banner_line()
+        if banner_line:
+            self.rich_console.print(f"[bold yellow]{banner_line}[/bold yellow]")
 
     # ------------------------------------------------------------------
     # cmd2 framework error hook (DEC-ERROR-INTERPRETER-001)
@@ -358,6 +388,10 @@ class APConsole(cmd2.Cmd):
                 mode=self.mode_mgr.active,
                 interactive=False,
             )
+            # Wire run_fail: mode-flavored failure voice (DEC-62-KILL-DOC-LIES-001).
+            # render_interactive already showed the error panel; run_fail adds the
+            # character persona voice so the analyst hears the mode's reaction.
+            self.rich_console.print(self.mode_mgr.active.run_fail)
             return
         except Exception as exc:  # noqa: BLE001
             interp = interpret(
@@ -370,6 +404,8 @@ class APConsole(cmd2.Cmd):
                 mode=self.mode_mgr.active,
                 interactive=False,
             )
+            # Wire run_fail on generic exception path too (DEC-62-KILL-DOC-LIES-001).
+            self.rich_console.print(self.mode_mgr.active.run_fail)
             return
 
         # Display results and show mode-specific success message
@@ -427,6 +463,29 @@ class APConsole(cmd2.Cmd):
             self._check_badges_after_run()
         except Exception:  # noqa: BLE001
             pass  # Badge checks must never interrupt the hunt flow
+
+        # Fire first_blood message at post-badge-check site (DEC-62-CELEBRATIONS-001).
+        # Fires at most once per session (CelebrationEngine._first_blood_used guard).
+        # The "first_blood" badge is awarded by BadgeManager on the first indicator;
+        # showing the message here — after _check_badges_after_run — means the badge
+        # panel and the first-blood message appear together on the winning run.
+        try:
+            fb_msg = self.celebration_engine.first_blood_message()
+            if fb_msg:
+                self.rich_console.print(fb_msg)
+        except Exception:  # noqa: BLE001
+            pass  # first_blood display must never interrupt the hunt flow
+
+        # Update streak after a successful hunt (DEC-62-STREAK-007).
+        # StreakManager.update() is the sole write authority for streak.json.
+        # Called here (post-badge-check) so a failed hunt (exception paths above
+        # return early) never advances the streak.
+        try:
+            from datetime import date
+
+            self.streak_mgr.update(date.today())
+        except Exception:  # noqa: BLE001
+            pass  # streak errors must never interrupt the hunt flow
 
     def _display_results(self, results: list[dict]) -> None:
         """Render hunt() results as a Rich table.

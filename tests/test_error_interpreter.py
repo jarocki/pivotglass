@@ -471,8 +471,9 @@ class TestRenderInteractive:
         interp = _make_interp_with_log(tmp_path)
         render_interactive(interp, console, mode=mode, interactive=False)
         output = buf.getvalue()
-        # ninja flavor should differ from default neutral title
-        assert "Silent failure" in output
+        # F62: _MODE_TITLE_FLAVORS removed; panel title now uses mode.run_fail.
+        # ninja run_fail: "[dim]Missed. Regroup.[/dim]" — Rich strips markup in output.
+        assert "Missed" in output or "Regroup" in output
 
     def test_default_mode_neutral_title(self, tmp_path):
         from adversary_pursuit.gamification.modes import DEFAULT_MODES
@@ -482,8 +483,9 @@ class TestRenderInteractive:
         interp = _make_interp_with_log(tmp_path)
         render_interactive(interp, console, mode=mode, interactive=False)
         output = buf.getvalue()
-        # "default" is not in _MODE_TITLE_FLAVORS → neutral title
-        assert "What happened" in output
+        # F62: _MODE_TITLE_FLAVORS removed; panel title now uses mode.run_fail.
+        # default run_fail: "Hunt failed." — shown in the panel title.
+        assert "Hunt failed" in output
 
     def test_auto_fix_accept_calls_callable(self, tmp_path):
         """[y] input runs the auto-fix callable and returns AutoFixOutcome(applied)."""

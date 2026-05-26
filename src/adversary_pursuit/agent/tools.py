@@ -177,6 +177,7 @@ from adversary_pursuit.core.event_bus import (
 from adversary_pursuit.core.graph import RelationshipGraph
 from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.report import ReportGenerator
+from adversary_pursuit.core.streak import StreakManager
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.badges import BadgeManager
 from adversary_pursuit.gamification.celebrations import CelebrationEngine
@@ -211,7 +212,7 @@ class ToolContext:
         (uses the built-in catalogue). Pass a custom list in tests.
     """
 
-    def __init__(self, config_dir=None, workspace_dir=None, hints=None):
+    def __init__(self, config_dir=None, workspace_dir=None, hints=None, streak_path=None):
         self.config_mgr = ConfigManager(config_dir=config_dir)
         self.config = self.config_mgr.load()
         self.workspace_mgr = WorkspaceManager(workspace_dir=workspace_dir)
@@ -221,6 +222,9 @@ class ToolContext:
         self.celebration = CelebrationEngine()
         self.badge_mgr = BadgeManager()
         self.mode_mgr = ModeManager()
+        # StreakManager: sole authority for streak.json (DEC-62-STREAK-007).
+        # streak_path is injectable for tests (DEC-62-STREAK-001).
+        self.streak_mgr: StreakManager = StreakManager(path=streak_path)
         # HintProvider is session-scoped: revealed-ID set persists across all hint calls
         # in this session so the same hint is never shown twice (DEC-HINT-002).
         # Shared by both the LLM tool path and the chat meta-command path (DEC-AGENT-HINTS-001).
@@ -498,6 +502,17 @@ class ToolContext:
                     self._announced_challenges.add(ch.id)
         except Exception:  # noqa: BLE001
             pass  # challenge check must never block tool result delivery
+
+        # Update streak after a successful hunt (DEC-62-STREAK-007).
+        # Called here — after all badge/challenge checks — so failed hunts
+        # (which return {"error": ...} before reaching this point) never advance
+        # the streak. run_module only reaches this point when hunt() succeeded.
+        try:
+            from datetime import date
+
+            self.streak_mgr.update(date.today())
+        except Exception:  # noqa: BLE001
+            pass  # streak errors must never block tool result delivery
 
         # Build human-readable summary for the LLM response
         summary_lines = [f"Found {count} indicators:"]
