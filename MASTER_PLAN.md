@@ -706,7 +706,7 @@ These commits did not pass through canonical planner → guardian (provision) �
 ---
 
 ## Phase 10: Friendly Errors (W-FRIENDLY-ERRORS, post-v1, 2026-05-14)
-**Status:** in-progress (planner stage complete, implementer next)
+**Status:** completed (landed 2026-05-15, merge `1ccf13b feat(errors): universal ErrorInterpreter — catch all, suggest fix, optional auto-apply`)
 **Workflow id:** `w-friendly-errors` · **Goal id:** `g-friendly-errors` · **Work item id:** `wi-friendly-errors`
 **Branch:** `feature/friendly-errors` · **Worktree:** `.worktrees/feature-friendly-errors` · **Base:** `main` @ `ba32fa6`
 
@@ -769,7 +769,7 @@ And the user's directive adds a new product capability that v0.1.0 simply doesn'
 - Raw `[red]Error: {e}[/red]` and `[yellow]Warning: ...[/yellow]` `console.print` calls in `agent/chat.py` meta-command handlers (lines ~230, ~247, ~270) — migrated to `handle_error()`. No new mechanism; just stop bypassing the existing one.
 - `scripts/smoke_test.py::_fmt_exc` body — becomes a thin wrapper over `render_summary_line()`. Signature preserved.
 
-### Decisions (planner stage)
+### Decision Log (Phase 10)
 
 | Decision ID | Title | Rationale |
 |---|---|---|
@@ -827,7 +827,7 @@ Persisted in runtime via `cc-policy workflow scope-sync` (work item + workflow r
 ---
 
 ## Phase 11: STIX 2.1 Spec Compliance + Per-SCO Provenance (W-59-STIX-PROVENANCE, post-v1, 2026-05-22)
-**Status:** in-progress (planner stage complete, implementer next)
+**Status:** completed (landed 2026-05-25, merge `a797831 Merge feature/59-stix-provenance (#59)`, work commit `f4a71a3 feat(stix): STIX 2.1 spec compliance + per-SCO provenance (#59)`)
 **Workflow id:** `w-59-stix-provenance` · **Goal id:** `g-59-stix-provenance` · **Work item id:** `wi-59-impl`
 **Branch:** `feature/59-stix-provenance` · **Worktree:** `.worktrees/feature-59-stix-provenance` · **Base:** `main` @ `1ccf13b`
 **Closes:** [GitHub issue #59](https://github.com/jarocki/ap/issues/59)
@@ -889,7 +889,7 @@ This guarantees that whatever the workspace stored (provenance fields included) 
 - `core/graph.py::export_stix_bundle()` lines 314-340 — the hand-rolled `{type, id, value}` dict construction and the inline `uuid.uuid4()` bundle/relationship id generation. Replaced wholesale by the `stix2.v21.Bundle` round-trip path. No parallel mechanism remains.
 - The unused `import uuid` inside `export_stix_bundle()` (line 314) — removed once the new path lands.
 
-### Decisions (planner stage)
+### Decision Log (Phase 11)
 
 | Decision ID | Title | Rationale |
 |---|---|---|
@@ -985,7 +985,7 @@ To be persisted in runtime via `cc-policy workflow scope-sync w-59-stix-provenan
 ---
 
 ## Phase 12: Auto-Pivot Policy Engine — IOC filter + confidence gate + per-cascade budget + dry-run (W-60-AUTO-PIVOT-POLICY, post-v1, 2026-05-25)
-**Status:** in-progress (planner stage complete, implementer next)
+**Status:** completed (landed 2026-05-25, merge `8035add Merge feature/60-auto-pivot-policy (#60)`, work commit `60eab19 feat(pivot-policy): auto-pivot policy engine with 3-gate rate limiting (closes #60)`)
 **Workflow id:** `w-60-auto-pivot-policy` · **Goal id:** `g-60-auto-pivot-policy` · **Work item id:** `wi-60-impl-01`
 **Branch:** `feature/60-auto-pivot-policy` · **Worktree:** `.worktrees/feature-60-auto-pivot-policy` · **Base:** `main` @ `a797831`
 **Closes:** [GitHub issue #60](https://github.com/jarocki/ap/issues/60)
@@ -1058,7 +1058,7 @@ The first skip short-circuits and the decision carries the gate name verbatim. T
 - `core/event_bus.py::publish` lines 91-93 (the `event.depth >= self.config.max_depth` check) — removed.
 - `core/config.py::GeneralConfig.auto_pivot_depth` field — retained for backward compatibility with v0.1.0 config.toml files in the wild, but marked deprecated in an `@decision` annotation and NOT consulted by any new code. Future `v2` work item filed to remove it after a documented migration window.
 
-### Decisions (planner stage)
+### Decision Log (Phase 12)
 
 | Decision ID | Title | Rationale |
 |---|---|---|
@@ -1125,9 +1125,73 @@ Persisted in runtime via `cc-policy workflow scope-sync w-60-auto-pivot-policy -
 
 ---
 
+## Phase 12B: Streak Mechanic + Honest Modes (W-62-STREAK-AND-HONEST-MODES, post-v1, 2026-05-26)
+
+**Status:** completed (landed 2026-05-26, merge `e3cf5ca Merge feature/62-streak-and-honest-modes (#62)`, work commit `1d424ae feat(F62): kill dead-code lies + ship streak mechanic + mode-flavored failures` + reviewer-fixup `8b0faa2 fix(F62): wire run_fail + first_blood_message in agent surface (reviewer findings)`)
+**Workflow id:** `w-62-streak-and-honest-modes` · **Goal id:** `g-62-streak-and-honest-modes` · **Work item id:** `wi-62-impl-01`
+**Branch:** `feature/62-streak-and-honest-modes` · **Worktree:** `.worktrees/feature-62-streak-and-honest-modes` · **Base:** `main` @ `8035add`
+**Closes:** [GitHub issue #62](https://github.com/jarocki/ap/issues/62)
+**Numbering note:** This phase landed chronologically between Phase 12 (F60, 2026-05-25) and Phase 13 (F64, 2026-05-26). Both F62 and F64 planners independently numbered themselves "Phase 13" in their plan amendments; F62's MASTER_PLAN edit was never committed by its implementer, leaving F64 in the Phase 13 slot. This section is appended retroactively as Phase 12B per the 2026-05-26 Project Reckoning closeout.
+
+### User directive (verbatim, via Gamification expert assessment, Jeff Atwood lens, 2026-05-22)
+
+> "If I can't tell ninja and full_troll apart from a Shodan lookup's output, the modes are skins, not personas." — Atwood on documentation lies
+
+> "they built the museum, not the slot machine." — Atwood on the missing streak mechanic
+
+### Problem (Atwood [P1])
+
+**Part A — documentation lies in gamification:**
+- `gamification/modes.py` defined per-mode fields (`hint_style`, `personality` strings promising "speed bonuses", "combo multipliers", "chaos mode") that no consumer in `src/` read.
+- `mode.run_fail` was defined on every mode but `console.py:325` always showed a generic red Rich Panel on exceptions.
+- `first_blood_message()` and `_first_blood_used` — tested API surface that NO code in `src/` invoked.
+- `celebrations.py:114` claimed ASCII art was randomized but always picked `CELEBRATION_ART[level][0]` — the `[0]` index defeated `random.choice`.
+
+**Part B — the streak that isn't:**
+- `HintProvider._revealed` was in-memory only (DEC-HINT-002 deferred persistence to v2).
+- Score and badges were per-workspace only.
+- Nothing pulled a returning user back tomorrow morning.
+
+### Resolution
+
+- DELETED `hint_style`; REWROTE aspirational `personality` substrings (kept the field, removed the lies).
+- WIRED `mode.run_fail` on both surfaces: `console.py` exception path AND `agent/tools.py` exception path (the latter via reviewer-fixup `8b0faa2` after Round-0 surfaced the agent-side gap).
+- DELETED parallel `_MODE_TITLE_FLAVORS` dict in `core/error_interpreter.py` (F61-drift; single authority restored).
+- WIRED `CelebrationEngine._first_blood_used` + `first_blood_message()` on both surfaces.
+- FIXED `celebrations.py:114` `[0]` bug (now `random.choice(CELEBRATION_ART[level])` actually picks randomly).
+- NEW `core/streak.py::StreakManager` is the sole authority for `~/.ap/streak.json`. Schema: `{current_streak, longest_streak, last_hunt_date, freezes_used_this_week, last_iso_week}`. Atomic write via `tempfile + os.replace`. Corruption → log WARNING, rename to `.corrupt-<ts>`, fresh state. Clock-skew backward → clamp without mutation. ISO-week freeze: 1 per week (Duolingo pattern).
+- Update fires from `APConsole._execute_hunt` AND `ToolContext.run_module` (NOT from modules — single authority).
+- `StreakManager.format_banner_line()` shared by `agent/banner.render_boot_banner` AND `core/console.APConsole.preloop`. `AP_NO_BANNER=1` suppresses both.
+
+### Decision Log (Phase 12B)
+
+| DEC | File | Rationale |
+|-----|------|-----------|
+| DEC-62-KILL-DOC-LIES-001 | `gamification/modes.py` | DELETE `hint_style` (zero consumers, undefined semantics); REWRITE personality strings to remove unimplemented mechanic names ("speed bonuses", "combo multipliers", "chaos mode"). |
+| DEC-62-KILL-DOC-LIES-002 | `agent/tools.py`, `core/error_interpreter.py` | Rich-strip helper `_strip_rich_markup` shared between `execute_tool` exception path and `_panel_title`. Inline regex `re.sub(r"\[/?[^\]]+\]", "", text)` (broader than `repl_input.py`'s whitelist pattern); single-authority refactor deferred per cc-todos follow-up. |
+| DEC-62-CELEBRATIONS-001 | `gamification/celebrations.py:114` | Remove `[0]` index from `random.choice(CELEBRATION_ART[level])[0]`; the `[0]` defeated randomness. Fixed. |
+| DEC-62-STREAK-001 | `core/streak.py` | NEW `StreakManager` is sole authority for `~/.ap/streak.json`. |
+| DEC-62-STREAK-002 | `core/streak.py` | ISO-week anchored freeze (not Monday-UTC); handles year-boundary cleanly. |
+| DEC-62-STREAK-003 | `core/streak.py` | Atomic write via `tempfile + os.replace`; corruption → rename to `.corrupt-<ts>` + fresh state + WARNING log. |
+| DEC-62-STREAK-004 | `core/streak.py` | Clock-skew backward → clamp without mutation (no negative streaks). |
+| DEC-62-STREAK-005 | `agent/tools.py`, `core/console.py` | Streak update fires from `_execute_hunt` AND `run_module` (NOT from modules — keeps no-touch-modules invariant). `first_blood_message()` wired at both call sites. |
+| DEC-62-STREAK-006 | `agent/banner.py`, `core/console.py` | `format_banner_line()` shared by `render_boot_banner` AND `APConsole.preloop`. `AP_NO_BANNER=1` suppresses both. |
+| DEC-62-STREAK-007 | `core/streak.py` | First-ever run: file doesn't exist → create with `current_streak=1`, `last_hunt_date=today`. |
+
+### Implementer evidence
+
+- 11 files changed, +1068/-110 (initial commit `1d424ae`)
+- 4 files, +267/-4 (reviewer-fixup commit `8b0faa2`)
+- 41 tests in `tests/test_streak.py` covering all StreakManager invariants
+- Full pytest: 1678/1679 pass at the merged SHA (1 pre-existing skip)
+- F59/F60/F4 invariants preserved (workspace.py, pivot_policy.py, leases token-consumption all bytewise untouched)
+- F2 in action: implementer-authored commits on feature branch (not Guardian-commits-on-behalf)
+
+---
+
 ## Phase 13: De-duplicate LLM narration vs Rich Panel for gamification events (W-64-DEDUP-LLM-NARRATION, post-v1, 2026-05-26)
 
-> **Status:** in-progress · **Workflow:** `w-64-dedup-llm-narration` · **Branch:** `feature/64-dedup-llm-narration` · **Worktree:** `.worktrees/feature-64-dedup-llm-narration` · **GitHub issue:** #64
+> **Status:** completed (landed 2026-05-26, merge `3b92032 Merge feature/64-dedup-llm-narration (#64)`, work commit `e460b41`) · **Workflow:** `w-64-dedup-llm-narration` · **Branch:** `feature/64-dedup-llm-narration` · **Worktree:** `.worktrees/feature-64-dedup-llm-narration` · **GitHub issue:** #64
 
 ### Problem
 
@@ -1254,7 +1318,7 @@ Runtime authority: stored on `wi-64-impl-01.evaluation_json` (loaded from `tmp/f
 
 ## Phase 14: Keyless Hunter Modules — abuse.ch family + Certificate Transparency (W-61-KEYLESS-HUNTERS, post-v1, 2026-05-26)
 
-> **Status:** in-progress (planner stage complete, implementer next) · **Workflow:** `w-61-keyless-hunters` · **Goal:** `g-61-keyless-hunters` · **Branch:** `feature/61-keyless-hunters` · **Worktree:** `.worktrees/feature-61-keyless-hunters` · **GitHub issue:** #61
+> **Status:** completed (landed 2026-05-26, merge `556f873 Merge feature/61-keyless-hunters (#61)`, two work commits `bce981f` + `5a5b8e1` reviewer fixup) · **Workflow:** `w-61-keyless-hunters` · **Goal:** `g-61-keyless-hunters` · **Branch:** `feature/61-keyless-hunters` · **Worktree:** `.worktrees/feature-61-keyless-hunters` · **GitHub issue:** #61
 
 ### Problem
 
@@ -1325,7 +1389,7 @@ Rationale:
 
 **Optional shared helper:** `src/adversary_pursuit/modules/cti/_abuse_ch.py` may extract the abuse.ch POST pattern (`async def post_json(url, payload, timeout=30.0) -> dict`) plus the typed error mapping. Leading underscore signals private — it is NOT added to `pyproject.toml` entry_points or `plugin_mgr._BUILTIN_MODULES`. If the implementer judges the helper too small to extract (3 thin sites), they may inline it; the helper file then becomes an unused-allowed-path and is dropped from the diff (acceptable). DEC-61-ABUSE-CH-HELPER-001 documents the recommendation but does not force extraction.
 
-### Architecture Decisions
+### Decision Log (Phase 14)
 
 | DEC ID | Decision | Rationale |
 |--------|----------|-----------|
