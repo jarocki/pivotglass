@@ -1189,6 +1189,189 @@ Persisted in runtime via `cc-policy workflow scope-sync w-60-auto-pivot-policy -
 
 ---
 
+## Phase 12C: Milestone Catch-Up + streak_continued Score Event (W-63-MILESTONE-CATCHUP, post-v1, planned 2026-05-26)
+
+**Status:** planned (not yet implemented)
+**Workflow id:** `w-63-milestone-catchup` · **Goal id:** `g-63-milestone-catchup` · **Planner work item:** `wi-63-planner-01` (in_progress) · **Implementer work item:** `wi-63-impl-01` (pending)
+**Branch:** `feature/63-milestone-catchup` · **Worktree:** `.worktrees/feature-63-milestone-catchup` · **Base:** `main` @ `ba110a5`
+**Closes:** [GitHub issue #63](https://github.com/jarocki/ap/issues/63)
+**Numbering note:** This phase is appended as `12C` to keep the gamification-feedback-loop neighborhood (12B = F62 streak mechanic, 12C = F63 milestone catch-up + streak score event) contiguous, parallel to how Phase 12 / 12B were positioned in the 2026-05-26 closeout. Existing Phases 13 (F64) and 14 (F61) retain their chronological slots.
+
+### User directive (verbatim, via Gamification expert assessment, Jeff Atwood lens, 2026-05-22)
+
+> "If your milestones only fire on exact-hit, jumping 99→105 silently skips First Century forever. As built, the most aspirational moments are silently swallowed by arithmetic. Track `last_milestone_announced` in the workspace instead." — Atwood, on the milestone exact-hit dead end
+
+> "F62 built the slot machine. Now wire the payout. The streak counts up but the score economy never reacts to it — give the score a reason to fire that isn't 'you found another IP.'" — Atwood, on the missing streak-retention reward signal
+
+### Problem (Atwood [P2])
+
+**Part A — milestone exact-hit dead end (DEC-CELEBRATION-002):**
+
+`gamification/celebrations.py::milestone_message(total_score)` returns `MILESTONES.get(total_score)`. The thresholds are `{100, 500, 1000, 5000, 10000}`. Any hunt that crosses a threshold by more than zero — the common case once scoring rules ever award batches larger than 1 — silently skips the milestone. With current scoring rules a single `new_ip` (initial=100) lands you at exactly 100 only when your prior total is exactly 0. Every other path through the score curve dodges every milestone forever. The 5 highest-feedback moments in the game are documented as "fires when score lands exactly on the threshold" — i.e. almost never. DEC-CELEBRATION-002 codified this as accepted; F63 reverses it as a documented bug-class.
+
+**Part B — streak retention has no score-economy signal:**
+
+F62 (Phase 12B) shipped `StreakManager` and `~/.ap/streak.json`. The streak appears in `format_banner_line()` at REPL boot, and `update()` fires from `_execute_hunt` and `run_module`. But the `score_events` table — the heart of the score economy — never gets a row for streak retention. A user who pushes through to a 7-day streak gets a banner line and nothing in their score history. The score does not react to the mechanic that's designed to pull them back tomorrow morning.
+
+The compound symptom: AP has the slot machine (F62) and the museum of badges (F14-F18), but the two highest-arousal feedback paths (cross-a-milestone, retain-your-streak) both either fail to fire or fail to leave a trace in the score economy.
+
+### Goal
+
+After F63 lands:
+
+- Crossing 100 points for the first time in a workspace — whether the run that crosses lands at 100, 105, 207, or 1247 — fires the First Century milestone exactly once for that workspace, ever. Same for 500, 1000, 5000, 10000.
+- A workspace that already has a score above any threshold at the moment F63 ships does NOT retroactively announce milestones it never saw — first hunt after upgrade is quiet ("seed baseline" migration).
+- `StreakManager.update()` returns a typed `StreakUpdate` snapshot indicating `incremented / frozen_used / reset / current_streak`. The two existing call sites consume it; modules still cannot reach the streak machinery directly.
+- Every day a user extends their streak through `_execute_hunt` or `run_module`, a `score_events` row with `action="streak_continued"` is inserted with step-decay points: 10/day for streak days 1–7, 5/day for days 8–30, 2/day for day 31 and beyond. Floor never reaches zero so the streak always carries some score signal; bands prevent infinite-farming growth.
+- The score-display surfaces (`do_score` cmd2 table, agent `result['score_events']`) show the streak_continued rows in the recent-events feed.
+- F62 remains the sole authority for `~/.ap/streak.json`. F63 only consumes the typed return value.
+
+### State-Authority Map
+
+| Domain | Pre-F63 owner | Post-F63 owner | Notes |
+|--------|---------------|----------------|-------|
+| `~/.ap/streak.json` (streak state) | `core/streak.py::StreakManager` (DEC-62-STREAK-001) | UNCHANGED | Only the return shape of `update()` changes — F62 still owns the file. |
+| `StreakUpdate` return value | (did not exist) | `core/streak.py::StreakManager.update()` | Read-only typed snapshot; not a second mutable authority. |
+| `score_events` table (point-bearing events) | `core/workspace.py::WorkspaceManager.store_score_events` | UNCHANGED | New action keys `streak_continued` and `milestone_announced` plug into the existing table; no schema change. |
+| `last_milestone_announced` per workspace | (did not exist; DEC-CELEBRATION-002 silently swallowed) | `score_events` rows with `action="milestone_announced", points=0, indicator=str(threshold)` | Sentinel-row authority. Read via new `WorkspaceManager.get_announced_milestone_thresholds()`. Idempotency is the `SELECT WHERE action='milestone_announced' AND indicator=…` query. |
+| Milestone trigger logic | `CelebrationEngine.milestone_message(total_score)` (exact-hit, DEC-CELEBRATION-002) | `CelebrationEngine.crossed_milestones(previous_total, current_total) -> list[int]` + `milestone_message(threshold)` (formatter) | Pure functions over the MILESTONES table; do not touch workspace state. Console + agent orchestrate. |
+| `streak_continued` point computation | (did not exist) | `gamification/scoring.py::streak_continued_points(current_streak)` | Pure step-decay function; documented bands. |
+| Streak update wiring | `APConsole._execute_hunt`, `ToolContext.run_module` (DEC-62-STREAK-007) | SAME two call sites | F63 inherits F62's no-touch-modules invariant; new streak_continued ScoreEvent fires from the same two sites only. |
+| Milestone announcement wiring | (none — was broken) | `APConsole._execute_hunt`, `ToolContext.run_module` | Same two surfaces. cmd2 prints `MILESTONES[threshold]` to Rich panel; agent path appends to the existing `celebration` sidecar (DEC-64-LLM-PANEL-SEPARATION-001 preserved). |
+
+### Architecture Decisions
+
+**DEC-63-MILESTONE-CATCHUP-001 — `score_events` sentinel rows are the sole authority for `last_milestone_announced` per workspace.**
+
+Three options were considered:
+
+- **Option (a) — workspace metadata JSON field.** Would require a new SQLAlchemy column on a new `WorkspaceMeta` model. Touches `models/database.py` which is a forbidden_path for this slice (single-slice scope discipline) AND violates DEC-DB-002 (no migrations in v1).
+- **Option (b) — separate `~/.ap/milestones.json` file.** Creates a parallel state file alongside `~/.ap/streak.json`, multiplying the surface area that has to be atomically-written, corruption-recovered, and clock-skew-defended. Adds a second authority for per-workspace milestone state living *outside* the workspace database — directly violates DEC-WS-001 (one SQLite file per workspace, no shared state).
+- **Option (c) — `score_events` sentinel rows** (CHOSEN). Reuse the existing `ScoreEvent` table that already houses non-discovery events (`hint_purchase` rows carry negative points; F63 adds zero-point milestone-announcement sentinels). The query authority is `SELECT WHERE action='milestone_announced' AND indicator='<threshold>'`. Idempotency is the existence check. `points=0` keeps `get_total_score()` unaffected. No schema change. Workspaces are still portable / deletable / inspectable as single SQLite files (DEC-WS-001 preserved). Mirrors the established AP idiom (`hint_purchase` already piggybacks on ScoreEvent for non-discovery point-bearing events).
+
+The catch-up logic itself: `CelebrationEngine.crossed_milestones(previous_total, current_total)` returns the integer thresholds strictly crossed during this hunt in ascending order. Orchestrator (console or agent) intersects that list with `WorkspaceManager.get_announced_milestone_thresholds()` and announces only the new ones, then `record_milestone_announcement(threshold)` writes the sentinel iff missing (and returns True). The return-True gate is the only thing that prints — guarantees a milestone is never announced twice for the same workspace, even if two parallel calls race (SQLAlchemy session.commit serializes; the second call sees the first's row).
+
+Migration (DEC-63-MIGRATION-001): on first orchestration call in a workspace that has zero `milestone_announced` sentinel rows AND `get_total_score() > 0`, `seed_milestone_baseline_if_unset()` inserts sentinel rows for every threshold ≤ current total. Quiet-start: an upgraded workspace at score 1200 does NOT fire First Century / Half a Grand / Grand Master on the first hunt after upgrade — those announcements would be archaeological, not aspirational.
+
+**DEC-63-STREAK-SCORE-001 — `streak_continued` is a ScoreEvent row, step-decay 10/5/2 over bands [1–7, 8–30, 31+], fires only when `StreakUpdate.incremented` is True.**
+
+Event shape: `{"action": "streak_continued", "points": <decayed>, "indicator": "day-<N>", "rule_description": "Streak day N"}`. Plugs into the existing `WorkspaceManager.store_score_events` path with no schema change (parallel to how `hint_purchase` events ride the same table).
+
+Decay choice: step function `{1-7: 10, 8-30: 5, 31+: 2}`. Considered alternatives:
+
+- **Linear `10 - day` capping at 0** rejected — hits zero by day 11, removes all signal exactly when long-streak retention is hardest to earn (the most valuable users get the smallest reward).
+- **Exponential `10 * 0.9^(day-1)`** rejected — non-integer points, opaque rationale, hard to test pin (every test would have to compute a float).
+- **Step `{1-7: 10, 8-30: 5, 31+: 2}`** (CHOSEN) — integer points, readable for users (`do_score` table shows clean numbers), three pin-able bands (7-test coverage), floor never reaches zero so streak always carries some score signal. Anti-farming: total weekly cap is bounded (max 70 pts/week early, then 35, then 14). The decreasing-but-non-zero floor matches Duolingo's "you still get something" philosophy that mapped well in F62.
+
+Hook point: identical to F62 — `APConsole._execute_hunt` (cmd2) and `ToolContext.run_module` (agent), AFTER the existing `streak_mgr.update(date.today())` call, gated on `update.incremented`. The same DEC-62-STREAK-007 invariant (modules do not touch streak) holds for F63's score-event side-effect.
+
+Per-day idempotency: comes for free from F62. Same-day `update()` returns `incremented=False` (already-recorded), so no second streak_continued row fires the same day.
+
+**DEC-63-MIGRATION-001 — Quiet-start: seed milestone sentinel rows on first orchestration after upgrade so retroactive announcements are suppressed.**
+
+Loud option: an upgraded workspace at total=1200 would fire 3 announcements on the first hunt after upgrade. Considered briefly; rejected as user-hostile (the announcements would be lying about *when* the milestones were earned).
+
+Quiet option (CHOSEN): `seed_milestone_baseline_if_unset()` runs at the orchestrator's call site BEFORE the cross-threshold check on every hunt. On first invocation in a workspace with no sentinel rows AND `get_total_score() > 0`, it inserts sentinel rows for every threshold ≤ current_total. The same hunt's cross-threshold check then only fires for thresholds strictly greater than the seeded baseline — typically zero new announcements on the first hunt post-upgrade.
+
+For brand-new workspaces (zero score, zero sentinel rows), the seed is a no-op — first cross fires normally.
+
+### Wave Decomposition
+
+Single wave; one implementer slice. Test-first internal ordering (write the unit tests for celebrations/scoring/workspace pure functions, then implement; then write streak return-type tests, then implement; then write the console + agent integration tests, then wire the orchestration).
+
+| W-ID | Title | Weight | Gate | Deps | Integration |
+|------|-------|--------|------|------|-------------|
+| `wi-63-impl-01` | Cross-threshold milestone catch-up + streak_continued score event (one feature commit) | L | review | none | `gamification/celebrations.py`, `gamification/scoring.py`, `core/workspace.py`, `core/streak.py`, `core/console.py`, `agent/tools.py`, `tests/test_celebrations.py`, `tests/test_streak.py`, `tests/test_workspace.py`, `tests/test_scoring.py`, `tests/test_console.py`, `tests/test_agent_tools.py` |
+
+Critical path: one slice; max width 1. Reviewer-fixup commits are permitted on the same branch as a separate commit (precedent: F62 `8b0faa2`, F61 `5a5b8e1`).
+
+### Scope Manifest (wi-63-impl-01)
+
+Runtime authority: `cc-policy workflow scope-get w-63-milestone-catchup` (synced via `scope-sync` from `tmp/f63-scope.json`).
+
+- **Allowed paths:** `src/adversary_pursuit/gamification/celebrations.py`, `src/adversary_pursuit/gamification/scoring.py`, `src/adversary_pursuit/core/workspace.py`, `src/adversary_pursuit/core/streak.py`, `src/adversary_pursuit/core/console.py`, `src/adversary_pursuit/agent/tools.py`, `tests/test_celebrations.py`, `tests/test_scoring.py`, `tests/test_workspace.py`, `tests/test_streak.py`, `tests/test_console.py`, `tests/test_agent_tools.py`, `MASTER_PLAN.md`.
+- **Required paths:** `src/adversary_pursuit/gamification/celebrations.py`, `src/adversary_pursuit/core/streak.py`, `src/adversary_pursuit/core/console.py`, `src/adversary_pursuit/agent/tools.py`, `tests/test_celebrations.py`, `tests/test_streak.py`, `MASTER_PLAN.md`.
+- **Forbidden paths:** `src/adversary_pursuit/models/**` (no schema change — DEC-DB-002), `src/adversary_pursuit/modules/**` (no-touch-modules invariant), `src/adversary_pursuit/gamification/badges.py`, `src/adversary_pursuit/gamification/challenges.py`, `src/adversary_pursuit/gamification/hints.py`, `src/adversary_pursuit/gamification/modes.py`, `src/adversary_pursuit/core/pivot_policy.py` (F60), `src/adversary_pursuit/core/event_bus.py`, `src/adversary_pursuit/core/error_interpreter.py`, `src/adversary_pursuit/core/graph.py`, `src/adversary_pursuit/core/report.py`, `src/adversary_pursuit/core/config.py`, `src/adversary_pursuit/core/plugin_mgr.py`, `src/adversary_pursuit/agent/runner.py`, `src/adversary_pursuit/agent/chat.py` (F64 surface unchanged), `src/adversary_pursuit/agent/banner.py`, `src/adversary_pursuit/agent/error_handler.py`, `src/adversary_pursuit/agent/provider_setup.py`, `src/adversary_pursuit/agent/repl_input.py`, `pyproject.toml`, `CLAUDE.md`, `AGENTS.md`, `agents/**`, `hooks/**`, `.claude/**`, `.github/**`, `settings*.json`.
+- **State-authority domains touched:** `score_events_table`, `milestone_announcement_sentinel`, `streak_score_event`, `streak_update_return_shape`, `celebration_cross_threshold_api`.
+
+### Evaluation Contract (9-key, wi-63-impl-01)
+
+Runtime authority: stored on `wi-63-impl-01.evaluation_json` (loaded from `tmp/f63-evaluation.json` via `work-item-set --evaluation-json`).
+
+- **required_tests:** 36 tests across 6 files (full list in runtime; summarised below):
+  - `tests/test_celebrations.py::TestMilestoneCrossThreshold` (7 tests) — exact-hit preserved, 99→105 fires First Century, 99→1001 fires two milestones in ascending order, already-announced does not refire, below-first returns empty, legacy `milestone_message(threshold)` formatter still works.
+  - `tests/test_workspace.py::TestMilestoneAnnouncementSentinel` (5 tests) — record persists sentinel row, read-back returns the announced set, sentinels carry `points=0` and do not affect `get_total_score()`, record is idempotent on repeat call, baseline-seed on first hunt in high-score workspace produces no spurious announcement.
+  - `tests/test_streak.py::TestStreakUpdateReturn` (8 tests) — consecutive day → `incremented=True`, same-day → `incremented=False`, freeze-bridge → `incremented=True` AND `frozen_used=True`, break → `reset=True`, first-ever → `incremented=True`, backward clock skew → `incremented=False` AND `reset=False`, `current_streak` matches `state.current_streak`.
+  - `tests/test_scoring.py::TestStreakContinuedDecay` (7 tests) — pin every band boundary: day 1/7=10, day 8/30=5, day 31/365=2, floor never zero.
+  - `tests/test_console.py` (4 tests) — `_execute_hunt` fires streak_continued on consecutive day, NOT on same day, announces First Century on cross-threshold jump, does NOT double-announce on subsequent run.
+  - `tests/test_agent_tools.py` (5 tests) — `run_module` fires streak_continued, no same-day duplicate, celebration sidecar contains First Century on cross, does NOT repeat after announced, records milestone sentinel row.
+
+- **required_evidence:** `tmp/evidence-63-milestone-catchup/` containing `pytest_targeted.txt` (36-test slice), `pytest_full_celebrations.txt`, `pytest_full_streak.txt`, `pytest_full_workspace.txt`, `pytest_full_scoring.txt`, `pytest_full_console.txt`, `pytest_full_agent_tools.txt`, `pytest_full_suite.txt`, `ruff_clean.txt`, `diff_summary.txt`, `manual_cross_threshold_demo.txt`.
+
+- **required_real_path_checks (6):**
+  1. Cross-threshold catch-up via cmd2 surface — seed workspace to 99 pts, hunt scores +20, assert one sentinel `indicator='100'` row inserted AND Rich console shows First Century text.
+  2. Idempotency via cmd2 surface — second hunt immediately after path A inserts no second `indicator='100'` sentinel and prints no milestone text.
+  3. Multi-threshold jump via agent surface — seed at 99, score +905 (post-total 1004), assert TWO sentinel rows (`100`, `500`) and `result['celebration']` contains BOTH milestone substrings in ascending order.
+  4. `streak_continued` via cmd2 surface — inject StreakManager with `tmp_path/streak.json`; two consecutive dates each produce a `streak_continued` row with `points=10`; same-day repeat produces no extra rows.
+  5. `streak_continued` decay band via agent surface — 9 consecutive simulated dates; rows show `points=10` days 1–7 and `points=5` days 8–9.
+  6. Migration quiet-start — new workspace seeded directly with score 1200; first hunt seeds sentinel rows for `100/500/1000` AND emits no milestone celebration text.
+
+- **required_authority_invariants (8):**
+  - `score_events` remains sole authority for per-workspace point-bearing AND milestone-announcement state; NO new SQLAlchemy model; NO separate JSON file.
+  - `StreakManager` remains sole authority for `~/.ap/streak.json` (DEC-62-STREAK-001 preserved); `StreakUpdate` is a read-only typed snapshot, NOT a second mutable authority.
+  - `CelebrationEngine` remains pure formatting layer; `crossed_milestones` is a pure function and does NOT touch workspace state.
+  - `modules/**` MUST NOT call milestone or streak machinery directly (DEC-62-STREAK-007 invariant extended).
+  - `ScoreEvent.points` contract: `streak_continued` rows carry positive points equal to decay band; `milestone_announced` sentinel rows carry `points=0` so `get_total_score()` is unaffected by sentinel insertion.
+  - F59 STIX provenance, F60 pivot policy, F61 keyless hunters, F62 streak mechanic, F64 LLM-summary separation invariants preserved bytewise on owned files.
+  - DEC-CELEBRATION-002 is SUPERSEDED by DEC-63-MILESTONE-CATCHUP-001 and explicitly marked superseded in `celebrations.py`; no parallel exact-hit path remains.
+  - DEC-64-LLM-PANEL-SEPARATION-001 contract preserved: streak_continued rows appear in `score_events` list and per-event lines, but no streak-narration prose is added to the LLM-facing summary string.
+
+- **required_integration_points (10):** see runtime evaluation JSON for the canonical list. High-level: `celebrations.py` adds `crossed_milestones` and renames the legacy formatter arg to `threshold`; `workspace.py` adds `record_milestone_announcement`, `get_announced_milestone_thresholds`, `seed_milestone_baseline_if_unset`; `streak.py` changes `update()` to return `StreakUpdate`; `scoring.py` adds `streak_continued_points`; `console.py::_execute_hunt` and `agent/tools.py::run_module` get the parallel orchestration refactor (capture `prev_total`, seed baseline, compute crossed, record + announce, fire streak_continued event). All 6 new test files/classes ship in the same commit.
+
+- **forbidden_shortcuts (9):**
+  - NO new SQLAlchemy model (would touch `models/database.py` — forbidden_path; creates parallel authority).
+  - NO env-var or feature-flag bypass — this is bug-fix, not opt-in behavior change.
+  - NO snapshot-and-diff streak detection (read `current_streak` before/after `update()`) — the StreakManager must own the typed return.
+  - NO `last_milestone_announced` in workspace JSON, `~/.ap/milestones.json`, or any new file.
+  - NO double-printing milestone text (the `record_milestone_announcement` return-bool MUST be the only print gate).
+  - NO firing streak_continued when `StreakUpdate.incremented` is False.
+  - NO leak of streak_continued narration into LLM-facing summary string (DEC-64-LLM-PANEL-SEPARATION-001 invariant).
+  - NO module-level call into `StreakManager` or `CelebrationEngine.crossed_milestones` (DEC-62-STREAK-007 invariant).
+  - NO touching `gamification/badges.py`, `gamification/challenges.py`, `gamification/hints.py`, `gamification/modes.py` — slice is milestones + streak-as-score-event ONLY.
+
+- **rollback_boundary:** single revertable feature commit on `feature/63-milestone-catchup` (reviewer-fixup commits acceptable as separate commits, ala F62 `8b0faa2`, F61 `5a5b8e1`). Revert restores DEC-CELEBRATION-002 exact-hit behavior; `streak_continued` and `milestone_announced` rows in workspace databases remain as inert zero-effect history on revert (the `score` cmd2 table simply displays them as unknown actions; `get_total_score()` is unaffected for milestones and accurate for streaks).
+
+- **acceptance_notes:** live demo against a fresh `ap chat` session: (1) seed default workspace to 99 points via a real hunt; (2) run a second hunt that crosses 100 — observe First Century milestone text in the Rich panel surface; (3) run a third hunt that scores more but stays below 500 — observe NO repeat First Century text; (4) run a hunt on a second date (via injected `date.today` for the demo) — observe a `+10 streak_continued` line in the Recent Scoring Events table when `score` is invoked. Compound Atwood acceptance: the 99→105 catch-up demo PRODUCES the celebration the original assessment said was being swallowed by arithmetic, and the streak day-7 demo PRODUCES the feedback signal the score economy was missing.
+
+- **ready_for_guardian_definition:** all 36 required tests PASS at HEAD; full pytest suite PASS at HEAD (no regressions vs base `ba110a5` — the 1 pre-existing skip is allowed); `ruff` clean on changed files; all 6 required_real_path_checks evidenced in `tmp/evidence-63-milestone-catchup/`; git diff touches only allowed_paths (no `models/**`, no `modules/**`, no `runner.py`/`chat.py`); DEC-63-MILESTONE-CATCHUP-001, DEC-63-STREAK-SCORE-001, DEC-63-MIGRATION-001 recorded in this Phase 12C decision-log block AND as `@decision` annotations at the canonical source sites; DEC-CELEBRATION-002 explicitly marked superseded with backpointer to DEC-63-MILESTONE-CATCHUP-001; reviewer issues `REVIEW_VERDICT=ready_for_guardian`.
+
+### Decision Log (Phase 12C)
+
+| DEC ID | File / Surface | Rationale |
+|--------|----------------|-----------|
+| DEC-63-MILESTONE-CATCHUP-001 | `gamification/celebrations.py`, `core/workspace.py`, `core/console.py`, `agent/tools.py` | Replace exact-hit milestone gating (DEC-CELEBRATION-002, SUPERSEDED) with cross-threshold detection. Authority for `last_milestone_announced` is `score_events` sentinel rows (`action='milestone_announced'`, `points=0`, `indicator=<threshold>`) — reuses the existing per-workspace state authority (DEC-WS-001), avoids `models/**` edits, and idempotency is the existence query. `CelebrationEngine.crossed_milestones(prev, curr) -> list[int]` is a pure function; the orchestrator (console + agent) records and announces. Rejected: workspace metadata column (touches forbidden `models/**` and violates DEC-DB-002 no-migrations); separate `~/.ap/milestones.json` (parallel authority — violates DEC-WS-001 and CLAUDE.md Sacred Practice 12). |
+| DEC-63-STREAK-SCORE-001 | `gamification/scoring.py`, `core/streak.py`, `core/console.py`, `agent/tools.py` | Add `score_events` action `streak_continued` with step decay 10/5/2 over bands [1–7, 8–30, 31+]. Decay is non-zero at all bands so retention always carries score signal; bands are pin-able with finite tests; bounded weekly maximum prevents farming. `StreakManager.update()` is extended to return a typed `StreakUpdate(incremented, frozen_used, reset, current_streak)`; orchestrator fires the new ScoreEvent iff `update.incremented` is True. Rejected: linear `10-day` decay (hits zero by day 11, removes signal exactly when long-streak users need it most); exponential `0.9^d` (non-integer points, opaque rationale); snapshot-and-diff streak detection (racy, inverts authority direction). |
+| DEC-63-MIGRATION-001 | `core/workspace.py`, `core/console.py`, `agent/tools.py` | Quiet-start migration: on first orchestration call in a workspace with zero `milestone_announced` sentinel rows AND `get_total_score() > 0`, `seed_milestone_baseline_if_unset()` inserts sentinel rows for every threshold ≤ current total. Suppresses retroactive announcements that would lie about *when* the milestone was earned. For brand-new workspaces (zero score), seed is a no-op so the first cross still fires normally. |
+| DEC-CELEBRATION-002 (SUPERSEDED) | `gamification/celebrations.py` (annotation block) | Mark superseded with backpointer to DEC-63-MILESTONE-CATCHUP-001. The exact-hit behaviour was an architectural bug, not an accepted constraint; F63 reverses the decision. |
+
+### What is NOT in scope
+
+- **Schema changes.** `models/database.py` is forbidden. No new model, no new column, no migration tooling. The score_events sentinel pattern fits the existing schema.
+- **Module-level changes.** All 11 modules under `modules/**` are untouched — F63 inherits and preserves DEC-62-STREAK-007 (modules don't touch streak/milestone authorities).
+- **Gamification surfaces beyond celebrations + scoring.** `badges.py`, `challenges.py`, `hints.py`, `modes.py` are untouched.
+- **Agent presentation surface.** `runner.py`, `chat.py`, `banner.py` are untouched — F64 invariants preserved. The milestone text rides on the existing `celebration` sidecar that F64 already wired through to the Rich Panel.
+- **Streak banner display.** Streak panel as a Rich Panel surface remains a follow-up (filed in F64's "Streak panel surface" follow-ups section).
+- **Pivot policy / event bus / STIX provenance.** F59 / F60 invariants preserved by forbidden_paths.
+
+### Follow-ups (not in F63)
+
+- **Streak panel surface.** Once F63 lands the streak_continued ScoreEvent rows, a future slice may add a Rich Panel that surfaces streak retention with mode-flavored persona text (this is the F64 "Streak panel surface" follow-up, now with score-event data to render).
+- **Configurable milestone thresholds.** `MILESTONES` is hardcoded; a future slice may allow per-workspace or per-mode milestone overrides. Out of scope here.
+- **Streak score-event display formatting.** Today the `do_score` table shows raw `streak_continued` rows — a future slice may add an icon column or band-label column (e.g. "🔥 streak day 7"). Out of scope here; the goal of F63 is the signal existing, not the formatting polish.
+- **Atwood [P2] item 3** (any third Atwood [P2] note from the same gamification assessment that isn't milestones or streak-economy): track via new GitHub issue once the assessment's third bullet is itemised. Out of scope for F63.
+
+---
+
 ## Phase 13: De-duplicate LLM narration vs Rich Panel for gamification events (W-64-DEDUP-LLM-NARRATION, post-v1, 2026-05-26)
 
 > **Status:** completed (landed 2026-05-26, merge `3b92032 Merge feature/64-dedup-llm-narration (#64)`, work commit `e460b41`) · **Workflow:** `w-64-dedup-llm-narration` · **Branch:** `feature/64-dedup-llm-narration` · **Worktree:** `.worktrees/feature-64-dedup-llm-narration` · **GitHub issue:** #64

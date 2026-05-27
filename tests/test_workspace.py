@@ -909,3 +909,65 @@ class TestProvenanceAugmentation:
         )
         obj = wm.get_stix_objects()[0]
         assert obj["x_ap_fetched_at"] == custom_ts
+
+
+# ---------------------------------------------------------------------------
+# Milestone sentinel — F63 DEC-63-MILESTONE-CATCHUP-001
+# ---------------------------------------------------------------------------
+
+
+class TestMilestoneSentinel:
+    """Verify get_last_milestone_id / set_last_milestone_id round-trip correctly.
+
+    The sentinel uses a score_events row with action="_milestone_sentinel"
+    (no schema change). Points=0 so it does not affect get_total_score().
+    get_recent_scores() excludes the sentinel row.
+    """
+
+    def _make_wm(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        return wm
+
+    def test_get_last_milestone_id_fresh_workspace_returns_none(self, tmp_path):
+        """Fresh workspace has no milestone sentinel → returns None."""
+        wm = self._make_wm(tmp_path)
+        assert wm.get_last_milestone_id() is None
+
+    def test_set_then_get_round_trips(self, tmp_path):
+        """set_last_milestone_id then get returns the same value."""
+        wm = self._make_wm(tmp_path)
+        wm.set_last_milestone_id(2)
+        assert wm.get_last_milestone_id() == 2
+
+    def test_set_overwrites_previous(self, tmp_path):
+        """Second set_last_milestone_id replaces the first (idempotent upsert)."""
+        wm = self._make_wm(tmp_path)
+        wm.set_last_milestone_id(1)
+        wm.set_last_milestone_id(3)
+        assert wm.get_last_milestone_id() == 3
+
+    def test_sentinel_does_not_affect_total_score(self, tmp_path):
+        """Sentinel row has points=0; get_total_score() is unaffected."""
+        wm = self._make_wm(tmp_path)
+        wm.store_score_events([{"action": "new_ip", "points": 100, "indicator": "1.2.3.4"}])
+        wm.set_last_milestone_id(1)
+        assert wm.get_total_score() == 100
+
+    def test_sentinel_excluded_from_recent_scores(self, tmp_path):
+        """get_recent_scores() does not include the sentinel row."""
+        wm = self._make_wm(tmp_path)
+        wm.store_score_events([{"action": "new_ip", "points": 100, "indicator": "1.2.3.4"}])
+        wm.set_last_milestone_id(1)
+        recent = wm.get_recent_scores(limit=10)
+        actions = [r["action"] for r in recent]
+        assert "_milestone_sentinel" not in actions
+
+    def test_only_one_sentinel_row_after_multiple_sets(self, tmp_path):
+        """Multiple set calls leave exactly one sentinel row (no accumulation)."""
+        wm = self._make_wm(tmp_path)
+        for i in range(1, 6):
+            wm.set_last_milestone_id(i)
+        # get_last_milestone_id should return 5, not some earlier value
+        assert wm.get_last_milestone_id() == 5

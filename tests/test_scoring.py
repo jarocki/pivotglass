@@ -24,17 +24,19 @@ Production sequence:
 from __future__ import annotations
 
 import io
+
 import pytest
 
-from adversary_pursuit.gamification.scoring import (
-    ScoringRule,
-    ScoringEngine,
-    DEFAULT_RULES,
-    calculate_points,
-)
-from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.core.console import APConsole
-
+from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.gamification.scoring import (
+    DEFAULT_RULES,
+    ScoringEngine,
+    ScoringRule,
+    calculate_points,
+    make_streak_continued_event,
+    streak_continued_points,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -139,7 +141,9 @@ class TestCalculatePoints:
 
     def test_adversary_linked_high_value_slow_decay(self):
         """adversary_linked (500 initial, 100 min, decay=3) decays slowly."""
-        rule = ScoringRule("adversary_linked", initial=500, minimum=100, decay=3, description="test")
+        rule = ScoringRule(
+            "adversary_linked", initial=500, minimum=100, decay=3, description="test"
+        )
         pts_at_1 = calculate_points(rule, 1)
         pts_at_3 = calculate_points(rule, 3)
         # At decay=3, count=3 should hit minimum
@@ -148,7 +152,9 @@ class TestCalculatePoints:
 
     def test_campaign_described_highest_value(self):
         """campaign_described (1000 initial, 200 min, decay=2) floors at 200."""
-        rule = ScoringRule("campaign_described", initial=1000, minimum=200, decay=2, description="test")
+        rule = ScoringRule(
+            "campaign_described", initial=1000, minimum=200, decay=2, description="test"
+        )
         pts = calculate_points(rule, 100)
         assert pts == 200
 
@@ -388,8 +394,18 @@ class TestWorkspaceScoreIntegration:
 
     def test_store_score_events_returns_total_points(self, workspace):
         events = [
-            {"action": "new_ip", "points": 100, "indicator": "1.2.3.4", "rule_description": "New IP"},
-            {"action": "new_domain", "points": 80, "indicator": "evil.com", "rule_description": "New domain"},
+            {
+                "action": "new_ip",
+                "points": 100,
+                "indicator": "1.2.3.4",
+                "rule_description": "New IP",
+            },
+            {
+                "action": "new_domain",
+                "points": 80,
+                "indicator": "evil.com",
+                "rule_description": "New domain",
+            },
         ]
         total = workspace.store_score_events(events)
         assert total == 180
@@ -407,18 +423,37 @@ class TestWorkspaceScoreIntegration:
 
     def test_get_total_score_accumulates(self, workspace):
         """Multiple store calls accumulate into total score."""
-        workspace.store_score_events([
-            {"action": "new_ip", "points": 100, "indicator": "1.2.3.4", "rule_description": "IP"},
-        ])
-        workspace.store_score_events([
-            {"action": "new_domain", "points": 80, "indicator": "evil.com", "rule_description": "Domain"},
-        ])
+        workspace.store_score_events(
+            [
+                {
+                    "action": "new_ip",
+                    "points": 100,
+                    "indicator": "1.2.3.4",
+                    "rule_description": "IP",
+                },
+            ]
+        )
+        workspace.store_score_events(
+            [
+                {
+                    "action": "new_domain",
+                    "points": 80,
+                    "indicator": "evil.com",
+                    "rule_description": "Domain",
+                },
+            ]
+        )
         assert workspace.get_total_score() == 180
 
     def test_get_recent_scores_returns_events(self, workspace):
         events = [
             {"action": "new_ip", "points": 100, "indicator": "1.2.3.4", "rule_description": "IP"},
-            {"action": "new_domain", "points": 80, "indicator": "evil.com", "rule_description": "Domain"},
+            {
+                "action": "new_domain",
+                "points": 80,
+                "indicator": "evil.com",
+                "rule_description": "Domain",
+            },
         ]
         workspace.store_score_events(events)
         recent = workspace.get_recent_scores()
@@ -427,7 +462,12 @@ class TestWorkspaceScoreIntegration:
     def test_get_recent_scores_limit(self, workspace):
         """get_recent_scores respects limit parameter."""
         events = [
-            {"action": "new_ip", "points": i * 10, "indicator": f"1.2.3.{i}", "rule_description": "IP"}
+            {
+                "action": "new_ip",
+                "points": i * 10,
+                "indicator": f"1.2.3.{i}",
+                "rule_description": "IP",
+            }
             for i in range(1, 6)
         ]
         workspace.store_score_events(events)
@@ -436,12 +476,21 @@ class TestWorkspaceScoreIntegration:
 
     def test_get_recent_scores_reverse_chronological(self, workspace):
         """Most recent events appear first in get_recent_scores."""
-        workspace.store_score_events([
-            {"action": "new_ip", "points": 100, "indicator": "first", "rule_description": "IP"},
-        ])
-        workspace.store_score_events([
-            {"action": "new_domain", "points": 80, "indicator": "second", "rule_description": "Domain"},
-        ])
+        workspace.store_score_events(
+            [
+                {"action": "new_ip", "points": 100, "indicator": "first", "rule_description": "IP"},
+            ]
+        )
+        workspace.store_score_events(
+            [
+                {
+                    "action": "new_domain",
+                    "points": 80,
+                    "indicator": "second",
+                    "rule_description": "Domain",
+                },
+            ]
+        )
         recent = workspace.get_recent_scores()
         # Most recent first
         assert recent[0]["indicator"] == "second"
@@ -480,7 +529,9 @@ class TestWorkspaceScoreIntegration:
 
     def test_store_score_events_with_module_run_id(self, workspace):
         """store_score_events accepts optional module_run_id."""
-        events = [{"action": "new_ip", "points": 100, "indicator": "1.2.3.4", "rule_description": "IP"}]
+        events = [
+            {"action": "new_ip", "points": 100, "indicator": "1.2.3.4", "rule_description": "IP"}
+        ]
         total = workspace.store_score_events(events, module_run_id=42)
         assert total == 100
 
@@ -491,9 +542,9 @@ class TestWorkspaceScoreIntegration:
         wm.create("beta")
 
         wm.switch("alpha")
-        wm.store_score_events([
-            {"action": "new_ip", "points": 500, "indicator": "alpha-ip", "rule_description": "IP"}
-        ])
+        wm.store_score_events(
+            [{"action": "new_ip", "points": 500, "indicator": "alpha-ip", "rule_description": "IP"}]
+        )
 
         wm.switch("beta")
         assert wm.get_total_score() == 0  # beta untouched
@@ -548,3 +599,91 @@ class TestConsoleScoreCommand:
         # Should not raise
         out = run_cmd(console, "run")
         assert isinstance(out, str)
+
+
+# ---------------------------------------------------------------------------
+# streak_continued_points — F63 DEC-63-STREAK-SCORE-001
+# ---------------------------------------------------------------------------
+
+
+class TestStreakContinuedPoints:
+    """Verify the three-tier step decay for streak_continued bonus."""
+
+    def test_day_1_returns_10(self):
+        """Day 1 is in the 1-7 tier → 10 points."""
+        assert streak_continued_points(1) == 10
+
+    def test_day_7_returns_10(self):
+        """Day 7 is the boundary of the top tier → still 10 points."""
+        assert streak_continued_points(7) == 10
+
+    def test_day_8_returns_5(self):
+        """Day 8 crosses into the 8-30 tier → 5 points."""
+        assert streak_continued_points(8) == 5
+
+    def test_day_30_returns_5(self):
+        """Day 30 is the boundary of the middle tier → 5 points."""
+        assert streak_continued_points(30) == 5
+
+    def test_day_31_returns_2(self):
+        """Day 31 crosses into the 31+ tier → 2 points."""
+        assert streak_continued_points(31) == 2
+
+    def test_day_100_returns_2(self):
+        """Very long streak stays at 2 points (anti-farming floor)."""
+        assert streak_continued_points(100) == 2
+
+    def test_three_tiers_are_distinct(self):
+        """All three tier values are distinct (no accidental collisions)."""
+        assert (
+            len(
+                {
+                    streak_continued_points(1),
+                    streak_continued_points(8),
+                    streak_continued_points(31),
+                }
+            )
+            == 3
+        )
+
+
+# ---------------------------------------------------------------------------
+# make_streak_continued_event — F63
+# ---------------------------------------------------------------------------
+
+
+class TestMakeStreakContinuedEvent:
+    """Verify make_streak_continued_event builds a well-formed score event dict."""
+
+    def test_action_key(self):
+        """Event has action='streak_continued'."""
+        evt = make_streak_continued_event(1)
+        assert evt["action"] == "streak_continued"
+
+    def test_points_from_decay(self):
+        """Points value matches streak_continued_points for the given streak."""
+        for day in [1, 7, 8, 30, 31, 50]:
+            evt = make_streak_continued_event(day)
+            assert evt["points"] == streak_continued_points(day)
+
+    def test_indicator_contains_day(self):
+        """Indicator field encodes the streak day for display."""
+        evt = make_streak_continued_event(5)
+        assert "5" in evt["indicator"]
+
+    def test_rule_description_present(self):
+        """rule_description is a non-empty string."""
+        evt = make_streak_continued_event(1)
+        assert isinstance(evt["rule_description"], str)
+        assert len(evt["rule_description"]) > 0
+
+    def test_event_storable_by_workspace(self, tmp_path):
+        """Event dict produced by make_streak_continued_event is accepted by store_score_events."""
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        evt = make_streak_continued_event(3)
+        total = wm.store_score_events([evt])
+        assert total == streak_continued_points(3)
+        recent = wm.get_recent_scores(limit=1)
+        assert recent[0]["action"] == "streak_continued"

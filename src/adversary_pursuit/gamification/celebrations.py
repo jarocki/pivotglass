@@ -12,18 +12,51 @@ score milestones, or earn their first discovery in a workspace.
            (100pts base) gets medium, a campaign description (1000pts) gets epic.
            ASCII art is randomized within each level to avoid repetition.
 
-@decision DEC-CELEBRATION-002
-@title Milestone messages fire at exact score thresholds only
+@decision DEC-63-MILESTONE-CATCHUP-001
+@title Cross-threshold milestone semantics with idempotent last_announced sentinel
 @status accepted
-@rationale Milestones (100, 500, 1000, 5000, 10000) return a message only
-           when total_score exactly equals the threshold. The caller is
-           responsible for checking before and after storing score events.
-           This prevents double-firing if the score jumps past a milestone.
+@rationale DEC-CELEBRATION-002 (exact-score-only check) is superseded. The old
+           design silently skipped milestones when a run's points jumped past a
+           threshold (e.g. score went 80 → 620 in one run — the 100 and 500
+           milestones were never announced). The new design uses check_milestones()
+           which evaluates ALL milestones in ascending order and returns every
+           milestone whose threshold <= total_score AND whose id > last_announced.
+           The caller persists last_announced via WorkspaceManager.set_last_milestone_id()
+           so the check is idempotent across calls — a milestone never fires twice.
+           Milestones are stored as a list[MilestoneSpec] with stable integer IDs so
+           WorkspaceManager can persist a single integer sentinel (no schema change).
+           Quiet-start migration: callers with an existing score and null
+           last_announced_id should initialise last_announced_id to the highest
+           already-crossed milestone (suppresses retroactive announcements that
+           would lie about WHEN milestones were earned). See DEC-63-MIGRATION-001.
 """
 
 from __future__ import annotations
 
 import random
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class MilestoneSpec:
+    """A single score milestone definition.
+
+    Parameters
+    ----------
+    id:
+        Stable integer identifier. IDs are assigned in ascending threshold
+        order so ``id > last_announced_id`` is the correct catch-up predicate.
+        See DEC-63-MILESTONE-CATCHUP-001.
+    threshold:
+        Total workspace score at which this milestone activates.
+    message:
+        Human-readable announcement string shown to the analyst.
+    """
+
+    id: int
+    threshold: int
+    message: str
+
 
 CELEBRATION_ART: dict[str, list[str]] = {
     "small": [
@@ -68,13 +101,53 @@ CELEBRATION_ART: dict[str, list[str]] = {
     ],
 }
 
-MILESTONES: dict[int, str] = {
-    100: "🌟 First Century! 100 points reached!",
-    500: "⚡ Half a Grand! You're getting dangerous.",
-    1000: "🏆 Grand Master! 1000 points!",
-    5000: "🔥 LEGENDARY! 5000 points! The adversary fears you.",
-    10000: "👑 SUPREME HUNTER! 10,000 points! You ARE the threat.",
-}
+# Ordered list of milestones, ascending by threshold.
+# IDs are stable integers (1-based) so WorkspaceManager can persist a
+# single integer sentinel (last_announced_id) without a schema change.
+# DEC-63-MILESTONE-CATCHUP-001: IDs are assigned in threshold order so
+# ``milestone.id > last_announced_id`` is the correct catch-up predicate.
+MILESTONES: list[MilestoneSpec] = [
+    MilestoneSpec(id=1, threshold=100, message="🌟 First Century! 100 points reached!"),
+    MilestoneSpec(id=2, threshold=500, message="⚡ Half a Grand! You're getting dangerous."),
+    MilestoneSpec(id=3, threshold=1000, message="🏆 Grand Master! 1000 points!"),
+    MilestoneSpec(
+        id=4, threshold=5000, message="🔥 LEGENDARY! 5000 points! The adversary fears you."
+    ),
+    MilestoneSpec(
+        id=5, threshold=10000, message="👑 SUPREME HUNTER! 10,000 points! You ARE the threat."
+    ),
+]
+
+# Highest milestone ID in MILESTONES — used for quiet-start migration.
+# DEC-63-MIGRATION-001: callers initialise last_announced_id to
+# _highest_crossed_milestone_id(total_score) when last_announced_id is None
+# on workspace load, suppressing retroactive announcements.
+_MAX_MILESTONE_ID: int = max(m.id for m in MILESTONES)
+
+
+def highest_crossed_milestone_id(total_score: int) -> int | None:
+    """Return the highest milestone ID already crossed at *total_score*.
+
+    Returns None when total_score is below all milestones (no migration needed).
+    Used by the quiet-start migration in WorkspaceManager to initialise
+    last_announced_id on first access so retroactive announcements are
+    suppressed (DEC-63-MIGRATION-001).
+
+    Parameters
+    ----------
+    total_score:
+        Current accumulated workspace score.
+
+    Returns
+    -------
+    int | None
+        Highest milestone ID whose threshold <= total_score, or None.
+    """
+    result: int | None = None
+    for ms in MILESTONES:
+        if total_score >= ms.threshold:
+            result = ms.id
+    return result
 
 
 class CelebrationEngine:
@@ -114,9 +187,45 @@ class CelebrationEngine:
         bell = "\a" if self.bell_enabled else ""
         return bell + art
 
-    def milestone_message(self, total_score: int) -> str | None:
-        """Return milestone message if total_score is exactly a milestone value."""
-        return MILESTONES.get(total_score)
+    def check_milestones(
+        self, total_score: int, last_announced_id: int | None
+    ) -> list[MilestoneSpec]:
+        """Return all milestones that should be announced now.
+
+        Evaluates every milestone in MILESTONES in ascending threshold order
+        and returns the subset where:
+        - milestone.threshold <= total_score  (analyst has crossed it)
+        - milestone.id > last_announced_id    (not yet announced)
+
+        When last_announced_id is None (fresh workspace) all crossed
+        milestones are returned — callers must suppress retroactive
+        announcements themselves via the quiet-start migration
+        (DEC-63-MIGRATION-001): initialise last_announced_id to
+        highest_crossed_milestone_id(total_score) before calling this
+        method for workspaces where the analyst already has a score.
+
+        Parameters
+        ----------
+        total_score:
+            Current accumulated workspace score (post-storage).
+        last_announced_id:
+            The highest milestone ID already announced in this workspace,
+            or None if no milestones have been announced yet. Persisted by
+            WorkspaceManager as a sentinel score_event row.
+
+        Returns
+        -------
+        list[MilestoneSpec]
+            Milestones to announce, in ascending threshold order.
+            Empty list when no new milestones were crossed.
+
+        @decision DEC-63-MILESTONE-CATCHUP-001 (implementation site)
+        @title Cross-threshold check with id-based idempotency
+        @status accepted
+        @rationale See module-level DEC-63-MILESTONE-CATCHUP-001.
+        """
+        threshold_id = last_announced_id if last_announced_id is not None else 0
+        return [ms for ms in MILESTONES if ms.threshold <= total_score and ms.id > threshold_id]
 
     def first_blood_message(self) -> str | None:
         """Return the first-discovery celebration message, or None if already fired.

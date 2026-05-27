@@ -1,11 +1,13 @@
-"""Tests for Issue #22: Celebration System.
+"""Tests for Issue #22 + F63: Celebration System.
 
 Tests cover:
 - CelebrationEngine.celebrate(points) returns correct ASCII art by level
   (small <50, medium 50-199, large 200-499, epic 500+)
 - celebrate() returns str type, non-empty for all levels
-- milestone_message(total_score) returns correct messages at 100/500/1000/5000/10000
-- milestone_message() returns None for non-milestone totals
+- check_milestones(total_score, last_announced_id) — F63 catch-up semantics:
+  returns all milestones where threshold <= total AND id > last_announced_id
+- check_milestones() returns empty list when no new milestones crossed
+- highest_crossed_milestone_id() helper for quiet-start migration (DEC-63-MIGRATION-001)
 - first_blood_message() returns str
 - bell_enabled flag behavior
 - Level boundary conditions (exact threshold values)
@@ -16,11 +18,12 @@ Production sequence:
   → rich_console.print(celebration_art)
 
 @decision DEC-TEST-022
-@title Celebration tests cover all 4 art levels, 5 milestones, and console integration
+@title Celebration tests cover all 4 art levels, 5 milestones (catch-up), and console integration
 @status accepted
-@rationale celebrate() has clear numeric boundaries -- test at, below, and above each
-           threshold. milestone_message() must fire exactly at the spec'd totals (not
-           between them). Console integration confirms celebration art appears in run
+@rationale celebrate() has clear numeric boundaries — test at, below, and above each
+           threshold. check_milestones() must cover catch-up (score jumps past multiple
+           milestones), idempotency (last_announced_id blocks re-fire), and quiet-start
+           migration helper. Console integration confirms celebration art appears in run
            output so the analyst actually sees it.
 """
 
@@ -31,7 +34,11 @@ import io
 import pytest
 
 from adversary_pursuit.core.console import APConsole
-from adversary_pursuit.gamification.celebrations import CelebrationEngine
+from adversary_pursuit.gamification.celebrations import (
+    CelebrationEngine,
+    MilestoneSpec,
+    highest_crossed_milestone_id,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -197,73 +204,122 @@ class TestCelebrateLevel:
 
 
 # ---------------------------------------------------------------------------
-# CelebrationEngine.milestone_message — milestone triggers
+# CelebrationEngine.check_milestones — F63 cross-threshold catch-up
 # ---------------------------------------------------------------------------
 
 
-class TestMilestoneMessage:
-    """Verify milestone_message returns the right string at each milestone total."""
+class TestCheckMilestones:
+    """Verify check_milestones implements cross-threshold catch-up with idempotency.
 
-    def test_milestone_at_100(self, engine):
-        """100 total score triggers a milestone message."""
-        msg = engine.milestone_message(100)
-        assert msg is not None
-        assert isinstance(msg, str)
-        assert len(msg.strip()) > 0
+    DEC-63-MILESTONE-CATCHUP-001: check_milestones returns every milestone
+    whose threshold <= total_score AND id > last_announced_id.
+    """
 
-    def test_milestone_at_500(self, engine):
-        """500 total score triggers a milestone message."""
-        msg = engine.milestone_message(500)
-        assert msg is not None
-        assert isinstance(msg, str)
+    def test_no_milestones_at_zero_score(self, engine):
+        """Score=0, last_id=None → no milestones."""
+        result = engine.check_milestones(0, None)
+        assert result == []
 
-    def test_milestone_at_1000(self, engine):
-        """1000 total score triggers a milestone message."""
-        msg = engine.milestone_message(1000)
-        assert msg is not None
-        assert isinstance(msg, str)
+    def test_first_milestone_fires_at_100(self, engine):
+        """Score=100, last_id=None → milestone id=1 (threshold 100) fires."""
+        result = engine.check_milestones(100, None)
+        assert len(result) == 1
+        assert result[0].id == 1
+        assert result[0].threshold == 100
 
-    def test_milestone_at_5000(self, engine):
-        """5000 total score triggers a milestone message."""
-        msg = engine.milestone_message(5000)
-        assert msg is not None
-        assert isinstance(msg, str)
+    def test_below_first_milestone_no_fire(self, engine):
+        """Score=99, last_id=None → no milestones (99 < 100)."""
+        result = engine.check_milestones(99, None)
+        assert result == []
 
-    def test_milestone_at_10000(self, engine):
-        """10000 total score triggers the top-tier milestone message."""
-        msg = engine.milestone_message(10000)
-        assert msg is not None
-        assert isinstance(msg, str)
+    def test_catchup_two_milestones_in_one_run(self, engine):
+        """Score jumps from 0 to 620 — both 100 and 500 milestones fire."""
+        result = engine.check_milestones(620, None)
+        ids = [ms.id for ms in result]
+        assert 1 in ids  # threshold 100
+        assert 2 in ids  # threshold 500
+        assert len(result) == 2
 
-    def test_no_milestone_at_99(self, engine):
-        """99 total score — just below first milestone — returns None."""
-        assert engine.milestone_message(99) is None
+    def test_catchup_all_five_milestones(self, engine):
+        """Score=10000, last_id=None → all 5 milestones fire."""
+        result = engine.check_milestones(10000, None)
+        assert len(result) == 5
+        ids = [ms.id for ms in result]
+        assert ids == sorted(ids), "Milestones must be in ascending id order"
 
-    def test_no_milestone_at_101(self, engine):
-        """101 total score — just above 100 milestone — returns None."""
-        assert engine.milestone_message(101) is None
+    def test_idempotent_already_announced(self, engine):
+        """Score=100, last_id=1 → no new milestones (already announced)."""
+        result = engine.check_milestones(100, 1)
+        assert result == []
 
-    def test_no_milestone_at_0(self, engine):
-        """0 total score triggers no milestone."""
-        assert engine.milestone_message(0) is None
+    def test_partial_catchup_from_mid_announced(self, engine):
+        """Score=5000, last_id=2 → milestones 3 (1000) and 4 (5000) fire."""
+        result = engine.check_milestones(5000, 2)
+        ids = [ms.id for ms in result]
+        assert 3 in ids
+        assert 4 in ids
+        assert 1 not in ids
+        assert 2 not in ids
 
-    def test_no_milestone_between_milestones(self, engine):
-        """Arbitrary non-milestone values return None."""
-        for total in [1, 50, 150, 300, 750, 1500, 3000, 7500]:
-            assert engine.milestone_message(total) is None, (
-                f"milestone_message({total}) should be None"
-            )
+    def test_returns_milestonespec_objects(self, engine):
+        """check_milestones returns MilestoneSpec instances."""
+        result = engine.check_milestones(100, None)
+        assert len(result) == 1
+        assert isinstance(result[0], MilestoneSpec)
 
-    def test_all_five_milestones_return_distinct_messages(self, engine):
-        """Each milestone produces a distinct message."""
-        msgs = {
-            engine.milestone_message(100),
-            engine.milestone_message(500),
-            engine.milestone_message(1000),
-            engine.milestone_message(5000),
-            engine.milestone_message(10000),
-        }
-        assert len(msgs) == 5, "Expected 5 distinct milestone messages"
+    def test_messages_are_nonempty_strings(self, engine):
+        """All returned milestone messages are non-empty strings."""
+        for ms in engine.check_milestones(10000, None):
+            assert isinstance(ms.message, str)
+            assert len(ms.message.strip()) > 0
+
+    def test_score_between_milestones_returns_only_crossed(self, engine):
+        """Score=750 → only milestones 1 (100) and 2 (500) fire; 3 (1000) does not."""
+        result = engine.check_milestones(750, None)
+        ids = [ms.id for ms in result]
+        assert 1 in ids
+        assert 2 in ids
+        assert 3 not in ids
+
+    def test_last_id_none_equiv_zero(self, engine):
+        """last_announced_id=None behaves identically to 0 (no prior announcements)."""
+        result_none = engine.check_milestones(500, None)
+        result_zero = engine.check_milestones(500, 0)
+        assert [ms.id for ms in result_none] == [ms.id for ms in result_zero]
+
+
+# ---------------------------------------------------------------------------
+# highest_crossed_milestone_id — quiet-start migration helper
+# ---------------------------------------------------------------------------
+
+
+class TestHighestCrossedMilestoneId:
+    """Verify the migration helper returns the correct seed ID (DEC-63-MIGRATION-001)."""
+
+    def test_below_all_milestones_returns_none(self):
+        """Score below first milestone threshold returns None."""
+        assert highest_crossed_milestone_id(0) is None
+        assert highest_crossed_milestone_id(99) is None
+
+    def test_at_first_milestone(self):
+        """Score=100 → id=1."""
+        assert highest_crossed_milestone_id(100) == 1
+
+    def test_between_first_and_second(self):
+        """Score=300 → id=1 (only first milestone crossed)."""
+        assert highest_crossed_milestone_id(300) == 1
+
+    def test_at_second_milestone(self):
+        """Score=500 → id=2."""
+        assert highest_crossed_milestone_id(500) == 2
+
+    def test_at_max_milestone(self):
+        """Score=10000 → id=5 (all milestones crossed)."""
+        assert highest_crossed_milestone_id(10000) == 5
+
+    def test_well_above_max_milestone(self):
+        """Score far above max → still id=5 (highest milestone)."""
+        assert highest_crossed_milestone_id(99999) == 5
 
 
 # ---------------------------------------------------------------------------

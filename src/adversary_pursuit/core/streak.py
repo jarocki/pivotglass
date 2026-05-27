@@ -98,6 +98,29 @@ DEFAULT_STREAK_PATH: Path = Path.home() / ".ap" / "streak.json"
 _DEFAULT_FREEZE_LIMIT: int = 1
 
 
+@dataclass(frozen=True)
+class StreakUpdate:
+    """Result of a StreakManager.update() call.
+
+    Callers inspect this to decide whether to emit a ``streak_continued``
+    score event (Part B of F63, DEC-63-STREAK-SCORE-001).
+
+    Attributes
+    ----------
+    incremented:
+        True when current_streak grew (first hunt ever, consecutive day,
+        or freeze-bridged day). False for same-day idempotent calls and
+        backward-clock clamp calls. When False, no streak_continued event
+        should be emitted.
+    current_streak:
+        The streak value *after* the update. Callers use this to compute
+        the step-decay score tier (days 1-7 → 10pts, 8-30 → 5pts, 31+ → 2pts).
+    """
+
+    incremented: bool
+    current_streak: int
+
+
 @dataclass
 class StreakState:
     """In-memory representation of the streak JSON schema.
@@ -180,17 +203,27 @@ class StreakManager:
         """Return the current in-memory streak state (read-only view)."""
         return self._state
 
-    def update(self, today: date) -> None:
+    def update(self, today: date) -> StreakUpdate:
         """Record a successful hunt on *today* and persist the updated state.
 
         Idempotent for the same calendar day — calling twice on the same date
         is a no-op. Clamps backward time without mutation.
+
+        Returns a StreakUpdate so callers can emit a ``streak_continued``
+        score event when incremented=True (DEC-63-STREAK-SCORE-001).
 
         Parameters
         ----------
         today:
             The calendar date of the hunt. In production use ``date.today()``.
             Tests pass an explicit date to control the timeline.
+
+        Returns
+        -------
+        StreakUpdate
+            ``incremented=True`` when current_streak grew (first hunt,
+            consecutive day, or freeze-bridged day). ``current_streak`` is the
+            value after the update.
         """
         s = self._state
 
@@ -202,11 +235,11 @@ class StreakManager:
                 today,
                 s.last_hunt_date,
             )
-            return
+            return StreakUpdate(incremented=False, current_streak=s.current_streak)
 
         # Same-day idempotency: already recorded today.
         if s.last_hunt_date == today:
-            return
+            return StreakUpdate(incremented=False, current_streak=s.current_streak)
 
         # Determine new ISO week and reset freeze counter when week rolls over.
         today_iso = today.isocalendar()[:2]  # (iso_year, iso_week)
@@ -223,7 +256,7 @@ class StreakManager:
             s.last_hunt_date = today
             s.longest_streak = max(s.longest_streak, s.current_streak)
             self._save(s)
-            return
+            return StreakUpdate(incremented=True, current_streak=s.current_streak)
 
         gap_days = (today - s.last_hunt_date).days
 
@@ -242,6 +275,7 @@ class StreakManager:
         s.longest_streak = max(s.longest_streak, s.current_streak)
         s.last_hunt_date = today
         self._save(s)
+        return StreakUpdate(incremented=True, current_streak=s.current_streak)
 
     def format_banner_line(self) -> str:
         """Return a single display line suitable for the boot banner or preloop.

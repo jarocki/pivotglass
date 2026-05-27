@@ -516,7 +516,12 @@ class WorkspaceManager:
         self._ensure_active()
         with Session(self._engine) as session:
             rows = (
-                session.execute(select(ScoreEvent).order_by(ScoreEvent.id.desc()).limit(limit))
+                session.execute(
+                    select(ScoreEvent)
+                    .where(ScoreEvent.action != self._MILESTONE_SENTINEL_ACTION)
+                    .order_by(ScoreEvent.id.desc())
+                    .limit(limit)
+                )
                 .scalars()
                 .all()
             )
@@ -529,6 +534,92 @@ class WorkspaceManager:
                 }
                 for row in rows
             ]
+
+    # ------------------------------------------------------------------
+    # Milestone sentinel — DEC-63-MILESTONE-CATCHUP-001
+    # ------------------------------------------------------------------
+
+    # Sentinel action name used to persist the last announced milestone ID.
+    # A single row with this action is maintained in score_events.
+    # Using score_events avoids any schema change (DEC-63-MILESTONE-CATCHUP-001).
+    _MILESTONE_SENTINEL_ACTION: str = "_milestone_sentinel"
+
+    def get_last_milestone_id(self) -> int | None:
+        """Return the last announced milestone ID for the active workspace.
+
+        Returns None when no milestone has been announced yet (fresh workspace
+        or workspace that has never crossed a milestone threshold).
+
+        Uses a sentinel row in score_events with action="_milestone_sentinel"
+        to avoid a schema change (DEC-63-MILESTONE-CATCHUP-001).
+
+        Returns
+        -------
+        int | None
+            Last announced milestone ID, or None.
+        """
+        self._ensure_active()
+        with Session(self._engine) as session:
+            row = session.execute(
+                select(ScoreEvent)
+                .where(ScoreEvent.action == self._MILESTONE_SENTINEL_ACTION)
+                .order_by(ScoreEvent.id.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+            if row is None or row.indicator is None:
+                return None
+            try:
+                return int(row.indicator)
+            except (ValueError, TypeError):
+                return None
+
+    def set_last_milestone_id(self, milestone_id: int) -> None:
+        """Persist the last announced milestone ID.
+
+        Upserts a sentinel row in score_events: deletes any existing sentinel
+        rows, then inserts a fresh one with the new milestone_id.
+        This keeps exactly one sentinel row per workspace (idempotent).
+
+        Parameters
+        ----------
+        milestone_id:
+            The highest MilestoneSpec.id announced in this workspace.
+            Callers must pass the highest ID when multiple milestones fired
+            in a single run (catch-up scenario).
+
+        @decision DEC-63-MILESTONE-CATCHUP-001 (persistence site)
+        @title score_events sentinel row for last_announced milestone ID
+        @status accepted
+        @rationale Using score_events with a reserved action name avoids
+                   any schema migration. The sentinel has points=0 so it
+                   does not affect get_total_score(). get_recent_scores()
+                   may include it but callers only display it as an audit
+                   trail entry — the UI ignores unknown action names.
+                   A separate workspace_metadata table would be cleaner but
+                   requires a migration; the sentinel approach ships in one
+                   PR with zero schema changes (F63 constraint).
+        """
+        self._ensure_active()
+        with Session(self._engine) as session:
+            # Delete existing sentinel rows (should be 0 or 1)
+            existing = (
+                session.execute(
+                    select(ScoreEvent).where(ScoreEvent.action == self._MILESTONE_SENTINEL_ACTION)
+                )
+                .scalars()
+                .all()
+            )
+            for row in existing:
+                session.delete(row)
+            # Insert the fresh sentinel
+            sentinel = ScoreEvent(
+                action=self._MILESTONE_SENTINEL_ACTION,
+                points=0,
+                indicator=str(milestone_id),
+                module_run_id=None,
+            )
+            session.add(sentinel)
+            session.commit()
 
     def add_note(self, content: str, stix_object_id: str | None = None) -> None:
         """Add an analyst note to the active workspace.
