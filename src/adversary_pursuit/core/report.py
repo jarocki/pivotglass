@@ -356,6 +356,7 @@ class ReportGenerator:
         try:
             from sqlalchemy import select
             from sqlalchemy.orm import Session
+
             from adversary_pursuit.models.database import AnalystNote
 
             # Access engine via workspace manager's internal attribute.
