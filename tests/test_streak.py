@@ -33,7 +33,7 @@ import json
 from datetime import date, timedelta
 from pathlib import Path
 
-from adversary_pursuit.core.streak import StreakManager, StreakState
+from adversary_pursuit.core.streak import StreakManager, StreakState, StreakUpdate
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -462,3 +462,80 @@ class TestProductionSequence:
         fresh = StreakManager(path=path)
         banner = fresh.format_banner_line()
         assert "3" in banner
+
+
+# ---------------------------------------------------------------------------
+# StreakUpdate return value — F63 DEC-63-STREAK-SCORE-001
+# ---------------------------------------------------------------------------
+
+
+class TestStreakUpdate:
+    """Verify update() returns StreakUpdate with correct incremented/current_streak values.
+
+    F63 callers use incremented to gate streak_continued score events.
+    """
+
+    def test_update_returns_streak_update_type(self, tmp_path):
+        """update() returns a StreakUpdate instance."""
+        mgr = make_mgr(tmp_path)
+        result = mgr.update(date(2026, 5, 20))
+        assert isinstance(result, StreakUpdate)
+
+    def test_first_hunt_incremented_true(self, tmp_path):
+        """First ever hunt returns incremented=True."""
+        mgr = make_mgr(tmp_path)
+        result = mgr.update(date(2026, 5, 20))
+        assert result.incremented is True
+
+    def test_first_hunt_current_streak_one(self, tmp_path):
+        """First ever hunt returns current_streak=1."""
+        mgr = make_mgr(tmp_path)
+        result = mgr.update(date(2026, 5, 20))
+        assert result.current_streak == 1
+
+    def test_consecutive_day_incremented_true(self, tmp_path):
+        """Consecutive day hunt returns incremented=True."""
+        mgr = make_mgr(tmp_path)
+        mgr.update(date(2026, 5, 20))
+        result = mgr.update(date(2026, 5, 21))
+        assert result.incremented is True
+        assert result.current_streak == 2
+
+    def test_same_day_second_call_incremented_false(self, tmp_path):
+        """Same-day second call returns incremented=False (idempotent)."""
+        mgr = make_mgr(tmp_path)
+        today = date(2026, 5, 20)
+        mgr.update(today)
+        result = mgr.update(today)
+        assert result.incremented is False
+
+    def test_backward_clock_incremented_false(self, tmp_path):
+        """Backward clock clamp returns incremented=False."""
+        mgr = make_mgr(tmp_path)
+        mgr.update(date(2026, 5, 20))
+        result = mgr.update(date(2026, 5, 19))
+        assert result.incremented is False
+
+    def test_streak_break_incremented_true_current_streak_reset(self, tmp_path):
+        """After streak break, update returns incremented=True (new streak of 1)."""
+        mgr = make_mgr(tmp_path)
+        mgr.update(date(2026, 5, 20))
+        mgr.update(date(2026, 5, 21))
+        result = mgr.update(date(2026, 5, 27))  # big gap — breaks streak
+        assert result.incremented is True
+        assert result.current_streak == 1
+
+    def test_freeze_bridge_incremented_true(self, tmp_path):
+        """Freeze-bridged day returns incremented=True."""
+        mgr = make_mgr(tmp_path)
+        mgr.update(date(2026, 5, 18))  # Mon
+        result = mgr.update(date(2026, 5, 20))  # Wed — one missed day, freeze used
+        assert result.incremented is True
+        assert result.current_streak == 2
+
+    def test_current_streak_matches_state(self, tmp_path):
+        """StreakUpdate.current_streak matches mgr.state.current_streak after update."""
+        mgr = make_mgr(tmp_path)
+        for offset in range(5):
+            result = mgr.update(date(2026, 5, 20) + timedelta(days=offset))
+        assert result.current_streak == mgr.state.current_streak

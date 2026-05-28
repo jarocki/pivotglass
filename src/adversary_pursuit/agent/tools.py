@@ -181,7 +181,10 @@ from adversary_pursuit.core.report import ReportGenerator
 from adversary_pursuit.core.streak import StreakManager
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.badges import BadgeManager
-from adversary_pursuit.gamification.celebrations import CelebrationEngine
+from adversary_pursuit.gamification.celebrations import (
+    CelebrationEngine,
+    highest_crossed_milestone_id,
+)
 from adversary_pursuit.gamification.challenges import Challenge, ChallengeManager
 from adversary_pursuit.gamification.hints import (
     HintProvider,
@@ -189,7 +192,7 @@ from adversary_pursuit.gamification.hints import (
     InsufficientBalanceError,
 )
 from adversary_pursuit.gamification.modes import ModeManager
-from adversary_pursuit.gamification.scoring import ScoringEngine
+from adversary_pursuit.gamification.scoring import ScoringEngine, make_streak_continued_event
 
 logger = logging.getLogger(__name__)
 
@@ -391,6 +394,12 @@ class ToolContext:
             fetched_at=None,
         )
 
+        # Capture pre-run total BEFORE storing events — used for quiet-start
+        # migration so we seed based on what was ALREADY in the workspace,
+        # not the post-run total (which would suppress new milestones earned
+        # by this run). DEC-63-MIGRATION-001.
+        pre_total = self.workspace_mgr.get_total_score()
+
         # Score using current workspace state
         stats = self.workspace_mgr.get_stix_type_counts()
         events = self.scoring.score_results(results, stats)
@@ -408,12 +417,28 @@ class ToolContext:
             art = self.celebration.celebrate(total)
             mode_points_line = self.mode_mgr.active.score_celebration.format(points=total)
             celebration = art + "\n" + mode_points_line
-            # Check milestone against post-storage total score
+            # Milestone catch-up check (DEC-63-MILESTONE-CATCHUP-001).
+            # Quiet-start migration: seed last_id from pre_total (score BEFORE this
+            # run) so milestones earned by this run are not suppressed.
+            # DEC-63-MIGRATION-001: on first access (last_id is None) with a
+            # pre-existing score, initialise last_id to the highest already-crossed
+            # milestone so retroactive announcements are suppressed.
             try:
                 post_total = self.workspace_mgr.get_total_score()
-                milestone = self.celebration.milestone_message(post_total)
-                if milestone:
-                    celebration = celebration + "\n\n" + milestone
+                last_id = self.workspace_mgr.get_last_milestone_id()
+                if last_id is None and pre_total > 0:
+                    # Seed from pre_total (not post_total) — this run's points
+                    # may push over a new milestone and must not be suppressed.
+                    seeded_id = highest_crossed_milestone_id(pre_total)
+                    if seeded_id is not None:
+                        self.workspace_mgr.set_last_milestone_id(seeded_id)
+                        last_id = seeded_id
+                new_milestones = self.celebration.check_milestones(post_total, last_id)
+                if new_milestones:
+                    highest_new_id = max(ms.id for ms in new_milestones)
+                    self.workspace_mgr.set_last_milestone_id(highest_new_id)
+                    milestone_lines = "\n".join(ms.message for ms in new_milestones)
+                    celebration = celebration + "\n\n" + milestone_lines
             except Exception:  # noqa: BLE001
                 pass  # milestone check must never block tool result delivery
 
@@ -530,10 +555,21 @@ class ToolContext:
         # Called here — after all badge/challenge checks — so failed hunts
         # (which return {"error": ...} before reaching this point) never advance
         # the streak. run_module only reaches this point when hunt() succeeded.
+        # F63: consume StreakUpdate.incremented to emit streak_continued score event
+        # (DEC-63-STREAK-SCORE-001). Step-decay points prevent farming.
         try:
             from datetime import date
 
-            self.streak_mgr.update(date.today())
+            streak_update = self.streak_mgr.update(date.today())
+            if streak_update.incremented:
+                streak_event = make_streak_continued_event(streak_update.current_streak)
+                try:
+                    self.workspace_mgr.store_score_events([streak_event])
+                    # Append to events list so it appears in LLM summary
+                    events = list(events) + [streak_event]
+                    total += streak_event["points"]
+                except Exception:  # noqa: BLE001
+                    pass  # streak score storage must never block tool result delivery
         except Exception:  # noqa: BLE001
             pass  # streak errors must never block tool result delivery
 

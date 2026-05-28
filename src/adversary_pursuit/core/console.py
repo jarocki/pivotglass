@@ -64,11 +64,14 @@ from adversary_pursuit.core.report import ReportGenerator
 from adversary_pursuit.core.streak import StreakManager
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.badges import BadgeManager
-from adversary_pursuit.gamification.celebrations import CelebrationEngine
+from adversary_pursuit.gamification.celebrations import (
+    CelebrationEngine,
+    highest_crossed_milestone_id,
+)
 from adversary_pursuit.gamification.challenges import ChallengeManager
 from adversary_pursuit.gamification.hints import HintProvider, InsufficientBalanceError
 from adversary_pursuit.gamification.modes import ModeManager
-from adversary_pursuit.gamification.scoring import ScoringEngine
+from adversary_pursuit.gamification.scoring import ScoringEngine, make_streak_continued_event
 from adversary_pursuit.models.stix import create_bundle, dict_to_stix
 from adversary_pursuit.modules.base import ModuleError
 
@@ -418,6 +421,12 @@ class APConsole(cmd2.Cmd):
         # hunt results were already displayed; storage failure is non-fatal and
         # reported to the user via poutput so they can investigate.
         try:
+            # Capture pre-run total BEFORE storing events — used for quiet-start
+            # migration so we seed based on what was already in the workspace,
+            # not the post-run total (which would suppress milestones earned by
+            # this very run). DEC-63-MIGRATION-001.
+            pre_total = self.workspace_mgr.get_total_score()
+
             # Capture type counts BEFORE storing so solve_count reflects
             # what was already in the workspace (not including these new results).
             stats = self.workspace_mgr.get_stix_type_counts()
@@ -449,6 +458,34 @@ class APConsole(cmd2.Cmd):
                         f"[green]+{event['points']}[/green] "
                         f"({event['indicator']})"
                     )
+
+            # Milestone catch-up check (DEC-63-MILESTONE-CATCHUP-001).
+            # Read last_announced_id AFTER storing score events so post_total
+            # reflects all points awarded this run.
+            # Quiet-start migration: seed from pre_total (score BEFORE this run)
+            # so milestones earned by this run are not suppressed.
+            # DEC-63-MIGRATION-001: on first access (last_id is None) with a
+            # pre-existing score, initialise last_id from pre_total so
+            # retroactive announcements for old scores are suppressed but this
+            # run's newly earned milestones are still announced.
+            try:
+                post_total = self.workspace_mgr.get_total_score()
+                last_id = self.workspace_mgr.get_last_milestone_id()
+                if last_id is None and pre_total > 0:
+                    # Quiet-start: suppress retroactive announcements for
+                    # workspaces loaded with a pre-existing score.
+                    seeded_id = highest_crossed_milestone_id(pre_total)
+                    if seeded_id is not None:
+                        self.workspace_mgr.set_last_milestone_id(seeded_id)
+                        last_id = seeded_id
+                new_milestones = self.celebration_engine.check_milestones(post_total, last_id)
+                if new_milestones:
+                    highest_new_id = max(ms.id for ms in new_milestones)
+                    self.workspace_mgr.set_last_milestone_id(highest_new_id)
+                    for ms in new_milestones:
+                        self.rich_console.print(f"\n[bold yellow]{ms.message}[/bold yellow]")
+            except Exception:  # noqa: BLE001
+                pass  # milestone check must never interrupt the hunt flow
         except Exception as exc:  # noqa: BLE001
             self.poutput(f"Warning: could not store results in workspace: {exc}")
 
@@ -480,10 +517,23 @@ class APConsole(cmd2.Cmd):
         # StreakManager.update() is the sole write authority for streak.json.
         # Called here (post-badge-check) so a failed hunt (exception paths above
         # return early) never advances the streak.
+        # F63: consume StreakUpdate.incremented to emit streak_continued score event
+        # (DEC-63-STREAK-SCORE-001). Step-decay points prevent farming.
         try:
             from datetime import date
 
-            self.streak_mgr.update(date.today())
+            streak_update = self.streak_mgr.update(date.today())
+            if streak_update.incremented:
+                streak_event = make_streak_continued_event(streak_update.current_streak)
+                try:
+                    self.workspace_mgr.store_score_events([streak_event])
+                    self.rich_console.print(
+                        f"  [cyan]{streak_event['action']}[/cyan]: "
+                        f"[green]+{streak_event['points']}[/green] "
+                        f"({streak_event['indicator']})"
+                    )
+                except Exception:  # noqa: BLE001
+                    pass  # streak score storage must never interrupt the hunt flow
         except Exception:  # noqa: BLE001
             pass  # streak errors must never interrupt the hunt flow
 

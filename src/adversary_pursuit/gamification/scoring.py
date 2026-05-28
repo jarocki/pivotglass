@@ -23,6 +23,19 @@ in the current workspace.
            workspace) models the real game mechanic: as you accumulate more of a
            type, each additional discovery is worth less. This incentivizes pivot
            diversity (finding new types) over depth (more of the same type).
+
+@decision DEC-63-STREAK-SCORE-001
+@title streak_continued ScoreEvent with three-tier step decay; prevents farming
+@status accepted
+@rationale A flat per-day bonus would be farmable (many short sessions to keep
+           a streak running). Three tiers (10pts days 1-7, 5pts days 8-30, 2pts
+           day 31+) reward early streak building but plateau quickly so grinding
+           the streak for points becomes uneconomical. current_streak is the post-
+           update value returned by StreakManager.update() (StreakUpdate.current_streak).
+           Callers emit the event only when StreakUpdate.incremented=True so same-day
+           idempotency and backward-clock clamp paths produce no event.
+           StreakManager remains the sole ~/.ap/streak.json authority (DEC-62-STREAK-001);
+           this file only defines the scoring calculation.
 """
 
 from __future__ import annotations
@@ -60,12 +73,20 @@ class ScoringRule:
 # Ordered from common (low value) to rare (high value).
 DEFAULT_RULES: list[ScoringRule] = [
     ScoringRule("new_ip", initial=100, minimum=10, decay=10, description="New IP discovered"),
-    ScoringRule("new_domain", initial=100, minimum=10, decay=10, description="New domain discovered"),
+    ScoringRule(
+        "new_domain", initial=100, minimum=10, decay=10, description="New domain discovered"
+    ),
     ScoringRule("new_url", initial=50, minimum=5, decay=10, description="New URL discovered"),
     ScoringRule("new_email", initial=50, minimum=5, decay=10, description="New email discovered"),
-    ScoringRule("adversary_mistake", initial=10, minimum=5, decay=5, description="Adversary mistake found"),
-    ScoringRule("deception_uncovered", initial=200, minimum=50, decay=5, description="Deception uncovered"),
-    ScoringRule("adversary_linked", initial=500, minimum=100, decay=3, description="Adversary linked"),
+    ScoringRule(
+        "adversary_mistake", initial=10, minimum=5, decay=5, description="Adversary mistake found"
+    ),
+    ScoringRule(
+        "deception_uncovered", initial=200, minimum=50, decay=5, description="Deception uncovered"
+    ),
+    ScoringRule(
+        "adversary_linked", initial=500, minimum=100, decay=3, description="Adversary linked"
+    ),
     ScoringRule("new_tool", initial=500, minimum=100, decay=3, description="New tool discovered"),
     ScoringRule(
         "campaign_described",
@@ -102,7 +123,7 @@ def calculate_points(rule: ScoringRule, solve_count: int) -> int:
     """
     if solve_count <= 0:
         return rule.initial
-    value = ((rule.minimum - rule.initial) / (rule.decay ** 2)) * (solve_count ** 2) + rule.initial
+    value = ((rule.minimum - rule.initial) / (rule.decay**2)) * (solve_count**2) + rule.initial
     return max(rule.minimum, min(rule.initial, int(value)))
 
 
@@ -221,3 +242,51 @@ class ScoringEngine:
             All rules this engine knows about.
         """
         return list(self.rules.values())
+
+
+def streak_continued_points(current_streak: int) -> int:
+    """Return the streak_continued bonus points for the given streak day.
+
+    Three-tier step decay (DEC-63-STREAK-SCORE-001):
+    - Days 1-7:  10 points  (early streak building — highest reward)
+    - Days 8-30: 5 points   (sustained engagement — moderate reward)
+    - Day 31+:   2 points   (long-term habit — minimal to prevent farming)
+
+    Parameters
+    ----------
+    current_streak:
+        The current_streak value from StreakUpdate after a successful hunt.
+        Must be >= 1 (callers only invoke this when incremented=True).
+
+    Returns
+    -------
+    int
+        Points to award for the streak_continued event.
+    """
+    if current_streak <= 7:
+        return 10
+    if current_streak <= 30:
+        return 5
+    return 2
+
+
+def make_streak_continued_event(current_streak: int) -> dict:
+    """Build a streak_continued score event dict ready for store_score_events().
+
+    Parameters
+    ----------
+    current_streak:
+        Current streak length after the successful hunt.
+
+    Returns
+    -------
+    dict
+        Score event with keys: action, points, indicator, rule_description.
+    """
+    points = streak_continued_points(current_streak)
+    return {
+        "action": "streak_continued",
+        "points": points,
+        "indicator": f"day-{current_streak}",
+        "rule_description": f"Streak continued (day {current_streak})",
+    }
