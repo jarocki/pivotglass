@@ -96,6 +96,7 @@ These are explicitly out of scope for v1. They may appear in future versions but
 | Phase 7 — Post-Phase-6 CTI Pipeline & TUI Polish (unscheduled, landed organically 2026-05-03..2026-05-15) | **completed** | ~12 user-driven commits hardening CTI reliability, setup UX, and TUI polish: setup wizard `b44968c` (#45), 3-layer key resolution `a4cc341`, Censys Platform API v3 `fef6bfd` (#43), CTI pipeline repairs `9e6daa0`, URLScan submit/poll fixes `26c5b54` + `5cc2be6`, smoke SKIP classification `137fb45` (#48), smoke ConfigManager fix `823d54e`, TUI polish `db576b9`, provider/model wizard `4e11dde`, help meta-commands `70ede27`, `AP_MODEL` env override `9129c1b`, wizard dotfile export `4b9d030`. |
 | Phase 8 — Smoke Test Reliability | **completed** (W-OTX-TIMEOUT landed `b877574`, impl `72fd3eb`) | `W-OTX-TIMEOUT` added `TIMEOUT` option to `cti/otx` + classified `httpx.ReadTimeout` as a timeout-stub SCO, mirroring the URLScan transient-failure pattern (`5cc2be6`). No other smoke regressions open at v1 ship; future live-smoke regressions will be filed as discrete slices through the canonical planner chain. |
 | Phase 9 — Pre-v1 Module Catalog Top-Off (W-GREYNOISE) | **completed** (2026-05-16, merge `6884317`) | Per 2026-05-16 user directive ("Is GreyNoise one of the API lookup sources? If not, please add it before we ship v1.0."), added `osint/greynoise` as the 11th catalog module using the free-tier GreyNoise Community API (`/v3/community/{ip}`). Closes the noise/RIOT classification gap in the v1 IP-reputation surface. See "Phase 9 closeout" section below. |
+| Phase 16 — Threat Actor Dossier Reframe — Strategic Scoping (W-68-DOSSIER-REFRAME-SCOPING) | **in-progress** (planner stage, 2026-05-27) | Per 2026-05-26 Project Reckoning (the most important unmade decision in the project) and issue #68. Ratifies the dossier-puzzle metaphor as v2's product center (DEC-68-DOSSIER-REFRAME-001), establishes scoring authority resolution (DEC-002), defines slot schema v1.0 (9 slots), decomposes the reframe into M-1..M-9 slices, dispositions issues #29/#30/#31/#32 (sequence-within / independent / **retire** / augment), schedules the Original Intent crowdsourcing axis as M-9. **No source code touched.** See Phase 16 section + `.claude/plans/dossier-reframe-v2-roadmap.md`. |
 
 **Aggregate (reconciled 2026-05-19, v1 stable shipped):** Phases 0–9 complete. All W-AGENT-* slices landed; Phase 5 release path verified (`v0.1.0rc1` pre-release at `cd3709a`) then promoted to stable `v0.1.0` (`e8e9b13`, 2026-05-19); Phase 6 docs complete; Phase 7 post-polish complete; Phase 8 `W-OTX-TIMEOUT` landed (`b877574`); Phase 9 `W-GREYNOISE` landed (`6884317`); `W-V1-FINAL-SHIP` landed (`e8e9b13`). The agentic chat (`ap chat`) is the v1 primary interface with full gamification parity over 11 modules. The cmd2 REPL is a supported power-user surface. All four v1 boundary work items have landed; `v0.1.0` is stable and public. Subsequent work is post-v1 and user-determined.
 
@@ -1632,6 +1633,122 @@ Runtime authority: stored on `wi-61-impl-01.evaluation_json` (11247 bytes; loade
 
 ---
 
+## Phase 16: Threat Actor Dossier Reframe — Strategic Scoping (W-68-DOSSIER-REFRAME-SCOPING, post-v1, 2026-05-27)
+
+**Status:** in-progress (strategic scoping; planner stage authoring the binding decisions and decomposition into M-1..M-9 follow-on workflows; no source code touched by this slice).
+
+**Source directive:** Issue [#68](https://github.com/jarocki/ap/issues/68) (filed 2026-05-23) reframes AP from indicator-graph traversal to **Threat Actor Dossier completion**. The 2026-05-26 Project Reckoning (Section VIII, item 3) elevated this to "the most important unmade decision in the project — every day it sits unscoped is a day the project's v2 center of gravity is unset."
+
+**Verbatim user directive (issue #68 body, key passages):**
+
+> "Adversary Pursuit is **not** about pivoting through indicators to find factoids. It is about **piecing together a picture of a Threat Actor** — their habits, their strengths, technology they use or are comfortable with — and the quirky way they use it, their motivations, their 'tells,' anything else that can match activity to their **persona fingerprint** or **predict what they'll do next**, or build a strategy for **confusing / denying / discouraging** further attack progress."
+>
+> "The right metaphor is a **dossier** — a **puzzle** where the pieces filled in are the actual score drivers. The more important pieces (the ones nobody else has, the ones that pin actor identity, the ones that predict the next move) are worth higher scores."
+
+> _2026-05-26 Reckoning (Section VIII.3):_ "Issue #68 (Dossier reframe) is the most important unmade decision in the project. … It is conceptually closer to the Original Intent than today's trajectory."
+
+**Scoping deliverable:** This Phase 16 section + `.claude/plans/dossier-reframe-v2-roadmap.md` (the full strategic scoping artifact). MASTER_PLAN carries the binding decisions and slice index; the roadmap document carries the full schema, rationale, and disposition tables. **No source code is touched by this workflow.** Implementer slices M-1 through M-9 are separate workflows that flow out of this scoping.
+
+### Binding Decisions (full rationale in `.claude/plans/dossier-reframe-v2-roadmap.md` §8)
+
+| DEC ID | Decision (one-line) | See |
+|--------|---------------------|-----|
+| **DEC-68-DOSSIER-REFRAME-001** | The dossier-puzzle metaphor is ratified as v2's product center. AP's analytic unit of value shifts from indicator-graph traversal to Threat Actor Dossier completion. | roadmap §2 |
+| **DEC-68-DOSSIER-REFRAME-002** | Scoring authority: layer a new `dossier/` aggregator over the existing `ScoringEngine`; emit new `DossierSlotFilled` / `DossierPredictionValidated` `ScoreEvent` subtypes via the same engine; re-tune per-IOC `MODULE_RUN_SCORED` to baseline weight 1.0. No deprecation shim, no fallback flag. Preserves F62/F63/F64 invariants. | roadmap §4 |
+| **DEC-68-DOSSIER-REFRAME-003** | Issue #29 (18 SATs as agent capabilities) is sequenced *within* the dossier roadmap as the analyst-step interpretation engine; SAT library lands under `dossier/sats/`. | roadmap §6 |
+| **DEC-68-DOSSIER-REFRAME-004** | Issue #30 (character v2 personas) stays independent. Player persona vs target persona; orthogonal. | roadmap §6 |
+| **DEC-68-DOSSIER-REFRAME-005** | Issue #31 (RPG gamification v2: XP/levels/skill trees/loot/quests) is **retired** as superseded by #68. Close with supersession comment pointing at M-3 / M-7 / this DEC. | roadmap §6 |
+| **DEC-68-DOSSIER-REFRAME-006** | Issue #32 (LLM-enhanced celebrations + reports) augments the dossier roadmap as M-7 sub-issue. Gated on M-3 and M-4. Honors F64 panel-authority invariants. | roadmap §6 |
+| **DEC-68-DOSSIER-REFRAME-007** | Predictions Log slot (slot 8): falsified prediction contributes 0 to slot weight. Whether falsified predictions *deduct* score is deferred to M-3 implementer slice. | roadmap §8 |
+| **DEC-68-DOSSIER-REFRAME-008** | v1's interview-based investigation report is replaced by the actor-dossier report at M-7. v1 template available via `--style classic` for one release cycle (v0.2.x), removed at M-8 cleanup. | roadmap §5 (M-7/M-8) |
+| **DEC-68-DOSSIER-REFRAME-009** | Original Intent crowdsourcing / competition / career-development axis is **scheduled as M-9** (v0.3.0+), NOT retired as a Non-Goal. Dossiers are STIX-bundle-comparable; the dossier reframe makes the axis tractable. | roadmap §7 |
+| **DEC-68-DOSSIER-REFRAME-010** | The dossier slot schema v1.0 (9 slots) is binding for M-1 with the explicit exception that M-1 may refine by ±2 slots before the first implementer touches code. Further refinement requires a planner re-stage and a successor DEC-ID. | roadmap §3 |
+
+### Dossier Slot Schema v1.0 (binding, refinable per DEC-68-DOSSIER-REFRAME-010)
+
+| # | Slot | Score weight | Confidence: contested \| low \| medium \| high |
+|---|------|--------------|-------------|
+| 1 | Identity / Attribution | 5.0 | |
+| 2 | TTPs and Tradecraft | 3.0 | |
+| 3 | Infrastructure Habits | 2.0 | |
+| 4 | Timing / Behavioral | 2.0 | |
+| 5 | Targeting Profile | 2.5 | |
+| 6 | Capability Ceiling | 3.5 | |
+| 7 | Motivation Indicators | 3.0 | |
+| 8 | Predictions Log | 4.0 | |
+| 9 | Denial / Deception Strategies | 2.5 | |
+
+Baseline routine per-IOC lookup with no slot impact = 1.0 (v1 baseline retained for backward compatibility). Full evidence-types per slot, source-attribution requirements, and confidence-level definitions: `.claude/plans/dossier-reframe-v2-roadmap.md` §3.
+
+### Decomposition Index — M-1 through M-9 (each becomes a separate planner workflow)
+
+| Slice | Title | Size | Blocked by | v0.x target |
+|-------|-------|------|------------|-------------|
+| **M-1 (MVP)** | Dossier Visualization Panel — `ap chat` panel + `get_dossier_state` LLM tool, read-only inference over existing workspace SCOs; no new tables, no new scoring math | S–M | nothing | v0.2.0 |
+| M-2 | Module-to-Slot Mapping Layer — `dossier/extractors.py` per existing module (15 modules) | M | M-1 | v0.2.x |
+| M-3 | Dossier Scoring + Score Event Re-Tune — new `ScoreEvent` subtypes, slot-weight × confidence × rarity formula; re-tune per-IOC events to baseline 1.0; preserve F62/F63/F64 | M–L | M-2 | v0.2.x |
+| M-4 | Persistent Dossier State + Predictions Log (slot 8) — new SQLite tables `dossier_slot`, `dossier_evidence_link`, `dossier_prediction` | L | M-3 | v0.2.x or v0.3.0 |
+| M-5 | Denial / Deception Strategies (slot 9) + User-Note Surface | M | M-4 | v0.3.x |
+| M-6 | Dossier-Aware Auto-Pivot Policy — extend F60 policy with "would this pivot fill an empty high-value slot?" input; preserve DEC-60-* | M | M-4 | v0.3.x |
+| M-7 | Reports / Celebrations / Badges Dossier-Aware Upgrade — absorbs issue #32; honors F64 panel authority | L | M-3, M-4, M-5, M-6 | v0.3.x |
+| M-8 | Cleanup, Closeout, and Novel-Method Achievement Mechanism — removes "classic" report shim from M-7; implements #68's "recognizing a novel method" bonus-space ask | M | M-7 | v0.3.x |
+| **M-9** | Crowdsourced Dossier Comparison + Public Actor Library — fulfills Original Intent's crowdsourcing axis; STIX-bundle-based dossier export/import; opt-in public-library | L | M-8 | v0.3.0+ |
+
+**Critical path:** M-1 → M-2 → M-3 → M-4 → M-7 → M-8 → M-9. Max parallel width: M-5 + M-6 can land in parallel after M-4 and before M-7.
+
+### Related Issue Disposition Table
+
+| Issue | Title | Disposition | Action | DEC |
+|-------|-------|-------------|--------|-----|
+| #29 | 18 SATs as agent capabilities | **Sequence-within** (M-2/M-3) | Comment re-aiming #29 to dossier extraction; label `dossier-roadmap` | DEC-68-DOSSIER-REFRAME-003 |
+| #30 | Character v2 LLM personas | **Stays independent** | Clarifying comment (player persona ≠ target persona) | DEC-68-DOSSIER-REFRAME-004 |
+| #31 | RPG gamification v2 (XP/levels/skill trees/loot/quests) | **Retired** | Close #31 with supersession comment pointing at M-3, M-7, DEC-68-DOSSIER-REFRAME-005 | DEC-68-DOSSIER-REFRAME-005 |
+| #32 | LLM-enhanced celebrations + reports | **Augment via M-7** | Re-scope as M-7 sub-issue; gated on M-3 + M-4 | DEC-68-DOSSIER-REFRAME-006 |
+
+### Non-Superseded Prior Decisions (continue to bind)
+
+The dossier reframe **does not** supersede any of these v1 invariants. They continue to apply to M-1 through M-9:
+
+- ADR-005 (STIX 2.1 as internal data model)
+- DEC-59-STIX-PROVENANCE-001..007 (workspace as sole `x_ap_*` authority; per-SCO provenance)
+- DEC-WS-001..006 (workspace SQLite + dedup + Session semantics)
+- DEC-STIX-001..002 (deterministic ids; dict passthrough on unknown types)
+- DEC-EVENTBUS-002 (opt-in event bus)
+- DEC-60-PIVOT-POLICY-001..007 (3-gate policy engine; preserved by M-6 extension)
+- DEC-62-STREAK-* (streak mechanic; preserved by M-3 re-tune)
+- DEC-63-MILESTONE-* (milestone catch-up; preserved by M-3 re-tune)
+- DEC-64-LLM-PANEL-SEPARATION-001 (sidecar pattern; preserved by M-7 augmentation)
+- Sacred Practice 12 (single authority per operational fact)
+- Principle 4 (modules are pure data producers; dossier rides on top, never inside modules)
+
+### Out-of-Scope for This Workflow
+
+- **No source code touched.** This is the planning slice. Only `MASTER_PLAN.md` and `.claude/plans/dossier-reframe-v2-roadmap.md` are written.
+- **No new modules.** Dossier is an aggregation layer; existing 15-module catalog suffices for M-1 through M-8.
+- **No federation, no real-time multi-user, no DALL-E, no web/GUI.** v1 Non-Goals continue to bind through M-9 (file-based dossier export/import via STIX bundle remains permitted under existing STIX 2.1 commitments).
+- **No MCP-migration (#65) dependency.** Orthogonal; both reframes can land in either order.
+
+### Subsequent Workflow Cue
+
+After this planning slice lands, the recommended next workflow is `M-1` (Dossier Visualization Panel) — smallest viable shipping unit, validates the slot schema against real workspace data, no persistence commit, no scoring change. The planner that opens M-1 authors its own Evaluation Contract and Scope Manifest under a successor workflow id (e.g., `w-68-m1-dossier-panel`).
+
+### Decision Log (Phase 16)
+
+| DEC ID | Decision | Rationale |
+|--------|----------|-----------|
+| DEC-68-DOSSIER-REFRAME-001 | Ratify the dossier-puzzle metaphor as v2's product center. AP's analytic unit of value shifts from indicator-graph traversal to Threat Actor Dossier completion. | Five independently sufficient reasons (roadmap §2.1–2.5): closer to Original Intent than v1 trajectory; serves Principle 4 ("modules are pure data producers") more cleanly than v1 scoring; resolves a latent tension in the gamification stack that F60/F62/F63/F64 have been working around; absorbs Threat Hunter expert pressure at the *value* layer (v1 hardened the evidence chain; v2 needs the analytic-value chain); architecturally cheap given ADR-010 + F59/F60/F61 separation discipline. |
+| DEC-68-DOSSIER-REFRAME-002 | Scoring authority resolution: **option (c)** — layer a `dossier/` aggregator over `ScoringEngine`; emit new `DossierSlotFilled` / `DossierPredictionValidated` event subtypes via the existing engine; re-tune per-IOC `MODULE_RUN_SCORED` to baseline weight 1.0. Reject option (a) replace (breaks F62/F63/F64 in one landing); reject option (b) parallel augment (creates permanent dual-authority surface). | The `dossier/` package owns "what's the analytic-state-of-the-world?"; `ScoringEngine` continues to own "what's a scoreable event?" Distinct questions, distinct authorities — Sacred Practice 12 honored. F62 streak chain + F63 milestone catch-up + F64 panel de-duplication all observe `ScoreEvent`s (unchanged interface). No fallback flag; no env-var bypass; no parallel emission outside `ScoringEngine`. |
+| DEC-68-DOSSIER-REFRAME-003 | Sequence issue #29 (18 SATs as agent capabilities) *within* the dossier roadmap as the analyst-step interpretation engine. SAT library lands under `dossier/sats/`, not as a parallel `agents/capabilities/` surface. | SATs are exactly the analyst-step interpretation that turns raw SCO evidence into slot values (issue #29 body: "into the bones"). Analysis of Competing Hypotheses becomes the M-3 confidence-resolution mechanic; Key Assumptions Check becomes the slot 8 Predictions Log sanity gate. Avoids creating two parallel "analyst capability" surfaces. |
+| DEC-68-DOSSIER-REFRAME-004 | Issue #30 (character v2 LLM personas) stays independent of the dossier reframe. Player persona (#30) and target persona (dossier slots 1, 6, 7) answer different questions; the dossier IS the target persona; #30 governs presentation flavor. | Orthogonality test: a Bobby Hill-mode user fills the same dossier slots a Columbo-mode user fills. Persona affects presentation, not analytic state. No dossier-roadmap dependency in either direction; #30 ships independently when prioritized. |
+| DEC-68-DOSSIER-REFRAME-005 | **Retire issue #31** (RPG gamification v2: XP, levels, skill trees, loot, quests) as superseded by #68. Close with supersession comment pointing at M-3, M-7, and this DEC-ID. The quest piece survives in spirit as "fill a high-value empty slot for actor X" under M-3/M-7; it does NOT survive as a quest *subsystem*. | RPG level-grinding rewards activity volume — exactly the v1 frame the dossier reframe replaces. Skill trees gate progression by mechanical specialization rather than by what's been learned about actors. Loot is the wrong metaphor (the rare finding *is itself* the reward because it fills a high-value slot). Keeping #31 open would create permanent friction against the dossier scoring model. Most assertive call in this scoping; worth user adjudication if disputed. |
+| DEC-68-DOSSIER-REFRAME-006 | Augment issue #32 (LLM-enhanced celebrations + reports) via sequence-within: #32 becomes an M-7 sub-issue. Gated on M-3 (so there's `DossierSlotFilled` content to narrate) and M-4 (so there's persistent slot state for narrative reference). Honors F64 panel-authority invariants — LLM narration is the *content* of panel events, not a parallel surface. | The dossier reframe gives #32 a substrate it didn't have under v1's per-IOC framing. v1 ASCII-art celebrations continue to fire for routine baseline events at weight 1.0; LLM-narrated celebrations fire for high-weight slot-fill events. |
+| DEC-68-DOSSIER-REFRAME-007 | Predictions Log (slot 8): a falsified prediction contributes 0 to slot weight (not negative). Whether falsified predictions should *deduct* score is **deferred** to the M-3 implementer slice. | Deferred not because the question is unimportant but because the right answer depends on whether negative-score events break F62 streak invariants or F63 milestone catch-up math. M-3 implementer evaluates against existing DEC-62-* / DEC-63-* and decides; planner re-stages only if M-3 surfaces a violation of an existing DEC. |
+| DEC-68-DOSSIER-REFRAME-008 | The v1 interview-based investigation report (DEC-AGENT-REPORT-* under Phase 6) is replaced by the actor-dossier report at M-7. The v1 template remains available via `--style classic` flag for one release cycle (v0.2.x); removed at M-8 cleanup. | One-release-cycle deprecation is the minimum window for a single user to consume the change without surprise; longer windows would create the parallel-authority residue Sacred Practice 12 forbids. M-8 is the named removal point so cleanup is not optional. |
+| DEC-68-DOSSIER-REFRAME-009 | **Schedule the Original Intent crowdsourcing / competition / career-development axis as M-9** (Crowdsourced Dossier Comparison + Public Actor Library, v0.3.0+). Do NOT retire as a Non-Goal. | The dossier reframe makes the axis architecturally tractable: dossiers are STIX-bundle-comparable; career = dossier corpus; competition = slot-fill speed / validated-prediction ratio; crowdsourcing = opt-in dossier publication. Retiring it would contradict the 2026-05-26 Reckoning's framing that the dossier reframe is "Original Intent's voice clarifying itself." Scheduling it (rather than leaving it latent or formally retiring it) resolves the 7-week latency the Reckoning called out. |
+| DEC-68-DOSSIER-REFRAME-010 | The dossier slot schema v1.0 (§3 of roadmap; 9 slots above) is binding for M-1 with the exception that M-1 may refine the schema by ±2 slots before the first implementer touches code. Further refinement post-M-1 requires a planner re-stage and a successor DEC-ID. | Locking the schema before MVP contact with real data would be premature; locking it forever after MVP would be brittle. The ±2-slot M-1 window lets the MVP validate the metaphor; the successor-DEC-ID gate ensures subsequent refinements remain tracked under the Decision Log discipline. |
+
+---
+
 ## Runtime Hygiene Backlog
 
 Cross-cutting runtime issues surfaced during recent dispatch chains. Tracked as GitHub issues (not v1 plan slices) — they affect orchestrator/Guardian quality of life but not the AP product surface:
@@ -1680,6 +1797,8 @@ These are the concrete follow-ups identified by the 2026-04-28 reckoning and upd
 |----|-------|------|-----------|--------|
 | W-FRIENDLY-ERRORS | Universal `core/error_interpreter.py` — catches all errors at the cmd2 + ap chat + smoke_test surfaces, renders friendly Rich panels with fix-suggestions + 8-char diagnostic IDs, offers `[y/n]` auto-fix prompts on mechanically safe fixes (rerun `ap config setup`, restore `~/.ap/config.toml.bak`, sleep-and-retry on rate-limit), preserves full tracebacks in `~/.ap/debug.log` (JSONL, fcntl-locked, 1000-line rotated). Per 2026-05-14 user directive. See "Phase 10" section above. | source + tests + evidence | `1ccf13b` (impl) | completed |
 | W-59-STIX-PROVENANCE | STIX 2.1 spec compliance + per-SCO provenance — workspace single authority for `x_ap_*` fields (`x_ap_fetched_at`, `x_ap_source_url`, `x_ap_api_version`, `x_ap_response_sha256`); `export_stix_bundle()` rebuilt via `stix2.v21.Bundle` round-trip. Closes issue #59. Per 2026-05-22 Threat Hunter expert assessment. See "Phase 11" section above. | source + tests + evidence | _pending implementer_ | in-progress |
+| W-68-DOSSIER-REFRAME-SCOPING | Threat Actor Dossier reframe strategic scoping — ratifies dossier-puzzle metaphor as v2 product center; slot schema v1.0; M-1..M-9 decomposition; #29/#30/#31/#32 disposition; Original Intent crowdsourcing scheduled as M-9. **Planning slice only**, no source code. See Phase 16 + `.claude/plans/dossier-reframe-v2-roadmap.md`. | docs only | _pending guardian (land)_ | in-progress |
+| W-68-M1-DOSSIER-PANEL | **Recommended next workflow** — Dossier Visualization Panel MVP (v0.2.0 target). `ap chat` panel + `get_dossier_state` LLM tool; read-only inference over existing workspace SCOs. No new tables, no new scoring math. Validates slot schema v1.0 against real workspace data; ±2-slot refinement window per DEC-68-DOSSIER-REFRAME-010. Planner re-stage required to author full Evaluation Contract and Scope Manifest. | source + tests | _not started; planner re-stage_ | planned |
 
 > **Recommended next work item:** `W-59-STIX-PROVENANCE` — planner stage complete (this commit). Scope manifest authored at `tmp/scope-w-59-stix-provenance.json` (implementer will `cc-policy workflow scope-sync` it), evaluation contract written (9 keys, 8 required tests, 3 required evidence artifacts, 7 architecture decisions DEC-59-STIX-PROVENANCE-001..007). Implementer next; canonical chain continues `planner → guardian (provision) → implementer → reviewer → guardian (land)`.
 >
