@@ -12,6 +12,15 @@ score milestones, or earn their first discovery in a workspace.
            (100pts base) gets medium, a campaign description (1000pts) gets epic.
            ASCII art is randomized within each level to avoid repetition.
 
+@decision DEC-CELEBRATION-002
+@title Exact-threshold milestone fire — milestones triggered only at exact score match
+@status superseded
+@rationale Superseded by DEC-63-MILESTONE-CATCHUP-001 (cross-threshold + idempotency).
+           Original rationale: milestones (First Century, etc.) fired only at exact
+           thresholds — jumping 99→105 silently skipped First Century forever.
+           DEC-63 replaced this with cross-threshold checks and a last_milestone_announced
+           sentinel persistence. See MASTER_PLAN.md Phase 12C for the supersession record.
+
 @decision DEC-63-MILESTONE-CATCHUP-001
 @title Cross-threshold milestone semantics with idempotent last_announced sentinel
 @status accepted
