@@ -1749,6 +1749,133 @@ After this planning slice lands, the recommended next workflow is `M-1` (Dossier
 
 ---
 
+## Phase 17: Character System v2 — LLM Personas — Strategic Scoping (W-30-CHARACTER-V2-SCOPING, post-v1, 2026-05-27)
+
+**Status:** in-progress (strategic scoping; planner stage authoring the binding decisions and decomposition into C-1..C-4 follow-on workflows; no source code touched by this slice).
+
+**Source directive:** Issue [#30](https://github.com/jarocki/ap/issues/30) — "Upgrade character modes from static templates to LLM personality profiles." Ratified as **orthogonal** to the dossier reframe by DEC-68-DOSSIER-REFRAME-004 (player persona ≠ target persona).
+
+**Verbatim user directive (issue #30 body, key passages):**
+
+> "Upgrade character modes from static templates to LLM personality profiles."
+>
+> "Phase 3 system prompts per character (Borderlands/Fallout RPG style); dynamic personality responding to investigation context; character-specific tool preferences; RPG-style level progression."
+
+**Scoping deliverable:** This Phase 17 section + `.claude/plans/character-v2-roadmap.md` (the full strategic scoping artifact). MASTER_PLAN carries the binding decisions and slice index; the roadmap document carries the full schema, per-mode disposition tables, and rationale. **No source code is touched by this workflow.** Implementer slices C-1 through C-4 are separate workflows that flow out of this scoping.
+
+**Companion roadmap:** `.claude/plans/dossier-reframe-v2-roadmap.md` (W-68; landed Phase 16). DEC-68-DOSSIER-REFRAME-004 ratified #30 as orthogonal to #68 — both v2 roadmaps proceed independently, with one sequencing preference (C-4 prefers post-M-4) and one inverse preference (M-7 prefers post-C-1). See Phase 17 §6.5 below.
+
+### Binding Decisions (full rationale in `.claude/plans/character-v2-roadmap.md` §7)
+
+| DEC ID | Decision (one-line) | See |
+|--------|---------------------|-----|
+| **DEC-30-CHARACTER-V2-001** | The "Borderlands/Fallout RPG style" brief is interpreted as a *voice-quality recommendation* applied non-uniformly across the existing 10 F62-cleaned modes, NOT a literal IP-aesthetic mandate that replaces the catalog. Option (c) over (a) replace-with-genre and (b) replace-with-professional. | roadmap §2 |
+| **DEC-30-CHARACTER-V2-002** | Per-mode disposition: 8 of 10 modes UPGRADE with LLM profiles; 2 (default, ninja) KEEP_STATIC; 0 RETIRE. KEEP_STATIC ≠ second-class — those modes serve "no flavor" / "minimal flavor" user-mood anchors. | roadmap §4 |
+| **DEC-30-CHARACTER-V2-003** | Personality profile schema v1.0 (8 fields; ≤ 165 tokens per mode) injects via the existing `AgentRunner.set_character` site as a system-prompt fragment. Reject sidecar-agent + post-processor as parallel-authority surfaces. | roadmap §3 |
+| **DEC-30-CHARACTER-V2-004** | "RPG-style level progression": XP-grind / skill-tree / loot / quest forms are **retired** (already retired by DEC-68-DOSSIER-REFRAME-005 superseding #31). A narrow `mastery_level` hook is **deferred to C-4** as an optional expressive-depth axis keyed off session count, NOT score-grinding. C-4 may retire the hook entirely. | roadmap §5.1 |
+| **DEC-30-CHARACTER-V2-005** | F62 + F64 invariants jointly preserved: `mode.run_fail` remains sole authority for failure voice; StreakManager remains sole streak authority; persona has no streak fields; gamification-event narration stays on Rich-panel surface; `tool_preferences` is voice-affinity only and MUST NOT bias tool selection (C-1 invariant test enforces). F60 auto-pivot architecturally disconnected. | roadmap §5.2–5.4 |
+| **DEC-30-CHARACTER-V2-006** | C-1 MVP scope: one upgraded mode (`full_troll` recommended) + the `LLMPersonaProfile` dataclass + extended `set_character` composer + invariant test suite. Other 9 modes ship at `llm_profile=None` (= F62 behavior). ≤ 2 weeks implementer effort; v0.2.x target. | roadmap §6 (C-1) |
+| **DEC-30-CHARACTER-V2-007** | Sequencing relative to AP #68: C-1 lands **parallel with M-1** (zero dependency; complementary v0.2.0 product story). C-4 prefers post-M-4. M-7 prefers post-C-1. All four preferences are simultaneously satisfiable. | roadmap §6.5 |
+
+### Personality Profile Schema v1.0 (binding, refinable per DEC-30-CHARACTER-V2-003)
+
+`LLMPersonaProfile` (new frozen dataclass) — 8 fields:
+
+| Field | Type | Token budget |
+|-------|------|--------------|
+| `voice_summary` | `str` | ≤ 20 |
+| `tone_registers` | `tuple[str, ...]` (2–4 register words) | ≤ 10 |
+| `signature_phrases` | `tuple[str, ...]` (2–5 catch-phrases) | ≤ 30 |
+| `fourth_wall_stance` | `Literal["in_character", "winking", "meta_aware"]` | ≤ 5 |
+| `dialect_cadence` | `str` | ≤ 20 |
+| `context_hooks` | `tuple[str, ...]` (1–3 context-response pointers) | ≤ 40 |
+| `tool_preferences` | `tuple[str, ...]` (0–3 voice-affinity hints — **NOT selection bias**) | ≤ 20 |
+| `forbidden_voice` | `tuple[str, ...]` (0–3 negative voice constraints) | ≤ 20 |
+
+Per-mode total budget: **≤ 165 tokens**. C-1 may refine schema by ±2 fields before first implementer touches code (DEC-30-CHARACTER-V2-003). `CharacterMode` extends with `llm_profile: LLMPersonaProfile | None = None` (default None → F62 behavior preserved verbatim). Full schema, evidence, and injection composer at `.claude/plans/character-v2-roadmap.md` §3.
+
+### Per-Mode Disposition (binding)
+
+| Mode | Disposition | Reason (one-line) |
+|------|-------------|-------------------|
+| `default` | **KEEP_STATIC** | The neutral baseline — purpose is *no persona flavor*. |
+| `ninja` | **KEEP_STATIC** | Purpose is *less output*, not more characterful. |
+| `full_troll` | **UPGRADE (C-1 MVP)** | Strongest fit for Borderlands/Fallout snark; highest comedic visibility. |
+| `drunken_master` | **UPGRADE (C-2)** | Rambling tipsy diction — LLM dynamism wins decisively over static templates. |
+| `bobby_hill` | **UPGRADE (C-2)** | Signature phrase + chaotic energy — LLM extends past 4-line catalog. |
+| `chuck_norris` | **UPGRADE (C-2)** | Chuck Norris facts are a well-defined corpus; LLM extends naturally. |
+| `sun_tzu` | **UPGRADE (C-3)** | LLM pulls context-appropriate Art of War quotes from a wider pool. |
+| `bruce_lee` | **UPGRADE (C-3)** | Parallel to sun_tzu — flow-state philosophy extends beyond static templates. |
+| `bureaucrat` | **UPGRADE (C-3)** | Heavy idiom load (forms, policy sections) — LLM extends without explicit form-name authoring. |
+| `columbo` | **UPGRADE (C-4, post-M-4)** | Most AP-thematically-aligned; bridges persona ↔ dossier ("just one more thing… have we checked the WHOIS?"). |
+
+Full per-mode rationale in `.claude/plans/character-v2-roadmap.md` §4.
+
+### Decomposition Index — C-1 through C-4 (each becomes a separate planner workflow)
+
+| Slice | Title | Size | Blocked by | v0.x target |
+|-------|-------|------|------------|-------------|
+| **C-1 (MVP)** | First Upgraded Mode (`full_troll` recommended) — `LLMPersonaProfile` dataclass + `CharacterMode.llm_profile` field + extended `AgentRunner.set_character` composer + F62/F64 invariant test suite | S–M | nothing | v0.2.x |
+| C-2 | Voice-Driven Modes upgrade (drunken_master, bobby_hill, chuck_norris) — three profiles authored against the C-1 schema; no code change beyond data | M | C-1 | v0.2.x |
+| C-3 | Philosophy + Bureaucratese Modes upgrade (sun_tzu, bruce_lee, bureaucrat) — three idiom-heavy profiles | M | C-1 (C-2 not required) | v0.2.x or v0.3.x |
+| C-4 | `columbo` upgrade + optional `mastery_level` hook (C-4 planner decides whether to implement or retire the hook) | M–L | C-1; **prefers post-M-4** for dossier-aware `context_hooks` | v0.3.x |
+
+**Critical path:** C-1 → (C-2, C-3, C-4 parallel after C-1). C-4 *prefers* post-M-4 (#68 persistent dossier state) so columbo's `context_hooks` can reference real slot state; not strictly blocked.
+
+**Sequencing relative to AP #68 (DEC-30-CHARACTER-V2-007):**
+
+```
+v0.2.0:  C-1 + M-1                  (parallel, independent — zero dependency)
+v0.2.x:  C-2 + M-2 + M-3            (parallel, independent)
+v0.3.x:  C-3 + M-4 + M-5 + M-6      (parallel, independent)
+v0.3.x:  C-4 + M-7                  (C-4 prefers post-M-4 ✓; M-7 prefers post-C-1 ✓)
+v0.3.x:  M-8
+v0.3.0+: M-9
+```
+
+### F62 / F64 / F60 Non-Superseded Invariants (continue to bind)
+
+The character v2 reframe **does not** supersede any of these v1 invariants. They continue to apply to C-1 through C-4:
+
+- **DEC-MODE-001/002** — CharacterMode as frozen dataclass; `score_celebration` uses `str.format(points=N)`. Extension of CharacterMode with `llm_profile` is a compatible field addition.
+- **DEC-62-KILL-DOC-LIES-001** — `hint_style` deleted; `run_fail` is the single authority for failure voice. v2 personas MUST NOT re-introduce a `hint_style` field or any parallel failure-voice surface.
+- **F62 StreakManager single-authority** (DEC-62-STREAK-*) — persona has no streak fields. Mastery (if C-4 implements it) keys off session count, NOT streak state.
+- **DEC-64-LLM-PANEL-SEPARATION-001** — gamification events (celebrations, badges, challenges) ride on the Rich-panel sidecar; persona LLM text MUST NOT smuggle "+N points" strings.
+- **F60 pivot policy** (DEC-60-PIVOT-POLICY-001..007) — architecturally disconnected from the persona surface. Persona MUST NOT influence pivot decisions.
+- **DEC-AGENT-CHAT-002** — `mode` meta-command routing in `chat.py`. v2 does not alter the meta-command surface; only the `set_character` consumer changes.
+- **Sacred Practice 12** (single authority per operational fact) — v2 personas are an *additive* layer over the F62 CharacterMode surface; one integration site (`AgentRunner.set_character`).
+- **DEC-68-DOSSIER-REFRAME-004** — #30 stays independent of the dossier reframe. v2 personas drive presentation flavor; the dossier drives analytic state. Orthogonal axes.
+
+### Out-of-Scope for This Workflow
+
+- **No source code touched.** This is the planning slice. Only `MASTER_PLAN.md` and `.claude/plans/character-v2-roadmap.md` are written.
+- **No new modes.** The 10 F62-cleaned modes are the v2 catalog. New persona ideas get a fresh issue and a fresh planner pass.
+- **No cmd2 console persona-prompt changes.** v2 persona profiles are an `ap chat` (agentic) surface only. The cmd2 path remains the F62 Rich-panel-voice path.
+- **No new gamification events.** Persona is pure presentation flavor; never emits `ScoreEvent`s, never earns badges, never triggers challenges.
+- **No persona-bound tool restrictions.** `tool_preferences` is voice flavor only. Bureaucrat mode does NOT actually require Form TPS-001 before crt.sh enrichment.
+- **No federation, no real-time multi-user, no DALL-E, no web/GUI.** v1 Non-Goals continue to bind.
+- **No MCP-migration (#65) dependency.** Orthogonal.
+
+### Subsequent Workflow Cue
+
+After this planning slice lands, the recommended next workflow is **C-1** (First Upgraded Mode — `full_troll`). Smallest viable shipping unit; validates `LLMPersonaProfile` schema + F62/F64 invariant tests against one real persona before 7 others inherit any latent bug. The planner that opens C-1 authors its own Evaluation Contract and Scope Manifest under a successor workflow id (e.g., `w-30-c1-full-troll-profile`).
+
+C-1 may be sequenced in parallel with W-68-M1-DOSSIER-PANEL (DEC-30-CHARACTER-V2-007 — zero dependency; v0.2.0 product story benefits from landing both).
+
+### Decision Log (Phase 17)
+
+| DEC ID | Decision | Rationale |
+|--------|----------|-----------|
+| DEC-30-CHARACTER-V2-001 | The "Borderlands/Fallout RPG style" brief is interpreted as a *voice-quality recommendation* applied non-uniformly across the existing 10 F62-cleaned modes, NOT a literal IP-aesthetic mandate that replaces the catalog. Option (c) selected over (a) replace-with-genre and (b) replace-with-professional. | F62 (W-62-STREAK-AND-HONEST-MODES) just landed 10 honest modes one day prior to this scoping; throwing them out one day later wastes the cleanup and violates Sacred Practice 12's "addition without subtraction" warning. The 10-mode catalog serves user-mood states (irreverent vs strategic vs investigative vs bureaucratic) that a single-genre catalog cannot. The brief's "Borderlands/Fallout" words fit best as the voice quality of the snarky-irreverent modes (`full_troll` especially), not as a catalog-wide aesthetic. |
+| DEC-30-CHARACTER-V2-002 | Per-mode disposition: 8 UPGRADE (full_troll, drunken_master, bobby_hill, chuck_norris, sun_tzu, bruce_lee, bureaucrat, columbo); 2 KEEP_STATIC (default, ninja); 0 RETIRE. KEEP_STATIC ≠ second-class — those modes serve "no flavor" / "minimal flavor" user-mood anchors that LLM-upgraded modes cannot serve without contradicting themselves. | Each disposition justified in `.claude/plans/character-v2-roadmap.md` §4 table. KEEP_STATIC modes earn their slots by purpose, not by adoption of the v2 mechanism. |
+| DEC-30-CHARACTER-V2-003 | Personality profile schema v1.0 (8 fields; per-mode token budget ≤ 165 tokens) injects via the existing `AgentRunner.set_character` site (`runner.py:278-295`) as a system-prompt fragment. Reject (b) sidecar agent and (c) response post-processor as parallel-authority surfaces that violate F60 token-budget discipline. CharacterMode is extended with `llm_profile: LLMPersonaProfile | None = None` (compatible — frozen-dataclass field addition, DEC-MODE-001 discipline preserved). | Single integration site honors Sacred Practice 12. No additional LLM round-trips per turn. Token budget bounded and test-enforced. Refinement window: C-1 may refine the schema by ±2 fields before first implementer touches code; further refinement requires planner re-stage and successor DEC-ID. |
+| DEC-30-CHARACTER-V2-004 | "RPG-style level progression" from the issue body is partially adopted: the XP-grind / skill-tree / loot / quest forms are **retired** (already retired by DEC-68-DOSSIER-REFRAME-005 superseding #31). A narrow `mastery_level: int` hook on `LLMPersonaProfile` is **deferred to C-4** as an optional future expressive-depth axis keyed off session count or per-mode dossier-completion count, NOT off score-grinding. The C-4 planner may retire the mastery hook entirely if the prior slices' usage patterns don't justify it. | Re-introducing XP grind would directly contradict the dossier reframe (#68) and Sacred Practice 12's parallel-authority warning. Per-persona expressive depth is unambiguously a UX-flavor axis, not a scoring axis, and is bounded enough that it cannot drift into score-grinding. Deferring to C-4 lets the prior slices' usage patterns inform whether the mastery axis is worth implementing at all. |
+| DEC-30-CHARACTER-V2-005 | F62 + F64 invariants are jointly preserved: `mode.run_fail` remains the sole authority for failure voice (`tools.py:1622-1628` wiring untouched); StreakManager remains the sole streak authority (persona has no streak fields); `hint_style` is not re-introduced; gamification-event narration stays on the Rich-panel surface (LLM persona text MUST NOT smuggle "+N points" / "+N pts" strings); `tool_preferences` is voice-affinity only and MUST NOT bias tool selection. C-1's Evaluation Contract includes a persona-swap-tool-call-identity test as a hard gate. F60 auto-pivot policy is architecturally disconnected from the persona surface. | v2 personas are **strictly additive** to the F62 CharacterMode surface — the existing Rich-panel-voice fields (`prompt_prefix`, `greeting`, `run_success`, `run_fail`, `score_celebration`) and the existing single-authority wirings stay exactly as they are. The most important *forbidden shortcut* is the `tool_preferences` field becoming a tool-selection bias; the persona-swap test is the gate that catches it. |
+| DEC-30-CHARACTER-V2-006 | C-1 is the MVP: one upgraded mode (`full_troll` recommended) + the `LLMPersonaProfile` dataclass + the extended `set_character` composer + the invariant test suite (F62 single-authority for `run_fail`; F64 panel-separation; tool-call-identity under persona swap; per-mode token budget). v0.2.x target. ≤ 2 weeks implementer effort. The other 9 modes ship at `llm_profile=None` (default) and continue to behave exactly as F62 until C-2/C-3/C-4. | MVP validates the schema and the invariant test suite against one real persona before 7 others inherit any latent bug. Smallest unit of demonstrable user-visible v2 value; reversible at the per-mode boundary; user can A/B compare voice by `mode full_troll` then `mode default`. |
+| DEC-30-CHARACTER-V2-007 | Sequencing relative to AP #68: C-1 lands **parallel with M-1** (zero dependency between them; the two slices share `agent/chat.py` only as a file-level coincidence — M-1 adds a meta-command branch; C-1 does not edit `chat.py` at all). C-2/C-3 may land any time after C-1 (additive). **C-4 prefers post-M-4** (dossier persistent state) so columbo's `context_hooks` can reference real slot state. **M-7 prefers post-C-1** so LLM-narrated celebrations can lean on `LLMPersonaProfile` for voice consistency. All four preferences are simultaneously satisfiable per the §6.5 schedule. | No critical-path conflict. Parallel C-1/M-1 makes v0.2.0 a stronger product story (visible dossier panel + recognizable Borderlands-snark voice) than either alone. Orchestrator may schedule C-1 and M-1 to the same wave or stagger them — both are consistent with this scoping. |
+
+---
+
 ## Runtime Hygiene Backlog
 
 Cross-cutting runtime issues surfaced during recent dispatch chains. Tracked as GitHub issues (not v1 plan slices) — they affect orchestrator/Guardian quality of life but not the AP product surface:
@@ -1798,7 +1925,9 @@ These are the concrete follow-ups identified by the 2026-04-28 reckoning and upd
 | W-FRIENDLY-ERRORS | Universal `core/error_interpreter.py` — catches all errors at the cmd2 + ap chat + smoke_test surfaces, renders friendly Rich panels with fix-suggestions + 8-char diagnostic IDs, offers `[y/n]` auto-fix prompts on mechanically safe fixes (rerun `ap config setup`, restore `~/.ap/config.toml.bak`, sleep-and-retry on rate-limit), preserves full tracebacks in `~/.ap/debug.log` (JSONL, fcntl-locked, 1000-line rotated). Per 2026-05-14 user directive. See "Phase 10" section above. | source + tests + evidence | `1ccf13b` (impl) | completed |
 | W-59-STIX-PROVENANCE | STIX 2.1 spec compliance + per-SCO provenance — workspace single authority for `x_ap_*` fields (`x_ap_fetched_at`, `x_ap_source_url`, `x_ap_api_version`, `x_ap_response_sha256`); `export_stix_bundle()` rebuilt via `stix2.v21.Bundle` round-trip. Closes issue #59. Per 2026-05-22 Threat Hunter expert assessment. See "Phase 11" section above. | source + tests + evidence | _pending implementer_ | in-progress |
 | W-68-DOSSIER-REFRAME-SCOPING | Threat Actor Dossier reframe strategic scoping — ratifies dossier-puzzle metaphor as v2 product center; slot schema v1.0; M-1..M-9 decomposition; #29/#30/#31/#32 disposition; Original Intent crowdsourcing scheduled as M-9. **Planning slice only**, no source code. See Phase 16 + `.claude/plans/dossier-reframe-v2-roadmap.md`. | docs only | _pending guardian (land)_ | in-progress |
-| W-68-M1-DOSSIER-PANEL | **Recommended next workflow** — Dossier Visualization Panel MVP (v0.2.0 target). `ap chat` panel + `get_dossier_state` LLM tool; read-only inference over existing workspace SCOs. No new tables, no new scoring math. Validates slot schema v1.0 against real workspace data; ±2-slot refinement window per DEC-68-DOSSIER-REFRAME-010. Planner re-stage required to author full Evaluation Contract and Scope Manifest. | source + tests | _not started; planner re-stage_ | planned |
+| W-68-M1-DOSSIER-PANEL | Dossier Visualization Panel MVP (v0.2.0 target). `ap chat` panel + `get_dossier_state` LLM tool; read-only inference over existing workspace SCOs. No new tables, no new scoring math. Validates slot schema v1.0 against real workspace data; ±2-slot refinement window per DEC-68-DOSSIER-REFRAME-010. Planner re-stage required to author full Evaluation Contract and Scope Manifest. May land in parallel with W-30-C1-FULL-TROLL-PROFILE (DEC-30-CHARACTER-V2-007). | source + tests | _not started; planner re-stage_ | planned |
+| W-30-CHARACTER-V2-SCOPING | Character System v2 strategic scoping — ratifies "Borderlands/Fallout RPG-style" as voice-quality recommendation (not catalog replacement); per-mode disposition (8 UPGRADE / 2 KEEP_STATIC / 0 RETIRE); `LLMPersonaProfile` schema v1.0 (8 fields, ≤ 165 tokens per mode, via `AgentRunner.set_character`); C-1..C-4 decomposition; F62/F64 invariant preservation; XP-grind retired (DEC-68-DOSSIER-REFRAME-005); narrow `mastery_level` hook deferred to C-4. **Planning slice only**, no source code. See Phase 17 + `.claude/plans/character-v2-roadmap.md`. | docs only | _pending guardian (land)_ | in-progress |
+| W-30-C1-FULL-TROLL-PROFILE | **Recommended next workflow** — Character v2 MVP (v0.2.x target). First upgraded mode (`full_troll` recommended): `LLMPersonaProfile` dataclass + `CharacterMode.llm_profile` field + extended `AgentRunner.set_character` composer + F62/F64 invariant test suite (run_fail single-authority preserved; persona-swap tool-call identity; per-mode token budget; no "+N points" smuggling in LLM text). Other 9 modes ship at `llm_profile=None` (F62 behavior). Planner re-stage required to author full Evaluation Contract and Scope Manifest. May land in parallel with W-68-M1-DOSSIER-PANEL (DEC-30-CHARACTER-V2-007 — zero dependency between them). | source + tests | _not started; planner re-stage_ | planned |
 
 > **Recommended next work item:** `W-59-STIX-PROVENANCE` — planner stage complete (this commit). Scope manifest authored at `tmp/scope-w-59-stix-provenance.json` (implementer will `cc-policy workflow scope-sync` it), evaluation contract written (9 keys, 8 required tests, 3 required evidence artifacts, 7 architecture decisions DEC-59-STIX-PROVENANCE-001..007). Implementer next; canonical chain continues `planner → guardian (provision) → implementer → reviewer → guardian (land)`.
 >
