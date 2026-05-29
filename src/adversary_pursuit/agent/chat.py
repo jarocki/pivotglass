@@ -93,6 +93,8 @@ def run_chat() -> None:
       report generate               -- generate and display Markdown report
       model show                    -- display current provider/model and source layer
       model select                  -- re-run the provider/model setup wizard
+      dossier                       -- show Threat Actor Dossier panel (M-1 slot inference)
+      show dossier                  -- alias for dossier
     """
     console = Console()
 
@@ -386,6 +388,35 @@ def run_chat() -> None:
                 )
             continue
 
+        # Dossier meta-command — DEC-M1-DOSSIER-004: local handler, no LLM dispatch.
+        # Reads workspace SCOs via get_stix_objects() (read-only), feeds them through
+        # dossier.slot_inference.infer_dossier_state(), and renders the result as a
+        # Rich panel via dossier.panel.render(). The panel is printed directly on the
+        # existing console singleton — no new console helper in core/console.py
+        # (DEC-M1-DOSSIER-003). The get_dossier_state LLM tool is deferred to M-2
+        # (DEC-M1-DOSSIER-004).
+        #
+        # Supported forms:
+        #   dossier          -> render dossier panel for current workspace
+        #   show dossier     -> alias
+        if lower == "dossier" or lower == "show dossier":
+            from adversary_pursuit.dossier.panel import render as render_dossier
+            from adversary_pursuit.dossier.slot_inference import infer_dossier_state
+
+            try:
+                raw_objects = runner.ctx.workspace_mgr.get_stix_objects()
+            except Exception as e:
+                handle_error(e, console, runner, config_mgr)
+                continue
+            state = infer_dossier_state(raw_objects)
+            panel = render_dossier(state)
+            console.print(panel)
+            if state.total_sco_count == 0:
+                console.print(
+                    "[dim]No SCOs in workspace. Run a module first to fill dossier slots.[/dim]"
+                )
+            continue
+
         # Export meta-command — mirrors APConsole.do_export (DEC-AGENT-GRAPH-EXPORT-001).
         # Handled locally for deterministic output, no LLM involvement.
         #
@@ -466,6 +497,11 @@ def run_chat() -> None:
                 "graph",
                 "graph",
                 "Render workspace relationship tree",
+            )
+            help_table.add_row(
+                "dossier",
+                "dossier / show dossier",
+                "Show Threat Actor Dossier panel (slot fill state from workspace SCOs)",
             )
             help_table.add_row(
                 "export",
