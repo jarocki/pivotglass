@@ -278,18 +278,60 @@ class AgentRunner:
     def set_character(self, mode: CharacterMode) -> None:
         """Update the LLM system prompt to reflect the given character mode.
 
-        Prepends the mode's personality field to the default system prompt so
-        the LLM adopts the corresponding voice. Only the system message slot
-        (conversation[0]) is modified — conversation history is preserved.
+        When mode.llm_profile is None (the default for all F62 modes), uses
+        the v1 composition verbatim: ``'Character mode: {name}\n{personality}\n\n'``
+        prepended to the default system prompt. Behavior is byte-identical to
+        pre-C-1 for all modes that have not been upgraded (DEC-C1-FULLTROLL-002).
+
+        When mode.llm_profile is not None (C-1+: full_troll and later C-2/C-3/C-4
+        modes), composes the structured LLM profile into the system prompt per
+        the roadmap §3.3 template. This is the SOLE injection site for the persona
+        profile — no sidecar agent, no post-processor (DEC-C1-FULLTROLL-003).
+
+        Only the system message slot (conversation[0]) is modified —
+        conversation history is preserved in both code paths.
 
         Parameters
         ----------
         mode:
-            The CharacterMode to activate. mode.personality is prepended to
-            the default system prompt. mode.name is used for debug logging.
+            The CharacterMode to activate. mode.name is used for debug logging.
+            When mode.llm_profile is not None, the structured profile fields
+            replace the simple ``mode.personality`` prefix.
         """
         logger.debug("Setting character mode: %s", mode.name)
-        self.system_prompt = (
-            f"Character mode: {mode.name}\n{mode.personality}\n\n" + self._default_system_prompt()
-        )
+        if mode.llm_profile is not None:
+            # v2 path: inject structured LLM persona profile (roadmap §3.3 template).
+            # @decision DEC-C1-FULLTROLL-003
+            # @title Injection via in-place concatenation at the existing set_character site
+            # @status accepted
+            # @rationale Single integration site (runner.py:278-295); no new LLM round-trips;
+            #            no sidecar agent; no response post-processor. DEC-30-CHARACTER-V2-003
+            #            option (a) executed. Reverting C-1 restores v1 behavior verbatim
+            #            because the None-default branch preserves the v1 string.
+            p = mode.llm_profile
+            # Render signature_phrases and tool_preferences as readable inline lists.
+            sig_phrases = ", ".join(f'"{ph}"' for ph in p.signature_phrases)
+            tool_prefs = "; ".join(p.tool_preferences) if p.tool_preferences else "none"
+            ctx_hooks = "; ".join(p.context_hooks) if p.context_hooks else "none"
+            forbidden = "; ".join(p.forbidden_voice) if p.forbidden_voice else "none"
+            tone = ", ".join(p.tone_registers)
+            profile_fragment = (
+                f"Character mode: {mode.name}\n"
+                f"Voice: {p.voice_summary}\n"
+                f"Tone: {tone}\n"
+                f"Cadence: {p.dialect_cadence}\n"
+                f"Stance: {p.fourth_wall_stance}\n"
+                f"Signature phrases (use sparingly, not every turn): {sig_phrases}\n"
+                f"Investigation-context hooks: {ctx_hooks}\n"
+                f"Tool voice affinity (flavor only — never selection bias): {tool_prefs}\n"
+                f"Forbidden voice patterns: {forbidden}\n\n"
+            )
+            self.system_prompt = profile_fragment + self._default_system_prompt()
+        else:
+            # v1 path: F62 composition verbatim — preserved byte-identical for all
+            # modes with llm_profile=None (default, ninja, and 7 not-yet-upgraded modes).
+            self.system_prompt = (
+                f"Character mode: {mode.name}\n{mode.personality}\n\n"
+                + self._default_system_prompt()
+            )
         self.conversation[0] = {"role": "system", "content": self.system_prompt}
