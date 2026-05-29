@@ -8,6 +8,14 @@ The active mode is managed via ModeManager and consulted by APConsole for:
 - run/hunt success and failure messages (_execute_hunt)
 - score celebration template (formatted with points= kwarg)
 
+Character v2 (C-1 MVP, Phase 17B):
+  LLMPersonaProfile is an additive frozen dataclass that carries the per-mode
+  LLM voice profile for modes upgraded in C-1..C-4. CharacterMode gains an
+  optional llm_profile field (default None). When set, AgentRunner.set_character
+  injects it into the system prompt. The five Rich-panel-voice fields remain the
+  sole authority for their surfaces (run_fail, greeting, etc.) — the LLM profile
+  is consulted only by the agent path.
+
 @decision DEC-MODE-001
 @title CharacterMode as frozen dataclass, ModeManager as thin state machine
 @status accepted
@@ -41,11 +49,91 @@ The active mode is managed via ModeManager and consulted by APConsole for:
            run_fail is now the single authority for failure voice (DEC-62-KILL-DOC-LIES-001);
            _MODE_TITLE_FLAVORS in error_interpreter.py (F61 drift) is deleted in the same
            change so there is never a parallel authority for mode-error phrasing.
+
+@decision DEC-C1-FULLTROLL-002
+@title Schema: CharacterMode.llm_profile: LLMPersonaProfile | None = None
+@status accepted
+@rationale Compatible field addition under DEC-MODE-001 (frozen-dataclass discipline
+           preserved). Default None means every existing mode continues to behave
+           exactly as F62 — no code changes needed for the 9 non-upgraded modes.
+           LLMPersonaProfile is a frozen dataclass mirroring CharacterMode's discipline.
+           The None-default path is the F62-behavior path verbatim; set_character in
+           runner.py preserves the v1 string composition when llm_profile is None.
+
+@decision DEC-C1-FULLTROLL-001
+@title full_troll LLMPersonaProfile content (verbatim per MASTER_PLAN Phase 17B)
+@status accepted
+@rationale Extends full_troll's existing F62 Rich-panel snark (run_success="GET REKT
+           ADVERSARY!", run_fail="BRUH. Even my grandma...") into the LLM chat surface
+           without inventing a new persona. forbidden_voice mechanically blocks F64
+           "+N points" smuggling at the prompt level. tool_preferences uses affinity
+           language ("feels like") not instruction language ("prefer") to satisfy
+           DEC-30-CHARACTER-V2-005 alongside the persona-swap test. context_hooks is
+           empty (DEC-C1-FULLTROLL-005: deferred until #68 M-4 lands dossier state).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class LLMPersonaProfile:
+    """Structured LLM voice profile for a character mode (Character v2, Phase 17B).
+
+    Injected by AgentRunner.set_character into the system prompt when not None.
+    This is the SOLE integration point for persona voice in the agent path —
+    no sidecar agent, no post-processor (DEC-C1-FULLTROLL-003).
+
+    All fields are immutable (frozen=True) matching DEC-MODE-001 discipline.
+
+    Fields
+    ------
+    voice_summary:
+        One-sentence summary of the persona's voice quality. Mirrors
+        CharacterMode.personality and may match it verbatim for modes where
+        the F62 personality string is already a strong voice summary.
+        Budget: <= 20 tokens.
+    tone_registers:
+        2-4 register words describing the tonal palette (e.g. "snarky",
+        "gnomic", "deadpan", "stoic", "wry", "chaotic", "minimal").
+        Budget: <= 10 tokens.
+    signature_phrases:
+        2-5 catch-phrases the persona uses at high frequency. Quoted as data;
+        persona may improvise around them. Budget: <= 30 tokens.
+    fourth_wall_stance:
+        Whether the persona acknowledges being an LLM/tool ("meta_aware"),
+        occasionally winks ("winking"), or stays strictly in-character
+        ("in_character"). Budget: <= 5 tokens (enum).
+    dialect_cadence:
+        Sentence-rhythm note (e.g. "clipped one-liners", "rambling drunk
+        diction", "1970s detective trailing-off"). Budget: <= 20 tokens.
+    context_hooks:
+        0-3 guidance pointers on how the persona should respond to investigation
+        context. Empty tuple is allowed and is the correct value for C-1
+        (DEC-C1-FULLTROLL-005). Budget: <= 40 tokens.
+    tool_preferences:
+        0-3 voice-affinity hints phrased as affinity language (e.g. "crt.sh
+        feels like searching a haunted Wikipedia at 3am"). MUST NOT be phrased
+        as selection instructions ("prefer X", "use X"). Pure voice flavor —
+        does not bias tool selection (DEC-30-CHARACTER-V2-005).
+        Budget: <= 20 tokens.
+    forbidden_voice:
+        0-3 voice patterns the persona MUST NOT produce. Must include the F64
+        panel-separation guard ("never narrate point totals — the Rich panel
+        owns scoring"). Budget: <= 20 tokens.
+
+    Total per-mode token budget: <= 165 tokens (DEC-30-CHARACTER-V2-003).
+    """
+
+    voice_summary: str
+    tone_registers: tuple[str, ...]
+    signature_phrases: tuple[str, ...]
+    fourth_wall_stance: str  # Literal["in_character", "winking", "meta_aware"]
+    dialect_cadence: str
+    context_hooks: tuple[str, ...]
+    tool_preferences: tuple[str, ...]
+    forbidden_voice: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -74,6 +162,15 @@ class CharacterMode:
         One-line description shown in mode list tables. Must describe only
         what the mode actually does (voice, tone, message style) — no
         unimplemented mechanics ("speed bonuses", "combo multipliers").
+    llm_profile:
+        Optional LLMPersonaProfile for agent-path voice injection (C-1+).
+        When None (the default), AgentRunner.set_character uses the F62 v1
+        composition verbatim — behavior is byte-identical to pre-C-1.
+        When set, the profile is injected into the system prompt by
+        set_character at runner.py:278-295 (DEC-C1-FULLTROLL-003).
+        Only full_troll carries a non-None profile in C-1 (DEC-C1-FULLTROLL-002).
+        The Rich-panel-voice fields (run_fail, greeting, etc.) are unaffected —
+        the LLM profile is strictly additive (DEC-30-CHARACTER-V2-005).
     """
 
     name: str
@@ -83,6 +180,7 @@ class CharacterMode:
     run_fail: str
     score_celebration: str
     personality: str
+    llm_profile: LLMPersonaProfile | None = None
 
 
 DEFAULT_MODES: dict[str, CharacterMode] = {
@@ -112,6 +210,43 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
         run_fail="[bold red]BRUH. Even my grandma could've found that.[/bold red]",
         score_celebration="[bold magenta]🔥 +{points} POINTS BABY! 🔥[/bold magenta]",
         personality="Maximum memes, loud taunt messages",
+        # C-1 MVP: full_troll is the first upgraded mode (DEC-C1-FULLTROLL-001).
+        # Content verbatim from MASTER_PLAN.md Phase 17B DEC-C1-FULLTROLL-001.
+        llm_profile=LLMPersonaProfile(
+            voice_summary=(
+                "Chaotic-good shitposter who narrates threat intel like Claptrap"
+                " commentating a CTF speedrun"
+            ),
+            tone_registers=("snarky", "irreverent", "loud", "meme-aware"),
+            signature_phrases=(
+                "LEEEROOY JENKINSSS",
+                "GET REKT ADVERSARY",
+                "bruh",
+                "absolute unit of an IOC",
+                "git rekt scrub",
+            ),
+            fourth_wall_stance="meta_aware",
+            dialect_cadence=(
+                "ALL-CAPS bursts punctuated by lowercase asides;"
+                " one-line zingers; emoji used as punctuation"
+            ),
+            # context_hooks: empty per DEC-C1-FULLTROLL-005 — deferred until
+            # #68 M-4 lands real dossier slot state to bind to.
+            context_hooks=(),
+            # tool_preferences: affinity language ONLY — never selection instructions
+            # (DEC-30-CHARACTER-V2-005; persona-swap test gates this invariant).
+            tool_preferences=(
+                "crt.sh feels like searching a haunted Wikipedia at 3am",
+                "VirusTotal hits are the loot drop of the OSINT world",
+            ),
+            # forbidden_voice: F64 panel-separation guard + anti-bureaucratese.
+            # "never narrate point totals" is the mechanical block for F64.
+            forbidden_voice=(
+                "never narrate point totals — the Rich panel owns scoring",
+                "never use bureaucratese",
+                "never apologize for being snarky",
+            ),
+        ),
     ),
     "drunken_master": CharacterMode(
         name="drunken_master",
