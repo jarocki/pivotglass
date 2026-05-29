@@ -1,5 +1,7 @@
 """Tests for dossier/slot_inference.py — read-only inference of slot fill state.
 
+Covers both M-1 (infer_dossier_state) and M-2 (infer_dossier_state_full) APIs.
+
 @decision DEC-M1-DOSSIER-001 (read-only authority)
 @title Inference tests verify the dossier package is the sole read-only slot-inference
        authority and never mutates workspace SCOs.
@@ -12,11 +14,28 @@
     - 3 edge-case tests (empty workspace, partial vs filled escalation, provenance-read without write)
     Plus 2 additional invariant tests (unknown SCO graceful handling, read-only assertion).
    These tests exercise the real production sequence: list[dict] SCOs -> DossierState.
+
+@decision DEC-M2-DOSSIER-001 (new entrypoint)
+@title infer_dossier_state_full() adds timing/capability/motivation extractors over M-1 base
+@status accepted
+@rationale M-2 extends M-1 without breaking the legacy thin-wrapper contract.
+
+@decision DEC-M2-DOSSIER-002 (timing extractor)
+@title Timing extractor uses x_ap_fetched_at + module_runs timestamps, UTC hour clustering
+@status accepted
+
+@decision DEC-M2-DOSSIER-003 (capability extractor)
+@title Capability extractor reads DEFAULT_SUBSCRIPTIONS at call time
+@status accepted
+
+@decision DEC-M2-DOSSIER-004 (predictions/denial scaffold)
+@title Predictions + Denial always return DEFERRED in M-2
+@status accepted
 """
 
 from __future__ import annotations
 
-from adversary_pursuit.dossier.slot_inference import infer_dossier_state
+from adversary_pursuit.dossier.slot_inference import infer_dossier_state, infer_dossier_state_full
 from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
 
 # ---------------------------------------------------------------------------
@@ -83,6 +102,32 @@ def _provenance_sco(value: str = "1.2.3.4") -> dict:
         "x_ap_api_version": "v1",
         "x_ap_response_sha256": "abc123",
     }
+
+
+def _timestamped_sco(value: str, hour: int) -> dict:
+    """SCO with x_ap_fetched_at set to the given UTC hour on a fixed date."""
+    ts = f"2024-01-15T{hour:02d}:30:00Z"
+    return {
+        "type": "ipv4-addr",
+        "value": value,
+        "id": f"ipv4-addr--ts-{value}-h{hour}",
+        "x_ap_fetched_at": ts,
+    }
+
+
+def _module_run(module_name: str = "osint/dns_resolve", hour: int = 10) -> dict:
+    """Synthetic module run row as workspace.get_module_runs() would return."""
+    return {
+        "module_name": module_name,
+        "target": "evil.example.com",
+        "timestamp": f"2024-01-15T{hour:02d}:30:00",
+        "result_count": 3,
+    }
+
+
+def _note(content: str) -> dict:
+    """Synthetic AnalystNote dict as the engine-direct query returns."""
+    return {"content": content}
 
 
 # ---------------------------------------------------------------------------
@@ -201,25 +246,37 @@ class TestDeferredSlotStatus:
         ]
         return infer_dossier_state(scos)
 
-    def test_timing_slot_marked_deferred_in_m1(self):
-        """Timing (slot 4) must be DEFERRED in M-1 regardless of workspace content."""
+    def test_timing_slot_empty_when_no_timestamps(self):
+        """Timing (slot 4) returns EMPTY in M-2 when no x_ap_fetched_at or module_runs present.
+
+        M-1 returned DEFERRED; M-2 ships a real extractor for this slot.
+        infer_dossier_state() is a thin wrapper (no module_runs), so timing is EMPTY.
+        """
         state = self._state_with_all_evidence()
-        assert state.slots[DossierSlotName.TIMING].status == SlotStatus.DEFERRED
+        assert state.slots[DossierSlotName.TIMING].status == SlotStatus.EMPTY
 
     def test_targeting_slot_marked_deferred_in_m1(self):
-        """Targeting (slot 5) must be DEFERRED in M-1 regardless of workspace content."""
+        """Targeting (slot 5) must be DEFERRED — no M-2 extractor; remains deferred until M-3."""
         state = self._state_with_all_evidence()
         assert state.slots[DossierSlotName.TARGETING].status == SlotStatus.DEFERRED
 
-    def test_capability_slot_marked_deferred_in_m1(self):
-        """Capability (slot 6) must be DEFERRED in M-1 regardless of workspace content."""
-        state = self._state_with_all_evidence()
-        assert state.slots[DossierSlotName.CAPABILITY].status == SlotStatus.DEFERRED
+    def test_capability_slot_empty_when_no_module_runs(self):
+        """Capability (slot 6) returns EMPTY in M-2 when no module_runs present.
 
-    def test_motivation_slot_marked_deferred_in_m1(self):
-        """Motivation (slot 7) must be DEFERRED in M-1 regardless of workspace content."""
+        M-1 returned DEFERRED; M-2 ships a real extractor. The thin wrapper
+        infer_dossier_state() passes module_runs=None, so capability is EMPTY.
+        """
         state = self._state_with_all_evidence()
-        assert state.slots[DossierSlotName.MOTIVATION].status == SlotStatus.DEFERRED
+        assert state.slots[DossierSlotName.CAPABILITY].status == SlotStatus.EMPTY
+
+    def test_motivation_slot_empty_when_no_notes(self):
+        """Motivation (slot 7) returns EMPTY in M-2 when no analyst notes present.
+
+        M-1 returned DEFERRED; M-2 ships a real extractor. The thin wrapper
+        infer_dossier_state() passes notes=None, so motivation is EMPTY.
+        """
+        state = self._state_with_all_evidence()
+        assert state.slots[DossierSlotName.MOTIVATION].status == SlotStatus.EMPTY
 
     def test_predictions_slot_marked_deferred_in_m1(self):
         """Predictions (slot 8) must be DEFERRED in M-1 - requires M-4 persistence."""
@@ -323,3 +380,346 @@ class TestInferenceEdgeCases:
         assert identity_slot.status == SlotStatus.EMPTY
         assert infra_slot.status == SlotStatus.EMPTY
         assert ttps_slot.status == SlotStatus.EMPTY
+
+
+# ---------------------------------------------------------------------------
+# M-2: infer_dossier_state_full() — new entrypoint (DEC-M2-DOSSIER-001)
+# ---------------------------------------------------------------------------
+
+
+class TestInferDossierStateFullAPI:
+    """infer_dossier_state_full() is the M-2 entrypoint; legacy wrapper still works."""
+
+    def test_full_accepts_scos_only(self):
+        """infer_dossier_state_full(scos) works with just SCOs (module_runs/notes default None)."""
+        state = infer_dossier_state_full([_email_sco()])
+        assert state is not None
+        assert DossierSlotName.IDENTITY in state.slots
+
+    def test_full_returns_dossier_state(self):
+        """infer_dossier_state_full returns a DossierState with all 9 slots."""
+        from adversary_pursuit.dossier.slot_inference import DossierState
+
+        state = infer_dossier_state_full([])
+        assert isinstance(state, DossierState)
+        assert len(state.slots) == 9
+
+    def test_legacy_wrapper_delegates_to_full(self):
+        """infer_dossier_state(scos) is a thin wrapper around infer_dossier_state_full.
+
+        Both return the same result for the same input. Identity/Infra/TTP slots
+        must be identical whether called via the legacy or new entrypoint.
+        """
+        scos = [_email_sco(), _x509_sco(), _domain_sco()]
+        state_legacy = infer_dossier_state(scos)
+        state_full = infer_dossier_state_full(scos)
+
+        # Active slot states must match
+        for slot_name in (
+            DossierSlotName.IDENTITY,
+            DossierSlotName.INFRASTRUCTURE,
+            DossierSlotName.TTPS,
+        ):
+            assert state_legacy.slots[slot_name].status == state_full.slots[slot_name].status, (
+                f"Legacy wrapper produced different {slot_name} status than full entrypoint"
+            )
+
+    def test_full_predictions_always_deferred(self):
+        """Predictions (slot 8) always DEFERRED in M-2 (DEC-M2-DOSSIER-004 scaffold-only)."""
+        state = infer_dossier_state_full([_email_sco()], module_runs=[], notes=[])
+        assert state.slots[DossierSlotName.PREDICTIONS].status == SlotStatus.DEFERRED
+
+    def test_full_denial_always_deferred(self):
+        """Denial (slot 9) always DEFERRED in M-2 (DEC-M2-DOSSIER-004 scaffold-only)."""
+        state = infer_dossier_state_full([_email_sco()], module_runs=[], notes=[])
+        assert state.slots[DossierSlotName.DENIAL].status == SlotStatus.DEFERRED
+
+
+# ---------------------------------------------------------------------------
+# M-2: Timing extractor (DEC-M2-DOSSIER-002)
+# ---------------------------------------------------------------------------
+
+
+class TestTimingExtractor:
+    """Slot 4 (Timing/Behavioral): uses x_ap_fetched_at + module_runs timestamps.
+
+    FILLED = >=10 events AND >=25% in one UTC hour bucket.
+    With fewer than 10 events OR no dominant bucket: PARTIAL if any events, else EMPTY.
+    """
+
+    def test_timing_empty_when_no_scos_and_no_module_runs(self):
+        """No SCOs, no module runs -> Timing slot is EMPTY."""
+        state = infer_dossier_state_full([], module_runs=[], notes=[])
+        assert state.slots[DossierSlotName.TIMING].status == SlotStatus.EMPTY
+
+    def test_timing_partial_with_few_events(self):
+        """Fewer than 10 events -> PARTIAL (some data, not enough for cluster inference)."""
+        scos = [_timestamped_sco(f"10.0.0.{i}", hour=14) for i in range(3)]
+        state = infer_dossier_state_full(scos, module_runs=[], notes=[])
+        timing = state.slots[DossierSlotName.TIMING]
+        assert timing.status == SlotStatus.PARTIAL, (
+            f"3 timestamped events should yield Timing=partial, got {timing.status}"
+        )
+
+    def test_timing_filled_with_ten_plus_events_and_dominant_bucket(self):
+        """>=10 events with >=25% in one hour bucket -> FILLED."""
+        # 10 events at hour 14, 2 at other hours — 14:xx hour bucket = 10/12 = 83% > 25%
+        scos = [_timestamped_sco(f"10.0.0.{i}", hour=14) for i in range(10)]
+        scos += [_timestamped_sco(f"10.0.1.{i}", hour=7) for i in range(2)]
+        state = infer_dossier_state_full(scos, module_runs=[], notes=[])
+        timing = state.slots[DossierSlotName.TIMING]
+        assert timing.status == SlotStatus.FILLED, (
+            f"10 events with dominant hour-14 bucket should yield Timing=filled, "
+            f"got {timing.status}"
+        )
+
+    def test_timing_uses_module_runs_timestamps(self):
+        """module_runs timestamps contribute to timing event count."""
+        # 0 SCOs but 10 module runs at hour 9 -> FILLED if bucket dominates
+        runs = [_module_run("osint/dns_resolve", hour=9) for _ in range(10)]
+        state = infer_dossier_state_full([], module_runs=runs, notes=[])
+        timing = state.slots[DossierSlotName.TIMING]
+        assert timing.status == SlotStatus.FILLED, (
+            f"10 module runs in same hour should yield Timing=filled, got {timing.status}"
+        )
+
+    def test_timing_merges_scos_and_module_runs(self):
+        """x_ap_fetched_at from SCOs and module_runs timestamps are merged."""
+        # 6 SCOs at hour 14 + 4 module runs at hour 14 = 10 total, 100% in bucket -> FILLED
+        scos = [_timestamped_sco(f"10.0.0.{i}", hour=14) for i in range(6)]
+        runs = [_module_run("osint/abuseipdb", hour=14) for _ in range(4)]
+        state = infer_dossier_state_full(scos, module_runs=runs, notes=[])
+        timing = state.slots[DossierSlotName.TIMING]
+        assert timing.status == SlotStatus.FILLED, (
+            f"6 SCOs + 4 module runs at same hour should yield Timing=filled, got {timing.status}"
+        )
+
+    def test_timing_not_filled_when_no_dominant_bucket(self):
+        """>=10 events but all in different hours -> not FILLED (no dominant bucket)."""
+        # 12 events, each at a different hour -> max bucket = 1/12 = 8.3% < 25%
+        scos = [_timestamped_sco(f"10.0.0.{i}", hour=i) for i in range(12)]
+        state = infer_dossier_state_full(scos, module_runs=[], notes=[])
+        timing = state.slots[DossierSlotName.TIMING]
+        assert timing.status != SlotStatus.FILLED, (
+            f"12 events spread across 12 hours should NOT be Timing=filled, got {timing.status}"
+        )
+
+    def test_timing_ignores_scos_without_fetched_at(self):
+        """SCOs without x_ap_fetched_at are skipped for timing inference."""
+        # Mix of scos with and without fetched_at — only the ones WITH it count
+        scos_no_ts = [_ipv4_sco() for _ in range(10)]  # no x_ap_fetched_at
+        state = infer_dossier_state_full(scos_no_ts, module_runs=[], notes=[])
+        timing = state.slots[DossierSlotName.TIMING]
+        # Without timestamps there are 0 timing events -> EMPTY
+        assert timing.status == SlotStatus.EMPTY, (
+            f"SCOs without x_ap_fetched_at should contribute 0 timing events, "
+            f"got timing status={timing.status}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# M-2: Capability extractor (DEC-M2-DOSSIER-003)
+# ---------------------------------------------------------------------------
+
+
+class TestCapabilityExtractor:
+    """Slot 6 (Capability Ceiling): reads DEFAULT_SUBSCRIPTIONS at call time.
+
+    FILLED = >=3 observed modules AND >=3 unobserved modules.
+    PARTIAL = some module runs exist but thresholds not met.
+    EMPTY = no module runs at all.
+    """
+
+    def test_capability_empty_when_no_module_runs(self):
+        """No module runs -> Capability slot is EMPTY."""
+        state = infer_dossier_state_full([], module_runs=[], notes=[])
+        assert state.slots[DossierSlotName.CAPABILITY].status == SlotStatus.EMPTY
+
+    def test_capability_partial_when_few_modules_observed(self):
+        """1 or 2 observed modules -> PARTIAL (below the >=3 threshold)."""
+        runs = [
+            _module_run("osint/dns_resolve", hour=10),
+            _module_run("osint/whois_lookup", hour=11),
+        ]
+        state = infer_dossier_state_full([], module_runs=runs, notes=[])
+        cap = state.slots[DossierSlotName.CAPABILITY]
+        assert cap.status == SlotStatus.PARTIAL, (
+            f"2 observed modules should yield Capability=partial, got {cap.status}"
+        )
+
+    def test_capability_filled_when_three_plus_observed_and_three_plus_unobserved(self):
+        """>=3 observed AND >=3 unobserved from DEFAULT_SUBSCRIPTIONS -> FILLED."""
+        # DEFAULT_SUBSCRIPTIONS has 12 modules. Use 3 of them.
+        runs = [
+            _module_run("osint/dns_resolve", hour=10),
+            _module_run("osint/abuseipdb", hour=11),
+            _module_run("osint/shodan_ip", hour=12),
+        ]
+        state = infer_dossier_state_full([], module_runs=runs, notes=[])
+        cap = state.slots[DossierSlotName.CAPABILITY]
+        assert cap.status == SlotStatus.FILLED, (
+            f"3 observed modules with 9+ unobserved should yield Capability=filled, "
+            f"got {cap.status}"
+        )
+
+    def test_capability_reads_default_subscriptions_at_call_time(self):
+        """Capability extractor reads DEFAULT_SUBSCRIPTIONS dynamically, not at import time.
+
+        This test verifies the extractor uses the DEFAULT_SUBSCRIPTIONS import
+        at function call time (DEC-M2-DOSSIER-003: 'reads DEFAULT_SUBSCRIPTIONS
+        at call time').
+        """
+        from adversary_pursuit.core.event_bus import DEFAULT_SUBSCRIPTIONS
+
+        # Verify DEFAULT_SUBSCRIPTIONS is non-empty (sanity check)
+        assert len(DEFAULT_SUBSCRIPTIONS) >= 6, (
+            f"DEFAULT_SUBSCRIPTIONS has fewer than 6 entries — fixture mismatch: "
+            f"{list(DEFAULT_SUBSCRIPTIONS.keys())}"
+        )
+
+        # Run with 3 known modules from DEFAULT_SUBSCRIPTIONS
+        known_modules = list(DEFAULT_SUBSCRIPTIONS.keys())[:3]
+        runs = [_module_run(mod, hour=10) for mod in known_modules]
+        state = infer_dossier_state_full([], module_runs=runs, notes=[])
+        cap = state.slots[DossierSlotName.CAPABILITY]
+
+        # With 3 observed and (total - 3) >= 3 unobserved, should be FILLED
+        total_subscribed = len(DEFAULT_SUBSCRIPTIONS)
+        unobserved = total_subscribed - 3
+        if unobserved >= 3:
+            assert cap.status == SlotStatus.FILLED, (
+                f"3 observed + {unobserved} unobserved should yield Capability=filled, "
+                f"got {cap.status}"
+            )
+
+    def test_capability_counts_distinct_modules_not_run_count(self):
+        """Same module run 5 times counts as 1 observed module, not 5."""
+        # Only 1 distinct module, many runs
+        runs = [_module_run("osint/dns_resolve", hour=10) for _ in range(5)]
+        state = infer_dossier_state_full([], module_runs=runs, notes=[])
+        cap = state.slots[DossierSlotName.CAPABILITY]
+        # 1 distinct observed module < 3 threshold -> not FILLED
+        assert cap.status != SlotStatus.FILLED, (
+            f"5 runs of same module = 1 observed; should not be Capability=filled, got {cap.status}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# M-2: Motivation extractor (notes-based)
+# ---------------------------------------------------------------------------
+
+
+class TestMotivationExtractor:
+    """Slot 7 (Motivation Indicators): populated from analyst notes keyword matching.
+
+    FILLED = notes contain >=2 motivation-signal keywords from distinct categories.
+    PARTIAL = notes contain 1 motivation-signal keyword.
+    EMPTY = no notes or notes contain no motivation keywords.
+    """
+
+    def test_motivation_empty_when_no_notes(self):
+        """No notes -> Motivation slot is EMPTY."""
+        state = infer_dossier_state_full([], module_runs=[], notes=[])
+        assert state.slots[DossierSlotName.MOTIVATION].status == SlotStatus.EMPTY
+
+    def test_motivation_partial_with_one_keyword(self):
+        """Single motivation keyword in notes -> PARTIAL."""
+        notes = [_note("Actor appears financially motivated based on ransom note patterns.")]
+        state = infer_dossier_state_full([], module_runs=[], notes=notes)
+        motivation = state.slots[DossierSlotName.MOTIVATION]
+        assert motivation.status in (SlotStatus.PARTIAL, SlotStatus.FILLED), (
+            f"Note with financial keyword should yield at least Motivation=partial, "
+            f"got {motivation.status}"
+        )
+
+    def test_motivation_filled_with_multiple_signal_keywords(self):
+        """Multiple motivation keywords in notes -> FILLED."""
+        notes = [
+            _note("Actor is financially motivated, targeting SWIFT transfers."),
+            _note("Nation-state affiliation suspected based on tooling and target selection."),
+        ]
+        state = infer_dossier_state_full([], module_runs=[], notes=notes)
+        motivation = state.slots[DossierSlotName.MOTIVATION]
+        assert motivation.status == SlotStatus.FILLED, (
+            f"Notes with financial + nation-state keywords should yield Motivation=filled, "
+            f"got {motivation.status}"
+        )
+
+    def test_motivation_empty_with_irrelevant_notes(self):
+        """Notes with no motivation keywords -> EMPTY (or at most PARTIAL)."""
+        notes = [
+            _note("Checked DNS resolution for evil.example.com."),
+            _note("Domain registered via Namecheap."),
+        ]
+        state = infer_dossier_state_full([], module_runs=[], notes=notes)
+        motivation = state.slots[DossierSlotName.MOTIVATION]
+        assert motivation.status == SlotStatus.EMPTY, (
+            f"Notes without motivation keywords should yield Motivation=empty, "
+            f"got {motivation.status}"
+        )
+
+    def test_motivation_reads_note_content_field(self):
+        """Motivation extractor reads the 'content' field from note dicts."""
+        notes = [{"content": "Hacktivist group motivated by political agenda."}]
+        state = infer_dossier_state_full([], module_runs=[], notes=notes)
+        motivation = state.slots[DossierSlotName.MOTIVATION]
+        assert motivation.status != SlotStatus.EMPTY, (
+            "Note with hacktivist keyword should not yield Motivation=empty"
+        )
+
+
+# ---------------------------------------------------------------------------
+# M-2: Targeting slot — still DEFERRED via full entrypoint
+# ---------------------------------------------------------------------------
+
+
+class TestTargetingSlotStillDeferred:
+    """Targeting (slot 5) remains DEFERRED in M-2; it is not in M-2 scope."""
+
+    def test_targeting_deferred_via_full_entrypoint(self):
+        """infer_dossier_state_full leaves Targeting=DEFERRED in M-2."""
+        scos = [_domain_sco(), _ipv4_sco(), _email_sco()]
+        state = infer_dossier_state_full(scos, module_runs=[], notes=[])
+        assert state.slots[DossierSlotName.TARGETING].status == SlotStatus.DEFERRED
+
+
+# ---------------------------------------------------------------------------
+# M-2: Read-only invariant for full entrypoint
+# ---------------------------------------------------------------------------
+
+
+class TestInferDossierStateFullReadOnly:
+    """infer_dossier_state_full must be a pure function — no workspace mutations."""
+
+    def test_full_does_not_mutate_scos(self):
+        """infer_dossier_state_full does not modify the input SCO list."""
+        scos = [_email_sco(), _domain_sco()]
+        scos_copy = [dict(s) for s in scos]
+        infer_dossier_state_full(scos, module_runs=[], notes=[])
+        assert scos == scos_copy, "infer_dossier_state_full must not mutate the input SCO list"
+
+    def test_full_does_not_mutate_module_runs(self):
+        """infer_dossier_state_full does not modify the module_runs list."""
+        runs = [_module_run("osint/dns_resolve", hour=10)]
+        runs_copy = [dict(r) for r in runs]
+        infer_dossier_state_full([], module_runs=runs, notes=[])
+        assert runs == runs_copy, "infer_dossier_state_full must not mutate the module_runs list"
+
+    def test_full_does_not_mutate_notes(self):
+        """infer_dossier_state_full does not modify the notes list."""
+        notes = [_note("Financial motivation suspected.")]
+        notes_copy = [dict(n) for n in notes]
+        infer_dossier_state_full([], module_runs=[], notes=notes)
+        assert notes == notes_copy, "infer_dossier_state_full must not mutate the notes list"
+
+    def test_full_no_x_ap_writes(self):
+        """infer_dossier_state_full does not write x_ap_* fields (DEC-59-STIX-PROVENANCE-001)."""
+        scos = [_provenance_sco()]
+        original_keys = set(scos[0].keys())
+        infer_dossier_state_full(scos, module_runs=[], notes=[])
+        for sco in scos:
+            for key in sco:
+                if key not in original_keys:
+                    assert not key.startswith("x_ap_"), (
+                        f"infer_dossier_state_full added x_ap_* field {key!r} to SCO dict"
+                    )

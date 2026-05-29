@@ -1,4 +1,4 @@
-"""Dossier slot schema v1.0 — vocabulary, weights, and status enum.
+"""Dossier slot schema v1.0 — vocabulary, weights, status enum, and M-2 scaffold types.
 
 This module is the SOLE authority for the 9-slot vocabulary and per-slot
 importance weights defined in the Phase 16 strategic scoping
@@ -25,10 +25,22 @@ importance weights defined in the Phase 16 strategic scoping
     weights requires M-3 Evaluation Contract and a successor DEC-ID; they must
     not be adjusted in M-1. The SLOT_WEIGHTS dict lives here and is the only
     place weights are defined — callers import from this module.
+
+@decision DEC-M2-DOSSIER-004
+@title PredictionRecord / DenialStrategyRecord are typed scaffold dataclasses; always DEFERRED in M-2
+@status accepted
+@rationale M-2 ships typed shapes for slot 8 (Predictions Log) and slot 9
+    (Denial/Deception Strategies). The actual inference for these slots is deferred
+    to M-4 (persistent prediction records) and M-5 (user-note surface). Having typed
+    dataclasses here (a) gives callers a concrete import surface now, (b) prevents
+    future implementers from inventing incompatible shapes, and (c) is testable
+    without any new persistence. Both dataclasses use field(default_factory=list)
+    for list fields to avoid mutable default argument problems (PEP 557).
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from enum import Enum
 
 
@@ -137,3 +149,56 @@ SLOT_EVIDENCE_TYPES: dict[str, list[DossierSlotName]] = {
 M1_ACTIVE_SLOTS: frozenset[DossierSlotName] = frozenset(
     {DossierSlotName.IDENTITY, DossierSlotName.TTPS, DossierSlotName.INFRASTRUCTURE}
 )
+
+
+# ---------------------------------------------------------------------------
+# M-2 scaffold dataclasses — DEC-M2-DOSSIER-004
+# ---------------------------------------------------------------------------
+# These types give callers a typed import surface for slots 8 and 9 now, before
+# the M-4/M-5 persistence and user-note surfaces land. The actual inference for
+# both slots returns DEFERRED in M-2; these dataclasses are the shape contract
+# that M-4 and M-5 implementers must honour.
+
+
+@dataclass
+class PredictionRecord:
+    """Typed scaffold for a single Predictions Log entry (slot 8, DEC-M2-DOSSIER-004).
+
+    M-4 will persist these to the ``dossier_prediction`` SQLite table.
+    In M-2 the inference always returns DEFERRED — this dataclass defines the
+    shape so M-4 implementers have a stable contract.
+
+    Parameters
+    ----------
+    text:
+        The prediction text as authored by the AP agent or the analyst.
+    status:
+        Lifecycle status: 'pending' (default), 'validated', or 'falsified'.
+        DEC-68-DOSSIER-REFRAME-007: falsified predictions contribute 0 to slot
+        weight (not negative). Whether they should deduct score is deferred to M-3.
+    """
+
+    text: str
+    status: str = "pending"
+
+
+@dataclass
+class DenialStrategyRecord:
+    """Typed scaffold for a Denial / Deception Strategy entry (slot 9, DEC-M2-DOSSIER-004).
+
+    M-5 will provide a user-note surface and an ``add_dossier_strategy`` LLM tool
+    that creates and links these records. In M-2 the inference always returns
+    DEFERRED — this dataclass defines the shape so M-5 implementers have a stable
+    contract.
+
+    Parameters
+    ----------
+    strategy:
+        Free-text description of the countermeasure or deception tactic.
+    linked_evidence:
+        List of STIX object IDs this strategy is grounded in. Empty by default
+        until the M-5 evidence-linkage surface is implemented.
+    """
+
+    strategy: str
+    linked_evidence: list[str] = field(default_factory=list)
