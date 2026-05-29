@@ -178,9 +178,9 @@ class TestCreateTools:
         assert isinstance(tools, list)
 
     def test_returns_twenty_two_tools(self, tmp_ctx):
-        """create_tools returns exactly 26 tool definitions (22 previous + 4 keyless hunters F61)."""
+        """create_tools returns exactly 27 tool definitions (26 M-1 tools + get_dossier_state M-2)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 26
+        assert len(tools) == 27
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -246,6 +246,8 @@ class TestCreateTools:
             "start_report_interview",
             "answer_report_question",
             "generate_report",
+            # Dossier state tool (DEC-M2-DOSSIER-005)
+            "get_dossier_state",
         }
         assert names == expected
 
@@ -279,7 +281,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 26
+        assert len(roundtripped) == 27
 
     # --- New tool schema tests ---
 
@@ -1396,7 +1398,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 26
+        assert len(r.tools) == 27
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""

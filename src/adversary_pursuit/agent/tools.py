@@ -180,6 +180,7 @@ from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.report import ReportGenerator
 from adversary_pursuit.core.streak import StreakManager
 from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full
 from adversary_pursuit.gamification.badges import BadgeManager
 from adversary_pursuit.gamification.celebrations import (
     CelebrationEngine,
@@ -1303,6 +1304,26 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_dossier_state",
+                "description": (
+                    "Return the current threat actor dossier state as structured JSON. "
+                    "Shows fill status (empty/partial/filled/deferred) and evidence count "
+                    "for all 9 dossier slots: identity, ttps, infrastructure, timing, "
+                    "targeting, capability, motivation, predictions, denial. "
+                    "Use this to understand what is known about the threat actor so far "
+                    "and which slots still need evidence. "
+                    "Returns a JSON object — no arguments needed."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                },
+            },
+        },
     ]
 
 
@@ -1600,6 +1621,10 @@ def execute_tool(
 
     if tool_name == "generate_report":
         return _execute_generate_report(ctx), None, [], []
+
+    # Dossier state tool — DEC-M2-DOSSIER-005
+    if tool_name == "get_dossier_state":
+        return _execute_get_dossier_state(ctx), None, [], []
 
     # Module dispatch
     if tool_name not in _MODULE_MAP:
@@ -2084,3 +2109,62 @@ def _execute_generate_report(ctx: ToolContext) -> str:
     except Exception as e:
         logger.exception("generate_report failed")
         return f"Error generating report: {e}"
+
+
+def _execute_get_dossier_state(ctx: ToolContext) -> str:
+    """Return a JSON-serialisable dossier state snapshot for the LLM.
+
+    @decision DEC-M2-DOSSIER-005
+    @title get_dossier_state returns typed JSON dict ONLY — no Rich markup
+    @status accepted
+    @rationale DEC-64-LLM-PANEL-SEPARATION-001: the LLM tool path must return
+        structured data only. panel.render() is for human-facing Rich output;
+        the LLM-tool path calls infer_dossier_state_full() directly and
+        serialises the result as plain JSON. No [bold], [green], or Rich markup
+        may appear in this output — it would be narrated verbatim by the LLM.
+
+    The function:
+    1. Reads raw SCO dicts from WorkspaceManager (read-only, DEC-M1-DOSSIER-001).
+    2. Reads module runs for Timing/Capability inference (DEC-M2-DOSSIER-002/003).
+    3. Calls infer_dossier_state_full(scos, module_runs=runs, notes=None).
+       Notes (analyst text) are not queried here — no SQLAlchemy session in
+       ToolContext; Motivation slot returns EMPTY when no notes present.
+    4. Serialises DossierState to a plain dict and returns json.dumps().
+
+    Parameters
+    ----------
+    ctx:
+        The shared ToolContext providing workspace read access.
+
+    Returns
+    -------
+    str
+        JSON string with schema:
+          {
+            "slots": {
+              "<slot_name>": {"status": "<status>", "evidence_count": <int>},
+              ...
+            },
+            "total_sco_count": <int>
+          }
+        On error, returns a JSON error object {"error": "<message>"}.
+    """
+    import json
+
+    try:
+        raw_objects = ctx.workspace_mgr.get_stix_objects()
+        module_runs = ctx.workspace_mgr.get_module_runs()
+        state = infer_dossier_state_full(raw_objects, module_runs=module_runs, notes=None)
+        slots_dict = {
+            slot_name.value: {
+                "status": slot_state.status.value,
+                "evidence_count": slot_state.evidence_count,
+            }
+            for slot_name, slot_state in state.slots.items()
+        }
+        return json.dumps({"slots": slots_dict, "total_sco_count": state.total_sco_count})
+    except Exception as e:
+        logger.exception("get_dossier_state failed")
+        import json as _json
+
+        return _json.dumps({"error": f"Failed to retrieve dossier state: {e}"})
