@@ -723,3 +723,68 @@ class TestInferDossierStateFullReadOnly:
                     assert not key.startswith("x_ap_"), (
                         f"infer_dossier_state_full added x_ap_* field {key!r} to SCO dict"
                     )
+
+
+# ---------------------------------------------------------------------------
+# M-3 transition-readiness tests (B17–B18, Evaluation Contract §7.B)
+# ---------------------------------------------------------------------------
+# These tests assert that the M-2 inference output is comparable in the way
+# M-3 caller wiring requires: (1) calling infer_dossier_state_full twice with
+# identical inputs produces equal DossierState objects (frozen dataclass equality),
+# and (2) adding a new SCO that contributes to the Identity slot changes the
+# Identity slot status so pre.slots[IDENTITY].status != post.slots[IDENTITY].status.
+
+
+class TestM3TransitionReadiness:
+    """M-3 transition-readiness: infer_dossier_state_full output supports equality comparison."""
+
+    def test_dossier_state_equality_on_identical_inputs(self):
+        """B17: Calling infer_dossier_state_full twice with identical inputs returns equal states.
+
+        M-3 relies on SlotStatus enum equality for transition detection. If the
+        two DossierState objects have differing slot statuses on identical inputs,
+        the dossier event emitter would spuriously fire. This test proves the
+        frozen dataclass equality holds.
+        """
+        scos = [_email_sco("threat@actor.ru")]
+        module_runs = [{"module_name": "osint/dns_resolve", "timestamp": "2026-01-01T10:00:00Z"}]
+        notes = [{"content": "ransomware activity suspected"}]
+
+        state1 = infer_dossier_state_full(scos, module_runs=module_runs, notes=notes)
+        state2 = infer_dossier_state_full(scos, module_runs=module_runs, notes=notes)
+
+        # DossierState and SlotState are frozen dataclasses — equality is structural
+        assert state1 == state2, (
+            "infer_dossier_state_full must return equal DossierState for identical inputs; "
+            "M-3 transition detection requires this invariant."
+        )
+
+    def test_dossier_state_inequality_after_sco_addition(self):
+        """B18: Adding an identity-class SCO changes the Identity slot status.
+
+        M-3 captures pre_dossier before store_stix_objects and post_dossier after.
+        If the Identity slot status does not change when a new email-addr SCO is added,
+        the emit_dossier_slot_filled_events call would silently miss the transition.
+        """
+        # Pre: no email-addr SCOs (Identity slot should be EMPTY)
+        scos_before = [{"type": "ipv4-addr", "value": "1.2.3.4", "id": "ipv4-addr--fake-1"}]
+        pre = infer_dossier_state_full(scos_before, module_runs=[], notes=[])
+
+        # Post: email-addr added → Identity slot should become PARTIAL (1 distinct type)
+        scos_after = scos_before + [_email_sco("threat@actor.ru")]
+        post = infer_dossier_state_full(scos_after, module_runs=[], notes=[])
+
+        from adversary_pursuit.dossier.slots import DossierSlotName
+
+        pre_identity_status = pre.slots[DossierSlotName.IDENTITY].status
+        post_identity_status = post.slots[DossierSlotName.IDENTITY].status
+
+        assert pre_identity_status != post_identity_status, (
+            f"Adding an email-addr SCO must change Identity slot status; "
+            f"pre={pre_identity_status!r}, post={post_identity_status!r}"
+        )
+        # Specifically: EMPTY -> PARTIAL (one distinct type = email-addr)
+        from adversary_pursuit.dossier.slots import SlotStatus
+
+        assert pre_identity_status == SlotStatus.EMPTY
+        assert post_identity_status == SlotStatus.PARTIAL

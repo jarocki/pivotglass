@@ -63,6 +63,8 @@ from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.report import ReportGenerator
 from adversary_pursuit.core.streak import StreakManager
 from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.dossier.scoring import emit_dossier_slot_filled_events
+from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full
 from adversary_pursuit.gamification.badges import BadgeManager
 from adversary_pursuit.gamification.celebrations import (
     CelebrationEngine,
@@ -74,6 +76,45 @@ from adversary_pursuit.gamification.modes import ModeManager
 from adversary_pursuit.gamification.scoring import ScoringEngine, make_streak_continued_event
 from adversary_pursuit.models.stix import create_bundle, dict_to_stix
 from adversary_pursuit.modules.base import ModuleError
+
+# ---------------------------------------------------------------------------
+# M-3 helper: analyst notes direct-engine query (DEC-M2-MOTIVATION-001 pattern)
+# ---------------------------------------------------------------------------
+
+
+def _read_analyst_notes(workspace_mgr: WorkspaceManager) -> list[dict]:
+    """Read analyst notes via direct SQLAlchemy engine query.
+
+    Mirrors core/report.py:348-369 and agent/tools.py._read_analyst_notes.
+    workspace.py has no get_analyst_notes() accessor (F59 invariant —
+    DEC-59-STIX-PROVENANCE-001 forbids new workspace mutators/accessors in this
+    slice). Returns empty list on any error (Motivation slot then renders EMPTY —
+    safe default). The small duplication between console.py and tools.py is
+    intentional per per-slice plan §5.3: a DRY refactor would require touching
+    additional files in a tight scope and adds risk for a 1-slice gain.
+
+    Parameters
+    ----------
+    workspace_mgr:
+        Active WorkspaceManager instance with a live ``_engine``.
+
+    Returns
+    -------
+    list[dict]
+        List of ``{"content": <str>}`` dicts, one per AnalystNote row,
+        ordered by id ascending.
+    """
+    try:
+        from sqlalchemy import select
+        from sqlalchemy.orm import Session
+
+        from adversary_pursuit.models.database import AnalystNote
+
+        with Session(workspace_mgr._engine) as session:
+            rows = session.scalars(select(AnalystNote).order_by(AnalystNote.id)).all()
+            return [{"content": r.content} for r in rows]
+    except Exception:  # noqa: BLE001
+        return []
 
 
 class APConsole(cmd2.Cmd):
@@ -427,6 +468,17 @@ class APConsole(cmd2.Cmd):
             # this very run). DEC-63-MIGRATION-001.
             pre_total = self.workspace_mgr.get_total_score()
 
+            # Capture pre-hunt dossier state BEFORE storing new SCOs (DEC-M3-DOSSIER-002).
+            # Notes are read via direct-engine query (DEC-M2-MOTIVATION-001 pattern;
+            # workspace.py has no get_analyst_notes accessor — F59 invariant).
+            # Modules do NOT write notes during hunt(), so notes_before is valid post-hunt.
+            scos_before = self.workspace_mgr.get_stix_objects()
+            runs_before = self.workspace_mgr.get_module_runs()
+            notes_before = _read_analyst_notes(self.workspace_mgr)
+            pre_dossier = infer_dossier_state_full(
+                scos_before, module_runs=runs_before, notes=notes_before
+            )
+
             # Capture type counts BEFORE storing so solve_count reflects
             # what was already in the workspace (not including these new results).
             stats = self.workspace_mgr.get_stix_type_counts()
@@ -445,6 +497,14 @@ class APConsole(cmd2.Cmd):
             )
             self.poutput(f"\n{count} objects stored in workspace '{self.workspace_mgr.active}'")
 
+            # Capture post-hunt dossier state AFTER storing the new SCOs (DEC-M3-DOSSIER-002).
+            # Notes unchanged during hunt (modules don't write notes) — reuse notes_before.
+            scos_after = self.workspace_mgr.get_stix_objects()
+            runs_after = self.workspace_mgr.get_module_runs()
+            post_dossier = infer_dossier_state_full(
+                scos_after, module_runs=runs_after, notes=notes_before
+            )
+
             # Score the discoveries and show point gains using active mode celebration
             scoring_events = self.scoring_engine.score_results(results, stats)
             if scoring_events:
@@ -458,6 +518,23 @@ class APConsole(cmd2.Cmd):
                         f"[green]+{event['points']}[/green] "
                         f"({event['indicator']})"
                     )
+
+            # Emit dossier slot-fill events AFTER per-IOC events and BEFORE streak (M-3 NEW).
+            # Pure function — no I/O, no side effects. Persist dossier events separately so
+            # per-IOC events land first (emission order per per-slice plan §3.1).
+            # Double-persist guard: dossier_events persisted once here (DEC-M3-DOSSIER-002).
+            try:
+                dossier_events = emit_dossier_slot_filled_events(pre_dossier, post_dossier)
+                if dossier_events:
+                    self.workspace_mgr.store_score_events(dossier_events)
+                    for event in dossier_events:
+                        self.rich_console.print(
+                            f"  [cyan]{event['action']}[/cyan]: "
+                            f"[green]+{event['points']}[/green] "
+                            f"({event['indicator']})"
+                        )
+            except Exception:  # noqa: BLE001
+                pass  # dossier scoring must never interrupt the hunt flow
 
             # Milestone catch-up check (DEC-63-MILESTONE-CATCHUP-001).
             # Read last_announced_id AFTER storing score events so post_total

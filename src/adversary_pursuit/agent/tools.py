@@ -180,6 +180,9 @@ from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.report import ReportGenerator
 from adversary_pursuit.core.streak import StreakManager
 from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.dossier.scoring import (
+    emit_dossier_slot_filled_events,  # M-3 DEC-M3-DOSSIER-001
+)
 from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full
 from adversary_pursuit.gamification.badges import BadgeManager
 from adversary_pursuit.gamification.celebrations import (
@@ -196,6 +199,43 @@ from adversary_pursuit.gamification.modes import ModeManager
 from adversary_pursuit.gamification.scoring import ScoringEngine, make_streak_continued_event
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# M-3 helper: analyst notes direct-engine query (DEC-M2-MOTIVATION-001 pattern)
+# ---------------------------------------------------------------------------
+
+
+def _read_analyst_notes(workspace_mgr: "WorkspaceManager") -> list[dict]:
+    """Read analyst notes via direct SQLAlchemy engine query.
+
+    Mirrors core/report.py:348-369. workspace.py has no get_analyst_notes()
+    accessor (F59 invariant — DEC-59-STIX-PROVENANCE-001 forbids new workspace
+    mutators/accessors in this slice). Returns empty list on any error (Motivation
+    slot then renders EMPTY — safe default).
+
+    Parameters
+    ----------
+    workspace_mgr:
+        Active WorkspaceManager instance with a live ``_engine``.
+
+    Returns
+    -------
+    list[dict]
+        List of ``{"content": <str>}`` dicts, one per AnalystNote row,
+        ordered by id ascending.
+    """
+    try:
+        from sqlalchemy import select
+        from sqlalchemy.orm import Session
+
+        from adversary_pursuit.models.database import AnalystNote
+
+        with Session(workspace_mgr._engine) as session:
+            rows = session.scalars(select(AnalystNote).order_by(AnalystNote.id)).all()
+            return [{"content": r.content} for r in rows]
+    except Exception:  # noqa: BLE001
+        return []
 
 
 class ToolContext:
@@ -378,6 +418,17 @@ class ToolContext:
         init_config = _resolve_module_credentials(module_path, self.config_mgr)
         mod.initialize(init_config)
 
+        # Capture pre-hunt dossier state BEFORE storing new SCOs (DEC-M3-DOSSIER-002).
+        # Notes are read via direct-engine query (DEC-M2-MOTIVATION-001 pattern;
+        # workspace.py has no get_analyst_notes accessor — F59 invariant).
+        # Modules do NOT write notes during hunt(), so notes_before is valid for post too.
+        scos_before = self.workspace_mgr.get_stix_objects()
+        runs_before = self.workspace_mgr.get_module_runs()
+        notes_before = _read_analyst_notes(self.workspace_mgr)
+        pre_dossier = infer_dossier_state_full(
+            scos_before, module_runs=runs_before, notes=notes_before
+        )
+
         # Run hunt() via asyncio — modules are async
         results = asyncio.run(mod.hunt(target, options or {}))
 
@@ -395,18 +446,42 @@ class ToolContext:
             fetched_at=None,
         )
 
+        # Capture post-hunt dossier state AFTER storing the new SCOs (DEC-M3-DOSSIER-002).
+        # Notes unchanged (modules don't write notes) — reuse notes_before.
+        scos_after = self.workspace_mgr.get_stix_objects()
+        runs_after = self.workspace_mgr.get_module_runs()
+        post_dossier = infer_dossier_state_full(
+            scos_after, module_runs=runs_after, notes=notes_before
+        )
+
         # Capture pre-run total BEFORE storing events — used for quiet-start
         # migration so we seed based on what was ALREADY in the workspace,
         # not the post-run total (which would suppress new milestones earned
         # by this run). DEC-63-MIGRATION-001.
         pre_total = self.workspace_mgr.get_total_score()
 
-        # Score using current workspace state
+        # Score using current workspace state (per-IOC events; baseline 1.0 under M-3
+        # re-tune — DEC-M3-DOSSIER-004).
         stats = self.workspace_mgr.get_stix_type_counts()
         events = self.scoring.score_results(results, stats)
         total = self.scoring.total_score(events)
         if events:
             self.workspace_mgr.store_score_events(events)
+
+        # Emit dossier slot-fill events AFTER per-IOC events and BEFORE streak (M-3 NEW).
+        # emit_dossier_slot_filled_events is a pure function — no I/O, no side effects.
+        # Persist dossier events separately so per-IOC events land first (emission order
+        # per per-slice plan §3.1). Double-persist guard: dossier_events is persisted once
+        # here and appended to `events` for the LLM summary — not re-persisted later.
+        # DEC-M3-DOSSIER-001 / DEC-M3-DOSSIER-002.
+        try:
+            dossier_events = emit_dossier_slot_filled_events(pre_dossier, post_dossier)
+            if dossier_events:
+                self.workspace_mgr.store_score_events(dossier_events)
+                events = list(events) + dossier_events
+                total += sum(e["points"] for e in dossier_events)
+        except Exception:  # noqa: BLE001
+            pass  # dossier scoring must never block tool result delivery
 
         # Compute celebration artifact (DEC-AGENT-CELEBRATIONS-001, DEC-AGENT-MODES-001).
         # The ASCII art comes from CelebrationEngine. The points line uses the active
@@ -582,8 +657,15 @@ class ToolContext:
             summary_lines.append(f"  ... and {len(results) - 10} more")
         if total > 0:
             summary_lines.append(f"\n+{total} points!")
+            # F64: dossier slot-fill events MUST NOT appear in summary text.
+            # DEC-64-LLM-PANEL-SEPARATION-001 / DEC-M3-DOSSIER-002: dossier gamification
+            # narration belongs to the Rich panel surface, not the LLM-facing summary.
+            # Only per-IOC discovery events and streak_continued are surfaced here.
+            # Dossier events are still present in result["score_events"] for LLM reasoning.
+            _DOSSIER_ACTIONS = frozenset({"dossier_slot_filled", "dossier_prediction_validated"})
             for e in events:
-                summary_lines.append(f"  {e['action']}: +{e['points']} ({e['indicator']})")
+                if e["action"] not in _DOSSIER_ACTIONS:
+                    summary_lines.append(f"  {e['action']}: +{e['points']} ({e['indicator']})")
         # NOTE: badge and challenge award text is intentionally NOT added to summary_lines.
         # @decision DEC-64-LLM-PANEL-SEPARATION-001
         # @title Strip gamification text from LLM-facing summary; surface via sidecar typed fields
@@ -594,6 +676,8 @@ class ToolContext:
         #            badge/challenge lines from summary. The sidecar fields (result["badges"],
         #            result["challenges"], result["celebration"]) are the sole source of truth for
         #            gamification display in chat.py. The LLM narrates discovery findings only.
+        #            M-3 extends this: dossier_slot_filled action text is also excluded
+        #            (DEC-M3-DOSSIER-002 / DEC-64-LLM-PANEL-SEPARATION-001).
         # Surface cascade discoveries so the LLM and user see what fired secondarily.
         if cascade_results:
             summary_lines.append(

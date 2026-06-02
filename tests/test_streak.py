@@ -539,3 +539,98 @@ class TestStreakUpdate:
         for offset in range(5):
             result = mgr.update(date(2026, 5, 20) + timedelta(days=offset))
         assert result.current_streak == mgr.state.current_streak
+
+
+# ---------------------------------------------------------------------------
+# M-3 F62 invariants (Evaluation Contract §7.D, B24–B25)
+# streak.json must remain byte-identical when dossier events are emitted.
+# streak_continued emission semantics must be unchanged under M-3 wiring.
+# ---------------------------------------------------------------------------
+
+
+class TestM3F62Invariants:
+    """F62 invariants under M-3: dossier event emission must not touch streak.json."""
+
+    def test_streak_json_byte_identical_under_dossier_event_emission(self, tmp_path):
+        """B24: Emitting dossier slot-fill events does not touch streak.json.
+
+        Calls emit_dossier_slot_filled_events directly (the pure function),
+        then asserts streak.json (if it exists) is byte-identical. Since the
+        pure function has no I/O, the file must remain untouched.
+        """
+        from adversary_pursuit.dossier.scoring import emit_dossier_slot_filled_events
+        from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
+        from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+
+        streak_path = tmp_path / "streak.json"
+
+        # Seed streak.json via StreakManager (creates the file)
+        mgr = make_mgr(tmp_path)
+        mgr.update(date(2026, 5, 20))
+        assert streak_path.exists(), "streak.json must exist after StreakManager.update()"
+
+        before_bytes = streak_path.read_bytes()
+
+        # Build minimal pre/post DossierState triggering an Identity slot-fill event
+        def _slot(slot, status):
+            return SlotState(name=slot, status=status)
+
+        pre_slots = {slot: _slot(slot, SlotStatus.EMPTY) for slot in DossierSlotName}
+        post_slots = dict(pre_slots)
+        post_slots[DossierSlotName.IDENTITY] = _slot(DossierSlotName.IDENTITY, SlotStatus.PARTIAL)
+        pre = DossierState(slots=pre_slots, total_sco_count=0)
+        post = DossierState(slots=post_slots, total_sco_count=1)
+
+        # Call the pure function — must not touch streak.json
+        events = emit_dossier_slot_filled_events(pre, post)
+        assert len(events) == 1, "Expected one dossier_slot_filled event"
+
+        after_bytes = streak_path.read_bytes()
+        assert before_bytes == after_bytes, (
+            "streak.json was modified by emit_dossier_slot_filled_events — F62 violation"
+        )
+
+    def test_streak_continued_emits_after_dossier_in_combined_hunt(self, tmp_path):
+        """B25: Both dossier_slot_filled and streak_continued are persisted in combined hunt.
+
+        Uses WorkspaceManager directly to simulate the emission ordering from
+        _execute_hunt / run_module: per-IOC events first, dossier events second,
+        streak event third. Verifies both action types appear in score_events.
+        """
+        from adversary_pursuit.core.workspace import WorkspaceManager
+        from adversary_pursuit.dossier.scoring import emit_dossier_slot_filled_events
+        from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
+        from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+        from adversary_pursuit.gamification.scoring import make_streak_continued_event
+
+        wm = WorkspaceManager(workspace_dir=tmp_path / "workspaces")
+        wm.create("default")
+        wm.switch("default")
+
+        # Simulate dossier_slot_filled event emission
+        def _slot(slot, status):
+            return SlotState(name=slot, status=status)
+
+        pre_slots = {slot: _slot(slot, SlotStatus.EMPTY) for slot in DossierSlotName}
+        post_slots = dict(pre_slots)
+        post_slots[DossierSlotName.IDENTITY] = _slot(DossierSlotName.IDENTITY, SlotStatus.PARTIAL)
+        pre = DossierState(slots=pre_slots, total_sco_count=0)
+        post = DossierState(slots=post_slots, total_sco_count=1)
+
+        dossier_events = emit_dossier_slot_filled_events(pre, post)
+        assert dossier_events, "Expected at least one dossier_slot_filled event"
+        wm.store_score_events(dossier_events)
+
+        # Simulate streak_continued event (day 1 = 10 pts)
+        streak_event = make_streak_continued_event(1)
+        wm.store_score_events([streak_event])
+
+        # Verify both action types are in the score_events table
+        recent = wm.get_recent_scores(limit=10)
+        actions = {row["action"] for row in recent}
+        assert "dossier_slot_filled" in actions, (
+            f"dossier_slot_filled not found in score_events; actions={actions}"
+        )
+        assert "streak_continued" in actions, (
+            f"streak_continued not found in score_events; actions={actions}"
+        )
