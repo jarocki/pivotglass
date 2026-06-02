@@ -25,8 +25,16 @@ Public API additions (M-2, DEC-M2-DOSSIER-001):
   - slot_inference.infer_dossier_state_full(scos, module_runs, notes) -> DossierState
   - slots.PredictionRecord — typed scaffold dataclass for slot 8 (DEC-M2-DOSSIER-004)
   - slots.DenialStrategyRecord — typed scaffold dataclass for slot 9 (DEC-M2-DOSSIER-004)
+
+Public API additions (M-3, DEC-M3-DOSSIER-001 / DEC-M3-DOSSIER-005):
+  - scoring.emit_dossier_slot_filled_events(pre, post) -> list[dict]
+  - scoring.emit_dossier_prediction_validated_event(prediction) -> dict
 """
 
+from adversary_pursuit.dossier.scoring import (
+    emit_dossier_prediction_validated_event,
+    emit_dossier_slot_filled_events,
+)
 from adversary_pursuit.dossier.slot_inference import (
     infer_dossier_state,
     infer_dossier_state_full,
@@ -47,4 +55,6 @@ __all__ = [
     "infer_dossier_state_full",
     "PredictionRecord",
     "DenialStrategyRecord",
+    "emit_dossier_slot_filled_events",
+    "emit_dossier_prediction_validated_event",
 ]

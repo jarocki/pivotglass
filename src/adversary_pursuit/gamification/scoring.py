@@ -69,29 +69,45 @@ class ScoringRule:
     description: str
 
 
-# Default scoring rules from MASTER_PLAN.md scoring table.
-# Ordered from common (low value) to rare (high value).
+# Default scoring rules — M-3 re-tune (DEC-M3-DOSSIER-004).
+#
+# Per-IOC event initial and minimum are collapsed to 1 so that dossier slot-fill
+# events (weight 2–5) dominate analytic value. The parabolic decay formula becomes
+# mathematically inert when initial == minimum (value is always initial regardless
+# of solve_count). Decay constants are PRESERVED (not zeroed) so the re-tune diff
+# is minimal and the rollback is clean — reverting means restoring initial/minimum
+# to v1 values; decay stays unchanged in both directions.
+#
+# DEC-M3-DOSSIER-004 re-tune table (v1 -> M-3):
+#   new_ip:            100/10/10 -> 1/1/10
+#   new_domain:        100/10/10 -> 1/1/10
+#   new_url:           50/5/10   -> 1/1/10
+#   new_email:         50/5/10   -> 1/1/10
+#   adversary_mistake: 10/5/5    -> 1/1/5
+#   deception_uncovered: 200/50/5 -> 1/1/5
+#   adversary_linked:  500/100/3 -> 1/1/3
+#   new_tool:          500/100/3 -> 1/1/3
+#   campaign_described: 1000/200/2 -> 1/1/2
+#
+# streak_continued (F62/F63) is UNCHANGED — DEC-63-STREAK-SCORE-001 step-decay
+# (10/5/2) is defined in streak_continued_points(); it is not in DEFAULT_RULES.
 DEFAULT_RULES: list[ScoringRule] = [
-    ScoringRule("new_ip", initial=100, minimum=10, decay=10, description="New IP discovered"),
+    ScoringRule("new_ip", initial=1, minimum=1, decay=10, description="New IP discovered"),
+    ScoringRule("new_domain", initial=1, minimum=1, decay=10, description="New domain discovered"),
+    ScoringRule("new_url", initial=1, minimum=1, decay=10, description="New URL discovered"),
+    ScoringRule("new_email", initial=1, minimum=1, decay=10, description="New email discovered"),
     ScoringRule(
-        "new_domain", initial=100, minimum=10, decay=10, description="New domain discovered"
-    ),
-    ScoringRule("new_url", initial=50, minimum=5, decay=10, description="New URL discovered"),
-    ScoringRule("new_email", initial=50, minimum=5, decay=10, description="New email discovered"),
-    ScoringRule(
-        "adversary_mistake", initial=10, minimum=5, decay=5, description="Adversary mistake found"
+        "adversary_mistake", initial=1, minimum=1, decay=5, description="Adversary mistake found"
     ),
     ScoringRule(
-        "deception_uncovered", initial=200, minimum=50, decay=5, description="Deception uncovered"
+        "deception_uncovered", initial=1, minimum=1, decay=5, description="Deception uncovered"
     ),
-    ScoringRule(
-        "adversary_linked", initial=500, minimum=100, decay=3, description="Adversary linked"
-    ),
-    ScoringRule("new_tool", initial=500, minimum=100, decay=3, description="New tool discovered"),
+    ScoringRule("adversary_linked", initial=1, minimum=1, decay=3, description="Adversary linked"),
+    ScoringRule("new_tool", initial=1, minimum=1, decay=3, description="New tool discovered"),
     ScoringRule(
         "campaign_described",
-        initial=1000,
-        minimum=200,
+        initial=1,
+        minimum=1,
         decay=2,
         description="Campaign described with IOCs and TTPs",
     ),

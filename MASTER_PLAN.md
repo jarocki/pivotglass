@@ -2164,6 +2164,104 @@ After C-2 lands, C-3 (Philosophy + Bureaucratese Modes — `sun_tzu`, `bruce_lee
 
 ---
 
+## Phase 17F: Dossier Scoring + Score Event Re-Tune — M-3 (W-68-M3-DOSSIER-SCORING, post-v1, 2026-06-01)
+
+**Status:** in-progress (planner-staged 2026-06-01; implementer slice `wi-68-m3-impl-01` to follow; flips to `completed` at landing).
+**Workflow:** `w-68-m3-dossier-scoring` / goal `g-68-m3-dossier-scoring`.
+**Worktree:** `/Users/jarocki/src/ap/.worktrees/feature-68-m3-dossier-scoring` (branch `feature/68-m3-dossier-scoring`, base AP main `de08b4b`).
+**Per-slice plan (authoritative for content rationale):** `.claude/plans/dossier-m3-scoring.md` (landed in this worktree; implementer commits it together with source).
+
+**Source:** Phase 16 (W-68-DOSSIER-REFRAME-SCOPING) decomposed the reframe into M-1..M-9. M-1 (Phase 17B) shipped the dossier panel + 3-slot inference; M-2 (Phase 17D) added the per-module slot extractors + `get_dossier_state` LLM tool + scaffold dataclasses for the deferred slots. M-3 is the load-bearing v2 product-center change: it wires dossier slot transitions into the score economy per DEC-68-DOSSIER-REFRAME-002 (option c — layer `dossier/` aggregator over existing `ScoringEngine`).
+
+### M-3 Goal (verbatim from per-slice plan §1)
+
+> Wire dossier slot completion into the score economy per DEC-68-DOSSIER-REFRAME-002 (option c). When a hunt fills a dossier slot (Identity / TTPs / Infrastructure / Timing / Capability / Motivation status moves `empty → partial` or `partial → filled`, per the 9-slot weights from Phase 16 §3 — Identity=5.0, Predictions=4.0, Capability=3.5, TTPs=3.0, Motivation=3.0, Targeting=2.5, Denial=2.5, Infrastructure=2.0, Timing=2.0, baseline IOC=1.0), a `dossier_slot_filled` `ScoreEvent` fires with the weighted point value. The user sees `Identity slot filled +5 points!` (or similar) instead of just `IP found +1`. After M-3, the dossier IS the score economy's center of gravity: per-IOC events drop to baseline 1.0 and slot weights dominate.
+
+### Decision Log (Phase 17F / M-3; verbatim from per-slice plan §9)
+
+| DEC ID | Decision | Rationale |
+|--------|----------|-----------|
+| **DEC-M3-DOSSIER-001** | New file `src/adversary_pursuit/dossier/scoring.py` containing `emit_dossier_slot_filled_events(pre: DossierState, post: DossierState) -> list[dict]` as a pure function. No I/O, no subscriber, no workspace mutation. Caller wires the pre/post snapshots and persists the returned events via the existing `workspace_mgr.store_score_events(...)` API. | DEC-68-DOSSIER-REFRAME-002 chose option (c) "layer over scoring." Pure function honors that layering: the new file is *the* dossier-event-emission authority, callers integrate without changing scoring-engine semantics or workspace persistence semantics. Rejects two architecturally simpler alternatives (event-bus subscriber; ScoringEngine-internal computation) — see per-slice plan §2.2. |
+| **DEC-M3-DOSSIER-002** | Caller wiring lives in `agent/tools.py::run_module` AND `core/console.py::_execute_hunt`. Both capture `pre_dossier` BEFORE `store_stix_objects`, capture `post_dossier` AFTER, compute the diff via `dossier/scoring.py::emit_dossier_slot_filled_events`, persist the events via the existing `store_score_events` API, and include the events in the existing `events` list returned to the LLM as `score_events`. | These are the two existing per-hunt site authorities — both already own the "after hunt" boundary (per-IOC `score_results`, badge/challenge checks, streak update). Adding the dossier snapshot at the same site preserves the single-site-per-hunt pattern (Sacred Practice 12). No new orchestration layer, no new dispatcher. |
+| **DEC-M3-DOSSIER-003** | `ScoringEngine` (in `gamification/scoring.py`) is unchanged in *behavior*; only the per-IOC `DEFAULT_RULES` constants are re-tuned. `dossier/scoring.py` is an EVENT EMITTER consumed by the existing scoring path — NOT a parallel scorer. The `score_events` table is the single persistence authority. | Sacred Practice 12: the question "what is a scoreable event in AP?" still has one owner (the score_events table, via the store_score_events API). The question "given a slot state diff, what dossier events does it imply?" gets a new explicit owner (`dossier/scoring.py`). Two distinct questions, one authority each. |
+| **DEC-M3-DOSSIER-004** | Per-IOC `DEFAULT_RULES` are re-tuned to `initial == minimum == 1` for all 9 SCO-mapped action keys (`new_ip`, `new_domain`, `new_url`, `new_email`, `adversary_mistake`, `deception_uncovered`, `adversary_linked`, `new_tool`, `campaign_described`). `decay` constants preserved (mathematically inert under `initial == minimum`, but kept so the re-tune diff is minimal and reversible). `streak_continued` (F62/F63) is UNCHANGED. | DEC-68-DOSSIER-REFRAME-002 mandates baseline 1.0 for per-IOC events so slot weights (2–5) dominate. AP scoring stores integers; the closest honest mapping of "weight 1.0 baseline" is `initial == minimum == 1`, which collapses the parabolic decay to a constant 1 regardless of solve_count. Preserving `decay` keeps the diff small and the rollback clean. |
+| **DEC-M3-DOSSIER-005** | `dossier_prediction_validated` event subtype is **scaffolded** in M-3 (event shape defined, helper function `emit_dossier_prediction_validated_event(prediction)` ships and is tested for shape contract) but **NOT emitted** during any M-3 hunt. M-4 (persistent dossier state) plugs in the auto-validation logic when real prediction records exist. | Per DEC-M2-DOSSIER-004, the Predictions slot remains DEFERRED until M-4. Without persistent prediction records, no validation transitions occur in M-3. Scaffolding the shape + helper now (a) gives M-4 a stable contract to target, (b) prevents future implementers from inventing incompatible event keys, (c) is testable without M-4 persistence. The DEC-68-DOSSIER-REFRAME-007 falsified-prediction-score-deduction question remains explicitly deferred to M-4 (M-3 ships zero negative-score logic). |
+
+### M-3 Per-IOC Score Event Re-Tune Table (binding for DEC-M3-DOSSIER-004; verbatim from per-slice plan §4)
+
+| action | v1 initial | v1 minimum | v1 decay | M-3 initial | M-3 minimum | M-3 decay |
+|--------|-----------|-----------|---------|-------------|-------------|-----------|
+| `new_ip` | 100 | 10 | 10 | **1** | **1** | 10 |
+| `new_domain` | 100 | 10 | 10 | **1** | **1** | 10 |
+| `new_url` | 50 | 5 | 10 | **1** | **1** | 10 |
+| `new_email` | 50 | 5 | 10 | **1** | **1** | 10 |
+| `adversary_mistake` | 10 | 5 | 5 | **1** | **1** | 5 |
+| `deception_uncovered` | 200 | 50 | 5 | **1** | **1** | 5 |
+| `adversary_linked` | 500 | 100 | 3 | **1** | **1** | 3 |
+| `new_tool` | 500 | 100 | 3 | **1** | **1** | 3 |
+| `campaign_described` | 1000 | 200 | 2 | **1** | **1** | 2 |
+| `streak_continued` | n/a (helper) | n/a | n/a | **UNCHANGED** | **UNCHANGED** | **UNCHANGED** |
+
+### M-3 Work Item Index
+
+| ID | Title | Type | Status |
+|----|-------|------|--------|
+| **wi-68-m3-planner** | M-3 planner: per-slice plan + Evaluation Contract + Scope Manifest + Phase 17F authoring | docs only | landed (per-slice plan at `.claude/plans/dossier-m3-scoring.md`; Phase 17F section authored in M-3 worktree 2026-06-01) |
+| **wi-68-m3-impl-01** | M-3 implementer: `dossier/scoring.py` + per-IOC re-tune + `run_module` / `_execute_hunt` snapshot wiring + tests | source + tests | dispatched (planner staged 2026-06-01) |
+
+### M-3 Scope Manifest (summary; full at `.claude/plans/dossier-m3-scoring.md` §8)
+
+**Allowed / Required (the implementer MUST touch these):**
+- `src/adversary_pursuit/dossier/scoring.py` **(NEW)**
+- `src/adversary_pursuit/dossier/__init__.py` (export new symbols)
+- `src/adversary_pursuit/gamification/scoring.py` (per-IOC re-tune ONLY — `DEFAULT_RULES` constants)
+- `src/adversary_pursuit/agent/tools.py` (`run_module` snapshot + emit wiring per per-slice plan §5.1; private `_read_analyst_notes` helper)
+- `src/adversary_pursuit/core/console.py` (`_execute_hunt` same pattern; private `_read_analyst_notes` helper)
+- `tests/test_dossier_scoring.py` **(NEW)**
+- `tests/test_dossier_slot_inference.py` (extend — transition-readiness tests only)
+- `tests/test_scoring.py` (extend — re-tune assertions)
+- `tests/test_streak.py` (extend — F62 invariants under M-3)
+- `tests/test_agent_tools.py` (extend — compound integration)
+- `MASTER_PLAN.md` — this Phase 17F section. **The implementer MUST `git add MASTER_PLAN.md` in the same commit as the source changes** (AP #74 orphan-prevention; the M-1/M-2/C-1/C-2 closeout drift MUST NOT repeat).
+
+**Forbidden (preserved authorities):**
+- `core/workspace.py` (F59 + DEC-68 invariant)
+- `core/streak.py` (F62 invariant)
+- `core/pivot_policy.py`, `core/event_bus.py` (F60 invariants)
+- `dossier/slot_inference.py` (M-2 byte-identical — M-3 only READS)
+- `dossier/slots.py` (M-1/M-2 byte-identical — `SLOT_WEIGHTS` authority preserved)
+- `dossier/panel.py` (M-1 byte-identical)
+- `gamification/celebrations.py` (F63 milestone announce)
+- `gamification/modes.py`, `agent/runner.py` (C-1/C-2 territory)
+- `agent/chat.py` (F64 invariant)
+- `models/**`, `modules/**`, `pyproject.toml`, hooks, settings, CLAUDE.md, agents/, runtime/
+
+### M-3 Evaluation Contract (summary; full at `.claude/plans/dossier-m3-scoring.md` §7)
+
+- **required_tests:** ~28–32 tests across `test_dossier_scoring.py` (NEW, ~16 tests covering all 9 slot transition paths, idempotency, skip-step, deferred-target handling, event-dict shape, prediction-validated scaffold), `test_dossier_slot_inference.py` (extend, ~2 transition-readiness tests), `test_scoring.py` (extend, ~5 re-tune assertions), `test_streak.py` (extend, ~2 F62-invariant regression tests), `test_agent_tools.py` and/or new `test_dossier_scoring_integration.py` (~5 compound tests), F63 milestone gate (~1 test). Full suite green: ≥1984 passed (matching C-2 baseline) + the new M-3 tests.
+- **required_evidence:** full pytest output green; `git diff main` is empty for every forbidden file; demo trace showing a single mock identity-module hunt produces exactly one `new_email` event (points=1) AND one `dossier_slot_filled` event (indicator=identity, points=5) in `result["score_events"]`, with `result["total_points"] == 6`, and slot-fill text ABSENT from `result["summary"]` (F64 gate).
+- **required_authority_invariants:** F59 (workspace byte-identical), F60 (pivot_policy / event_bus byte-identical; no new bus subscriber), F62 (streak.json byte-identical when no streak transition; `streak_continued` semantics unchanged), F63 (milestone seed-from-`pre_total` quiet-start migration honored; dossier events can trigger milestones via `post_total`), F64 (dossier event text absent from LLM `summary`; present in `score_events` sidecar), Sacred Practice 12 (dossier/scoring.py is sole `dossier_slot_filled` emitter authority; ScoringEngine is sole per-IOC emitter authority; workspace is sole persistence authority), DEC-M1-SLOTS-WEIGHT-AUTHORITY-001 (`SLOT_WEIGHTS` constants in `dossier/slots.py` UNCHANGED).
+- **required_integration_points:** `dossier/scoring.py` (NEW pure-function module), `dossier/__init__.py` (export new symbols), `gamification/scoring.py::DEFAULT_RULES` (re-tune), `agent/tools.py::run_module` + `core/console.py::_execute_hunt` (snapshot + emit wiring).
+- **forbidden_shortcuts:** no env-var bypass; no "old scoring fallback" flag; no new event-bus subscriber; no mutation of `dossier/slot_inference.py` / `dossier/slots.py` / `dossier/panel.py`; no modification of `core/workspace.py` / `core/streak.py` / `gamification/celebrations.py` / `gamification/modes.py` / `agent/runner.py`; no new SQLite tables (M-4 owns); no auto-validation logic for `dossier_prediction_validated` (M-4 owns); no Rich markup in dossier event text (F64); no double-persist of dossier events; no refactor of `tools.py` or `console.py` beyond snapshot + emit wiring.
+- **rollback_boundary:** single feature branch revertible as one merge commit; reverting restores v1 `DEFAULT_RULES` constants, removes `dossier/scoring.py` + `dossier/__init__.py` re-exports, restores `tools.py` / `console.py` to M-2 byte state; historical `dossier_slot_filled` rows in `score_events` table remain (action string only — no schema change, no corrupt state); no schema migrations, no settings changes, streak.json untouched.
+- **ready_for_guardian_definition:** all required_tests green; full suite green; forbidden-file `git diff main` empty; **Phase 17F appended to `MASTER_PLAN.md` AND committed in the same commit as source** (AP #74 lesson); `dossier/__init__.py` exports `emit_dossier_slot_filled_events` and `emit_dossier_prediction_validated_event` (no surprise additions); implementer commit message follows `feat(dossier):` Phase 17 prefix and references `#68` + `DEC-M3-DOSSIER-001..005`.
+
+### M-3 Out-of-Scope (deferred to later slices)
+
+- **No persistent dossier state / no new SQLite tables** — M-4 owns (`dossier_slot`, `dossier_evidence_link`, `dossier_prediction`).
+- **No falsified-prediction score deduction** (DEC-68-DOSSIER-REFRAME-007 open question) — M-4 owns. M-3 ships zero negative-score logic.
+- **No `DossierEvidenceConfidenceUpgraded` event** — gated on per-slot confidence inference depth that M-2 didn't ship; M-4/M-7 revisit.
+- **No Denial / Deception slot fill events** — M-5 owns the authoring surface.
+- **No dossier-aware auto-pivot policy budget** — M-6 owns.
+- **No reports / celebrations / badges narrative upgrades** — M-7 owns.
+- **No confidence multiplier in `dossier/scoring.py`** — M-3 uses `int(SLOT_WEIGHTS[slot])` flat. M-4/M-7 may add a multiplier when real per-slot confidence values exist.
+
+### Subsequent Workflow Cue
+
+After M-3 lands, the recommended next workflow is **M-4 — Persistent Dossier State + Predictions Log** per `.claude/plans/dossier-reframe-v2-roadmap.md` §M-4. M-4 introduces SQLite tables (`dossier_slot`, `dossier_evidence_link`, `dossier_prediction`), migrates the M-1/M-2/M-3 in-memory inference to persistent state, plugs the `dossier_prediction_validated` emitter (scaffolded by M-3 per DEC-M3-DOSSIER-005) into real validation/falsification rules, and resolves DEC-68-DOSSIER-REFRAME-007 (whether falsified predictions deduct score). C-3 (Philosophy + Bureaucratese modes) remains independent (DEC-30-CHARACTER-V2-007) and may land in the same wave or independently.
+
+---
+
 ## Runtime Hygiene Backlog
 
 Cross-cutting runtime issues surfaced during recent dispatch chains. Tracked as GitHub issues (not v1 plan slices) — they affect orchestrator/Guardian quality of life but not the AP product surface:
@@ -2313,6 +2411,6 @@ Full deep research report: `.claude/research/DeepResearch_AdversaryPursuit_2026-
 
 ---
 
-## Active Phase Pointer (2026-05-29)
+## Active Phase Pointer (2026-06-01)
 
-**Phase Active (2026-05-29 — next work):** `W-68-M3-DOSSIER-SCORING` (M-3 Dossier Scoring + Score Event Re-tune per Phase 16 roadmap §M-3). Planner re-stage required; canonical chain `planner → guardian (provision) → implementer → reviewer → guardian (land)`. This pointer line is positioned as the last `**Phase ...` boldline in the document so `~/.claude/hooks/context-lib.sh:88` `get_plan_status()` tail-grep on `^#.*phase|^**Phase` resolves to current work instead of the historical `**Phase 6 rationale (new):**` narrative line in the Implementation Order section.
+**Phase Active (2026-06-01 — in progress):** `W-68-M3-DOSSIER-SCORING` (Phase 17F — M-3 Dossier Scoring + Score Event Re-tune). Planner staged 2026-06-01 (per-slice plan at `.claude/plans/dossier-m3-scoring.md`; Phase 17F section written); implementer slice `wi-68-m3-impl-01` dispatched next. Canonical chain `planner → guardian (provision) → implementer → reviewer → guardian (land)`. This pointer line is positioned as the last `**Phase ...` boldline in the document so `~/.claude/hooks/context-lib.sh:88` `get_plan_status()` tail-grep on `^#.*phase|^**Phase` resolves to current work instead of the historical `**Phase 6 rationale (new):**` narrative line in the Implementation Order section.

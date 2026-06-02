@@ -977,8 +977,18 @@ class TestCelebrationWiring:
         """run_module returns celebration=None when hunt() yields no scoring results.
 
         Silent path (DEC-AGENT-CELEBRATIONS-001): zero points => no celebration.
+
+        M-3 note: even a zero-SCO hunt logs a ModuleRun, which advances Capability
+        and Timing from EMPTY→PARTIAL on the *first* call. To isolate the zero-points
+        path we pre-seed one run for the same module so the pre-snapshot is already
+        PARTIAL; the second (test) call adds another run for the same module but
+        produces no slot upward transitions and no per-IOC score events.
         """
-        # Empty results: no indicators -> no scoring events -> total_points==0
+        # Pre-seed: advance Capability+Timing to PARTIAL before the test call.
+        tmp_ctx.workspace_mgr.store_stix_objects([], "osint/abuseipdb", "1.2.3.4")
+
+        # Now run with empty results: pre and post snapshots both show the same
+        # one distinct module (osint/abuseipdb) — no upward transitions fire.
         mock_mod = self._make_mock_module([])
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
@@ -999,7 +1009,15 @@ class TestCelebrationWiring:
         assert isinstance(celebration, str)
 
     def test_execute_tool_celebration_none_when_no_score(self, tmp_ctx):
-        """execute_tool celebration is None when hunt() returns no new indicators."""
+        """execute_tool celebration is None when hunt() returns no new indicators.
+
+        M-3 note: pre-seed one run for the same module so Capability+Timing are
+        already PARTIAL; the test call then produces no upward slot transitions and
+        no per-IOC events, leaving total_points==0 and celebration==None.
+        """
+        # Pre-seed: advance Capability+Timing to PARTIAL before the test call.
+        tmp_ctx.workspace_mgr.store_stix_objects([], "osint/abuseipdb", "1.2.3.4")
+
         mock_mod = self._make_mock_module([])
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             _summary, celebration, _badges, _challenges = execute_tool(
@@ -4356,3 +4374,276 @@ class TestF64LLMPanelSeparation:
         # badges may be empty (no high-score pre-seeding) — that's fine
         for badge in badges:
             assert badge.name not in summary
+
+
+# ---------------------------------------------------------------------------
+# M-3 Dossier Scoring Integration Tests (Evaluation Contract §7.E)
+# @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+# Compound tests: real hunt -> SCO storage -> pre/post dossier diff -> events
+# DEC-M3-DOSSIER-001 / DEC-M3-DOSSIER-002 / F64
+# ---------------------------------------------------------------------------
+
+# Identity-class SCO: email-addr triggers Identity slot transition
+SAMPLE_EMAIL_RESULTS = [
+    {"type": "email-addr", "value": "threat@actor.ru"},
+]
+
+# Slot display names that must NOT appear in LLM summary (F64 guard)
+_SLOT_DISPLAY_NAMES = [
+    "Identity",
+    "TTPs",
+    "Infrastructure",
+    "Timing",
+    "Capability",
+    "Motivation",
+    "Predictions",
+    "Denial",
+    "Targeting",
+]
+
+
+class TestM3DossierScoringIntegration:
+    # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+    """M-3 compound integration: dossier slot-fill events wired into run_module().
+
+    These tests exercise the real production sequence end-to-end:
+      ToolContext.run_module() -> store_stix_objects() -> pre/post dossier diff
+      -> emit_dossier_slot_filled_events() -> store_score_events()
+      -> result["score_events"] and result["total_points"] correct.
+
+    DEC-M3-DOSSIER-001 / DEC-M3-DOSSIER-002.
+    """
+
+    def _make_mock_module(self, results):
+        # @mock-exempt: hunt() is the external HTTP boundary.
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=results)
+        mock_mod.initialize = MagicMock()
+        return mock_mod
+
+    def test_run_module_emits_dossier_slot_filled_for_identity_evidence(self, tmp_ctx):
+        """E26: email-addr SCO triggers a dossier_slot_filled event for the Identity slot.
+
+        Production sequence:
+          1. Empty workspace (Identity slot = EMPTY pre-hunt)
+          2. Mock module returns one email-addr SCO
+          3. run_module stores SCO, detects Identity transition (empty->partial)
+          4. result["score_events"] contains a dossier_slot_filled event with
+             indicator="identity" and points=5
+        """
+        mock_mod = self._make_mock_module(SAMPLE_EMAIL_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
+
+        dossier_events = [e for e in result["score_events"] if e["action"] == "dossier_slot_filled"]
+        assert len(dossier_events) >= 1, (
+            f"Expected at least one dossier_slot_filled event; got score_events={result['score_events']}"
+        )
+        identity_events = [e for e in dossier_events if e["indicator"] == "identity"]
+        assert len(identity_events) == 1, (
+            f"Expected exactly one dossier_slot_filled for 'identity'; got {identity_events}"
+        )
+        assert identity_events[0]["points"] == 5
+
+    def test_run_module_emits_baseline_per_ioc_under_m3(self, tmp_ctx):
+        """E27: Per-IOC score event for email-addr has points=1 after M-3 re-tune.
+
+        DEC-M3-DOSSIER-004: initial == minimum == 1 for new_email and all
+        SCO-mapped actions.
+        """
+        mock_mod = self._make_mock_module(SAMPLE_EMAIL_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
+
+        per_ioc_events = [e for e in result["score_events"] if e["action"] == "new_email"]
+        assert len(per_ioc_events) >= 1, (
+            f"Expected at least one new_email event; score_events={result['score_events']}"
+        )
+        for ev in per_ioc_events:
+            assert ev["points"] == 1, (
+                f"new_email points must be 1 under M-3 re-tune; got {ev['points']}"
+            )
+
+    def test_run_module_total_points_sums_per_ioc_and_dossier(self, tmp_ctx):
+        """E28: total_points >= per-IOC total + dossier total (may also include streak)."""
+        mock_mod = self._make_mock_module(SAMPLE_EMAIL_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
+
+        per_ioc_total = sum(
+            e["points"]
+            for e in result["score_events"]
+            if e["action"] not in ("dossier_slot_filled", "streak_continued")
+        )
+        dossier_total = sum(
+            e["points"] for e in result["score_events"] if e["action"] == "dossier_slot_filled"
+        )
+        assert per_ioc_total >= 1, "Per-IOC points must be >= 1"
+        assert dossier_total >= 5, "Dossier points must be >= 5 (Identity slot fill)"
+        assert result["total_points"] >= per_ioc_total + dossier_total
+
+    def test_dossier_event_not_in_llm_summary(self, tmp_ctx):
+        """E29: F64 gate — dossier slot-fill text must NOT appear in LLM summary."""
+        mock_mod = self._make_mock_module(SAMPLE_EMAIL_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
+
+        summary = result["summary"]
+        assert "slot filled" not in summary.lower(), (
+            f"'slot filled' found in LLM summary (F64 violation): {summary!r}"
+        )
+        assert "dossier_slot_filled" not in summary, (
+            f"'dossier_slot_filled' found in LLM summary (F64 violation): {summary!r}"
+        )
+        for display_name in _SLOT_DISPLAY_NAMES:
+            assert display_name not in summary, (
+                f"Slot display name {display_name!r} found in LLM summary (F64 violation)"
+            )
+
+    def test_dossier_event_is_in_score_events_sidecar(self, tmp_ctx):
+        """E30: dossier_slot_filled event IS in result["score_events"] sidecar."""
+        mock_mod = self._make_mock_module(SAMPLE_EMAIL_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
+
+        actions = {e["action"] for e in result["score_events"]}
+        assert "dossier_slot_filled" in actions, (
+            f"dossier_slot_filled missing from score_events sidecar; actions={actions}"
+        )
+
+    def test_dossier_events_persisted_in_workspace(self, tmp_ctx):
+        """Dossier events appear in workspace score_events table (not just in-memory)."""
+        mock_mod = self._make_mock_module(SAMPLE_EMAIL_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
+
+        recent = tmp_ctx.workspace_mgr.get_recent_scores(limit=20)
+        actions = {row["action"] for row in recent}
+        assert "dossier_slot_filled" in actions, (
+            f"dossier_slot_filled not persisted in workspace score_events; actions={actions}"
+        )
+
+    def test_second_identical_hunt_no_new_dossier_events(self, tmp_ctx):
+        """Idempotency: second hunt with same email-addr produces no new dossier event."""
+        mock_mod = self._make_mock_module(SAMPLE_EMAIL_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result1 = tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
+            result2 = tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
+
+        dossier_events_1 = [
+            e for e in result1["score_events"] if e["action"] == "dossier_slot_filled"
+        ]
+        dossier_events_2 = [
+            e for e in result2["score_events"] if e["action"] == "dossier_slot_filled"
+        ]
+        assert len(dossier_events_1) >= 1, "First hunt must emit dossier_slot_filled"
+        assert len(dossier_events_2) == 0, (
+            f"Second identical hunt must NOT emit dossier_slot_filled (idempotency); "
+            f"got {dossier_events_2}"
+        )
+
+    def test_dossier_event_not_double_persisted(self, tmp_ctx):
+        """No double-persist: dossier_slot_filled appears exactly once in score_events table."""
+        mock_mod = self._make_mock_module(SAMPLE_EMAIL_RESULTS)
+        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
+
+        recent = tmp_ctx.workspace_mgr.get_recent_scores(limit=20)
+        dossier_rows = [
+            row
+            for row in recent
+            if row["action"] == "dossier_slot_filled" and row.get("indicator") == "identity"
+        ]
+        assert len(dossier_rows) == 1, (
+            f"Expected exactly 1 dossier_slot_filled identity row; got {len(dossier_rows)}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# M-3 F63 milestone gate (Evaluation Contract §7.F)
+# @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+# DEC-63-MILESTONE-CATCHUP-001 / DEC-63-MIGRATION-001
+# ---------------------------------------------------------------------------
+
+
+class TestM3MilestoneGate:
+    # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+    """F63: dossier events can trigger milestones; quiet-start migration honored."""
+
+    def test_dossier_event_can_trigger_milestone(self, tmp_path):
+        """E31: Identity slot fill (+5) pushes total_score over a milestone threshold."""
+        from adversary_pursuit.gamification.celebrations import MILESTONES
+
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+
+        assert MILESTONES, "MILESTONES must have at least one entry"
+        first_ms = min(MILESTONES, key=lambda m: m.threshold)
+        seed_score = first_ms.threshold - 3  # 3 points below threshold
+
+        if seed_score > 0:
+            ctx.workspace_mgr.store_score_events(
+                [
+                    {
+                        "action": "seed",
+                        "points": seed_score,
+                        "indicator": "seed",
+                        "rule_description": "seed",
+                    }
+                ]
+            )
+        pre_total = ctx.workspace_mgr.get_total_score()
+        assert pre_total == seed_score
+
+        # @mock-exempt: hunt() is the external HTTP boundary.
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=SAMPLE_EMAIL_RESULTS)
+        mock_mod.initialize = MagicMock()
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            ctx.run_module("osint/hibp", "threat@actor.ru", {})
+
+        post_total = ctx.workspace_mgr.get_total_score()
+        assert post_total >= first_ms.threshold, (
+            f"post_total={post_total} must be >= milestone threshold={first_ms.threshold}"
+        )
+        last_id = ctx.workspace_mgr.get_last_milestone_id()
+        assert last_id is not None, "Milestone must have been announced"
+
+    def test_milestone_seed_unchanged_with_dossier_events(self, tmp_path):
+        """DEC-63-MIGRATION-001: quiet-start seeds from pre_total, not post_total."""
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+
+        ctx.workspace_mgr.store_score_events(
+            [
+                {
+                    "action": "old_score",
+                    "points": 5000,
+                    "indicator": "old",
+                    "rule_description": "old",
+                }
+            ]
+        )
+        assert ctx.workspace_mgr.get_last_milestone_id() is None
+
+        # @mock-exempt: hunt() is the external HTTP boundary.
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=SAMPLE_EMAIL_RESULTS)
+        mock_mod.initialize = MagicMock()
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            ctx.run_module("osint/hibp", "threat@actor.ru", {})
+
+        last_id = ctx.workspace_mgr.get_last_milestone_id()
+        assert last_id is not None, (
+            "Quiet-start migration must seed last_milestone_id (DEC-63-MIGRATION-001)"
+        )

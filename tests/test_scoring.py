@@ -184,25 +184,34 @@ class TestDefaultRules:
         assert expected_actions == actual_actions
 
     def test_new_ip_parameters(self):
-        """new_ip rule has expected parameters."""
+        """new_ip rule has M-3 re-tuned parameters (DEC-M3-DOSSIER-004).
+
+        M-3 re-tune: initial=1, minimum=1, decay=10 (decay preserved for rollback).
+        """
         rule = next(r for r in DEFAULT_RULES if r.action == "new_ip")
-        assert rule.initial == 100
-        assert rule.minimum == 10
-        assert rule.decay == 10
+        assert rule.initial == 1  # M-3: baseline 1.0 per DEC-M3-DOSSIER-004
+        assert rule.minimum == 1  # M-3: collapsed to baseline
+        assert rule.decay == 10  # preserved: mathematically inert but kept for rollback
 
     def test_campaign_described_parameters(self):
-        """campaign_described rule has highest initial value."""
+        """campaign_described rule has M-3 re-tuned parameters (DEC-M3-DOSSIER-004).
+
+        M-3 re-tune: initial=1, minimum=1, decay=2 (decay preserved).
+        """
         rule = next(r for r in DEFAULT_RULES if r.action == "campaign_described")
-        assert rule.initial == 1000
-        assert rule.minimum == 200
-        assert rule.decay == 2
+        assert rule.initial == 1  # M-3: baseline 1.0
+        assert rule.minimum == 1  # M-3: collapsed to baseline
+        assert rule.decay == 2  # preserved: fast decay shape (inert under initial==minimum)
 
     def test_adversary_linked_parameters(self):
-        """adversary_linked rule — high value, tight decay."""
+        """adversary_linked rule has M-3 re-tuned parameters (DEC-M3-DOSSIER-004).
+
+        M-3 re-tune: initial=1, minimum=1, decay=3 (decay preserved).
+        """
         rule = next(r for r in DEFAULT_RULES if r.action == "adversary_linked")
-        assert rule.initial == 500
-        assert rule.minimum == 100
-        assert rule.decay == 3
+        assert rule.initial == 1  # M-3: baseline 1.0
+        assert rule.minimum == 1  # M-3: collapsed to baseline
+        assert rule.decay == 3  # preserved: tight decay shape (inert under initial==minimum)
 
     def test_all_rules_have_descriptions(self):
         """Every rule must have a non-empty description."""
@@ -227,12 +236,13 @@ class TestScoringEngineScoreResults:
     """Verify score_results maps STIX types → scoring actions correctly."""
 
     def test_ipv4_addr_scores_as_new_ip(self, engine):
+        """ipv4-addr maps to new_ip; M-3 re-tune: points=1 at any solve_count."""
         results = [{"type": "ipv4-addr", "value": "1.2.3.4"}]
         events = engine.score_results(results, {})
         assert len(events) == 1
         assert events[0]["action"] == "new_ip"
         assert events[0]["indicator"] == "1.2.3.4"
-        assert events[0]["points"] == 100  # solve_count=0 → initial value
+        assert events[0]["points"] == 1  # M-3 re-tune: initial=minimum=1
 
     def test_ipv6_addr_scores_as_new_ip(self, engine):
         results = [{"type": "ipv6-addr", "value": "::1"}]
@@ -241,25 +251,28 @@ class TestScoringEngineScoreResults:
         assert events[0]["action"] == "new_ip"
 
     def test_domain_name_scores_as_new_domain(self, engine):
+        """domain-name maps to new_domain; M-3 re-tune: points=1."""
         results = [{"type": "domain-name", "value": "evil.com"}]
         events = engine.score_results(results, {})
         assert len(events) == 1
         assert events[0]["action"] == "new_domain"
-        assert events[0]["points"] == 100
+        assert events[0]["points"] == 1  # M-3 re-tune: initial=minimum=1
 
     def test_url_scores_as_new_url(self, engine):
+        """url maps to new_url; M-3 re-tune: points=1."""
         results = [{"type": "url", "value": "https://evil.com/payload"}]
         events = engine.score_results(results, {})
         assert len(events) == 1
         assert events[0]["action"] == "new_url"
-        assert events[0]["points"] == 50  # new_url initial=50
+        assert events[0]["points"] == 1  # M-3 re-tune: initial=minimum=1
 
     def test_email_addr_scores_as_new_email(self, engine):
+        """email-addr maps to new_email; M-3 re-tune: points=1."""
         results = [{"type": "email-addr", "value": "threat@example.com"}]
         events = engine.score_results(results, {})
         assert len(events) == 1
         assert events[0]["action"] == "new_email"
-        assert events[0]["points"] == 50  # new_email initial=50
+        assert events[0]["points"] == 1  # M-3 re-tune: initial=minimum=1
 
     def test_unrecognized_type_produces_no_event(self, engine):
         """STIX types not in the mapping (e.g. relationship) produce no scoring event."""
@@ -306,16 +319,33 @@ class TestScoringEngineScoreResults:
         assert "rule_description" in event
 
     def test_points_decrease_with_higher_workspace_stats(self, engine):
-        """When workspace already has many of a type, points are lower (decay working)."""
-        results = [{"type": "ipv4-addr", "value": "5.5.5.5"}]
-        # No prior IPs
-        events_fresh = engine.score_results(results, {"ipv4-addr": 0})
-        # Workspace already has 10 IPs (at/past decay threshold)
-        events_saturated = engine.score_results(results, {"ipv4-addr": 10})
+        """M-3 re-tune: decay is inert (initial == minimum == 1), so points are always 1.
 
+        Under DEC-M3-DOSSIER-004, initial == minimum for all per-IOC rules, making the
+        parabolic decay formula mathematically inert — points are always 1 regardless of
+        solve_count. This test was updated from the v1 assertion (pts_fresh > pts_saturated)
+        to the M-3 invariant (pts_fresh == pts_saturated == 1).
+
+        Use a custom engine with v1 rules to verify the formula still decays if a caller
+        ever passes non-baseline rules.
+        """
+        results = [{"type": "ipv4-addr", "value": "5.5.5.5"}]
+        # With M-3 default rules, both calls return 1 (inert decay)
+        events_fresh = engine.score_results(results, {"ipv4-addr": 0})
+        events_saturated = engine.score_results(results, {"ipv4-addr": 10})
         pts_fresh = events_fresh[0]["points"]
         pts_saturated = events_saturated[0]["points"]
-        assert pts_fresh > pts_saturated
+        assert pts_fresh == 1, f"M-3 re-tune: fresh new_ip must be 1; got {pts_fresh}"
+        assert pts_saturated == 1, f"M-3 re-tune: saturated new_ip must be 1; got {pts_saturated}"
+        # Verify the formula still works with non-baseline rules (v1 values)
+        from adversary_pursuit.gamification.scoring import ScoringEngine, ScoringRule
+
+        v1_engine = ScoringEngine(
+            rules=[ScoringRule("new_ip", initial=100, minimum=10, decay=10, description="v1")]
+        )
+        v1_fresh = v1_engine.score_results(results, {"ipv4-addr": 0})[0]["points"]
+        v1_saturated = v1_engine.score_results(results, {"ipv4-addr": 10})[0]["points"]
+        assert v1_fresh > v1_saturated, "v1 rules must decay (formula test)"
 
     def test_empty_results_returns_empty_events(self, engine):
         """No results → no scoring events."""
@@ -347,15 +377,18 @@ class TestScoringEngineTotalScore:
         assert engine.total_score(events) == 230
 
     def test_total_score_via_score_results(self, engine):
-        """End-to-end: score_results → total_score gives correct sum."""
+        """End-to-end: score_results → total_score gives correct sum (M-3 re-tune).
+
+        M-3 re-tune: new_ip=1, new_domain=1 → total=2 (DEC-M3-DOSSIER-004).
+        """
         results = [
             {"type": "ipv4-addr", "value": "1.2.3.4"},
             {"type": "domain-name", "value": "evil.com"},
         ]
         events = engine.score_results(results, {})
         total = engine.total_score(events)
-        # new_ip initial=100, new_domain initial=100
-        assert total == 200
+        # M-3 re-tune: new_ip initial=1, new_domain initial=1 → total=2
+        assert total == 2
 
 
 # ---------------------------------------------------------------------------
@@ -687,3 +720,97 @@ class TestMakeStreakContinuedEvent:
         assert total == streak_continued_points(3)
         recent = wm.get_recent_scores(limit=1)
         assert recent[0]["action"] == "streak_continued"
+
+
+# ---------------------------------------------------------------------------
+# M-3 per-IOC re-tune assertions (Evaluation Contract §7.C)
+# DEC-M3-DOSSIER-004: initial == minimum == 1 for all 9 SCO-mapped action keys.
+# decay constants PRESERVED (mathematically inert but kept for clean rollback).
+# streak_continued UNCHANGED (F62/F63).
+# ---------------------------------------------------------------------------
+
+# The 9 per-IOC SCO-mapped action keys that must be re-tuned to initial=minimum=1
+_PER_IOC_ACTIONS = [
+    "new_ip",
+    "new_domain",
+    "new_url",
+    "new_email",
+    "adversary_mistake",
+    "deception_uncovered",
+    "adversary_linked",
+    "new_tool",
+    "campaign_described",
+]
+
+# Expected decay constants from the M-3 re-tune table (per-slice plan §4)
+_EXPECTED_DECAY: dict[str, int] = {
+    "new_ip": 10,
+    "new_domain": 10,
+    "new_url": 10,
+    "new_email": 10,
+    "adversary_mistake": 5,
+    "deception_uncovered": 5,
+    "adversary_linked": 3,
+    "new_tool": 3,
+    "campaign_described": 2,
+}
+
+
+class TestM3PerIOCRetune:
+    """M-3 DEFAULT_RULES re-tune: initial == minimum == 1 for all 9 SCO-mapped types."""
+
+    def _get_rule(self, action: str) -> ScoringRule:
+        """Look up a rule by action key from DEFAULT_RULES."""
+        rule = next((r for r in DEFAULT_RULES if r.action == action), None)
+        assert rule is not None, f"No rule for action {action!r} in DEFAULT_RULES"
+        return rule
+
+    def test_new_ip_initial_is_one_post_m3(self):
+        """C19: new_ip.initial == 1 after M-3 re-tune."""
+        assert self._get_rule("new_ip").initial == 1
+
+    def test_new_ip_minimum_is_one_post_m3(self):
+        """C20: new_ip.minimum == 1 after M-3 re-tune."""
+        assert self._get_rule("new_ip").minimum == 1
+
+    def test_all_per_ioc_rules_initial_one(self):
+        """C21: Every SCO-mapped action key has initial == 1 (DEC-M3-DOSSIER-004)."""
+        for action in _PER_IOC_ACTIONS:
+            rule = self._get_rule(action)
+            assert rule.initial == 1, (
+                f"Expected initial=1 for {action!r} after M-3 re-tune; got {rule.initial}"
+            )
+            assert rule.minimum == 1, (
+                f"Expected minimum=1 for {action!r} after M-3 re-tune; got {rule.minimum}"
+            )
+
+    def test_decay_constants_preserved_post_m3(self):
+        """C22: Decay constants unchanged after M-3 re-tune (DEC-M3-DOSSIER-004)."""
+        for action, expected_decay in _EXPECTED_DECAY.items():
+            rule = self._get_rule(action)
+            assert rule.decay == expected_decay, (
+                f"Expected decay={expected_decay} for {action!r}; got {rule.decay}"
+            )
+
+    def test_streak_continued_unchanged_post_m3(self):
+        """C23: streak_continued step-decay unchanged under M-3 (F62/F63 invariant)."""
+        assert streak_continued_points(1) == 10, "Day 1-7 streak: must be 10 pts"
+        assert streak_continued_points(7) == 10, "Day 7: must still be 10 pts"
+        assert streak_continued_points(8) == 5, "Day 8: drops to 5 pts"
+        assert streak_continued_points(30) == 5, "Day 30: must still be 5 pts"
+        assert streak_continued_points(31) == 2, "Day 31+: drops to 2 pts"
+
+    def test_per_ioc_score_always_returns_one(self):
+        """With initial == minimum == 1, calculate_points returns 1 regardless of solve_count."""
+        for action in _PER_IOC_ACTIONS:
+            rule = self._get_rule(action)
+            # At solve_count 0, 1, decay, 100 — must all return 1
+            for count in [0, 1, rule.decay, 100]:
+                pts = calculate_points(rule, count)
+                assert pts == 1, f"{action!r} at solve_count={count}: expected 1, got {pts}"
+
+    def test_default_rules_contains_all_nine_per_ioc_actions(self):
+        """All 9 SCO-mapped action keys are present in DEFAULT_RULES."""
+        rule_actions = {r.action for r in DEFAULT_RULES}
+        for action in _PER_IOC_ACTIONS:
+            assert action in rule_actions, f"Missing rule for {action!r} in DEFAULT_RULES"
