@@ -313,15 +313,19 @@ class WorkspaceManager:
                    least a storage timestamp, making the minimum provenance record non-null.
         """
         # @decision DEC-WS-006
-        # @title _ensure_active() called at top of store_stix_objects
+        # @title _ensure_active() called at top of every public data method
         # @status accepted
-        # @rationale Without this call, store_stix_objects() opens Session(self._engine)
+        # @rationale Without this call, any public data method opens Session(self._engine)
         #            when self._engine is None (no workspace switched yet), causing
         #            SQLAlchemy UnboundExecutionError on session.get() / session.add().
         #            _ensure_active() auto-creates and switches to the 'default' workspace,
         #            guaranteeing self._engine is bound before the Session is opened.
-        #            All other public data methods already call _ensure_active(); this was
-        #            the only missing call site.
+        #            store_stix_objects, get_stix_objects, and get_module_runs all carry
+        #            this call. Previously get_stix_objects and get_module_runs were missing
+        #            it — latent because nothing called them before store_stix_objects
+        #            (which auto-creates the workspace). M-3's pre-hunt SCO id capture
+        #            (tools.py:443-445) and M-2's Timing extractor (get_module_runs) both
+        #            run BEFORE store_stix_objects on fresh sessions, triggering the crash.
         self._ensure_active()
         stored_count = 0
 
@@ -396,6 +400,7 @@ class WorkspaceManager:
         list[dict]
             List of plain dicts (the json_blob column contents) for each object.
         """
+        self._ensure_active()  # DEC-WS-006: must bind engine before opening Session
         with Session(self._engine) as session:
             stmt = select(StixObject)
             if type_filter is not None:
@@ -412,6 +417,7 @@ class WorkspaceManager:
             List of dicts with keys: module_name, target, timestamp, result_count.
             Ordered by insertion order (id ascending).
         """
+        self._ensure_active()  # DEC-WS-006: must bind engine before opening Session
         with Session(self._engine) as session:
             rows = session.execute(select(ModuleRun).order_by(ModuleRun.id)).scalars().all()
             return [

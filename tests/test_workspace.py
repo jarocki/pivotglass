@@ -740,6 +740,90 @@ class TestWorkspaceBindRegression:
                 f"add_note raised UnboundExecutionError — _ensure_active() was not called: {exc}"
             )
 
+    def test_get_stix_objects_on_fresh_manager_returns_empty_list(self, tmp_path):
+        """get_stix_objects() must not raise UnboundExecutionError on a fresh WorkspaceManager.
+
+        Regression for M-3's pre-hunt SCO id capture (tools.py:443-445) which calls
+        get_stix_objects() BEFORE store_stix_objects() on a brand-new ap chat session.
+        Previously self._engine was None at that point -> UnboundExecutionError crash.
+        Fix: _ensure_active() added at the top of get_stix_objects() (DEC-WS-006).
+        """
+        from sqlalchemy.exc import UnboundExecutionError
+
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        # Deliberately do NOT call create() or switch() — this is the M-3 failure mode.
+        try:
+            result = wm.get_stix_objects()
+        except UnboundExecutionError as exc:
+            pytest.fail(
+                f"get_stix_objects raised UnboundExecutionError on fresh manager — "
+                f"_ensure_active() was not called before opening the Session: {exc}"
+            )
+        assert result == [], f"Expected empty list on fresh workspace, got {result!r}"
+        assert wm.active == "default", (
+            f"Expected 'default' workspace to be auto-created, got {wm.active!r}"
+        )
+
+    def test_get_module_runs_on_fresh_manager_returns_empty_list(self, tmp_path):
+        """get_module_runs() must not raise UnboundExecutionError on a fresh WorkspaceManager.
+
+        Regression for M-2's Timing extractor path which calls get_module_runs()
+        BEFORE store_stix_objects() on a fresh session.
+        Previously self._engine was None -> UnboundExecutionError crash.
+        Fix: _ensure_active() added at the top of get_module_runs() (DEC-WS-006).
+        """
+        from sqlalchemy.exc import UnboundExecutionError
+
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        # Deliberately do NOT call create() or switch().
+        try:
+            result = wm.get_module_runs()
+        except UnboundExecutionError as exc:
+            pytest.fail(
+                f"get_module_runs raised UnboundExecutionError on fresh manager — "
+                f"_ensure_active() was not called before opening the Session: {exc}"
+            )
+        assert result == [], f"Expected empty list on fresh workspace, got {result!r}"
+        assert wm.active == "default", (
+            f"Expected 'default' workspace to be auto-created, got {wm.active!r}"
+        )
+
+    def test_get_stix_objects_before_store_mirrors_production_m3_sequence(self, tmp_path):
+        """Integration: get_stix_objects() → store_stix_objects() → get_stix_objects() succeeds.
+
+        This reproduces the exact M-3 production sequence: capture pre-hunt SCO ids
+        (get_stix_objects before any store), run the tool (store_stix_objects), then
+        capture post-hunt SCO ids (get_stix_objects again). The pre-hunt call is the
+        one that previously crashed on fresh sessions.
+
+        Crosses WorkspaceManager._ensure_active(), _create_workspace(), and the
+        SQLAlchemy Session open, verifying the full state-transition path.
+        """
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+
+        # Step 1: pre-hunt id capture (the previously-crashing M-3 call)
+        scos_before = wm.get_stix_objects()
+        scos_before_ids = {s["id"] for s in scos_before if s.get("id")}
+        assert scos_before_ids == set(), "Fresh workspace must have no pre-existing SCOs"
+
+        # Step 2: tool execution stores new SCOs
+        wm.store_stix_objects(
+            [
+                {"type": "ipv4-addr", "value": "8.8.8.8"},
+                {"type": "domain-name", "value": "greynoise.io"},
+            ],
+            module_name="osint/greynoise_lookup",
+            target="8.8.8.8",
+        )
+
+        # Step 3: post-hunt id capture — new SCOs visible
+        scos_after = wm.get_stix_objects()
+        new_ids = {s["id"] for s in scos_after if s.get("id")} - scos_before_ids
+        assert len(new_ids) == 2, f"Expected 2 new SCOs after store, got {len(new_ids)}"
+
+        # Workspace auto-created and stable across all three calls
+        assert wm.active == "default"
+
 
 # ---------------------------------------------------------------------------
 # Provenance augmentation tests (DEC-59-STIX-PROVENANCE-001..004, #59)
