@@ -29,8 +29,29 @@ Public API additions (M-2, DEC-M2-DOSSIER-001):
 Public API additions (M-3, DEC-M3-DOSSIER-001 / DEC-M3-DOSSIER-005):
   - scoring.emit_dossier_slot_filled_events(pre, post) -> list[dict]
   - scoring.emit_dossier_prediction_validated_event(prediction) -> dict
+
+Public API additions (M-4, DEC-M4-PERSIST-001..003 / DEC-M4-PRED-001..006):
+  - state.load_dossier_state(workspace_mgr) -> DossierState | None
+  - state.save_dossier_state(workspace_mgr, state) -> None
+  - state.default_deferred_state() -> DossierState
+  - state.apply_predictions_overlay(state, predictions) -> DossierState
+  - predictions.load_predictions_log(workspace_mgr) -> list[PersistedPrediction]
+  - predictions.save_predictions_log(workspace_mgr, predictions) -> None
+  - predictions.validate_predictions(predictions, new_scos, new_notes) -> list[ValidationResult]
+  - predictions.PersistedPrediction — full lifecycle dataclass
+  - predictions.ExpectedEvidence — typed match-pattern dataclass
+  - predictions.ValidationResult — result of one prediction check
 """
 
+from adversary_pursuit.dossier.predictions import (
+    ExpectedEvidence,
+    PersistedPrediction,
+    ValidationResult,
+    load_predictions_log,
+    mark_confirmed,
+    save_predictions_log,
+    validate_predictions,
+)
 from adversary_pursuit.dossier.scoring import (
     emit_dossier_prediction_validated_event,
     emit_dossier_slot_filled_events,
@@ -46,6 +67,12 @@ from adversary_pursuit.dossier.slots import (
     PredictionRecord,
     SlotStatus,
 )
+from adversary_pursuit.dossier.state import (
+    apply_predictions_overlay,
+    default_deferred_state,
+    load_dossier_state,
+    save_dossier_state,
+)
 
 __all__ = [
     "DossierSlotName",
@@ -57,4 +84,17 @@ __all__ = [
     "DenialStrategyRecord",
     "emit_dossier_slot_filled_events",
     "emit_dossier_prediction_validated_event",
+    # M-4 state persistence
+    "load_dossier_state",
+    "save_dossier_state",
+    "default_deferred_state",
+    "apply_predictions_overlay",
+    # M-4 predictions lifecycle
+    "load_predictions_log",
+    "save_predictions_log",
+    "validate_predictions",
+    "mark_confirmed",
+    "PersistedPrediction",
+    "ExpectedEvidence",
+    "ValidationResult",
 ]

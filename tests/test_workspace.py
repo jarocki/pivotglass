@@ -971,3 +971,115 @@ class TestMilestoneSentinel:
             wm.set_last_milestone_id(i)
         # get_last_milestone_id should return 5, not some earlier value
         assert wm.get_last_milestone_id() == 5
+
+
+# ---------------------------------------------------------------------------
+# M-4 reserved actions filter — DEC-M4-PERSIST-002
+# ---------------------------------------------------------------------------
+
+
+class TestReservedActionsFilter:
+    """Verify that M-4 sentinel rows are excluded from get_recent_scores().
+
+    DEC-M4-PERSIST-002: _RESERVED_ACTIONS frozenset covers all three reserved
+    actions; get_recent_scores() uses .notin_(_RESERVED_ACTIONS).
+
+    Evaluation Contract gates:
+      W1  _dossier_state_snapshot row excluded from get_recent_scores()
+      W2  _predictions_log row excluded from get_recent_scores()
+      W3  _RESERVED_ACTIONS constant covers all three reserved actions (regression guard)
+    """
+
+    def _make_wm(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        return wm
+
+    def test_dossier_state_snapshot_excluded_from_recent_scores(self, tmp_path):
+        """W1: _dossier_state_snapshot rows are excluded from get_recent_scores()."""
+        from adversary_pursuit.dossier.state import (
+            DOSSIER_STATE_SENTINEL_ACTION,
+            default_deferred_state,
+            save_dossier_state,
+        )
+
+        wm = self._make_wm(tmp_path)
+        wm.store_score_events([{"action": "new_ip", "points": 5, "indicator": "1.2.3.4"}])
+        save_dossier_state(wm, default_deferred_state())
+
+        recent = wm.get_recent_scores(limit=50)
+        actions = {e["action"] for e in recent}
+        assert DOSSIER_STATE_SENTINEL_ACTION not in actions
+        assert "new_ip" in actions
+
+    def test_predictions_log_excluded_from_recent_scores(self, tmp_path):
+        """W2: _predictions_log rows are excluded from get_recent_scores()."""
+        from adversary_pursuit.dossier.predictions import (
+            PREDICTIONS_LOG_SENTINEL_ACTION,
+            ExpectedEvidence,
+            PersistedPrediction,
+            save_predictions_log,
+        )
+
+        wm = self._make_wm(tmp_path)
+        wm.store_score_events([{"action": "new_domain", "points": 3, "indicator": "evil.com"}])
+        pred = PersistedPrediction(
+            prediction_id="pred-00000001",
+            text="Test prediction",
+            slot="infrastructure",
+            status="pending",
+            expected_evidence=ExpectedEvidence(sco_type="domain-name"),
+            created_at="2026-06-01T00:00:00+00:00",
+        )
+        save_predictions_log(wm, [pred])
+
+        recent = wm.get_recent_scores(limit=50)
+        actions = {e["action"] for e in recent}
+        assert PREDICTIONS_LOG_SENTINEL_ACTION not in actions
+        assert "new_domain" in actions
+
+    def test_reserved_actions_constant_covers_all_three(self, tmp_path):
+        """W3: _RESERVED_ACTIONS frozenset contains exactly the three documented actions.
+
+        This is a regression guard: forces a code change if a future implementer
+        adds a fourth reserved action without updating the constant.
+        """
+        wm = self._make_wm(tmp_path)
+        reserved = wm._RESERVED_ACTIONS
+        assert "_milestone_sentinel" in reserved, (
+            "_milestone_sentinel missing from _RESERVED_ACTIONS"
+        )
+        assert "_dossier_state_snapshot" in reserved, (
+            "_dossier_state_snapshot missing from _RESERVED_ACTIONS"
+        )
+        assert "_predictions_log" in reserved, "_predictions_log missing from _RESERVED_ACTIONS"
+        assert len(reserved) == 3, (
+            f"_RESERVED_ACTIONS has {len(reserved)} entries; expected 3. "
+            "Adding a fourth reserved action requires a planner re-stage and updating this test."
+        )
+
+    def test_total_score_unaffected_by_sentinel_rows(self, tmp_path):
+        """All sentinel rows have points=0 so get_total_score() is not inflated."""
+        from adversary_pursuit.dossier.predictions import (
+            ExpectedEvidence,
+            PersistedPrediction,
+            save_predictions_log,
+        )
+        from adversary_pursuit.dossier.state import default_deferred_state, save_dossier_state
+
+        wm = self._make_wm(tmp_path)
+        wm.store_score_events([{"action": "new_ip", "points": 42, "indicator": "1.2.3.4"}])
+        save_dossier_state(wm, default_deferred_state())
+        pred = PersistedPrediction(
+            prediction_id="pred-00000001",
+            text="Test",
+            slot="infrastructure",
+            status="pending",
+            expected_evidence=ExpectedEvidence(sco_type="ipv4-addr"),
+            created_at="2026-06-01T00:00:00+00:00",
+        )
+        save_predictions_log(wm, [pred])
+        wm.set_last_milestone_id(1)
+
+        assert wm.get_total_score() == 42

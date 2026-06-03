@@ -518,7 +518,7 @@ class WorkspaceManager:
             rows = (
                 session.execute(
                     select(ScoreEvent)
-                    .where(ScoreEvent.action != self._MILESTONE_SENTINEL_ACTION)
+                    .where(ScoreEvent.action.notin_(self._RESERVED_ACTIONS))
                     .order_by(ScoreEvent.id.desc())
                     .limit(limit)
                 )
@@ -536,13 +536,30 @@ class WorkspaceManager:
             ]
 
     # ------------------------------------------------------------------
-    # Milestone sentinel — DEC-63-MILESTONE-CATCHUP-001
+    # Reserved sentinel actions — DEC-63-MILESTONE-CATCHUP-001 + DEC-M4-PERSIST-002
     # ------------------------------------------------------------------
 
     # Sentinel action name used to persist the last announced milestone ID.
     # A single row with this action is maintained in score_events.
     # Using score_events avoids any schema change (DEC-63-MILESTONE-CATCHUP-001).
     _MILESTONE_SENTINEL_ACTION: str = "_milestone_sentinel"
+
+    # @decision DEC-M4-PERSIST-002
+    # @title _RESERVED_ACTIONS frozenset enumerates all sentinel actions; get_recent_scores widened
+    # @status accepted
+    # @rationale DEC-M4-PERSIST-001 picked the F63 sentinel-row pattern for DossierState and
+    #     Predictions Log persistence. That mechanically requires hiding the two new sentinel rows
+    #     from get_recent_scores() the same way F63 hides _milestone_sentinel. Widening the
+    #     existing single-action filter to a frozenset is the smallest honest workspace.py change.
+    #     This constant is the SINGLE authority for all reserved score_events actions.
+    #     Future reserved actions MUST be added here and require a planner re-stage.
+    _RESERVED_ACTIONS: frozenset[str] = frozenset(
+        {
+            "_milestone_sentinel",  # F63 — last_milestone_id
+            "_dossier_state_snapshot",  # M-4 — persistent DossierState
+            "_predictions_log",  # M-4 — Predictions Log entries
+        }
+    )
 
     def get_last_milestone_id(self) -> int | None:
         """Return the last announced milestone ID for the active workspace.

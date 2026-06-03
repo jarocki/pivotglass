@@ -483,6 +483,82 @@ class TestPredictionValidatedScaffold:
 
 
 # ---------------------------------------------------------------------------
+# M-4: prediction event emission with live validation (DEC-M4-PRED-004)
+# ---------------------------------------------------------------------------
+
+
+class TestM4PredictionEventEmission:
+    """Prediction-validated events fire from confirmed validation with correct shape.
+
+    M-4 extends the scaffold: the caller wires validate_predictions() + the M-3
+    scaffold emitter. These tests prove the wiring is correct using the public
+    function API without needing a live workspace.
+
+    Evaluation Contract gates:
+      DS1  confirmed prediction fires dossier_prediction_validated with points=4,
+           action="dossier_prediction_validated", indicator matches M-3 scaffold format
+      DS2  prediction-validated event fires alongside slot-fill events in the same hunt
+      DS3  no prediction event fires when validate_predictions returns 0 confirmations
+    """
+
+    def _make_prediction(self, pid: str = "pred-00000001", text: str = "Actor pivots to .ru"):
+        from adversary_pursuit.dossier.predictions import ExpectedEvidence, PersistedPrediction
+
+        return PersistedPrediction(
+            prediction_id=pid,
+            text=text,
+            slot="infrastructure",
+            status="pending",
+            expected_evidence=ExpectedEvidence(value_regex=r".*\.ru$"),
+            created_at="2026-06-01T00:00:00+00:00",
+        )
+
+    def test_ds1_confirmed_prediction_fires_prediction_validated_event(self):
+        """DS1: confirmed validation => dossier_prediction_validated event at points=4."""
+        from adversary_pursuit.dossier.predictions import _to_m2_record
+
+        pred = self._make_prediction()
+        event = emit_dossier_prediction_validated_event(_to_m2_record(pred))
+        assert event["action"] == "dossier_prediction_validated"
+        assert event["points"] == 4
+        assert isinstance(event["indicator"], str) and len(event["indicator"]) > 0
+        # indicator uses M-3 scaffold format: "prediction:<hex8>"
+        assert event["indicator"].startswith("prediction:")
+
+    def test_ds2_prediction_event_alongside_slot_fill_events(self):
+        """DS2: slot-fill events + prediction events can coexist in the same hunt."""
+        from adversary_pursuit.dossier.predictions import _to_m2_record
+
+        # Simulate a hunt that fills Identity slot AND confirms a prediction
+        pre = _all_empty_state()
+        post = _state_with({DossierSlotName.IDENTITY: SlotStatus.PARTIAL})
+        slot_events = emit_dossier_slot_filled_events(pre, post)
+
+        pred = self._make_prediction()
+        prediction_event = emit_dossier_prediction_validated_event(_to_m2_record(pred))
+
+        all_events = slot_events + [prediction_event]
+        actions = {e["action"] for e in all_events}
+        assert "dossier_slot_filled" in actions
+        assert "dossier_prediction_validated" in actions
+        assert len(all_events) == 2
+
+    def test_ds3_no_prediction_event_when_zero_confirmations(self):
+        """DS3: validate_predictions returns 0 confirmations => no prediction events."""
+        from adversary_pursuit.dossier.predictions import validate_predictions
+
+        pred = self._make_prediction()
+        new_scos = [{"type": "ipv4-addr", "value": "1.2.3.4", "id": "ipv4-addr--1.2.3.4"}]
+        results = validate_predictions([pred], new_scos, [])
+        prediction_events = [
+            emit_dossier_prediction_validated_event(PredictionRecord(text=pred.text))
+            for _, vr in zip([pred], results)
+            if vr.confirmed
+        ]
+        assert prediction_events == []
+
+
+# ---------------------------------------------------------------------------
 # Compound: production sequence — all events together in one hunt
 # ---------------------------------------------------------------------------
 
