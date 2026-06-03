@@ -178,9 +178,9 @@ class TestCreateTools:
         assert isinstance(tools, list)
 
     def test_returns_twenty_two_tools(self, tmp_ctx):
-        """create_tools returns exactly 27 tool definitions (26 M-1 tools + get_dossier_state M-2)."""
+        """create_tools returns exactly 28 tool definitions (M-1: 26, M-2: +get_dossier_state, M-4: +create_dossier_prediction)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 27
+        assert len(tools) == 28
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -248,6 +248,8 @@ class TestCreateTools:
             "generate_report",
             # Dossier state tool (DEC-M2-DOSSIER-005)
             "get_dossier_state",
+            # Dossier prediction tool (DEC-M4-PRED-006)
+            "create_dossier_prediction",
         }
         assert names == expected
 
@@ -281,7 +283,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 27
+        assert len(roundtripped) == 28
 
     # --- New tool schema tests ---
 
@@ -1416,7 +1418,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 27
+        assert len(r.tools) == 28
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""
@@ -4421,16 +4423,38 @@ class TestM3DossierScoringIntegration:
         mock_mod.initialize = MagicMock()
         return mock_mod
 
+    def _seed_empty_snapshot(self, ctx) -> None:
+        """Pre-seed a persisted dossier snapshot with all slots EMPTY (M-4 requirement).
+
+        M-4 changed pre-hunt state from infer_dossier_state_full() to
+        load_dossier_state() or default_deferred_state().  default_deferred_state()
+        has all slots DEFERRED, and emit_dossier_slot_filled_events() skips
+        DEFERRED→real transitions by design (plan §3.4).  To test that slot-fill
+        events fire on first evidence, seed an EMPTY snapshot (as if a previous
+        hunt ran and found nothing), so the transition is EMPTY→PARTIAL.
+        """
+        from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full
+        from adversary_pursuit.dossier.state import save_dossier_state
+
+        empty_state = infer_dossier_state_full([], module_runs=[], notes=None)
+        save_dossier_state(ctx.workspace_mgr, empty_state)
+
     def test_run_module_emits_dossier_slot_filled_for_identity_evidence(self, tmp_ctx):
         """E26: email-addr SCO triggers a dossier_slot_filled event for the Identity slot.
 
-        Production sequence:
-          1. Empty workspace (Identity slot = EMPTY pre-hunt)
+        Production sequence (M-4):
+          1. Seed persisted EMPTY snapshot (simulates workspace after a prior empty hunt)
           2. Mock module returns one email-addr SCO
-          3. run_module stores SCO, detects Identity transition (empty->partial)
+          3. run_module loads EMPTY pre-snapshot, stores SCO, detects Identity
+             transition (empty->partial) via emit_dossier_slot_filled_events
           4. result["score_events"] contains a dossier_slot_filled event with
              indicator="identity" and points=5
+
+        M-4 note: on a truly fresh workspace (no snapshot) the pre-state defaults to
+        DEFERRED, and DEFERRED→real transitions are intentionally skipped by the M-3
+        guard (plan §3.4). Tests that require slot-fill events must seed a snapshot.
         """
+        self._seed_empty_snapshot(tmp_ctx)
         mock_mod = self._make_mock_module(SAMPLE_EMAIL_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             result = tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
@@ -4465,7 +4489,11 @@ class TestM3DossierScoringIntegration:
             )
 
     def test_run_module_total_points_sums_per_ioc_and_dossier(self, tmp_ctx):
-        """E28: total_points >= per-IOC total + dossier total (may also include streak)."""
+        """E28: total_points >= per-IOC total + dossier total (may also include streak).
+
+        M-4 note: seeds an EMPTY snapshot so Identity transition fires (EMPTY→PARTIAL).
+        """
+        self._seed_empty_snapshot(tmp_ctx)
         mock_mod = self._make_mock_module(SAMPLE_EMAIL_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             result = tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
@@ -4484,6 +4512,7 @@ class TestM3DossierScoringIntegration:
 
     def test_dossier_event_not_in_llm_summary(self, tmp_ctx):
         """E29: F64 gate — dossier slot-fill text must NOT appear in LLM summary."""
+        # F64 gate does not require slot-fill events; no snapshot seed needed.
         mock_mod = self._make_mock_module(SAMPLE_EMAIL_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             result = tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
@@ -4501,7 +4530,11 @@ class TestM3DossierScoringIntegration:
             )
 
     def test_dossier_event_is_in_score_events_sidecar(self, tmp_ctx):
-        """E30: dossier_slot_filled event IS in result["score_events"] sidecar."""
+        """E30: dossier_slot_filled event IS in result["score_events"] sidecar.
+
+        M-4 note: seeds an EMPTY snapshot so the transition fires.
+        """
+        self._seed_empty_snapshot(tmp_ctx)
         mock_mod = self._make_mock_module(SAMPLE_EMAIL_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             result = tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
@@ -4512,7 +4545,11 @@ class TestM3DossierScoringIntegration:
         )
 
     def test_dossier_events_persisted_in_workspace(self, tmp_ctx):
-        """Dossier events appear in workspace score_events table (not just in-memory)."""
+        """Dossier events appear in workspace score_events table (not just in-memory).
+
+        M-4 note: seeds an EMPTY snapshot so the transition fires.
+        """
+        self._seed_empty_snapshot(tmp_ctx)
         mock_mod = self._make_mock_module(SAMPLE_EMAIL_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
@@ -4524,7 +4561,13 @@ class TestM3DossierScoringIntegration:
         )
 
     def test_second_identical_hunt_no_new_dossier_events(self, tmp_ctx):
-        """Idempotency: second hunt with same email-addr produces no new dossier event."""
+        """Idempotency: second hunt with same email-addr produces no new dossier event.
+
+        M-4 note: seeds an EMPTY snapshot before hunt 1 so the first hunt fires the
+        Identity transition. M-4 then persists the post-hunt state; hunt 2 loads it
+        as pre-state and the transition is PARTIAL→PARTIAL (no event).
+        """
+        self._seed_empty_snapshot(tmp_ctx)
         mock_mod = self._make_mock_module(SAMPLE_EMAIL_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             result1 = tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
@@ -4543,7 +4586,11 @@ class TestM3DossierScoringIntegration:
         )
 
     def test_dossier_event_not_double_persisted(self, tmp_ctx):
-        """No double-persist: dossier_slot_filled appears exactly once in score_events table."""
+        """No double-persist: dossier_slot_filled appears exactly once in score_events table.
+
+        M-4 note: seeds an EMPTY snapshot so the transition fires once.
+        """
+        self._seed_empty_snapshot(tmp_ctx)
         mock_mod = self._make_mock_module(SAMPLE_EMAIL_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             tmp_ctx.run_module("osint/hibp", "threat@actor.ru", {})
@@ -4571,7 +4618,15 @@ class TestM3MilestoneGate:
     """F63: dossier events can trigger milestones; quiet-start migration honored."""
 
     def test_dossier_event_can_trigger_milestone(self, tmp_path):
-        """E31: Identity slot fill (+5) pushes total_score over a milestone threshold."""
+        """E31: Identity slot fill (+5) pushes total_score over a milestone threshold.
+
+        M-4 note: seeds an EMPTY dossier snapshot so the EMPTY→PARTIAL Identity
+        transition fires and contributes the +5 points needed to cross the milestone.
+        Without the snapshot, pre-state defaults to DEFERRED and the transition is
+        skipped (plan §3.4 defensive guard — one-time migration silence on first hunt).
+        """
+        from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full
+        from adversary_pursuit.dossier.state import save_dossier_state
         from adversary_pursuit.gamification.celebrations import MILESTONES
 
         config_dir = tmp_path / "config"
@@ -4582,9 +4637,13 @@ class TestM3MilestoneGate:
         ctx.workspace_mgr.create("default")
         ctx.workspace_mgr.switch("default")
 
+        # M-4: seed an EMPTY persisted snapshot so slot transitions fire normally.
+        empty_state = infer_dossier_state_full([], module_runs=[], notes=None)
+        save_dossier_state(ctx.workspace_mgr, empty_state)
+
         assert MILESTONES, "MILESTONES must have at least one entry"
         first_ms = min(MILESTONES, key=lambda m: m.threshold)
-        seed_score = first_ms.threshold - 3  # 3 points below threshold
+        seed_score = first_ms.threshold - 3  # 3 points below threshold (IOC=1, Identity=5)
 
         if seed_score > 0:
             ctx.workspace_mgr.store_score_events(
@@ -4647,3 +4706,228 @@ class TestM3MilestoneGate:
         assert last_id is not None, (
             "Quiet-start migration must seed last_milestone_id (DEC-63-MIGRATION-001)"
         )
+
+
+# ---------------------------------------------------------------------------
+# M-4: persistent dossier state + predictions (DEC-M4-PERSIST-001/DEC-M4-PRED-001..006)
+# ---------------------------------------------------------------------------
+
+
+class TestM4PersistentDossierState:
+    """M-4 wiring tests for persistent DossierState + Predictions Log in run_module.
+
+    Evaluation Contract gates:
+      AT1  create_dossier_prediction tool schema present in create_tools() output
+      AT2  create_dossier_prediction execution path persists a PersistedPrediction
+           and returns the prediction_id
+      AT3  hunt with persisted prediction that matches new SCOs fires
+           dossier_prediction_validated event (compound)
+      AT4  F64 gate: prediction-validated event text absent from result["summary"]
+      AT5  hunt-site pre_state loads from persistent snapshot (infer_dossier_state_full
+           called exactly ONCE per hunt after M-4)
+    """
+
+    def _make_ctx(self, tmp_path):
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+        return ctx
+
+    def test_at1_create_dossier_prediction_schema_present(self, tmp_path):
+        """AT1: create_dossier_prediction tool schema is in create_tools() output."""
+        ctx = self._make_ctx(tmp_path)
+        tools = create_tools(ctx)
+        names = [t["function"]["name"] for t in tools]
+        assert "create_dossier_prediction" in names
+
+    def test_at1_create_dossier_prediction_schema_has_required_fields(self, tmp_path):
+        """create_dossier_prediction schema has slot, text, expected_evidence."""
+        ctx = self._make_ctx(tmp_path)
+        tools = create_tools(ctx)
+        schema = next(t for t in tools if t["function"]["name"] == "create_dossier_prediction")
+        params = schema["function"]["parameters"]
+        props = params["properties"]
+        assert "slot" in props
+        assert "text" in props
+        assert "expected_evidence" in props
+        assert params["required"] == ["slot", "text", "expected_evidence"]
+
+    def test_at2_create_dossier_prediction_persists_and_returns_id(self, tmp_path):
+        """AT2: create_dossier_prediction execution persists prediction and returns prediction_id."""
+        from adversary_pursuit.agent.tools import execute_tool
+        from adversary_pursuit.dossier.predictions import load_predictions_log
+
+        ctx = self._make_ctx(tmp_path)
+        result_text, *_ = execute_tool(
+            ctx,
+            "create_dossier_prediction",
+            {
+                "slot": "infrastructure",
+                "text": "Actor will pivot to .ru infrastructure.",
+                "expected_evidence": {"value_regex": r".*\.ru$"},
+            },
+        )
+
+        import json
+
+        result = json.loads(result_text)
+        assert "prediction_id" in result
+        assert result["prediction_id"].startswith("pred-")
+        assert result["status"] == "pending"
+        assert result["slot"] == "infrastructure"
+
+        # Verify persistence
+        predictions = load_predictions_log(ctx.workspace_mgr)
+        assert len(predictions) == 1
+        assert predictions[0].prediction_id == result["prediction_id"]
+
+    def test_at3_hunt_with_matching_prediction_fires_validated_event(self, tmp_path):
+        """AT3: hunt that surfaces SCO matching persisted prediction fires dossier_prediction_validated."""
+        from adversary_pursuit.dossier.predictions import (
+            ExpectedEvidence,
+            PersistedPrediction,
+            save_predictions_log,
+        )
+
+        ctx = self._make_ctx(tmp_path)
+
+        # Pre-seed a pending prediction that matches domain-name SCOs
+        pred = PersistedPrediction(
+            prediction_id="pred-testpred",
+            text="Actor uses domain-name SCOs",
+            slot="infrastructure",
+            status="pending",
+            expected_evidence=ExpectedEvidence(sco_type="domain-name"),
+            created_at="2026-06-01T00:00:00+00:00",
+        )
+        save_predictions_log(ctx.workspace_mgr, [pred])
+
+        # Run a hunt that returns domain-name results
+        # @mock-exempt: hunt() is the external HTTP boundary.
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=SAMPLE_DOMAIN_RESULTS)
+        mock_mod.initialize = MagicMock()
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = ctx.run_module("osint/dns_resolve", "example.com", {})
+
+        score_events = result.get("score_events", [])
+        actions = [e["action"] for e in score_events]
+        assert "dossier_prediction_validated" in actions, (
+            f"Expected dossier_prediction_validated in score_events; got: {actions}"
+        )
+
+        # Verify the event has points=4
+        pred_event = next(e for e in score_events if e["action"] == "dossier_prediction_validated")
+        assert pred_event["points"] == 4
+
+    def test_at4_prediction_validated_event_absent_from_llm_summary(self, tmp_path):
+        """AT4: F64 gate — prediction-validated event text absent from result['summary']."""
+        from adversary_pursuit.dossier.predictions import (
+            ExpectedEvidence,
+            PersistedPrediction,
+            save_predictions_log,
+        )
+
+        ctx = self._make_ctx(tmp_path)
+        pred = PersistedPrediction(
+            prediction_id="pred-f64test",
+            text="F64 test prediction",
+            slot="infrastructure",
+            status="pending",
+            expected_evidence=ExpectedEvidence(sco_type="domain-name"),
+            created_at="2026-06-01T00:00:00+00:00",
+        )
+        save_predictions_log(ctx.workspace_mgr, [pred])
+
+        # @mock-exempt: hunt() is the external HTTP boundary.
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=SAMPLE_DOMAIN_RESULTS)
+        mock_mod.initialize = MagicMock()
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = ctx.run_module("osint/dns_resolve", "example.com", {})
+
+        summary = result.get("summary", "")
+        assert "dossier_prediction_validated" not in summary, (
+            f"F64 violation: prediction event action name appeared in LLM summary: {summary}"
+        )
+
+    def test_at5_pre_state_loaded_from_snapshot_not_re_inferred(self, tmp_path):
+        """AT5: after M-4, infer_dossier_state_full is called exactly ONCE per hunt
+        (post-hunt fresh inference only — pre-hunt uses persisted snapshot).
+
+        Patch on the tools module's bound name because tools.py imports
+        infer_dossier_state_full with a direct 'from ... import' — patching
+        the source module's attribute alone does not intercept already-bound names.
+        """
+        import adversary_pursuit.agent.tools as tools_module
+        from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full as real_fn
+
+        ctx = self._make_ctx(tmp_path)
+        call_count = 0
+
+        def counting_infer(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            return real_fn(*args, **kwargs)
+
+        # @mock-exempt: hunt() is the external HTTP boundary.
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=SAMPLE_IP_RESULTS)
+        mock_mod.initialize = MagicMock()
+        with (
+            patch.object(tools_module, "infer_dossier_state_full", side_effect=counting_infer),
+            patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod),
+        ):
+            ctx.run_module("osint/dns_resolve", "1.2.3.4", {})
+
+        assert call_count == 1, (
+            f"Expected exactly 1 infer_dossier_state_full call per hunt after M-4 "
+            f"(was 2 in M-3); got {call_count}"
+        )
+
+    def test_at6_get_dossier_state_reads_persistent_snapshot(self, tmp_path):
+        """get_dossier_state reads persistent snapshot when present; no fresh inference."""
+        from adversary_pursuit.agent.tools import execute_tool
+        from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
+        from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+        from adversary_pursuit.dossier.state import save_dossier_state
+
+        ctx = self._make_ctx(tmp_path)
+
+        # Persist a state with Identity=PARTIAL
+        slots = {slot: SlotState(name=slot, status=SlotStatus.EMPTY) for slot in DossierSlotName}
+        slots[DossierSlotName.IDENTITY] = SlotState(
+            name=DossierSlotName.IDENTITY, status=SlotStatus.PARTIAL, evidence_count=2
+        )
+        persisted = DossierState(slots=slots, total_sco_count=5)
+        save_dossier_state(ctx.workspace_mgr, persisted)
+
+        import json
+
+        result_text, *_ = execute_tool(ctx, "get_dossier_state", {})
+        result = json.loads(result_text)
+        assert result["slots"]["identity"]["status"] == "partial"
+        assert result["slots"]["identity"]["evidence_count"] == 2
+
+    def test_at7_create_prediction_empty_evidence_returns_error_json(self, tmp_path):
+        """create_dossier_prediction with empty expected_evidence returns JSON error."""
+        from adversary_pursuit.agent.tools import execute_tool
+
+        ctx = self._make_ctx(tmp_path)
+        import json
+
+        result_text, *_ = execute_tool(
+            ctx,
+            "create_dossier_prediction",
+            {
+                "slot": "infrastructure",
+                "text": "some prediction",
+                "expected_evidence": {},
+            },
+        )
+        result = json.loads(result_text)
+        assert "error" in result

@@ -493,16 +493,24 @@ class TestF63MilestoneCatchupIntegration:
         return app.stdout.getvalue() + app.rich_console.file.getvalue()
 
     def test_milestone_announced_when_score_crosses_threshold(self, console, tmp_path):
-        """When a run pushes total score past 100, the milestone message appears."""
-        # Seed the workspace with 95 points (just below 100)
+        """When a run pushes total score past 100, the milestone message appears.
+
+        M-4 note: seeds 99 points so that even a single per-IOC event (1 pt) is
+        sufficient to cross the 100-point threshold.  Previous implementation seeded
+        95 and relied on dossier slot-fill events (+5 Identity) to bridge the gap,
+        but M-4's pre-state defaults to DEFERRED for fresh workspaces and the M-3
+        guard skips DEFERRED→real transitions (plan §3.4 defensive guard).  Using
+        99 points keeps the test honest without requiring a dossier state seed.
+        """
+        # Seed the workspace with 99 points (just below 100)
         console.workspace_mgr._ensure_active()
         console.workspace_mgr.store_score_events(
-            [{"action": "new_ip", "points": 95, "indicator": "seed"}]
+            [{"action": "new_ip", "points": 99, "indicator": "seed"}]
         )
         # Seed last_announced to None — no milestones announced yet
         # (workspace is fresh — get_last_milestone_id returns None already)
 
-        # Run a module that adds 10+ points to push over 100
+        # Run a module that adds at least 1 point to push over 100
         self._run(console, "use osint/dns_resolve")
         self._run(console, "set TARGET example.com")
         out = self._run(console, "run")

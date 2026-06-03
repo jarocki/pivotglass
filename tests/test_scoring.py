@@ -814,3 +814,98 @@ class TestM3PerIOCRetune:
         rule_actions = {r.action for r in DEFAULT_RULES}
         for action in _PER_IOC_ACTIONS:
             assert action in rule_actions, f"Missing rule for {action!r} in DEFAULT_RULES"
+
+
+# ---------------------------------------------------------------------------
+# M-4 F62/F63 regression: sentinel rows must not bleed into score totals
+# ---------------------------------------------------------------------------
+
+
+class TestM4SentinelRowScoreIsolation:
+    """Regression: M-4 sentinel rows (_dossier_state_snapshot, _predictions_log)
+    must not appear in get_recent_scores() and must not inflate get_total_score().
+
+    This complements TestReservedActionsFilter in test_workspace.py by exercising the
+    path through the WorkspaceManager public API rather than the DB-layer directly,
+    and by verifying all three sentinel actions are hidden.
+
+    DEC-M4-PERSIST-002: _RESERVED_ACTIONS frozenset is the single authority.
+    """
+
+    def _make_wm(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        return wm
+
+    def _store_sentinel(self, wm, action: str) -> None:
+        """Write a sentinel row (points=0, JSON payload) via the public get_session() API."""
+        import json
+
+        from adversary_pursuit.models.database import ScoreEvent
+
+        with wm.get_session() as sess:
+            sess.add(
+                ScoreEvent(
+                    action=action,
+                    points=0,
+                    indicator=json.dumps({"schema_version": 1, "test": True}),
+                )
+            )
+            sess.commit()
+
+    def test_dossier_state_sentinel_excluded_from_recent_scores(self, tmp_path):
+        """C24: _dossier_state_snapshot rows excluded from get_recent_scores (DEC-M4-PERSIST-002)."""
+        wm = self._make_wm(tmp_path)
+        self._store_sentinel(wm, "_dossier_state_snapshot")
+        recent = wm.get_recent_scores()
+        actions = [e["action"] for e in recent]
+        assert "_dossier_state_snapshot" not in actions, (
+            "_dossier_state_snapshot sentinel row leaked into get_recent_scores()"
+        )
+
+    def test_predictions_log_sentinel_excluded_from_recent_scores(self, tmp_path):
+        """C25: _predictions_log rows excluded from get_recent_scores (DEC-M4-PERSIST-002)."""
+        wm = self._make_wm(tmp_path)
+        self._store_sentinel(wm, "_predictions_log")
+        recent = wm.get_recent_scores()
+        actions = [e["action"] for e in recent]
+        assert "_predictions_log" not in actions, (
+            "_predictions_log sentinel row leaked into get_recent_scores()"
+        )
+
+    def test_milestone_sentinel_excluded_from_recent_scores(self, tmp_path):
+        """C26: _milestone_sentinel (F63 legacy) row still excluded after _RESERVED_ACTIONS widening."""
+        wm = self._make_wm(tmp_path)
+        self._store_sentinel(wm, "_milestone_sentinel")
+        recent = wm.get_recent_scores()
+        actions = [e["action"] for e in recent]
+        assert "_milestone_sentinel" not in actions, (
+            "_milestone_sentinel sentinel row leaked into get_recent_scores() after frozenset widening"
+        )
+
+    def test_sentinel_rows_do_not_inflate_total_score(self, tmp_path):
+        """C27: Sentinel rows with points=0 do not change get_total_score().
+
+        Confirms that even if points were non-zero by accident, the DB-level
+        constraint (points=0 by design) means total is unaffected.
+        """
+        wm = self._make_wm(tmp_path)
+        baseline = wm.get_total_score()
+        for action in ("_dossier_state_snapshot", "_predictions_log", "_milestone_sentinel"):
+            self._store_sentinel(wm, action)
+        after = wm.get_total_score()
+        assert after == baseline, f"Sentinel rows inflated total_score from {baseline} to {after}"
+
+    def test_real_score_events_still_counted(self, tmp_path):
+        """C28: Real score events with reserved-action names absent are still returned by get_recent_scores."""
+        wm = self._make_wm(tmp_path)
+        self._store_sentinel(wm, "_dossier_state_snapshot")  # should be hidden
+        # Store a real event with a non-reserved action via the public store API
+        wm.store_score_events(
+            [{"action": "new_domain", "points": 5, "indicator": "legit.example.com"}]
+        )
+        recent = wm.get_recent_scores()
+        actions = [e["action"] for e in recent]
+        assert "new_domain" in actions, "Legitimate score event missing from get_recent_scores()"
+        assert "_dossier_state_snapshot" not in actions, "Sentinel still leaked after mixed insert"

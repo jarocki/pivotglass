@@ -180,10 +180,25 @@ from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.report import ReportGenerator
 from adversary_pursuit.core.streak import StreakManager
 from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.dossier.predictions import (
+    _to_m2_record,
+    create_prediction,
+    load_predictions_log,
+    mark_confirmed,
+    save_predictions_log,
+    validate_predictions,
+)
 from adversary_pursuit.dossier.scoring import (
+    emit_dossier_prediction_validated_event,
     emit_dossier_slot_filled_events,  # M-3 DEC-M3-DOSSIER-001
 )
 from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full
+from adversary_pursuit.dossier.state import (
+    apply_predictions_overlay,
+    default_deferred_state,
+    load_dossier_state,
+    save_dossier_state,
+)
 from adversary_pursuit.gamification.badges import BadgeManager
 from adversary_pursuit.gamification.celebrations import (
     CelebrationEngine,
@@ -418,16 +433,19 @@ class ToolContext:
         init_config = _resolve_module_credentials(module_path, self.config_mgr)
         mod.initialize(init_config)
 
-        # Capture pre-hunt dossier state BEFORE storing new SCOs (DEC-M3-DOSSIER-002).
-        # Notes are read via direct-engine query (DEC-M2-MOTIVATION-001 pattern;
-        # workspace.py has no get_analyst_notes accessor — F59 invariant).
-        # Modules do NOT write notes during hunt(), so notes_before is valid for post too.
-        scos_before = self.workspace_mgr.get_stix_objects()
-        runs_before = self.workspace_mgr.get_module_runs()
+        # M-4: load persisted dossier state (replaces pre-hunt infer_dossier_state_full
+        # call from M-3). DEC-M4-PERSIST-001: load from sentinel-row snapshot; fall back
+        # to default_deferred_state() for fresh workspaces. This is the "removal target"
+        # from per-slice plan §3: one fewer infer_dossier_state_full call per hunt.
+        # Notes are still read for post-hunt inference (DEC-M2-MOTIVATION-001 pattern).
         notes_before = _read_analyst_notes(self.workspace_mgr)
-        pre_dossier = infer_dossier_state_full(
-            scos_before, module_runs=runs_before, notes=notes_before
+        # Capture pre-hunt SCO ids for new-SCO diffing after the hunt (DEC-M4-PRED-003)
+        scos_before_ids: frozenset[str] = frozenset(
+            s["id"] for s in self.workspace_mgr.get_stix_objects() if s.get("id")
         )
+        pre_dossier = load_dossier_state(self.workspace_mgr) or default_deferred_state()
+        # M-4: load persisted predictions log BEFORE the hunt (DEC-M4-PRED-001)
+        predictions_log = load_predictions_log(self.workspace_mgr)
 
         # Run hunt() via asyncio — modules are async
         results = asyncio.run(mod.hunt(target, options or {}))
@@ -448,11 +466,13 @@ class ToolContext:
 
         # Capture post-hunt dossier state AFTER storing the new SCOs (DEC-M3-DOSSIER-002).
         # Notes unchanged (modules don't write notes) — reuse notes_before.
+        # M-4: apply_predictions_overlay replaces DEFERRED Predictions slot with real status.
         scos_after = self.workspace_mgr.get_stix_objects()
         runs_after = self.workspace_mgr.get_module_runs()
-        post_dossier = infer_dossier_state_full(
+        fresh_post_dossier = infer_dossier_state_full(
             scos_after, module_runs=runs_after, notes=notes_before
         )
+        post_dossier = apply_predictions_overlay(fresh_post_dossier, predictions_log)
 
         # Capture pre-run total BEFORE storing events — used for quiet-start
         # migration so we seed based on what was ALREADY in the workspace,
@@ -469,17 +489,32 @@ class ToolContext:
             self.workspace_mgr.store_score_events(events)
 
         # Emit dossier slot-fill events AFTER per-IOC events and BEFORE streak (M-3 NEW).
-        # emit_dossier_slot_filled_events is a pure function — no I/O, no side effects.
-        # Persist dossier events separately so per-IOC events land first (emission order
-        # per per-slice plan §3.1). Double-persist guard: dossier_events is persisted once
-        # here and appended to `events` for the LLM summary — not re-persisted later.
-        # DEC-M3-DOSSIER-001 / DEC-M3-DOSSIER-002.
+        # M-4: also validate predictions and emit dossier_prediction_validated events.
+        # All dossier events persisted together after per-IOC events (emission order §3.1).
+        # DEC-M3-DOSSIER-001 / DEC-M3-DOSSIER-002 / DEC-M4-PRED-003 / DEC-M4-PRED-004.
         try:
             dossier_events = emit_dossier_slot_filled_events(pre_dossier, post_dossier)
-            if dossier_events:
-                self.workspace_mgr.store_score_events(dossier_events)
-                events = list(events) + dossier_events
-                total += sum(e["points"] for e in dossier_events)
+            # M-4: validate predictions against new SCOs from this hunt (DEC-M4-PRED-003).
+            # new_scos = scos_after minus scos captured before hunt (DEC-M4-PRED-003 scope).
+            new_scos_this_hunt = [s for s in scos_after if s.get("id") not in scos_before_ids]
+            validation_results = validate_predictions(
+                predictions_log, new_scos_this_hunt, notes_before
+            )
+            prediction_events: list[dict] = []
+            for pred, vr in zip(predictions_log, validation_results):
+                if vr.confirmed:
+                    prediction_events.append(
+                        emit_dossier_prediction_validated_event(_to_m2_record(pred))
+                    )
+            all_dossier_events = dossier_events + prediction_events
+            if all_dossier_events:
+                self.workspace_mgr.store_score_events(all_dossier_events)
+                events = list(events) + all_dossier_events
+                total += sum(e["points"] for e in all_dossier_events)
+            # M-4: persist updated state + predictions log (DEC-M4-PERSIST-001)
+            save_dossier_state(self.workspace_mgr, post_dossier)
+            updated_predictions = mark_confirmed(predictions_log, validation_results)
+            save_predictions_log(self.workspace_mgr, updated_predictions)
         except Exception:  # noqa: BLE001
             pass  # dossier scoring must never block tool result delivery
 
@@ -1408,6 +1443,88 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "create_dossier_prediction",
+                "description": (
+                    "Author a prediction about the threat actor's next move. "
+                    "The prediction is tied to a dossier slot and validated against future "
+                    "hunt evidence automatically. On confirmation, a "
+                    "dossier_prediction_validated score event fires at +4 points. "
+                    "Supply at least one expected_evidence field to define what confirmation "
+                    "looks like (sco_type, value_regex, asn_in, or note_keyword_any)."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "slot": {
+                            "type": "string",
+                            "enum": [
+                                "identity",
+                                "ttps",
+                                "infrastructure",
+                                "timing",
+                                "targeting",
+                                "capability",
+                                "motivation",
+                                "predictions",
+                                "denial",
+                            ],
+                            "description": "The dossier slot this prediction targets.",
+                        },
+                        "text": {
+                            "type": "string",
+                            "description": (
+                                "Free-text prediction statement, e.g. "
+                                "'Actor will pivot to .ru infrastructure within 7 days.'"
+                            ),
+                        },
+                        "expected_evidence": {
+                            "type": "object",
+                            "description": (
+                                "Typed match criteria for auto-validation. "
+                                "All non-null fields are ANDed. "
+                                "At least one field must be non-null."
+                            ),
+                            "properties": {
+                                "sco_type": {
+                                    "type": "string",
+                                    "description": (
+                                        "STIX SCO type the confirming observable must be, "
+                                        "e.g. 'domain-name', 'ipv4-addr'."
+                                    ),
+                                },
+                                "value_regex": {
+                                    "type": "string",
+                                    "description": (
+                                        "Python regex applied via re.search() against the "
+                                        "SCO's primary value field, e.g. '.*\\\\.ru$'."
+                                    ),
+                                },
+                                "asn_in": {
+                                    "type": "array",
+                                    "items": {"type": "integer"},
+                                    "description": (
+                                        "For ipv4-addr/ipv6-addr/autonomous-system: "
+                                        "ASN must be in this list."
+                                    ),
+                                },
+                                "note_keyword_any": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": (
+                                        "At least one of these substrings must appear "
+                                        "in an analyst note authored during the hunt."
+                                    ),
+                                },
+                            },
+                        },
+                    },
+                    "required": ["slot", "text", "expected_evidence"],
+                },
+            },
+        },
     ]
 
 
@@ -1709,6 +1826,20 @@ def execute_tool(
     # Dossier state tool — DEC-M2-DOSSIER-005
     if tool_name == "get_dossier_state":
         return _execute_get_dossier_state(ctx), None, [], []
+
+    # Dossier prediction tool — M-4 DEC-M4-PRED-001/002
+    if tool_name == "create_dossier_prediction":
+        return (
+            _execute_create_dossier_prediction(
+                ctx,
+                slot=arguments.get("slot", ""),
+                text=arguments.get("text", ""),
+                expected_evidence_dict=arguments.get("expected_evidence", {}),
+            ),
+            None,
+            [],
+            [],
+        )
 
     # Module dispatch
     if tool_name not in _MODULE_MAP:
@@ -2207,12 +2338,14 @@ def _execute_get_dossier_state(ctx: ToolContext) -> str:
         serialises the result as plain JSON. No [bold], [green], or Rich markup
         may appear in this output — it would be narrated verbatim by the LLM.
 
+    M-4 extension: reads persistent DossierState snapshot when present; falls back
+    to fresh inference when no snapshot exists yet (DEC-M4-PERSIST-001). The
+    Predictions slot status is overlaid from the persisted predictions log.
+
     The function:
-    1. Reads raw SCO dicts from WorkspaceManager (read-only, DEC-M1-DOSSIER-001).
-    2. Reads module runs for Timing/Capability inference (DEC-M2-DOSSIER-002/003).
-    3. Calls infer_dossier_state_full(scos, module_runs=runs, notes=None).
-       Notes (analyst text) are not queried here — no SQLAlchemy session in
-       ToolContext; Motivation slot returns EMPTY when no notes present.
+    1. Attempts to load persisted DossierState from sentinel row.
+    2. Falls back to fresh infer_dossier_state_full() when no snapshot exists.
+    3. Applies predictions overlay in both paths (DEC-M4-PERSIST-001 / plan §4).
     4. Serialises DossierState to a plain dict and returns json.dumps().
 
     Parameters
@@ -2236,9 +2369,14 @@ def _execute_get_dossier_state(ctx: ToolContext) -> str:
     import json
 
     try:
-        raw_objects = ctx.workspace_mgr.get_stix_objects()
-        module_runs = ctx.workspace_mgr.get_module_runs()
-        state = infer_dossier_state_full(raw_objects, module_runs=module_runs, notes=None)
+        predictions = load_predictions_log(ctx.workspace_mgr)
+        state = load_dossier_state(ctx.workspace_mgr)
+        if state is None:
+            # Fresh workspace — fall back to inference
+            raw_objects = ctx.workspace_mgr.get_stix_objects()
+            module_runs = ctx.workspace_mgr.get_module_runs()
+            state = infer_dossier_state_full(raw_objects, module_runs=module_runs, notes=None)
+        state = apply_predictions_overlay(state, predictions)
         slots_dict = {
             slot_name.value: {
                 "status": slot_state.status.value,
@@ -2252,3 +2390,64 @@ def _execute_get_dossier_state(ctx: ToolContext) -> str:
         import json as _json
 
         return _json.dumps({"error": f"Failed to retrieve dossier state: {e}"})
+
+
+def _execute_create_dossier_prediction(
+    ctx: ToolContext,
+    slot: str,
+    text: str,
+    expected_evidence_dict: dict,
+) -> str:
+    """Create and persist a new dossier prediction (M-4 DEC-M4-PRED-001/002).
+
+    F64-clean: returns structured JSON text only — no Rich markup.
+    The tool result is the prediction_id plus a short confirmation; persona
+    text never appears here (DEC-64-LLM-PANEL-SEPARATION-001).
+
+    Parameters
+    ----------
+    ctx:
+        The shared ToolContext providing workspace read/write access.
+    slot:
+        One of the 9 DossierSlotName values.
+    text:
+        Free-text prediction statement.
+    expected_evidence_dict:
+        Dict matching the ExpectedEvidence shape. Must have at least one
+        non-None field (DEC-M4-PRED-002 loud rejection of empty evidence).
+
+    Returns
+    -------
+    str
+        JSON string: {"prediction_id": "pred-XXXXXXXX", "status": "pending",
+        "slot": "<slot>", "message": "<confirmation text>"}.
+        On error, JSON error object {"error": "<message>"}.
+    """
+    import json
+
+    try:
+        prediction = create_prediction(slot, text, expected_evidence_dict)
+        existing = load_predictions_log(ctx.workspace_mgr)
+        updated = existing + [prediction]
+        save_predictions_log(ctx.workspace_mgr, updated)
+        return json.dumps(
+            {
+                "prediction_id": prediction.prediction_id,
+                "status": prediction.status,
+                "slot": prediction.slot,
+                "text": prediction.text,
+                "message": (
+                    f"Prediction {prediction.prediction_id} created for slot '{slot}'. "
+                    "It will be validated automatically against future hunt evidence."
+                ),
+            }
+        )
+    except ValueError as e:
+        import json as _json
+
+        return _json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("create_dossier_prediction failed")
+        import json as _json
+
+        return _json.dumps({"error": f"Failed to create prediction: {e}"})

@@ -105,12 +105,12 @@ class TestGetDossierStateRegistration:
         )
 
     def test_get_dossier_state_count_increased_by_one(self, tmp_ctx):
-        """create_tools() has one more tool than M-1 (26 + 1 = 27)."""
+        """create_tools() has 28 tools after M-2 (get_dossier_state) + M-4 (create_dossier_prediction)."""
         tools = create_tools(tmp_ctx)
-        # M-1 had 26 tools; M-2 adds get_dossier_state
-        assert len(tools) == 27, (
-            f"Expected 27 tools after M-2 addition, got {len(tools)}. "
-            "If this fails, a different M-2 tool count was agreed — update this assertion."
+        # M-1 had 26 tools; M-2 adds get_dossier_state (27); M-4 adds create_dossier_prediction (28)
+        assert len(tools) == 28, (
+            f"Expected 28 tools after M-2+M-4 additions, got {len(tools)}. "
+            "If this fails, a different tool count was agreed — update this assertion."
         )
 
     def test_get_dossier_state_has_type_function(self, tmp_ctx):
@@ -416,9 +416,80 @@ class TestGetDossierStateProductionSequence:
             f"Identity should be partial with 1 SCO type, got: {identity}"
         )
 
-        # Predictions and Denial are always DEFERRED in M-2 (scaffold-only, DEC-M2-DOSSIER-004)
-        assert parsed["slots"]["predictions"]["status"] == "deferred"
+        # Predictions: M-4 overlay sets to "empty" (no predictions in log); no longer "deferred"
+        # Denial: still DEFERRED (M-5 owns user-note surface)
+        assert parsed["slots"]["predictions"]["status"] in ("deferred", "empty"), (
+            f"Predictions slot should be deferred or empty (M-4 overlay), got: {parsed['slots']['predictions']}"
+        )
         assert parsed["slots"]["denial"]["status"] == "deferred"
 
         # total_sco_count = 3 (2 infra + 1 identity)
         assert parsed["total_sco_count"] == 3
+
+
+class TestGetDossierStateM4Persistence:
+    """M-4 extension: get_dossier_state reads persistent snapshot when present.
+
+    Evaluation Contract gate: GS1 - get_dossier_state returns persisted state when present;
+    falls back to fresh inference when no snapshot exists (DEC-M4-PERSIST-001).
+    """
+
+    def test_gs1_reads_persistent_snapshot_when_present(self, tmp_path):
+        """GS1: get_dossier_state reads persisted state; no fresh inference needed."""
+        import json
+
+        from adversary_pursuit.agent.tools import execute_tool
+        from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
+        from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+        from adversary_pursuit.dossier.state import save_dossier_state
+
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+
+        # Persist a state with specific slot statuses — no SCOs stored
+        slots = {slot: SlotState(name=slot, status=SlotStatus.EMPTY) for slot in DossierSlotName}
+        slots[DossierSlotName.TTPS] = SlotState(
+            name=DossierSlotName.TTPS, status=SlotStatus.FILLED, evidence_count=5
+        )
+        slots[DossierSlotName.CAPABILITY] = SlotState(
+            name=DossierSlotName.CAPABILITY, status=SlotStatus.PARTIAL, evidence_count=2
+        )
+        persisted = DossierState(slots=slots, total_sco_count=10)
+        save_dossier_state(ctx.workspace_mgr, persisted)
+
+        result_text, *_ = execute_tool(ctx, "get_dossier_state", {})
+        result = json.loads(result_text)
+
+        # Persisted state must be returned (not fresh inference which would show EMPTY)
+        assert result["slots"]["ttps"]["status"] == "filled"
+        assert result["slots"]["ttps"]["evidence_count"] == 5
+        assert result["slots"]["capability"]["status"] == "partial"
+
+    def test_gs1_falls_back_to_fresh_inference_when_no_snapshot(self, tmp_path):
+        """GS1 fallback: no snapshot => fresh inference returns all-empty/deferred."""
+        import json
+
+        from adversary_pursuit.agent.tools import execute_tool
+
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+
+        result_text, *_ = execute_tool(ctx, "get_dossier_state", {})
+        result = json.loads(result_text)
+
+        # No snapshot, no SCOs => all slots empty or deferred (fresh inference)
+        assert "slots" in result
+        for slot_name, slot_data in result["slots"].items():
+            assert slot_data["status"] in ("empty", "deferred"), (
+                f"Slot {slot_name} should be empty/deferred on fresh workspace; got {slot_data['status']}"
+            )

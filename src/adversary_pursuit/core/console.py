@@ -63,8 +63,24 @@ from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.report import ReportGenerator
 from adversary_pursuit.core.streak import StreakManager
 from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.dossier.scoring import emit_dossier_slot_filled_events
+from adversary_pursuit.dossier.predictions import (
+    _to_m2_record,
+    load_predictions_log,
+    mark_confirmed,
+    save_predictions_log,
+    validate_predictions,
+)
+from adversary_pursuit.dossier.scoring import (
+    emit_dossier_prediction_validated_event,
+    emit_dossier_slot_filled_events,
+)
 from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full
+from adversary_pursuit.dossier.state import (
+    apply_predictions_overlay,
+    default_deferred_state,
+    load_dossier_state,
+    save_dossier_state,
+)
 from adversary_pursuit.gamification.badges import BadgeManager
 from adversary_pursuit.gamification.celebrations import (
     CelebrationEngine,
@@ -468,16 +484,16 @@ class APConsole(cmd2.Cmd):
             # this very run). DEC-63-MIGRATION-001.
             pre_total = self.workspace_mgr.get_total_score()
 
-            # Capture pre-hunt dossier state BEFORE storing new SCOs (DEC-M3-DOSSIER-002).
-            # Notes are read via direct-engine query (DEC-M2-MOTIVATION-001 pattern;
-            # workspace.py has no get_analyst_notes accessor — F59 invariant).
-            # Modules do NOT write notes during hunt(), so notes_before is valid post-hunt.
-            scos_before = self.workspace_mgr.get_stix_objects()
-            runs_before = self.workspace_mgr.get_module_runs()
+            # M-4: load persisted dossier state (replaces pre-hunt infer_dossier_state_full
+            # from M-3). DEC-M4-PERSIST-001: load from sentinel-row snapshot; fall back to
+            # default_deferred_state() for fresh workspaces. Capture pre-hunt SCO ids for
+            # new-SCO diffing. Notes read for post-hunt inference (DEC-M2-MOTIVATION-001).
             notes_before = _read_analyst_notes(self.workspace_mgr)
-            pre_dossier = infer_dossier_state_full(
-                scos_before, module_runs=runs_before, notes=notes_before
+            scos_before_ids: frozenset[str] = frozenset(
+                s["id"] for s in self.workspace_mgr.get_stix_objects() if s.get("id")
             )
+            pre_dossier = load_dossier_state(self.workspace_mgr) or default_deferred_state()
+            predictions_log = load_predictions_log(self.workspace_mgr)
 
             # Capture type counts BEFORE storing so solve_count reflects
             # what was already in the workspace (not including these new results).
@@ -499,11 +515,13 @@ class APConsole(cmd2.Cmd):
 
             # Capture post-hunt dossier state AFTER storing the new SCOs (DEC-M3-DOSSIER-002).
             # Notes unchanged during hunt (modules don't write notes) — reuse notes_before.
+            # M-4: apply_predictions_overlay gives real Predictions slot status.
             scos_after = self.workspace_mgr.get_stix_objects()
             runs_after = self.workspace_mgr.get_module_runs()
-            post_dossier = infer_dossier_state_full(
+            fresh_post_dossier = infer_dossier_state_full(
                 scos_after, module_runs=runs_after, notes=notes_before
             )
+            post_dossier = apply_predictions_overlay(fresh_post_dossier, predictions_log)
 
             # Score the discoveries and show point gains using active mode celebration
             scoring_events = self.scoring_engine.score_results(results, stats)
@@ -520,19 +538,34 @@ class APConsole(cmd2.Cmd):
                     )
 
             # Emit dossier slot-fill events AFTER per-IOC events and BEFORE streak (M-3 NEW).
-            # Pure function — no I/O, no side effects. Persist dossier events separately so
-            # per-IOC events land first (emission order per per-slice plan §3.1).
-            # Double-persist guard: dossier_events persisted once here (DEC-M3-DOSSIER-002).
+            # M-4: also validate predictions + emit dossier_prediction_validated events.
+            # All dossier events persisted together. DEC-M3-DOSSIER-002 / DEC-M4-PRED-004.
             try:
                 dossier_events = emit_dossier_slot_filled_events(pre_dossier, post_dossier)
-                if dossier_events:
-                    self.workspace_mgr.store_score_events(dossier_events)
-                    for event in dossier_events:
+                # M-4: validate predictions against new SCOs (DEC-M4-PRED-003).
+                new_scos_this_hunt = [s for s in scos_after if s.get("id") not in scos_before_ids]
+                validation_results = validate_predictions(
+                    predictions_log, new_scos_this_hunt, notes_before
+                )
+                prediction_events: list[dict] = []
+                for pred, vr in zip(predictions_log, validation_results):
+                    if vr.confirmed:
+                        prediction_events.append(
+                            emit_dossier_prediction_validated_event(_to_m2_record(pred))
+                        )
+                all_dossier_events = dossier_events + prediction_events
+                if all_dossier_events:
+                    self.workspace_mgr.store_score_events(all_dossier_events)
+                    for event in all_dossier_events:
                         self.rich_console.print(
                             f"  [cyan]{event['action']}[/cyan]: "
                             f"[green]+{event['points']}[/green] "
                             f"({event['indicator']})"
                         )
+                # M-4: persist updated state + updated predictions log (DEC-M4-PERSIST-001)
+                save_dossier_state(self.workspace_mgr, post_dossier)
+                updated_predictions = mark_confirmed(predictions_log, validation_results)
+                save_predictions_log(self.workspace_mgr, updated_predictions)
             except Exception:  # noqa: BLE001
                 pass  # dossier scoring must never interrupt the hunt flow
 
