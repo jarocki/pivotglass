@@ -349,3 +349,49 @@ class TestDefaultSubscriptions:
 
     def test_urlscan_subscribes_to_url(self):
         assert "url" in DEFAULT_SUBSCRIPTIONS["osint/urlscan"]
+
+
+# ---------------------------------------------------------------------------
+# M-6 regression: process_results ranker kwarg is optional (F60 compat)
+# ---------------------------------------------------------------------------
+
+
+class TestProcessResultsRankerKwargOptional:
+    """Regression: new ranker kwarg must be optional and must not shift positional signature."""
+
+    def test_process_results_no_ranker_kwarg_is_f60_identical(self, bus):
+        """process_results called with pre-M-6 positional signature is byte-identical to F60."""
+        fired = []
+
+        async def _cb(event):
+            fired.append(event.value)
+            return []
+
+        _cb._module_path = "test/ipv4"
+        bus.subscribe("ipv4-addr", _cb)
+
+        results = [
+            {"type": "ipv4-addr", "value": "5.5.5.5"},
+            {"type": "ipv4-addr", "value": "6.6.6.6"},
+        ]
+        # Pre-M-6 positional call: no ranker kwarg, no keyword arguments at all
+        asyncio.run(bus.process_results(results, "test/mod", 0))
+        assert fired == ["5.5.5.5", "6.6.6.6"]
+
+    def test_process_results_ranker_none_kwarg_is_f60_identical(self, bus):
+        """Explicit ranker=None is byte-identical to the pre-M-6 call."""
+        fired = []
+
+        async def _cb(event):
+            fired.append(event.value)
+            return []
+
+        _cb._module_path = "test/ipv4"
+        bus.subscribe("ipv4-addr", _cb)
+
+        results = [
+            {"type": "ipv4-addr", "value": "7.7.7.7"},
+            {"type": "ipv4-addr", "value": "8.8.8.8"},
+        ]
+        asyncio.run(bus.process_results(results, "test/mod", ranker=None))
+        assert fired == ["7.7.7.7", "8.8.8.8"]

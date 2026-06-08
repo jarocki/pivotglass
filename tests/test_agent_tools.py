@@ -5122,3 +5122,179 @@ class TestM5AgentTools:
             "F64: _DOSSIER_ACTIONS in agent/tools.py must include 'dossier_prediction_falsified' "
             "so falsification events are stripped from the LLM summary"
         )
+
+
+# ---------------------------------------------------------------------------
+# M-6: _execute_run_module dossier-aware ranker wiring (DEC-M6-PIVOT-001/008/009)
+# ---------------------------------------------------------------------------
+
+# @mock-exempt: module.hunt() is an async external HTTP call — same pattern as all other
+# run_module tests in this file (DEC-TEST-AGENT-001). event_bus.process_results is patched
+# to capture the ranker kwarg without triggering live API cascades. load_dossier_state is
+# patched to count calls — it is a SQLite I/O boundary.
+
+
+class TestM6RankerWiring:
+    """M-6 tests for _execute_run_module ranker wiring in agent/tools.py.
+
+    Verifies:
+    AT1: process_results is called with a ranker when dossier_aware_ranking=True (default)
+    AT2: process_results is called with ranker=None when dossier_aware_ranking=False
+    AT3: no second load_dossier_state call — reuses M-4 pre_dossier
+    """
+
+    def _make_ctx(self, tmp_path):
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+        return ctx
+
+    def test_ranker_active_flag_defaults_to_true(self, tmp_path):
+        """AT1: AutoPivotPolicyConfig.dossier_aware_ranking defaults to True.
+
+        Pure config assertion — no module execution needed.  This verifies
+        the M-6 feature flag is on-by-default so new workspaces get ranked
+        candidates out of the box. (DEC-M6-PIVOT-001)
+        """
+        ctx = self._make_ctx(tmp_path)
+        assert ctx.config.general.auto_pivot_policy.dossier_aware_ranking is True
+
+    def test_ranker_wired_into_process_results(self, tmp_path):
+        """AT2: run_module passes a callable ranker when dossier_aware_ranking=True.
+
+        # @mock-exempt: process_results is patched to capture the ranker kwarg
+        # without triggering live policy-gate cascades; hunt is patched as an
+        # external HTTP boundary.  Only internal event-bus coordination is
+        # intercepted — no business-logic mocks. (DEC-TEST-AGENT-001)
+
+        Strategy: patch event_bus.process_results (integration seam) to capture
+        the ranker kwarg.  patch hunt (external HTTP) returns a single STIX
+        dict so the cascade branch is entered.  Verify ranker is callable and
+        exposes the _score_for_type side-channel required by DEC-M6-PIVOT-007.
+        """
+        from unittest.mock import AsyncMock, patch
+
+        ctx = self._make_ctx(tmp_path)
+        ctx.event_bus.config.enabled = True
+
+        ranker_calls: list = []
+
+        async def _capture_process_results(
+            results, source_module, depth=0, *, dry_run=False, ranker=None
+        ):
+            # @mock-exempt: seam capture only — records ranker reference; no logic replaced
+            ranker_calls.append(ranker)
+            return []
+
+        # Enable autopivot so the cascade branch is entered (production code path).
+        # Without this, process_results is never called and ranker_calls stays empty.
+        ctx.autopivot_enabled = True
+        mod = ctx.plugin_mgr.get_module("osint/dns_resolve")
+        with (
+            patch.object(
+                mod, "hunt", new=AsyncMock(return_value=[{"type": "ipv4-addr", "value": "5.5.5.5"}])
+            ),
+            patch.object(ctx.event_bus, "process_results", side_effect=_capture_process_results),
+        ):
+            assert ctx.config.general.auto_pivot_policy.dossier_aware_ranking is True
+            ctx.run_module("osint/dns_resolve", "5.5.5.5", {})
+
+        assert len(ranker_calls) == 1, "process_results must be called exactly once"
+        captured = ranker_calls[0]
+        assert captured is not None, "ranker must not be None when dossier_aware_ranking=True"
+        assert callable(captured), "ranker must be callable"
+        assert callable(getattr(captured, "_score_for_type", None)), (
+            "ranker must expose _score_for_type(sco_type) side-channel (DEC-M6-PIVOT-007)"
+        )
+
+    def test_ranker_none_when_flag_false(self, tmp_path):
+        """AT2b: run_module passes ranker=None when dossier_aware_ranking=False.
+
+        # @mock-exempt: same seam-capture pattern as AT2; hunt is external HTTP.
+        # (DEC-TEST-AGENT-001)
+        """
+        from unittest.mock import AsyncMock, patch
+
+        ctx = self._make_ctx(tmp_path)
+        ctx.event_bus.config.enabled = True
+        ctx.config.general.auto_pivot_policy.dossier_aware_ranking = False
+
+        ranker_calls: list = []
+
+        async def _capture_process_results(
+            results, source_module, depth=0, *, dry_run=False, ranker=None
+        ):
+            # @mock-exempt: seam capture only
+            ranker_calls.append(ranker)
+            return []
+
+        # Enable autopivot so the cascade branch is entered (production code path).
+        ctx.autopivot_enabled = True
+        mod = ctx.plugin_mgr.get_module("osint/dns_resolve")
+        with (
+            patch.object(
+                mod, "hunt", new=AsyncMock(return_value=[{"type": "ipv4-addr", "value": "5.5.5.5"}])
+            ),
+            patch.object(ctx.event_bus, "process_results", side_effect=_capture_process_results),
+        ):
+            ctx.run_module("osint/dns_resolve", "5.5.5.5", {})
+
+        assert len(ranker_calls) == 1
+        assert ranker_calls[0] is None, (
+            "ranker must be None when dossier_aware_ranking=False (opt-out kill switch)"
+        )
+
+    def test_no_second_load_dossier_state_call(self, tmp_path):
+        """AT3: run_module does not call load_dossier_state a second time for the ranker.
+
+        It reuses the M-4 pre_dossier snapshot loaded earlier in run_module.
+        (DEC-M6-PIVOT-009)
+
+        # @mock-exempt: hunt is patched as external HTTP boundary; load_dossier_state
+        # is a SQLite I/O boundary wrapped with a counter to verify call count.
+        # process_results is patched at the event-bus seam to avoid live cascades.
+        # (DEC-TEST-AGENT-001)
+        """
+        from unittest.mock import AsyncMock, patch
+
+        ctx = self._make_ctx(tmp_path)
+        ctx.event_bus.config.enabled = True
+
+        load_call_count: list = []
+        original_load = __import__(
+            "adversary_pursuit.dossier.state", fromlist=["load_dossier_state"]
+        ).load_dossier_state
+
+        def _counting_load(wm):
+            # @mock-exempt: wraps real SQLite boundary to count I/O calls
+            load_call_count.append(1)
+            return original_load(wm)
+
+        async def _noop_process(results, source_module, depth=0, *, dry_run=False, ranker=None):
+            # @mock-exempt: event-bus seam capture — no logic replaced
+            return []
+
+        # Enable autopivot so the cascade branch — and the load_dossier_state call
+        # inside it — is actually entered. Without this the assert would trivially
+        # pass with count=0 (no call, no second call either).
+        ctx.autopivot_enabled = True
+        mod = ctx.plugin_mgr.get_module("osint/dns_resolve")
+        with (
+            patch.object(
+                mod, "hunt", new=AsyncMock(return_value=[{"type": "ipv4-addr", "value": "5.5.5.5"}])
+            ),
+            patch.object(ctx.event_bus, "process_results", side_effect=_noop_process),
+            patch(
+                "adversary_pursuit.agent.tools.load_dossier_state",
+                side_effect=_counting_load,
+            ),
+        ):
+            ctx.run_module("osint/dns_resolve", "5.5.5.5", {})
+
+        assert len(load_call_count) == 1, (
+            f"load_dossier_state must be called exactly once per hunt; got {len(load_call_count)}"
+        )

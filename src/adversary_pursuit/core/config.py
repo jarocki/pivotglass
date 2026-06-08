@@ -201,6 +201,13 @@ class AutoPivotPolicyConfig(BaseModel):
     """Path to user-supplied pivot denylist. Defaults to ~/.ap/pivot-denylist.txt
     when None. Missing file is silently treated as empty. (DEC-60-PIVOT-POLICY-007)"""
 
+    dossier_aware_ranking: bool = Field(default=True)
+    """When True (default), agent/tools.py supplies a dossier-aware ranker to
+    EventBus.process_results so cascade candidates are evaluated in descending
+    slot-fill-score order. When False, candidates are evaluated in source-list order
+    (byte-identical F60 behavior). Opt-out kill switch for analysts who prefer pure
+    F60 ordering. M-6 (DEC-M6-PIVOT-008)."""
+
 
 class GeneralConfig(BaseModel):
     """General application settings."""

@@ -158,13 +158,23 @@ _LINK_LOCAL_NETS = [
 # ---------------------------------------------------------------------------
 
 
-class DecisionLogEntry(TypedDict):
+class DecisionLogEntry(TypedDict, total=False):
     """Typed contract for a single pivot-policy decision record.
 
-    All seven keys are required.  downstream consumers rely on this shape.
+    Seven keys are required (source_sco_id, source_sco_value, candidate_module,
+    gate, verdict, reason, depth).  One optional diagnostic field is added by M-6:
+
+    dossier_weight (float | None):
+        The slot-fill score computed by the M-6 dossier-aware ranker for this SCO,
+        or None when the ranker was not supplied to process_results.  Populated by
+        EventBus.publish after build_log_entry() returns the base entry.  Additive-
+        optional: existing consumers that only read the seven required keys see no
+        breaking change.  (DEC-M6-PIVOT-007)
+
     (DEC-60-PIVOT-POLICY-005)
     """
 
+    # Required keys — always present
     source_sco_id: str
     source_sco_value: str
     candidate_module: str
@@ -172,6 +182,8 @@ class DecisionLogEntry(TypedDict):
     verdict: Literal["allow", "skip"]
     reason: str
     depth: int
+    # Optional M-6 diagnostic field (DEC-M6-PIVOT-007)
+    dossier_weight: float | None
 
 
 @dataclass
