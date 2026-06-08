@@ -183,12 +183,15 @@ from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.dossier.predictions import (
     _to_m2_record,
     create_prediction,
+    falsify_predictions,
     load_predictions_log,
-    mark_confirmed,
+    manual_falsify,
+    mark_confirmed_or_falsified,
     save_predictions_log,
     validate_predictions,
 )
 from adversary_pursuit.dossier.scoring import (
+    emit_dossier_prediction_falsified_event,
     emit_dossier_prediction_validated_event,
     emit_dossier_slot_filled_events,  # M-3 DEC-M3-DOSSIER-001
 )
@@ -506,14 +509,31 @@ class ToolContext:
                     prediction_events.append(
                         emit_dossier_prediction_validated_event(_to_m2_record(pred))
                     )
-            all_dossier_events = dossier_events + prediction_events
+            # M-5: falsify predictions against current-hunt evidence (DEC-M5-FALSIFY-001..004)
+            current_hunt_count = len(self.workspace_mgr.get_module_runs())
+            falsification_results = falsify_predictions(
+                predictions_log,
+                new_scos_this_hunt,
+                notes_before,
+                current_hunt_count,
+            )
+            falsification_events: list[dict] = []
+            for pred, fr in zip(predictions_log, falsification_results):
+                if fr.falsified:
+                    falsification_events.append(
+                        emit_dossier_prediction_falsified_event(pred, fr.reason)
+                    )
+            all_dossier_events = dossier_events + prediction_events + falsification_events
             if all_dossier_events:
                 self.workspace_mgr.store_score_events(all_dossier_events)
                 events = list(events) + all_dossier_events
                 total += sum(e["points"] for e in all_dossier_events)
-            # M-4: persist updated state + predictions log (DEC-M4-PERSIST-001)
+            # M-5: persist updated state + predictions log (mark_confirmed_or_falsified
+            # supersedes mark_confirmed — DEC-M5-FALSIFY-001 / DEC-M4-PERSIST-001)
             save_dossier_state(self.workspace_mgr, post_dossier)
-            updated_predictions = mark_confirmed(predictions_log, validation_results)
+            updated_predictions = mark_confirmed_or_falsified(
+                predictions_log, validation_results, falsification_results
+            )
             save_predictions_log(self.workspace_mgr, updated_predictions)
         except Exception:  # noqa: BLE001
             pass  # dossier scoring must never block tool result delivery
@@ -697,7 +717,13 @@ class ToolContext:
             # narration belongs to the Rich panel surface, not the LLM-facing summary.
             # Only per-IOC discovery events and streak_continued are surfaced here.
             # Dossier events are still present in result["score_events"] for LLM reasoning.
-            _DOSSIER_ACTIONS = frozenset({"dossier_slot_filled", "dossier_prediction_validated"})
+            _DOSSIER_ACTIONS = frozenset(
+                {
+                    "dossier_slot_filled",
+                    "dossier_prediction_validated",
+                    "dossier_prediction_falsified",  # M-5 F64 filter (DEC-M5-FALSIFY-005)
+                }
+            )
             for e in events:
                 if e["action"] not in _DOSSIER_ACTIONS:
                     summary_lines.append(f"  {e['action']}: +{e['points']} ({e['indicator']})")
@@ -1520,8 +1546,122 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                                 },
                             },
                         },
+                        # M-5: optional contradiction criteria (DEC-M5-FALSIFY-007)
+                        "falsification_evidence": {
+                            "type": "object",
+                            "description": (
+                                "Optional typed contradiction criteria. When supplied, "
+                                "M-5 auto-falsifies the prediction if current-hunt evidence "
+                                "matches. All non-null fields are ANDed."
+                            ),
+                            "properties": {
+                                "negative_sco_type": {
+                                    "type": "string",
+                                    "description": (
+                                        "Appearance of a SCO of this type contradicts the "
+                                        "prediction (e.g. 'autonomous-system')."
+                                    ),
+                                },
+                                "negative_value_regex": {
+                                    "type": "string",
+                                    "description": (
+                                        "SCO primary value matching this regex contradicts "
+                                        "the prediction (e.g. '.*\\.cn$')."
+                                    ),
+                                },
+                                "negative_asn_in": {
+                                    "type": "array",
+                                    "items": {"type": "integer"},
+                                    "description": (
+                                        "ASN appearing in this list contradicts the prediction."
+                                    ),
+                                },
+                                "contradiction_keyword_any": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": (
+                                        "At least one of these substrings in an analyst "
+                                        "note contradicts the prediction."
+                                    ),
+                                },
+                                "stale_after_n_hunts": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "description": (
+                                        "Auto-falsify if prediction remains pending after "
+                                        "this many hunts since creation."
+                                    ),
+                                },
+                            },
+                        },
                     },
                     "required": ["slot", "text", "expected_evidence"],
+                },
+            },
+        },
+        # M-5: analyst note authoring tool (DEC-M5-NOTE-003)
+        {
+            "type": "function",
+            "function": {
+                "name": "create_dossier_note",
+                "description": (
+                    "Author an analyst note about the threat actor. Notes are stored in "
+                    "the workspace and become evidence for dossier slot inference "
+                    "(especially Motivation and Denial slots) and prediction "
+                    "validation/falsification (note_keyword_any and "
+                    "contradiction_keyword_any clauses). Use this to record observations "
+                    "the user shares in chat that should be part of the dossier "
+                    "(motivations, suspected tactics, OPSEC observations)."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "text": {
+                            "type": "string",
+                            "description": (
+                                "Free-text note content. Stored verbatim in the AnalystNote "
+                                "table and visible to the dossier inference engine."
+                            ),
+                        },
+                    },
+                    "required": ["text"],
+                },
+            },
+        },
+        # M-5: manual prediction falsification tool (DEC-M5-FALSIFY-006)
+        {
+            "type": "function",
+            "function": {
+                "name": "falsify_dossier_prediction",
+                "description": (
+                    "Mark a pending dossier prediction as falsified with a reason. "
+                    "Use this when you have analyst judgment that the prediction was "
+                    "wrong (e.g., actor pivoted elsewhere than predicted) but no "
+                    "machine-matchable contradiction evidence is available. "
+                    "The prediction transitions pending->falsified; a "
+                    "dossier_prediction_falsified score event fires at +0 points "
+                    "(no deduction). Idempotent: already-falsified or "
+                    "already-validated predictions are no-ops."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "prediction_id": {
+                            "type": "string",
+                            "description": (
+                                "The PersistedPrediction.prediction_id to falsify, "
+                                "e.g. 'pred-3f19d55c'."
+                            ),
+                        },
+                        "reason": {
+                            "type": "string",
+                            "description": (
+                                "Plain-text explanation of why the prediction is wrong. "
+                                "Stored in the score event rule_description."
+                            ),
+                        },
+                    },
+                    "required": ["prediction_id", "reason"],
                 },
             },
         },
@@ -1827,7 +1967,7 @@ def execute_tool(
     if tool_name == "get_dossier_state":
         return _execute_get_dossier_state(ctx), None, [], []
 
-    # Dossier prediction tool — M-4 DEC-M4-PRED-001/002
+    # Dossier prediction tool — M-4 DEC-M4-PRED-001/002 (extended in M-5)
     if tool_name == "create_dossier_prediction":
         return (
             _execute_create_dossier_prediction(
@@ -1835,6 +1975,24 @@ def execute_tool(
                 slot=arguments.get("slot", ""),
                 text=arguments.get("text", ""),
                 expected_evidence_dict=arguments.get("expected_evidence", {}),
+                falsification_evidence_dict=arguments.get("falsification_evidence"),
+            ),
+            None,
+            [],
+            [],
+        )
+
+    # M-5: analyst note authoring tool — DEC-M5-NOTE-003
+    if tool_name == "create_dossier_note":
+        return _execute_create_dossier_note(ctx, text=arguments.get("text", "")), None, [], []
+
+    # M-5: manual prediction falsification tool — DEC-M5-FALSIFY-006
+    if tool_name == "falsify_dossier_prediction":
+        return (
+            _execute_falsify_dossier_prediction(
+                ctx,
+                prediction_id=arguments.get("prediction_id", ""),
+                reason=arguments.get("reason", ""),
             ),
             None,
             [],
@@ -2397,12 +2555,15 @@ def _execute_create_dossier_prediction(
     slot: str,
     text: str,
     expected_evidence_dict: dict,
+    falsification_evidence_dict: dict | None = None,
 ) -> str:
-    """Create and persist a new dossier prediction (M-4 DEC-M4-PRED-001/002).
+    """Create and persist a new dossier prediction (M-4 DEC-M4-PRED-001/002, extended M-5).
+
+    M-5: accepts optional falsification_evidence_dict. The created_at_hunt_count
+    field is captured here from workspace_mgr.get_module_runs() (DEC-M5-FALSIFY-007
+    option (a): workspace coupling stays in the call site, create_prediction stays pure).
 
     F64-clean: returns structured JSON text only — no Rich markup.
-    The tool result is the prediction_id plus a short confirmation; persona
-    text never appears here (DEC-64-LLM-PANEL-SEPARATION-001).
 
     Parameters
     ----------
@@ -2415,6 +2576,9 @@ def _execute_create_dossier_prediction(
     expected_evidence_dict:
         Dict matching the ExpectedEvidence shape. Must have at least one
         non-None field (DEC-M4-PRED-002 loud rejection of empty evidence).
+    falsification_evidence_dict:
+        Optional dict matching FalsificationEvidence shape. When supplied,
+        M-5 auto-falsifies the prediction if contradiction evidence matches.
 
     Returns
     -------
@@ -2426,7 +2590,15 @@ def _execute_create_dossier_prediction(
     import json
 
     try:
-        prediction = create_prediction(slot, text, expected_evidence_dict)
+        prediction = create_prediction(
+            slot, text, expected_evidence_dict, falsification_evidence_dict
+        )
+        # M-5: capture current hunt count so stale_after_n_hunts can be evaluated
+        # (DEC-M5-FALSIFY-007 option (a): workspace coupling in call site)
+        hunt_count = len(ctx.workspace_mgr.get_module_runs())
+        from dataclasses import replace as _dc_replace
+
+        prediction = _dc_replace(prediction, created_at_hunt_count=hunt_count)
         existing = load_predictions_log(ctx.workspace_mgr)
         updated = existing + [prediction]
         save_predictions_log(ctx.workspace_mgr, updated)
@@ -2451,3 +2623,124 @@ def _execute_create_dossier_prediction(
         import json as _json
 
         return _json.dumps({"error": f"Failed to create prediction: {e}"})
+
+
+def _execute_create_dossier_note(ctx: ToolContext, text: str) -> str:
+    """Author and persist an analyst note (M-5 DEC-M5-NOTE-003).
+
+    Binds to the existing WorkspaceManager.add_note() + AnalystNote table
+    (DEC-M5-NOTE-001). The note is immediately visible to _read_analyst_notes
+    callers: motivation extractor, denial extractor, prediction validation,
+    and the falsification engine.
+
+    F64-clean: returns structured JSON text only — no Rich markup.
+
+    Parameters
+    ----------
+    ctx:
+        The shared ToolContext providing workspace access.
+    text:
+        Free-text note content. Stored verbatim in AnalystNote.content.
+
+    Returns
+    -------
+    str
+        JSON string: {"status": "saved", "message": "<confirmation>"}.
+        On error: {"error": "<message>"}.
+    """
+    import json
+
+    if not text or not text.strip():
+        return json.dumps({"error": "Note text must be non-empty."})
+    try:
+        ctx.workspace_mgr.add_note(text.strip())
+        return json.dumps(
+            {
+                "status": "saved",
+                "message": f"Note saved to dossier evidence ({len(text.strip())} chars).",
+            }
+        )
+    except Exception as e:
+        logger.exception("create_dossier_note failed")
+        import json as _json
+
+        return _json.dumps({"error": f"Failed to save note: {e}"})
+
+
+def _execute_falsify_dossier_prediction(
+    ctx: ToolContext,
+    prediction_id: str,
+    reason: str,
+) -> str:
+    """Manually mark a pending prediction as falsified (M-5 DEC-M5-FALSIFY-006).
+
+    Loads the predictions log, finds prediction_id, transitions pending->falsified,
+    emits a dossier_prediction_falsified score event at +0 points (DEC-M4-PRED-006),
+    and persists the updated log. Idempotent for already-concluded predictions.
+
+    F64-clean: returns structured JSON text only — no Rich markup.
+
+    Parameters
+    ----------
+    ctx:
+        The shared ToolContext providing workspace read/write access.
+    prediction_id:
+        The PersistedPrediction.prediction_id to falsify (e.g. "pred-3f19d55c").
+    reason:
+        Plain-text explanation of why the prediction is wrong.
+
+    Returns
+    -------
+    str
+        JSON string: {"prediction_id": ..., "status": "falsified", "reason": ...,
+        "message": ...}. On no-op (already concluded): {"status": "<current>",
+        "message": "already concluded; no-op"}. On missing: {"error": ...}.
+    """
+    import json
+
+    if not prediction_id:
+        return json.dumps({"error": "prediction_id must be non-empty."})
+    if not reason:
+        return json.dumps({"error": "reason must be non-empty."})
+    try:
+        predictions = load_predictions_log(ctx.workspace_mgr)
+        # Find prediction first to handle missing / already-concluded cases
+        target = next((p for p in predictions if p.prediction_id == prediction_id), None)
+        if target is None:
+            return json.dumps(
+                {"error": f"Prediction '{prediction_id}' not found in predictions log."}
+            )
+        if target.status != "pending":
+            return json.dumps(
+                {
+                    "prediction_id": prediction_id,
+                    "status": target.status,
+                    "message": f"Already concluded ({target.status}); no-op.",
+                }
+            )
+        # Transition pending -> falsified
+        updated_predictions, transitioned = manual_falsify(predictions, prediction_id, reason)
+        if transitioned:
+            save_predictions_log(ctx.workspace_mgr, updated_predictions)
+            # Find the updated entry to emit the event
+            updated_target = next(
+                p for p in updated_predictions if p.prediction_id == prediction_id
+            )
+            event = emit_dossier_prediction_falsified_event(updated_target, reason)
+            ctx.workspace_mgr.store_score_events([event])
+        return json.dumps(
+            {
+                "prediction_id": prediction_id,
+                "status": "falsified",
+                "reason": reason,
+                "message": (
+                    f"Prediction {prediction_id} manually falsified. "
+                    "Score event dossier_prediction_falsified fired at +0 points."
+                ),
+            }
+        )
+    except Exception as e:
+        logger.exception("falsify_dossier_prediction failed")
+        import json as _json
+
+        return _json.dumps({"error": f"Failed to falsify prediction: {e}"})

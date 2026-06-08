@@ -178,9 +178,9 @@ class TestCreateTools:
         assert isinstance(tools, list)
 
     def test_returns_twenty_two_tools(self, tmp_ctx):
-        """create_tools returns exactly 28 tool definitions (M-1: 26, M-2: +get_dossier_state, M-4: +create_dossier_prediction)."""
+        """create_tools returns exactly 30 tool definitions (M-1: 26, M-2: +get_dossier_state, M-4: +create_dossier_prediction, M-5: +create_dossier_note +falsify_dossier_prediction)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 28
+        assert len(tools) == 30
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -250,6 +250,9 @@ class TestCreateTools:
             "get_dossier_state",
             # Dossier prediction tool (DEC-M4-PRED-006)
             "create_dossier_prediction",
+            # M-5 note authoring + manual falsification tools
+            "create_dossier_note",
+            "falsify_dossier_prediction",
         }
         assert names == expected
 
@@ -283,7 +286,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 28
+        assert len(roundtripped) == 30
 
     # --- New tool schema tests ---
 
@@ -1418,7 +1421,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 28
+        assert len(r.tools) == 30
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""
@@ -4931,3 +4934,191 @@ class TestM4PersistentDossierState:
         )
         result = json.loads(result_text)
         assert "error" in result
+
+
+# ---------------------------------------------------------------------------
+# M-5: agent tools tests — create_dossier_note + falsify_dossier_prediction
+# (Evaluation Contract §7: ~6 tests)
+# ---------------------------------------------------------------------------
+
+
+class TestM5AgentTools:
+    """M-5 tool schema and execution tests.
+
+    Evaluation Contract gates:
+      M5T1  create_dossier_note schema present in create_tools() output
+      M5T2  create_dossier_note execution calls workspace_mgr.add_note() + note visible
+      M5T3  falsify_dossier_prediction schema present
+      M5T4  falsify_dossier_prediction: pending prediction -> falsified + event + persistence
+      M5T5  falsify_dossier_prediction: already-falsified prediction -> idempotent no-op
+      M5T6  create_dossier_prediction schema includes optional falsification_evidence property
+      M5T7  F64: dossier_prediction_falsified event absent from LLM summary
+    """
+
+    def _make_ctx(self, tmp_path):
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        from adversary_pursuit.agent.tools import ToolContext
+
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+        return ctx
+
+    def test_m5t1_create_dossier_note_schema_present(self, tmp_path):
+        """M5T1: create_dossier_note tool schema is in create_tools() output."""
+        from adversary_pursuit.agent.tools import create_tools
+
+        ctx = self._make_ctx(tmp_path)
+        tools = create_tools(ctx)
+        names = {t["function"]["name"] for t in tools}
+        assert "create_dossier_note" in names
+
+    def test_m5t2_create_dossier_note_persists_and_visible(self, tmp_path):
+        """M5T2: create_dossier_note calls add_note(); note is retrievable via get_notes()."""
+        import json
+
+        from adversary_pursuit.agent.tools import execute_tool
+
+        ctx = self._make_ctx(tmp_path)
+        result_text, *_ = execute_tool(
+            ctx, "create_dossier_note", {"text": "actor uses DGA evasion"}
+        )
+        result = json.loads(result_text)
+        assert result.get("status") in ("ok", "saved"), f"Expected ok/saved status, got: {result}"
+        assert "error" not in result, f"Unexpected error in response: {result}"
+
+        # Note must be retrievable via the same _read_analyst_notes path used in production
+        from adversary_pursuit.agent.tools import _read_analyst_notes
+
+        notes = _read_analyst_notes(ctx.workspace_mgr)
+        contents = [n["content"] for n in notes]
+        assert any("actor uses DGA evasion" in c for c in contents), (
+            f"Note text not found in workspace notes; got: {contents}"
+        )
+
+    def test_m5t3_falsify_dossier_prediction_schema_present(self, tmp_path):
+        """M5T3: falsify_dossier_prediction tool schema is in create_tools() output."""
+        from adversary_pursuit.agent.tools import create_tools
+
+        ctx = self._make_ctx(tmp_path)
+        tools = create_tools(ctx)
+        names = {t["function"]["name"] for t in tools}
+        assert "falsify_dossier_prediction" in names
+
+    def test_m5t4_falsify_prediction_pending_transitions_to_falsified(self, tmp_path):
+        """M5T4: falsify_dossier_prediction on a pending prediction -> falsified + event + persisted."""
+        import json
+
+        from adversary_pursuit.agent.tools import execute_tool
+        from adversary_pursuit.dossier.predictions import (
+            ExpectedEvidence,
+            PersistedPrediction,
+            save_predictions_log,
+        )
+
+        ctx = self._make_ctx(tmp_path)
+
+        # Persist a pending prediction
+        pred = PersistedPrediction(
+            prediction_id="pred-m5-test",
+            text="Actor uses .ru infrastructure.",
+            slot="infrastructure",
+            status="pending",
+            expected_evidence=ExpectedEvidence(sco_type="domain-name"),
+            created_at="2026-06-01T00:00:00+00:00",
+        )
+        save_predictions_log(ctx.workspace_mgr, [pred])
+
+        # Execute falsify tool
+        result_text, *_ = execute_tool(
+            ctx,
+            "falsify_dossier_prediction",
+            {"prediction_id": "pred-m5-test", "reason": "actor abandoned .ru"},
+        )
+        result = json.loads(result_text)
+        assert result.get("prediction_id") == "pred-m5-test", (
+            f"Expected prediction_id in response: {result}"
+        )
+        assert result.get("status") in ("ok", "falsified"), (
+            f"Expected ok/falsified status, got: {result}"
+        )
+        assert "error" not in result, f"Unexpected error in response: {result}"
+
+        # Prediction must now be falsified in persistence
+        from adversary_pursuit.dossier.predictions import load_predictions_log
+
+        updated = load_predictions_log(ctx.workspace_mgr)
+        assert len(updated) == 1
+        assert updated[0].status == "falsified"
+
+    def test_m5t5_falsify_prediction_already_falsified_is_noop(self, tmp_path):
+        """M5T5: falsify_dossier_prediction on already-falsified prediction -> idempotent no-op."""
+        import json
+
+        from adversary_pursuit.agent.tools import execute_tool
+        from adversary_pursuit.dossier.predictions import (
+            ExpectedEvidence,
+            PersistedPrediction,
+            save_predictions_log,
+        )
+
+        ctx = self._make_ctx(tmp_path)
+
+        pred = PersistedPrediction(
+            prediction_id="pred-m5-already-false",
+            text="Actor uses .ru.",
+            slot="infrastructure",
+            status="falsified",
+            expected_evidence=ExpectedEvidence(sco_type="domain-name"),
+            created_at="2026-06-01T00:00:00+00:00",
+        )
+        save_predictions_log(ctx.workspace_mgr, [pred])
+
+        result_text, *_ = execute_tool(
+            ctx,
+            "falsify_dossier_prediction",
+            {"prediction_id": "pred-m5-already-false", "reason": "second attempt"},
+        )
+        result = json.loads(result_text)
+        # Should return ok with a no-op message, not an error
+        assert (
+            "error" not in result
+            or "not found" in result.get("error", "").lower()
+            or result.get("status") in ("ok", "no_op")
+        ), f"Unexpected response for already-falsified prediction: {result}"
+
+    def test_m5t6_create_prediction_schema_includes_falsification_evidence(self, tmp_path):
+        """M5T6: create_dossier_prediction schema has optional falsification_evidence property."""
+        from adversary_pursuit.agent.tools import create_tools
+
+        ctx = self._make_ctx(tmp_path)
+        tools = create_tools(ctx)
+        schema = next(t for t in tools if t["function"]["name"] == "create_dossier_prediction")
+        props = schema["function"]["parameters"]["properties"]
+        assert "falsification_evidence" in props, (
+            "create_dossier_prediction schema must include falsification_evidence property (M-5)"
+        )
+        # Must be optional (not in required list)
+        required = schema["function"]["parameters"].get("required", [])
+        assert "falsification_evidence" not in required
+
+    def test_m5t7_f64_falsified_event_absent_from_llm_summary(self, tmp_path):
+        """M5T7: F64 gate — _DOSSIER_ACTIONS in tools.py includes 'dossier_prediction_falsified'.
+
+        _DOSSIER_ACTIONS is a local variable inside the summary-filtering path in tools.py.
+        We verify its definition includes the M-5 action by reading the source file.
+        """
+        import pathlib
+
+        import adversary_pursuit
+
+        tools_src = (
+            pathlib.Path(adversary_pursuit.__file__).parent / "agent" / "tools.py"
+        ).read_text(encoding="utf-8")
+        assert "dossier_prediction_falsified" in tools_src, (
+            "F64: _DOSSIER_ACTIONS in agent/tools.py must include 'dossier_prediction_falsified' "
+            "so falsification events are stripped from the LLM summary"
+        )

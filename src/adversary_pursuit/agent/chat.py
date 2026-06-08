@@ -93,6 +93,7 @@ def run_chat() -> None:
       report generate               -- generate and display Markdown report
       model show                    -- display current provider/model and source layer
       model select                  -- re-run the provider/model setup wizard
+      note <text>                   -- save analyst note (visible to dossier denial extractor + falsification)
       dossier                       -- show Threat Actor Dossier panel (M-1 slot inference)
       show dossier                  -- alias for dossier
     """
@@ -388,6 +389,27 @@ def run_chat() -> None:
                 )
             continue
 
+        # Note meta-command — DEC-M5-NOTE-002: local handler, no LLM dispatch.
+        # Persists the text via the existing workspace_mgr.add_note() API (AnalystNote
+        # table). The note is immediately visible to _read_analyst_notes callers:
+        # motivation extractor, denial extractor, M-4 note_keyword_any validation,
+        # and the M-5 falsification engine's contradiction_keyword_any check.
+        #
+        # Supported forms:
+        #   note <text>      -> save analyst note to dossier evidence
+        #   note             -> print usage hint
+        if lower == "note" or lower.startswith("note "):
+            note_text = stripped[4:].strip() if len(stripped) > 4 else ""
+            if not note_text:
+                console.print("[dim]Usage: note <text>[/dim]")
+                continue
+            try:
+                runner.ctx.workspace_mgr.add_note(note_text)
+                console.print(f"[green]Note saved.[/green] ({len(note_text)} chars)")
+            except Exception as e:
+                handle_error(e, console, runner, config_mgr)
+            continue
+
         # Dossier meta-command — DEC-M1-DOSSIER-004: local handler, no LLM dispatch.
         # Reads workspace SCOs via get_stix_objects() (read-only), feeds them through
         # dossier.slot_inference.infer_dossier_state(), and renders the result as a
@@ -497,6 +519,11 @@ def run_chat() -> None:
                 "graph",
                 "graph",
                 "Render workspace relationship tree",
+            )
+            help_table.add_row(
+                "note",
+                "note <text>",
+                "Save an analyst note (visible to dossier denial extractor + prediction validation/falsification)",
             )
             help_table.add_row(
                 "dossier",

@@ -41,22 +41,39 @@ Public API additions (M-4, DEC-M4-PERSIST-001..003 / DEC-M4-PRED-001..006):
   - predictions.PersistedPrediction — full lifecycle dataclass
   - predictions.ExpectedEvidence — typed match-pattern dataclass
   - predictions.ValidationResult — result of one prediction check
+
+Public API additions (M-5, DEC-M5-DENIAL-001..003 / DEC-M5-NOTE-001..003 /
+                         DEC-M5-FALSIFY-001..008):
+  - slot_inference._is_dga_shaped(label) -> bool  (exported for unit testing)
+  - predictions.FalsificationEvidence — typed contradiction-pattern dataclass
+  - predictions.FalsificationResult — result of one falsification check
+  - predictions.falsify_predictions(predictions, new_scos, new_notes, hunt_count)
+  - predictions.mark_confirmed_or_falsified(predictions, vr_list, fr_list)
+  - predictions.manual_falsify(predictions, prediction_id, reason)
+  - scoring.emit_dossier_prediction_falsified_event(prediction, reason) -> dict
 """
 
 from adversary_pursuit.dossier.predictions import (
     ExpectedEvidence,
+    FalsificationEvidence,
+    FalsificationResult,
     PersistedPrediction,
     ValidationResult,
+    falsify_predictions,
     load_predictions_log,
+    manual_falsify,
     mark_confirmed,
+    mark_confirmed_or_falsified,
     save_predictions_log,
     validate_predictions,
 )
 from adversary_pursuit.dossier.scoring import (
+    emit_dossier_prediction_falsified_event,
     emit_dossier_prediction_validated_event,
     emit_dossier_slot_filled_events,
 )
 from adversary_pursuit.dossier.slot_inference import (
+    _is_dga_shaped,
     infer_dossier_state,
     infer_dossier_state_full,
 )
@@ -80,6 +97,7 @@ __all__ = [
     "SLOT_WEIGHTS",
     "infer_dossier_state",
     "infer_dossier_state_full",
+    "_is_dga_shaped",
     "PredictionRecord",
     "DenialStrategyRecord",
     "emit_dossier_slot_filled_events",
@@ -97,4 +115,11 @@ __all__ = [
     "PersistedPrediction",
     "ExpectedEvidence",
     "ValidationResult",
+    # M-5 falsification engine
+    "FalsificationEvidence",
+    "FalsificationResult",
+    "falsify_predictions",
+    "mark_confirmed_or_falsified",
+    "manual_falsify",
+    "emit_dossier_prediction_falsified_event",
 ]
