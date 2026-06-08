@@ -807,3 +807,63 @@ class TestGreyNoiseApiKey:
         monkeypatch.delenv("AP_GREYNOISE_API_KEY", raising=False)
         monkeypatch.setenv("GREYNOISE_API_KEY", "gn-vendor-key")
         assert make_manager(tmp_path).get_api_key("greynoise") == "gn-vendor-key"
+
+
+# ---------------------------------------------------------------------------
+# M-6: AutoPivotPolicyConfig.dossier_aware_ranking (DEC-M6-PIVOT-008)
+# ---------------------------------------------------------------------------
+
+
+class TestDossierAwareRankingConfig:
+    """M-6 tests for AutoPivotPolicyConfig.dossier_aware_ranking field."""
+
+    def test_dossier_aware_ranking_defaults_to_true(self, tmp_path):
+        """AutoPivotPolicyConfig.dossier_aware_ranking defaults to True (M-6 ON by default)."""
+        from adversary_pursuit.core.config import AutoPivotPolicyConfig
+
+        cfg = AutoPivotPolicyConfig()
+        assert cfg.dossier_aware_ranking is True
+
+    def test_dossier_aware_ranking_false_roundtrip(self, tmp_path):
+        """TOML round-trip: writing dossier_aware_ranking=false and reading back preserves it."""
+        import tomllib
+
+        from adversary_pursuit.core.config import AutoPivotPolicyConfig
+
+        mgr = make_manager(tmp_path)
+        cfg = mgr.load()
+        cfg.general.auto_pivot_policy = AutoPivotPolicyConfig(dossier_aware_ranking=False)
+        mgr.save(cfg)
+
+        # Re-load from disk
+        with (tmp_path / "config.toml").open("rb") as fh:
+            raw = tomllib.load(fh)
+        assert raw["general"]["auto_pivot_policy"]["dossier_aware_ranking"] is False
+
+        # Full round-trip via ConfigManager.load()
+        reloaded = mgr.load()
+        assert reloaded.general.auto_pivot_policy.dossier_aware_ranking is False
+
+    def test_backward_compat_missing_field_deserializes_to_true(self, tmp_path):
+        """A config TOML that omits dossier_aware_ranking deserializes with default True."""
+        import tomli_w
+
+        # Write a config that has auto_pivot_policy but no dossier_aware_ranking key
+        toml_dict = {
+            "general": {
+                "auto_pivot_policy": {
+                    "confidence_threshold": 80,
+                    "max_per_cascade": 3,
+                    # dossier_aware_ranking intentionally absent
+                }
+            },
+            "api_keys": {},
+        }
+        config_file = tmp_path / "config.toml"
+        config_file.write_bytes(tomli_w.dumps(toml_dict).encode())
+        config_file.chmod(0o600)
+
+        mgr = make_manager(tmp_path)
+        cfg = mgr.load()
+        # Pydantic default kicks in for the missing field
+        assert cfg.general.auto_pivot_policy.dossier_aware_ranking is True

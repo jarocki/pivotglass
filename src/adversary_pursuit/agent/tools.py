@@ -170,6 +170,7 @@ import re
 from typing import Any
 
 from adversary_pursuit.core.config import ConfigManager
+from adversary_pursuit.core.dossier_pivot import make_dossier_pivot_ranker  # M-6 DEC-M6-PIVOT-001
 from adversary_pursuit.core.event_bus import (
     DEFAULT_SUBSCRIPTIONS,
     EventBus,
@@ -630,12 +631,22 @@ class ToolContext:
         decision_log: list[dict] = []
         if (self.autopivot_enabled or dry_run) and results:
             try:
+                # M-6: build dossier-aware ranker when the config flag is True.
+                # Reuses the already-loaded pre_dossier snapshot from M-4 wiring
+                # above (line ~449) — no second load_dossier_state call.
+                # When flag is False, ranker=None preserves byte-identical F60 order.
+                # (DEC-M6-PIVOT-001, DEC-M6-PIVOT-008, DEC-M6-PIVOT-009)
+                if self.config.general.auto_pivot_policy.dossier_aware_ranking:
+                    _pivot_ranker = make_dossier_pivot_ranker(pre_dossier)
+                else:
+                    _pivot_ranker = None
                 cascade_results = asyncio.run(
                     self.event_bus.process_results(
                         results,
                         source_module=module_path,
                         depth=0,
                         dry_run=dry_run,
+                        ranker=_pivot_ranker,
                     )
                 )
                 # In dry_run mode cascade_results is always [] — callbacks were

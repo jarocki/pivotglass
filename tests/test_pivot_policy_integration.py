@@ -179,7 +179,11 @@ class TestDryRun:
         assert len(log) == len(CDN_DOMAINS) * len(DOMAIN_MODULES)
 
     def test_dry_run_log_has_correct_shape(self):
-        """Each decision log entry has the 7 required keys (DEC-60-PIVOT-POLICY-005)."""
+        """Each decision log entry has the 8 required keys (DEC-60-PIVOT-POLICY-005, DEC-M6-PIVOT-007).
+
+        M-6 added 'dossier_weight' as the 8th key — always present in every entry,
+        set to None when no ranker was supplied (pure F60 path).
+        """
         bus, _callbacks = make_bus(max_per_cascade=5, max_per_session=50)
 
         asyncio.run(
@@ -194,6 +198,7 @@ class TestDryRun:
             "verdict",
             "reason",
             "depth",
+            "dossier_weight",  # M-6 DEC-M6-PIVOT-007: always present; None when no ranker
         }
         log = bus.get_decision_log()
         assert log, "Decision log must be non-empty"

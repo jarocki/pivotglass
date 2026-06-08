@@ -134,6 +134,7 @@ class EventBus:
         event: PivotEvent,
         *,
         dry_run: bool = False,
+        _dossier_weight_lookup: dict[tuple[str, str], float] | None = None,
     ) -> list[dict]:
         """Publish an event and trigger policy-approved subscribed callbacks.
 
@@ -150,6 +151,13 @@ class EventBus:
             When True, evaluate policy gates but do NOT invoke callbacks and
             do NOT increment budget counters.  Returns ``[]``; decision log
             still populated.
+        _dossier_weight_lookup:
+            Optional side-channel dict populated by the M-6 ranker closure.
+            Maps ``(sco_id, sco_value)`` → slot-fill score so the decision log
+            can carry ``dossier_weight`` without re-computing scores per entry.
+            When None (ranker not supplied), ``dossier_weight`` is set to None
+            in each log entry.  Internal parameter — not part of the public API
+            surface.  (DEC-M6-PIVOT-007)
 
         Returns
         -------
@@ -185,6 +193,13 @@ class EventBus:
                 decision=decision,
                 depth=event.depth,
             )
+            # M-6: attach dossier_weight diagnostic field (DEC-M6-PIVOT-007).
+            # The weight is the slot-fill score computed by the ranker for this SCO.
+            # None when no ranker was supplied (pure F60 path).
+            if _dossier_weight_lookup is not None:
+                entry["dossier_weight"] = _dossier_weight_lookup.get((event.sco_id, event.value))
+            else:
+                entry["dossier_weight"] = None
             self._decision_log.append(entry)
 
             if decision.verdict == "skip":
@@ -217,6 +232,7 @@ class EventBus:
         depth: int = 0,
         *,
         dry_run: bool = False,
+        ranker: Callable[[list[dict], str], list[dict]] | None = None,
     ) -> list[dict]:
         """Process module results and auto-pivot on new indicators.
 
@@ -236,11 +252,42 @@ class EventBus:
         dry_run:
             When True, passes dry_run through to publish() — evaluates policy
             but does not invoke callbacks.
+        ranker:
+            Optional M-6 dossier-aware ranker callable.  When supplied, the
+            candidate list is re-ordered by descending slot-fill score before
+            F60's 3-gate engine evaluates each SCO.  When None (default),
+            iteration follows the input order — byte-identical F60 behavior.
+            Signature: ``ranker(results, source_module) -> list[dict]``.
+            (DEC-M6-PIVOT-001, DEC-M6-PIVOT-008)
         """
         self._policy.reset_cascade_budget()
 
+        # M-6: apply ranker to re-order candidates before F60 gates run.
+        # Guard: only call ranker when results is non-empty — avoids unnecessary
+        # invocation on the empty-results fast path (plan §6 EB3).
+        # When ranker is None the ranked list IS the input list — no copy, no change.
+        if ranker is not None and results:
+            ranked = ranker(results, source_module)
+        else:
+            ranked = results
+
+        # M-6: build a dossier-weight lookup for the decision-log diagnostic field.
+        # The ranker exposes _score_for_type(sco_type) → float as a side-channel.
+        # Keyed by (sco_id, sco_value) to match EventBus.publish's lookup.
+        # When no ranker is supplied, the lookup is None and dossier_weight is None
+        # for all entries (pure F60 path). (DEC-M6-PIVOT-007)
+        dossier_weight_lookup: dict[tuple[str, str], float] | None = None
+        if ranker is not None:
+            score_fn = getattr(ranker, "_score_for_type", None)
+            if score_fn is not None:
+                dossier_weight_lookup = {
+                    (r.get("id", ""), r.get("value", "")): score_fn(r.get("type", ""))
+                    for r in ranked
+                    if r.get("type") and r.get("value")
+                }
+
         pivot_results: list[dict] = []
-        for result in results:
+        for result in ranked:
             stix_type = result.get("type", "")
             value = result.get("value", "")
             if stix_type and value:
@@ -252,7 +299,11 @@ class EventBus:
                     sco_id=result.get("id", ""),
                     sco_attrs={k: v for k, v in result.items() if k not in ("type", "value", "id")},
                 )
-                new_results = await self.publish(event, dry_run=dry_run)
+                new_results = await self.publish(
+                    event,
+                    dry_run=dry_run,
+                    _dossier_weight_lookup=dossier_weight_lookup,
+                )
                 pivot_results.extend(new_results)
         return pivot_results
 
