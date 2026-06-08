@@ -600,3 +600,105 @@ class TestCompoundProductionSequence:
         state = _state_with({DossierSlotName.IDENTITY: SlotStatus.PARTIAL})
         events = emit_dossier_slot_filled_events(state, state)
         assert events == []
+
+
+# ---------------------------------------------------------------------------
+# M-5: emit_dossier_prediction_falsified_event tests
+# (DEC-M5-FALSIFY-005 — points=0, F64-clean rule_description)
+# ---------------------------------------------------------------------------
+
+
+class TestEmitDossierPredictionFalsifiedEvent:
+    """emit_dossier_prediction_falsified_event() shape and F64 compliance.
+
+    @decision DEC-M5-FALSIFY-005
+    @title Falsification event: action=dossier_prediction_falsified, points=0
+    @status accepted
+    @rationale DEC-M4-PRED-006: no negative-points events.
+    """
+
+    def test_falsified_event_shape(self):
+        """emit_dossier_prediction_falsified_event returns dict with correct keys and values."""
+        from adversary_pursuit.dossier.predictions import (
+            ExpectedEvidence,
+            FalsificationEvidence,
+            PersistedPrediction,
+        )
+        from adversary_pursuit.dossier.scoring import emit_dossier_prediction_falsified_event
+
+        pred = PersistedPrediction(
+            prediction_id="pred-3f19d55c",
+            text="Actor will use .ru infrastructure.",
+            slot="infrastructure",
+            status="falsified",
+            expected_evidence=ExpectedEvidence(sco_type="domain-name"),
+            created_at="2026-06-01T00:00:00+00:00",
+            falsification_evidence=FalsificationEvidence(contradiction_keyword_any=[".cn"]),
+        )
+        event = emit_dossier_prediction_falsified_event(pred, "actor pivoted to .cn")
+
+        assert event["action"] == "dossier_prediction_falsified"
+        assert event["points"] == 0  # DEC-M4-PRED-006
+        assert event["indicator"] == "pred-3f19d55c"
+        assert isinstance(event["rule_description"], str)
+        assert len(event["rule_description"]) > 0
+        # F64: no Rich markup in rule_description
+        assert "[" not in event["rule_description"], (
+            f"rule_description must be plain ASCII (F64), got: {event['rule_description']!r}"
+        )
+        assert "falsified" in event["rule_description"].lower()
+
+    def test_falsified_event_fires_alongside_slot_fill_events(self):
+        """Falsification event and slot-fill event can both be emitted in the same hunt."""
+        from adversary_pursuit.dossier.predictions import (
+            ExpectedEvidence,
+            PersistedPrediction,
+        )
+        from adversary_pursuit.dossier.scoring import (
+            emit_dossier_prediction_falsified_event,
+            emit_dossier_slot_filled_events,
+        )
+
+        # Slot-fill transition: Identity EMPTY->PARTIAL
+        pre = _state_with({DossierSlotName.IDENTITY: SlotStatus.EMPTY})
+        post = _state_with({DossierSlotName.IDENTITY: SlotStatus.PARTIAL})
+        slot_events = emit_dossier_slot_filled_events(pre, post)
+
+        # Falsification event
+        pred = PersistedPrediction(
+            prediction_id="pred-cofire-001",
+            text="Actor will pivot to .cn.",
+            slot="infrastructure",
+            status="falsified",
+            expected_evidence=ExpectedEvidence(sco_type="domain-name"),
+            created_at="2026-06-01T00:00:00+00:00",
+        )
+        falsify_event = emit_dossier_prediction_falsified_event(pred, "pivot confirmed .cn")
+
+        all_events = slot_events + [falsify_event]
+        actions = [e["action"] for e in all_events]
+        assert "dossier_slot_filled" in actions
+        assert "dossier_prediction_falsified" in actions
+
+        # Points sum: slot fill contributes points, falsification contributes 0
+        total_points = sum(e["points"] for e in all_events)
+        assert total_points > 0  # slot fill contributed points
+        falsify_points = next(
+            e["points"] for e in all_events if e["action"] == "dossier_prediction_falsified"
+        )
+        assert falsify_points == 0  # DEC-M4-PRED-006
+
+    def test_denial_slot_transition_emits_correct_points(self):
+        """Denial slot EMPTY->PARTIAL emits +2 points via the unmodified M-3 emitter.
+
+        This regression confirms the M-3 emit_dossier_slot_filled_events handles
+        the unblocked Denial slot correctly. Denial weight = 2.5 -> int(2.5) = 2.
+        """
+        pre = _state_with({DossierSlotName.DENIAL: SlotStatus.EMPTY})
+        post = _state_with({DossierSlotName.DENIAL: SlotStatus.PARTIAL})
+        events = emit_dossier_slot_filled_events(pre, post)
+
+        assert len(events) == 1
+        assert events[0]["action"] == "dossier_slot_filled"
+        assert events[0]["indicator"] == "denial"
+        assert events[0]["points"] == 2  # int(SLOT_WEIGHTS[DENIAL]) = int(2.5) = 2

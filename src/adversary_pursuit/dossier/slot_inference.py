@@ -6,6 +6,8 @@ evidence count. No I/O, no workspace mutations, no x_ap_* writes.
 
 M-1 public API: infer_dossier_state(scos) — preserved as thin wrapper.
 M-2 public API: infer_dossier_state_full(scos, module_runs, notes) — new entrypoint.
+M-5 public API: slot 9 (Denial) now returns real status via _extract_denial().
+    _is_dga_shaped(label) — exported for unit testing of the DGA detector.
 
 @decision DEC-M1-DOSSIER-001 (inference authority)
 @title slot_inference.infer_dossier_state() is a pure function; never mutates workspace
@@ -90,6 +92,36 @@ M-2 public API: infer_dossier_state_full(scos, module_runs, notes) — new entry
     - PARTIAL: 1 category signal found.
     - EMPTY: 0 signals (no notes, or notes with no keyword matches).
     This is a conservative MVP; M-3 will refine with TTP/Identity cross-slot inference.
+
+@decision DEC-M5-DENIAL-001
+@title Slot 9 Denial extractor vocabulary v1.0: DGA-shaped domains, fast-flux TTL, note keywords
+@status accepted
+@rationale Three evidence categories drive slot 9 in M-5: (1) DGA-shaped domain
+    (label length >=12 AND consonant-to-vowel ratio >=3); (2) fast-flux / decoy
+    infrastructure hint (SCO carries x_ap_dns_ttl <=60 sec); (3) denial/evasion
+    keyword in analyst note content. FILLED requires >=2 distinct categories
+    (cross-category corroboration, mirroring DEC-M1-DOSSIER-INFERENCE-STATUS-001).
+    PARTIAL = >=1 evidence from any single category. EMPTY = 0 evidence.
+    This deliberately small vocabulary ships M-5; richer DGA detection and
+    multi-stage TTP cross-reference land in M-7 or later slices.
+
+@decision DEC-M5-DENIAL-002
+@title Slot 9 Denial status thresholds: EMPTY/PARTIAL/FILLED by category count
+@status accepted
+@rationale EMPTY: 0 evidence items. PARTIAL: >=1 from any single category.
+    FILLED: >=1 from at least 2 distinct categories. This mirrors the
+    DEC-M1-DOSSIER-INFERENCE-STATUS-001 "distinct types >=2 -> filled" shape
+    applied to denial-evidence categories instead of STIX types.
+
+@decision DEC-M5-DENIAL-003
+@title _is_dga_shaped uses consonant-to-vowel ratio >=3 as conservative DGA detector
+@status accepted
+@rationale Intentionally conservative MVP: catches high-consonant DGA outputs
+    (e.g. "xqzpfwbkdmrl") while intentionally missing dictionary-word DGAs and
+    likely flagging some legitimate-but-cryptic base32/base64 subdomain labels.
+    label length >=12 pre-filter avoids false-positives on short hostnames.
+    Unit tests document both the true-positive set and the known-miss set so
+    future implementers can tune the thresholds with real workspace data.
 """
 
 from __future__ import annotations
@@ -106,6 +138,37 @@ from adversary_pursuit.dossier.slots import (
 )
 
 _LOG = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# M-5: Denial / Deception keyword vocabulary (DEC-M5-DENIAL-001)
+# ---------------------------------------------------------------------------
+# Substring match (case-insensitive) against analyst note content.
+# Intentionally small vocabulary — richer vocabulary lands in M-7+.
+# Mirrors _MOTIVATION_CATEGORIES shape: frozenset of lowercase fragments.
+
+_DENIAL_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "decoy",
+        "deception",
+        "evasion",
+        "evasive",
+        "sandbox",
+        "sandbox-aware",
+        "sandbox-evasion",
+        "obfuscation",
+        "obfuscated",
+        "anti-analysis",
+        "anti-vm",
+        "anti-sandbox",
+        "dga",
+        "fast-flux",
+        "fast flux",
+        "flux",
+        "domain generation",
+        "domain-generation",
+        "honeypot",
+    }
+)
 
 # ---------------------------------------------------------------------------
 # M-2: Motivation keyword categories (DEC-M2-MOTIVATION-001)
@@ -329,13 +392,20 @@ def infer_dossier_state_full(
     motivation_slot = _extract_motivation(_notes)
 
     # ------------------------------------------------------------------
-    # Step 5: Always-DEFERRED slots in M-2 (Targeting / Predictions / Denial)
-    # DEC-M2-DOSSIER-004: scaffold-only; inference paths land in M-4/M-5.
+    # Step 5: Denial extractor (DEC-M5-DENIAL-001)
+    # Slot 9 now returns a real status; DEFERRED set shrinks to {TARGETING}.
+    # ------------------------------------------------------------------
+    denial_slot = _extract_denial(scos, _notes)
+
+    # ------------------------------------------------------------------
+    # Step 6: Always-DEFERRED slots in M-5 (Targeting / Predictions only)
+    # Predictions slot is overlaid by apply_predictions_overlay at call sites.
+    # DEC-M2-DOSSIER-004 scaffold: Targeting remains DEFERRED (no automated
+    # extractor until user-supplied victim-industry context is available).
     # ------------------------------------------------------------------
     deferred_names = [
         DossierSlotName.TARGETING,
         DossierSlotName.PREDICTIONS,
-        DossierSlotName.DENIAL,
     ]
     deferred_states: dict[DossierSlotName, SlotState] = {
         slot: SlotState(
@@ -355,6 +425,7 @@ def infer_dossier_state_full(
         DossierSlotName.TIMING: timing_slot,
         DossierSlotName.CAPABILITY: capability_slot,
         DossierSlotName.MOTIVATION: motivation_slot,
+        DossierSlotName.DENIAL: denial_slot,
         **deferred_states,
     }
 
@@ -540,5 +611,136 @@ def _extract_motivation(notes: list[dict]) -> SlotState:
         name=DossierSlotName.MOTIVATION,
         status=status,
         evidence_count=note_count,
+        contributing_types=frozenset(categories_hit),
+    )
+
+
+# ---------------------------------------------------------------------------
+# M-5 extractor helpers — Denial / Deception slot 9 (DEC-M5-DENIAL-001..003)
+# ---------------------------------------------------------------------------
+
+
+def _is_dga_shaped(label: str) -> bool:
+    """Return True if *label* looks like a DGA-generated hostname component.
+
+    A label is considered DGA-shaped when BOTH conditions hold:
+      1. Length >= 12 characters (short labels are excluded to reduce FP rate).
+      2. Consonant-to-vowel ratio >= 3 (no recognisable word fragments).
+
+    This is a deliberately conservative MVP detector (DEC-M5-DENIAL-003):
+    - True positives: high-consonant random strings (e.g. "xqzpfwbkdmrl").
+    - Known false negatives: dictionary-word DGAs (e.g. "green-apple-pen").
+    - Known false positives: long base32/base64 subdomain labels with high
+      consonant density.
+
+    Only the individual hostname label (not the full FQDN) should be passed.
+    For "xqzpfwbkdmrl.example.org" call _is_dga_shaped("xqzpfwbkdmrl").
+
+    Parameters
+    ----------
+    label:
+        A single DNS label string (no dots).
+
+    Returns
+    -------
+    bool
+        True when the label satisfies both the length and ratio thresholds.
+    """
+    if len(label) < 12:
+        return False
+    lowered = label.lower()
+    vowels = sum(1 for ch in lowered if ch in "aeiou")
+    consonants = sum(1 for ch in lowered if ch.isalpha() and ch not in "aeiou")
+    if vowels == 0:
+        # All consonants — unambiguously DGA-shaped by ratio rule
+        return True
+    return (consonants / vowels) >= 3
+
+
+def _extract_denial(scos: list[dict], notes: list[dict]) -> SlotState:
+    """Extract Denial / Deception slot state from SCOs and analyst notes.
+
+    Three evidence categories (DEC-M5-DENIAL-001):
+      - "dga":          Any domain-name SCO whose first label is DGA-shaped
+                        per _is_dga_shaped() (DEC-M5-DENIAL-003).
+      - "fast_flux":    Any ipv4-addr or ipv6-addr SCO carrying x_ap_dns_ttl
+                        field with value <= 60 seconds (forward-compatible;
+                        no AP module sets this field yet as of M-5).
+      - "note_keyword": Any analyst note whose content contains a substring
+                        from _DENIAL_KEYWORDS (case-insensitive).
+
+    Status thresholds (DEC-M5-DENIAL-002):
+      EMPTY:   0 evidence items from any category.
+      PARTIAL: >= 1 evidence item from exactly 1 category.
+      FILLED:  >= 1 evidence item from >= 2 distinct categories
+               (cross-category corroboration).
+
+    Parameters
+    ----------
+    scos:
+        List of plain STIX SCO dicts as returned by get_stix_objects().
+    notes:
+        List of analyst note dicts with at least a 'content' key.
+
+    Returns
+    -------
+    SlotState
+        Denial slot state with contributing_types set to the categories that
+        contributed evidence (e.g. frozenset({"dga", "note_keyword"})).
+    """
+    categories_hit: set[str] = set()
+    evidence_count: int = 0
+
+    # -- DGA-shaped domain detection --
+    for sco in scos:
+        if sco.get("type") != "domain-name":
+            continue
+        value = sco.get("value", "")
+        if not value:
+            continue
+        # Check only the first label (leftmost component) — the part most likely
+        # to be DGA-generated; the TLD / SLD are legitimate in many cases.
+        first_label = value.split(".")[0]
+        if _is_dga_shaped(first_label):
+            categories_hit.add("dga")
+            evidence_count += 1
+
+    # -- Fast-flux / low-TTL infrastructure detection --
+    for sco in scos:
+        if sco.get("type") not in ("ipv4-addr", "ipv6-addr"):
+            continue
+        ttl = sco.get("x_ap_dns_ttl")
+        if ttl is not None:
+            try:
+                if int(ttl) <= 60:
+                    categories_hit.add("fast_flux")
+                    evidence_count += 1
+            except (TypeError, ValueError):
+                pass
+
+    # -- Denial / evasion keyword in analyst notes --
+    for note in notes:
+        content = note.get("content", "")
+        if not content:
+            continue
+        lowered = content.lower()
+        if any(kw in lowered for kw in _DENIAL_KEYWORDS):
+            categories_hit.add("note_keyword")
+            evidence_count += 1
+
+    # -- Status thresholds (DEC-M5-DENIAL-002) --
+    n_categories = len(categories_hit)
+    if n_categories == 0:
+        status = SlotStatus.EMPTY
+        evidence_count = 0
+    elif n_categories >= 2:
+        status = SlotStatus.FILLED
+    else:
+        status = SlotStatus.PARTIAL
+
+    return SlotState(
+        name=DossierSlotName.DENIAL,
+        status=status,
+        evidence_count=evidence_count,
         contributing_types=frozenset(categories_hit),
     )

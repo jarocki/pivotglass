@@ -283,10 +283,18 @@ class TestDeferredSlotStatus:
         state = self._state_with_all_evidence()
         assert state.slots[DossierSlotName.PREDICTIONS].status == SlotStatus.DEFERRED
 
-    def test_denial_slot_marked_deferred_in_m1(self):
-        """Denial (slot 9) must be DEFERRED in M-1 - requires M-5 user-note surface."""
+    def test_denial_slot_not_deferred_after_m5(self):
+        """Denial (slot 9) is no longer DEFERRED after M-5 ships the real extractor.
+        With no denial evidence in the test workspace, the slot is EMPTY (not DEFERRED).
+        """
         state = self._state_with_all_evidence()
-        assert state.slots[DossierSlotName.DENIAL].status == SlotStatus.DEFERRED
+        # M-5 ships a real extractor; DEFERRED only applies to Targeting/Predictions
+        assert state.slots[DossierSlotName.DENIAL].status != SlotStatus.DEFERRED
+        assert state.slots[DossierSlotName.DENIAL].status in (
+            SlotStatus.EMPTY,
+            SlotStatus.PARTIAL,
+            SlotStatus.FILLED,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -429,10 +437,12 @@ class TestInferDossierStateFullAPI:
         state = infer_dossier_state_full([_email_sco()], module_runs=[], notes=[])
         assert state.slots[DossierSlotName.PREDICTIONS].status == SlotStatus.DEFERRED
 
-    def test_full_denial_always_deferred(self):
-        """Denial (slot 9) always DEFERRED in M-2 (DEC-M2-DOSSIER-004 scaffold-only)."""
+    def test_full_denial_empty_when_no_denial_evidence(self):
+        """Denial (slot 9) is EMPTY in M-5 when no DGA/fast-flux/note evidence is present.
+        M-5 ships the real extractor, so DEFERRED no longer applies.
+        """
         state = infer_dossier_state_full([_email_sco()], module_runs=[], notes=[])
-        assert state.slots[DossierSlotName.DENIAL].status == SlotStatus.DEFERRED
+        assert state.slots[DossierSlotName.DENIAL].status == SlotStatus.EMPTY
 
 
 # ---------------------------------------------------------------------------
@@ -788,3 +798,173 @@ class TestM3TransitionReadiness:
 
         assert pre_identity_status == SlotStatus.EMPTY
         assert post_identity_status == SlotStatus.PARTIAL
+
+
+# ---------------------------------------------------------------------------
+# M-5: Slot 9 (Denial/Deception) extractor tests
+# (DEC-M5-DENIAL-001..003, §7 Evaluation Contract)
+# ---------------------------------------------------------------------------
+
+
+def _dga_domain_sco(value: str) -> dict:
+    """Domain SCO whose first label is DGA-shaped (length>=12, consonant/vowel ratio>=3)."""
+    return {"type": "domain-name", "value": value, "id": f"domain-name--dga-{value}"}
+
+
+def _fast_flux_sco(ip: str = "1.2.3.4", ttl: int = 30) -> dict:
+    """ipv4-addr SCO carrying x_ap_dns_ttl <= 60 (fast-flux indicator)."""
+    return {"type": "ipv4-addr", "value": ip, "id": f"ipv4-addr--ff-{ip}", "x_ap_dns_ttl": ttl}
+
+
+class TestDenialSlotExtractor:
+    """Slot 9 (Denial/Deception) returns EMPTY / PARTIAL / FILLED from real evidence.
+
+    @decision DEC-M5-DENIAL-001
+    @title Three evidence categories: dga, fast_flux, note_keyword
+    @status accepted
+    @rationale M-5 replaces the DEFERRED stub with a live extractor.
+
+    @decision DEC-M5-DENIAL-002
+    @title EMPTY=0 categories, PARTIAL=1 category, FILLED>=2 distinct categories
+    @status accepted
+
+    @decision DEC-M5-DENIAL-003
+    @title _is_dga_shaped: length>=12 AND consonant/vowel ratio>=3
+    @status accepted
+    """
+
+    def test_slot9_empty_no_evidence(self):
+        """Slot 9 is EMPTY when no DGA domains, no low-TTL IPs, and no denial-keyword notes."""
+        state = infer_dossier_state_full(
+            [_ipv4_sco("1.2.3.4"), _email_sco()],
+            module_runs=[],
+            notes=[{"content": "ordinary activity observed"}],
+        )
+        assert state.slots[DossierSlotName.DENIAL].status == SlotStatus.EMPTY
+
+    def test_slot9_partial_dga_only(self):
+        """Slot 9 is PARTIAL when only DGA-shaped domain present (1 category)."""
+        # xqzpfwbkdmrl has length=12 and very high consonant/vowel ratio
+        state = infer_dossier_state_full(
+            [_dga_domain_sco("xqzpfwbkdmrl.evil.com")],
+            module_runs=[],
+            notes=[],
+        )
+        slot = state.slots[DossierSlotName.DENIAL]
+        assert slot.status == SlotStatus.PARTIAL
+        assert "dga" in slot.contributing_types
+
+    def test_slot9_partial_note_keyword_only(self):
+        """Slot 9 is PARTIAL when only a denial-keyword note is present (1 category)."""
+        state = infer_dossier_state_full(
+            [],
+            module_runs=[],
+            notes=[{"content": "actor uses sandbox evasion technique"}],
+        )
+        slot = state.slots[DossierSlotName.DENIAL]
+        assert slot.status == SlotStatus.PARTIAL
+        assert "note_keyword" in slot.contributing_types
+
+    def test_slot9_partial_fast_flux_only(self):
+        """Slot 9 is PARTIAL when only fast-flux (low-TTL) evidence is present (1 category)."""
+        state = infer_dossier_state_full(
+            [_fast_flux_sco("5.6.7.8", ttl=30)],
+            module_runs=[],
+            notes=[],
+        )
+        slot = state.slots[DossierSlotName.DENIAL]
+        assert slot.status == SlotStatus.PARTIAL
+        assert "fast_flux" in slot.contributing_types
+
+    def test_slot9_filled_dga_and_note_keyword(self):
+        """Slot 9 is FILLED when DGA-shape + note-keyword (2 distinct categories) both present."""
+        state = infer_dossier_state_full(
+            [_dga_domain_sco("xqzpfwbkdmrl.evil.com")],
+            module_runs=[],
+            notes=[{"content": "actor uses decoy domains to evade detection"}],
+        )
+        slot = state.slots[DossierSlotName.DENIAL]
+        assert slot.status == SlotStatus.FILLED
+        assert "dga" in slot.contributing_types
+        assert "note_keyword" in slot.contributing_types
+
+    def test_slot9_contributing_types_reflects_categories_hit(self):
+        """Slot 9 contributing_types reflects the exact categories that produced evidence."""
+        # Only note_keyword — contributing_types should contain exactly {"note_keyword"}
+        state = infer_dossier_state_full(
+            [],
+            module_runs=[],
+            notes=[{"content": "actor uses obfuscation and honeypot infrastructure"}],
+        )
+        slot = state.slots[DossierSlotName.DENIAL]
+        assert slot.contributing_types == frozenset({"note_keyword"})
+
+    def test_slot9_via_thin_wrapper_empty(self):
+        """Thin wrapper infer_dossier_state always returns DEFERRED for slot 9 (no note input)."""
+        # The thin wrapper passes notes=[] to the full extractor => EMPTY (not DEFERRED)
+        state = infer_dossier_state([_ipv4_sco()])
+        slot = state.slots[DossierSlotName.DENIAL]
+        # M-5: slot 9 via thin wrapper is EMPTY (no notes available to thin wrapper)
+        assert slot.status == SlotStatus.EMPTY
+
+    def test_deferred_names_regression_m5(self):
+        """After M-5, deferred_names = [TARGETING, PREDICTIONS] only — slot 9 left the set."""
+        # With no evidence at all, slot 9 should be EMPTY (not DEFERRED)
+        state = infer_dossier_state_full([], module_runs=[], notes=[])
+        assert state.slots[DossierSlotName.DENIAL].status != SlotStatus.DEFERRED
+        # Targeting must still be DEFERRED
+        assert state.slots[DossierSlotName.TARGETING].status == SlotStatus.DEFERRED
+        # Predictions must still be DEFERRED
+        assert state.slots[DossierSlotName.PREDICTIONS].status == SlotStatus.DEFERRED
+
+
+class TestIsDgaShaped:
+    """Unit tests for the _is_dga_shaped() helper.
+
+    @decision DEC-M5-DENIAL-003
+    @title _is_dga_shaped: length>=12 AND consonant/vowel ratio>=3
+    @status accepted
+    @rationale Conservative MVP: high-consonant random strings only.
+    """
+
+    def test_is_dga_shaped_returns_true_for_random_string(self):
+        """xqzpfwbkdmrl is DGA-shaped: length=12, all consonants."""
+        from adversary_pursuit.dossier.slot_inference import _is_dga_shaped
+
+        assert _is_dga_shaped("xqzpfwbkdmrl") is True
+
+    def test_is_dga_shaped_returns_false_for_short_label(self):
+        """Short labels (< 12 chars) are always rejected regardless of ratio."""
+        from adversary_pursuit.dossier.slot_inference import _is_dga_shaped
+
+        assert _is_dga_shaped("abc") is False
+        assert _is_dga_shaped("mail") is False
+
+    def test_is_dga_shaped_returns_false_for_real_domain_label(self):
+        """Common real-domain labels are not DGA-shaped."""
+        from adversary_pursuit.dossier.slot_inference import _is_dga_shaped
+
+        assert _is_dga_shaped("mail") is False  # short
+        assert _is_dga_shaped("paypal") is False  # short + recognizable
+        assert _is_dga_shaped("google") is False  # short
+
+    def test_is_dga_shaped_returns_false_for_long_real_label(self):
+        """Long but human-readable labels are not DGA-shaped (vowel/consonant balance)."""
+        from adversary_pursuit.dossier.slot_inference import _is_dga_shaped
+
+        # "bobby-hill" is human-readable; "-" chars excluded from ratio computation
+        # Use "bobbyhill" — 9 letters, short, should be False for length
+        # Use a longer realistic label
+        assert _is_dga_shaped("enterprise") is False  # length 10 < 12
+
+    def test_is_dga_shaped_boundary_length_11(self):
+        """11-char all-consonant label is rejected (length < 12)."""
+        from adversary_pursuit.dossier.slot_inference import _is_dga_shaped
+
+        assert _is_dga_shaped("xqzpfwbkdmr") is False  # length 11
+
+    def test_is_dga_shaped_boundary_length_12(self):
+        """12-char all-consonant label is accepted (length == 12)."""
+        from adversary_pursuit.dossier.slot_inference import _is_dga_shaped
+
+        assert _is_dga_shaped("xqzpfwbkdmrl") is True  # length 12

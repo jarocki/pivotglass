@@ -28,14 +28,24 @@ API (DEC-M3-DOSSIER-001).
     so M-4 has a stable target. Zero negative-score logic ships in M-3; DEC-68-DOSSIER-
     REFRAME-007 (falsified-prediction deduction) is deferred to M-4.
 
-Public API (M-3):
+@decision DEC-M5-FALSIFY-005
+@title Falsification event: action=dossier_prediction_falsified, points=0 (DEC-M4-PRED-006)
+@status accepted
+@rationale DEC-M4-PRED-006 canon: no negative-points events. Falsification fires at +0.
+    The event still flows through store_score_events so F62 streak, F63 milestone,
+    and F64 panel-separation all see it as a zero-points event. _DOSSIER_ACTIONS
+    filter in agent/tools.py widens to 3-tuple to include this new action (F64).
+
+Public API (M-3 + M-5):
   - emit_dossier_slot_filled_events(pre, post) -> list[dict]
   - emit_dossier_prediction_validated_event(prediction) -> dict
+  - emit_dossier_prediction_falsified_event(prediction, reason) -> dict  (M-5 NEW)
 """
 
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from adversary_pursuit.dossier.slot_inference import DossierState
 from adversary_pursuit.dossier.slots import (
@@ -44,6 +54,9 @@ from adversary_pursuit.dossier.slots import (
     PredictionRecord,
     SlotStatus,
 )
+
+if TYPE_CHECKING:
+    from adversary_pursuit.dossier.predictions import PersistedPrediction
 
 _LOG = logging.getLogger(__name__)
 
@@ -247,4 +260,44 @@ def emit_dossier_prediction_validated_event(prediction: PredictionRecord) -> dic
         "points": points,
         "indicator": indicator,
         "rule_description": "Dossier prediction validated by later evidence",
+    }
+
+
+# ---------------------------------------------------------------------------
+# M-5 emitter — DEC-M5-FALSIFY-005
+# ---------------------------------------------------------------------------
+
+
+def emit_dossier_prediction_falsified_event(
+    prediction: "PersistedPrediction",
+    reason: str,
+) -> dict:
+    """Build a dossier_prediction_falsified ScoreEvent dict (M-5).
+
+    Fires at points=0 per DEC-M4-PRED-006 (no negative-points events).
+    The event flows through store_score_events so F62 streak, F63 milestone
+    catch-up, and F64 _DOSSIER_ACTIONS filter all see it correctly.
+
+    Parameters
+    ----------
+    prediction:
+        The PersistedPrediction that was falsified.
+    reason:
+        Plain ASCII explanation of why the prediction is wrong.
+        Stored in rule_description. No Rich markup (F64).
+
+    Returns
+    -------
+    dict
+        Score event dict with keys:
+        ``action`` (``"dossier_prediction_falsified"``),
+        ``points`` (``0`` — DEC-M4-PRED-006),
+        ``indicator`` (prediction_id, e.g. ``"pred-3f19d55c"``),
+        ``rule_description`` (plain ASCII, non-empty — F64-clean).
+    """
+    return {
+        "action": "dossier_prediction_falsified",
+        "points": 0,  # DEC-M4-PRED-006: no negative-points events
+        "indicator": prediction.prediction_id,
+        "rule_description": f"Dossier prediction falsified: {reason}",
     }

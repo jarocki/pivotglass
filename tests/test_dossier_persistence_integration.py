@@ -383,3 +383,199 @@ class TestF62F63Regression:
         assert prediction_points == 8, f"2 predictions × 4 pts = 8; got {prediction_points}"
         assert post_total > pre_total, "Total score must increase after prediction confirmation"
         assert post_total - pre_total >= prediction_points
+
+
+# ---------------------------------------------------------------------------
+# M-5 Stage B: auto-falsification via contradiction keyword + persistence
+# (plan §5 Stage B acceptance test, DEC-M5-FALSIFY-001/004)
+# ---------------------------------------------------------------------------
+
+
+class TestM5StageBAutoFalsification:
+    """Stage B compound: contradiction keyword note auto-falsifies prediction.
+
+    @decision DEC-M5-FALSIFY-001
+    @title Falsified state rides on existing _predictions_log sentinel row
+    @status accepted
+
+    @decision DEC-M5-FALSIFY-004
+    @title Falsification scope = current-hunt evidence only
+    @status accepted
+    """
+
+    @pytest.fixture
+    def shared_dirs(self, tmp_path):
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx0 = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx0.workspace_mgr.create("default")
+        ctx0.workspace_mgr.switch("default")
+        return {"config_dir": config_dir, "workspace_dir": workspace_dir}
+
+    def test_stage_b_contradiction_keyword_auto_falsifies(self, shared_dirs):
+        """Stage B: note with contradiction keyword auto-falsifies prediction in same hunt.
+
+        Production sequence:
+          create_dossier_prediction (with falsification_evidence.contradiction_keyword_any) ->
+          add_note (with contradiction keyword) ->
+          run_module (triggers falsification engine in hunt step 10-13) ->
+          prediction status == falsified; dossier_prediction_falsified event at +0 pts.
+        """
+        import json
+
+        from adversary_pursuit.agent.tools import execute_tool
+
+        ctx = _make_ctx(shared_dirs["workspace_dir"], shared_dirs["config_dir"])
+
+        # Author prediction expecting .ru, falsified by .cn note keyword
+        result_text, *_ = execute_tool(
+            ctx,
+            "create_dossier_prediction",
+            {
+                "slot": "infrastructure",
+                "text": "Actor will use .ru domains exclusively.",
+                "expected_evidence": {"value_regex": r".*\.ru$"},
+                "falsification_evidence": {"contradiction_keyword_any": [".cn", "china"]},
+            },
+        )
+        pred_result = json.loads(result_text)
+        assert "prediction_id" in pred_result, f"Expected prediction_id: {pred_result}"
+        pred_id = pred_result["prediction_id"]
+
+        # Add contradiction note
+        ctx.workspace_mgr.add_note("actor pivoted to .cn infrastructure, not .ru as expected")
+
+        # @mock-exempt: hunt() is the external HTTP boundary.
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=GENERIC_DOMAIN_SCOS)
+        mock_mod.initialize = MagicMock()
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            run_result = ctx.run_module("osint/dns_resolve", "target.example.com", {})
+
+        score_events = run_result.get("score_events", [])
+        falsify_events = [e for e in score_events if e["action"] == "dossier_prediction_falsified"]
+        assert len(falsify_events) >= 1, (
+            f"Expected dossier_prediction_falsified event; got actions: "
+            f"{[e['action'] for e in score_events]}"
+        )
+        # Falsification event must be +0 points (DEC-M4-PRED-006)
+        assert all(e["points"] == 0 for e in falsify_events)
+
+        # Prediction must be persisted as falsified
+        updated = load_predictions_log(ctx.workspace_mgr)
+        match = [p for p in updated if p.prediction_id == pred_id]
+        assert len(match) == 1
+        assert match[0].status == "falsified"
+
+    def test_stage_b_persists_across_reload(self, shared_dirs):
+        """Stage B: falsified prediction status survives workspace reload (new ToolContext)."""
+        import json
+
+        from adversary_pursuit.agent.tools import execute_tool
+
+        # Session 1: author + note + hunt
+        ctx1 = _make_ctx(shared_dirs["workspace_dir"], shared_dirs["config_dir"])
+        result_text, *_ = execute_tool(
+            ctx1,
+            "create_dossier_prediction",
+            {
+                "slot": "infrastructure",
+                "text": "Actor uses .ru exclusively.",
+                "expected_evidence": {"value_regex": r".*\.ru$"},
+                "falsification_evidence": {"contradiction_keyword_any": ["china"]},
+            },
+        )
+        pred_id = json.loads(result_text)["prediction_id"]
+        ctx1.workspace_mgr.add_note("actor switched to china-hosted servers")
+
+        # @mock-exempt: hunt() is the external HTTP boundary.
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=GENERIC_DOMAIN_SCOS)
+        mock_mod.initialize = MagicMock()
+        with patch.object(ctx1.plugin_mgr, "get_module", return_value=mock_mod):
+            ctx1.run_module("osint/dns_resolve", "target.example.com", {})
+
+        # Session 2: reload and verify falsified status persisted
+        ctx2 = _make_ctx(shared_dirs["workspace_dir"], shared_dirs["config_dir"])
+        reloaded = load_predictions_log(ctx2.workspace_mgr)
+        match = [p for p in reloaded if p.prediction_id == pred_id]
+        assert len(match) == 1
+        assert match[0].status == "falsified", (
+            f"After reload, prediction should be falsified; got {match[0].status}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# M-5 F62 regression: falsification event does NOT break streak
+# ---------------------------------------------------------------------------
+
+
+class TestM5F62StreakRegression:
+    """F62 regression: dossier_prediction_falsified at +0 does not break streak.
+
+    @decision DEC-M4-PRED-006
+    @title Confirmation = +N points; falsification = 0 points (no deduction)
+    @status accepted
+    """
+
+    def test_falsification_event_does_not_produce_negative_score(self, tmp_path):
+        """A hunt that fires dossier_prediction_falsified at +0 leaves total score unchanged.
+
+        No negative-points events means total score must be >= pre-hunt total.
+        """
+        import json
+
+        from adversary_pursuit.agent.tools import execute_tool
+
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+
+        # Author prediction with falsification_evidence
+        result_text, *_ = execute_tool(
+            ctx,
+            "create_dossier_prediction",
+            {
+                "slot": "infrastructure",
+                "text": "Actor stays on .ru.",
+                "expected_evidence": {"value_regex": r".*\.ru$"},
+                "falsification_evidence": {"contradiction_keyword_any": ["china"]},
+            },
+        )
+        pred_id = json.loads(result_text)["prediction_id"]
+        ctx.workspace_mgr.add_note("evidence points to china pivot")
+
+        pre_total = ctx.workspace_mgr.get_total_score()
+
+        # @mock-exempt: hunt() is the external HTTP boundary.
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=IDENTITY_SCOS)
+        mock_mod.initialize = MagicMock()
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = ctx.run_module("osint/shodan", "1.2.3.4", {})
+
+        post_total = ctx.workspace_mgr.get_total_score()
+
+        score_events = result.get("score_events", [])
+        falsify_events = [e for e in score_events if e["action"] == "dossier_prediction_falsified"]
+
+        if falsify_events:
+            # Verify +0 points (DEC-M4-PRED-006)
+            assert all(e["points"] == 0 for e in falsify_events)
+
+        # Verify the prediction was falsified
+        updated = load_predictions_log(ctx.workspace_mgr)
+        match = [p for p in updated if p.prediction_id == pred_id]
+        assert match, f"Prediction {pred_id} not found; got {[p.prediction_id for p in updated]}"
+        assert match[0].status == "falsified"
+
+        # Total score must not have decreased (no negative-points events)
+        assert post_total >= pre_total, (
+            f"Total score must not decrease after falsification; pre={pre_total}, post={post_total}"
+        )

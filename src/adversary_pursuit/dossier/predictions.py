@@ -30,10 +30,11 @@ The JSON array of PersistedPrediction entries lives in the ``indicator`` column.
     unchanged history. Cross-hunt re-validation is a separate M-5+ tool.
 
 @decision DEC-M4-PRED-005
-@title Active falsification is out of scope for M-4
-@status accepted
-@rationale Falsification semantics require either a per-prediction window or typed
-    falsification_evidence patterns; both inflate M-4. M-5 owns the falsification slice.
+@title Active falsification implemented in M-5 (DEC-M5-FALSIFY-001..008)
+@status superseded
+@rationale M-4 deferred falsification. M-5 ships FalsificationEvidence, FalsificationResult,
+    falsify_predictions(), mark_confirmed_or_falsified(), and manual_falsify() in this module.
+    The M-4 deferral is honoured; this annotation records the resolution.
 
 @decision DEC-M4-PRED-006
 @title Confirmation = +N points; falsification = 0 points (no deduction)
@@ -41,14 +42,63 @@ The JSON array of PersistedPrediction entries lives in the ``indicator`` column.
 @rationale Negative points events would require changes to streak/milestone math;
     M-7 narrative feedback is the right surface for "reckless guessing" feedback.
 
-Public API (M-4):
-  - ExpectedEvidence — typed match-pattern dataclass
-  - PersistedPrediction — full lifecycle dataclass
+@decision DEC-M5-FALSIFY-001
+@title Falsified-prediction state rides on the existing _predictions_log sentinel row
+@status accepted
+@rationale No new reserved action, no second authority, no schema migration.
+    The existing _predictions_log JSON payload gains "falsified" status entries
+    alongside "pending" and "validated". Sacred Practice 12 preserved.
+
+@decision DEC-M5-FALSIFY-002
+@title FalsificationEvidence vocabulary v1.0: mirrors ExpectedEvidence in the negative
+@status accepted
+@rationale Four contradiction-evidence fields plus one temporal rule. All non-None fields
+    are ANDed; empty FalsificationEvidence is rejected (loud ValueError) EXCEPT when
+    only stale_after_n_hunts is set — a pure temporal rule is a valid falsification criterion.
+
+@decision DEC-M5-FALSIFY-003
+@title stale_after_n_hunts uses module_run row count delta (current - created_at_hunt_count)
+@status accepted
+@rationale Counts rows from workspace_mgr.get_module_runs() at falsify-time minus the
+    created_at_hunt_count captured at prediction creation. No historical SCO rescan.
+
+@decision DEC-M5-FALSIFY-004
+@title Falsification scope = current-hunt evidence only (same as M-4 validation)
+@status accepted
+@rationale Mirrors DEC-M4-PRED-003. stale_after_n_hunts is the only cross-hunt signal;
+    it counts hunt-count delta rather than rescanning historical SCOs or notes.
+
+@decision DEC-M5-FALSIFY-007
+@title PersistedPrediction gains falsification_evidence + created_at_hunt_count fields
+@status accepted
+@rationale Both fields are appended at the end with defaults so v1 deserialization is
+    backward-compatible (falsification_evidence=None, created_at_hunt_count=0).
+    The schema_version bumps 1 -> 2 to signal the schema change (DEC-M5-FALSIFY-008).
+
+@decision DEC-M5-FALSIFY-008
+@title _predictions_log envelope schema_version bumps 1 -> 2; v1 still reads cleanly
+@status accepted
+@rationale v1 envelopes deserialize with falsification_evidence=None, created_at_hunt_count=0.
+    Serializer always emits v2. v3+ raises RuntimeError (loud-failure pattern preserved from
+    DEC-M4-PERSIST-003, bumped one version). This is the canonical handshake for M-5 migration.
+
+Public API (M-4 + M-5):
+  - ExpectedEvidence — typed match-pattern dataclass (M-4, FROZEN)
+  - FalsificationEvidence — typed contradiction-pattern dataclass (M-5 NEW)
+  - FalsificationResult — result of one falsification check (M-5 NEW)
+  - PersistedPrediction — full lifecycle dataclass (extended in M-5)
   - ValidationResult — result of one prediction check
   - load_predictions_log(workspace_mgr) -> list[PersistedPrediction]
   - save_predictions_log(workspace_mgr, predictions) -> None
-  - create_prediction(slot, text, expected_evidence_dict) -> PersistedPrediction
+  - create_prediction(slot, text, expected_evidence_dict,
+                      falsification_evidence_dict=None) -> PersistedPrediction
   - validate_predictions(predictions, new_scos, new_notes) -> list[ValidationResult]
+  - falsify_predictions(predictions, new_scos, new_notes, hunt_count)
+      -> list[FalsificationResult]  (M-5 NEW)
+  - mark_confirmed_or_falsified(predictions, validation_results,
+                                 falsification_results) -> list[PersistedPrediction]  (M-5 NEW)
+  - mark_confirmed(predictions, results) -> list[PersistedPrediction]  (DEPRECATED M-5 wrapper)
+  - manual_falsify(predictions, prediction_id, reason) -> list[PersistedPrediction]  (M-5 NEW)
 """
 
 from __future__ import annotations
@@ -84,12 +134,79 @@ Part of the three-action _RESERVED_ACTIONS frozenset in workspace.py
 # Schema versioning (DEC-M4-PERSIST-003)
 # ---------------------------------------------------------------------------
 
-_SCHEMA_VERSION: int = 1
-"""Current serialization schema version for Predictions Log JSON envelopes."""
+_SCHEMA_VERSION: int = 2
+"""Current serialization schema version for Predictions Log JSON envelopes.
+
+M-5 bumps from 1 to 2 to signal the addition of falsification_evidence and
+created_at_hunt_count fields to PersistedPrediction (DEC-M5-FALSIFY-008).
+v1 envelopes still deserialize (falsification_evidence=None,
+created_at_hunt_count=0). v3+ raises RuntimeError (DEC-M4-PERSIST-003 pattern
+preserved, bumped one version).
+"""
 
 # ---------------------------------------------------------------------------
 # Dataclasses — M-4 richer shapes (DEC-M4-PRED-001)
 # ---------------------------------------------------------------------------
+
+
+@dataclass
+class FalsificationEvidence:
+    """Typed contradiction pattern for prediction falsification (DEC-M5-FALSIFY-002).
+
+    All non-None fields are ANDed together. Empty FalsificationEvidence (all fields
+    None) is rejected by create_prediction with a loud ValueError UNLESS only
+    stale_after_n_hunts is set — a pure temporal-window rule with no evidence
+    criteria is a valid falsification criterion (sentinel exception per plan §2.4).
+
+    Fields
+    ------
+    negative_sco_type:
+        If set, the appearance of a SCO of this type counts as contradicting
+        evidence (e.g. 'autonomous-system' with negative_asn_in: actor used a
+        different ASN than predicted).
+    negative_value_regex:
+        If set, an SCO's primary value matching this regex falsifies the prediction
+        (e.g. '.*\\.cn$' falsifies a 'pivot to .ru' prediction).
+    negative_asn_in:
+        For ipv4-addr / ipv6-addr / autonomous-system: appearance of an ASN in
+        this list falsifies the prediction.
+    contradiction_keyword_any:
+        At least one of these substrings appearing in an analyst note falsifies
+        the prediction (e.g. note 'actor pivoted to .cn' falsifies a .ru pivot).
+    stale_after_n_hunts:
+        If set, a still-pending prediction is auto-falsified once the workspace
+        has completed N or more hunts since the prediction was created. None = no
+        temporal rule. Counted as (current_hunt_count - created_at_hunt_count)
+        against module_runs row count at falsify-time (DEC-M5-FALSIFY-003).
+        This field MAY be the only non-None field (pure temporal-window rule).
+    """
+
+    negative_sco_type: str | None = None
+    negative_value_regex: str | None = None
+    negative_asn_in: list[int] | None = None
+    contradiction_keyword_any: list[str] | None = None
+    stale_after_n_hunts: int | None = None
+
+
+@dataclass
+class FalsificationResult:
+    """Result of a single prediction falsification check (DEC-M5-FALSIFY-004).
+
+    Fields
+    ------
+    prediction_id:
+        The PersistedPrediction.prediction_id this result refers to.
+    falsified:
+        True if the prediction's falsification_evidence was satisfied by
+        current-hunt evidence or the stale_after_n_hunts threshold was met.
+    reason:
+        Plain ASCII explanation of the falsification decision. Safe for
+        rule_description and LLM-events sidecar (F64).
+    """
+
+    prediction_id: str
+    falsified: bool
+    reason: str
 
 
 @dataclass
@@ -161,6 +278,16 @@ class PersistedPrediction:
     created_at: str
     validated_at: str | None = None
     validated_by_sco_id: str | None = None
+    falsification_evidence: FalsificationEvidence | None = None
+    """If set, M-5 falsification engine uses this to detect contradiction evidence.
+    Default None means the prediction is never auto-falsified (only the
+    stale_after_n_hunts field's presence enables temporal-window auto-falsify).
+    M-5 NEW (DEC-M5-FALSIFY-007)."""
+    created_at_hunt_count: int = 0
+    """Module-run count at prediction creation time. Used by the stale_after_n_hunts
+    temporal-window rule. Defaults to 0 for legacy M-4 entries so the falsifier
+    treats them as 'unknown creation hunt count — skip stale check'
+    (DEC-M5-FALSIFY-004). M-5 NEW."""
 
 
 @dataclass
@@ -195,7 +322,8 @@ class ValidationResult:
 def _serialize_predictions(predictions: list[PersistedPrediction]) -> str:
     """Serialize a list of PersistedPrediction to a compact JSON string.
 
-    Produces a stable JSON envelope with ``schema_version`` at the top level.
+    Always emits schema_version=2 (DEC-M5-FALSIFY-008). Includes the new
+    falsification_evidence and created_at_hunt_count fields added in M-5.
     Keys sorted alphabetically; compact form (no indent).
 
     Parameters
@@ -211,15 +339,27 @@ def _serialize_predictions(predictions: list[PersistedPrediction]) -> str:
     entries = []
     for p in predictions:
         ee = p.expected_evidence
+        fe = p.falsification_evidence
+        fe_dict: dict | None = None
+        if fe is not None:
+            fe_dict = {
+                "contradiction_keyword_any": fe.contradiction_keyword_any,
+                "negative_asn_in": fe.negative_asn_in,
+                "negative_sco_type": fe.negative_sco_type,
+                "negative_value_regex": fe.negative_value_regex,
+                "stale_after_n_hunts": fe.stale_after_n_hunts,
+            }
         entries.append(
             {
                 "created_at": p.created_at,
+                "created_at_hunt_count": p.created_at_hunt_count,
                 "expected_evidence": {
                     "asn_in": ee.asn_in,
                     "note_keyword_any": ee.note_keyword_any,
                     "sco_type": ee.sco_type,
                     "value_regex": ee.value_regex,
                 },
+                "falsification_evidence": fe_dict,
                 "prediction_id": p.prediction_id,
                 "slot": p.slot,
                 "status": p.status,
@@ -239,11 +379,16 @@ def _serialize_predictions(predictions: list[PersistedPrediction]) -> str:
 def _deserialize_predictions(payload: str) -> list[PersistedPrediction]:
     """Deserialize a JSON envelope back to a list of PersistedPrediction.
 
+    Accepts both schema_version=1 (M-4 legacy) and schema_version=2 (M-5).
+    v1 envelopes deserialize with falsification_evidence=None and
+    created_at_hunt_count=0 (DEC-M5-FALSIFY-008 backward-compatibility).
+    v3+ raises RuntimeError (loud-failure pattern from DEC-M4-PERSIST-003,
+    bumped one version).
+
     Raises
     ------
     RuntimeError
-        When ``schema_version`` does not match ``_SCHEMA_VERSION``
-        (DEC-M4-PERSIST-003 loud failure on version mismatch).
+        When schema_version is not 1 or 2 (DEC-M5-FALSIFY-008 loud failure).
 
     Parameters
     ----------
@@ -258,11 +403,12 @@ def _deserialize_predictions(payload: str) -> list[PersistedPrediction]:
     envelope = json.loads(payload)
 
     persisted_version = envelope.get("schema_version")
-    if persisted_version != _SCHEMA_VERSION:
+    # Accept v1 (M-4 legacy) and v2 (M-5 current). Reject everything else.
+    if persisted_version not in (1, 2):
         raise RuntimeError(
-            f"persisted predictions schema version {persisted_version} is newer/older than "
-            f"runtime schema version {_SCHEMA_VERSION}; "
-            "data was written by a different AP version"
+            f"persisted predictions schema version {persisted_version!r} is not supported; "
+            f"runtime supports versions 1 and 2 (current={_SCHEMA_VERSION}). "
+            "Data may have been written by a newer AP version."
         )
 
     predictions: list[PersistedPrediction] = []
@@ -274,6 +420,17 @@ def _deserialize_predictions(payload: str) -> list[PersistedPrediction]:
             asn_in=ee_data.get("asn_in"),
             note_keyword_any=ee_data.get("note_keyword_any"),
         )
+        # M-5 fields — default for v1 entries (DEC-M5-FALSIFY-008)
+        fe: FalsificationEvidence | None = None
+        fe_data = entry.get("falsification_evidence")
+        if fe_data is not None:
+            fe = FalsificationEvidence(
+                negative_sco_type=fe_data.get("negative_sco_type"),
+                negative_value_regex=fe_data.get("negative_value_regex"),
+                negative_asn_in=fe_data.get("negative_asn_in"),
+                contradiction_keyword_any=fe_data.get("contradiction_keyword_any"),
+                stale_after_n_hunts=fe_data.get("stale_after_n_hunts"),
+            )
         predictions.append(
             PersistedPrediction(
                 prediction_id=entry["prediction_id"],
@@ -284,6 +441,8 @@ def _deserialize_predictions(payload: str) -> list[PersistedPrediction]:
                 created_at=entry["created_at"],
                 validated_at=entry.get("validated_at"),
                 validated_by_sco_id=entry.get("validated_by_sco_id"),
+                falsification_evidence=fe,
+                created_at_hunt_count=entry.get("created_at_hunt_count", 0),
             )
         )
     return predictions
@@ -398,11 +557,20 @@ def create_prediction(
     slot: str,
     text: str,
     expected_evidence_dict: dict,
+    falsification_evidence_dict: dict | None = None,
 ) -> PersistedPrediction:
     """Create a new PersistedPrediction from LLM-tool arguments.
 
     Validates slot name, validates that expected_evidence is non-empty,
     and generates a stable workspace-unique prediction_id.
+
+    The created_at_hunt_count field is intentionally NOT set here — the call
+    site (_execute_create_dossier_prediction in agent/tools.py) captures it
+    from workspace_mgr.get_module_runs() row count and passes it via the
+    PersistedPrediction returned here having created_at_hunt_count=0. The
+    caller updates it before persisting (DEC-M5-FALSIFY-007 option (a):
+    keep create_prediction pure-function; workspace coupling stays in the
+    call site).
 
     Parameters
     ----------
@@ -414,6 +582,11 @@ def create_prediction(
     expected_evidence_dict:
         Dict matching the ExpectedEvidence shape. Must have at least one
         non-None field (DEC-M4-PRED-002 loud rejection of empty evidence).
+    falsification_evidence_dict:
+        Optional dict matching FalsificationEvidence shape. When supplied,
+        M-5 auto-falsifies the prediction if contradiction evidence matches.
+        If all fields are None, raises ValueError (DEC-M5-FALSIFY-002) UNLESS
+        only stale_after_n_hunts is set (sentinel exception).
 
     Returns
     -------
@@ -423,8 +596,9 @@ def create_prediction(
     Raises
     ------
     ValueError
-        When ``slot`` is not a valid DossierSlotName value, or when all
-        fields in ``expected_evidence`` are None (empty-evidence rejection).
+        When ``slot`` is not a valid DossierSlotName value, when all fields in
+        ``expected_evidence`` are None, or when ``falsification_evidence`` has
+        all fields None without stale_after_n_hunts (DEC-M5-FALSIFY-002).
     """
     # Validate slot name (loud failure, Sacred Practice 5)
     try:
@@ -457,6 +631,32 @@ def create_prediction(
             "A prediction with no match criteria can never be validated."
         )
 
+    # M-5: build FalsificationEvidence if provided (DEC-M5-FALSIFY-002)
+    fe: FalsificationEvidence | None = None
+    if falsification_evidence_dict is not None:
+        fe = FalsificationEvidence(
+            negative_sco_type=falsification_evidence_dict.get("negative_sco_type"),
+            negative_value_regex=falsification_evidence_dict.get("negative_value_regex"),
+            negative_asn_in=falsification_evidence_dict.get("negative_asn_in"),
+            contradiction_keyword_any=falsification_evidence_dict.get("contradiction_keyword_any"),
+            stale_after_n_hunts=falsification_evidence_dict.get("stale_after_n_hunts"),
+        )
+        # Loud rejection of empty falsification_evidence (DEC-M5-FALSIFY-002)
+        # Exception: stale_after_n_hunts alone is valid (sentinel exception)
+        all_evidence_none = (
+            fe.negative_sco_type is None
+            and fe.negative_value_regex is None
+            and fe.negative_asn_in is None
+            and fe.contradiction_keyword_any is None
+            and fe.stale_after_n_hunts is None
+        )
+        if all_evidence_none:
+            raise ValueError(
+                "falsification_evidence must have at least one non-None field "
+                "(negative_sco_type, negative_value_regex, negative_asn_in, "
+                "contradiction_keyword_any, or stale_after_n_hunts)."
+            )
+
     # Generate stable workspace-unique prediction_id
     prediction_id = f"pred-{secrets.token_hex(4)}"
     created_at = datetime.now(tz=timezone.utc).isoformat()
@@ -468,6 +668,7 @@ def create_prediction(
         status="pending",
         expected_evidence=ee,
         created_at=created_at,
+        falsification_evidence=fe,
     )
 
 
@@ -799,9 +1000,361 @@ def mark_confirmed(
                     created_at=pred.created_at,
                     validated_at=now,
                     validated_by_sco_id=result.matched_sco_id,
+                    falsification_evidence=pred.falsification_evidence,
+                    created_at_hunt_count=pred.created_at_hunt_count,
                 )
             )
         else:
             updated.append(pred)
 
     return updated
+
+
+# ---------------------------------------------------------------------------
+# M-5: Falsification engine (DEC-M5-FALSIFY-001..004)
+# ---------------------------------------------------------------------------
+
+
+def _matches_falsification_evidence(
+    sco: dict,
+    fe: "FalsificationEvidence",
+) -> tuple[bool, str]:
+    """Check whether a single SCO satisfies a FalsificationEvidence pattern.
+
+    All non-None SCO-level fields are ANDed (DEC-M5-FALSIFY-002). Returns a
+    tuple of (matches: bool, rationale: str).
+
+    Note: contradiction_keyword_any and stale_after_n_hunts are NOT checked
+    here — notes are checked separately in falsify_predictions and the
+    staleness counter is evaluated there too.
+    """
+    # negative_sco_type filter
+    if fe.negative_sco_type is not None:
+        if sco.get("type") != fe.negative_sco_type:
+            return (
+                False,
+                f"sco_type {sco.get('type')!r} != negative_sco_type {fe.negative_sco_type!r}",
+            )
+
+    # negative_value_regex filter
+    if fe.negative_value_regex is not None:
+        primary_value = _get_sco_primary_value(sco)
+        if primary_value is None:
+            return False, "no primary value to match negative_value_regex against"
+        try:
+            if not re.search(fe.negative_value_regex, primary_value):
+                return (
+                    False,
+                    f"value {primary_value!r} does not match negative_value_regex "
+                    f"{fe.negative_value_regex!r}",
+                )
+        except re.error as exc:
+            return False, f"invalid negative_value_regex {fe.negative_value_regex!r}: {exc}"
+
+    # negative_asn_in filter
+    if fe.negative_asn_in is not None:
+        asn = _extract_asn_from_sco(sco)
+        if asn is None:
+            return False, "no ASN extractable from SCO for negative_asn_in check"
+        if asn not in fe.negative_asn_in:
+            return False, f"ASN {asn} not in negative_asn_in list {fe.negative_asn_in}"
+
+    return True, "all SCO-level falsification criteria satisfied"
+
+
+def falsify_predictions(
+    predictions: list["PersistedPrediction"],
+    new_scos: list[dict],
+    new_notes: list[dict],
+    hunt_count: int,
+) -> list["FalsificationResult"]:
+    """Check predictions for falsification against current-hunt evidence.
+
+    For each ``pending`` prediction that has a ``falsification_evidence`` field,
+    evaluates whether current-hunt evidence contradicts the prediction:
+    - SCO-level contradiction (negative_sco_type, negative_value_regex, negative_asn_in)
+    - Note-level contradiction (contradiction_keyword_any)
+    - Temporal staleness (stale_after_n_hunts, evaluated against hunt_count delta)
+
+    Scope = current-hunt evidence only for evidence fields (DEC-M5-FALSIFY-004).
+    stale_after_n_hunts is the only cross-hunt signal.
+
+    Predictions without falsification_evidence are returned with falsified=False.
+    Already-validated or already-falsified predictions are skipped (idempotency).
+
+    Parameters
+    ----------
+    predictions:
+        Full predictions list. Only ``pending`` entries with non-None
+        ``falsification_evidence`` are evaluated.
+    new_scos:
+        SCOs discovered in the current hunt (post-hunt workspace minus pre-hunt).
+    new_notes:
+        Analyst notes authored in the current hunt context. List of
+        ``{"content": <str>}`` dicts.
+    hunt_count:
+        Current total module-run count from workspace_mgr.get_module_runs().
+        Used to evaluate stale_after_n_hunts temporal rule.
+
+    Returns
+    -------
+    list[FalsificationResult]
+        One FalsificationResult per prediction, in the same order as
+        ``predictions``. Non-pending predictions have falsified=False,
+        reason explains the skip.
+    """
+    results: list[FalsificationResult] = []
+
+    for pred in predictions:
+        # Skip non-pending predictions (idempotency)
+        if pred.status != "pending":
+            results.append(
+                FalsificationResult(
+                    prediction_id=pred.prediction_id,
+                    falsified=False,
+                    reason=f"skipped: prediction already {pred.status}",
+                )
+            )
+            continue
+
+        fe = pred.falsification_evidence
+        if fe is None:
+            results.append(
+                FalsificationResult(
+                    prediction_id=pred.prediction_id,
+                    falsified=False,
+                    reason="no falsification_evidence defined; prediction cannot be auto-falsified",
+                )
+            )
+            continue
+
+        # -- Staleness check (cross-hunt, temporal counter) --
+        if fe.stale_after_n_hunts is not None:
+            creation_count = pred.created_at_hunt_count
+            # Skip stale check when creation_count is 0 (legacy entry with unknown creation time)
+            if creation_count > 0:
+                hunts_elapsed = hunt_count - creation_count
+                if hunts_elapsed >= fe.stale_after_n_hunts:
+                    results.append(
+                        FalsificationResult(
+                            prediction_id=pred.prediction_id,
+                            falsified=True,
+                            reason=(
+                                f"stale: {hunts_elapsed} hunts elapsed since creation "
+                                f"(threshold={fe.stale_after_n_hunts})"
+                            ),
+                        )
+                    )
+                    continue
+
+        # -- Evidence-based contradiction check --
+        has_sco_criteria = (
+            fe.negative_sco_type is not None
+            or fe.negative_value_regex is not None
+            or fe.negative_asn_in is not None
+        )
+        has_note_criteria = fe.contradiction_keyword_any is not None
+
+        # SCO-level (with optional note AND)
+        if has_sco_criteria:
+            matched_sco_id: str | None = None
+            match_rationale = ""
+            for sco in new_scos:
+                sco_ok, sco_rationale = _matches_falsification_evidence(sco, fe)
+                if not sco_ok:
+                    continue
+                # SCO criteria satisfied — also check note criteria if ANDed
+                if has_note_criteria:
+                    note_ok = _check_note_keywords(
+                        new_notes,
+                        fe.contradiction_keyword_any,  # type: ignore[arg-type]
+                    )
+                    if not note_ok:
+                        continue
+                matched_sco_id = sco.get("id", "unknown")
+                match_rationale = sco_rationale
+                break
+
+            if matched_sco_id is not None:
+                results.append(
+                    FalsificationResult(
+                        prediction_id=pred.prediction_id,
+                        falsified=True,
+                        reason=(
+                            f"contradiction evidence matched SCO {matched_sco_id!r}: "
+                            f"{match_rationale}"
+                        ),
+                    )
+                )
+            else:
+                results.append(
+                    FalsificationResult(
+                        prediction_id=pred.prediction_id,
+                        falsified=False,
+                        reason="no contradicting SCO found in current-hunt evidence",
+                    )
+                )
+            continue
+
+        # Note-only contradiction check (no SCO criteria)
+        if has_note_criteria:
+            note_ok = _check_note_keywords(
+                new_notes,
+                fe.contradiction_keyword_any,  # type: ignore[arg-type]
+            )
+            if note_ok:
+                results.append(
+                    FalsificationResult(
+                        prediction_id=pred.prediction_id,
+                        falsified=True,
+                        reason=(
+                            f"contradiction keyword match: one of "
+                            f"{fe.contradiction_keyword_any!r} found in analyst notes"
+                        ),
+                    )
+                )
+            else:
+                results.append(
+                    FalsificationResult(
+                        prediction_id=pred.prediction_id,
+                        falsified=False,
+                        reason=(
+                            f"no analyst note contained any of {fe.contradiction_keyword_any!r}"
+                        ),
+                    )
+                )
+            continue
+
+        # Only stale_after_n_hunts was set and threshold was NOT met (fell through stale check)
+        results.append(
+            FalsificationResult(
+                prediction_id=pred.prediction_id,
+                falsified=False,
+                reason="stale_after_n_hunts threshold not yet met",
+            )
+        )
+
+    return results
+
+
+def mark_confirmed_or_falsified(
+    predictions: list["PersistedPrediction"],
+    validation_results: list["ValidationResult"],
+    falsification_results: list["FalsificationResult"],
+) -> list["PersistedPrediction"]:
+    """Return an updated predictions list reflecting both validation and falsification.
+
+    Supersedes mark_confirmed() for M-5 hunt sites. Produces a new list;
+    does not mutate input (dataclass discipline).
+
+    Priority: if a prediction is simultaneously confirmed and falsified in the
+    same hunt (edge case only possible with manual_falsify), validation takes
+    precedence (confirmed is the positive signal).
+
+    Parameters
+    ----------
+    predictions:
+        Current predictions list.
+    validation_results:
+        List of ValidationResult from validate_predictions(), parallel to predictions.
+    falsification_results:
+        List of FalsificationResult from falsify_predictions(), parallel to predictions.
+
+    Returns
+    -------
+    list[PersistedPrediction]
+        Updated predictions list suitable for save_predictions_log().
+    """
+    updated: list[PersistedPrediction] = []
+    now = datetime.now(tz=timezone.utc).isoformat()
+
+    for pred, vr, fr in zip(predictions, validation_results, falsification_results):
+        if vr.confirmed and pred.status == "pending":
+            updated.append(
+                PersistedPrediction(
+                    prediction_id=pred.prediction_id,
+                    text=pred.text,
+                    slot=pred.slot,
+                    status="validated",
+                    expected_evidence=pred.expected_evidence,
+                    created_at=pred.created_at,
+                    validated_at=now,
+                    validated_by_sco_id=vr.matched_sco_id,
+                    falsification_evidence=pred.falsification_evidence,
+                    created_at_hunt_count=pred.created_at_hunt_count,
+                )
+            )
+        elif fr.falsified and pred.status == "pending":
+            updated.append(
+                PersistedPrediction(
+                    prediction_id=pred.prediction_id,
+                    text=pred.text,
+                    slot=pred.slot,
+                    status="falsified",
+                    expected_evidence=pred.expected_evidence,
+                    created_at=pred.created_at,
+                    validated_at=now,  # reused as conclusion timestamp
+                    validated_by_sco_id=None,
+                    falsification_evidence=pred.falsification_evidence,
+                    created_at_hunt_count=pred.created_at_hunt_count,
+                )
+            )
+        else:
+            updated.append(pred)
+
+    return updated
+
+
+def manual_falsify(
+    predictions: list["PersistedPrediction"],
+    prediction_id: str,
+    reason: str,
+) -> tuple[list["PersistedPrediction"], bool]:
+    """Mark a specific prediction as falsified by analyst judgment.
+
+    Finds the prediction by prediction_id and transitions it from
+    pending -> falsified. Idempotent: already-concluded predictions
+    (validated or falsified) are returned unchanged with found=False.
+
+    Parameters
+    ----------
+    predictions:
+        Current predictions list.
+    prediction_id:
+        The PersistedPrediction.prediction_id to falsify.
+    reason:
+        Plain-text explanation stored in the conclusion timestamp comment.
+        Not persisted in the dataclass (stored in the caller's score event).
+
+    Returns
+    -------
+    tuple[list[PersistedPrediction], bool]
+        Updated predictions list and a bool indicating whether the transition
+        actually happened (True = transitioned to falsified; False = no-op
+        because prediction was not found or was already concluded).
+    """
+    updated: list[PersistedPrediction] = []
+    transitioned = False
+    now = datetime.now(tz=timezone.utc).isoformat()
+
+    for pred in predictions:
+        if pred.prediction_id == prediction_id and pred.status == "pending":
+            updated.append(
+                PersistedPrediction(
+                    prediction_id=pred.prediction_id,
+                    text=pred.text,
+                    slot=pred.slot,
+                    status="falsified",
+                    expected_evidence=pred.expected_evidence,
+                    created_at=pred.created_at,
+                    validated_at=now,
+                    validated_by_sco_id=None,
+                    falsification_evidence=pred.falsification_evidence,
+                    created_at_hunt_count=pred.created_at_hunt_count,
+                )
+            )
+            transitioned = True
+        else:
+            updated.append(pred)
+
+    return updated, transitioned

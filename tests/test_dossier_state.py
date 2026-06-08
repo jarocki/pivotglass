@@ -176,9 +176,7 @@ class TestSentinelUniqueness:
         with Session(wm._engine) as session:
             rows = (
                 session.execute(
-                    select(ScoreEvent).where(
-                        ScoreEvent.action == DOSSIER_STATE_SENTINEL_ACTION
-                    )
+                    select(ScoreEvent).where(ScoreEvent.action == DOSSIER_STATE_SENTINEL_ACTION)
                 )
                 .scalars()
                 .all()
@@ -216,9 +214,7 @@ class TestSentinelUniqueness:
         save_dossier_state(wm, _all_empty_state())
         with Session(wm._engine) as session:
             row = session.execute(
-                select(ScoreEvent).where(
-                    ScoreEvent.action == DOSSIER_STATE_SENTINEL_ACTION
-                )
+                select(ScoreEvent).where(ScoreEvent.action == DOSSIER_STATE_SENTINEL_ACTION)
             ).scalar_one()
         assert row.points == 0
 
@@ -235,8 +231,18 @@ class TestDeserializationErrors:
             {
                 "schema_version": 1,
                 "slots": {
-                    "identity": {"status": "empty", "evidence_count": 0, "name": "identity", "contributing_types": []},
-                    "UNKNOWN_SLOT_XYZ": {"status": "empty", "evidence_count": 0, "name": "UNKNOWN_SLOT_XYZ", "contributing_types": []},
+                    "identity": {
+                        "status": "empty",
+                        "evidence_count": 0,
+                        "name": "identity",
+                        "contributing_types": [],
+                    },
+                    "UNKNOWN_SLOT_XYZ": {
+                        "status": "empty",
+                        "evidence_count": 0,
+                        "name": "UNKNOWN_SLOT_XYZ",
+                        "contributing_types": [],
+                    },
                 },
                 "total_sco_count": 0,
             }
@@ -250,7 +256,12 @@ class TestDeserializationErrors:
             {
                 "schema_version": 1,
                 "slots": {
-                    "identity": {"status": "INVALID_STATUS_999", "evidence_count": 0, "name": "identity", "contributing_types": []},
+                    "identity": {
+                        "status": "INVALID_STATUS_999",
+                        "evidence_count": 0,
+                        "name": "identity",
+                        "contributing_types": [],
+                    },
                 },
                 "total_sco_count": 0,
             }
@@ -297,7 +308,9 @@ class TestApplyPredictionsOverlay:
         slots = {
             slot: SlotState(
                 name=slot,
-                status=SlotStatus.DEFERRED if slot is DossierSlotName.PREDICTIONS else SlotStatus.EMPTY,
+                status=SlotStatus.DEFERRED
+                if slot is DossierSlotName.PREDICTIONS
+                else SlotStatus.EMPTY,
             )
             for slot in DossierSlotName
         }
@@ -342,7 +355,10 @@ class TestApplyPredictionsOverlay:
         """S12: apply_predictions_overlay returns a new DossierState; input is unchanged."""
         state = self._base_state()
         original_predictions_status = state.slots[DossierSlotName.PREDICTIONS].status
-        predictions = [_make_persisted_prediction(status="validated"), _make_persisted_prediction(pid="pred-00000002", status="validated")]
+        predictions = [
+            _make_persisted_prediction(status="validated"),
+            _make_persisted_prediction(pid="pred-00000002", status="validated"),
+        ]
         result = apply_predictions_overlay(state, predictions)
         # Input unchanged
         assert state.slots[DossierSlotName.PREDICTIONS].status is original_predictions_status
@@ -357,8 +373,7 @@ class TestApplyPredictionsOverlay:
         """Predictions slot evidence_count equals len(predictions)."""
         state = self._base_state()
         predictions = [
-            _make_persisted_prediction(pid=f"pred-{i:08x}", status="pending")
-            for i in range(3)
+            _make_persisted_prediction(pid=f"pred-{i:08x}", status="pending") for i in range(3)
         ]
         result = apply_predictions_overlay(state, predictions)
         assert result.slots[DossierSlotName.PREDICTIONS].evidence_count == 3
@@ -372,3 +387,71 @@ class TestApplyPredictionsOverlay:
         actions = {e["action"] for e in recent}
         assert DOSSIER_STATE_SENTINEL_ACTION not in actions
         assert "new_ip" in actions
+
+
+# ---------------------------------------------------------------------------
+# M-5: apply_predictions_overlay with falsified entries
+# (plan §4: falsified entries count toward PARTIAL but NOT FILLED)
+# ---------------------------------------------------------------------------
+
+
+def _make_falsified_pred(pid: str = "pred-fal-001") -> PersistedPrediction:
+    return PersistedPrediction(
+        prediction_id=pid,
+        text="Actor will pivot to .ru.",
+        slot="infrastructure",
+        status="falsified",
+        expected_evidence=ExpectedEvidence(sco_type="domain-name"),
+        created_at="2026-06-01T00:00:00+00:00",
+    )
+
+
+def _make_validated_pred(pid: str = "pred-val-001") -> PersistedPrediction:
+    return PersistedPrediction(
+        prediction_id=pid,
+        text="Actor uses .ru domains.",
+        slot="infrastructure",
+        status="validated",
+        expected_evidence=ExpectedEvidence(sco_type="domain-name"),
+        created_at="2026-06-01T00:00:00+00:00",
+        validated_at="2026-06-02T00:00:00+00:00",
+        validated_by_sco_id="domain-name--fake",
+    )
+
+
+class TestApplyPredictionsOverlayWithFalsified:
+    """M-5 overlay semantics: falsified entries count as engagement (PARTIAL), not FILLED.
+
+    Plan §4: falsified entries do NOT count toward validated_count (not FILLED),
+    but DO satisfy len(predictions) >= 1 (PARTIAL rather than EMPTY).
+    """
+
+    def test_falsified_only_yields_partial(self):
+        """[falsified] only -> PARTIAL (not EMPTY; ≥1 entry threshold satisfied)."""
+        preds = [_make_falsified_pred("pred-f1")]
+        result = apply_predictions_overlay(_all_empty_state(), preds)
+        predictions_slot = result.slots[DossierSlotName.PREDICTIONS]
+        assert predictions_slot.status == SlotStatus.PARTIAL, (
+            f"[falsified] should yield PARTIAL (engagement without validation), "
+            f"got {predictions_slot.status}"
+        )
+
+    def test_two_falsified_yields_partial(self):
+        """[falsified, falsified] -> PARTIAL (no validated entries; not FILLED)."""
+        preds = [_make_falsified_pred("pred-f1"), _make_falsified_pred("pred-f2")]
+        result = apply_predictions_overlay(_all_empty_state(), preds)
+        predictions_slot = result.slots[DossierSlotName.PREDICTIONS]
+        assert predictions_slot.status == SlotStatus.PARTIAL
+
+    def test_two_validated_plus_falsified_yields_filled(self):
+        """[validated, validated, falsified] -> FILLED (≥2 validated; falsified does not block)."""
+        preds = [
+            _make_validated_pred("pred-v1"),
+            _make_validated_pred("pred-v2"),
+            _make_falsified_pred("pred-f1"),
+        ]
+        result = apply_predictions_overlay(_all_empty_state(), preds)
+        predictions_slot = result.slots[DossierSlotName.PREDICTIONS]
+        assert predictions_slot.status == SlotStatus.FILLED, (
+            f"[validated, validated, falsified] should yield FILLED, got {predictions_slot.status}"
+        )

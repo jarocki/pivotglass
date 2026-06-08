@@ -37,11 +37,16 @@ from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.dossier.predictions import (
     PREDICTIONS_LOG_SENTINEL_ACTION,
     ExpectedEvidence,
+    FalsificationEvidence,
+    FalsificationResult,
     PersistedPrediction,
     ValidationResult,
     create_prediction,
+    falsify_predictions,
     load_predictions_log,
+    manual_falsify,
     mark_confirmed,
+    mark_confirmed_or_falsified,
     save_predictions_log,
     validate_predictions,
 )
@@ -513,3 +518,243 @@ class TestMarkConfirmed:
         updated = mark_confirmed(preds, results)
         assert preds[0].status == "pending"  # original unchanged
         assert updated[0].status == "validated"
+
+
+# ---------------------------------------------------------------------------
+# M-5: FalsificationEvidence validation
+# ---------------------------------------------------------------------------
+
+
+def _pred_with_fe(
+    pid: str = "pred-fe-001",
+    fe: FalsificationEvidence | None = None,
+    status: str = "pending",
+    created_at_hunt_count: int = 0,
+) -> PersistedPrediction:
+    """Build a PersistedPrediction with optional FalsificationEvidence."""
+    return PersistedPrediction(
+        prediction_id=pid,
+        text="Actor pivots to .ru infrastructure.",
+        slot="infrastructure",
+        status=status,
+        expected_evidence=ExpectedEvidence(sco_type="domain-name"),
+        created_at="2026-06-01T00:00:00+00:00",
+        falsification_evidence=fe,
+        created_at_hunt_count=created_at_hunt_count,
+    )
+
+
+class TestFalsificationEvidenceFactory:
+    """create_prediction validates FalsificationEvidence (DEC-M5-FALSIFY-002)."""
+
+    def test_create_prediction_empty_falsification_evidence_raises(self):
+        """All-None FalsificationEvidence dict raises ValueError."""
+        with pytest.raises(ValueError, match="falsification_evidence must have at least one"):
+            create_prediction(
+                slot="infrastructure",
+                text="Actor pivots to .ru.",
+                expected_evidence_dict={"sco_type": "domain-name"},
+                falsification_evidence_dict={},  # all None
+            )
+
+    def test_create_prediction_stale_only_falsification_evidence_accepted(self):
+        """stale_after_n_hunts alone is a valid falsification criterion (sentinel exception)."""
+        pred = create_prediction(
+            slot="infrastructure",
+            text="Actor uses .ru infrastructure.",
+            expected_evidence_dict={"sco_type": "domain-name"},
+            falsification_evidence_dict={"stale_after_n_hunts": 5},
+        )
+        assert pred.falsification_evidence is not None
+        assert pred.falsification_evidence.stale_after_n_hunts == 5
+
+    def test_create_prediction_with_contradiction_keyword(self):
+        """FalsificationEvidence with contradiction_keyword_any is accepted."""
+        pred = create_prediction(
+            slot="infrastructure",
+            text="Actor pivots to .ru.",
+            expected_evidence_dict={"value_regex": r".*\.ru$"},
+            falsification_evidence_dict={"contradiction_keyword_any": [".cn", "china"]},
+        )
+        assert pred.falsification_evidence is not None
+        assert pred.falsification_evidence.contradiction_keyword_any == [".cn", "china"]
+
+
+class TestFalsifyPredictions:
+    """falsify_predictions() pure function tests (DEC-M5-FALSIFY-001..004)."""
+
+    def test_empty_predictions_returns_empty_results(self):
+        """Empty predictions list returns empty FalsificationResult list."""
+        results = falsify_predictions([], new_scos=[], new_notes=[], hunt_count=0)
+        assert results == []
+
+    def test_negative_value_regex_match_falsifies(self):
+        """negative_value_regex match against domain-name SCO falsifies the prediction."""
+        fe = FalsificationEvidence(negative_value_regex=r".*\.cn$")
+        pred = _pred_with_fe("pred-vr-001", fe=fe)
+        scos = [{"type": "domain-name", "value": "actor.cn", "id": "domain-name--cn"}]
+        results = falsify_predictions([pred], new_scos=scos, new_notes=[], hunt_count=1)
+        assert len(results) == 1
+        assert results[0].prediction_id == "pred-vr-001"
+        assert results[0].falsified is True
+        assert "contradiction" in results[0].reason
+
+    def test_negative_sco_type_match_falsifies(self):
+        """negative_sco_type match against SCO type falsifies the prediction."""
+        fe = FalsificationEvidence(negative_sco_type="x509-certificate")
+        pred = _pred_with_fe("pred-st-001", fe=fe)
+        scos = [{"type": "x509-certificate", "subject": "CN=evil.org", "id": "x509--fake"}]
+        results = falsify_predictions([pred], new_scos=scos, new_notes=[], hunt_count=1)
+        assert results[0].falsified is True
+
+    def test_negative_asn_in_match_falsifies(self):
+        """negative_asn_in match against autonomous-system SCO falsifies."""
+        fe = FalsificationEvidence(negative_asn_in=[12345])
+        pred = _pred_with_fe("pred-asn-001", fe=fe)
+        scos = [{"type": "autonomous-system", "number": 12345, "id": "asn--fake"}]
+        results = falsify_predictions([pred], new_scos=scos, new_notes=[], hunt_count=1)
+        assert results[0].falsified is True
+
+    def test_contradiction_keyword_match_falsifies(self):
+        """contradiction_keyword_any match in analyst note falsifies the prediction."""
+        fe = FalsificationEvidence(contradiction_keyword_any=[".cn", "china"])
+        pred = _pred_with_fe("pred-kw-001", fe=fe)
+        notes = [{"content": "actor pivoted to .cn infrastructure"}]
+        results = falsify_predictions([pred], new_scos=[], new_notes=notes, hunt_count=1)
+        assert results[0].falsified is True
+        assert ".cn" in results[0].reason or "contradiction" in results[0].reason
+
+    def test_stale_after_n_hunts_fires_at_threshold(self):
+        """stale_after_n_hunts fires when hunts_elapsed == threshold.
+
+        DEC-M5-FALSIFY-003: hunts_elapsed = hunt_count - created_at_hunt_count.
+        Threshold semantics: falsify when hunts_elapsed >= stale_after_n_hunts.
+        """
+        # created at hunt 2, threshold 3 — fires when current hunt_count >= 5
+        fe = FalsificationEvidence(stale_after_n_hunts=3)
+        pred = _pred_with_fe("pred-stale-001", fe=fe, created_at_hunt_count=2)
+        results = falsify_predictions([pred], new_scos=[], new_notes=[], hunt_count=5)
+        assert results[0].falsified is True
+        assert "stale" in results[0].reason
+
+    def test_stale_after_n_hunts_does_not_fire_below_threshold(self):
+        """stale_after_n_hunts does NOT fire when hunts_elapsed < threshold."""
+        fe = FalsificationEvidence(stale_after_n_hunts=3)
+        pred = _pred_with_fe("pred-stale-002", fe=fe, created_at_hunt_count=2)
+        # hunt_count=4 => elapsed=2, threshold=3 => NOT stale yet
+        results = falsify_predictions([pred], new_scos=[], new_notes=[], hunt_count=4)
+        assert results[0].falsified is False
+
+    def test_already_validated_skipped(self):
+        """Already-validated prediction is skipped by falsify_predictions (idempotency)."""
+        fe = FalsificationEvidence(negative_value_regex=r".*\.cn$")
+        pred = _pred_with_fe("pred-val-001", fe=fe, status="validated")
+        scos = [{"type": "domain-name", "value": "actor.cn", "id": "domain-name--cn"}]
+        results = falsify_predictions([pred], new_scos=scos, new_notes=[], hunt_count=1)
+        assert results[0].falsified is False
+        assert "skipped" in results[0].reason
+
+    def test_already_falsified_skipped(self):
+        """Already-falsified prediction is skipped by falsify_predictions (idempotency)."""
+        fe = FalsificationEvidence(contradiction_keyword_any=["china"])
+        pred = _pred_with_fe("pred-false-001", fe=fe, status="falsified")
+        notes = [{"content": "china pivot confirmed"}]
+        results = falsify_predictions([pred], new_scos=[], new_notes=notes, hunt_count=1)
+        assert results[0].falsified is False
+        assert "skipped" in results[0].reason
+
+    def test_no_falsification_evidence_returns_not_falsified(self):
+        """Pending prediction without falsification_evidence is never auto-falsified."""
+        pred = _pred_with_fe("pred-nofe-001", fe=None)
+        results = falsify_predictions(
+            [pred],
+            new_scos=[{"type": "domain-name", "value": "actor.cn", "id": "x"}],
+            new_notes=[{"content": "china pivot"}],
+            hunt_count=10,
+        )
+        assert results[0].falsified is False
+
+
+class TestMarkConfirmedOrFalsified:
+    """mark_confirmed_or_falsified() handles mixed validation + falsification results."""
+
+    def test_mixed_confirmed_falsified_pending(self):
+        """1 confirmed + 1 falsified + 1 still-pending updates correctly."""
+        pred_confirmed = _pred_with_fe("pred-c-001")
+        pred_falsified = _pred_with_fe("pred-f-001")
+        pred_pending = _pred_with_fe("pred-p-001")
+        preds = [pred_confirmed, pred_falsified, pred_pending]
+
+        vr_confirmed = ValidationResult(
+            prediction_id="pred-c-001", confirmed=True, matched_sco_id="sco-x", rationale="ok"
+        )
+        vr_not = ValidationResult(
+            prediction_id="pred-f-001", confirmed=False, matched_sco_id=None, rationale="no match"
+        )
+        vr_not2 = ValidationResult(
+            prediction_id="pred-p-001", confirmed=False, matched_sco_id=None, rationale="no match"
+        )
+
+        fr_not = FalsificationResult(
+            prediction_id="pred-c-001", falsified=False, reason="no contradiction"
+        )
+        fr_falsified = FalsificationResult(
+            prediction_id="pred-f-001", falsified=True, reason="keyword match"
+        )
+        fr_not2 = FalsificationResult(
+            prediction_id="pred-p-001", falsified=False, reason="no contradiction"
+        )
+
+        updated = mark_confirmed_or_falsified(
+            preds,
+            [vr_confirmed, vr_not, vr_not2],
+            [fr_not, fr_falsified, fr_not2],
+        )
+
+        assert updated[0].status == "validated"
+        assert updated[1].status == "falsified"
+        assert updated[2].status == "pending"
+
+    def test_validation_priority_over_falsification(self):
+        """When a prediction is simultaneously confirmed and falsified, validated wins."""
+        pred = _pred_with_fe("pred-both-001")
+        vr = ValidationResult(
+            prediction_id="pred-both-001", confirmed=True, matched_sco_id="sco-x", rationale="ok"
+        )
+        fr = FalsificationResult(
+            prediction_id="pred-both-001", falsified=True, reason="contradiction"
+        )
+        updated = mark_confirmed_or_falsified([pred], [vr], [fr])
+        assert updated[0].status == "validated"
+
+
+class TestManualFalsify:
+    """manual_falsify() transitions pending -> falsified and returns updated list + bool."""
+
+    def test_manual_falsify_pending_returns_transitioned_true(self):
+        """Pending prediction is transitioned to falsified; returned bool is True."""
+        pred = _pred_with_fe("pred-mf-001")
+        updated, transitioned = manual_falsify([pred], "pred-mf-001", "actor abandoned campaign")
+        assert transitioned is True
+        assert updated[0].status == "falsified"
+
+    def test_manual_falsify_already_falsified_is_noop(self):
+        """Already-falsified prediction is not re-transitioned; returned bool is False."""
+        pred = _pred_with_fe("pred-mf-002", status="falsified")
+        updated, transitioned = manual_falsify([pred], "pred-mf-002", "whatever")
+        assert transitioned is False
+        assert updated[0].status == "falsified"
+
+    def test_manual_falsify_validated_prediction_is_noop(self):
+        """Already-validated prediction cannot be manually falsified; bool is False."""
+        pred = _pred_with_fe("pred-mf-003", status="validated")
+        updated, transitioned = manual_falsify([pred], "pred-mf-003", "oops")
+        assert transitioned is False
+        assert updated[0].status == "validated"
+
+    def test_manual_falsify_unknown_id_returns_unchanged_false(self):
+        """Unknown prediction_id leaves the list unchanged and returns False."""
+        pred = _pred_with_fe("pred-mf-004")
+        updated, transitioned = manual_falsify([pred], "pred-UNKNOWN", "reason")
+        assert transitioned is False
+        assert updated[0].status == "pending"

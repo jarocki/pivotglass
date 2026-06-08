@@ -65,12 +65,14 @@ from adversary_pursuit.core.streak import StreakManager
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.dossier.predictions import (
     _to_m2_record,
+    falsify_predictions,
     load_predictions_log,
-    mark_confirmed,
+    mark_confirmed_or_falsified,
     save_predictions_log,
     validate_predictions,
 )
 from adversary_pursuit.dossier.scoring import (
+    emit_dossier_prediction_falsified_event,
     emit_dossier_prediction_validated_event,
     emit_dossier_slot_filled_events,
 )
@@ -553,7 +555,21 @@ class APConsole(cmd2.Cmd):
                         prediction_events.append(
                             emit_dossier_prediction_validated_event(_to_m2_record(pred))
                         )
-                all_dossier_events = dossier_events + prediction_events
+                # M-5: falsify predictions against current-hunt evidence (DEC-M5-FALSIFY-001..004)
+                current_hunt_count = len(self.workspace_mgr.get_module_runs())
+                falsification_results = falsify_predictions(
+                    predictions_log,
+                    new_scos_this_hunt,
+                    notes_before,
+                    current_hunt_count,
+                )
+                falsification_events: list[dict] = []
+                for pred, fr in zip(predictions_log, falsification_results):
+                    if fr.falsified:
+                        falsification_events.append(
+                            emit_dossier_prediction_falsified_event(pred, fr.reason)
+                        )
+                all_dossier_events = dossier_events + prediction_events + falsification_events
                 if all_dossier_events:
                     self.workspace_mgr.store_score_events(all_dossier_events)
                     for event in all_dossier_events:
@@ -562,9 +578,11 @@ class APConsole(cmd2.Cmd):
                             f"[green]+{event['points']}[/green] "
                             f"({event['indicator']})"
                         )
-                # M-4: persist updated state + updated predictions log (DEC-M4-PERSIST-001)
+                # M-5: persist updated state + predictions log (DEC-M5-FALSIFY-001 / DEC-M4-PERSIST-001)
                 save_dossier_state(self.workspace_mgr, post_dossier)
-                updated_predictions = mark_confirmed(predictions_log, validation_results)
+                updated_predictions = mark_confirmed_or_falsified(
+                    predictions_log, validation_results, falsification_results
+                )
                 save_predictions_log(self.workspace_mgr, updated_predictions)
             except Exception:  # noqa: BLE001
                 pass  # dossier scoring must never interrupt the hunt flow

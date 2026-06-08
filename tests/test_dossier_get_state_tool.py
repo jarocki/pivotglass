@@ -105,11 +105,12 @@ class TestGetDossierStateRegistration:
         )
 
     def test_get_dossier_state_count_increased_by_one(self, tmp_ctx):
-        """create_tools() has 28 tools after M-2 (get_dossier_state) + M-4 (create_dossier_prediction)."""
+        """create_tools() has 30 tools after M-2 (get_dossier_state) + M-4 (create_dossier_prediction) + M-5 (+create_dossier_note +falsify_dossier_prediction)."""
         tools = create_tools(tmp_ctx)
-        # M-1 had 26 tools; M-2 adds get_dossier_state (27); M-4 adds create_dossier_prediction (28)
-        assert len(tools) == 28, (
-            f"Expected 28 tools after M-2+M-4 additions, got {len(tools)}. "
+        # M-1 had 26 tools; M-2 adds get_dossier_state (27); M-4 adds create_dossier_prediction (28);
+        # M-5 adds create_dossier_note (29) and falsify_dossier_prediction (30)
+        assert len(tools) == 30, (
+            f"Expected 30 tools after M-2+M-4+M-5 additions, got {len(tools)}. "
             "If this fails, a different tool count was agreed — update this assertion."
         )
 
@@ -417,11 +418,13 @@ class TestGetDossierStateProductionSequence:
         )
 
         # Predictions: M-4 overlay sets to "empty" (no predictions in log); no longer "deferred"
-        # Denial: still DEFERRED (M-5 owns user-note surface)
+        # Denial: M-5 ships real extractor; with no DGA/fast-flux/note evidence, returns "empty"
         assert parsed["slots"]["predictions"]["status"] in ("deferred", "empty"), (
             f"Predictions slot should be deferred or empty (M-4 overlay), got: {parsed['slots']['predictions']}"
         )
-        assert parsed["slots"]["denial"]["status"] == "deferred"
+        assert parsed["slots"]["denial"]["status"] in ("empty", "partial", "filled"), (
+            f"Denial slot should be empty/partial/filled after M-5 (not deferred), got: {parsed['slots']['denial']}"
+        )
 
         # total_sco_count = 3 (2 infra + 1 identity)
         assert parsed["total_sco_count"] == 3

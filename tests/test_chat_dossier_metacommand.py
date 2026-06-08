@@ -153,20 +153,103 @@ class TestDossierMetaCommand:
         """The 'help' meta-command output must include a 'dossier' row.
 
         DEC-M1-DOSSIER-004: the help_table in chat.py gains a 'dossier' row.
-        We verify this by inspecting the chat module source for the help table
-        additions - the dossier row must be present.
+        We read the source file directly (not via import) so the test works even
+        when optional deps like prompt_toolkit are not installed in the test env.
         """
-        import inspect
+        import pathlib
 
-        import adversary_pursuit.agent.chat as chat_module
+        # Find chat.py relative to the adversary_pursuit package on sys.path
+        import adversary_pursuit
 
-        source = inspect.getsource(chat_module)
+        pkg_root = pathlib.Path(adversary_pursuit.__file__).parent
+        chat_src = (pkg_root / "agent" / "chat.py").read_text(encoding="utf-8")
+
         # The help table must reference 'dossier' as a command
-        assert "dossier" in source, (
+        assert "dossier" in chat_src, (
             "chat.py does not reference 'dossier' - the meta-command and help row are missing"
         )
         # The help table add_row for dossier must be present
-        assert re.search(r"add_row\s*\(.*dossier", source, re.IGNORECASE | re.DOTALL), (
+        assert re.search(r"add_row\s*\(.*dossier", chat_src, re.IGNORECASE | re.DOTALL), (
             "chat.py help_table does not have a 'dossier' add_row call. "
             "DEC-M1-DOSSIER-004 requires a help_table row for the dossier command."
+        )
+
+
+# ---------------------------------------------------------------------------
+# M-5: note <text> meta-command tests (DEC-M5-NOTE-001..003)
+# ---------------------------------------------------------------------------
+
+
+class TestNoteMetaCommand:
+    """Tests for the 'note <text>' meta-command wired into agent/chat.py.
+
+    @decision DEC-M5-NOTE-001
+    @title note meta-command binds to existing WorkspaceManager.add_note() + AnalystNote table
+    @status accepted
+    @rationale Sacred Practice 12: single authority for note persistence.
+        The F63 sentinel-row pattern is NOT used for notes; it is exclusively for
+        _predictions_log and _dossier_state_snapshot. Notes use the AnalystNote table
+        via the existing add_note() public method.
+    """
+
+    def test_note_command_calls_add_note_and_persists(self, tmp_path: Path):
+        """note <text> calls workspace_mgr.add_note(text) and the note is retrievable."""
+        from adversary_pursuit.agent.tools import _read_analyst_notes
+
+        wm = _make_workspace(tmp_path)
+        wm.add_note("actor uses sandbox evasion technique")
+
+        notes = _read_analyst_notes(wm)
+        contents = [n["content"] for n in notes]
+        assert any("sandbox evasion" in c for c in contents), (
+            f"Note not found in analyst notes; got: {contents}"
+        )
+
+    def test_note_command_source_present_in_chat(self, tmp_path: Path):
+        """note meta-command handler is present in chat.py source.
+
+        Reads source file directly (avoids prompt_toolkit import issue in test env).
+        """
+        import pathlib
+
+        import adversary_pursuit
+
+        pkg_root = pathlib.Path(adversary_pursuit.__file__).parent
+        chat_src = (pkg_root / "agent" / "chat.py").read_text(encoding="utf-8")
+
+        # Handler must detect 'note' prefix
+        assert re.search(r"lower.*startswith.*['\"]note", chat_src) or re.search(
+            r"note.*add_note", chat_src, re.DOTALL
+        ), "chat.py must contain note meta-command handler that calls add_note()"
+
+        # Help table must include a 'note' row
+        assert re.search(r"add_row\s*\(.*note", chat_src, re.IGNORECASE | re.DOTALL), (
+            "chat.py help_table does not have a 'note' add_row call. "
+            "DEC-M5-NOTE-003 requires a help_table row for the note command."
+        )
+
+    def test_note_then_dossier_slot9_reflects_keyword(self, tmp_path: Path):
+        """note with denial keyword + dossier render shows slot 9 PARTIAL (compound test).
+
+        This exercises the real production sequence:
+        1. add_note() writes a denial-keyword note to AnalystNote table.
+        2. _read_analyst_notes() reads it back as {"content": ...} dicts.
+        3. infer_dossier_state_full() feeds notes to _extract_denial().
+        4. Slot 9 returns PARTIAL (1 category: note_keyword).
+        """
+        from adversary_pursuit.agent.tools import _read_analyst_notes
+        from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full
+        from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+
+        wm = _make_workspace(tmp_path)
+        wm.add_note("actor uses domain generation algorithm for evasion")
+
+        notes = _read_analyst_notes(wm)
+        scos = wm.get_stix_objects()
+        state = infer_dossier_state_full(scos, module_runs=[], notes=notes)
+
+        denial_slot = state.slots[DossierSlotName.DENIAL]
+        assert denial_slot.status in (SlotStatus.PARTIAL, SlotStatus.FILLED), (
+            f"After adding a denial-keyword note, slot 9 should be PARTIAL or FILLED; "
+            f"got {denial_slot.status}"
         )
