@@ -5054,3 +5054,231 @@ class TestM6RankerWiring:
         assert len(load_call_count) == 1, (
             f"load_dossier_state must be called exactly once per hunt; got {len(load_call_count)}"
         )
+
+
+# ---------------------------------------------------------------------------
+# M-8 Stage C: novelty event emission through _execute_run_module
+# ---------------------------------------------------------------------------
+#
+# These 5 tests cover the end-to-end novelty detection path from plan §4 Stage C.
+# Pattern mirrors test_m5t7_f64_falsified_event_absent_from_llm_summary (M-5 T7).
+#
+# Production sequence exercised:
+#   ToolContext -> run_module -> _execute_run_module ->
+#   [emit_dossier_slot_filled_events -> novelty detection block ->
+#    detect_novelty(slot, extractor, sco_types, cache)] ->
+#   store_score_events([..., dossier_novelty_recognized])
+#
+# Isolation: _DEFAULT_CACHE_PATH in dossier.novelty is redirected via monkeypatch
+# to a tmp_path file. NoveltyCache() (no-arg) reads this at construction time.
+# No business-logic mocks — WorkspaceManager, dossier scoring, and novelty
+# detection all run as real implementations.
+#
+# Pre-condition: all tests that require dossier_slot_filled events call
+# _seed_empty_snapshot() first. On a fresh workspace default_deferred_state()
+# sets all slots DEFERRED; emit_dossier_slot_filled_events() skips DEFERRED->real
+# transitions by design (plan §3.4). Seeding EMPTY (infer from zero SCOs) makes
+# the first hunt's evidence trigger an EMPTY->PARTIAL transition, which emits the
+# dossier_slot_filled event that novelty detection operates on.
+#
+# @decision DEC-TEST-M8-STAGEC-001
+# @title Stage C integration tests exercise novelty detection through run_module
+# @status accepted
+# @rationale Plan §4 Stage C requires 5 hunt-site integration tests. These verify
+#            the novelty detection block in _execute_run_module (tools.py lines 497-539)
+#            is correctly wired: novel slot-fill hashes produce dossier_novelty_recognized
+#            events, repeat hashes do not, the env-var opt-out kills the path entirely,
+#            and the F64 filter strips novelty events from the LLM summary while
+#            preserving them in score_events. _DEFAULT_CACHE_PATH redirection via
+#            monkeypatch is a pure path substitution — no mock logic.
+
+
+class TestM8StageC:
+    """M-8 Stage C: novelty event emission end-to-end through run_module.
+
+    # @mock-exempt: hunt() is an async external HTTP boundary (DEC-TEST-AGENT-001).
+    # _DEFAULT_CACHE_PATH is redirected via monkeypatch (path substitution, not a mock).
+    # All other components run real implementations.
+    """
+
+    # email-addr SCOs fill the IDENTITY slot (SLOT_EVIDENCE_TYPES in dossier/slots.py).
+    # Used because email-addr -> IDENTITY is the canonical test pattern established in
+    # TestM3DossierScoringIntegration. After _seed_empty_snapshot, IDENTITY is EMPTY and
+    # the email-addr SCO triggers EMPTY->PARTIAL, emitting dossier_slot_filled.
+    SAMPLE_IDENTITY_RESULTS = [
+        {"type": "email-addr", "value": "threat@apt28.ru"},
+    ]
+
+    def _make_ctx(self, tmp_path):
+        """ToolContext with isolated workspace and config dirs."""
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+        return ctx
+
+    def _seed_empty_snapshot(self, ctx):
+        """Persist an EMPTY dossier snapshot so the next hunt triggers EMPTY->PARTIAL.
+
+        On a fresh workspace, default_deferred_state() sets all slots DEFERRED.
+        emit_dossier_slot_filled_events() skips DEFERRED->real by design (plan §3.4).
+        Seeding an empty-SCO inferred snapshot makes pre-state EMPTY so the first
+        evidence triggers EMPTY->PARTIAL, emitting dossier_slot_filled — the event
+        novelty detection operates on. Mirrors _seed_empty_snapshot in
+        TestM3DossierScoringIntegration.
+        """
+        from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full
+        from adversary_pursuit.dossier.state import save_dossier_state
+
+        empty_state = infer_dossier_state_full([], module_runs=[], notes=None)
+        save_dossier_state(ctx.workspace_mgr, empty_state)
+
+    def test_run_module_emits_novelty_event_on_first_novel_slot_fill(self, tmp_path, monkeypatch):
+        """Stage C-1: run_module with fresh novelty cache emits dossier_novelty_recognized.
+
+        Production path: hunt() returns email-addr SCO ->
+        IDENTITY slot transitions EMPTY->PARTIAL -> emit_dossier_slot_filled_events
+        produces dossier_slot_filled -> novelty detection block finds hash unknown ->
+        detect_novelty() returns True -> dossier_novelty_recognized appended ->
+        store_score_events persists it -> appears in result['score_events'].
+        """
+        import adversary_pursuit.dossier.novelty as _novelty_mod
+
+        monkeypatch.delenv("AP_NO_NOVELTY", raising=False)
+        novelty_path = tmp_path / "novelty.sqlite"
+        monkeypatch.setattr(_novelty_mod, "_DEFAULT_CACHE_PATH", novelty_path)
+
+        ctx = self._make_ctx(tmp_path)
+        self._seed_empty_snapshot(ctx)
+
+        mock_mod = self._make_mock_module(self.SAMPLE_IDENTITY_RESULTS)
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = ctx.run_module("osint/hibp", "threat@apt28.ru", {})
+
+        novelty_events = [
+            e for e in result["score_events"] if e["action"] == "dossier_novelty_recognized"
+        ]
+        assert len(novelty_events) >= 1, (
+            "Expected at least one dossier_novelty_recognized event in score_events "
+            f"on first novel slot fill; got score_events={result['score_events']!r}"
+        )
+        assert novelty_events[0]["points"] == 1, (
+            "dossier_novelty_recognized event must have points=1 (DEC-M8-NOVELTY-006)"
+        )
+
+    def test_run_module_no_novelty_event_on_repeat_slot_fill(self, tmp_path, monkeypatch):
+        """Stage C-2: same hash already in cache -> NO dossier_novelty_recognized on second run.
+
+        Both runs write to the same sqlite file (_DEFAULT_CACHE_PATH redirected to tmp_path)
+        so the first run records the hash and the second run hits the cache and skips emission.
+        """
+        import adversary_pursuit.dossier.novelty as _novelty_mod
+
+        monkeypatch.delenv("AP_NO_NOVELTY", raising=False)
+        novelty_path = tmp_path / "novelty.sqlite"
+        monkeypatch.setattr(_novelty_mod, "_DEFAULT_CACHE_PATH", novelty_path)
+
+        ctx = self._make_ctx(tmp_path)
+        self._seed_empty_snapshot(ctx)
+
+        mock_mod = self._make_mock_module(self.SAMPLE_IDENTITY_RESULTS)
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            ctx.run_module("osint/hibp", "threat@apt28.ru", {})
+            result2 = ctx.run_module("osint/hibp", "threat@apt28.ru", {})
+
+        novelty_events = [
+            e for e in result2["score_events"] if e["action"] == "dossier_novelty_recognized"
+        ]
+        assert len(novelty_events) == 0, (
+            "Expected zero dossier_novelty_recognized events on repeat slot fill; "
+            f"got {novelty_events!r}"
+        )
+
+    def test_run_module_dossier_actions_widened_to_4_tuple(self):
+        """Stage C-3: _DOSSIER_ACTIONS in tools.py includes dossier_novelty_recognized (M-8 F64).
+
+        DEC-M8-NOVELTY-009: the frozenset was widened from 3 to 4 entries in M-8
+        so novelty events are filtered from the LLM-facing summary.
+        Strategy: source inspection, same technique as test_m5t7.
+        """
+        import pathlib
+
+        import adversary_pursuit
+
+        tools_src = (
+            pathlib.Path(adversary_pursuit.__file__).parent / "agent" / "tools.py"
+        ).read_text(encoding="utf-8")
+        assert "dossier_novelty_recognized" in tools_src, (
+            "F64: _DOSSIER_ACTIONS in agent/tools.py must include 'dossier_novelty_recognized' "
+            "(DEC-M8-NOVELTY-009)"
+        )
+        assert "dossier_slot_filled" in tools_src
+        assert "dossier_prediction_validated" in tools_src
+        assert "dossier_prediction_falsified" in tools_src
+
+    def test_run_module_ap_no_novelty_disables_detection(self, tmp_path, monkeypatch):
+        """Stage C-4: AP_NO_NOVELTY=1 suppresses dossier_novelty_recognized events.
+
+        DEC-M8-NOVELTY-008: opt-out. Home is redirected to tmp_path so any default-path
+        writes land in tmp_path/.ap/ — lets us assert no sqlite file was created.
+        """
+        monkeypatch.setenv("AP_NO_NOVELTY", "1")
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        monkeypatch.setattr("pathlib.Path.home", lambda: fake_home)
+
+        ctx = self._make_ctx(tmp_path)
+        self._seed_empty_snapshot(ctx)
+
+        mock_mod = self._make_mock_module(self.SAMPLE_IDENTITY_RESULTS)
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = ctx.run_module("osint/hibp", "threat@apt28.ru", {})
+
+        novelty_events = [
+            e for e in result["score_events"] if e["action"] == "dossier_novelty_recognized"
+        ]
+        assert len(novelty_events) == 0, (
+            f"AP_NO_NOVELTY=1 must suppress all novelty events; got {novelty_events!r}"
+        )
+        novelty_file = fake_home / ".ap" / "dossier_novelty.sqlite"
+        assert not novelty_file.exists(), (
+            "AP_NO_NOVELTY=1 must prevent creation of the novelty cache file"
+        )
+
+    def test_run_module_novelty_event_not_narrated(self, tmp_path, monkeypatch):
+        """Stage C-5: F64 — dossier_novelty_recognized absent from result['summary'] (LLM string).
+
+        DEC-M8-NOVELTY-009 / DEC-64-LLM-PANEL-SEPARATION-001: the event must appear
+        in result['score_events'] but must NOT appear in result['summary'].
+        """
+        import adversary_pursuit.dossier.novelty as _novelty_mod
+
+        monkeypatch.delenv("AP_NO_NOVELTY", raising=False)
+        novelty_path = tmp_path / "novelty.sqlite"
+        monkeypatch.setattr(_novelty_mod, "_DEFAULT_CACHE_PATH", novelty_path)
+
+        ctx = self._make_ctx(tmp_path)
+        self._seed_empty_snapshot(ctx)
+
+        mock_mod = self._make_mock_module(self.SAMPLE_IDENTITY_RESULTS)
+        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
+            result = ctx.run_module("osint/hibp", "threat@apt28.ru", {})
+
+        assert "dossier_novelty_recognized" not in result["summary"], (
+            "F64: dossier_novelty_recognized must not appear in the LLM-facing summary "
+            f"(DEC-M8-NOVELTY-009). Summary: {result['summary']!r}"
+        )
+
+    def _make_mock_module(self, results):
+        # @mock-exempt: hunt() is an async external HTTP boundary (DEC-TEST-AGENT-001).
+        # This mock replaces only the network I/O layer; all tool dispatch, workspace
+        # storage, dossier scoring, and novelty detection run unmodified.
+        from unittest.mock import AsyncMock, MagicMock
+
+        mock_mod = MagicMock()
+        mock_mod.hunt = AsyncMock(return_value=results)
+        mock_mod.initialize = MagicMock()
+        return mock_mod

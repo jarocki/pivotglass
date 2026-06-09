@@ -201,6 +201,40 @@ class NoveltyCache:
         self._conn: sqlite3.Connection | None = None
 
     # ------------------------------------------------------------------
+    # Schema collision guard (plan risk-register)
+    # ------------------------------------------------------------------
+
+    _EXPECTED_COLUMNS: frozenset[str] = frozenset(
+        {"hash", "slot", "extractor", "ordering_sig", "first_seen_at", "workspace_count"}
+    )
+
+    def _check_schema(self, conn: sqlite3.Connection) -> None:
+        """Raise RuntimeError when the on-disk schema is incompatible.
+
+        Called immediately after opening an existing database file (both the
+        mutating and read-only paths).  A file created by this module with the
+        current schema passes silently.  A file that already exists with a
+        different column set raises a clear error with remediation instructions
+        instead of silently corrupting data.
+
+        Empty-table check: if PRAGMA table_info returns zero rows the table was
+        just created by ``CREATE TABLE IF NOT EXISTS`` and has the correct schema
+        by construction — no mismatch possible.
+        """
+        cursor = conn.execute("PRAGMA table_info(novelty_hashes)")
+        rows = cursor.fetchall()
+        if not rows:
+            # Table was freshly created — schema is correct by construction.
+            return
+        cols = {row[1] for row in rows}
+        if cols != self._EXPECTED_COLUMNS:
+            raise RuntimeError(
+                f"Novelty cache schema mismatch at {self.path}. "
+                f"Expected columns {sorted(self._EXPECTED_COLUMNS)}, got {sorted(cols)}. "
+                f"Remove or back up the file and let M-8 recreate it."
+            )
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
@@ -219,6 +253,7 @@ class NoveltyCache:
                 isolation_level=None,  # autocommit
             )
             self._conn.execute(_CREATE_TABLE_SQL)
+            self._check_schema(self._conn)
         return self._conn
 
     def _read_conn(self) -> sqlite3.Connection | None:
@@ -236,6 +271,7 @@ class NoveltyCache:
             isolation_level=None,
         )
         self._conn.execute(_CREATE_TABLE_SQL)
+        self._check_schema(self._conn)
         return self._conn
 
     # ------------------------------------------------------------------

@@ -502,3 +502,89 @@ class TestSlotExtractorNames:
             assert extractor.startswith("_extract_"), (
                 f"Extractor for '{slot_val}' doesn't start with '_extract_': {extractor}"
             )
+
+
+# ---------------------------------------------------------------------------
+# Stage B-schema-collision: PRAGMA table_info guard (plan risk-register)
+# ---------------------------------------------------------------------------
+
+
+class TestSchemaMismatchGuard:
+    """NoveltyCache raises RuntimeError on incompatible existing schema.
+
+    Plan risk-register committed to an explicit column-shape check via PRAGMA
+    table_info so a stale or foreign sqlite file at the default path produces a
+    clear error with remediation instructions rather than silent data corruption.
+    """
+
+    def test_schema_collision_raises_on_incompatible_existing_db(self, tmp_path):
+        """NoveltyCache raises RuntimeError when existing DB has wrong columns.
+
+        Arrange: create a sqlite file at the target path with a novelty_hashes
+        table that has a different column set (missing workspace_count, has extra_col).
+
+        Act: call is_known() to trigger the first open via _read_conn.
+
+        Assert: RuntimeError is raised with the schema mismatch message including
+        the path, expected columns, and actual columns.
+        """
+        import sqlite3 as _sqlite3
+
+        import pytest
+
+        path = tmp_path / "bad_schema.sqlite"
+        conn = _sqlite3.connect(str(path))
+        conn.execute(
+            """
+            CREATE TABLE novelty_hashes (
+                hash        TEXT PRIMARY KEY,
+                slot        TEXT NOT NULL,
+                extra_col   TEXT
+            )
+            """
+        )
+        conn.close()
+
+        cache = NoveltyCache(path=path)
+        with pytest.raises(RuntimeError, match="schema mismatch"):
+            cache.is_known("a" * 64)
+
+    def test_schema_collision_message_contains_path_and_columns(self, tmp_path):
+        """RuntimeError message includes path, expected columns, and actual columns."""
+        import sqlite3 as _sqlite3
+
+        import pytest
+
+        path = tmp_path / "mismatched.sqlite"
+        conn = _sqlite3.connect(str(path))
+        conn.execute("CREATE TABLE novelty_hashes (hash TEXT PRIMARY KEY, wrong_col TEXT)")
+        conn.close()
+
+        cache = NoveltyCache(path=path)
+        with pytest.raises(RuntimeError) as exc_info:
+            cache.is_known("b" * 64)
+
+        msg = str(exc_info.value)
+        assert str(path) in msg, f"Error message must contain path {path}; got: {msg!r}"
+        assert "Expected columns" in msg, f"Error message must list expected columns; got: {msg!r}"
+        assert "wrong_col" in msg, f"Error message must list actual columns; got: {msg!r}"
+
+    def test_fresh_db_no_schema_error(self, tmp_path):
+        """NoveltyCache on a fresh (non-existent) path raises no schema error."""
+        path = tmp_path / "fresh.sqlite"
+        cache = NoveltyCache(path=path)
+        result = cache.is_known("c" * 64)
+        assert result is False
+        cache.close()
+
+    def test_valid_schema_db_no_error(self, tmp_path):
+        """NoveltyCache on a DB with the correct 6-column schema raises no error."""
+        path = tmp_path / "valid.sqlite"
+        setup_cache = NoveltyCache(path=path)
+        setup_cache.record("d" * 64, "identity", "_extract_identity", "ipv4-addr")
+        setup_cache.close()
+
+        cache = NoveltyCache(path=path)
+        result = cache.is_known("d" * 64)
+        assert result is True
+        cache.close()
