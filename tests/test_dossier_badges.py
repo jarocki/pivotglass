@@ -1,18 +1,21 @@
-"""Tests for dossier_badges.py and BadgeMetric enum extension (M-7).
+"""Tests for dossier_badges.py and BadgeMetric enum extension (M-7 + M-8).
 
-Stage C tests covering:
+Stage C+D tests covering:
 - Five new BadgeMetric enum values are present with correct string keys
-- DOSSIER_BADGES list: 5 entries with correct ids/rarities/thresholds
+- M-8: DOSSIER_NOVELTY_RECOGNIZED metric present (DEC-M8-NOVELTY-010)
+- DOSSIER_BADGES list: 6 entries with correct ids/rarities/thresholds (5 M-7 + 1 M-8 Pioneer)
 - build_dossier_stats() with None dossier_state returns zeroed dict
 - build_dossier_stats() with stubbed DossierState computes correct counts
-- _DEFAULT_BADGES now has 15 entries (10 original + 5 new)
+- build_dossier_stats() novelty count via workspace_mgr (M-8, DEC-M8-NOVELTY-010)
+- _DEFAULT_BADGES now has 16 entries (10 original + 5 M-7 + 1 M-8 Pioneer)
 - Badge manager check_all() correctly awards dossier badges given dossier stats
 
 @decision DEC-TEST-M7-BADGE-001
 @title Test suite for dossier_badges module and BadgeMetric enum extension
 @status accepted
-@rationale Covers the five new badge specs (DEC-M7-BADGE-001..005), the build_dossier_stats
-           helper, and verifies _DEFAULT_BADGES counts 15 after the M-7 splice
+@rationale Covers the five new badge specs (DEC-M7-BADGE-001..005) plus the M-8
+           Pioneer badge (DEC-M8-NOVELTY-010), the build_dossier_stats helper,
+           and verifies _DEFAULT_BADGES counts 16 after the M-7+M-8 splice
            (DEC-M7-BADGE-006). Compound-interaction test exercises BadgeManager.check_all()
            with real dossier stats to confirm end-to-end badge award.
            No external services used; all stubs are internal state factories
@@ -109,6 +112,10 @@ class TestBadgeMetricExtension:
         enum_values = {m.value for m in BadgeMetric}
         assert new_values.issubset(enum_values)
 
+    def test_dossier_novelty_recognized_value(self) -> None:
+        """M-8: DOSSIER_NOVELTY_RECOGNIZED metric present (DEC-M8-NOVELTY-010)."""
+        assert BadgeMetric.DOSSIER_NOVELTY_RECOGNIZED.value == "dossier_novelty_recognized"
+
 
 # ---------------------------------------------------------------------------
 # Stage C2: DOSSIER_BADGES list (DEC-M7-BADGE-001..005)
@@ -116,10 +123,11 @@ class TestBadgeMetricExtension:
 
 
 class TestDossierBadgesList:
-    """Five badge instances with correct ids, rarities, thresholds, metrics."""
+    """Six badge instances with correct ids, rarities, thresholds, metrics (5 M-7 + 1 M-8 Pioneer)."""
 
-    def test_list_has_five_entries(self) -> None:
-        assert len(DOSSIER_BADGES) == 5
+    def test_list_has_six_entries(self) -> None:
+        """M-8 adds Pioneer badge — DOSSIER_BADGES must have 6 entries (DEC-M8-NOVELTY-010)."""
+        assert len(DOSSIER_BADGES) == 6
 
     def test_badge_ids_are_unique(self) -> None:
         ids = [b.id for b in DOSSIER_BADGES]
@@ -155,6 +163,13 @@ class TestDossierBadgesList:
         assert badge.metric == BadgeMetric.DOSSIER_DENIAL_FILLED
         assert badge.threshold == 1
 
+    def test_pioneer_badge_is_rare(self) -> None:
+        """M-8: Pioneer badge — RARE, DOSSIER_NOVELTY_RECOGNIZED, threshold=1 (DEC-M8-NOVELTY-010)."""
+        badge = next(b for b in DOSSIER_BADGES if b.id == "badge-pioneer")
+        assert badge.rarity == BadgeRarity.RARE
+        assert badge.metric == BadgeMetric.DOSSIER_NOVELTY_RECOGNIZED
+        assert badge.threshold == 1
+
     def test_all_badges_have_nonempty_descriptions(self) -> None:
         for badge in DOSSIER_BADGES:
             assert badge.description, f"Badge {badge.id} has empty description"
@@ -166,11 +181,12 @@ class TestDossierBadgesList:
 
 
 class TestDefaultBadgesCount:
-    """_DEFAULT_BADGES must have 15 entries after the M-7 splice."""
+    """_DEFAULT_BADGES must have 16 entries after the M-7+M-8 splice."""
 
-    def test_default_badges_has_15_entries(self) -> None:
-        assert len(_DEFAULT_BADGES) == 15, (
-            f"Expected 15 badges (10 original + 5 M-7 dossier), got {len(_DEFAULT_BADGES)}. "
+    def test_default_badges_has_16_entries(self) -> None:
+        """M-8 adds Pioneer badge — _DEFAULT_BADGES must have 16 entries (DEC-M8-NOVELTY-010)."""
+        assert len(_DEFAULT_BADGES) == 16, (
+            f"Expected 16 badges (10 original + 5 M-7 dossier + 1 M-8 Pioneer), got {len(_DEFAULT_BADGES)}. "
             f"IDs: {[b.id for b in _DEFAULT_BADGES]}"
         )
 
@@ -218,6 +234,7 @@ class TestBuildDossierStatsNone:
             "dossier_predictions_validated",
             "dossier_predictions_falsified",
             "dossier_denial_filled",
+            "dossier_novelty_recognized",  # M-8 (DEC-M8-NOVELTY-010)
         }
         assert expected_keys == set(result.keys())
 
@@ -358,7 +375,7 @@ class TestDossierBadgeCompoundInteraction:
     def _make_manager(self):
         from adversary_pursuit.gamification.badges import BadgeManager
 
-        return BadgeManager()  # uses _DEFAULT_BADGES (15 entries including M-7)
+        return BadgeManager()  # uses _DEFAULT_BADGES (16 entries including M-7 + M-8 Pioneer)
 
     def _base_stats(self) -> dict:
         return {
@@ -417,3 +434,91 @@ class TestDossierBadgeCompoundInteraction:
         awarded_ids = {b.id for b in manager.check_all(stats, already_awarded=set())}
         awarded_dossier = awarded_ids & dossier_badge_ids
         assert not awarded_dossier, f"No dossier badges should be awarded: {awarded_dossier}"
+
+    def test_pioneer_badge_awarded_when_novelty_count_ge_1(self) -> None:
+        """M-8: Pioneer badge awarded when dossier_novelty_recognized >= 1 (DEC-M8-NOVELTY-010)."""
+        stats = {**self._base_stats(), "dossier_novelty_recognized": 1}
+        manager = self._make_manager()
+        awarded_ids = {b.id for b in manager.check_all(stats, already_awarded=set())}
+        assert "badge-pioneer" in awarded_ids
+
+    def test_pioneer_badge_not_awarded_when_novelty_count_zero(self) -> None:
+        """M-8: Pioneer badge NOT awarded when dossier_novelty_recognized == 0."""
+        stats = {**self._base_stats(), "dossier_novelty_recognized": 0}
+        manager = self._make_manager()
+        awarded_ids = {b.id for b in manager.check_all(stats, already_awarded=set())}
+        assert "badge-pioneer" not in awarded_ids
+
+
+# ---------------------------------------------------------------------------
+# Stage D: build_dossier_stats() — novelty count via workspace_mgr (M-8)
+# ---------------------------------------------------------------------------
+
+
+class TestBuildDossierStatsNovelty:
+    """build_dossier_stats() novelty count from workspace_mgr score_events (DEC-M8-NOVELTY-010).
+
+    Uses a real SQLite in-memory workspace to avoid mocking; inserts ScoreEvent
+    rows directly and verifies that build_dossier_stats() counts them correctly.
+    """
+
+    def _make_workspace_mgr_with_novelty_events(self, tmp_path, count: int):
+        """Create a WorkspaceManager with `count` dossier_novelty_recognized score events."""
+        from sqlalchemy.orm import Session
+
+        from adversary_pursuit.core.workspace import WorkspaceManager
+        from adversary_pursuit.models.database import ScoreEvent
+
+        mgr = WorkspaceManager(workspace_dir=tmp_path)
+        mgr.create("test-novelty")
+        mgr.switch("test-novelty")
+
+        with Session(mgr._engine) as session:
+            for i in range(count):
+                session.add(
+                    ScoreEvent(
+                        action="dossier_novelty_recognized",
+                        points=10,
+                        indicator=f"novelty-{i}",
+                    )
+                )
+            session.commit()
+
+        return mgr
+
+    def test_novelty_count_zero_when_no_events(self, tmp_path) -> None:
+        """build_dossier_stats returns 0 novelty when no novelty events exist."""
+        mgr = self._make_workspace_mgr_with_novelty_events(tmp_path, 0)
+        result = build_dossier_stats(None, [], workspace_mgr=mgr)
+        assert result["dossier_novelty_recognized"] == 0
+
+    def test_novelty_count_matches_event_rows(self, tmp_path) -> None:
+        """build_dossier_stats returns correct count when 3 novelty events inserted."""
+        mgr = self._make_workspace_mgr_with_novelty_events(tmp_path, 3)
+        result = build_dossier_stats(None, [], workspace_mgr=mgr)
+        assert result["dossier_novelty_recognized"] == 3
+
+    def test_novelty_count_zero_when_workspace_mgr_none(self) -> None:
+        """build_dossier_stats returns 0 for novelty when workspace_mgr=None (default)."""
+        result = build_dossier_stats(None, [])
+        assert result["dossier_novelty_recognized"] == 0
+
+    def test_other_score_events_not_counted_as_novelty(self, tmp_path) -> None:
+        """Only dossier_novelty_recognized action rows counted; other actions excluded."""
+        from sqlalchemy.orm import Session
+
+        from adversary_pursuit.core.workspace import WorkspaceManager
+        from adversary_pursuit.models.database import ScoreEvent
+
+        mgr = WorkspaceManager(workspace_dir=tmp_path)
+        mgr.create("test-novelty-filter")
+        mgr.switch("test-novelty-filter")
+
+        with Session(mgr._engine) as session:
+            session.add(ScoreEvent(action="dossier_slot_filled", points=20, indicator="slot"))
+            session.add(ScoreEvent(action="module_run", points=5, indicator="mod"))
+            session.add(ScoreEvent(action="dossier_novelty_recognized", points=10, indicator="n"))
+            session.commit()
+
+        result = build_dossier_stats(None, [], workspace_mgr=mgr)
+        assert result["dossier_novelty_recognized"] == 1

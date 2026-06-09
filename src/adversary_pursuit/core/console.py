@@ -60,7 +60,6 @@ from adversary_pursuit.core.config import ConfigManager
 from adversary_pursuit.core.error_interpreter import interpret, render_interactive
 from adversary_pursuit.core.graph import RelationshipGraph
 from adversary_pursuit.core.plugin_mgr import PluginManager
-from adversary_pursuit.core.report import ReportGenerator
 from adversary_pursuit.core.streak import StreakManager
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.dossier.predictions import (
@@ -203,8 +202,6 @@ class APConsole(cmd2.Cmd):
         self._active_module_path: str = ""  # e.g. "osint/whois_lookup"
         self._active_module_options: dict[str, str] = {}
 
-        # Report generator — instantiated lazily when 'report' is first used
-        self._report_generator: ReportGenerator | None = None
         self._last_report_path: Path | None = None
 
     # ------------------------------------------------------------------
@@ -1038,142 +1035,52 @@ class APConsole(cmd2.Cmd):
         """Generate and manage investigation reports.
 
         Usage:
-            report generate                      -- generate dossier report (default) and save
-            report --style classic generate      -- generate classic v1 interview report
-            report --style dossier generate      -- explicitly request dossier report
-            report interview                     -- guided interview (classic path)
-            report show                          -- display the last generated report
+            report [generate]   -- generate dossier report and save to workspace directory
+            report show         -- display the last generated report
 
-        M-7: default report style is now 'dossier' (actor-dossier puzzle report).
-        Pass --style classic to invoke the v1 interview-based report path.
-        The classic style is deprecated and will be removed in v0.3.0 (M-8).
+        M-8: classic interview-based report path removed (DEC-68-DOSSIER-REFRAME-008).
+        The dossier renderer is the sole report path.
 
         Reports are Markdown files written to the active workspace directory.
         """
-        # Parse --style flag (DEC-M7-REPORT-001, DEC-M7-REPORT-002).
-        # Supported: --style dossier (default) / --style classic.
-        # Flag is consumed before subcommand parsing so both orders work:
-        #   report --style classic generate
-        #   report generate  (default = dossier)
         tokens = args.strip().split()
-        style = "dossier"
-        filtered_tokens: list[str] = []
-        i = 0
-        while i < len(tokens):
-            if tokens[i] == "--style" and i + 1 < len(tokens):
-                style = tokens[i + 1].lower()
-                if style not in ("dossier", "classic"):
-                    self.poutput(
-                        f"Unknown --style '{style}': must be 'dossier' or 'classic'. "
-                        "Defaulting to 'dossier'."
-                    )
-                    style = "dossier"
-                i += 2
-            else:
-                filtered_tokens.append(tokens[i])
-                i += 1
-
-        sub = filtered_tokens[0].lower() if filtered_tokens else "generate"
+        sub = tokens[0].lower() if tokens else "generate"
 
         if sub == "generate":
-            self._report_generate(style=style)
-        elif sub == "interview":
-            self._report_interview()
+            self._report_generate()
         elif sub == "show":
-            self._report_show(style=style)
+            self._report_show()
         else:
             self.poutput(f"Unknown report subcommand: '{sub}'")
-            self.poutput("Usage: report [--style dossier|classic] [generate|interview|show]")
+            self.poutput("Usage: report [generate|show]")
 
-    def _get_report_generator(self) -> ReportGenerator:
-        """Return the current ReportGenerator, creating it if necessary.
-
-        Re-creates the generator if it hasn't been initialised yet.
-        The generator holds in-memory interview answers, so it persists
-        for the session once created. Answers survive multiple generate/show calls.
-        """
-        if self._report_generator is None:
-            self._report_generator = ReportGenerator(
-                self.workspace_mgr,
-                scoring_engine=self.scoring_engine,
-            )
-        return self._report_generator
-
-    def _report_generate(self, style: str = "dossier") -> None:
-        """Generate report and save to a file in the workspace directory.
-
-        Parameters
-        ----------
-        style:
-            'dossier' (default, M-7 actor-dossier report) or 'classic'
-            (v1 interview-based report, deprecated per DEC-68-DOSSIER-REFRAME-008).
-        """
+    def _report_generate(self) -> None:
+        """Generate dossier report and save to a file in the workspace directory."""
         try:
-            # Derive output path from workspace name
             try:
                 ws_name = self.workspace_mgr.active
             except RuntimeError:
                 ws_name = "default"
 
+            from adversary_pursuit.core.dossier_report import generate_dossier_report
+
             workspace_dir = self.workspace_mgr._workspace_dir
             workspace_dir.mkdir(parents=True, exist_ok=True)
-
-            if style == "classic":
-                rg = self._get_report_generator()
-                output_path = workspace_dir / f"{ws_name}-report.md"
-                rg.save(output_path)
-            else:
-                from adversary_pursuit.core.dossier_report import generate_dossier_report
-
-                content = generate_dossier_report(
-                    self.workspace_mgr, scoring_engine=self.scoring_engine
-                )
-                output_path = workspace_dir / f"{ws_name}-report.md"
-                output_path.write_text(content, encoding="utf-8")
-
+            content = generate_dossier_report(
+                self.workspace_mgr, scoring_engine=self.scoring_engine
+            )
+            output_path = workspace_dir / f"{ws_name}-report.md"
+            output_path.write_text(content, encoding="utf-8")
             self.poutput(f"Report saved: {output_path}")
             self._last_report_path = output_path
         except Exception as exc:  # noqa: BLE001
             self.poutput(f"Error generating report: {exc}")
 
-    def _report_interview(self) -> None:
-        """Interactive interview — prompts for each question and stores answers.
+    def _report_show(self) -> None:
+        """Display the dossier report content on stdout."""
+        from adversary_pursuit.core.dossier_report import generate_dossier_report
 
-        Uses self.read_input() so tests can inject answers via stdin redirection.
-        Answers are stored in the ReportGenerator and included in the next generate().
-        """
-        rg = self._get_report_generator()
-        self.poutput("Investigation Interview")
-        self.poutput("Enter your answer for each question (press Enter to skip).")
-        self.poutput("")
-        for i, section in enumerate(rg.sections):
-            self.poutput(f"Q{i + 1}: {section.question}")
-            try:
-                answer = input("A: ").strip()
-            except (EOFError, KeyboardInterrupt):
-                answer = ""
-            if answer:
-                rg.set_answer(i, answer)
-            self.poutput("")
-        self.poutput("Interview complete. Run 'report generate' to produce the report.")
-
-    def _report_show(self, style: str = "dossier") -> None:
-        """Display the report content on stdout.
-
-        Parameters
-        ----------
-        style:
-            'dossier' (default) or 'classic'.
-        """
-        if style == "classic":
-            rg = self._get_report_generator()
-            content = rg.generate()
-        else:
-            from adversary_pursuit.core.dossier_report import generate_dossier_report
-
-            content = generate_dossier_report(
-                self.workspace_mgr, scoring_engine=self.scoring_engine
-            )
+        content = generate_dossier_report(self.workspace_mgr, scoring_engine=self.scoring_engine)
         self.poutput(content)
 
     # ------------------------------------------------------------------

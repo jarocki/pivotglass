@@ -51,8 +51,24 @@ Public API additions (M-5, DEC-M5-DENIAL-001..003 / DEC-M5-NOTE-001..003 /
   - predictions.mark_confirmed_or_falsified(predictions, vr_list, fr_list)
   - predictions.manual_falsify(predictions, prediction_id, reason)
   - scoring.emit_dossier_prediction_falsified_event(prediction, reason) -> dict
+
+Public API additions (M-8, DEC-M8-NOVELTY-001..010):
+  - novelty.compute_novelty_hash(slot, extractor_name, sco_types) -> str
+  - novelty.novelty_enabled() -> bool
+  - novelty.NoveltyCache(path=None) — global cross-workspace novelty registry
+  - novelty.detect_novelty(slot, extractor_name, sco_types, cache) -> bool
+  - novelty.emit_dossier_novelty_recognized_event(slot, extractor_name, sco_types) -> dict
+  - novelty._SLOT_EXTRACTOR_NAMES — slot -> extractor name constant map
 """
 
+from adversary_pursuit.dossier.novelty import (
+    _SLOT_EXTRACTOR_NAMES,
+    NoveltyCache,
+    compute_novelty_hash,
+    detect_novelty,
+    emit_dossier_novelty_recognized_event,
+    novelty_enabled,
+)
 from adversary_pursuit.dossier.predictions import (
     ExpectedEvidence,
     FalsificationEvidence,
@@ -122,4 +138,11 @@ __all__ = [
     "mark_confirmed_or_falsified",
     "manual_falsify",
     "emit_dossier_prediction_falsified_event",
+    # M-8 novelty detection (DEC-M8-NOVELTY-001..010)
+    "compute_novelty_hash",
+    "novelty_enabled",
+    "NoveltyCache",
+    "detect_novelty",
+    "emit_dossier_novelty_recognized_event",
+    "_SLOT_EXTRACTOR_NAMES",
 ]

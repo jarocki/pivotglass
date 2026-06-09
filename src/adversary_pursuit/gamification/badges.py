@@ -88,6 +88,8 @@ class BadgeMetric(Enum):
     DOSSIER_PREDICTIONS_VALIDATED = "dossier_predictions_validated"
     DOSSIER_PREDICTIONS_FALSIFIED = "dossier_predictions_falsified"
     DOSSIER_DENIAL_FILLED = "dossier_denial_filled"
+    # M-8 novelty metric (DEC-M8-NOVELTY-010)
+    DOSSIER_NOVELTY_RECOGNIZED = "dossier_novelty_recognized"
 
 
 @dataclass

@@ -93,12 +93,12 @@ class TestBadgeRarity:
 
 
 class TestBuiltinBadges:
-    """All 15 default badges load with correct attributes (10 original + 5 M-7 dossier)."""
+    """All 16 default badges load with correct attributes (10 original + 5 M-7 + 1 M-8 Pioneer)."""
 
-    def test_fifteen_builtins_loaded(self):
-        """M-7 splice adds 5 dossier badges to _DEFAULT_BADGES (DEC-M7-BADGE-006)."""
+    def test_sixteen_builtins_loaded(self):
+        """M-8 adds Pioneer badge — _DEFAULT_BADGES must have 16 entries (DEC-M8-NOVELTY-010)."""
         mgr = BadgeManager()
-        assert len(mgr._badges) == 15
+        assert len(mgr._badges) == 16
 
     def test_first_blood_badge(self):
         mgr = BadgeManager()

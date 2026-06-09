@@ -130,36 +130,13 @@ execution, result formatting, and workspace storage.
            module_name strings from get_module_runs(), matching how APConsole builds
            _build_workspace_data(). This is the identical strategy, not a new mechanism.
 
-@decision DEC-AGENT-REPORT-001
-@title ReportGenerator wired into ToolContext; interview-driven report via LLM tools + chat meta-command
+@decision DEC-M8-CLEANUP-002
+@title generate_dossier_report is the sole report LLM tool; classic interview tools removed
 @status accepted
-@rationale ReportGenerator (DEC-REPORT-001/002/003) holds interview state in-memory for
-           the session. Two integration paths are provided, both sharing the same
-           ReportGenerator instance on ToolContext:
-
-           (1) LLM tools — three tools let the LLM drive the interview multi-turn:
-               - start_report_interview: initialises (or resets) ReportGenerator, returns
-                 all 5 interview questions so the LLM can present them one by one.
-               - answer_report_question: records the analyst's answer for a given question
-                 index (0-4). Returns confirmation with the question text.
-               - generate_report: calls ReportGenerator.generate() and returns the full
-                 Markdown report as a string.
-               These three tools mirror cmd2 do_report semantics: start interview, answer
-               each question, generate — without forcing interactive input() in the tool
-               layer.
-
-           (2) Chat meta-command 'report' — handled locally in chat.py before LLM:
-               - 'report'                     -> show interview status (questions + answers so far)
-               - 'report answer <idx> <text>' -> set answer for question index idx
-               - 'report generate'            -> generate and print the report
-               Shares the same ToolContext.report_generator so answers accumulate
-               regardless of which path (LLM tool vs chat meta-command) set them.
-
-           Both paths share a single ReportGenerator instance on ToolContext (lazy-init
-           on first start_report_interview call). This mirrors DEC-AGENT-HINTS-001 and
-           DEC-AGENT-CHALLENGES-001: one session-scoped object, two access paths.
-           Re-calling start_report_interview resets the generator (fresh answers list),
-           mirroring cmd2 do_report which always starts from blank answers.
+@rationale DEC-68-DOSSIER-REFRAME-008 one-release deprecation runway expired at M-8.
+           start_report_interview, answer_report_question, and generate_report (classic
+           interview path) are deleted. generate_dossier_report becomes parameterless.
+           Tool count drops from 31 to 28. No interview state on ToolContext.
 """
 
 from __future__ import annotations
@@ -178,7 +155,6 @@ from adversary_pursuit.core.event_bus import (
 )
 from adversary_pursuit.core.graph import RelationshipGraph
 from adversary_pursuit.core.plugin_mgr import PluginManager
-from adversary_pursuit.core.report import ReportGenerator
 from adversary_pursuit.core.streak import StreakManager
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.dossier.predictions import (
@@ -304,14 +280,6 @@ class ToolContext:
         # Tracks challenge IDs announced in this session to prevent re-announcement
         # in the run_module summary. Parallel to _awarded_badges for badges.
         self._announced_challenges: set[str] = set()
-
-        # ReportGenerator for interview-driven report generation (DEC-AGENT-REPORT-001).
-        # Lazy-initialised on first start_report_interview() call so sessions that never
-        # use the report feature pay zero overhead. Re-calling start_report_interview()
-        # resets this to a fresh instance (blank answers), mirroring cmd2 do_report.
-        # Shared by both the LLM tool path and the chat meta-command path so interview
-        # answers accumulate consistently regardless of which path set them.
-        self.report_generator: ReportGenerator | None = None
 
         # EventBus for auto-pivot cascades (DEC-AGENT-AUTOPIVOT-001).
         # Starts disabled (autopivot_enabled=False) per DEC-EVENTBUS-002.
@@ -525,6 +493,51 @@ class ToolContext:
                         emit_dossier_prediction_falsified_event(pred, fr.reason)
                     )
             all_dossier_events = dossier_events + prediction_events + falsification_events
+
+            # M-8: novelty detection — inserts between falsification events and narration
+            # (DEC-M8-NOVELTY-007). For each slot-fill event this hunt, compute the
+            # (slot, extractor, sco_types) hash and check against the global novelty cache.
+            # Novel observations emit dossier_novelty_recognized at points=1 and are
+            # appended to all_dossier_events before the single store_score_events call.
+            # AP_NO_NOVELTY env var disables detection entirely (DEC-M8-NOVELTY-008).
+            try:
+                from adversary_pursuit.dossier.novelty import (
+                    _SLOT_EXTRACTOR_NAMES,
+                    NoveltyCache,
+                    detect_novelty,
+                    emit_dossier_novelty_recognized_event,
+                    novelty_enabled,
+                )
+                from adversary_pursuit.dossier.slots import DossierSlotName
+
+                if novelty_enabled() and dossier_events:
+                    _novelty_cache = NoveltyCache()
+                    try:
+                        _sco_types_this_hunt = list(
+                            {s.get("type", "") for s in new_scos_this_hunt if s.get("type")}
+                        )
+                        for _ev in dossier_events:
+                            _slot_val = _ev.get("indicator", "")
+                            try:
+                                _slot = DossierSlotName(_slot_val)
+                            except ValueError:
+                                continue
+                            _extractor = _SLOT_EXTRACTOR_NAMES.get(
+                                _slot_val, f"_extract_{_slot_val}"
+                            )
+                            if detect_novelty(
+                                _slot, _extractor, _sco_types_this_hunt, _novelty_cache
+                            ):
+                                all_dossier_events.append(
+                                    emit_dossier_novelty_recognized_event(
+                                        _slot, _extractor, _sco_types_this_hunt
+                                    )
+                                )
+                    finally:
+                        _novelty_cache.close()
+            except Exception:  # noqa: BLE001
+                pass  # novelty detection must never block tool result delivery
+
             if all_dossier_events:
                 self.workspace_mgr.store_score_events(all_dossier_events)
                 events = list(events) + all_dossier_events
@@ -638,7 +651,9 @@ class ToolContext:
                 _post_dossier_for_badges = post_dossier
                 _predictions_for_badges = load_predictions_log(self.workspace_mgr) or []
                 _dossier_stats = build_dossier_stats(
-                    _post_dossier_for_badges, _predictions_for_badges
+                    _post_dossier_for_badges,
+                    _predictions_for_badges,
+                    workspace_mgr=self.workspace_mgr,  # M-8: novelty count
                 )
                 badge_stats = {**badge_stats, **_dossier_stats}
             except Exception:  # noqa: BLE001
@@ -790,6 +805,7 @@ class ToolContext:
                     "dossier_slot_filled",
                     "dossier_prediction_validated",
                     "dossier_prediction_falsified",  # M-5 F64 filter (DEC-M5-FALSIFY-005)
+                    "dossier_novelty_recognized",  # M-8 F64 filter (DEC-M8-NOVELTY-009)
                 }
             )
             for e in events:
@@ -1446,77 +1462,6 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                 },
             },
         },
-        # -----------------------------------------------------------------------
-        # Report interview tools — DEC-AGENT-REPORT-001
-        # start_report_interview: initialises/resets ReportGenerator, returns all questions.
-        # answer_report_question: records one answer by index (0-4).
-        # generate_report: produces final Markdown report from workspace + answers.
-        # All three share the same ReportGenerator instance on ToolContext so that
-        # answers set via the LLM tool path are visible to the chat meta-command
-        # path and vice versa. Mirrors cmd2 do_report interview semantics.
-        # -----------------------------------------------------------------------
-        {
-            "type": "function",
-            "function": {
-                "name": "start_report_interview",
-                "description": (
-                    "Start (or restart) the investigation report interview. "
-                    "Returns all 5 interview questions so you can present them to the "
-                    "analyst one by one. Call answer_report_question to record each answer, "
-                    "then call generate_report to produce the final Markdown report. "
-                    "Re-calling this resets all previous answers."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                },
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "answer_report_question",
-                "description": (
-                    "Record the analyst's answer for one interview question. "
-                    "question_index is 0-4 (matching the order returned by "
-                    "start_report_interview). Call start_report_interview first if the "
-                    "interview has not been started yet. Returns confirmation with the "
-                    "question text. After all 5 answers are set, call generate_report."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "question_index": {
-                            "type": "integer",
-                            "description": "Question index 0-4 to answer.",
-                        },
-                        "answer": {
-                            "type": "string",
-                            "description": "The analyst's answer text.",
-                        },
-                    },
-                    "required": ["question_index", "answer"],
-                },
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "generate_report",
-                "description": (
-                    "Generate the final investigation report as Markdown. "
-                    "Combines workspace STIX objects, module run history, score, and "
-                    "the interview answers set via answer_report_question. "
-                    "Returns the complete Markdown report as a string. "
-                    "Call start_report_interview and answer_report_question first to "
-                    "capture analyst context before generating."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {},
-                },
-            },
-        },
         {
             "type": "function",
             "function": {
@@ -1734,12 +1679,10 @@ def create_tools(ctx: ToolContext) -> list[dict]:
             },
         },
         # -----------------------------------------------------------------------
-        # M-7: dossier report tool — DEC-M7-REPORT-005
-        # generate_dossier_report: produces the actor-dossier Markdown report
-        # without requiring an interview. Tool count 30 -> 31.
-        # The existing generate_report tool (interview-based classic path) is
-        # preserved for v0.2.x and removed together with core/report.py at M-8
-        # per DEC-68-DOSSIER-REFRAME-008.
+        # M-8: dossier report tool — DEC-M8-CLEANUP-002 (parameterless)
+        # generate_dossier_report: sole report renderer; classic path removed.
+        # Tool count: 31 -> 28 (removed start_report_interview, answer_report_question,
+        # generate_report). DEC-68-DOSSIER-REFRAME-008 deprecation runway closed.
         # -----------------------------------------------------------------------
         {
             "type": "function",
@@ -1750,26 +1693,12 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                     "Renders the current threat actor dossier state (9 slots), "
                     "the predictions log (pending / validated / falsified), the "
                     "analyst notes, and the workspace STIX summary. "
-                    "Optional 'style' parameter: 'dossier' (default, M-7 dossier-puzzle report) "
-                    "or 'classic' (v1 interview-based report -- deprecated, removed in v0.3.0). "
                     "Returns the complete Markdown report as a string. "
-                    "No interview required -- the dossier state is the source of truth."
+                    "No interview required — the dossier state is the source of truth."
                 ),
                 "parameters": {
                     "type": "object",
-                    "properties": {
-                        "style": {
-                            "type": "string",
-                            "enum": ["dossier", "classic"],
-                            "description": (
-                                "Report style. 'dossier' produces the M-7 actor-dossier report "
-                                "(default). 'classic' produces the v1 interview-based report "
-                                "(requires prior start_report_interview + answer_report_question "
-                                "calls). 'classic' is deprecated and will be removed in v0.3.0."
-                            ),
-                            "default": "dossier",
-                        },
-                    },
+                    "properties": {},
                     "required": [],
                 },
             },
@@ -2053,25 +1982,6 @@ def execute_tool(
     if tool_name == "export_workspace":
         return _execute_export_workspace(ctx, arguments.get("format", "stix")), None, [], []
 
-    # Report interview tools — DEC-AGENT-REPORT-001
-    if tool_name == "start_report_interview":
-        return _execute_start_report_interview(ctx), None, [], []
-
-    if tool_name == "answer_report_question":
-        return (
-            _execute_answer_report_question(
-                ctx,
-                arguments.get("question_index"),
-                arguments.get("answer", ""),
-            ),
-            None,
-            [],
-            [],
-        )
-
-    if tool_name == "generate_report":
-        return _execute_generate_report(ctx), None, [], []
-
     # Dossier state tool — DEC-M2-DOSSIER-005
     if tool_name == "get_dossier_state":
         return _execute_get_dossier_state(ctx), None, [], []
@@ -2108,17 +2018,9 @@ def execute_tool(
             [],
         )
 
-    # M-7: dossier report tool — DEC-M7-REPORT-005
+    # M-8: dossier report tool — DEC-M8-CLEANUP-002 (parameterless post-M-8)
     if tool_name == "generate_dossier_report":
-        return (
-            _execute_generate_dossier_report(
-                ctx,
-                style=arguments.get("style", "dossier"),
-            ),
-            None,
-            [],
-            [],
-        )
+        return _execute_generate_dossier_report(ctx), None, [], []
 
     # Module dispatch
     if tool_name not in _MODULE_MAP:
@@ -2488,145 +2390,27 @@ def _execute_export_workspace(ctx: ToolContext, fmt: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Report interview helpers — DEC-AGENT-REPORT-001
+# Dossier report helper — DEC-M8-CLEANUP-002 (sole report renderer post-M-8)
 # ---------------------------------------------------------------------------
 
 
-def _execute_start_report_interview(ctx: ToolContext) -> str:
-    """Initialise (or reset) the ReportGenerator and return all interview questions.
+def _execute_generate_dossier_report(ctx: ToolContext) -> str:
+    """Generate the dossier-style investigation report as Markdown.
 
-    Creates a fresh ReportGenerator on ctx.report_generator, wiping any prior
-    answers. Returns the numbered question list so the LLM can present them to
-    the analyst one by one.
-
-    Mirrors cmd2 do_report: always starts from blank answers (DEC-REPORT-003).
-
-    Parameters
-    ----------
-    ctx:
-        The shared ToolContext. report_generator is set on ctx after this call.
-
-    Returns
-    -------
-    str
-        Numbered list of the 5 interview questions, with instructions to call
-        answer_report_question(index, answer) for each.
-    """
-    ctx.report_generator = ReportGenerator(ctx.workspace_mgr)
-    questions = ReportGenerator.INTERVIEW_QUESTIONS
-    lines = [
-        "Investigation report interview started. Answer each question with "
-        "answer_report_question(question_index, answer):",
-        "",
-    ]
-    for i, q in enumerate(questions):
-        lines.append(f"  {i}. {q}")
-    lines.append("")
-    lines.append(
-        "After all 5 answers are set, call generate_report() to produce the Markdown report."
-    )
-    return "\n".join(lines)
-
-
-def _execute_answer_report_question(
-    ctx: ToolContext,
-    question_index: int | None,
-    answer: str,
-) -> str:
-    """Record the analyst's answer for one interview question.
-
-    Sets the answer on the in-session ReportGenerator. Returns a confirmation
-    string with the question text so the LLM can relay it to the analyst.
-
-    Parameters
-    ----------
-    ctx:
-        The shared ToolContext holding the session-scoped ReportGenerator.
-    question_index:
-        Index 0-4 into ReportGenerator.INTERVIEW_QUESTIONS. Returns an error
-        string if None or out of range.
-    answer:
-        The analyst's answer text.
-
-    Returns
-    -------
-    str
-        Confirmation with question text, or an error message.
-    """
-    if ctx.report_generator is None:
-        return "Report interview has not been started. Call start_report_interview() first."
-    if question_index is None:
-        return "question_index is required (0-4)."
-    try:
-        question_index = int(question_index)
-        ctx.report_generator.set_answer(question_index, answer)
-    except (IndexError, ValueError) as e:
-        return f"Error setting answer: {e}"
-
-    question = ReportGenerator.INTERVIEW_QUESTIONS[question_index]
-    total = len(ReportGenerator.INTERVIEW_QUESTIONS)
-    answered = sum(1 for s in ctx.report_generator.sections if s.answer.strip())
-    remaining = total - answered
-    suffix = (
-        " All questions answered — call generate_report() to produce the report."
-        if remaining == 0
-        else f" ({answered}/{total} answered)"
-    )
-    return f"Recorded answer for Q{question_index}: '{question}'.{suffix}"
-
-
-def _execute_generate_report(ctx: ToolContext) -> str:
-    """Generate the full Markdown investigation report.
-
-    Calls ReportGenerator.generate() which combines live workspace data (STIX
-    objects, module runs, score) with the interview answers stored on ctx.report_generator.
-    Returns the complete Markdown string for the LLM to relay to the analyst.
-
-    Parameters
-    ----------
-    ctx:
-        The shared ToolContext holding the session-scoped ReportGenerator.
-
-    Returns
-    -------
-    str
-        Complete Markdown report, or an error/instruction message.
-    """
-    if ctx.report_generator is None:
-        return (
-            "Report interview has not been started. "
-            "Call start_report_interview() first, then answer_report_question() "
-            "for each question, then generate_report()."
-        )
-    try:
-        return ctx.report_generator.generate()
-    except Exception as e:
-        logger.exception("generate_report failed")
-        return f"Error generating report: {e}"
-
-
-def _execute_generate_dossier_report(ctx: ToolContext, style: str = "dossier") -> str:
-    """Generate the dossier-style (or classic) investigation report as Markdown.
-
-    M-7 NEW dispatcher (DEC-M7-REPORT-005). When style='dossier' (default),
-    calls core.dossier_report.generate_dossier_report() — no interview needed.
-    When style='classic', delegates to the existing _execute_generate_report()
-    classic shim path (DEC-68-DOSSIER-REFRAME-008 one-release deprecation runway).
+    M-8: parameterless — classic interview path removed (DEC-68-DOSSIER-REFRAME-008,
+    DEC-M8-CLEANUP-002). Calls core.dossier_report.generate_dossier_report()
+    directly. No interview or style argument needed.
 
     Parameters
     ----------
     ctx:
         The shared ToolContext providing workspace access.
-    style:
-        'dossier' (default) or 'classic'. Any other value is treated as 'dossier'.
 
     Returns
     -------
     str
-        Complete Markdown report, or an error message.
+        Complete Markdown dossier report, or an error message.
     """
-    if style == "classic":
-        return _execute_generate_report(ctx)
     try:
         from adversary_pursuit.core.dossier_report import generate_dossier_report
 
