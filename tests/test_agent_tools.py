@@ -1626,14 +1626,22 @@ class TestModeWiring:
         assert r.system_prompt != original_prompt
 
     def test_set_character_injects_personality_into_system_prompt(self, tmp_ctx):
-        """AgentRunner.set_character(mode) includes mode.personality in system prompt."""
+        """AgentRunner.set_character(mode) includes mode.personality in system prompt.
+
+        Uses drunken_master (llm_profile=None through all C-slices) to test the v1
+        composition path where personality is injected directly. sun_tzu was used here
+        before C-3 but was upgraded in C-3 (DEC-C3-PHILOSOPHY-001) to the v2 profile
+        path — upgraded modes use voice_summary instead of personality in the system
+        prompt. drunken_master is the v1-composition carrier per DEC-C2-NINJA-003 /
+        DEC-30-CHARACTER-V2-006 (ships at llm_profile=None pending C-4).
+        """
         from adversary_pursuit.agent.runner import AgentRunner
 
         r = AgentRunner(tool_context=tmp_ctx)
-        sun_tzu_mode = tmp_ctx.mode_mgr.switch("sun_tzu")
-        r.set_character(sun_tzu_mode)
+        drunken_master_mode = tmp_ctx.mode_mgr.switch("drunken_master")
+        r.set_character(drunken_master_mode)
 
-        assert sun_tzu_mode.personality in r.system_prompt
+        assert drunken_master_mode.personality in r.system_prompt
 
     def test_set_character_updates_conversation_system_slot(self, tmp_ctx):
         """AgentRunner.set_character() updates conversation[0] system message."""
@@ -1720,6 +1728,11 @@ class TestModeWiring:
         Production path: chat.py 'mode sun_tzu' -> mode_mgr.switch('sun_tzu')
         -> runner.set_character(mode) -> user runs a query -> execute_tool()
         -> run_module() -> celebration uses sun_tzu template.
+
+        Note: sun_tzu was upgraded in C-3 (DEC-C3-PHILOSOPHY-001) and now uses the
+        v2 profile composition path. The system-prompt assertion uses voice_summary
+        (the v2 voice field) rather than personality (the v1 field). The score_celebration
+        template (a static voice field, not the LLM profile) is unchanged by the upgrade.
         """
         from adversary_pursuit.agent.runner import AgentRunner
 
@@ -1730,8 +1743,11 @@ class TestModeWiring:
         new_mode = tmp_ctx.mode_mgr.switch("sun_tzu")
         r.set_character(new_mode)
 
-        # 3. Verify system prompt reflects sun_tzu persona
-        assert new_mode.personality in r.system_prompt
+        # 3. Verify system prompt reflects sun_tzu persona.
+        # sun_tzu now uses v2 profile composition (C-3 DEC-C3-PHILOSOPHY-001):
+        # voice_summary is injected, not the v1 personality string.
+        assert new_mode.llm_profile is not None
+        assert new_mode.llm_profile.voice_summary in r.system_prompt
 
         # 4. Run a tool that scores points (hunt() mocked at HTTP boundary)
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
@@ -1740,7 +1756,8 @@ class TestModeWiring:
 
         assert result["total_points"] > 0
 
-        # 5. Celebration must contain sun_tzu's score_celebration template text
+        # 5. Celebration must contain sun_tzu's score_celebration template text.
+        # score_celebration is a static voice field — unchanged by the C-3 upgrade.
         # sun_tzu template: '"Supreme excellence." +{points} points earned.'
         expected_text = f"+{result['total_points']} points earned."
         assert expected_text in result["celebration"], (

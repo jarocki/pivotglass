@@ -133,23 +133,24 @@ class TestCharacterModeLlmProfileField:
         )
 
     def test_llm_profile_default_is_none_for_all_modes(self):
-        """All modes except full_troll and ninja must have llm_profile=None.
+        """All modes except upgraded ones must have llm_profile=None.
 
         C-1 (DEC-C1-FULLTROLL-001) upgraded full_troll.
         C-2 (DEC-C2-NINJA-001) upgrades ninja.
-        The remaining 8 modes continue to ship at llm_profile=None per
-        DEC-30-CHARACTER-V2-006 until their respective C-slices land.
+        C-3 (DEC-C3-PHILOSOPHY-001..003) upgrades sun_tzu, bruce_lee, bureaucrat.
+        The remaining 5 modes continue to ship at llm_profile=None per
+        DEC-30-CHARACTER-V2-006 until C-4 closes the catalog.
         """
-        # full_troll: upgraded in C-1; ninja: upgraded in C-2.
-        upgraded_modes = {"full_troll", "ninja"}
+        # full_troll: C-1; ninja: C-2; sun_tzu/bruce_lee/bureaucrat: C-3.
+        upgraded_modes = {"full_troll", "ninja", "sun_tzu", "bruce_lee", "bureaucrat"}
         static_modes = {
             name: mode for name, mode in DEFAULT_MODES.items() if name not in upgraded_modes
         }
         for name, mode in static_modes.items():
             assert mode.llm_profile is None, (
-                f"Mode '{name}' has llm_profile set -- only full_troll (DEC-C1-FULLTROLL-001) "
-                "and ninja (DEC-C2-NINJA-001) should have profiles post-C-2. "
-                "(DEC-30-CHARACTER-V2-006: remaining 8 modes ship at llm_profile=None)"
+                f"Mode '{name}' has llm_profile set -- only full_troll (C-1), "
+                "ninja (C-2), sun_tzu/bruce_lee/bureaucrat (C-3) should have profiles post-C-3. "
+                "(DEC-30-CHARACTER-V2-006: remaining 5 modes ship at llm_profile=None)"
             )
 
     def test_hint_style_not_reintroduced(self):
@@ -1076,4 +1077,894 @@ class TestNinjaF64PanelSeparation:
         all_fv = " ".join(profile.forbidden_voice).lower()
         assert "point" in all_fv or "pts" in all_fv or "score" in all_fv, (
             "ninja forbidden_voice must include a point-total narration guard (F64)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 11. C-3: sun_tzu LLMPersonaProfile content (DEC-C3-PHILOSOPHY-001)
+# ---------------------------------------------------------------------------
+
+
+class TestSunTzuProfileContent:
+    """sun_tzu must carry the LLMPersonaProfile specified in DEC-C3-PHILOSOPHY-001
+    (character-c3-philosophy-bureaucrat.md §3.1). Mirrors TestNinjaProfileContent.
+    """
+
+    @pytest.fixture
+    def profile(self) -> LLMPersonaProfile:
+        """Return sun_tzu's llm_profile."""
+        mode = DEFAULT_MODES["sun_tzu"]
+        assert mode.llm_profile is not None, (
+            "sun_tzu.llm_profile is None -- DEC-C3-PHILOSOPHY-001 requires it to be set"
+        )
+        return mode.llm_profile
+
+    def test_sun_tzu_has_llm_profile(self):
+        """sun_tzu must have a non-None LLMPersonaProfile (C-3 gate)."""
+        mode = DEFAULT_MODES["sun_tzu"]
+        assert mode.llm_profile is not None
+
+    def test_sun_tzu_profile_voice_summary_content(self, profile: LLMPersonaProfile):
+        """voice_summary must capture strategist / Art of War / oblique register."""
+        vs = profile.voice_summary.lower()
+        assert any(
+            word in vs for word in ("strateg", "art of war", "oblique", "patient", "gnomic")
+        ), (
+            f"voice_summary '{profile.voice_summary}' missing expected strategist descriptor. "
+            "Must contain at least one of: strateg, art of war, oblique, patient, gnomic"
+        )
+
+    def test_sun_tzu_profile_tone_registers_content(self, profile: LLMPersonaProfile):
+        """tone_registers must be a tuple with ≥ 2 entries including anchor registers."""
+        assert isinstance(profile.tone_registers, tuple)
+        assert len(profile.tone_registers) >= 2, (
+            "tone_registers must have 2-4 register words per schema"
+        )
+        registers_lower = {r.lower() for r in profile.tone_registers}
+        expected = {"gnomic", "strategic"}
+        assert expected.issubset(registers_lower), (
+            f"tone_registers {profile.tone_registers} missing anchor registers: "
+            f"{expected - registers_lower}"
+        )
+
+    def test_sun_tzu_profile_signature_phrases_content(self, profile: LLMPersonaProfile):
+        """signature_phrases must include at least one canonical Art of War phrase."""
+        assert isinstance(profile.signature_phrases, tuple)
+        assert len(profile.signature_phrases) >= 2, (
+            "signature_phrases must have 2-5 catch-phrases per schema"
+        )
+        phrases_lower = [p.lower() for p in profile.signature_phrases]
+        canonical = ("know thy enemy", "opportunities multiply", "chaos", "victory")
+        assert any(any(c in p for c in canonical) for p in phrases_lower), (
+            f"signature_phrases {profile.signature_phrases} must include at least one of "
+            f"{canonical} (DEC-C3-PHILOSOPHY-001 voice anchors)"
+        )
+
+    def test_sun_tzu_profile_fourth_wall_stance(self, profile: LLMPersonaProfile):
+        """fourth_wall_stance must be 'opaque' for sun_tzu (DEC-C3-PHILOSOPHY-006).
+
+        sun_tzu is the strategist role — no meta-awareness of being an LLM/tool.
+        """
+        assert profile.fourth_wall_stance == "opaque", (
+            f"fourth_wall_stance must be 'opaque', got {profile.fourth_wall_stance!r}"
+        )
+
+    def test_sun_tzu_profile_dialect_cadence_content(self, profile: LLMPersonaProfile):
+        """dialect_cadence must describe aphoristic / quote-then-application cadence."""
+        dc = profile.dialect_cadence.lower()
+        assert any(
+            word in dc for word in ("aphor", "quote", "short", "second-person", "no modern slang")
+        ), (
+            f"dialect_cadence '{profile.dialect_cadence}' doesn't capture the "
+            "aphoristic / quote-then-application rhythm expected for sun_tzu"
+        )
+
+    def test_sun_tzu_profile_context_hooks_empty(self, profile: LLMPersonaProfile):
+        """context_hooks must be empty tuple for sun_tzu (DEC-C3-PHILOSOPHY-005)."""
+        assert profile.context_hooks == (), (
+            f"context_hooks must be () for sun_tzu in C-3 (deferred to C-4), "
+            f"got {profile.context_hooks!r}"
+        )
+
+    def test_sun_tzu_profile_tool_preferences_content(self, profile: LLMPersonaProfile):
+        """tool_preferences must be voice-affinity ONLY (NOT selection instructions)."""
+        assert isinstance(profile.tool_preferences, tuple)
+        assert len(profile.tool_preferences) >= 1, (
+            "tool_preferences should have 1-3 voice-affinity hints per schema"
+        )
+        for pref in profile.tool_preferences:
+            pref_lower = pref.lower()
+            assert not pref_lower.startswith("prefer "), (
+                f"tool_preferences entry starts with 'prefer' -- "
+                f"must use affinity language, not selection instruction: {pref!r}"
+            )
+            assert "must use" not in pref_lower, (
+                f"tool_preferences entry contains 'must use': {pref!r}"
+            )
+        all_prefs = " ".join(profile.tool_preferences).lower()
+        assert any(tool in all_prefs for tool in ("virustotal", "crt.sh", "crt", "shodan")), (
+            f"tool_preferences doesn't reference any known CTI tools: {profile.tool_preferences}"
+        )
+
+    def test_sun_tzu_profile_forbidden_voice_content(self, profile: LLMPersonaProfile):
+        """forbidden_voice must include F64 point-narration guard AND voice-register guard.
+
+        Two distinct guards required:
+        1. F64: point-total narration is prohibited.
+        2. Voice-register: modern slang / memes / exclamations are prohibited.
+        """
+        assert isinstance(profile.forbidden_voice, tuple)
+        assert len(profile.forbidden_voice) >= 1, (
+            "forbidden_voice must have at least the F64 panel-separation guard"
+        )
+        all_fv = " ".join(profile.forbidden_voice).lower()
+        assert any(word in all_fv for word in ("point", "pts", "score")), (
+            f"forbidden_voice must include F64 point-narration guard: {profile.forbidden_voice}"
+        )
+        assert any(word in all_fv for word in ("slang", "meme", "exclaim", "exclamation")), (
+            f"forbidden_voice must include modern-slang/exclamation guard: {profile.forbidden_voice}"
+        )
+
+    def test_sun_tzu_profile_token_budget(self, profile: LLMPersonaProfile):
+        """sun_tzu profile must not exceed 165 tokens (DEC-30-CHARACTER-V2-003).
+
+        Uses 4-chars-per-token proxy. Mirrors test_ninja_profile_token_budget.
+        """
+        profile_text = " ".join(
+            [
+                profile.voice_summary,
+                " ".join(profile.tone_registers),
+                " ".join(profile.signature_phrases),
+                profile.fourth_wall_stance,
+                profile.dialect_cadence,
+                " ".join(profile.context_hooks),
+                " ".join(profile.tool_preferences),
+                " ".join(profile.forbidden_voice),
+            ]
+        )
+        approx_tokens = _rough_token_count(profile_text)
+        assert approx_tokens <= 165, (
+            f"sun_tzu profile exceeds 165-token budget: ~{approx_tokens} tokens "
+            f"(DEC-30-CHARACTER-V2-003). Content: {profile_text!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 12. C-3: sun_tzu persona-swap tool-call-identity hard gate
+# ---------------------------------------------------------------------------
+
+
+class TestSunTzuPersonaSwapHardGates:
+    """Mirrors TestNinjaPersonaSwapHardGates for sun_tzu.
+
+    HARD GATE: DEC-C1-FULLTROLL-004 extended to sun_tzu (DEC-C3-PHILOSOPHY-004).
+    Tool call sequence under sun_tzu MUST equal default-mode sequence for the same
+    query under the same deterministic mock LLM.
+
+    @mock-exempt: litellm.completion is an external LLM API boundary.
+    execute_tool is mocked at the tool-dispatch boundary.
+    """
+
+    FIXED_TOOL_NAME = "dns_resolve"
+    FIXED_TOOL_ARGS = {"target": "evil.example.com"}
+
+    def _make_mock_litellm_response(self, tool_name: str, tool_args: dict):
+        mock_resp = MagicMock()
+        mock_resp.choices = [MagicMock()]
+        mock_resp.choices[0].finish_reason = "tool_calls"
+        mock_resp.choices[0].message = MagicMock()
+        mock_resp.choices[0].message.content = None
+        mock_resp.choices[0].message.tool_calls = [MagicMock()]
+        mock_resp.choices[0].message.tool_calls[0].id = "call_sun_tzu"
+        mock_resp.choices[0].message.tool_calls[0].type = "function"
+        mock_resp.choices[0].message.tool_calls[0].function = MagicMock()
+        mock_resp.choices[0].message.tool_calls[0].function.name = tool_name
+        mock_resp.choices[0].message.tool_calls[0].function.arguments = json.dumps(tool_args)
+        return mock_resp
+
+    def _make_mock_final_response(self, text: str):
+        mock_resp = MagicMock()
+        mock_resp.choices = [MagicMock()]
+        mock_resp.choices[0].finish_reason = "stop"
+        mock_resp.choices[0].message = MagicMock()
+        mock_resp.choices[0].message.content = text
+        mock_resp.choices[0].message.tool_calls = None
+        return mock_resp
+
+    def _run_chat_with_mode(self, runner, mode: CharacterMode, query: str) -> list[tuple[str, str]]:
+        from adversary_pursuit.agent import runner as runner_module
+
+        tool_calls_recorded: list[tuple[str, str]] = []
+        tool_resp = self._make_mock_litellm_response(self.FIXED_TOOL_NAME, self.FIXED_TOOL_ARGS)
+        final_resp = self._make_mock_final_response("Opportunities multiply as they are seized.")
+        call_count = 0
+
+        def mock_completion(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            return tool_resp if call_count == 1 else final_resp
+
+        def mock_execute_tool(ctx, tool_name, arguments):
+            tool_calls_recorded.append((tool_name, json.dumps(arguments, sort_keys=True)))
+            return ("mocked result", None, [], [])
+
+        runner.set_character(mode)
+        runner.conversation = [runner.conversation[0]]
+
+        with (
+            patch.object(runner_module, "litellm") as mock_litellm,
+            patch.object(runner_module, "execute_tool", mock_execute_tool),
+        ):
+            mock_litellm.completion = mock_completion
+            runner.chat(query)
+
+        return tool_calls_recorded
+
+    def test_sun_tzu_swap_preserves_tool_call_identity(self, tmp_path):
+        """Same query under sun_tzu vs default must produce identical tool calls.
+
+        HARD GATE for DEC-C1-FULLTROLL-004 (extended to sun_tzu by C-3,
+        DEC-C3-PHILOSOPHY-004) and DEC-30-CHARACTER-V2-005: tool_preferences
+        is voice-affinity ONLY, NEVER tool-selection bias.
+        """
+        from adversary_pursuit.agent.runner import AgentRunner
+        from adversary_pursuit.agent.tools import ToolContext
+
+        ctx = ToolContext(
+            config_dir=tmp_path / "config",
+            workspace_dir=tmp_path / "workspaces",
+        )
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+        runner = AgentRunner(model="fake-model", tool_context=ctx)
+
+        query = "What do you know about evil.example.com?"
+
+        calls_under_sun_tzu = self._run_chat_with_mode(runner, DEFAULT_MODES["sun_tzu"], query)
+        calls_under_default = self._run_chat_with_mode(runner, DEFAULT_MODES["default"], query)
+
+        assert calls_under_sun_tzu == calls_under_default, (
+            "HARD GATE FAILURE: sun_tzu persona swap changed tool call sequence!\n"
+            f"  sun_tzu calls: {calls_under_sun_tzu}\n"
+            f"  default calls: {calls_under_default}\n"
+            "tool_preferences must be voice-affinity ONLY (DEC-C3-PHILOSOPHY-004)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 13. C-3: sun_tzu F64 panel-separation hard gates
+# ---------------------------------------------------------------------------
+
+
+class TestSunTzuF64PanelSeparation:
+    """F64 DEC-64-LLM-PANEL-SEPARATION-001 for sun_tzu. Mirrors TestNinjaF64PanelSeparation."""
+
+    def test_sun_tzu_persona_text_not_present_in_tool_result_summary(self, tmp_path):
+        """sun_tzu persona voice text must NOT appear in the summary returned by execute_tool."""
+        from adversary_pursuit.agent.tools import ToolContext, execute_tool
+
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+
+        ctx.mode_mgr.switch("sun_tzu")
+
+        result_summary, _, _, _ = execute_tool(ctx, "dns_resolve", {"target": "test.example"})
+
+        profile = DEFAULT_MODES["sun_tzu"].llm_profile
+        if profile is not None:
+            for phrase in profile.signature_phrases:
+                assert phrase not in result_summary, (
+                    f"sun_tzu persona signature phrase {phrase!r} leaked into tool result summary.\n"
+                    f"Summary: {result_summary!r}"
+                )
+
+    def test_sun_tzu_does_not_smuggle_point_totals(self):
+        """sun_tzu LLM profile must not narrate point totals (F64 invariant)."""
+        profile = DEFAULT_MODES["sun_tzu"].llm_profile
+        assert profile is not None
+
+        all_fv = " ".join(profile.forbidden_voice).lower()
+        assert "point" in all_fv or "pts" in all_fv or "score" in all_fv, (
+            "sun_tzu forbidden_voice must include a point-total narration guard (F64)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 14. C-3: bruce_lee LLMPersonaProfile content (DEC-C3-PHILOSOPHY-002)
+# ---------------------------------------------------------------------------
+
+
+class TestBruceLeeProfileContent:
+    """bruce_lee must carry the LLMPersonaProfile specified in DEC-C3-PHILOSOPHY-002
+    (character-c3-philosophy-bureaucrat.md §3.2). Mirrors TestNinjaProfileContent.
+    """
+
+    @pytest.fixture
+    def profile(self) -> LLMPersonaProfile:
+        """Return bruce_lee's llm_profile."""
+        mode = DEFAULT_MODES["bruce_lee"]
+        assert mode.llm_profile is not None, (
+            "bruce_lee.llm_profile is None -- DEC-C3-PHILOSOPHY-002 requires it to be set"
+        )
+        return mode.llm_profile
+
+    def test_bruce_lee_has_llm_profile(self):
+        """bruce_lee must have a non-None LLMPersonaProfile (C-3 gate)."""
+        mode = DEFAULT_MODES["bruce_lee"]
+        assert mode.llm_profile is not None
+
+    def test_bruce_lee_profile_voice_summary_content(self, profile: LLMPersonaProfile):
+        """voice_summary must capture flow-state / water / zen-philosopher register."""
+        vs = profile.voice_summary.lower()
+        assert any(
+            word in vs for word in ("flow", "water", "zen", "philosopher", "adapt", "movement")
+        ), (
+            f"voice_summary '{profile.voice_summary}' missing expected zen-flow descriptor. "
+            "Must contain at least one of: flow, water, zen, philosopher, adapt, movement"
+        )
+
+    def test_bruce_lee_profile_tone_registers_content(self, profile: LLMPersonaProfile):
+        """tone_registers must be a tuple with ≥ 2 entries including anchor registers."""
+        assert isinstance(profile.tone_registers, tuple)
+        assert len(profile.tone_registers) >= 2, (
+            "tone_registers must have 2-4 register words per schema"
+        )
+        registers_lower = {r.lower() for r in profile.tone_registers}
+        expected = {"zen", "flowing"}
+        assert expected.issubset(registers_lower), (
+            f"tone_registers {profile.tone_registers} missing anchor registers: "
+            f"{expected - registers_lower}"
+        )
+
+    def test_bruce_lee_profile_signature_phrases_content(self, profile: LLMPersonaProfile):
+        """signature_phrases must include at least one canonical Bruce Lee phrase."""
+        assert isinstance(profile.signature_phrases, tuple)
+        assert len(profile.signature_phrases) >= 2, (
+            "signature_phrases must have 2-5 catch-phrases per schema"
+        )
+        phrases_lower = [p.lower() for p in profile.signature_phrases]
+        canonical = ("be water", "don't fear failure", "useful", "10,000 kicks", "formless")
+        assert any(any(c in p for c in canonical) for p in phrases_lower), (
+            f"signature_phrases {profile.signature_phrases} must include at least one of "
+            f"{canonical} (DEC-C3-PHILOSOPHY-002 voice anchors)"
+        )
+
+    def test_bruce_lee_profile_fourth_wall_stance(self, profile: LLMPersonaProfile):
+        """fourth_wall_stance must be 'opaque' for bruce_lee (DEC-C3-PHILOSOPHY-006)."""
+        assert profile.fourth_wall_stance == "opaque", (
+            f"fourth_wall_stance must be 'opaque', got {profile.fourth_wall_stance!r}"
+        )
+
+    def test_bruce_lee_profile_dialect_cadence_content(self, profile: LLMPersonaProfile):
+        """dialect_cadence must describe nature-metaphor / short-declarative cadence."""
+        dc = profile.dialect_cadence.lower()
+        assert any(
+            word in dc for word in ("nature", "metaphor", "short", "declarative", "second-person")
+        ), (
+            f"dialect_cadence '{profile.dialect_cadence}' doesn't capture the "
+            "nature-metaphor / short-declarative rhythm expected for bruce_lee"
+        )
+
+    def test_bruce_lee_profile_context_hooks_empty(self, profile: LLMPersonaProfile):
+        """context_hooks must be empty tuple for bruce_lee (DEC-C3-PHILOSOPHY-005)."""
+        assert profile.context_hooks == (), (
+            f"context_hooks must be () for bruce_lee in C-3 (deferred to C-4), "
+            f"got {profile.context_hooks!r}"
+        )
+
+    def test_bruce_lee_profile_tool_preferences_content(self, profile: LLMPersonaProfile):
+        """tool_preferences must be voice-affinity ONLY (NOT selection instructions)."""
+        assert isinstance(profile.tool_preferences, tuple)
+        assert len(profile.tool_preferences) >= 1, (
+            "tool_preferences should have 1-3 voice-affinity hints per schema"
+        )
+        for pref in profile.tool_preferences:
+            pref_lower = pref.lower()
+            assert not pref_lower.startswith("prefer "), (
+                f"tool_preferences entry starts with 'prefer' -- "
+                f"must use affinity language, not selection instruction: {pref!r}"
+            )
+            assert "must use" not in pref_lower, (
+                f"tool_preferences entry contains 'must use': {pref!r}"
+            )
+        all_prefs = " ".join(profile.tool_preferences).lower()
+        assert any(
+            tool in all_prefs for tool in ("crt.sh", "crt", "dns", "virustotal", "shodan")
+        ), f"tool_preferences doesn't reference any known CTI tools: {profile.tool_preferences}"
+
+    def test_bruce_lee_profile_forbidden_voice_content(self, profile: LLMPersonaProfile):
+        """forbidden_voice must include F64 point-narration guard AND voice-register guard."""
+        assert isinstance(profile.forbidden_voice, tuple)
+        assert len(profile.forbidden_voice) >= 1, (
+            "forbidden_voice must have at least the F64 panel-separation guard"
+        )
+        all_fv = " ".join(profile.forbidden_voice).lower()
+        assert any(word in all_fv for word in ("point", "pts", "score")), (
+            f"forbidden_voice must include F64 point-narration guard: {profile.forbidden_voice}"
+        )
+        assert any(
+            word in all_fv for word in ("sarcasm", "snark", "exclaim", "exclamation", "hype")
+        ), (
+            f"forbidden_voice must include sarcasm/snark/exclamation guard: {profile.forbidden_voice}"
+        )
+
+    def test_bruce_lee_profile_token_budget(self, profile: LLMPersonaProfile):
+        """bruce_lee profile must not exceed 165 tokens (DEC-30-CHARACTER-V2-003)."""
+        profile_text = " ".join(
+            [
+                profile.voice_summary,
+                " ".join(profile.tone_registers),
+                " ".join(profile.signature_phrases),
+                profile.fourth_wall_stance,
+                profile.dialect_cadence,
+                " ".join(profile.context_hooks),
+                " ".join(profile.tool_preferences),
+                " ".join(profile.forbidden_voice),
+            ]
+        )
+        approx_tokens = _rough_token_count(profile_text)
+        assert approx_tokens <= 165, (
+            f"bruce_lee profile exceeds 165-token budget: ~{approx_tokens} tokens "
+            f"(DEC-30-CHARACTER-V2-003). Content: {profile_text!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 15. C-3: bruce_lee persona-swap tool-call-identity hard gate
+# ---------------------------------------------------------------------------
+
+
+class TestBruceLeePersonaSwapHardGates:
+    """Mirrors TestNinjaPersonaSwapHardGates for bruce_lee.
+
+    HARD GATE: DEC-C1-FULLTROLL-004 extended to bruce_lee (DEC-C3-PHILOSOPHY-004).
+
+    @mock-exempt: litellm.completion is an external LLM API boundary.
+    execute_tool is mocked at the tool-dispatch boundary.
+    """
+
+    FIXED_TOOL_NAME = "dns_resolve"
+    FIXED_TOOL_ARGS = {"target": "evil.example.com"}
+
+    def _make_mock_litellm_response(self, tool_name: str, tool_args: dict):
+        mock_resp = MagicMock()
+        mock_resp.choices = [MagicMock()]
+        mock_resp.choices[0].finish_reason = "tool_calls"
+        mock_resp.choices[0].message = MagicMock()
+        mock_resp.choices[0].message.content = None
+        mock_resp.choices[0].message.tool_calls = [MagicMock()]
+        mock_resp.choices[0].message.tool_calls[0].id = "call_bruce_lee"
+        mock_resp.choices[0].message.tool_calls[0].type = "function"
+        mock_resp.choices[0].message.tool_calls[0].function = MagicMock()
+        mock_resp.choices[0].message.tool_calls[0].function.name = tool_name
+        mock_resp.choices[0].message.tool_calls[0].function.arguments = json.dumps(tool_args)
+        return mock_resp
+
+    def _make_mock_final_response(self, text: str):
+        mock_resp = MagicMock()
+        mock_resp.choices = [MagicMock()]
+        mock_resp.choices[0].finish_reason = "stop"
+        mock_resp.choices[0].message = MagicMock()
+        mock_resp.choices[0].message.content = text
+        mock_resp.choices[0].message.tool_calls = None
+        return mock_resp
+
+    def _run_chat_with_mode(self, runner, mode: CharacterMode, query: str) -> list[tuple[str, str]]:
+        from adversary_pursuit.agent import runner as runner_module
+
+        tool_calls_recorded: list[tuple[str, str]] = []
+        tool_resp = self._make_mock_litellm_response(self.FIXED_TOOL_NAME, self.FIXED_TOOL_ARGS)
+        final_resp = self._make_mock_final_response("Be water, my friend.")
+        call_count = 0
+
+        def mock_completion(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            return tool_resp if call_count == 1 else final_resp
+
+        def mock_execute_tool(ctx, tool_name, arguments):
+            tool_calls_recorded.append((tool_name, json.dumps(arguments, sort_keys=True)))
+            return ("mocked result", None, [], [])
+
+        runner.set_character(mode)
+        runner.conversation = [runner.conversation[0]]
+
+        with (
+            patch.object(runner_module, "litellm") as mock_litellm,
+            patch.object(runner_module, "execute_tool", mock_execute_tool),
+        ):
+            mock_litellm.completion = mock_completion
+            runner.chat(query)
+
+        return tool_calls_recorded
+
+    def test_bruce_lee_swap_preserves_tool_call_identity(self, tmp_path):
+        """Same query under bruce_lee vs default must produce identical tool calls.
+
+        HARD GATE for DEC-C1-FULLTROLL-004 (extended to bruce_lee by C-3,
+        DEC-C3-PHILOSOPHY-004) and DEC-30-CHARACTER-V2-005.
+        """
+        from adversary_pursuit.agent.runner import AgentRunner
+        from adversary_pursuit.agent.tools import ToolContext
+
+        ctx = ToolContext(
+            config_dir=tmp_path / "config",
+            workspace_dir=tmp_path / "workspaces",
+        )
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+        runner = AgentRunner(model="fake-model", tool_context=ctx)
+
+        query = "What do you know about evil.example.com?"
+
+        calls_under_bruce_lee = self._run_chat_with_mode(runner, DEFAULT_MODES["bruce_lee"], query)
+        calls_under_default = self._run_chat_with_mode(runner, DEFAULT_MODES["default"], query)
+
+        assert calls_under_bruce_lee == calls_under_default, (
+            "HARD GATE FAILURE: bruce_lee persona swap changed tool call sequence!\n"
+            f"  bruce_lee calls: {calls_under_bruce_lee}\n"
+            f"  default calls:   {calls_under_default}\n"
+            "tool_preferences must be voice-affinity ONLY (DEC-C3-PHILOSOPHY-004)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 16. C-3: bruce_lee F64 panel-separation hard gates
+# ---------------------------------------------------------------------------
+
+
+class TestBruceLeeF64PanelSeparation:
+    """F64 DEC-64-LLM-PANEL-SEPARATION-001 for bruce_lee. Mirrors TestNinjaF64PanelSeparation."""
+
+    def test_bruce_lee_persona_text_not_present_in_tool_result_summary(self, tmp_path):
+        """bruce_lee persona voice text must NOT appear in the summary returned by execute_tool.
+
+        The summary contains run_fail (Rich-stripped static voice) — that is expected.
+        We only check signature_phrases that are NOT already substrings of the static
+        voice fields (run_fail, run_success, greeting). A phrase shared verbatim with
+        run_fail reaching the summary is run_fail wiring, not a persona profile leak.
+        For bruce_lee, "Don't fear failure." is both a signature_phrase AND the prefix
+        of run_fail — we skip it here; the F62 run_fail single-authority tests cover it.
+        """
+        from adversary_pursuit.agent.tools import ToolContext, execute_tool
+
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+
+        ctx.mode_mgr.switch("bruce_lee")
+
+        result_summary, _, _, _ = execute_tool(ctx, "dns_resolve", {"target": "test.example"})
+
+        mode = DEFAULT_MODES["bruce_lee"]
+        profile = mode.llm_profile
+        # Collect the static voice strings so we can exclude overlapping phrases.
+        static_voice = " ".join(
+            [mode.run_fail, mode.run_success, mode.greeting, mode.score_celebration]
+        )
+        if profile is not None:
+            for phrase in profile.signature_phrases:
+                if phrase in static_voice:
+                    # Phrase is also part of the static-voice surface (e.g. run_fail).
+                    # Its presence in the summary is the F62 run_fail wiring, not a leak.
+                    continue
+                assert phrase not in result_summary, (
+                    f"bruce_lee persona signature phrase {phrase!r} leaked into tool result summary.\n"
+                    f"Summary: {result_summary!r}"
+                )
+
+    def test_bruce_lee_does_not_smuggle_point_totals(self):
+        """bruce_lee LLM profile must not narrate point totals (F64 invariant)."""
+        profile = DEFAULT_MODES["bruce_lee"].llm_profile
+        assert profile is not None
+
+        all_fv = " ".join(profile.forbidden_voice).lower()
+        assert "point" in all_fv or "pts" in all_fv or "score" in all_fv, (
+            "bruce_lee forbidden_voice must include a point-total narration guard (F64)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 17. C-3: bureaucrat LLMPersonaProfile content (DEC-C3-PHILOSOPHY-003)
+# ---------------------------------------------------------------------------
+
+
+class TestBureaucratProfileContent:
+    """bureaucrat must carry the LLMPersonaProfile specified in DEC-C3-PHILOSOPHY-003
+    (character-c3-philosophy-bureaucrat.md §3.3). Mirrors TestNinjaProfileContent.
+    """
+
+    @pytest.fixture
+    def profile(self) -> LLMPersonaProfile:
+        """Return bureaucrat's llm_profile."""
+        mode = DEFAULT_MODES["bureaucrat"]
+        assert mode.llm_profile is not None, (
+            "bureaucrat.llm_profile is None -- DEC-C3-PHILOSOPHY-003 requires it to be set"
+        )
+        return mode.llm_profile
+
+    def test_bureaucrat_has_llm_profile(self):
+        """bureaucrat must have a non-None LLMPersonaProfile (C-3 gate)."""
+        mode = DEFAULT_MODES["bureaucrat"]
+        assert mode.llm_profile is not None
+
+    def test_bureaucrat_profile_voice_summary_content(self, profile: LLMPersonaProfile):
+        """voice_summary must capture compliance-officer / form-filing / policy register."""
+        vs = profile.voice_summary.lower()
+        assert any(word in vs for word in ("compliance", "form", "policy", "officer", "office")), (
+            f"voice_summary '{profile.voice_summary}' missing expected bureaucratic descriptor. "
+            "Must contain at least one of: compliance, form, policy, officer, office"
+        )
+
+    def test_bureaucrat_profile_tone_registers_content(self, profile: LLMPersonaProfile):
+        """tone_registers must be a tuple with ≥ 2 entries including anchor registers."""
+        assert isinstance(profile.tone_registers, tuple)
+        assert len(profile.tone_registers) >= 2, (
+            "tone_registers must have 2-4 register words per schema"
+        )
+        registers_lower = {r.lower() for r in profile.tone_registers}
+        expected = {"dry-corporate", "deadpan"}
+        assert expected.issubset(registers_lower), (
+            f"tone_registers {profile.tone_registers} missing anchor registers: "
+            f"{expected - registers_lower}"
+        )
+
+    def test_bureaucrat_profile_signature_phrases_content(self, profile: LLMPersonaProfile):
+        """signature_phrases must include policy-section and form-number references."""
+        assert isinstance(profile.signature_phrases, tuple)
+        assert len(profile.signature_phrases) >= 2, (
+            "signature_phrases must have 2-5 catch-phrases per schema"
+        )
+        all_phrases = " ".join(profile.signature_phrases)
+        assert "§" in all_phrases or "policy" in all_phrases.lower(), (
+            f"signature_phrases must include a policy-section reference (§ or 'policy'): "
+            f"{profile.signature_phrases}"
+        )
+        assert any(
+            "form" in p.lower() or "ir-" in p.lower() or "err-" in p.lower()
+            for p in profile.signature_phrases
+        ), (
+            f"signature_phrases must include a form-number reference (Form/IR-/ERR-): "
+            f"{profile.signature_phrases}"
+        )
+
+    def test_bureaucrat_profile_fourth_wall_stance(self, profile: LLMPersonaProfile):
+        """fourth_wall_stance must be 'opaque' for bureaucrat (DEC-C3-PHILOSOPHY-006)."""
+        assert profile.fourth_wall_stance == "opaque", (
+            f"fourth_wall_stance must be 'opaque', got {profile.fourth_wall_stance!r}"
+        )
+
+    def test_bureaucrat_profile_dialect_cadence_content(self, profile: LLMPersonaProfile):
+        """dialect_cadence must describe passive-voice / policy-citation / no-contractions cadence."""
+        dc = profile.dialect_cadence.lower()
+        assert any(
+            word in dc
+            for word in ("passive", "policy", "citation", "form", "no contractions", "contraction")
+        ), (
+            f"dialect_cadence '{profile.dialect_cadence}' doesn't capture the "
+            "passive-voice / policy-citation / no-contractions rhythm expected for bureaucrat"
+        )
+
+    def test_bureaucrat_profile_context_hooks_empty(self, profile: LLMPersonaProfile):
+        """context_hooks must be empty tuple for bureaucrat (DEC-C3-PHILOSOPHY-005)."""
+        assert profile.context_hooks == (), (
+            f"context_hooks must be () for bureaucrat in C-3 (deferred to C-4), "
+            f"got {profile.context_hooks!r}"
+        )
+
+    def test_bureaucrat_profile_tool_preferences_content(self, profile: LLMPersonaProfile):
+        """tool_preferences must be voice-affinity ONLY (NOT selection instructions).
+
+        Bureaucrat's form-framing (Form CT-3, Form WH-1) must not be phrased as
+        selection instructions per DEC-C3-PHILOSOPHY-004 / DEC-30-CHARACTER-V2-005.
+        """
+        assert isinstance(profile.tool_preferences, tuple)
+        assert len(profile.tool_preferences) >= 1, (
+            "tool_preferences should have 1-3 voice-affinity hints per schema"
+        )
+        for pref in profile.tool_preferences:
+            pref_lower = pref.lower()
+            assert not pref_lower.startswith("prefer "), (
+                f"tool_preferences entry starts with 'prefer' -- "
+                f"must use affinity language, not selection instruction: {pref!r}"
+            )
+            assert "must use" not in pref_lower, (
+                f"tool_preferences entry contains 'must use': {pref!r}"
+            )
+        all_prefs = " ".join(profile.tool_preferences).lower()
+        assert any(
+            tool in all_prefs for tool in ("crt.sh", "crt", "whois", "virustotal", "shodan")
+        ), f"tool_preferences doesn't reference any known CTI tools: {profile.tool_preferences}"
+
+    def test_bureaucrat_profile_forbidden_voice_content(self, profile: LLMPersonaProfile):
+        """forbidden_voice must include F64 point-narration guard AND no-slang guard."""
+        assert isinstance(profile.forbidden_voice, tuple)
+        assert len(profile.forbidden_voice) >= 1, (
+            "forbidden_voice must have at least the F64 panel-separation guard"
+        )
+        all_fv = " ".join(profile.forbidden_voice).lower()
+        assert any(word in all_fv for word in ("point", "pts", "score")), (
+            f"forbidden_voice must include F64 point-narration guard: {profile.forbidden_voice}"
+        )
+        assert any(word in all_fv for word in ("slang", "contraction", "exclamation", "exclaim")), (
+            f"forbidden_voice must include slang/contraction/exclamation guard: {profile.forbidden_voice}"
+        )
+
+    def test_bureaucrat_profile_token_budget(self, profile: LLMPersonaProfile):
+        """bureaucrat profile must not exceed 165 tokens (DEC-30-CHARACTER-V2-003)."""
+        profile_text = " ".join(
+            [
+                profile.voice_summary,
+                " ".join(profile.tone_registers),
+                " ".join(profile.signature_phrases),
+                profile.fourth_wall_stance,
+                profile.dialect_cadence,
+                " ".join(profile.context_hooks),
+                " ".join(profile.tool_preferences),
+                " ".join(profile.forbidden_voice),
+            ]
+        )
+        approx_tokens = _rough_token_count(profile_text)
+        assert approx_tokens <= 165, (
+            f"bureaucrat profile exceeds 165-token budget: ~{approx_tokens} tokens "
+            f"(DEC-30-CHARACTER-V2-003). Content: {profile_text!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 18. C-3: bureaucrat persona-swap tool-call-identity hard gate
+# ---------------------------------------------------------------------------
+
+
+class TestBureaucratPersonaSwapHardGates:
+    """Mirrors TestNinjaPersonaSwapHardGates for bureaucrat.
+
+    HARD GATE: DEC-C1-FULLTROLL-004 extended to bureaucrat (DEC-C3-PHILOSOPHY-004).
+    The Form CT-3 / Form WH-1 framing in tool_preferences is the highest-risk
+    case for selection bias — bureaucratic form names could plausibly bias crt.sh/WHOIS
+    selection. This test is the mechanical proof it does not.
+
+    @mock-exempt: litellm.completion is an external LLM API boundary.
+    execute_tool is mocked at the tool-dispatch boundary.
+    """
+
+    FIXED_TOOL_NAME = "dns_resolve"
+    FIXED_TOOL_ARGS = {"target": "evil.example.com"}
+
+    def _make_mock_litellm_response(self, tool_name: str, tool_args: dict):
+        mock_resp = MagicMock()
+        mock_resp.choices = [MagicMock()]
+        mock_resp.choices[0].finish_reason = "tool_calls"
+        mock_resp.choices[0].message = MagicMock()
+        mock_resp.choices[0].message.content = None
+        mock_resp.choices[0].message.tool_calls = [MagicMock()]
+        mock_resp.choices[0].message.tool_calls[0].id = "call_bureaucrat"
+        mock_resp.choices[0].message.tool_calls[0].type = "function"
+        mock_resp.choices[0].message.tool_calls[0].function = MagicMock()
+        mock_resp.choices[0].message.tool_calls[0].function.name = tool_name
+        mock_resp.choices[0].message.tool_calls[0].function.arguments = json.dumps(tool_args)
+        return mock_resp
+
+    def _make_mock_final_response(self, text: str):
+        mock_resp = MagicMock()
+        mock_resp.choices = [MagicMock()]
+        mock_resp.choices[0].finish_reason = "stop"
+        mock_resp.choices[0].message = MagicMock()
+        mock_resp.choices[0].message.content = text
+        mock_resp.choices[0].message.tool_calls = None
+        return mock_resp
+
+    def _run_chat_with_mode(self, runner, mode: CharacterMode, query: str) -> list[tuple[str, str]]:
+        from adversary_pursuit.agent import runner as runner_module
+
+        tool_calls_recorded: list[tuple[str, str]] = []
+        tool_resp = self._make_mock_litellm_response(self.FIXED_TOOL_NAME, self.FIXED_TOOL_ARGS)
+        final_resp = self._make_mock_final_response("Per Policy §4.2.1, analysis complete.")
+        call_count = 0
+
+        def mock_completion(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            return tool_resp if call_count == 1 else final_resp
+
+        def mock_execute_tool(ctx, tool_name, arguments):
+            tool_calls_recorded.append((tool_name, json.dumps(arguments, sort_keys=True)))
+            return ("mocked result", None, [], [])
+
+        runner.set_character(mode)
+        runner.conversation = [runner.conversation[0]]
+
+        with (
+            patch.object(runner_module, "litellm") as mock_litellm,
+            patch.object(runner_module, "execute_tool", mock_execute_tool),
+        ):
+            mock_litellm.completion = mock_completion
+            runner.chat(query)
+
+        return tool_calls_recorded
+
+    def test_bureaucrat_swap_preserves_tool_call_identity(self, tmp_path):
+        """Same query under bureaucrat vs default must produce identical tool calls.
+
+        HARD GATE for DEC-C1-FULLTROLL-004 (extended to bureaucrat by C-3,
+        DEC-C3-PHILOSOPHY-004) and DEC-30-CHARACTER-V2-005. The bureaucrat
+        persona is the highest-risk case: Form CT-3/WH-1 framing could
+        plausibly bias crt.sh/WHOIS selection. This test is the mechanical proof
+        it does not.
+        """
+        from adversary_pursuit.agent.runner import AgentRunner
+        from adversary_pursuit.agent.tools import ToolContext
+
+        ctx = ToolContext(
+            config_dir=tmp_path / "config",
+            workspace_dir=tmp_path / "workspaces",
+        )
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+        runner = AgentRunner(model="fake-model", tool_context=ctx)
+
+        query = "What do you know about evil.example.com?"
+
+        calls_under_bureaucrat = self._run_chat_with_mode(
+            runner, DEFAULT_MODES["bureaucrat"], query
+        )
+        calls_under_default = self._run_chat_with_mode(runner, DEFAULT_MODES["default"], query)
+
+        assert calls_under_bureaucrat == calls_under_default, (
+            "HARD GATE FAILURE: bureaucrat persona swap changed tool call sequence!\n"
+            f"  bureaucrat calls: {calls_under_bureaucrat}\n"
+            f"  default calls:    {calls_under_default}\n"
+            "tool_preferences must be voice-affinity ONLY (DEC-C3-PHILOSOPHY-004)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 19. C-3: bureaucrat F64 panel-separation hard gates
+# ---------------------------------------------------------------------------
+
+
+class TestBureaucratF64PanelSeparation:
+    """F64 DEC-64-LLM-PANEL-SEPARATION-001 for bureaucrat. Mirrors TestNinjaF64PanelSeparation."""
+
+    def test_bureaucrat_persona_text_not_present_in_tool_result_summary(self, tmp_path):
+        """bureaucrat persona voice text must NOT appear in the summary returned by execute_tool."""
+        from adversary_pursuit.agent.tools import ToolContext, execute_tool
+
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+
+        ctx.mode_mgr.switch("bureaucrat")
+
+        result_summary, _, _, _ = execute_tool(ctx, "dns_resolve", {"target": "test.example"})
+
+        profile = DEFAULT_MODES["bureaucrat"].llm_profile
+        if profile is not None:
+            for phrase in profile.signature_phrases:
+                assert phrase not in result_summary, (
+                    f"bureaucrat persona signature phrase {phrase!r} leaked into tool result summary.\n"
+                    f"Summary: {result_summary!r}"
+                )
+
+    def test_bureaucrat_does_not_smuggle_point_totals(self):
+        """bureaucrat LLM profile must not narrate point totals (F64 invariant)."""
+        profile = DEFAULT_MODES["bureaucrat"].llm_profile
+        assert profile is not None
+
+        all_fv = " ".join(profile.forbidden_voice).lower()
+        assert "point" in all_fv or "pts" in all_fv or "score" in all_fv, (
+            "bureaucrat forbidden_voice must include a point-total narration guard (F64)"
         )
