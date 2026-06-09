@@ -577,17 +577,51 @@ def run_chat() -> None:
         if lower == "report" or lower.startswith("report "):
             from adversary_pursuit.agent.tools import (
                 _execute_answer_report_question,
+                _execute_generate_dossier_report,
                 _execute_generate_report,
                 _execute_start_report_interview,
             )
 
-            rest = stripped[6:].strip() if len(stripped) > 6 else ""
+            # M-7: parse optional --style {dossier,classic} flag from the rest tokens.
+            # Supported forms (DEC-M7-REPORT-001):
+            #   report generate                    -> dossier (default)
+            #   report --style dossier generate    -> dossier (explicit)
+            #   report --style classic generate    -> classic (deprecated shim)
+            #   report                             -> show dossier state / interview status
+            rest_raw = stripped[6:].strip() if len(stripped) > 6 else ""
+            rest_tokens = rest_raw.split()
+            report_style = "dossier"
+            filtered_rest_tokens: list[str] = []
+            j = 0
+            while j < len(rest_tokens):
+                if rest_tokens[j] == "--style" and j + 1 < len(rest_tokens):
+                    report_style = rest_tokens[j + 1].lower()
+                    if report_style not in ("dossier", "classic"):
+                        console.print(
+                            f"[yellow]Unknown --style '{report_style}': "
+                            "must be 'dossier' or 'classic'. Using 'dossier'.[/yellow]"
+                        )
+                        report_style = "dossier"
+                    j += 2
+                else:
+                    filtered_rest_tokens.append(rest_tokens[j])
+                    j += 1
+            rest = " ".join(filtered_rest_tokens)
             rest_lower = rest.lower()
 
-            if rest_lower == "generate":
-                # Generate and render the Markdown report
-                report_md = _execute_generate_report(runner.ctx)
-                if report_md.startswith("Report interview") or report_md.startswith("Error"):
+            if rest_lower == "generate" or (not rest_lower and report_style == "dossier"):
+                # Generate and render the Markdown report.
+                # M-7: default path uses generate_dossier_report; classic falls back.
+                if report_style == "classic":
+                    report_md = _execute_generate_report(runner.ctx)
+                    is_error = report_md.startswith("Report interview") or report_md.startswith(
+                        "Error"
+                    )
+                else:
+                    report_md = _execute_generate_dossier_report(runner.ctx, style="dossier")
+                    is_error = report_md.startswith("Error")
+
+                if is_error:
                     console.print(f"[yellow]{report_md}[/yellow]")
                 else:
                     console.print(
@@ -617,33 +651,49 @@ def run_chat() -> None:
                         console.print(f"[green]{result}[/green]")
 
             else:
-                # 'report' with no subcommand — show interview status
-                rg = runner.ctx.report_generator
-                if rg is None:
-                    # Auto-start interview on bare 'report' command (mirrors do_report)
-                    _execute_start_report_interview(runner.ctx)
+                # 'report' with no subcommand — show interview status (classic path)
+                # or produce dossier report (dossier default path).
+                if report_style == "dossier" and not rest_lower:
+                    # Bare 'report' -> default dossier report
+                    report_md = _execute_generate_dossier_report(runner.ctx, style="dossier")
+                    if report_md.startswith("Error"):
+                        console.print(f"[yellow]{report_md}[/yellow]")
+                    else:
+                        console.print(
+                            Panel(
+                                Markdown(report_md),
+                                title="[bold green]Investigation Report[/bold green]",
+                                style="green",
+                            )
+                        )
+                else:
+                    # classic or unknown subcommand: show interview status
                     rg = runner.ctx.report_generator
+                    if rg is None:
+                        # Auto-start interview on bare 'report' command (mirrors do_report)
+                        _execute_start_report_interview(runner.ctx)
+                        rg = runner.ctx.report_generator
 
-                table = Table(
-                    title="Report Interview",
-                    show_header=True,
-                    show_lines=True,
-                )
-                table.add_column("#", style="cyan", width=3)
-                table.add_column("Question", style="bold", ratio=2)
-                table.add_column("Answer", ratio=3)
-                for i, section in enumerate(rg.sections):
-                    answer_display = (
-                        section.answer.strip()
-                        if section.answer.strip()
-                        else "[dim]_not answered_[/dim]"
+                    table = Table(
+                        title="Report Interview",
+                        show_header=True,
+                        show_lines=True,
                     )
-                    table.add_row(str(i), section.question, answer_display)
-                console.print(table)
-                console.print(
-                    "[dim]Use [bold]report answer <idx> <text>[/bold] to set answers, "
-                    "then [bold]report generate[/bold] to produce the report.[/dim]"
-                )
+                    table.add_column("#", style="cyan", width=3)
+                    table.add_column("Question", style="bold", ratio=2)
+                    table.add_column("Answer", ratio=3)
+                    for i, section in enumerate(rg.sections):
+                        answer_display = (
+                            section.answer.strip()
+                            if section.answer.strip()
+                            else "[dim]_not answered_[/dim]"
+                        )
+                        table.add_row(str(i), section.question, answer_display)
+                    console.print(table)
+                    console.print(
+                        "[dim]Use [bold]report answer <idx> <text>[/bold] to set answers, "
+                        "then [bold]report generate[/bold] to produce the report.[/dim]"
+                    )
 
             continue
 

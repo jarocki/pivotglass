@@ -178,9 +178,9 @@ class TestCreateTools:
         assert isinstance(tools, list)
 
     def test_returns_twenty_two_tools(self, tmp_ctx):
-        """create_tools returns exactly 30 tool definitions (M-1: 26, M-2: +get_dossier_state, M-4: +create_dossier_prediction, M-5: +create_dossier_note +falsify_dossier_prediction)."""
+        """create_tools returns exactly 31 tool definitions (M-1: 26, M-2: +get_dossier_state, M-4: +create_dossier_prediction, M-5: +create_dossier_note +falsify_dossier_prediction, M-7: +generate_dossier_report)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 30
+        assert len(tools) == 31
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -253,6 +253,8 @@ class TestCreateTools:
             # M-5 note authoring + manual falsification tools
             "create_dossier_note",
             "falsify_dossier_prediction",
+            # M-7 dossier-aware report generation
+            "generate_dossier_report",
         }
         assert names == expected
 
@@ -286,7 +288,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 30
+        assert len(roundtripped) == 31
 
     # --- New tool schema tests ---
 
@@ -1421,7 +1423,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 30
+        assert len(r.tools) == 31
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""
@@ -3107,6 +3109,66 @@ class TestReportWiring:
         assert "203.0.113.1" in report_md
         assert "## Indicators of Compromise" in report_md
         assert "Automated compound test trigger" in report_md
+
+
+# ---------------------------------------------------------------------------
+# TestGenerateDossierReportTool — M-7 generate_dossier_report LLM tool
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateDossierReportTool:
+    """Tests for the generate_dossier_report LLM tool (M-7).
+
+    Production sequence:
+      execute_tool("generate_dossier_report") -> _execute_generate_dossier_report()
+        -> generate_dossier_report(workspace_mgr) -> Markdown string
+    """
+
+    def test_generate_dossier_report_registered_in_create_tools(self, tmp_ctx):
+        """generate_dossier_report is present in the create_tools() list."""
+        tools = create_tools(tmp_ctx)
+        names = {t["function"]["name"] for t in tools}
+        assert "generate_dossier_report" in names
+
+    def test_generate_dossier_report_schema_has_style_param(self, tmp_ctx):
+        """generate_dossier_report tool schema exposes the optional 'style' parameter."""
+        tools = create_tools(tmp_ctx)
+        tool = next(t for t in tools if t["function"]["name"] == "generate_dossier_report")
+        params = tool["function"]["parameters"]
+        assert "style" in params.get("properties", {}), (
+            "generate_dossier_report tool schema must expose 'style' property"
+        )
+
+    def test_generate_dossier_report_returns_string(self, tmp_ctx):
+        """execute_tool('generate_dossier_report') returns a Markdown string."""
+        summary, celebration, badges, challenges = execute_tool(
+            tmp_ctx, "generate_dossier_report", {}
+        )
+        assert isinstance(summary, str)
+        assert len(summary) > 0
+
+    def test_generate_dossier_report_contains_investigation_header(self, tmp_ctx):
+        """Dossier report output contains 'Investigation Report' header."""
+        summary, _, _, _ = execute_tool(tmp_ctx, "generate_dossier_report", {})
+        assert (
+            "Investigation Report" in summary or "Dossier" in summary or "report" in summary.lower()
+        )
+
+    def test_generate_dossier_report_style_classic_falls_back(self, tmp_ctx):
+        """generate_dossier_report with style='classic' returns a classic report string."""
+        summary, _, _, _ = execute_tool(tmp_ctx, "generate_dossier_report", {"style": "classic"})
+        assert isinstance(summary, str)
+        assert len(summary) > 0
+
+    def test_generate_dossier_report_includes_iocs_when_workspace_populated(self, tmp_ctx):
+        """generate_dossier_report includes IOC data from workspace when present."""
+        tmp_ctx.workspace_mgr.store_stix_objects(
+            [{"type": "ipv4-addr", "value": "198.51.100.5"}],
+            "test/module",
+            "198.51.100.5",
+        )
+        summary, _, _, _ = execute_tool(tmp_ctx, "generate_dossier_report", {})
+        assert "198.51.100.5" in summary
 
 
 # ---------------------------------------------------------------------------

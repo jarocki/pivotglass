@@ -56,6 +56,7 @@ class BadgeRarity(Enum):
 
     Used for display styling (color, icon) and future leaderboard weighting.
     """
+
     COMMON = "common"
     UNCOMMON = "uncommon"
     RARE = "rare"
@@ -68,13 +69,25 @@ class BadgeMetric(Enum):
 
     Each value maps to a key in the workspace_stats dict passed to
     Badge.check_award(). See DEC-BADGE-003.
+
+    M-7 adds five new DOSSIER_* metrics. These keys are produced by
+    gamification/dossier_badges.py::build_dossier_stats() and merged
+    into the badge_stats dict before BadgeManager.check_all() is called.
+    (DEC-M7-BADGE-001..005.)
     """
+
     TOTAL_INDICATORS = "total_indicators"
     DOMAIN_COUNT = "domain_count"
     IP_COUNT = "ip_count"
     MODULE_RUN_COUNT = "module_run_count"
     TOTAL_SCORE = "total_score"
     NOTE_COUNT = "note_count"
+    # M-7 dossier-aware metrics (DEC-M7-BADGE-001..005)
+    DOSSIER_SLOTS_FILLED = "dossier_slots_filled"
+    DOSSIER_IDENTITY_FIRST = "dossier_identity_first"
+    DOSSIER_PREDICTIONS_VALIDATED = "dossier_predictions_validated"
+    DOSSIER_PREDICTIONS_FALSIFIED = "dossier_predictions_falsified"
+    DOSSIER_DENIAL_FILLED = "dossier_denial_filled"
 
 
 @dataclass
@@ -233,6 +246,16 @@ _DEFAULT_BADGES: list[Badge] = [
         threshold=10000,
     ),
 ]
+
+# M-7: extend _DEFAULT_BADGES with the 5 new dossier-aware badges.
+# gamification/dossier_badges.py is the authority for the new badge specs;
+# _DEFAULT_BADGES is the splice site (Sacred Practice 12, DEC-M7-BADGE-006).
+# Import is deferred to module tail to avoid a circular import: dossier_badges.py
+# imports Badge and BadgeMetric from this file, so this module must define both
+# before the import runs.
+from adversary_pursuit.gamification.dossier_badges import DOSSIER_BADGES  # noqa: E402
+
+_DEFAULT_BADGES = _DEFAULT_BADGES + DOSSIER_BADGES
 
 
 class BadgeManager:
