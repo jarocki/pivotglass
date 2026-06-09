@@ -171,6 +171,11 @@ class AgentRunner:
         self.last_badges: list = []  # list[Badge] — newly earned this turn
         self.last_challenges: list = []  # list[Challenge] — newly completed this turn
 
+        # M-7: wire self into ToolContext so run_module() can call self.narrate()
+        # for high-weight dossier event celebration text (DEC-M7-CELEB-001).
+        # Cleared to None after chat() returns to prevent stale runner references.
+        self.ctx._narration_runner = self
+
         max_rounds = 5
         for _ in range(max_rounds):
             response = self._call_llm()
@@ -179,6 +184,8 @@ class AgentRunner:
             tool_calls = self._extract_tool_calls(response)
             if not tool_calls:
                 # No tool calls — this is the final text response
+                # Clear narration runner reference before returning (M-7 cleanup).
+                self.ctx._narration_runner = None
                 assistant_msg = self._extract_text(response)
                 self.conversation.append({"role": "assistant", "content": assistant_msg})
                 return assistant_msg
@@ -216,6 +223,8 @@ class AgentRunner:
                 )
 
         # Fallback if we hit max_rounds without a final text response
+        # Clear narration runner reference before returning (M-7 cleanup).
+        self.ctx._narration_runner = None
         return "I've completed several tool calls. Here's what I found based on the results above."
 
     def _call_llm(self) -> object:
@@ -270,6 +279,61 @@ class AgentRunner:
         if hasattr(message, "content") and message.content:
             return message.content
         return ""
+
+    def narrate(self, prompt: str, *, max_tokens: int) -> str | None:
+        """Produce a short LLM narration string without mutating conversation history.
+
+        Single-turn, no tools, no conversation mutation. Reuses the active model,
+        the active persona system prompt (so character voice flows through naturally),
+        and the active API-key resolution from ``_call_llm``. Used by
+        ``dossier_celebrations.narrate_celebration()`` to produce high-weight
+        slot-fill celebration text (DEC-M7-CELEB-001, DEC-M7-CELEB-003).
+
+        Does NOT pass ``tools`` or ``tool_choice`` — this is a pure completion call.
+        Does NOT append to ``self.conversation`` — the narration is panel content
+        (F64 / DEC-64-LLM-PANEL-SEPARATION-001), not part of the analytical dialogue.
+
+        Parameters
+        ----------
+        prompt:
+            User-role content for the narration request (built by
+            ``build_narration_prompt()`` in ``dossier_celebrations.py``).
+        max_tokens:
+            Hard token ceiling for the narration response. Enforced by litellm.
+
+        Returns
+        -------
+        str | None
+            Narration text on success, or None on LLM failure. Callers (narrate_celebration)
+            handle None by returning None themselves, falling back to ASCII art.
+        """
+        if not HAS_LITELLM:
+            return None
+
+        try:
+            messages = [
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": prompt},
+            ]
+            kwargs: dict = {
+                "model": self.model,
+                "messages": messages,
+                "max_tokens": max_tokens,
+            }
+            # Thread API key through the same path as _call_llm (DEC-M7-CELEB-001).
+            if self._config_mgr is not None:
+                provider_id = self._config_mgr.get_agent_provider()
+                if provider_id:
+                    stored_key = self._config_mgr.get_provider_api_key(provider_id)
+                    if stored_key:
+                        kwargs["api_key"] = stored_key
+            response = litellm.completion(**kwargs)
+            msg = response.choices[0].message
+            if hasattr(msg, "content") and msg.content:
+                return msg.content
+            return None
+        except Exception:  # noqa: BLE001
+            return None
 
     def reset(self) -> None:
         """Reset conversation history to just the system prompt."""

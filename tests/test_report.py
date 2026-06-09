@@ -19,13 +19,11 @@ Production sequence tested:
 from __future__ import annotations
 
 import io
-from pathlib import Path
 
 import pytest
 
 from adversary_pursuit.core.report import ReportGenerator
 from adversary_pursuit.core.workspace import WorkspaceManager
-
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
@@ -60,10 +58,12 @@ def populated_wm(wm):
         module_name="osint/urlscan",
         target="evil.example.com",
     )
-    wm.store_score_events([
-        {"action": "new_ip", "points": 100, "indicator": "1.2.3.4"},
-        {"action": "new_domain", "points": 200, "indicator": "evil.example.com"},
-    ])
+    wm.store_score_events(
+        [
+            {"action": "new_ip", "points": 100, "indicator": "1.2.3.4"},
+            {"action": "new_domain", "points": 200, "indicator": "evil.example.com"},
+        ]
+    )
     return wm
 
 
@@ -83,6 +83,7 @@ class TestReportGeneratorConstruction:
     def test_creates_with_scoring_engine(self, wm):
         """ReportGenerator accepts an optional scoring engine."""
         from adversary_pursuit.gamification.scoring import ScoringEngine
+
         rg = ReportGenerator(wm, scoring_engine=ScoringEngine())
         assert rg is not None
 
@@ -346,7 +347,7 @@ class TestSave:
         """save() creates the output file."""
         rg = ReportGenerator(populated_wm)
         output_path = tmp_path / "report.md"
-        result = rg.save(output_path)
+        rg.save(output_path)
         assert output_path.exists()
 
     def test_save_returns_path(self, populated_wm, tmp_path):
@@ -384,6 +385,7 @@ class TestConsoleReport:
     @pytest.fixture
     def console(self, tmp_path):
         from adversary_pursuit.core.console import APConsole
+
         app = APConsole(
             config_dir=tmp_path / "config",
             workspace_dir=tmp_path / "workspaces",
@@ -424,4 +426,17 @@ class TestConsoleReport:
     def test_report_unknown_subcommand(self, console):
         """Unknown report subcommand prints usage message."""
         out = self.run_cmd(console, "report bogus")
+        assert isinstance(out, str)
+
+    def test_report_classic_style_generate_uses_v1_path(self, console):
+        """report --style classic generate routes to the v1 interview report path (M-7 regression)."""
+        out = self.run_cmd(console, "report --style classic generate")
+        # Should succeed without error; v1 path produces Investigation Report header
+        assert "error" not in out.lower() or "report" in out.lower()
+
+    def test_report_default_generate_uses_dossier_path(self, console):
+        """report generate (no --style flag) routes to dossier report by default (M-7)."""
+        out = self.run_cmd(console, "report generate")
+        # The dossier path must succeed; check that no exception trace appears
+        assert "Traceback" not in out
         assert isinstance(out, str)

@@ -36,15 +36,14 @@ import io
 
 import pytest
 
+from adversary_pursuit.core.console import APConsole
+from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.gamification.badges import (
     AwardedBadge,
     Badge,
     BadgeManager,
     BadgeRarity,
 )
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.core.console import APConsole
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -94,11 +93,12 @@ class TestBadgeRarity:
 
 
 class TestBuiltinBadges:
-    """All 10 default badges load with correct attributes."""
+    """All 15 default badges load with correct attributes (10 original + 5 M-7 dossier)."""
 
-    def test_ten_builtins_loaded(self):
+    def test_fifteen_builtins_loaded(self):
+        """M-7 splice adds 5 dossier badges to _DEFAULT_BADGES (DEC-M7-BADGE-006)."""
         mgr = BadgeManager()
-        assert len(mgr._badges) == 10
+        assert len(mgr._badges) == 15
 
     def test_first_blood_badge(self):
         mgr = BadgeManager()
@@ -344,7 +344,7 @@ class TestAwardedBadge:
         mgr = BadgeManager()
         b = mgr.get_badge("badge-first-blood")
         stats = _make_stats(total_indicators=1)
-        newly = mgr.check_all(stats, already_awarded=set())
+        mgr.check_all(stats, already_awarded=set())
         # check_all returns Badge objects — AwardedBadge is used by WorkspaceManager
         ab = AwardedBadge(badge_id=b.id, badge_name=b.name, workspace_name="test")
         assert ab.badge_id == "badge-first-blood"
@@ -432,9 +432,11 @@ class TestGetWorkspaceStats:
         wm = WorkspaceManager(workspace_dir=tmp_path)
         wm.create("test")
         wm.switch("test")
-        wm.store_score_events([
-            {"action": "new_ip", "points": 100, "indicator": "1.2.3.4"},
-        ])
+        wm.store_score_events(
+            [
+                {"action": "new_ip", "points": 100, "indicator": "1.2.3.4"},
+            ]
+        )
         stats = wm.get_workspace_stats()
         assert stats["total_score"] == 100
 
@@ -481,7 +483,9 @@ class TestConsoleBadgesCommand:
         """With no runs, badges command shows 'no badges' or empty state."""
         out = run_cmd(console, "badges")
         # Either a message about no badges earned yet, or a table with 0 rows
-        assert "badge" in out.lower() or "No" in out or "earned" in out.lower() or isinstance(out, str)
+        assert (
+            "badge" in out.lower() or "No" in out or "earned" in out.lower() or isinstance(out, str)
+        )
 
     def test_console_has_badge_manager(self, console):
         """APConsole has a badge_mgr attribute after __init__."""

@@ -544,6 +544,13 @@ class ToolContext:
         # mode's score_celebration template (str.format(points=N)) so the character
         # voice matches the chosen persona — mirrors console.py _execute_hunt().
         # Silent path: no celebration when no points awarded.
+        #
+        # M-7: after the ASCII art block, iterate dossier_slot_filled /
+        # dossier_prediction_validated events; for each high-weight event where
+        # narration budget remains, call narrate_celebration() and append the
+        # narration text to the celebration string. F64 invariant preserved:
+        # narration rides result["celebration"] sidecar, NOT the LLM summary
+        # (DEC-64-LLM-PANEL-SEPARATION-001 / DEC-M7-CELEB-001..004).
         celebration: str | None = None
         if total > 0:
             art = self.celebration.celebrate(total)
@@ -574,11 +581,49 @@ class ToolContext:
             except Exception:  # noqa: BLE001
                 pass  # milestone check must never block tool result delivery
 
+            # M-7: LLM narration loop for high-weight dossier events (DEC-M7-CELEB-001..004).
+            # Runs AFTER ASCII art + milestone strings are assembled so narration text is
+            # appended at the end of the celebration string.
+            # F64 invariant: narration appended to celebration (sidecar), NOT summary.
+            # Only runs when there is an active LLM runner on the context (chat path).
+            # cmd2 console path never calls run_module() through ToolContext — this guard
+            # is not needed for console isolation, but the _runner attribute is only set
+            # by AgentRunner._execute_run_module_with_runner(); None is the safe default.
+            try:
+                _runner = getattr(self, "_narration_runner", None)
+                if _runner is not None and events:
+                    from adversary_pursuit.gamification.dossier_celebrations import (
+                        HuntNarrationBudget,
+                        is_high_weight_event,
+                        narrate_celebration,
+                    )
+
+                    _hunt_budget = HuntNarrationBudget()
+                    # Load the post-hunt dossier state for narration context.
+                    # post_dossier may already be computed above; re-use it here.
+                    _narration_dossier = post_dossier
+                    for _ev in events:
+                        if _hunt_budget.exhausted:
+                            break
+                        if is_high_weight_event(_ev):
+                            _narration = narrate_celebration(
+                                _runner, _ev, _narration_dossier, _hunt_budget
+                            )
+                            if _narration:
+                                celebration = (celebration or "") + "\n\n" + _narration
+            except Exception:  # noqa: BLE001
+                pass  # narration must never block tool result delivery
+
         # Check badges after scoring (DEC-AGENT-BADGES-001).
         # Mirrors cmd2 APConsole._check_badges_after_run() exactly:
         # build already_awarded, evaluate all badges, persist new ones.
         # Lazy-seed _awarded_badges from workspace on first call so sessions
         # resuming mid-investigation don't re-award previously earned badges.
+        #
+        # M-7: merge dossier stats into badge_stats before check_all so the five
+        # new dossier-aware badges can fire (DEC-M7-BADGE-001..005).
+        # post_dossier is already computed above (from the M-4 wiring block).
+        # load_predictions_log is called once here — same shape/idempotency as M-4.
         newly_earned_badges: list = []
         try:
             if not self._awarded_badges:
@@ -586,6 +631,18 @@ class ToolContext:
                 awarded_rows = self.workspace_mgr.get_awarded_badges()
                 self._awarded_badges = {row["badge_id"] for row in awarded_rows}
             badge_stats = self.workspace_mgr.get_workspace_stats()
+            # M-7: extend badge_stats with dossier-aware metrics
+            try:
+                from adversary_pursuit.gamification.dossier_badges import build_dossier_stats
+
+                _post_dossier_for_badges = post_dossier
+                _predictions_for_badges = load_predictions_log(self.workspace_mgr) or []
+                _dossier_stats = build_dossier_stats(
+                    _post_dossier_for_badges, _predictions_for_badges
+                )
+                badge_stats = {**badge_stats, **_dossier_stats}
+            except Exception:  # noqa: BLE001
+                pass  # dossier stats merge must never block badge check
             newly_earned_badges = self.badge_mgr.check_all(
                 badge_stats, already_awarded=self._awarded_badges
             )
@@ -1676,6 +1733,47 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                 },
             },
         },
+        # -----------------------------------------------------------------------
+        # M-7: dossier report tool — DEC-M7-REPORT-005
+        # generate_dossier_report: produces the actor-dossier Markdown report
+        # without requiring an interview. Tool count 30 -> 31.
+        # The existing generate_report tool (interview-based classic path) is
+        # preserved for v0.2.x and removed together with core/report.py at M-8
+        # per DEC-68-DOSSIER-REFRAME-008.
+        # -----------------------------------------------------------------------
+        {
+            "type": "function",
+            "function": {
+                "name": "generate_dossier_report",
+                "description": (
+                    "Generate the dossier-style investigation report as Markdown. "
+                    "Renders the current threat actor dossier state (9 slots), "
+                    "the predictions log (pending / validated / falsified), the "
+                    "analyst notes, and the workspace STIX summary. "
+                    "Optional 'style' parameter: 'dossier' (default, M-7 dossier-puzzle report) "
+                    "or 'classic' (v1 interview-based report -- deprecated, removed in v0.3.0). "
+                    "Returns the complete Markdown report as a string. "
+                    "No interview required -- the dossier state is the source of truth."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "style": {
+                            "type": "string",
+                            "enum": ["dossier", "classic"],
+                            "description": (
+                                "Report style. 'dossier' produces the M-7 actor-dossier report "
+                                "(default). 'classic' produces the v1 interview-based report "
+                                "(requires prior start_report_interview + answer_report_question "
+                                "calls). 'classic' is deprecated and will be removed in v0.3.0."
+                            ),
+                            "default": "dossier",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+        },
     ]
 
 
@@ -2004,6 +2102,18 @@ def execute_tool(
                 ctx,
                 prediction_id=arguments.get("prediction_id", ""),
                 reason=arguments.get("reason", ""),
+            ),
+            None,
+            [],
+            [],
+        )
+
+    # M-7: dossier report tool — DEC-M7-REPORT-005
+    if tool_name == "generate_dossier_report":
+        return (
+            _execute_generate_dossier_report(
+                ctx,
+                style=arguments.get("style", "dossier"),
             ),
             None,
             [],
@@ -2493,6 +2603,37 @@ def _execute_generate_report(ctx: ToolContext) -> str:
     except Exception as e:
         logger.exception("generate_report failed")
         return f"Error generating report: {e}"
+
+
+def _execute_generate_dossier_report(ctx: ToolContext, style: str = "dossier") -> str:
+    """Generate the dossier-style (or classic) investigation report as Markdown.
+
+    M-7 NEW dispatcher (DEC-M7-REPORT-005). When style='dossier' (default),
+    calls core.dossier_report.generate_dossier_report() — no interview needed.
+    When style='classic', delegates to the existing _execute_generate_report()
+    classic shim path (DEC-68-DOSSIER-REFRAME-008 one-release deprecation runway).
+
+    Parameters
+    ----------
+    ctx:
+        The shared ToolContext providing workspace access.
+    style:
+        'dossier' (default) or 'classic'. Any other value is treated as 'dossier'.
+
+    Returns
+    -------
+    str
+        Complete Markdown report, or an error message.
+    """
+    if style == "classic":
+        return _execute_generate_report(ctx)
+    try:
+        from adversary_pursuit.core.dossier_report import generate_dossier_report
+
+        return generate_dossier_report(ctx.workspace_mgr)
+    except Exception as e:
+        logger.exception("generate_dossier_report failed")
+        return f"Error generating dossier report: {e}"
 
 
 def _execute_get_dossier_state(ctx: ToolContext) -> str:
