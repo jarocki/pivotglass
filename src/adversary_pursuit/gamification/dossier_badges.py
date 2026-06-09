@@ -1,11 +1,16 @@
-"""Dossier-aware badge definitions for M-7.
+"""Dossier-aware badge definitions for M-7 and M-8.
 
-Five new badges keyed on DossierState + PersistedPrediction log. All five use
+M-7: Five new badges keyed on DossierState + PersistedPrediction log. All five use
 new BadgeMetric enum values (DOSSIER_SLOTS_FILLED, DOSSIER_IDENTITY_FIRST,
 DOSSIER_PREDICTIONS_VALIDATED, DOSSIER_PREDICTIONS_FALSIFIED,
 DOSSIER_DENIAL_FILLED) and a new stats dict produced by build_dossier_stats().
 
-This module is the AUTHORITY for the new badge specs. badges.py imports
+M-8: One new badge (badge-pioneer, RARE, threshold=1) keyed on the
+dossier_novelty_recognized score event count (DEC-M8-NOVELTY-010).
+build_dossier_stats() extended to return the novelty count from the workspace
+score events. BadgeMetric.DOSSIER_NOVELTY_RECOGNIZED added to badges.py enum.
+
+This module is the AUTHORITY for all dossier badge specs. badges.py imports
 DOSSIER_BADGES and splices it into _DEFAULT_BADGES at module load time —
 single source of truth (Sacred Practice 12, DEC-M7-BADGE-006).
 
@@ -57,13 +62,13 @@ single source of truth (Sacred Practice 12, DEC-M7-BADGE-006).
            Explicitly recorded as an approximation — future slice can refine.
 
 Public API:
-  - DOSSIER_BADGES: list[Badge]  — five new badge instances
-  - build_dossier_stats(dossier_state, predictions) -> dict
+  - DOSSIER_BADGES: list[Badge]  — six badge instances (5 M-7 + 1 M-8 Pioneer)
+  - build_dossier_stats(dossier_state, predictions, workspace_mgr=None) -> dict
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from adversary_pursuit.gamification.badges import Badge, BadgeMetric, BadgeRarity
 
@@ -126,22 +131,37 @@ DOSSIER_BADGES: list[Badge] = [
         metric=BadgeMetric.DOSSIER_DENIAL_FILLED,
         threshold=1,
     ),
+    # M-8: Pioneer badge — first novel slot-fill method (DEC-M8-NOVELTY-010)
+    Badge(
+        id="badge-pioneer",
+        name="Pioneer",
+        description=(
+            "Discover a novel slot-fill method — a "
+            "(slot, evidence-extractor, SCO-type-set) tuple "
+            "no prior hunt has produced."
+        ),
+        rarity=BadgeRarity.RARE,
+        metric=BadgeMetric.DOSSIER_NOVELTY_RECOGNIZED,
+        threshold=1,
+    ),
 ]
 
 
 # ---------------------------------------------------------------------------
-# Dossier stats builder (DEC-M7-BADGE-001..005)
+# Dossier stats builder (DEC-M7-BADGE-001..005 / DEC-M8-NOVELTY-010)
 # ---------------------------------------------------------------------------
 
 
 def build_dossier_stats(
     dossier_state: object | None,
     predictions: "list[PersistedPrediction]",
+    workspace_mgr: Any = None,
 ) -> dict:
     """Build dossier-specific stats for badge evaluation.
 
     Merges into the existing workspace_stats dict before BadgeManager.check_all()
-    is called. The existing 10 badges read their own keys; the new 5 read these.
+    is called. The existing 10 badges read their own keys; the new dossier badges
+    read these keys.
 
     Stats contract (DEC-BADGE-003 metric-to-stat-key mapping):
     - ``dossier_slots_filled``          (int): count of slots with status == FILLED
@@ -149,6 +169,8 @@ def build_dossier_stats(
     - ``dossier_predictions_validated`` (int): count of validated predictions
     - ``dossier_predictions_falsified`` (int): count of falsified predictions
     - ``dossier_denial_filled``         (int 0/1): 1 if Denial slot FILLED
+    - ``dossier_novelty_recognized``    (int): count of novelty events in score_events
+      (M-8, DEC-M8-NOVELTY-010 — requires workspace_mgr to be non-None)
 
     Parameters
     ----------
@@ -157,13 +179,16 @@ def build_dossier_stats(
         or None for a fresh workspace (all counts return 0).
     predictions:
         List of PersistedPrediction from load_predictions_log(), or [].
+    workspace_mgr:
+        Optional WorkspaceManager used to count dossier_novelty_recognized score
+        events (M-8). When None the novelty count defaults to 0.
 
     Returns
     -------
     dict
         Keys: dossier_slots_filled, dossier_identity_first,
               dossier_predictions_validated, dossier_predictions_falsified,
-              dossier_denial_filled.
+              dossier_denial_filled, dossier_novelty_recognized.
     """
     # Default all to 0 (fresh workspace)
     stats: dict[str, int] = {
@@ -172,6 +197,7 @@ def build_dossier_stats(
         BadgeMetric.DOSSIER_PREDICTIONS_VALIDATED.value: 0,
         BadgeMetric.DOSSIER_PREDICTIONS_FALSIFIED.value: 0,
         BadgeMetric.DOSSIER_DENIAL_FILLED.value: 0,
+        BadgeMetric.DOSSIER_NOVELTY_RECOGNIZED.value: 0,
     }
 
     if dossier_state is not None:
@@ -213,5 +239,25 @@ def build_dossier_stats(
             stats[BadgeMetric.DOSSIER_PREDICTIONS_FALSIFIED.value] = falsified_count
         except Exception:  # noqa: BLE001
             pass  # prediction stats must never block badge check delivery
+
+    # M-8: novelty count from workspace score_events (DEC-M8-NOVELTY-010).
+    # Uses SQLAlchemy direct query — same pattern as console.py::_read_analyst_notes.
+    # workspace_mgr is optional; defaults to 0 when absent (no workspace active yet).
+    if workspace_mgr is not None:
+        try:
+            from sqlalchemy import func, select
+            from sqlalchemy.orm import Session
+
+            from adversary_pursuit.models.database import ScoreEvent
+
+            with Session(workspace_mgr._engine) as session:
+                count_row = session.execute(
+                    select(func.count(ScoreEvent.id)).where(
+                        ScoreEvent.action == "dossier_novelty_recognized"
+                    )
+                ).scalar()
+                stats[BadgeMetric.DOSSIER_NOVELTY_RECOGNIZED.value] = int(count_row or 0)
+        except Exception:  # noqa: BLE001
+            pass  # novelty stat must never block badge check delivery
 
     return stats

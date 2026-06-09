@@ -88,9 +88,7 @@ def run_chat() -> None:
       hint <module>                 -- get next free hint for a specific module
       hint buy                      -- buy the next paid hint (costs score points)
       hint buy <module>             -- buy the next paid module-specific hint
-      report                        -- show interview status (auto-starts if not started)
-      report answer <idx> <text>    -- record answer for question index 0-4
-      report generate               -- generate and display Markdown report
+      report [generate]             -- generate and display dossier Markdown report
       model show                    -- display current provider/model and source layer
       model select                  -- re-run the provider/model setup wizard
       note <text>                   -- save analyst note (visible to dossier denial extractor + falsification)
@@ -564,64 +562,18 @@ def run_chat() -> None:
             console.print(f"[dim]Active workspace: [bold]{active_workspace}[/bold][/dim]")
             continue
 
-        # Report meta-command — mirrors APConsole.do_report (DEC-AGENT-REPORT-001).
-        # Handled locally (not sent to LLM) for deterministic, immediate output.
-        # Shares the same ReportGenerator instance on runner.ctx so answers set here
-        # are visible to the LLM tool path (start_report_interview / answer_report_question
-        # / generate_report) and vice versa.
-        #
+        # Report meta-command — M-8: sole dossier renderer; classic path removed
+        # (DEC-68-DOSSIER-REFRAME-008 / DEC-M8-CLEANUP-001).
         # Supported forms:
-        #   report                         → show current interview status (questions + answers)
-        #   report answer <idx> <text>     → set answer for question index idx (0-4)
-        #   report generate                → generate and print the Markdown report
+        #   report / report generate  → render dossier report as Markdown panel
         if lower == "report" or lower.startswith("report "):
-            from adversary_pursuit.agent.tools import (
-                _execute_answer_report_question,
-                _execute_generate_dossier_report,
-                _execute_generate_report,
-                _execute_start_report_interview,
-            )
+            from adversary_pursuit.agent.tools import _execute_generate_dossier_report
 
-            # M-7: parse optional --style {dossier,classic} flag from the rest tokens.
-            # Supported forms (DEC-M7-REPORT-001):
-            #   report generate                    -> dossier (default)
-            #   report --style dossier generate    -> dossier (explicit)
-            #   report --style classic generate    -> classic (deprecated shim)
-            #   report                             -> show dossier state / interview status
-            rest_raw = stripped[6:].strip() if len(stripped) > 6 else ""
-            rest_tokens = rest_raw.split()
-            report_style = "dossier"
-            filtered_rest_tokens: list[str] = []
-            j = 0
-            while j < len(rest_tokens):
-                if rest_tokens[j] == "--style" and j + 1 < len(rest_tokens):
-                    report_style = rest_tokens[j + 1].lower()
-                    if report_style not in ("dossier", "classic"):
-                        console.print(
-                            f"[yellow]Unknown --style '{report_style}': "
-                            "must be 'dossier' or 'classic'. Using 'dossier'.[/yellow]"
-                        )
-                        report_style = "dossier"
-                    j += 2
-                else:
-                    filtered_rest_tokens.append(rest_tokens[j])
-                    j += 1
-            rest = " ".join(filtered_rest_tokens)
-            rest_lower = rest.lower()
+            rest_lower = stripped[6:].strip().lower() if len(stripped) > 6 else ""
 
-            if rest_lower == "generate" or (not rest_lower and report_style == "dossier"):
-                # Generate and render the Markdown report.
-                # M-7: default path uses generate_dossier_report; classic falls back.
-                if report_style == "classic":
-                    report_md = _execute_generate_report(runner.ctx)
-                    is_error = report_md.startswith("Report interview") or report_md.startswith(
-                        "Error"
-                    )
-                else:
-                    report_md = _execute_generate_dossier_report(runner.ctx, style="dossier")
-                    is_error = report_md.startswith("Error")
-
-                if is_error:
+            if rest_lower in ("", "generate"):
+                report_md = _execute_generate_dossier_report(runner.ctx)
+                if report_md.startswith("Error"):
                     console.print(f"[yellow]{report_md}[/yellow]")
                 else:
                     console.print(
@@ -631,69 +583,11 @@ def run_chat() -> None:
                             style="green",
                         )
                     )
-
-            elif rest_lower.startswith("answer "):
-                # 'report answer <idx> <text>'
-                args_str = rest[7:].strip()  # everything after "answer "
-                parts = args_str.split(None, 1)
-                if len(parts) < 2:
-                    console.print("[yellow]Usage: report answer <index> <answer text>[/yellow]")
-                else:
-                    try:
-                        idx = int(parts[0])
-                    except ValueError:
-                        console.print(f"[yellow]Invalid index '{parts[0]}': must be 0-4[/yellow]")
-                    else:
-                        # Lazily initialise if not yet started
-                        if runner.ctx.report_generator is None:
-                            _execute_start_report_interview(runner.ctx)
-                        result = _execute_answer_report_question(runner.ctx, idx, parts[1])
-                        console.print(f"[green]{result}[/green]")
-
             else:
-                # 'report' with no subcommand — show interview status (classic path)
-                # or produce dossier report (dossier default path).
-                if report_style == "dossier" and not rest_lower:
-                    # Bare 'report' -> default dossier report
-                    report_md = _execute_generate_dossier_report(runner.ctx, style="dossier")
-                    if report_md.startswith("Error"):
-                        console.print(f"[yellow]{report_md}[/yellow]")
-                    else:
-                        console.print(
-                            Panel(
-                                Markdown(report_md),
-                                title="[bold green]Investigation Report[/bold green]",
-                                style="green",
-                            )
-                        )
-                else:
-                    # classic or unknown subcommand: show interview status
-                    rg = runner.ctx.report_generator
-                    if rg is None:
-                        # Auto-start interview on bare 'report' command (mirrors do_report)
-                        _execute_start_report_interview(runner.ctx)
-                        rg = runner.ctx.report_generator
-
-                    table = Table(
-                        title="Report Interview",
-                        show_header=True,
-                        show_lines=True,
-                    )
-                    table.add_column("#", style="cyan", width=3)
-                    table.add_column("Question", style="bold", ratio=2)
-                    table.add_column("Answer", ratio=3)
-                    for i, section in enumerate(rg.sections):
-                        answer_display = (
-                            section.answer.strip()
-                            if section.answer.strip()
-                            else "[dim]_not answered_[/dim]"
-                        )
-                        table.add_row(str(i), section.question, answer_display)
-                    console.print(table)
-                    console.print(
-                        "[dim]Use [bold]report answer <idx> <text>[/bold] to set answers, "
-                        "then [bold]report generate[/bold] to produce the report.[/dim]"
-                    )
+                console.print(
+                    f"[yellow]Unknown report subcommand: '{rest_lower}'. "
+                    "Usage: report [generate][/yellow]"
+                )
 
             continue
 

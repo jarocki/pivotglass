@@ -1,34 +1,23 @@
 """Dossier-style investigation report renderer.
 
-Produces the M-7 actor-dossier Markdown report from the persisted DossierState,
+Produces the M-8 actor-dossier Markdown report from the persisted DossierState,
 AnalystNote rows, PersistedPrediction log, workspace STIX summary, and module
-run history. This is the NEW default report format (``--style dossier``).
-
-The v1 interview-based report path is preserved in ``core/report.py`` (the
-classic shim). It is invoked via ``_invoke_classic()`` when ``--style classic``
-is requested and scheduled for removal in M-8 per DEC-68-DOSSIER-REFRAME-008.
+run history. This is the sole report renderer (classic shim removed at M-8 per
+DEC-68-DOSSIER-REFRAME-008 / DEC-M8-CLEANUP-003).
 
 @decision DEC-M7-REPORT-002
 @title New core/dossier_report.py module owns the dossier-style report renderer
 @status accepted
-@rationale Separation of concerns: core/report.py owns the v1 interview-driven
+@rationale Separation of concerns: core/report.py owned the v1 interview-driven
            report; core/dossier_report.py owns the dossier-puzzle report. The two
-           reports are not variants of one template — they are different shapes.
+           reports were not variants of one template — they were different shapes.
            Co-locating them would force every reader to mentally branch on style.
            Mirrors M-6's core/dossier_pivot.py vs core/pivot_policy.py separation.
            M-8's cleanup removes core/report.py outright, leaving this file standing
            on its own — clean removal trail. (DEC-M7-REPORT-002, option a — accepted.)
 
-@decision DEC-M7-REPORT-001
-@title Report style flag vocabulary: ``--style {dossier,classic}`` (two values only)
-@status accepted
-@rationale Two-value enum is the smallest abstraction that delivers the deprecation
-           runway DEC-68-DOSSIER-REFRAME-008 commits to. A third value would require
-           justification by evidence. (DEC-M7-REPORT-001, option a — accepted.)
-
 Public API:
   - generate_dossier_report(workspace_mgr, *, scoring_engine=None) -> str
-  - _invoke_classic(workspace_mgr, *, scoring_engine=None) -> str  (shim wrapper)
 """
 
 from __future__ import annotations
@@ -173,37 +162,6 @@ def generate_dossier_report(
     lines.append("")
 
     return "\n".join(lines)
-
-
-def _invoke_classic(
-    workspace_mgr: "WorkspaceManager",
-    *,
-    scoring_engine: "ScoringEngine | None" = None,
-) -> str:
-    """Invoke the v1 interview-based report renderer (classic shim).
-
-    This one-line wrapper makes the call site explicit and grep-friendly.
-    M-8 removes this function together with core/report.py.
-
-    Per DEC-68-DOSSIER-REFRAME-008: the classic shim is preserved for one
-    release cycle (v0.2.x) and removed at M-8. This is the sole bridge from
-    the new dispatch layer into the old ReportGenerator path.
-
-    Parameters
-    ----------
-    workspace_mgr:
-        Active WorkspaceManager.
-    scoring_engine:
-        Optional ScoringEngine passed through to ReportGenerator.
-
-    Returns
-    -------
-    str
-        Classic interview-based report Markdown string.
-    """
-    from adversary_pursuit.core.report import ReportGenerator
-
-    return ReportGenerator(workspace_mgr, scoring_engine=scoring_engine).generate()
 
 
 # ---------------------------------------------------------------------------

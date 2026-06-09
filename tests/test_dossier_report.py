@@ -1,11 +1,9 @@
-"""Tests for M-7 sub-slice 1: Dossier-style investigation report.
+"""Tests for dossier-style investigation report (M-7 renderer, M-8 sole renderer).
 
 Stage A acceptance tests per plan §4:
 - generate_dossier_report() produces correct Markdown sections
 - Dossier slot grid, predictions, analyst notes, IOC table present
-- Style switch: dossier vs classic
-- _execute_generate_dossier_report dispatcher
-- _invoke_classic shim wrapper
+- _execute_generate_dossier_report dispatcher (parameterless post-M-8)
 
 Production sequence tested:
   workspace create -> store SCOs -> save_dossier_state -> save_predictions_log ->
@@ -13,18 +11,16 @@ Production sequence tested:
   This is the realistic analyst workflow post-investigation-loop.
 
 @decision DEC-TEST-M7-REPORT-001
-@title dossier report tests verify all 7 sections and style dispatch
+@title dossier report tests verify all 7 sections and dispatcher routing
 @status accepted
-@rationale generate_dossier_report() is the new default report renderer.
-           Tests must cover: correct Markdown structure, slot grid accuracy,
+@rationale generate_dossier_report() is the sole report renderer (M-8 cleanup).
+           Tests cover: correct Markdown structure, slot grid accuracy,
            predictions block (validated/pending/falsified), analyst notes,
-           IOC table, style switch to classic, and _execute dispatcher routing.
+           IOC table, and _execute dispatcher routing (parameterless).
+           Classic-path tests deleted at M-8 (DEC-68-DOSSIER-REFRAME-008 closeout).
 """
 
 from __future__ import annotations
-
-import re
-from pathlib import Path
 
 import pytest
 
@@ -224,71 +220,15 @@ class TestGenerateDossierReport:
 
 
 # ---------------------------------------------------------------------------
-# _invoke_classic shim wrapper
-# ---------------------------------------------------------------------------
-
-
-class TestInvokeClassic:
-    """_invoke_classic() delegates to v1 ReportGenerator."""
-
-    def test_returns_classic_report(self, wm):
-        """_invoke_classic returns a string containing classic report header."""
-        from adversary_pursuit.core.dossier_report import _invoke_classic
-
-        result = _invoke_classic(wm)
-        assert isinstance(result, str)
-        assert "# Investigation Report" in result
-
-    def test_classic_has_interview_notes(self, wm):
-        """Classic report includes Interview Notes section."""
-        from adversary_pursuit.core.dossier_report import _invoke_classic
-
-        result = _invoke_classic(wm)
-        assert "## Interview Notes" in result
-
-
-# ---------------------------------------------------------------------------
-# _execute_generate_dossier_report dispatcher
+# _execute_generate_dossier_report dispatcher (M-8: parameterless)
 # ---------------------------------------------------------------------------
 
 
 class TestExecuteGenerateDossierReport:
-    """_execute_generate_dossier_report routes style correctly."""
+    """_execute_generate_dossier_report renders dossier report (sole renderer post-M-8)."""
 
-    def test_dossier_style_returns_dossier_report(self, populated_wm):
-        """style='dossier' returns dossier-format Markdown."""
-        from adversary_pursuit.agent.tools import ToolContext, _execute_generate_dossier_report
-
-        ctx = ToolContext(workspace_dir=populated_wm._workspace_dir)
-        ctx.workspace_mgr = populated_wm
-        result = _execute_generate_dossier_report(ctx, style="dossier")
-        assert "## Dossier State" in result
-
-    def test_classic_style_routes_to_classic_path(self, populated_wm):
-        """style='classic' routes to the v1 interview path (not dossier renderer)."""
-        from adversary_pursuit.agent.tools import ToolContext, _execute_generate_dossier_report
-
-        ctx = ToolContext(workspace_dir=populated_wm._workspace_dir)
-        ctx.workspace_mgr = populated_wm
-
-        # Prime the classic path: start interview and answer all 5 questions
-        from adversary_pursuit.core.report import ReportGenerator
-
-        gen = ReportGenerator(populated_wm)
-        for i, ans in enumerate(
-            ["tip", "WHOIS", "infrastructure reuse", "null-route C2", "pivot ASN"]
-        ):
-            gen.set_answer(i, ans)
-        ctx.report_generator = gen
-
-        result = _execute_generate_dossier_report(ctx, style="classic")
-        # Classic path produces the v1 interview-based Markdown
-        assert "## Interview Notes" in result
-        # Classic path does NOT produce dossier slot sections
-        assert "## Dossier State" not in result
-
-    def test_default_style_is_dossier(self, populated_wm):
-        """No style argument defaults to dossier."""
+    def test_returns_dossier_report(self, populated_wm):
+        """Returns dossier-format Markdown."""
         from adversary_pursuit.agent.tools import ToolContext, _execute_generate_dossier_report
 
         ctx = ToolContext(workspace_dir=populated_wm._workspace_dir)
@@ -296,101 +236,12 @@ class TestExecuteGenerateDossierReport:
         result = _execute_generate_dossier_report(ctx)
         assert "## Dossier State" in result
 
+    def test_returns_string(self, populated_wm):
+        """Returns a non-empty string."""
+        from adversary_pursuit.agent.tools import ToolContext, _execute_generate_dossier_report
 
-# ---------------------------------------------------------------------------
-# Classic style regression test
-# ---------------------------------------------------------------------------
-
-
-class TestClassicStyleRegression:
-    """Classic report output is stable against fixture.
-
-    Fixture at tests/fixtures/v1_classic_report.md was generated from a
-    workspace with these settings:
-      - workspace name: 'fixture-workspace'
-      - 2 SCOs: ipv4-addr 1.2.3.4, domain-name evil.example.com
-      - 1 module run: osint/whois_lookup on evil.example.com
-      - score: 300 pts (100 + 200)
-      - 5 interview answers set
-
-    To regenerate the fixture, run the helper function at the bottom of
-    this module with a fresh workspace matching those settings.
-    """
-
-    def _build_fixture_workspace(self, tmp_path) -> WorkspaceManager:
-        """Build the exact workspace shape that generated v1_classic_report.md."""
-        wm = WorkspaceManager(workspace_dir=tmp_path / "workspaces")
-        wm.create("fixture-workspace")
-        wm.switch("fixture-workspace")
-        wm.store_stix_objects(
-            [
-                {"type": "ipv4-addr", "value": "1.2.3.4"},
-                {"type": "domain-name", "value": "evil.example.com"},
-            ],
-            module_name="osint/whois_lookup",
-            target="evil.example.com",
-        )
-        wm.store_score_events(
-            [
-                {"action": "new_ip", "points": 100, "indicator": "1.2.3.4"},
-                {"action": "new_domain", "points": 200, "indicator": "evil.example.com"},
-            ]
-        )
-        return wm
-
-    def test_classic_report_matches_fixture_structure(self, tmp_path):
-        """Classic report contains all expected structural elements of the fixture."""
-        from adversary_pursuit.core.report import ReportGenerator
-
-        wm = self._build_fixture_workspace(tmp_path)
-        rg = ReportGenerator(wm)
-        rg.set_answer(0, "Threat intel tip from partner")
-        rg.set_answer(1, "WHOIS lookup on suspicious domain")
-        rg.set_answer(2, "Infrastructure reuse across campaigns")
-        rg.set_answer(3, "Sinkhole the C2 domain")
-        rg.set_answer(4, "Pivot to related ASN block")
-
-        result = rg.generate()
-        # Redact dynamic timestamp
-        result_redacted = re.sub(r"\*\*Date:\*\* .+", "**Date:** {DYNAMIC_DATE}", result)
-        result_redacted = re.sub(
-            r"- `[^`]+` — \*\*osint/whois_lookup\*\*",
-            "- `{DYNAMIC_TIMESTAMP}` — **osint/whois_lookup**",
-            result_redacted,
-        )
-
-        # Load fixture
-        fixture_path = Path(__file__).parent / "fixtures" / "v1_classic_report.md"
-        fixture = fixture_path.read_text(encoding="utf-8")
-
-        # Compare line by line ignoring the dynamic lines
-        result_lines = [
-            line
-            for line in result_redacted.splitlines()
-            if "{DYNAMIC_" not in line and line.strip()
-        ]
-        fixture_lines = [
-            line for line in fixture.splitlines() if "{DYNAMIC_" not in line and line.strip()
-        ]
-        assert result_lines == fixture_lines, (
-            "Classic report does not match fixture structure.\n"
-            f"Result lines: {result_lines}\n"
-            f"Fixture lines: {fixture_lines}"
-        )
-
-    def test_classic_report_interview_answers_present(self, tmp_path):
-        """Classic report includes all 5 interview answers."""
-        from adversary_pursuit.core.report import ReportGenerator
-
-        wm = self._build_fixture_workspace(tmp_path)
-        rg = ReportGenerator(wm)
-        rg.set_answer(0, "Threat intel tip from partner")
-        rg.set_answer(1, "WHOIS lookup on suspicious domain")
-        rg.set_answer(2, "Infrastructure reuse across campaigns")
-        rg.set_answer(3, "Sinkhole the C2 domain")
-        rg.set_answer(4, "Pivot to related ASN block")
-
-        result = rg.generate()
-        assert "Threat intel tip from partner" in result
-        assert "Infrastructure reuse across campaigns" in result
-        assert "Pivot to related ASN block" in result
+        ctx = ToolContext(workspace_dir=populated_wm._workspace_dir)
+        ctx.workspace_mgr = populated_wm
+        result = _execute_generate_dossier_report(ctx)
+        assert isinstance(result, str)
+        assert len(result) > 0
