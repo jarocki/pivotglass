@@ -417,8 +417,15 @@ def run_chat() -> None:
         # (DEC-M1-DOSSIER-004).
         #
         # Supported forms:
-        #   dossier          -> render dossier panel for current workspace
-        #   show dossier     -> alias
+        #   dossier                        -> render dossier panel for current workspace
+        #   show dossier                   -> alias
+        #   dossier export [<actor>] [--publish]  -> export STIX bundle (M-9)
+        #   dossier compare <actor|path>   -> compare with peer dossier (M-9)
+        #
+        # M-9 sub-commands (DEC-M9-CHAT-METACMD-001): export and compare are handled
+        # locally (no LLM call) for deterministic, instant output. The plain-text
+        # output is F64-compliant (no Rich markup in LLM-facing surfaces; the console
+        # Panel wrapper here is Rich but the underlying report text is plain ASCII).
         if lower == "dossier" or lower == "show dossier":
             from adversary_pursuit.dossier.panel import render as render_dossier
             from adversary_pursuit.dossier.slot_inference import infer_dossier_state
@@ -435,6 +442,33 @@ def run_chat() -> None:
                 console.print(
                     "[dim]No SCOs in workspace. Run a module first to fill dossier slots.[/dim]"
                 )
+            continue
+
+        if lower.startswith("dossier export"):
+            # dossier export [<actor_identifier>] [--publish]
+            from adversary_pursuit.agent.tools import _execute_export_dossier
+
+            rest = stripped[len("dossier export") :].strip()
+            publish_flag = "--publish" in rest
+            actor_arg: str | None = rest.replace("--publish", "").strip() or None
+            result_str = _execute_export_dossier(
+                runner.ctx,
+                actor_identifier=actor_arg,
+                publish=publish_flag,
+            )
+            console.print(result_str)
+            continue
+
+        if lower.startswith("dossier compare"):
+            # dossier compare <actor_identifier_or_path>
+            from adversary_pursuit.agent.tools import _execute_compare_dossier
+
+            rest = stripped[len("dossier compare") :].strip()
+            if not rest:
+                console.print("[yellow]Usage: dossier compare <actor_identifier|path>[/yellow]")
+                continue
+            result_str = _execute_compare_dossier(runner.ctx, source=rest)
+            console.print(result_str)
             continue
 
         # Export meta-command — mirrors APConsole.do_export (DEC-AGENT-GRAPH-EXPORT-001).
@@ -525,8 +559,8 @@ def run_chat() -> None:
             )
             help_table.add_row(
                 "dossier",
-                "dossier / show dossier",
-                "Show Threat Actor Dossier panel (slot fill state from workspace SCOs)",
+                "dossier / show dossier / dossier export [<actor>] [--publish] / dossier compare <actor|path>",
+                "Show Dossier panel; export as STIX bundle; compare with peer dossier (M-9)",
             )
             help_table.add_row(
                 "export",

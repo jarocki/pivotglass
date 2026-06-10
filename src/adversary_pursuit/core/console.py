@@ -1274,6 +1274,144 @@ class APConsole(cmd2.Cmd):
     # hint — Issue #18 implementation
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # dossier — M-9 export / compare / show (DEC-M9-CHAT-METACMD-001)
+    # ------------------------------------------------------------------
+
+    def do_dossier(self, args: str) -> None:
+        """Export, compare, or show the active workspace dossier.
+
+        Usage:
+            dossier show                         -- show dossier slot panel
+            dossier export [<actor>] [--publish] -- export STIX 2.1 bundle
+            dossier compare <actor|path>         -- compare with peer dossier
+
+        Subcommands (M-9, DEC-M9-CHAT-METACMD-001):
+            show      -- render the dossier Rich panel (default when no subcommand given)
+            export    -- serialize active workspace dossier to a STIX 2.1 bundle.
+                         Optional <actor> sets the actor_identifier (defaults to
+                         workspace name). --publish writes the bundle to the local
+                         dossier library (requires AP_DOSSIER_PUBLISH=on env var;
+                         see DEC-M9-LIBRARY-OPTIN-001 and DEC-M9-PRIVACY-001).
+            compare   -- compare the active workspace dossier against a peer dossier.
+                         <actor|path> is either an actor_identifier resolved from
+                         ~/.ap/dossier_library/ or an explicit file path to a
+                         STIX bundle JSON file.
+        """
+        tokens = args.strip().split()
+        sub = tokens[0].lower() if tokens else "show"
+
+        if sub == "show" or sub == "":
+            self._dossier_show()
+        elif sub == "export":
+            rest_tokens = tokens[1:]
+            publish = "--publish" in rest_tokens
+            actor_tokens = [t for t in rest_tokens if t != "--publish"]
+            actor_identifier = actor_tokens[0] if actor_tokens else None
+            self._dossier_export(actor_identifier=actor_identifier, publish=publish)
+        elif sub == "compare":
+            if len(tokens) < 2:
+                self.poutput("Usage: dossier compare <actor_identifier|path>")
+                return
+            source = tokens[1]
+            self._dossier_compare(source=source)
+        else:
+            self.poutput(f"Unknown dossier subcommand: '{sub}'")
+            self.poutput(
+                "Usage: dossier [show | export [<actor>] [--publish] | compare <actor|path>]"
+            )
+
+    def _dossier_show(self) -> None:
+        """Render the dossier slot panel for the active workspace."""
+        try:
+            from adversary_pursuit.dossier.panel import render as render_dossier
+            from adversary_pursuit.dossier.slot_inference import infer_dossier_state
+
+            raw_objects = self.workspace_mgr.get_stix_objects()
+            state = infer_dossier_state(raw_objects)
+            panel = render_dossier(state)
+            self.rich_console.print(panel)
+            if state.total_sco_count == 0:
+                self.poutput("No SCOs in workspace. Run a module first to fill dossier slots.")
+        except Exception as exc:  # noqa: BLE001
+            self.poutput(f"Error rendering dossier panel: {exc}")
+
+    def _dossier_export(
+        self,
+        actor_identifier: str | None = None,
+        publish: bool = False,
+    ) -> None:
+        """Export the active workspace dossier as a STIX 2.1 bundle.
+
+        Prints the bundle JSON string (publish=False) or the library file path
+        (publish=True, requires AP_DOSSIER_PUBLISH=on).
+
+        Privacy note (DEC-M9-PRIVACY-001): the bundle contains raw IOCs verbatim.
+        """
+        try:
+            from adversary_pursuit.dossier.export import export_dossier, publish_to_library
+
+            bundle_json = export_dossier(self.workspace_mgr, actor_identifier=actor_identifier)
+
+            if publish:
+                resolved_id = actor_identifier if actor_identifier else self.workspace_mgr.active
+                dest = publish_to_library(bundle_json, resolved_id)
+                self.poutput(f"Dossier bundle published to: {dest}")
+                self.poutput(
+                    "Note: the bundle contains raw IOCs from the workspace verbatim "
+                    "(DEC-M9-PRIVACY-001)."
+                )
+            else:
+                self.poutput(bundle_json)
+        except (ValueError, RuntimeError) as exc:
+            self.poutput(f"Error: {exc}")
+        except Exception as exc:  # noqa: BLE001
+            self.poutput(f"Error exporting dossier: {exc}")
+
+    def _dossier_compare(self, source: str) -> None:
+        """Compare the active workspace dossier against a peer dossier.
+
+        Parameters
+        ----------
+        source:
+            Actor identifier (resolved from library) or file path to a STIX bundle.
+        """
+        try:
+            import os
+
+            from adversary_pursuit.dossier.comparison import (
+                compare_dossiers,
+                format_comparison_report,
+            )
+            from adversary_pursuit.dossier.export import export_dossier, load_from_library
+            from adversary_pursuit.dossier.import_ import import_dossier
+
+            # Export and import the local workspace dossier
+            local_bundle_json = export_dossier(self.workspace_mgr)
+            local_dossier = import_dossier(local_bundle_json)
+
+            # Load the remote dossier (file path or library lookup)
+            if os.sep in source or "/" in source:
+                from pathlib import Path as _Path
+
+                path = _Path(source)
+                if not path.exists():
+                    self.poutput(f"Error: file not found: {source}")
+                    return
+                remote_bundle_json = path.read_text(encoding="utf-8")
+            else:
+                remote_bundle_json = load_from_library(source)
+
+            remote_dossier = import_dossier(remote_bundle_json)
+            report = compare_dossiers(local_dossier, remote_dossier)
+            self.poutput(format_comparison_report(report))
+        except FileNotFoundError as exc:
+            self.poutput(f"Error: {exc}")
+        except (ValueError, RuntimeError) as exc:
+            self.poutput(f"Error: {exc}")
+        except Exception as exc:  # noqa: BLE001
+            self.poutput(f"Error comparing dossiers: {exc}")
+
     def do_hint(self, args: str) -> None:
         """Show contextual hints for the current investigation.
 

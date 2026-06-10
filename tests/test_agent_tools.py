@@ -178,9 +178,9 @@ class TestCreateTools:
         assert isinstance(tools, list)
 
     def test_returns_twenty_two_tools(self, tmp_ctx):
-        """create_tools returns exactly 28 tool definitions (M-8: removed start_report_interview, answer_report_question, generate_report classic shim tools — DEC-M8-CLEANUP-002)."""
+        """create_tools returns exactly 30 tool definitions (M-9: +2 tools export_dossier + compare_dossier — DEC-M9-TOOLCOUNT-001)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 28
+        assert len(tools) == 30
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -208,7 +208,7 @@ class TestCreateTools:
             assert params["type"] == "object", f"Parameters type must be 'object': {fn['name']}"
 
     def test_expected_tool_names(self, tmp_ctx):
-        """create_tools includes all expected tool names including hint, challenge, graph/export, and dossier tools (M-8: classic report tools removed)."""
+        """create_tools includes all expected tool names including hint, challenge, graph/export, and dossier tools (M-9: +export_dossier +compare_dossier, DEC-M9-TOOLCOUNT-001)."""
         tools = create_tools(tmp_ctx)
         names = {t["function"]["name"] for t in tools}
         expected = {
@@ -251,6 +251,9 @@ class TestCreateTools:
             "falsify_dossier_prediction",
             # M-7 dossier-aware report generation
             "generate_dossier_report",
+            # M-9 export + compare dossier (DEC-M9-TOOLCOUNT-001)
+            "export_dossier",
+            "compare_dossier",
         }
         assert names == expected
 
@@ -284,7 +287,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 28
+        assert len(roundtripped) == 30
 
     # --- New tool schema tests ---
 
@@ -1419,7 +1422,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 28
+        assert len(r.tools) == 30
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""
