@@ -1703,6 +1703,78 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                 },
             },
         },
+        # M-9 tools: export_dossier + compare_dossier (DEC-M9-TOOL-EXPORT-001 /
+        #   DEC-M9-TOOL-COMPARE-001 / DEC-M9-TOOLCOUNT-001: count 28 -> 30)
+        {
+            "type": "function",
+            "function": {
+                "name": "export_dossier",
+                "description": (
+                    "Export the active workspace dossier as a STIX 2.1 bundle JSON string. "
+                    "The bundle contains all workspace SCOs (IP addresses, domains, URLs, etc.), "
+                    "relationships, and a synthesized threat-actor SDO with all 9 dossier slot "
+                    "states, the predictions log, and analyst notes embedded as custom properties. "
+                    "When publish=True, writes the bundle to the local dossier library "
+                    "(requires AP_DOSSIER_PUBLISH=on environment variable) and returns the "
+                    "library file path. When publish=False (default), returns the raw STIX 2.1 "
+                    "bundle JSON string. "
+                    "Privacy note: the bundle contains raw IOCs from the workspace verbatim."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "actor_identifier": {
+                            "type": "string",
+                            "description": (
+                                "Actor identifier string used as the bundle subject and library "
+                                "filename. Defaults to the active workspace name when omitted. "
+                                "Must match ^[A-Za-z0-9._-]{1,128}$."
+                            ),
+                        },
+                        "publish": {
+                            "type": "boolean",
+                            "description": (
+                                "When true, write the bundle to the local dossier library "
+                                "(requires AP_DOSSIER_PUBLISH=on env var). Returns the library "
+                                "file path. When false (default), return the raw bundle JSON."
+                            ),
+                            "default": False,
+                        },
+                    },
+                    "required": [],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "compare_dossier",
+                "description": (
+                    "Compare the active workspace dossier against a peer dossier and return "
+                    "a plain-text slot-by-slot diff report. "
+                    "The source argument is resolved as: (1) a file path when it contains a "
+                    "path separator, in which case the STIX bundle is read from that file; "
+                    "(2) otherwise treated as an actor_identifier and loaded from the local "
+                    "dossier library (~/.ap/dossier_library/<actor>.json). "
+                    "The report shows completion percentages for both sides, slot-by-slot "
+                    "status differences, unique slots per side, and prediction validation ratios."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "source": {
+                            "type": "string",
+                            "description": (
+                                "Actor identifier (e.g. 'fancy-bear') to load from the local "
+                                "dossier library, or a file path to a STIX bundle JSON file "
+                                "(e.g. '/tmp/peer-dossier.json')."
+                            ),
+                        },
+                    },
+                    "required": ["source"],
+                },
+            },
+        },
     ]
 
 
@@ -2021,6 +2093,22 @@ def execute_tool(
     # M-8: dossier report tool — DEC-M8-CLEANUP-002 (parameterless post-M-8)
     if tool_name == "generate_dossier_report":
         return _execute_generate_dossier_report(ctx), None, [], []
+
+    # M-9: export_dossier + compare_dossier (DEC-M9-TOOL-EXPORT-001 / DEC-M9-TOOL-COMPARE-001)
+    if tool_name == "export_dossier":
+        return (
+            _execute_export_dossier(
+                ctx,
+                actor_identifier=arguments.get("actor_identifier"),
+                publish=bool(arguments.get("publish", False)),
+            ),
+            None,
+            [],
+            [],
+        )
+    if tool_name == "compare_dossier":
+        source = arguments.get("source", "")
+        return _execute_compare_dossier(ctx, source=source), None, [], []
 
     # Module dispatch
     if tool_name not in _MODULE_MAP:
@@ -2680,3 +2768,145 @@ def _execute_falsify_dossier_prediction(
         import json as _json
 
         return _json.dumps({"error": f"Failed to falsify prediction: {e}"})
+
+
+# ---------------------------------------------------------------------------
+# M-9 export / compare dossier tools (DEC-M9-TOOL-EXPORT-001 / DEC-M9-TOOL-COMPARE-001)
+# ---------------------------------------------------------------------------
+
+
+def _execute_export_dossier(
+    ctx: ToolContext,
+    actor_identifier: str | None = None,
+    publish: bool = False,
+) -> str:
+    """Export the active workspace dossier as a STIX 2.1 bundle JSON string.
+
+    M-9 DEC-M9-TOOL-EXPORT-001. Read-only consumer of M-4 state; never mutates
+    the workspace. When publish=True requires AP_DOSSIER_PUBLISH=on env var
+    (DEC-M9-LIBRARY-OPTIN-001); returns the library file path string on success.
+    When publish=False returns the raw bundle JSON string.
+
+    F64-compliant: no Rich markup, no score-event narration.
+    _DOSSIER_ACTIONS is NOT widened — export is infrastructure, not a scored event.
+
+    Privacy note (DEC-M9-PRIVACY-001): the bundle contains raw IOCs verbatim.
+    Publishing with publish=True writes those IOCs to the library directory.
+
+    Parameters
+    ----------
+    ctx:
+        Shared ToolContext providing workspace access.
+    actor_identifier:
+        Actor identifier string. Defaults to workspace_mgr.active when None.
+        Must match ^[A-Za-z0-9._-]{1,128}$.
+    publish:
+        When True, write the bundle to the local dossier library
+        (requires AP_DOSSIER_PUBLISH=on). Returns the library file path.
+        When False (default), return the raw bundle JSON string.
+
+    Returns
+    -------
+    str
+        Bundle JSON string (publish=False) or library file path (publish=True).
+        On error, returns a JSON error string.
+    """
+    import json
+
+    try:
+        from adversary_pursuit.dossier.export import export_dossier, publish_to_library
+
+        bundle_json = export_dossier(ctx.workspace_mgr, actor_identifier=actor_identifier)
+
+        if publish:
+            # Resolve actual actor_identifier for the library call
+            resolved_id = actor_identifier if actor_identifier else ctx.workspace_mgr.active
+            dest = publish_to_library(bundle_json, resolved_id)
+            return json.dumps(
+                {
+                    "published": True,
+                    "library_path": str(dest),
+                    "actor_identifier": resolved_id,
+                    "message": (
+                        f"Dossier bundle for '{resolved_id}' written to library: {dest}. "
+                        "Note: the bundle contains raw IOCs from the workspace verbatim "
+                        "(DEC-M9-PRIVACY-001)."
+                    ),
+                }
+            )
+
+        return bundle_json
+
+    except (ValueError, RuntimeError) as e:
+        logger.warning("export_dossier tool: %s", e)
+        return json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("export_dossier tool failed unexpectedly")
+        return json.dumps({"error": f"Failed to export dossier: {e}"})
+
+
+def _execute_compare_dossier(
+    ctx: ToolContext,
+    source: str,
+) -> str:
+    """Compare the active workspace dossier against a peer dossier.
+
+    M-9 DEC-M9-TOOL-COMPARE-001. The ``source`` argument is resolved as:
+      - A file path (when it contains a path separator OS-independently) → read from disk.
+      - Otherwise → treated as an actor_identifier and loaded via load_from_library.
+
+    Exports the current workspace dossier, imports both sides, runs compare_dossiers,
+    and returns a plain-ASCII formatted ComparisonReport (F64-compliant).
+
+    Parameters
+    ----------
+    ctx:
+        Shared ToolContext providing workspace access.
+    source:
+        Either a file path to a STIX bundle JSON file, or an actor_identifier
+        string to resolve from the local dossier library.
+
+    Returns
+    -------
+    str
+        Plain-ASCII comparison report. On error, returns a JSON error string.
+    """
+    import json
+    import os
+
+    try:
+        from adversary_pursuit.dossier.comparison import compare_dossiers, format_comparison_report
+        from adversary_pursuit.dossier.export import export_dossier, load_from_library
+        from adversary_pursuit.dossier.import_ import import_dossier
+
+        # Export the local workspace dossier
+        local_bundle_json = export_dossier(ctx.workspace_mgr)
+        local_dossier = import_dossier(local_bundle_json)
+
+        # Load the remote dossier
+        if os.sep in source or "/" in source:
+            # Looks like a file path
+            from pathlib import Path
+
+            path = Path(source)
+            if not path.exists():
+                return json.dumps({"error": f"File not found: {source}"})
+            remote_bundle_json = path.read_text(encoding="utf-8")
+        else:
+            # Treat as actor_identifier → library lookup
+            remote_bundle_json = load_from_library(source)
+
+        remote_dossier = import_dossier(remote_bundle_json)
+
+        report = compare_dossiers(local_dossier, remote_dossier)
+        return format_comparison_report(report)
+
+    except FileNotFoundError as e:
+        logger.warning("compare_dossier tool: file not found: %s", e)
+        return json.dumps({"error": str(e)})
+    except (ValueError, RuntimeError) as e:
+        logger.warning("compare_dossier tool: %s", e)
+        return json.dumps({"error": str(e)})
+    except Exception as e:
+        logger.exception("compare_dossier tool failed unexpectedly")
+        return json.dumps({"error": f"Failed to compare dossier: {e}"})

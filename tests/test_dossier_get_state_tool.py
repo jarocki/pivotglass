@@ -105,14 +105,15 @@ class TestGetDossierStateRegistration:
         )
 
     def test_get_dossier_state_count_increased_by_one(self, tmp_ctx):
-        """create_tools() has 28 tools after M-2+M-4+M-5+M-7+M-8 changes."""
+        """create_tools() has 30 tools after M-2+M-4+M-5+M-7+M-8+M-9 changes."""
         tools = create_tools(tmp_ctx)
         # M-1: 26 tools; M-2: +get_dossier_state (27); M-4: +create_dossier_prediction (28);
         # M-5: +create_dossier_note (29) +falsify_dossier_prediction (30);
         # M-7: +generate_dossier_report (31);
-        # M-8: -start_report_interview -answer_report_question -generate_report (28)
-        assert len(tools) == 28, (
-            f"Expected 28 tools after M-2+M-4+M-5+M-7+M-8 additions/removals, got {len(tools)}. "
+        # M-8: -start_report_interview -answer_report_question -generate_report (28);
+        # M-9: +export_dossier +compare_dossier (30) — DEC-M9-TOOLCOUNT-001
+        assert len(tools) == 30, (
+            f"Expected 30 tools after M-2+M-4+M-5+M-7+M-8+M-9 additions/removals, got {len(tools)}. "
             "If this fails, a different tool count was agreed — update this assertion."
         )
 

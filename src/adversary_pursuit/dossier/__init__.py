@@ -59,8 +59,39 @@ Public API additions (M-8, DEC-M8-NOVELTY-001..010):
   - novelty.detect_novelty(slot, extractor_name, sco_types, cache) -> bool
   - novelty.emit_dossier_novelty_recognized_event(slot, extractor_name, sco_types) -> dict
   - novelty._SLOT_EXTRACTOR_NAMES — slot -> extractor name constant map
+
+Public API additions (M-9, DEC-M9-STIX-MAPPING-001..002 / DEC-M9-COMPLETION-001 /
+                         DEC-M9-LIBRARY-LOCATION-001 / DEC-M9-LIBRARY-OPTIN-001):
+  - export.export_dossier(workspace_mgr, actor_identifier) -> str
+  - export.publish_to_library(bundle_json, actor_identifier) -> Path
+  - export.list_library() -> list[Path]
+  - export.load_from_library(actor_identifier) -> str
+  - export.library_root() -> Path
+  - export.library_publish_enabled() -> bool
+  - import_.import_dossier(bundle_json) -> ImportedDossier
+  - import_.ImportedDossier — read-only in-memory dossier value object
+  - comparison.compare_dossiers(local, remote) -> ComparisonReport
+  - comparison.ComparisonReport — slot-by-slot diff value object
+  - comparison.format_comparison_report(report) -> str
 """
 
+from adversary_pursuit.dossier.comparison import (
+    ComparisonReport,
+    compare_dossiers,
+    format_comparison_report,
+)
+from adversary_pursuit.dossier.export import (
+    export_dossier,
+    library_publish_enabled,
+    library_root,
+    list_library,
+    load_from_library,
+    publish_to_library,
+)
+from adversary_pursuit.dossier.import_ import (
+    ImportedDossier,
+    import_dossier,
+)
 from adversary_pursuit.dossier.novelty import (
     _SLOT_EXTRACTOR_NAMES,
     NoveltyCache,
@@ -145,4 +176,17 @@ __all__ = [
     "detect_novelty",
     "emit_dossier_novelty_recognized_event",
     "_SLOT_EXTRACTOR_NAMES",
+    # M-9 export / import / comparison / library (DEC-M9-STIX-MAPPING-001..002 /
+    #   DEC-M9-COMPLETION-001 / DEC-M9-LIBRARY-LOCATION-001 / DEC-M9-LIBRARY-OPTIN-001)
+    "export_dossier",
+    "publish_to_library",
+    "list_library",
+    "load_from_library",
+    "library_root",
+    "library_publish_enabled",
+    "import_dossier",
+    "ImportedDossier",
+    "compare_dossiers",
+    "ComparisonReport",
+    "format_comparison_report",
 ]
