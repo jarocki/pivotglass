@@ -101,6 +101,73 @@ Character v2 (C-1 MVP, Phase 17B):
            bureaucratic form framing — voice-affinity ONLY per DEC-30-CHARACTER-V2-005.
            fourth_wall_stance="opaque" per DEC-C3-PHILOSOPHY-006.
            context_hooks=() per DEC-C3-PHILOSOPHY-005.
+
+@decision DEC-C4-COLUMBO-001
+@title columbo LLMPersonaProfile content (DEC-C4-COLUMBO-001 / Phase 17M)
+@status accepted
+@rationale Extends columbo's existing F62 "just one more thing" rumpled-detective
+           templates into the LLM chat surface. This is the FIRST non-empty
+           context_hooks in the v2 catalog (DEC-C4-COLUMBO-103): three conditional-
+           hint strings referencing real M-4 dossier slot vocabulary (DossierSlotName
+           + SlotStatus enum values as STRING LITERALS — no import of dossier modules).
+           The runner.py composer already joins context_hooks with "; " at line 379
+           (DEC-C2-NINJA-002 inheritance through C-3 to C-4 — runner.py BYTEWISE
+           UNCHANGED). Token budget verified ≤165 (trim-path steps 1-5+8 applied:
+           3 signature_phrases, 2 forbidden_voice, short dialect_cadence, 1
+           tool_preference). fourth_wall_stance="opaque" (DEC-C4-COLUMBO-006):
+           columbo IS the detective. voice-affinity tool_preferences only
+           (DEC-30-CHARACTER-V2-005; persona-swap test gates this invariant).
+
+@decision DEC-C4-COLUMBO-101
+@title drunken_master/chuck_norris/bobby_hill reclassified UPGRADE → terminal KEEP_STATIC
+@status accepted
+@rationale No usage pattern asks for tier-1 LLM personas. v1-carrier test path
+           (drunken_master, tests/test_character_v2.py:388 + tests/test_agent_tools.py:
+           1597-1651) stays intact by leaving drunken_master at llm_profile=None.
+           Disposition supersedes DEC-30-CHARACTER-V2-002 for these three modes.
+           TestTierOneModesPermanentlyStatic enforces as permanent invariant.
+           CLOSES the v2 character roadmap (no C-5).
+
+@decision DEC-C4-COLUMBO-102
+@title mastery_level hook RETIRED PERMANENTLY (supersedes DEC-30-CHARACTER-V2-004)
+@status accepted
+@rationale C-1/C-2/C-3 shipped without mastery_level. DEC-68-DOSSIER-REFRAME-005
+           retired XP-grind; a per-mode integer that goes up over sessions is
+           functionally equivalent to score-grinding regardless of framing.
+           Sacred Practice 12 (single source of truth): adding mastery_level
+           would introduce a second persona-depth axis parallel to the 8-field
+           voice schema. No core/persona_mastery.py created.
+           test_mastery_level_not_present docstring updated to RETIRED PERMANENTLY
+           as the permanent invariant gate.
+
+@decision DEC-C4-COLUMBO-103
+@title context_hooks convention: "when slot '<slot_id>' is <status>: '<voice line>'"
+@status accepted
+@rationale Schema stays at C-1's tuple[str, ...] (no schema refinement — window
+           closed at C-1 per DEC-30-CHARACTER-V2-003). The conditional-hint convention
+           uses DossierSlotName enum values and SlotStatus enum values as string
+           literals; the LLM reads the strings as natural-language guidance. No
+           condition-execution — the LLM reads "when slot 'identity' is empty" as a
+           hint about WHEN to use the voice line. TestColumboDossierAwareContextHooks
+           enforces that each hook references a real slot name and status value.
+
+@decision DEC-C4-COLUMBO-104
+@title 5 existing v2 personas keep context_hooks=() — no retrofit
+@status accepted
+@rationale full_troll/ninja/sun_tzu/bruce_lee/bureaucrat keep context_hooks=()
+           because their voices don't pivot off dossier case-state knowledge.
+           Adding generic dossier hooks to them would force re-validation of 5
+           byte-stable C-1/C-2/C-3 profiles — gratuitous churn. Minimal-codebase
+           principle: add the surface where motivated. columbo establishes the
+           pattern; future slices have a clear template if demand arises.
+
+@decision DEC-C4-COLUMBO-006
+@title columbo fourth_wall_stance="opaque" (mirrors DEC-C2-NINJA-001/DEC-C3-PHILOSOPHY-006)
+@status accepted
+@rationale columbo IS the detective (Peter Falk in a rumpled trenchcoat, not an LLM
+           playing him). The "I'm probably just confused" deflection is in-character
+           humility, not LLM-self-awareness. Meta-awareness would cheapen the register.
+           Established as valid value by C-2, re-applied by C-3, inherited by C-4.
 """
 
 from __future__ import annotations
@@ -492,6 +559,55 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
         run_fail="You know, my wife always says I miss the obvious things. She might be right.",
         score_celebration="Oh, almost forgot... +{points} points. Just one more thing...",
         personality="'Just one more thing...' investigative prompts",
+        # C-4: columbo is the sixth (and final) upgraded mode (DEC-C4-COLUMBO-001).
+        # Content per Phase 17M DEC-C4-COLUMBO-001 + trim-path steps 1-5+8 applied.
+        # FIRST non-empty context_hooks in the v2 catalog (DEC-C4-COLUMBO-103):
+        # three dossier-aware hint strings referencing real M-4 slot vocabulary
+        # (DossierSlotName / SlotStatus enum values as STRING LITERALS — no import).
+        # Token budget: ≤165 (verified via _rough_token_count).
+        llm_profile=LLMPersonaProfile(
+            # Trim-path step 3 applied: compact one-clause form (saves ~6 tokens).
+            voice_summary="Rumpled LA detective; finds answers by asking the obvious question.",
+            tone_registers=("rumpled", "disarming", "oblique", "falsely-deferential"),
+            # Trim-path steps 1+2 applied: 3 phrases (not 5).
+            # "just one more thing" and "my wife always says" are the F62 voice anchors.
+            signature_phrases=(
+                "just one more thing",
+                "my wife always says",
+                "now don't get me wrong",
+            ),
+            # opaque: columbo IS the detective — no LLM/tool acknowledgement.
+            # Mirrors DEC-C2-NINJA-001 / DEC-C3-PHILOSOPHY-006 stance choice.
+            fourth_wall_stance="opaque",
+            # Trim-path step 4 applied: shortened to 11-token form.
+            dialect_cadence=(
+                "Trailing-off sentences; mid-thought pivots; 'just one more thing' interruptions."
+            ),
+            # context_hooks: FIRST non-empty context_hooks in the v2 catalog
+            # (DEC-C4-COLUMBO-103). Three dossier-aware hint strings referencing
+            # real DossierSlotName / SlotStatus vocabulary (M-4 substrate).
+            # Schema unchanged: tuple[str, ...] per C-1; LLM reads as guidance.
+            # Trim-path steps 6+7 applied: shortened hooks 1 and 2.
+            context_hooks=(
+                "when slot 'identity' is empty: 'just one more thing — have we got a name yet?'",
+                "when slot 'predictions' is partial: 'mind if I follow up on that hunch?'",
+                "when slot 'denial' is filled: 'they're hiding something, aren't they?'",
+            ),
+            # tool_preferences: voice-affinity ONLY — detective's framing of "obvious
+            # question" lookups. HARD GATE: persona-swap-tool-call-identity test gates
+            # this invariant (DEC-30-CHARACTER-V2-005).
+            # Trim-path step 8 applied: 1 entry (not 2) — WHOIS is the primary
+            # columbo voice anchor ("who owns the place?" is the obvious question).
+            tool_preferences=("WHOIS: the obvious question — who owns the place?",),
+            # forbidden_voice: F64 panel-separation guard + humility-register guard.
+            # Trim-path step 5 applied: 2 entries (not 3).
+            # "never sound confident" covers the register guard mechanically
+            # (humility-as-disarmament is the entire columbo persona).
+            forbidden_voice=(
+                "never narrate point totals — the Rich panel owns scoring",
+                "never sound confident — humility-as-disarmament is the register",
+            ),
+        ),
     ),
 }
 
