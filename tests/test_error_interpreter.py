@@ -787,3 +787,77 @@ class TestPanelTitleRichStripping:
         # the pre-fix path where double-nesting could cause literal tag leakage
         # in the panel title fallback string.
         assert "[bold red]" not in output
+
+
+# ---------------------------------------------------------------------------
+# HTTPStatusError catalog coverage (DEC-ERROR-ROUTING-002)
+# ---------------------------------------------------------------------------
+
+
+class TestHTTPStatusErrorCatalogCoverage:
+    """New catalog entries: HTTPStatusError 401/403 → API key, 429 → Rate limit,
+    500 → Service, 4xx fallthrough → Network.
+
+    Each test constructs a real httpx.HTTPStatusError via httpx.Response so the
+    shape matches what modules produce when raise_for_status() fires in production.
+    """
+
+    def test_http_status_error_401_classified_as_auth(self):
+        """HTTPStatusError 401 → category 'API key' (DEC-ERROR-ROUTING-002)."""
+        import httpx
+
+        resp = httpx.Response(401, request=httpx.Request("GET", "http://x"))
+        exc = httpx.HTTPStatusError(
+            "Client error '401 Unauthorized'", request=resp.request, response=resp
+        )
+        interp = interpret(exc)
+        assert interp.category == "API key", f"Expected 'API key', got {interp.category!r}"
+        assert interp.severity == "error"
+
+    def test_http_status_error_403_classified_as_auth(self):
+        """HTTPStatusError 403 → category 'API key' (DEC-ERROR-ROUTING-002)."""
+        import httpx
+
+        resp = httpx.Response(403, request=httpx.Request("GET", "http://x"))
+        exc = httpx.HTTPStatusError(
+            "Client error '403 Forbidden'", request=resp.request, response=resp
+        )
+        interp = interpret(exc)
+        assert interp.category == "API key", f"Expected 'API key', got {interp.category!r}"
+        assert interp.severity == "error"
+
+    def test_http_status_error_429_classified_as_rate_limit(self):
+        """HTTPStatusError 429 → category 'Rate limit' (DEC-ERROR-ROUTING-002)."""
+        import httpx
+
+        resp = httpx.Response(429, request=httpx.Request("GET", "http://x"))
+        exc = httpx.HTTPStatusError(
+            "Client error '429 Too Many Requests'", request=resp.request, response=resp
+        )
+        interp = interpret(exc)
+        assert interp.category == "Rate limit", f"Expected 'Rate limit', got {interp.category!r}"
+        assert interp.severity == "warn"
+
+    def test_http_status_error_500_classified_as_service(self):
+        """HTTPStatusError 500 → category 'Service' (DEC-ERROR-ROUTING-002)."""
+        import httpx
+
+        resp = httpx.Response(500, request=httpx.Request("GET", "http://x"))
+        exc = httpx.HTTPStatusError(
+            "Server error '500 Internal Server Error'", request=resp.request, response=resp
+        )
+        interp = interpret(exc)
+        assert interp.category == "Service", f"Expected 'Service', got {interp.category!r}"
+        assert interp.severity == "warn"
+
+    def test_http_status_error_400_classified_as_generic_client(self):
+        """HTTPStatusError 400 (4xx fallthrough) → category 'Network' (DEC-ERROR-ROUTING-002)."""
+        import httpx
+
+        resp = httpx.Response(404, request=httpx.Request("GET", "http://x"))
+        exc = httpx.HTTPStatusError(
+            "Client error '404 Not Found'", request=resp.request, response=resp
+        )
+        interp = interpret(exc)
+        assert interp.category == "Network", f"Expected 'Network', got {interp.category!r}"
+        assert interp.severity == "error"

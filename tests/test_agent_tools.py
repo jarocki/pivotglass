@@ -438,7 +438,12 @@ class TestExecuteToolDispatch:
         assert celebration is None
 
     def test_module_exception_returns_error(self, tmp_ctx):
-        """execute_tool returns (error_string, None) when module raises exception."""
+        """execute_tool returns ([USER_SAW_PANEL] string, None) when module raises.
+
+        Updated for DEC-ERROR-ROUTING-001..007: the except branch now routes through the
+        universal interpreter and returns '[USER_SAW_PANEL] <summary>' to the LLM.
+        """
+        # @mock-exempt: hunt() is the external HTTP boundary (DEC-TEST-AGENT-001).
         mock_mod = MagicMock()
         mock_mod.hunt = AsyncMock(side_effect=RuntimeError("Network error"))
         mock_mod.initialize = MagicMock()
@@ -446,7 +451,9 @@ class TestExecuteToolDispatch:
             summary, celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "dns_resolve", {"domain": "example.com"}
             )
-        assert "Error" in summary
+        assert summary.startswith("[USER_SAW_PANEL]"), (
+            f"Expected [USER_SAW_PANEL] prefix, got: {summary!r}"
+        )
         assert celebration is None
 
     # --- New tool dispatch tests ---
@@ -3637,12 +3644,13 @@ class TestGreyNoiseLookupTool:
         mock_mod.hunt.assert_called_once_with("1.2.3.4", {})
 
     def test_greynoise_lookup_auth_error_surfaces_to_llm(self, tmp_ctx):
-        """AuthenticationError from greynoise hunt() surfaces as an error string (not exception).
+        """AuthenticationError from greynoise hunt() surfaces as [USER_SAW_PANEL] string.
 
-        The tool layer catches AuthenticationError and returns a human-readable string
-        to the LLM rather than propagating the exception. This is the standard
-        execute_tool error-surfacing contract for all module tools.
+        Updated for DEC-ERROR-ROUTING-001..007: the except branch routes through the
+        universal interpreter and returns '[USER_SAW_PANEL] [API key] ...' to the LLM.
+        A Rich panel is rendered to ctx.console; no raw traceback reaches the user.
         """
+        # @mock-exempt: hunt() is the external HTTP boundary (DEC-TEST-AGENT-001).
         from adversary_pursuit.modules.base import AuthenticationError as AuthErr
 
         mock_mod = MagicMock()
@@ -3652,11 +3660,19 @@ class TestGreyNoiseLookupTool:
             summary, celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "greynoise_lookup", {"ip_address": "8.8.8.8"}
             )
-        assert "Error" in summary
+        assert summary.startswith("[USER_SAW_PANEL]"), (
+            f"Expected [USER_SAW_PANEL] prefix, got: {summary!r}"
+        )
+        assert "API key" in summary, f"Expected 'API key' category in LLM string: {summary!r}"
         assert celebration is None
 
     def test_greynoise_lookup_rate_limit_error_surfaces(self, tmp_ctx):
-        """RateLimitError from greynoise hunt() surfaces as an error string (not exception)."""
+        """RateLimitError from greynoise hunt() surfaces as [USER_SAW_PANEL] string.
+
+        Updated for DEC-ERROR-ROUTING-001..007: the except branch routes through the
+        universal interpreter and returns '[USER_SAW_PANEL] [Rate limit] ...' to the LLM.
+        """
+        # @mock-exempt: hunt() is the external HTTP boundary (DEC-TEST-AGENT-001).
         from adversary_pursuit.modules.base import RateLimitError as RLErr
 
         mock_mod = MagicMock()
@@ -3668,7 +3684,10 @@ class TestGreyNoiseLookupTool:
             summary, celebration, _badges, _challenges = execute_tool(
                 tmp_ctx, "greynoise_lookup", {"ip_address": "8.8.8.8"}
             )
-        assert "Error" in summary
+        assert summary.startswith("[USER_SAW_PANEL]"), (
+            f"Expected [USER_SAW_PANEL] prefix, got: {summary!r}"
+        )
+        assert "Rate limit" in summary, f"Expected 'Rate limit' category in LLM string: {summary!r}"
         assert celebration is None
 
     def test_greynoise_lookup_404_returns_graceful_result(self, tmp_ctx):
@@ -3704,16 +3723,24 @@ class TestGreyNoiseLookupTool:
 
 
 class TestExecuteToolRunFailWiring:
-    """execute_tool exception path prepends Rich-stripped mode.run_fail (F62-R0-001).
+    """execute_tool exception path wires mode.run_fail into the panel title (F62, DEC-ERROR-ROUTING-007).
 
-    Production sequence: agent LLM calls hunt tool → module raises → execute_tool
-    catches exception → returns error string prefixed with mode-flavored voice.
+    Updated for Phase 17O (DEC-ERROR-ROUTING-007): mode.run_fail is no longer prepended to
+    the LLM-facing string. Instead it is consumed by render_interactive() via _panel_title()
+    (the single authority for failure voice — F62 preserved, not broken). The LLM-facing
+    string is now '[USER_SAW_PANEL] [Category] <summary> ...' (plain ASCII, no Rich markup,
+    F64 invariant preserved).
+
+    Production sequence: agent LLM calls hunt tool → module raises → execute_tool catches
+    → interpret() + render_interactive(mode=ctx.mode_mgr.active) → panel printed to
+    ctx.console with mode-flavored title → '[USER_SAW_PANEL] ...' returned to LLM.
 
     # @mock-exempt: hunt() mocked at asyncio boundary — external HTTP module call.
     # badge_mgr, mode_mgr are NOT mocked; they use real in-memory instances on tmp_ctx.
 
-    @decision DEC-62-KILL-DOC-LIES-002
-    Tests that _strip_rich_markup is applied and mode.run_fail is prepended.
+    @decision DEC-ERROR-ROUTING-007
+    mode.run_fail now consumed by render_interactive via _panel_title; LLM string carries
+    [USER_SAW_PANEL] marker and plain-text summary (no run_fail prefix, no Rich markup).
     """
 
     def _make_exploding_module(self):
@@ -3724,25 +3751,34 @@ class TestExecuteToolRunFailWiring:
         mock_mod.initialize = MagicMock()
         return mock_mod
 
-    def test_exception_path_starts_with_mode_run_fail(self, tmp_ctx):
-        """execute_tool exception returns string prefixed with stripped run_fail."""
-        from adversary_pursuit.agent.tools import _strip_rich_markup
+    def test_exception_path_starts_with_user_saw_panel_marker(self, tmp_ctx):
+        """execute_tool exception returns '[USER_SAW_PANEL] ...' LLM string (DEC-ERROR-ROUTING-003/007).
 
+        The run_fail voice is folded into the panel title (rendered to ctx.console),
+        NOT prepended to the LLM-facing string. The LLM sees the [USER_SAW_PANEL] marker
+        and knows the user already received the friendly panel.
+        """
+        # @mock-exempt: hunt() is the external HTTP boundary (DEC-TEST-AGENT-001).
         mock_mod = self._make_exploding_module()
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             summary, celebration, badges, challenges = execute_tool(
                 tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
 
-        expected_prefix = _strip_rich_markup(tmp_ctx.mode_mgr.active.run_fail)
-        assert summary.startswith(expected_prefix), (
-            f"Expected summary to start with '{expected_prefix}', got: {summary!r}"
+        assert summary.startswith("[USER_SAW_PANEL]"), (
+            f"Expected '[USER_SAW_PANEL]' prefix (DEC-ERROR-ROUTING-003), got: {summary!r}"
         )
         assert celebration is None
         assert badges == []
 
-    def test_exception_path_contains_no_rich_markup(self, tmp_ctx):
-        """execute_tool exception string has no residual [bold...] markup tags."""
+    def test_exception_path_llm_string_contains_no_rich_bold_markup(self, tmp_ctx):
+        """LLM-facing error string has no [bold...]/[red...] Rich markup tags (F64 invariant).
+
+        [USER_SAW_PANEL] and [Category] are literal bracket tokens, not Rich markup.
+        The regex matches Rich-style markup with known tag names; plain bracket tokens
+        like [USER_SAW_PANEL] and category labels like [API key] are not Rich markup.
+        """
+        # @mock-exempt: hunt() is the external HTTP boundary (DEC-TEST-AGENT-001).
         import re
 
         mock_mod = self._make_exploding_module()
@@ -3751,13 +3787,23 @@ class TestExecuteToolRunFailWiring:
                 tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
 
-        markup_tags = re.findall(r"\[/?[^\]]+\]", summary)
-        assert markup_tags == [], f"Rich markup tags found in error summary: {markup_tags!r}"
+        # Check for actual Rich markup tags (bold, red, italic, etc.) — not plain brackets
+        rich_markup_tags = re.findall(
+            r"\[/?(bold|red|green|yellow|blue|italic|dim)[^\]]*\]", summary
+        )
+        assert rich_markup_tags == [], (
+            f"Rich markup tags found in LLM error summary: {rich_markup_tags!r}"
+        )
 
-    def test_exception_path_full_troll_mode_stripped(self, tmp_ctx):
-        """full_troll run_fail has bold-red markup — must be stripped in exception path."""
-        import re
+    def test_exception_path_full_troll_mode_run_fail_not_in_llm_string(self, tmp_ctx):
+        """full_troll run_fail text does NOT appear in the LLM-facing string (DEC-ERROR-ROUTING-007).
 
+        With full_troll mode, run_fail = '[bold red]BRUH...[/bold red]'.
+        After this slice, run_fail is consumed by render_interactive via _panel_title.
+        The LLM-facing string contains '[USER_SAW_PANEL] [Unknown] ...' — no 'BRUH',
+        no '[bold red]', no run_fail content at all.
+        """
+        # @mock-exempt: hunt() is the external HTTP boundary (DEC-TEST-AGENT-001).
         from adversary_pursuit.gamification.modes import DEFAULT_MODES
 
         tmp_ctx.mode_mgr.switch("full_troll")
@@ -3770,10 +3816,11 @@ class TestExecuteToolRunFailWiring:
                 tmp_ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
             )
 
-        assert "[bold red]" not in summary
-        assert re.findall(r"\[/?[^\]]+\]", summary) == []
-        # Stripped text content should still appear
-        assert "BRUH" in summary or "grandma" in summary
+        # run_fail text must NOT appear in the LLM-facing string (it's in the panel title)
+        assert "[bold red]" not in summary, f"run_fail markup leaked into LLM string: {summary!r}"
+        assert "BRUH" not in summary, f"run_fail text 'BRUH' leaked into LLM string: {summary!r}"
+        # But the [USER_SAW_PANEL] marker must be present
+        assert summary.startswith("[USER_SAW_PANEL]"), f"Missing marker: {summary!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -5302,3 +5349,166 @@ class TestM8StageC:
         mock_mod.hunt = AsyncMock(return_value=results)
         mock_mod.initialize = MagicMock()
         return mock_mod
+
+
+# ---------------------------------------------------------------------------
+# TestExecuteToolFriendlyErrorRouting
+# ---------------------------------------------------------------------------
+
+
+class TestExecuteToolFriendlyErrorRouting:
+    """execute_tool exception branch: interpreter routing + Rich panel + [USER_SAW_PANEL].
+
+    Production sequence: execute_tool raises Exception → interpret() → render_interactive()
+    prints panel to ctx.console → returns "[USER_SAW_PANEL] <summary>" to LLM.
+
+    Each test injects a Console(file=StringIO()) via ToolContext(console=...) so we
+    can assert panel content without touching real stdout/stderr.  capsys confirms no
+    Python traceback leaks to stderr (DEC-ERROR-ROUTING-006).
+
+    @decision DEC-TEST-ERROR-ROUTING-001
+    @title Console(file=StringIO()) injected via ToolContext(console=...) for hermetic panel capture
+    @status accepted
+    @rationale Tests must assert panel content without touching real stdout/stderr.
+               ToolContext(console=...) constructor injection (DEC-ERROR-ROUTING-004) makes
+               this straightforward: pass Console(file=buf) and read buf for panel text.
+               The [USER_SAW_PANEL] marker is verified in the execute_tool return value;
+               the panel body is verified in buf.getvalue().  capsys guards the stderr
+               no-traceback invariant (DEC-ERROR-ROUTING-006).
+    """
+
+    @staticmethod
+    def _make_ctx_with_string_console(tmp_path):
+        """Return (ctx, buf) where ctx has a Console writing to StringIO."""
+        import io
+
+        from rich.console import Console
+
+        config_dir = tmp_path / "config"
+        workspace_dir = tmp_path / "workspaces"
+        config_dir.mkdir()
+        workspace_dir.mkdir()
+        buf = io.StringIO()
+        console = Console(file=buf, highlight=False, markup=True)
+        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir, console=console)
+        ctx.workspace_mgr.create("default")
+        ctx.workspace_mgr.switch("default")
+        return ctx, buf
+
+    @staticmethod
+    def _make_http_status_error(status: int):
+        """Construct a real httpx.HTTPStatusError for the given HTTP status code."""
+        import httpx
+
+        resp = httpx.Response(status, request=httpx.Request("GET", "https://api.example.com/v1/"))
+        return httpx.HTTPStatusError(
+            f"HTTP error {status}",
+            request=resp.request,
+            response=resp,
+        )
+
+    def test_execute_tool_401_renders_panel_and_returns_marker(self, tmp_path, capsys):
+        """HTTPStatusError 401: panel shows [API key] category; LLM gets [USER_SAW_PANEL]
+        prefix; no Python traceback on stderr (DEC-ERROR-ROUTING-001..007)."""
+        ctx, buf = self._make_ctx_with_string_console(tmp_path)
+        exc = self._make_http_status_error(401)
+
+        with patch.object(ctx, "run_module", side_effect=exc):
+            result, celebration, badges, challenges = execute_tool(
+                ctx, "threatfox_lookup", {"target": "evil.example.com"}
+            )
+
+        # LLM-facing string carries [USER_SAW_PANEL] marker and category
+        assert result.startswith("[USER_SAW_PANEL]"), f"Missing marker: {result!r}"
+        assert "API key" in result, f"Expected 'API key' in LLM string: {result!r}"
+
+        # Panel was rendered to the injected console (non-empty)
+        panel_output = buf.getvalue()
+        assert len(panel_output) > 0, "Expected non-empty panel output"
+        # Panel body contains the problem description for an API key error
+        assert "missing or invalid" in panel_output.lower() or "api key" in panel_output.lower(), (
+            f"Expected API key problem text in panel: {panel_output!r}"
+        )
+
+        # No Python traceback on stderr (DEC-ERROR-ROUTING-006)
+        captured = capsys.readouterr()
+        assert "Traceback (most recent call last):" not in captured.err, (
+            f"Traceback leaked to stderr:\n{captured.err}"
+        )
+
+        assert celebration is None
+        assert badges == []
+        assert challenges == []
+
+    def test_execute_tool_429_renders_rate_limit_panel(self, tmp_path, capsys):
+        """HTTPStatusError 429: panel shows 'Rate limit'; [USER_SAW_PANEL] in return."""
+        ctx, buf = self._make_ctx_with_string_console(tmp_path)
+        exc = self._make_http_status_error(429)
+
+        with patch.object(ctx, "run_module", side_effect=exc):
+            result, _cel, _b, _c = execute_tool(
+                ctx, "shodan_host_lookup", {"ip_address": "1.2.3.4"}
+            )
+
+        assert result.startswith("[USER_SAW_PANEL]"), f"Missing marker: {result!r}"
+        assert "Rate limit" in result, f"Expected 'Rate limit' in LLM string: {result!r}"
+        panel_output = buf.getvalue()
+        assert len(panel_output) > 0, "Expected non-empty panel output for rate limit"
+        assert "rate limit" in panel_output.lower() or "too many" in panel_output.lower(), (
+            f"Expected rate limit text in panel: {panel_output!r}"
+        )
+        assert "Traceback (most recent call last):" not in capsys.readouterr().err
+
+    def test_execute_tool_500_renders_service_panel(self, tmp_path, capsys):
+        """HTTPStatusError 500: panel shows 'Service'; [USER_SAW_PANEL] in return."""
+        ctx, buf = self._make_ctx_with_string_console(tmp_path)
+        exc = self._make_http_status_error(500)
+
+        with patch.object(ctx, "run_module", side_effect=exc):
+            result, _cel, _b, _c = execute_tool(
+                ctx, "check_ip_reputation", {"ip_address": "1.2.3.4"}
+            )
+
+        assert result.startswith("[USER_SAW_PANEL]"), f"Missing marker: {result!r}"
+        assert "Service" in result, f"Expected 'Service' in LLM string: {result!r}"
+        panel_output = buf.getvalue()
+        assert len(panel_output) > 0, "Expected non-empty panel output for 500"
+        assert "server error" in panel_output.lower() or "500" in panel_output, (
+            f"Expected server error text in panel: {panel_output!r}"
+        )
+        assert "Traceback (most recent call last):" not in capsys.readouterr().err
+
+    def test_execute_tool_connect_error_renders_network_panel(self, tmp_path, capsys):
+        """httpx.ConnectError: panel shows 'Network'; [USER_SAW_PANEL] in return."""
+        import httpx
+
+        ctx, buf = self._make_ctx_with_string_console(tmp_path)
+        exc = httpx.ConnectError("Connection refused connecting to api.example.com")
+
+        with patch.object(ctx, "run_module", side_effect=exc):
+            result, _cel, _b, _c = execute_tool(ctx, "dns_resolve", {"domain": "evil.example.com"})
+
+        assert result.startswith("[USER_SAW_PANEL]"), f"Missing marker: {result!r}"
+        assert "Network" in result, f"Expected 'Network' in LLM string: {result!r}"
+        panel_output = buf.getvalue()
+        assert len(panel_output) > 0, "Expected non-empty panel output for connect error"
+        assert "connect" in panel_output.lower() or "network" in panel_output.lower(), (
+            f"Expected connect/network text in panel: {panel_output!r}"
+        )
+        assert "Traceback (most recent call last):" not in capsys.readouterr().err
+
+    def test_execute_tool_unknown_exception_renders_unknown_fallback(self, tmp_path, capsys):
+        """Generic ValueError: unknown-fallback panel rendered; [USER_SAW_PANEL] in return;
+        no traceback on stderr (DEC-ERROR-ROUTING-005: every exception gets a panel)."""
+        ctx, buf = self._make_ctx_with_string_console(tmp_path)
+        exc = ValueError("synthetic unknown error from test")
+
+        with patch.object(ctx, "run_module", side_effect=exc):
+            result, _cel, _b, _c = execute_tool(ctx, "dns_resolve", {"domain": "evil.example.com"})
+
+        assert result.startswith("[USER_SAW_PANEL]"), f"Missing marker: {result!r}"
+        # unknown-fallback category is 'Unknown'
+        assert "Unknown" in result, f"Expected 'Unknown' in LLM string: {result!r}"
+        panel_output = buf.getvalue()
+        assert len(panel_output) > 0, "Expected panel output but got empty string"
+        assert "Traceback (most recent call last):" not in capsys.readouterr().err

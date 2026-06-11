@@ -245,6 +245,16 @@ def _append_debug_log(
 # Entries are checked in order; first match wins.
 
 
+def _is_httpx_http_status_error(exc: BaseException) -> bool:
+    """Return True when *exc* is an httpx.HTTPStatusError with a response object.
+
+    Used as a fast pre-check inside _is_auth_error and _is_rate_limit before
+    inspecting the HTTP status code.  Keeps the status-code logic DRY across
+    the two callers (DEC-ERROR-ROUTING-002).
+    """
+    return type(exc).__name__ == "HTTPStatusError" and hasattr(exc, "response")
+
+
 def _is_auth_error(exc: BaseException) -> bool:
     """Match AuthenticationError from modules.base or similar auth failures."""
     # Import lazily to avoid circular dep; this module is under core/
@@ -260,6 +270,13 @@ def _is_auth_error(exc: BaseException) -> bool:
     msg = str(exc).lower()
     if "api key" in msg and ("invalid" in msg or "missing" in msg or "unauthorized" in msg):
         return True
+    # DEC-ERROR-ROUTING-002: httpx.HTTPStatusError 401/403 → API key category.
+    # Modules call raise_for_status() which produces HTTPStatusError for 4xx/5xx;
+    # the boundary catches here so the user sees "Set AP_X_API_KEY" not unknown-fallback.
+    if _is_httpx_http_status_error(exc):
+        status = getattr(exc.response, "status_code", None)  # type: ignore[attr-defined]
+        if status in (401, 403):
+            return True
     return False
 
 
@@ -297,6 +314,13 @@ def _is_rate_limit(exc: BaseException) -> bool:
     msg = str(exc).lower()
     if "rate limit" in msg or "too many requests" in msg or "quota" in msg:
         return True
+    # DEC-ERROR-ROUTING-002: httpx.HTTPStatusError 429 → Rate limit category.
+    # Defense-in-depth: most modules catch 429 themselves (threatfox, greynoise),
+    # but abuseipdb/urlhaus/shodan_ip/censys_host let 429 through raise_for_status().
+    if _is_httpx_http_status_error(exc):
+        status = getattr(exc.response, "status_code", None)  # type: ignore[attr-defined]
+        if status == 429:
+            return True
     return False
 
 
@@ -522,6 +546,41 @@ def _NO_AUTO_FIX(exc: BaseException) -> AutoFix | None:  # noqa: N802 — named 
     return None
 
 
+def _is_http_status_error_generic(exc: BaseException) -> bool:
+    """Match any httpx.HTTPStatusError not already caught by auth/rate-limit entries.
+
+    This is the final HTTPStatusError catch-all: 5xx responses land in the
+    'Service' category; other 4xx land in 'Network'.  Checked after
+    _is_auth_error (401/403) and _is_rate_limit (429) so those more-specific
+    entries win first (DEC-ERROR-ROUTING-002 ordering).
+    """
+    return _is_httpx_http_status_error(exc)
+
+
+def _interpret_http_status_error_generic(exc: BaseException) -> dict:
+    """Build ErrorInterpretation kwargs for a generic httpx.HTTPStatusError.
+
+    5xx → 'Service' (upstream problem; user should wait and retry).
+    4xx fallthrough → 'Network' (client-side input or key issue).
+    """
+    status = getattr(exc.response, "status_code", None)  # type: ignore[attr-defined]
+    if status is not None and 500 <= status < 600:
+        return {
+            "severity": "warn",
+            "category": "Service",
+            "summary": f"The remote service returned a server error (HTTP {status}).",
+            "suggested_fix": (
+                "Wait a moment and retry; the upstream service may be experiencing issues."
+            ),
+        }
+    return {
+        "severity": "error",
+        "category": "Network",
+        "summary": f"The remote service rejected the request (HTTP {status}).",
+        "suggested_fix": "Check your input and API key; if the error repeats, file a bug.",
+    }
+
+
 _CATALOG: list[_CatalogEntry] = [
     # 1. API key authentication errors (modules.base.AuthenticationError)
     (_is_auth_error, _interpret_auth, _NO_AUTO_FIX),
@@ -537,6 +596,10 @@ _CATALOG: list[_CatalogEntry] = [
     (_is_sqlite_locked, _interpret_sqlite_locked, _NO_AUTO_FIX),
     # 7. LLM/litellm provider auth failures (must be checked AFTER modules auth)
     (_is_llm_provider_error, _interpret_llm_provider, _NO_AUTO_FIX),
+    # 8. Generic httpx.HTTPStatusError — 5xx → Service, 4xx fallthrough → Network.
+    #    MUST be last HTTPStatusError entry: auth (401/403) and rate-limit (429)
+    #    checks inside entries 1 and 2 win first (DEC-ERROR-ROUTING-002).
+    (_is_http_status_error_generic, _interpret_http_status_error_generic, _NO_AUTO_FIX),
 ]
 
 # ---------------------------------------------------------------------------
