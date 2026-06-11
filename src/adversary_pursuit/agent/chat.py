@@ -119,6 +119,9 @@ def run_chat() -> None:
                 return
 
         runner = AgentRunner(model=resolved_model, config_mgr=config_mgr)
+        runner.ctx.console = (
+            console  # DEC-ERROR-ROUTING-004: propagate chat console for error panels
+        )
         console.print("[dim]Agent ready. Ask me about any indicator.[/dim]\n")
     except ImportError as exc:
         handle_error(exc, console, None, None)

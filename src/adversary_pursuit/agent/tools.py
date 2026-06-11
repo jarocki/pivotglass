@@ -146,8 +146,15 @@ import logging
 import re
 from typing import Any
 
+from rich.console import Console  # DEC-ERROR-ROUTING-004: ToolContext.console injection
+
 from adversary_pursuit.core.config import ConfigManager
 from adversary_pursuit.core.dossier_pivot import make_dossier_pivot_ranker  # M-6 DEC-M6-PIVOT-001
+from adversary_pursuit.core.error_interpreter import (  # DEC-ERROR-ROUTING-001..007
+    interpret,
+    render_interactive,
+    render_summary_line,
+)
 from adversary_pursuit.core.event_bus import (
     DEFAULT_SUBSCRIPTIONS,
     EventBus,
@@ -252,7 +259,14 @@ class ToolContext:
         (uses the built-in catalogue). Pass a custom list in tests.
     """
 
-    def __init__(self, config_dir=None, workspace_dir=None, hints=None, streak_path=None):
+    def __init__(
+        self,
+        config_dir=None,
+        workspace_dir=None,
+        hints=None,
+        streak_path=None,
+        console: Console | None = None,  # DEC-ERROR-ROUTING-004
+    ):
         self.config_mgr = ConfigManager(config_dir=config_dir)
         self.config = self.config_mgr.load()
         self.workspace_mgr = WorkspaceManager(workspace_dir=workspace_dir)
@@ -265,6 +279,10 @@ class ToolContext:
         # StreakManager: sole authority for streak.json (DEC-62-STREAK-007).
         # streak_path is injectable for tests (DEC-62-STREAK-001).
         self.streak_mgr: StreakManager = StreakManager(path=streak_path)
+        # Rich Console for error panel rendering (DEC-ERROR-ROUTING-004).
+        # Defaults to Console() so cmd2/smoke paths work without wiring.
+        # agent/chat.py propagates its own console singleton post-construction.
+        self.console: Console = console or Console()
         # HintProvider is session-scoped: revealed-ID set persists across all hint calls
         # in this session so the same hint is never shown twice (DEC-HINT-002).
         # Shared by both the LLM tool path and the chat meta-command path (DEC-AGENT-HINTS-001).
@@ -2127,14 +2145,27 @@ def execute_tool(
             result.get("challenges", []),
         )
     except Exception as e:
-        logger.exception("Tool execution failed: %s", tool_name)
-        # Wire run_fail: mode-flavored failure voice in agent exception path
-        # (F62-R0-001, DEC-62-KILL-DOC-LIES-001). Rich markup is stripped so
-        # the plain-text error string returned to the LLM contains no markup
-        # tags. Mirrors console.py _execute_hunt exception paths which print
-        # mode_mgr.active.run_fail to the Rich console.
-        run_fail_plain = _strip_rich_markup(ctx.mode_mgr.active.run_fail)
-        return f"{run_fail_plain} Error running {tool_name}: {e}", None, [], []
+        # DEC-ERROR-ROUTING-006: downgrade to debug so no traceback appears on stderr.
+        # The traceback is preserved in ~/.ap/debug.log via interpret()/_append_debug_log.
+        logger.debug("Tool execution failed: %s", tool_name, exc_info=True)
+        # DEC-ERROR-ROUTING-001..007: catch at the boundary, route through the universal
+        # interpreter, render a Rich panel directly to the user, and return a concise
+        # [USER_SAW_PANEL]-prefixed summary to the LLM (DEC-ERROR-ROUTING-003).
+        # ctx.mode_mgr.active.run_fail is consumed by _panel_title inside render_interactive
+        # (via mode=ctx.mode_mgr.active) — the F62 invariant (run_fail as sole failure-voice
+        # authority) is preserved by folding it into the panel title rather than duplicating
+        # it in the LLM string (DEC-ERROR-ROUTING-007).
+        interp = interpret(
+            e,
+            context={"surface": "agent_execute_tool", "tool": tool_name},
+        )
+        render_interactive(
+            interp,
+            ctx.console,
+            mode=ctx.mode_mgr.active,
+            interactive=False,  # DEC-ERROR-ROUTING-005: no [y/n] prompt mid-LLM-turn
+        )
+        return f"[USER_SAW_PANEL] {render_summary_line(interp)}", None, [], []
 
 
 def _workspace_summary(ctx: ToolContext) -> str:
