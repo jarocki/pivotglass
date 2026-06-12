@@ -78,6 +78,34 @@ from adversary_pursuit.models.database import (
 )
 from adversary_pursuit.models.stix import dict_to_stix
 
+# @decision DEC-WORKSPACE-DB-001
+# @title Confirmation lives at UI surface only — WorkspaceManager.clear() is unconditional
+# @status accepted
+# @rationale The manager is a data-layer authority (Sacred Practice 12: single authority per
+#            state domain). Embedding a confirm_token parameter on clear() would create a
+#            second policy gate inside the data layer, duplicating the UI-surface gate and
+#            violating the single-responsibility contract. The cmd2 and chat surfaces own
+#            user interaction; the manager owns data mutation.
+
+# @decision DEC-WORKSPACE-DB-002
+# @title 6 ORM models cleared per workspace clear; sentinel rows cleared by side effect
+# @status accepted
+# @rationale The 6 tables (stix_objects, relationships, module_runs, score_events,
+#            analyst_notes, badge_events) together represent all investigation data for
+#            a workspace. Sentinel rows in score_events (_milestone_sentinel,
+#            _dossier_state_snapshot, _predictions_log) ARE cleared by intentional side
+#            effect — "clear workspace data" includes dossier state. This aligns with the
+#            user's mental model of "clear this investigation."
+
+# @decision DEC-WORKSPACE-DB-007
+# @title Post-clear loud verification — RuntimeError if any table still has rows
+# @status accepted
+# @rationale Sacred Practice 5 (fail loudly and early, never silently). After committing
+#            the bulk DELETE for all 6 tables, the manager re-queries each table and raises
+#            RuntimeError if any count != 0. This catches partial-clear bugs (e.g., ORM
+#            session not flushing, FK constraints preventing deletion) before the caller
+#            reports success to the user.
+
 _LOG = logging.getLogger(__name__)
 
 # Default workspace directory
@@ -755,6 +783,252 @@ class WorkspaceManager:
             "module_run_count": module_run_count,
             "total_score": total_score,
             "note_count": note_count,
+        }
+
+    # ------------------------------------------------------------------
+    # Workspace clear (DEC-WORKSPACE-DB-001, DEC-WORKSPACE-DB-002, DEC-WORKSPACE-DB-007)
+    # ------------------------------------------------------------------
+
+    def clear(self, name: str | None = None) -> dict[str, int]:
+        """Clear all data tables in the named workspace (or active if None).
+
+        Deletes all rows from 6 ORM models: ``stix_objects``, ``relationships``,
+        ``module_runs``, ``score_events``, ``analyst_notes``, ``badge_events``.
+        The SQLite file and schema are preserved; only row data is removed.
+
+        Sentinel rows stored in ``score_events`` (``_milestone_sentinel``,
+        ``_dossier_state_snapshot``, ``_predictions_log``) are cleared by
+        intentional side effect — "clear workspace data" is a dossier-state
+        clear (DEC-WORKSPACE-DB-002).
+
+        The ``clear()`` method is unconditional — confirmation gates live at
+        the UI surface only (cmd2 ``_workspace_clear`` / chat workspace handler).
+        There is no ``confirm_token`` parameter (DEC-WORKSPACE-DB-001).
+
+        After committing the bulk DELETEs, each table is re-queried; if any
+        count != 0 a ``RuntimeError`` is raised immediately (DEC-WORKSPACE-DB-007,
+        Sacred Practice 5 — loud failure over silent fallback).
+
+        Parameters
+        ----------
+        name:
+            Workspace name to clear. If ``None``, the active workspace is used.
+
+        Returns
+        -------
+        dict[str, int]
+            Counts of rows deleted per table::
+
+                {
+                    "stix_objects": N,
+                    "relationships": N,
+                    "module_runs": N,
+                    "score_events": N,
+                    "analyst_notes": N,
+                    "badge_events": N,
+                }
+
+        Raises
+        ------
+        RuntimeError
+            If ``name`` is ``None`` and no workspace is active.
+        ValueError
+            If ``name`` is given but does not exist.
+        RuntimeError
+            If post-clear verification finds any of the 6 tables still non-empty
+            (DEC-WORKSPACE-DB-007).
+        """
+        if name is not None:
+            # Named workspace — validate existence without switching active session
+            db_path = self._db_path(name)
+            if not db_path.exists():
+                raise ValueError(f"Workspace '{name}' does not exist")
+            from sqlalchemy import create_engine as _ce
+
+            target_engine = _ce(f"sqlite:///{db_path}")
+        else:
+            # Active workspace — use the `active` property which raises RuntimeError
+            # when no workspace has been switched to (DEC-WORKSPACE-DB-001: clear is an
+            # intentional destructive operation; auto-creating 'default' and immediately
+            # clearing it would silently wipe a workspace the user may not have intended
+            # to target — different semantics from read methods that auto-init).
+            _ = self.active  # raises RuntimeError if no active workspace
+            target_engine = self._engine
+
+        deleted: dict[str, int] = {}
+
+        with Session(target_engine) as session:
+            # Delete all rows from each of the 6 ORM data models
+            deleted["stix_objects"] = session.query(StixObject).delete()
+            deleted["relationships"] = session.query(RelationshipModel).delete()
+            deleted["module_runs"] = session.query(ModuleRun).delete()
+            deleted["score_events"] = session.query(ScoreEvent).delete()
+            deleted["analyst_notes"] = session.query(AnalystNote).delete()
+            deleted["badge_events"] = session.query(BadgeEvent).delete()
+            session.commit()
+
+            # DEC-WORKSPACE-DB-007: post-clear loud verification
+            # Re-query each table; any non-zero count is a partial-clear bug
+            remaining = {
+                "stix_objects": session.execute(select(func.count(StixObject.id))).scalar() or 0,
+                "relationships": session.execute(select(func.count(RelationshipModel.id))).scalar()
+                or 0,
+                "module_runs": session.execute(select(func.count(ModuleRun.id))).scalar() or 0,
+                "score_events": session.execute(select(func.count(ScoreEvent.id))).scalar() or 0,
+                "analyst_notes": session.execute(select(func.count(AnalystNote.id))).scalar() or 0,
+                "badge_events": session.execute(select(func.count(BadgeEvent.id))).scalar() or 0,
+            }
+
+        non_empty = {t: c for t, c in remaining.items() if c != 0}
+        if non_empty:
+            raise RuntimeError(
+                f"Workspace clear verification failed — tables still non-empty: "
+                f"{non_empty}. This is a bug; report to maintainers."
+            )
+
+        # Dispose named-workspace engine (it was created only for this call)
+        if name is not None:
+            target_engine.dispose()
+
+        return deleted
+
+    # ------------------------------------------------------------------
+    # Status helpers (DEC-WORKSPACE-DB-004, DEC-WORKSPACE-DB-005)
+    # ------------------------------------------------------------------
+
+    def get_workspace_db_size(self, name: str | None = None) -> int:
+        """Return the SQLite file size in bytes for the named (or active) workspace.
+
+        Uses ``pathlib.Path.stat().st_size`` — no SQLite connection needed.
+        Returns 0 if the workspace file does not exist yet (e.g., the default
+        workspace has not been created yet).
+
+        Parameters
+        ----------
+        name:
+            Workspace name. If ``None``, uses the active workspace name; raises
+            ``RuntimeError`` if no workspace is active.
+
+        Returns
+        -------
+        int
+            File size in bytes, or 0 if the file does not exist.
+        """
+        if name is None:
+            # Will raise RuntimeError when no active workspace (DEC-WS-006 semantics)
+            resolved_name = self.active
+        else:
+            resolved_name = name
+        db_path = self._db_path(resolved_name)
+        if not db_path.exists():
+            return 0
+        return db_path.stat().st_size
+
+    def get_workspace_table_counts(self) -> dict[str, int]:
+        """Return row counts for all 6 ORM data tables in the active workspace.
+
+        Calls ``_ensure_active()`` so a default workspace is auto-created when
+        none is active (same lazy-init semantics as all other data methods).
+
+        Returns
+        -------
+        dict[str, int]
+            Keys: ``stix_objects``, ``relationships``, ``module_runs``,
+            ``score_events``, ``analyst_notes``, ``badge_events``.
+            All values are non-negative integers.
+        """
+        self._ensure_active()
+        with Session(self._engine) as session:
+            return {
+                "stix_objects": session.execute(select(func.count(StixObject.id))).scalar() or 0,
+                "relationships": session.execute(select(func.count(RelationshipModel.id))).scalar()
+                or 0,
+                "module_runs": session.execute(select(func.count(ModuleRun.id))).scalar() or 0,
+                "score_events": session.execute(select(func.count(ScoreEvent.id))).scalar() or 0,
+                "analyst_notes": session.execute(select(func.count(AnalystNote.id))).scalar() or 0,
+                "badge_events": session.execute(select(func.count(BadgeEvent.id))).scalar() or 0,
+            }
+
+    def get_last_event_timestamps(self) -> dict:
+        """Return the most recent event data for key activity categories.
+
+        Calls ``_ensure_active()`` for auto-initialization (DEC-WS-006).
+
+        Returns
+        -------
+        dict
+            Keys and their sources:
+
+            - ``last_run``: ``datetime | None`` — timestamp of the most recent
+              ``ModuleRun`` row.
+            - ``last_run_module``: ``str | None`` — module_name of the most recent run.
+            - ``last_run_target``: ``str | None`` — target of the most recent run.
+            - ``last_note``: ``datetime | None`` — ``created_at`` of the most recent
+              ``AnalystNote`` row.
+            - ``last_note_content``: ``str | None`` — content of the most recent note
+              (first 60 chars).
+            - ``last_badge``: ``datetime | None`` — ``awarded_at`` of the most recent
+              ``BadgeEvent`` row.
+            - ``last_badge_name``: ``str | None`` — badge_name of the most recent badge.
+            - ``last_score``: ``datetime | None`` — ``timestamp`` of the most recent
+              non-sentinel ``ScoreEvent`` row.
+
+            All datetime values are ``None`` when no rows exist for that category.
+        """
+        self._ensure_active()
+        with Session(self._engine) as session:
+            # last_run: most recent ModuleRun by id descending
+            last_run_row = session.execute(
+                select(ModuleRun).order_by(ModuleRun.id.desc()).limit(1)
+            ).scalar_one_or_none()
+            last_run: datetime | None = last_run_row.timestamp if last_run_row is not None else None
+            last_run_module: str | None = (
+                last_run_row.module_name if last_run_row is not None else None
+            )
+            last_run_target: str | None = last_run_row.target if last_run_row is not None else None
+
+            # last_note: most recent AnalystNote by id descending
+            last_note_row = session.execute(
+                select(AnalystNote).order_by(AnalystNote.id.desc()).limit(1)
+            ).scalar_one_or_none()
+            last_note: datetime | None = (
+                last_note_row.created_at if last_note_row is not None else None
+            )
+            last_note_content: str | None = (
+                last_note_row.content[:60] if last_note_row is not None else None
+            )
+
+            # last_badge: most recent BadgeEvent by id descending
+            last_badge_row = session.execute(
+                select(BadgeEvent).order_by(BadgeEvent.id.desc()).limit(1)
+            ).scalar_one_or_none()
+            last_badge: datetime | None = (
+                last_badge_row.awarded_at if last_badge_row is not None else None
+            )
+            last_badge_name: str | None = (
+                last_badge_row.badge_name if last_badge_row is not None else None
+            )
+
+            # last_score: most recent non-sentinel ScoreEvent by id descending
+            last_score_row = session.execute(
+                select(ScoreEvent)
+                .where(ScoreEvent.action.notin_(self._RESERVED_ACTIONS))
+                .order_by(ScoreEvent.id.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+            last_score: datetime | None = (
+                last_score_row.timestamp if last_score_row is not None else None
+            )
+
+        return {
+            "last_run": last_run,
+            "last_run_module": last_run_module,
+            "last_run_target": last_run_target,
+            "last_note": last_note,
+            "last_note_content": last_note_content,
+            "last_badge": last_badge,
+            "last_badge_name": last_badge_name,
+            "last_score": last_score,
         }
 
     # ------------------------------------------------------------------

@@ -134,6 +134,173 @@ def _read_analyst_notes(workspace_mgr: WorkspaceManager) -> list[dict]:
         return []
 
 
+# ---------------------------------------------------------------------------
+# Phase 17P helpers: confirmation gate, byte humaniser, shared db_status render
+# (DEC-WORKSPACE-DB-001, DEC-WORKSPACE-DB-004, DEC-WORKSPACE-DB-005)
+# ---------------------------------------------------------------------------
+
+
+def _confirm(prompt: str) -> bool:
+    """Prompt the user for y/N confirmation with default NO.
+
+    Reads from stdin via ``input()``. Returns ``True`` only when the user
+    types ``y`` or ``yes`` (case-insensitive). Any other input — including a
+    bare Enter — is treated as NO (DEC-WORKSPACE-DB-006).
+
+    Parameters
+    ----------
+    prompt:
+        Human-readable question displayed before ``[y/N]: ``.
+
+    Returns
+    -------
+    bool
+        ``True`` if the user confirmed; ``False`` otherwise.
+    """
+    response = input(f"{prompt} [y/N]: ").strip().lower()
+    return response in ("y", "yes")
+
+
+def _humanise_bytes(n_bytes: int) -> str:
+    """Convert a raw byte count to a human-readable string.
+
+    Uses binary SI prefixes (KB = 1024 bytes, MB = 1024 KB).  Values below
+    1 KB are shown as ``"N B"``.  Values are formatted to one decimal place
+    so ``24576`` becomes ``"24.0 KB"`` and ``1572864`` becomes ``"1.5 MB"``.
+
+    Defined in ``core/console.py`` per DEC-WORKSPACE-DB-004 — no new module.
+
+    Parameters
+    ----------
+    n_bytes:
+        Non-negative integer byte count.
+
+    Returns
+    -------
+    str
+        Human-readable size string, e.g. ``"24.0 KB"``, ``"1.5 MB"``, ``"512 B"``.
+    """
+    if n_bytes < 1024:
+        return f"{n_bytes} B"
+    kb = n_bytes / 1024
+    if kb < 1024:
+        return f"{kb:.1f} KB"
+    mb = kb / 1024
+    return f"{mb:.1f} MB"
+
+
+def _render_db_status_table(workspace_mgr: WorkspaceManager, console: Console) -> None:
+    """Render the enhanced db_status Rich table to *console*.
+
+    Single authority for db_status rendering shared by both the cmd2 surface
+    (``APConsole.do_db_status``) and the ``ap chat`` surface (chat.py workspace
+    db_status meta-command).  DEC-WORKSPACE-DB-005: one render helper, two callers.
+
+    Rows rendered:
+
+    - Active workspace (name or ``(none)``)
+    - DB file path
+    - DB file size (humanised)
+    - Total workspaces
+    - STIX objects / Relationships / Module runs / Score events / Analyst notes / Badge events
+    - Total score
+    - Last run (module_name @ target, ISO timestamp, or ``(none)``)
+    - Last note (first 60 chars, ISO timestamp, or ``(none)``)
+    - Last badge (badge_name, ISO timestamp, or ``(none)``)
+
+    Parameters
+    ----------
+    workspace_mgr:
+        ``WorkspaceManager`` instance (typically ``self.workspace_mgr`` from the
+        cmd2 console, or ``runner.ctx.workspace_mgr`` from the chat surface).
+    console:
+        ``rich.console.Console`` instance to print the table to.
+    """
+    # Resolve active workspace name
+    try:
+        active = workspace_mgr.active
+    except RuntimeError:
+        active = "(none)"
+
+    workspaces = workspace_mgr.list_workspaces()
+
+    table = Table(title="Database Status", show_header=True)
+    table.add_column("Field", style="cyan")
+    table.add_column("Value", style="green")
+
+    table.add_row("Active workspace", active)
+
+    # DB file path + humanised size
+    if active != "(none)":
+        db_path = workspace_mgr._db_path(active)
+        table.add_row("DB file path", str(db_path))
+        try:
+            size_bytes = workspace_mgr.get_workspace_db_size()
+            table.add_row("DB file size", _humanise_bytes(size_bytes))
+        except Exception:  # noqa: BLE001
+            table.add_row("DB file size", "(unavailable)")
+    else:
+        table.add_row("DB file path", "(no active workspace)")
+        table.add_row("DB file size", "(no active workspace)")
+
+    table.add_row("Total workspaces", str(len(workspaces)))
+
+    if active != "(none)":
+        # Per-table row counts
+        try:
+            counts = workspace_mgr.get_workspace_table_counts()
+            table.add_row("STIX objects", str(counts.get("stix_objects", 0)))
+            table.add_row("Relationships", str(counts.get("relationships", 0)))
+            table.add_row("Module runs", str(counts.get("module_runs", 0)))
+            table.add_row("Score events", str(counts.get("score_events", 0)))
+            table.add_row("Analyst notes", str(counts.get("analyst_notes", 0)))
+            table.add_row("Badge events", str(counts.get("badge_events", 0)))
+        except Exception:  # noqa: BLE001
+            table.add_row("Table counts", "(workspace not yet initialized)")
+
+        # Total score
+        try:
+            total_score = workspace_mgr.get_total_score()
+            table.add_row("Total score", f"{total_score} pts")
+        except Exception:  # noqa: BLE001
+            table.add_row("Total score", "(unavailable)")
+
+        # Last-event rows
+        try:
+            ts = workspace_mgr.get_last_event_timestamps()
+            # Last run
+            if ts.get("last_run") is not None:
+                run_ts = ts["last_run"].isoformat()
+                run_label = (
+                    f"{ts.get('last_run_module', '')} @ {ts.get('last_run_target', '')} ({run_ts})"
+                )
+            else:
+                run_label = "(none)"
+            table.add_row("Last run", run_label)
+
+            # Last note
+            if ts.get("last_note") is not None:
+                note_ts = ts["last_note"].isoformat()
+                note_content = ts.get("last_note_content") or ""
+                ellipsis_ = "..." if len(note_content) >= 60 else ""
+                note_label = f"{note_content}{ellipsis_} ({note_ts})"
+            else:
+                note_label = "(none)"
+            table.add_row("Last note", note_label)
+
+            # Last badge
+            if ts.get("last_badge") is not None:
+                badge_ts = ts["last_badge"].isoformat()
+                badge_label = f"{ts.get('last_badge_name', '')} ({badge_ts})"
+            else:
+                badge_label = "(none)"
+            table.add_row("Last badge", badge_label)
+        except Exception:  # noqa: BLE001
+            table.add_row("Last events", "(unavailable)")
+
+    console.print(table)
+
+
 class APConsole(cmd2.Cmd):
     """Adversary Pursuit interactive console.
 
@@ -705,8 +872,10 @@ class APConsole(cmd2.Cmd):
             workspace create <name>
             workspace switch <name>
             workspace delete <name>
+            workspace clear [<name>]
         """
-        parts = args.strip().split(None, 1)
+        # max 3 tokens: "workspace", subcommand, optional name
+        parts = args.strip().split(None, 2)
         sub = parts[0].lower() if parts else "list"
         name = parts[1].strip() if len(parts) > 1 else ""
 
@@ -718,9 +887,11 @@ class APConsole(cmd2.Cmd):
             self._workspace_switch(name)
         elif sub == "delete":
             self._workspace_delete(name)
+        elif sub == "clear":
+            self._workspace_clear(name if name else None)
         else:
             self.poutput(f"Unknown workspace subcommand: '{sub}'")
-            self.poutput("Usage: workspace [list|create|switch|delete] [name]")
+            self.poutput("Usage: workspace [list|create|switch|delete|clear] [name]")
 
     def _workspace_list(self) -> None:
         names = self.workspace_mgr.list_workspaces()
@@ -769,6 +940,43 @@ class APConsole(cmd2.Cmd):
         except ValueError as exc:
             self.poutput(f"Error: {exc}")
 
+    def _workspace_clear(self, name: str | None) -> None:
+        """Prompt the user for confirmation then clear the named (or active) workspace.
+
+        Confirmation uses ``[y/N]`` with default NO so a bare Enter is safe
+        (DEC-WORKSPACE-DB-006). Calls ``WorkspaceManager.clear()`` which is
+        unconditional — confirmation lives here at the UI surface only
+        (DEC-WORKSPACE-DB-001, Sacred Practice 12).
+
+        Parameters
+        ----------
+        name:
+            Workspace name to clear. ``None`` clears the active workspace.
+        """
+        # Resolve display name for the prompt
+        if name is not None:
+            display_name = name
+        else:
+            try:
+                display_name = self.workspace_mgr.active
+            except RuntimeError:
+                self.poutput("Error: no active workspace. Use 'workspace switch <name>' first.")
+                return
+
+        if not _confirm(f"Clear ALL data from workspace '{display_name}'? This cannot be undone."):
+            self.poutput("Clear cancelled.")
+            return
+
+        try:
+            deleted = self.workspace_mgr.clear(name=name)
+            total = sum(deleted.values())
+            self.poutput(
+                f"Workspace '{display_name}' cleared. {total} row(s) removed "
+                f"({', '.join(f'{v} {k}' for k, v in deleted.items() if v > 0) or 'all tables were already empty'})."
+            )
+        except (ValueError, RuntimeError) as exc:
+            self.poutput(f"Error: {exc}")
+
     # ------------------------------------------------------------------
     # db_status
     # ------------------------------------------------------------------
@@ -777,33 +985,12 @@ class APConsole(cmd2.Cmd):
         """Show active workspace status and object counts.
 
         Usage: db_status
+
+        Renders DB file path, humanised file size, per-table row counts for all
+        6 ORM models, total score, and last-event timestamps via the shared
+        ``_render_db_status_table`` helper (DEC-WORKSPACE-DB-005).
         """
-        try:
-            active = self.workspace_mgr.active
-        except RuntimeError:
-            active = "(none)"
-
-        workspaces = self.workspace_mgr.list_workspaces()
-
-        table = Table(title="Database Status", show_header=True)
-        table.add_column("Field", style="cyan")
-        table.add_column("Value", style="green")
-        table.add_row("Active workspace", active)
-        table.add_row("Available workspaces", str(len(workspaces)))
-
-        if active != "(none)":
-            try:
-                objects = self.workspace_mgr.get_stix_objects()
-                runs = self.workspace_mgr.get_module_runs()
-                table.add_row("STIX objects", str(len(objects)))
-                table.add_row("Module runs", str(len(runs)))
-                if runs:
-                    last = runs[-1]
-                    table.add_row("Last run", f"{last['module_name']} @ {last['target']}")
-            except Exception:  # noqa: BLE001
-                table.add_row("Objects", "(workspace not yet initialized)")
-
-        self.rich_console.print(table)
+        _render_db_status_table(self.workspace_mgr, self.rich_console)
 
     # ------------------------------------------------------------------
     # score

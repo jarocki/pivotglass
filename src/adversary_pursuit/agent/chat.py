@@ -66,6 +66,149 @@ from adversary_pursuit.agent.error_handler import handle_error
 from adversary_pursuit.agent.provider_setup import run_provider_wizard
 from adversary_pursuit.agent.repl_input import ChatPromptSession
 from adversary_pursuit.core.config import ConfigManager
+from adversary_pursuit.core.console import _confirm, _render_db_status_table
+
+# ---------------------------------------------------------------------------
+# Phase 17P: chat workspace subcommand dispatcher + db_status helper
+# (DEC-WORKSPACE-DB-001, DEC-WORKSPACE-DB-003, DEC-WORKSPACE-DB-005)
+# ---------------------------------------------------------------------------
+
+
+def _chat_handle_workspace(stripped: str, runner: object, console: Console) -> None:
+    """Handle the ``workspace`` meta-command in the chat REPL.
+
+    Full subcommand dispatcher mirroring ``APConsole.do_workspace`` so both
+    surfaces offer identical functionality (DEC-WORKSPACE-DB-005 parity goal).
+
+    Subcommands::
+
+        workspace                   → list workspaces
+        workspace list              → list workspaces
+        workspace create <name>     → create workspace
+        workspace switch <name>     → switch active workspace
+        workspace delete <name>     → delete with y/N confirmation
+        workspace clear [<name>]    → clear data with y/N confirmation
+        workspace <name>            → DEPRECATED single-arg switch shorthand
+                                      (DEC-WORKSPACE-DB-003: warns for one release cycle)
+
+    Parameters
+    ----------
+    stripped:
+        Raw user input with leading/trailing whitespace removed.
+    runner:
+        ``AgentRunner`` instance; ``runner.ctx.workspace_mgr`` is the live
+        ``WorkspaceManager`` for the session.
+    console:
+        ``rich.console.Console`` for output.
+    """
+    workspace_mgr = runner.ctx.workspace_mgr  # type: ignore[attr-defined]
+
+    # Split into at most 3 tokens: "workspace", subcommand, optional name
+    parts = stripped.split(None, 2)
+    # parts[0] == "workspace"; sub is parts[1] if present
+    sub = parts[1].lower() if len(parts) >= 2 else "list"
+    arg = parts[2].strip() if len(parts) >= 3 else ""
+
+    # Detect legacy single-arg switch shorthand: "workspace <name>" where
+    # <name> is not a recognised subcommand — DEC-WORKSPACE-DB-003.
+    _KNOWN_SUBS = {"list", "create", "switch", "delete", "clear"}
+    if len(parts) == 2 and sub not in _KNOWN_SUBS:
+        # Legacy path: "workspace apt41" treated as "workspace switch apt41"
+        console.print(
+            f"[dim](deprecated: use `workspace switch {sub}` instead of "
+            f"`workspace {sub}` — single-arg shorthand will be removed in v0.5.x)[/dim]"
+        )
+        try:
+            workspace_mgr.switch(sub)
+            console.print(f"[green]Switched to workspace: {sub}[/green]")
+        except ValueError as e:
+            console.print(f"[yellow]{e}[/yellow]")
+        return
+
+    if sub in ("list", "") or (len(parts) == 1):
+        # List all workspaces
+        names = workspace_mgr.list_workspaces()
+        if not names:
+            console.print("[dim]No workspaces found.[/dim]")
+            return
+        table = Table(title="Workspaces", show_header=True)
+        table.add_column("Name", style="cyan")
+        table.add_column("Active", style="green")
+        try:
+            active = workspace_mgr.active
+        except RuntimeError:
+            active = ""
+        for n in names:
+            marker = "*" if n == active else ""
+            table.add_row(n, marker)
+        console.print(table)
+
+    elif sub == "create":
+        if not arg:
+            console.print("[yellow]Usage: workspace create <name>[/yellow]")
+            return
+        try:
+            workspace_mgr.create(arg)
+            console.print(f"[green]Workspace '{arg}' created.[/green]")
+        except ValueError as e:
+            console.print(f"[yellow]{e}[/yellow]")
+
+    elif sub == "switch":
+        if not arg:
+            console.print("[yellow]Usage: workspace switch <name>[/yellow]")
+            return
+        try:
+            workspace_mgr.switch(arg)
+            console.print(f"[green]Switched to workspace: {arg}[/green]")
+        except ValueError as e:
+            console.print(f"[yellow]{e}[/yellow]")
+
+    elif sub == "delete":
+        if not arg:
+            console.print("[yellow]Usage: workspace delete <name>[/yellow]")
+            return
+        if not _confirm(f"Delete workspace '{arg}'? This cannot be undone."):
+            console.print("[dim]Delete cancelled.[/dim]")
+            return
+        try:
+            workspace_mgr.delete(arg)
+            console.print(f"[green]Workspace '{arg}' deleted.[/green]")
+        except ValueError as e:
+            console.print(f"[yellow]{e}[/yellow]")
+
+    elif sub == "clear":
+        # arg is optional: empty → clear active; non-empty → clear named
+        name_to_clear: str | None = arg if arg else None
+        if name_to_clear is not None:
+            display_name = name_to_clear
+        else:
+            try:
+                display_name = workspace_mgr.active
+            except RuntimeError:
+                console.print(
+                    "[yellow]No active workspace. Use 'workspace switch <name>' first.[/yellow]"
+                )
+                return
+        if not _confirm(f"Clear ALL data from workspace '{display_name}'? This cannot be undone."):
+            console.print("[dim]Clear cancelled.[/dim]")
+            return
+        try:
+            deleted = workspace_mgr.clear(name=name_to_clear)
+            total = sum(deleted.values())
+            detail = (
+                ", ".join(f"{v} {k}" for k, v in deleted.items() if v > 0)
+                or "all tables were already empty"
+            )
+            console.print(
+                f"[green]Workspace '{display_name}' cleared. "
+                f"{total} row(s) removed ({detail}).[/green]"
+            )
+        except (ValueError, RuntimeError) as e:
+            console.print(f"[yellow]{e}[/yellow]")
+
+    else:
+        console.print(f"[yellow]Unknown workspace subcommand: '{sub}'[/yellow]")
+        console.print("[dim]Usage: workspace [list|create|switch|delete|clear] [name][/dim]")
 
 
 def run_chat() -> None:
@@ -158,14 +301,20 @@ def run_chat() -> None:
             console.print("Bye!")
             break
 
-        if stripped.lower().startswith("workspace "):
-            workspace_name = stripped[10:].strip()
-            if workspace_name:
-                try:
-                    runner.ctx.workspace_mgr.switch(workspace_name)
-                    console.print(f"[green]Switched to workspace: {workspace_name}[/green]")
-                except ValueError as e:
-                    console.print(f"[yellow]{e}[/yellow]")
+        # Workspace meta-command — full subcommand dispatcher mirroring
+        # APConsole.do_workspace (DEC-WORKSPACE-DB-003: legacy single-arg shorthand
+        # is kept for one release cycle with a deprecation warning).
+        #
+        # Supported forms:
+        #   workspace                       → list workspaces
+        #   workspace list                  → list workspaces
+        #   workspace create <name>         → create workspace
+        #   workspace switch <name>         → switch active workspace
+        #   workspace delete <name>         → delete with y/N confirmation
+        #   workspace clear [<name>]        → clear data with y/N confirmation
+        #   workspace <name>                → DEPRECATED: switch shorthand (warns)
+        if stripped.lower() == "workspace" or stripped.lower().startswith("workspace "):
+            _chat_handle_workspace(stripped, runner, console)
             continue
 
         # Mode meta-command — mirrors APConsole.do_mode (DEC-AGENT-CHAT-002)
@@ -527,8 +676,13 @@ def run_chat() -> None:
             help_table.add_column("Description")
             help_table.add_row(
                 "workspace",
-                "workspace <name>",
-                "Switch active workspace",
+                "workspace [list|create|switch|delete|clear] [name]",
+                "Manage workspaces (legacy: workspace <name> warns and switches)",
+            )
+            help_table.add_row(
+                "db_status",
+                "db_status",
+                "Show DB file path, size, per-table counts, score, last events",
             )
             help_table.add_row(
                 "mode",
@@ -663,6 +817,17 @@ def run_chat() -> None:
                 console.print(f"[green]Model updated to:[/green] {new_model}\n")
             except SystemExit:
                 console.print("[yellow]Setup wizard cancelled.[/yellow]\n")
+            continue
+
+        # db_status meta-command — mirrors APConsole.do_db_status (DEC-WORKSPACE-DB-005).
+        # Handled locally (not sent to LLM) for instant, deterministic output.
+        # Both chat and cmd2 surfaces share the single ``_render_db_status_table``
+        # helper from core/console.py (DEC-WORKSPACE-DB-005 single-authority render).
+        #
+        # Supported form:
+        #   db_status      → show enhanced database status table
+        if lower == "db_status":
+            _render_db_status_table(runner.ctx.workspace_mgr, console)  # type: ignore[attr-defined]
             continue
 
         # Normal chat — send to LLM

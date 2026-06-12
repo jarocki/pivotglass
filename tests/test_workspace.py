@@ -1167,3 +1167,218 @@ class TestReservedActionsFilter:
         wm.set_last_milestone_id(1)
 
         assert wm.get_total_score() == 42
+
+
+# ---------------------------------------------------------------------------
+# Phase 17P: WorkspaceManager.clear() — DEC-WORKSPACE-DB-001/002/007
+# ---------------------------------------------------------------------------
+
+
+class TestWorkspaceClear:
+    """Tests for WorkspaceManager.clear() (Phase 17P).
+
+    Covers DEC-WORKSPACE-DB-001 (no confirm_token on manager method),
+    DEC-WORKSPACE-DB-002 (6 tables cleared; sentinel rows by side effect),
+    and DEC-WORKSPACE-DB-007 (post-clear RuntimeError on partial clear).
+    """
+
+    def _make_wm(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        return wm
+
+    def test_clear_active_empty_workspace_is_noop(self, tmp_path):
+        """clear() on an empty workspace returns zeros for all 6 tables."""
+        wm = self._make_wm(tmp_path)
+        deleted = wm.clear()
+        assert deleted == {
+            "stix_objects": 0,
+            "relationships": 0,
+            "module_runs": 0,
+            "score_events": 0,
+            "analyst_notes": 0,
+            "badge_events": 0,
+        }
+
+    def test_clear_populated_workspace_zeros_six_tables(self, tmp_path):
+        """clear() removes all rows from all 6 tables and returns counts."""
+        wm = self._make_wm(tmp_path)
+        # Populate each of the 6 tables
+        wm.store_stix_objects(
+            [{"type": "ipv4-addr", "value": "1.2.3.4"}],
+            module_name="test/m",
+            target="1.2.3.4",
+        )
+        wm.add_note("test note")
+        wm.store_score_events([{"action": "new_ip", "points": 5, "indicator": "1.2.3.4"}])
+        wm.store_badge_event("badge-first-blood", "First Blood")
+
+        deleted = wm.clear()
+
+        # At least stix_objects, module_runs, analyst_notes, score_events, badge_events > 0
+        assert deleted["stix_objects"] >= 1
+        assert deleted["module_runs"] >= 1
+        assert deleted["analyst_notes"] >= 1
+        assert deleted["score_events"] >= 1
+        assert deleted["badge_events"] >= 1
+
+        # Post-clear: all 6 tables should be empty
+        counts = wm.get_workspace_table_counts()
+        assert all(v == 0 for v in counts.values()), f"Tables still have rows: {counts}"
+
+        # Data methods should return empty results
+        assert wm.get_stix_objects() == []
+        assert wm.get_module_runs() == []
+
+    def test_clear_named_non_active_workspace(self, tmp_path):
+        """clear(name='other') clears a non-active workspace without touching active."""
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("active")
+        wm.create("other")
+
+        # Populate active
+        wm.switch("active")
+        wm.store_stix_objects(
+            [{"type": "domain-name", "value": "keep.com"}],
+            module_name="t",
+            target="keep.com",
+        )
+
+        # Populate other
+        wm.switch("other")
+        wm.store_stix_objects(
+            [{"type": "ipv4-addr", "value": "9.9.9.9"}],
+            module_name="t",
+            target="9.9.9.9",
+        )
+
+        # Switch back to active and clear 'other' by name
+        wm.switch("active")
+        deleted = wm.clear(name="other")
+        assert deleted["stix_objects"] >= 1
+
+        # Active workspace data untouched
+        assert len(wm.get_stix_objects()) == 1
+        assert wm.active == "active"
+
+    def test_clear_no_active_no_name_raises_runtime_error(self, tmp_path):
+        """clear(name=None) with no active workspace raises RuntimeError."""
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("orphan")
+        # Deliberately no switch() call
+        with pytest.raises(RuntimeError):
+            wm.clear()
+
+    def test_clear_missing_named_workspace_raises_value_error(self, tmp_path):
+        """clear(name='ghost') raises ValueError when workspace does not exist."""
+        wm = self._make_wm(tmp_path)
+        with pytest.raises(ValueError, match="does not exist"):
+            wm.clear(name="ghost")
+
+    def test_clear_drops_dossier_sentinel_rows(self, tmp_path):
+        """clear() removes score_events rows including sentinel rows (DEC-WORKSPACE-DB-002)."""
+        from adversary_pursuit.dossier.state import default_deferred_state, save_dossier_state
+
+        wm = self._make_wm(tmp_path)
+        # Store a real score event and a dossier-state sentinel
+        wm.store_score_events([{"action": "new_ip", "points": 10, "indicator": "1.2.3.4"}])
+        wm.set_last_milestone_id(1)
+        save_dossier_state(wm, default_deferred_state())
+
+        assert wm.get_total_score() > 0
+
+        deleted = wm.clear()
+        assert deleted["score_events"] >= 1
+
+        # All score events gone — sentinel rows cleared by side effect
+        assert wm.get_total_score() == 0
+        assert wm.get_last_milestone_id() is None
+
+
+# ---------------------------------------------------------------------------
+# Phase 17P: WorkspaceManager status helpers
+# ---------------------------------------------------------------------------
+
+
+class TestWorkspaceStatusHelpers:
+    """Tests for the 3 new WorkspaceManager status helpers (Phase 17P).
+
+    Covers:
+      - get_workspace_db_size(name=None) -> int
+      - get_workspace_table_counts() -> dict[str, int]
+      - get_last_event_timestamps() -> dict
+    """
+
+    def _make_wm(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("default")
+        wm.switch("default")
+        return wm
+
+    def test_get_workspace_db_size_returns_positive_int(self, tmp_path):
+        """get_workspace_db_size() returns a positive int after workspace creation."""
+        wm = self._make_wm(tmp_path)
+        size = wm.get_workspace_db_size()
+        assert isinstance(size, int)
+        assert size > 0, "SQLite DB file should have a non-zero size after schema creation"
+
+    def test_get_workspace_db_size_for_named_workspace(self, tmp_path):
+        """get_workspace_db_size(name='other') returns size of a non-active workspace."""
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("alpha")
+        wm.create("beta")
+        wm.switch("alpha")
+        size_beta = wm.get_workspace_db_size(name="beta")
+        assert isinstance(size_beta, int)
+        assert size_beta > 0
+
+    def test_get_workspace_table_counts_keys_complete(self, tmp_path):
+        """get_workspace_table_counts() returns all 6 expected table keys."""
+        wm = self._make_wm(tmp_path)
+        counts = wm.get_workspace_table_counts()
+        expected_keys = {
+            "stix_objects",
+            "relationships",
+            "module_runs",
+            "score_events",
+            "analyst_notes",
+            "badge_events",
+        }
+        assert set(counts.keys()) == expected_keys
+        # Fresh workspace: all counts are zero
+        assert all(isinstance(v, int) and v >= 0 for v in counts.values())
+
+    def test_get_workspace_table_counts_after_inserts(self, tmp_path):
+        """get_workspace_table_counts() reflects actual row counts after inserts."""
+        wm = self._make_wm(tmp_path)
+        wm.store_stix_objects(
+            [
+                {"type": "ipv4-addr", "value": "1.1.1.1"},
+                {"type": "domain-name", "value": "example.com"},
+            ],
+            module_name="test/m",
+            target="1.1.1.1",
+        )
+        wm.add_note("analyst observation")
+        wm.store_badge_event("badge-first-blood", "First Blood")
+
+        counts = wm.get_workspace_table_counts()
+        assert counts["stix_objects"] == 2
+        assert counts["module_runs"] == 1
+        assert counts["analyst_notes"] == 1
+        assert counts["badge_events"] == 1
+
+    def test_get_last_event_timestamps_returns_none_on_empty(self, tmp_path):
+        """get_last_event_timestamps() returns None for all keys on a fresh workspace."""
+        wm = self._make_wm(tmp_path)
+        ts = wm.get_last_event_timestamps()
+        assert ts["last_run"] is None
+        assert ts["last_note"] is None
+        assert ts["last_badge"] is None
+        assert ts["last_score"] is None
+        # Context fields also None
+        assert ts["last_run_module"] is None
+        assert ts["last_run_target"] is None
+        assert ts["last_note_content"] is None
+        assert ts["last_badge_name"] is None
