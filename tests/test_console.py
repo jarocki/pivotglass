@@ -677,3 +677,193 @@ class TestF63StreakContinuedIntegration:
 
         # streak_continued appeared in console output
         assert "streak_continued" in out
+
+
+# ---------------------------------------------------------------------------
+# Phase 17P: workspace clear via cmd2 surface
+# ---------------------------------------------------------------------------
+
+
+class TestConsoleWorkspaceClear:
+    """Tests for the cmd2 ``workspace clear`` subcommand (Phase 17P).
+
+    The cmd2 surface prompts the user for confirmation (DEC-WORKSPACE-DB-006).
+    Tests mock ``adversary_pursuit.core.console._confirm`` to control the gate.
+    """
+
+    def test_do_workspace_clear_no_arg_prompts_and_clears_active(self, tmp_path, monkeypatch):
+        """workspace clear with no name prompts and clears the active workspace."""
+        import io
+
+        from adversary_pursuit.core.console import APConsole
+
+        app = APConsole(
+            config_dir=tmp_path / "config",
+            workspace_dir=tmp_path / "workspaces",
+        )
+        app.stdout = io.StringIO()
+
+        # Create and switch to a workspace, add some data
+        app.workspace_mgr.create("alpha")
+        app.workspace_mgr.switch("alpha")
+        app.workspace_mgr.store_stix_objects(
+            [{"type": "ipv4-addr", "value": "1.2.3.4"}],
+            module_name="t",
+            target="1.2.3.4",
+        )
+
+        # Monkeypatch _confirm to return True (user said yes)
+        monkeypatch.setattr("adversary_pursuit.core.console._confirm", lambda prompt: True)
+
+        app.stdout = io.StringIO()
+        app.rich_console = app._make_rich_console()
+        app.onecmd_plus_hooks("workspace clear")
+        out = app.stdout.getvalue() + app.rich_console.file.getvalue()
+
+        assert "cleared" in out.lower() or "removed" in out.lower()
+        assert app.workspace_mgr.get_stix_objects() == []
+
+    def test_do_workspace_clear_named_arg_prompts_and_clears(self, tmp_path, monkeypatch):
+        """workspace clear <name> prompts and clears the named workspace."""
+        import io
+
+        from adversary_pursuit.core.console import APConsole
+
+        app = APConsole(
+            config_dir=tmp_path / "config",
+            workspace_dir=tmp_path / "workspaces",
+        )
+        app.stdout = io.StringIO()
+
+        # Create two workspaces; populate the target one
+        app.workspace_mgr.create("keep")
+        app.workspace_mgr.create("target")
+        app.workspace_mgr.switch("target")
+        app.workspace_mgr.store_stix_objects(
+            [{"type": "domain-name", "value": "evil.com"}],
+            module_name="t",
+            target="evil.com",
+        )
+        app.workspace_mgr.switch("keep")
+
+        monkeypatch.setattr("adversary_pursuit.core.console._confirm", lambda prompt: True)
+
+        app.stdout = io.StringIO()
+        app.rich_console = app._make_rich_console()
+        app.onecmd_plus_hooks("workspace clear target")
+        out = app.stdout.getvalue() + app.rich_console.file.getvalue()
+
+        assert "target" in out.lower()
+        # keep workspace is active and untouched; target should be empty
+        app.workspace_mgr.switch("target")
+        assert app.workspace_mgr.get_stix_objects() == []
+
+    def test_do_workspace_clear_user_cancels(self, tmp_path, monkeypatch):
+        """workspace clear with user confirmation=No leaves data intact."""
+        import io
+
+        from adversary_pursuit.core.console import APConsole
+
+        app = APConsole(
+            config_dir=tmp_path / "config",
+            workspace_dir=tmp_path / "workspaces",
+        )
+        app.workspace_mgr.create("data")
+        app.workspace_mgr.switch("data")
+        app.workspace_mgr.store_stix_objects(
+            [{"type": "ipv4-addr", "value": "5.5.5.5"}],
+            module_name="t",
+            target="5.5.5.5",
+        )
+
+        # User says no
+        monkeypatch.setattr("adversary_pursuit.core.console._confirm", lambda prompt: False)
+
+        app.stdout = io.StringIO()
+        app.rich_console = app._make_rich_console()
+        app.onecmd_plus_hooks("workspace clear")
+        out = app.stdout.getvalue() + app.rich_console.file.getvalue()
+
+        assert "cancel" in out.lower()
+        # Data must still be present
+        assert len(app.workspace_mgr.get_stix_objects()) == 1
+
+
+# ---------------------------------------------------------------------------
+# Phase 17P: enhanced db_status via cmd2 surface
+# ---------------------------------------------------------------------------
+
+
+class TestConsoleDbStatusEnhanced:
+    """Tests for the enhanced ``do_db_status`` command (Phase 17P).
+
+    Verifies that the shared ``_render_db_status_table`` helper renders
+    all required rows: DB path, DB size, per-table counts, last-event info.
+    """
+
+    def _make_app(self, tmp_path):
+        import io
+
+        from adversary_pursuit.core.console import APConsole
+
+        app = APConsole(
+            config_dir=tmp_path / "config",
+            workspace_dir=tmp_path / "workspaces",
+        )
+        app.stdout = io.StringIO()
+        app.workspace_mgr.create("default")
+        app.workspace_mgr.switch("default")
+        return app
+
+    def _run(self, app, cmd: str) -> str:
+        import io
+
+        app.stdout = io.StringIO()
+        app.rich_console = app._make_rich_console()
+        app.onecmd_plus_hooks(cmd)
+        return app.stdout.getvalue() + app.rich_console.file.getvalue()
+
+    def test_do_db_status_contains_db_path_row(self, tmp_path):
+        """db_status output contains the DB file path."""
+        app = self._make_app(tmp_path)
+        out = self._run(app, "db_status")
+        # The path contains the workspace name + .db
+        assert "default.db" in out or "DB file path" in out
+
+    def test_do_db_status_contains_db_size_row(self, tmp_path):
+        """db_status output contains a humanised DB file size."""
+        app = self._make_app(tmp_path)
+        out = self._run(app, "db_status")
+        # Size row shows KB or B
+        assert "KB" in out or " B" in out or "DB file size" in out
+
+    def test_do_db_status_contains_per_table_counts(self, tmp_path):
+        """db_status output contains all 6 per-table count rows."""
+        app = self._make_app(tmp_path)
+        out = self._run(app, "db_status")
+        for label in (
+            "STIX objects",
+            "Relationships",
+            "Module runs",
+            "Score events",
+            "Analyst notes",
+            "Badge events",
+        ):
+            assert label in out, f"Expected row '{label}' in db_status output"
+
+    def test_do_db_status_contains_last_event_rows(self, tmp_path):
+        """db_status output contains Last run / Last note / Last badge rows."""
+        app = self._make_app(tmp_path)
+        # Store data so last-event rows are non-empty
+        app.workspace_mgr.store_stix_objects(
+            [{"type": "ipv4-addr", "value": "1.2.3.4"}],
+            module_name="osint/test",
+            target="1.2.3.4",
+        )
+        app.workspace_mgr.add_note("test analyst note")
+        app.workspace_mgr.store_badge_event("badge-first-blood", "First Blood")
+
+        out = self._run(app, "db_status")
+        assert "Last run" in out
+        assert "Last note" in out
+        assert "Last badge" in out
