@@ -73,6 +73,7 @@ class ThreatFox(BaseModule):
     description = "Search abuse.ch ThreatFox IOC platform for threat intelligence"
     author = "Adversary Pursuit"
     module_type = "cti"
+    accepts = ("ipv4", "ipv6", "domain", "url", "md5", "sha1", "sha256")
     requires_api_key = False
 
     _API_URL = "https://threatfox-api.abuse.ch/api/v1/"

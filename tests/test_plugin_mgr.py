@@ -22,23 +22,24 @@ command. Tests exercise this full sequence including mixed states.
 """
 
 import asyncio
+
 import pytest
 
+from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.modules.base import (
-    PursuitModule,
+    AuthenticationError,
     BaseModule,
     ModuleError,
-    AuthenticationError,
+    PursuitModule,
     RateLimitError,
 )
-from adversary_pursuit.core.plugin_mgr import PluginManager
-from adversary_pursuit.modules.osint.whois_lookup import WhoisLookup
 from adversary_pursuit.modules.osint.dns_resolve import DnsResolve
-
+from adversary_pursuit.modules.osint.whois_lookup import WhoisLookup
 
 # ---------------------------------------------------------------------------
 # Protocol / base class tests
 # ---------------------------------------------------------------------------
+
 
 class TestPursuitModuleProtocol:
     """Verify the Protocol contract is runtime-checkable and well-defined."""
@@ -89,6 +90,7 @@ class TestPursuitModuleProtocol:
 # Exception hierarchy tests
 # ---------------------------------------------------------------------------
 
+
 class TestModuleErrorHierarchy:
     """ModuleError, AuthenticationError, and RateLimitError hierarchy."""
 
@@ -117,6 +119,7 @@ class TestModuleErrorHierarchy:
 # ---------------------------------------------------------------------------
 # PluginManager tests
 # ---------------------------------------------------------------------------
+
 
 class TestPluginManager:
     """Full PluginManager lifecycle: load, get, search, list."""
@@ -253,6 +256,7 @@ class TestPluginManager:
 # Built-in module hunt() integration tests (real network)
 # ---------------------------------------------------------------------------
 
+
 class TestWhoisLookupHunt:
     """WhoisLookup.hunt() against real example.com (uses system whois or socket)."""
 
@@ -341,3 +345,96 @@ class TestDnsResolveHunt:
         results = await module.hunt("example.com", {"RECORD_TYPE": "A"})
         assert isinstance(results, list)
         assert len(results) >= 1
+
+
+class TestResolvePathAndCandidates:
+    """Tests for PluginManager.resolve_path() and candidates() (Phase 17R)."""
+
+    def test_resolve_path_full_path_unchanged(self):
+        """Full canonical path is returned as-is."""
+        pm = PluginManager()
+        pm.load_plugins()
+        result = pm.resolve_path("osint/whois_lookup")
+        assert result == "osint/whois_lookup"
+
+    def test_resolve_path_short_name_unique(self):
+        """Short name 'threatfox' resolves to 'cti/threatfox' when unambiguous."""
+        pm = PluginManager()
+        pm.load_plugins()
+        result = pm.resolve_path("threatfox")
+        assert result == "cti/threatfox"
+
+    def test_resolve_path_short_name_whois(self):
+        """Short name 'whois_lookup' resolves to 'osint/whois_lookup'."""
+        pm = PluginManager()
+        pm.load_plugins()
+        result = pm.resolve_path("whois_lookup")
+        assert result == "osint/whois_lookup"
+
+    def test_resolve_path_short_name_ambiguous_returns_none(self):
+        """Two modules with same short name returns None; candidates() returns both."""
+        pm = PluginManager()
+
+        class FakeA(BaseModule):
+            name = "ns1/conflict_mod"
+            accepts = ()
+
+        class FakeB(BaseModule):
+            name = "ns2/conflict_mod"
+            accepts = ()
+
+        pm.register_module("ns1/conflict_mod", FakeA)
+        pm.register_module("ns2/conflict_mod", FakeB)
+
+        result = pm.resolve_path("conflict_mod")
+        assert result is None
+        cands = pm.candidates("conflict_mod")
+        assert "ns1/conflict_mod" in cands
+        assert "ns2/conflict_mod" in cands
+
+    def test_resolve_path_unknown_returns_none(self):
+        """Unknown name returns None."""
+        pm = PluginManager()
+        pm.load_plugins()
+        assert pm.resolve_path("no_such_module_xyz") is None
+
+    def test_resolve_path_unknown_candidates_empty(self):
+        """Unknown name returns empty candidates list."""
+        pm = PluginManager()
+        pm.load_plugins()
+        assert pm.candidates("no_such_module_xyz") == []
+
+    def test_modules_accepting_ipv4_includes_known_modules(self):
+        """modules_accepting('ipv4') includes abuseipdb and greynoise."""
+        pm = PluginManager()
+        pm.load_plugins()
+        accepting = pm.modules_accepting("ipv4")
+        assert "osint/abuseipdb" in accepting
+        assert "osint/greynoise" in accepting
+
+    def test_modules_accepting_email_returns_hibp(self):
+        """modules_accepting('email') returns hibp (the only email module)."""
+        pm = PluginManager()
+        pm.load_plugins()
+        accepting = pm.modules_accepting("email")
+        assert "osint/hibp" in accepting
+
+    def test_modules_accepting_sha256_returns_malwarebazaar(self):
+        """modules_accepting('sha256') returns malwarebazaar."""
+        pm = PluginManager()
+        pm.load_plugins()
+        accepting = pm.modules_accepting("sha256")
+        assert "cti/malwarebazaar" in accepting
+
+    def test_modules_accepting_unknown_type_returns_empty(self):
+        """modules_accepting for an unknown type returns empty list."""
+        pm = PluginManager()
+        pm.load_plugins()
+        assert pm.modules_accepting("unknown_ioc_type") == []
+
+    def test_modules_accepting_result_is_sorted(self):
+        """modules_accepting returns sorted list."""
+        pm = PluginManager()
+        pm.load_plugins()
+        accepting = pm.modules_accepting("ipv4")
+        assert accepting == sorted(accepting)

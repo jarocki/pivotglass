@@ -40,14 +40,13 @@ from __future__ import annotations
 
 import pytest
 
+from adversary_pursuit.core.console import APConsole
 from adversary_pursuit.gamification.hints import (
     Hint,
     HintProvider,
     HintResult,
     InsufficientBalanceError,
 )
-from adversary_pursuit.core.console import APConsole
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -56,18 +55,23 @@ from adversary_pursuit.core.console import APConsole
 
 def _make_console(tmp_path) -> APConsole:
     """Create an APConsole with isolated tmp_path directories."""
+    import io
+
     console = APConsole(
         config_dir=tmp_path / "config",
         workspace_dir=tmp_path / "workspaces",
     )
-    # Reset rich console output buffer
+    # Route all output (Rich + poutput) through a single StringIO buffer.
+    # After Phase 17R, _make_rich_console() writes to self.stdout, so
+    # resetting stdout and rebuilding rich_console gives a clean capture.
+    console.stdout = io.StringIO()
     console.rich_console = console._make_rich_console()
     return console
 
 
 def _rich_output(console: APConsole) -> str:
-    """Extract text from the Rich console's StringIO buffer."""
-    return console.rich_console.file.getvalue()
+    """Extract text from the console's stdout buffer (Rich + poutput unified)."""
+    return console.stdout.getvalue()
 
 
 # ---------------------------------------------------------------------------
@@ -372,9 +376,16 @@ class TestConsoleHintCommand:
         console.workspace_mgr.create("test-hints")
         console.workspace_mgr.switch("test-hints")
         # Store a score event to give balance
-        console.workspace_mgr.store_score_events([
-            {"action": "new_ip", "points": 100, "indicator": "1.2.3.4", "rule_description": "test"}
-        ])
+        console.workspace_mgr.store_score_events(
+            [
+                {
+                    "action": "new_ip",
+                    "points": 100,
+                    "indicator": "1.2.3.4",
+                    "rule_description": "test",
+                }
+            ]
+        )
         initial_score = console.workspace_mgr.get_total_score()
         assert initial_score == 100
 

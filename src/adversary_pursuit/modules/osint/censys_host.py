@@ -130,6 +130,7 @@ class CensysHost(BaseModule):
     description = "Query Censys for host information, services, and certificates"
     author = "Adversary Pursuit"
     module_type = "osint"
+    accepts = ("ipv4", "ipv6")
 
     def __init__(self) -> None:
         super().__init__()

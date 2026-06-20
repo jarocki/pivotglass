@@ -215,3 +215,68 @@ class PluginManager:
                 }
             )
         return modules
+
+    def resolve_path(self, short_name: str) -> str | None:
+        """Resolve a short module name to its canonical full path.
+
+        If short_name contains '/' and is a known full path, return it directly.
+        Otherwise find all registered paths where the path ends with '/' + short_name.
+        Returns the canonical path if exactly one match found, or None if zero or multiple.
+
+        Parameters
+        ----------
+        short_name:
+            Either a full canonical path (e.g. 'cti/threatfox') or a short name
+            (e.g. 'threatfox'). Case-sensitive — module paths are lowercase by convention.
+
+        Returns
+        -------
+        str | None
+            Canonical path string if exactly one match, None otherwise.
+        """
+        # Full path passthrough
+        if "/" in short_name and short_name in self._modules:
+            return short_name
+        # Suffix match
+        matches = [path for path in self._modules if path.endswith("/" + short_name)]
+        if len(matches) == 1:
+            return matches[0]
+        return None
+
+    def candidates(self, short_name: str) -> list[str]:
+        """Return all canonical paths that end with '/' + short_name.
+
+        Used to produce disambiguation messages when resolve_path returns None
+        due to multiple matches.
+
+        Parameters
+        ----------
+        short_name:
+            Short module name to search for (e.g. 'threatfox').
+
+        Returns
+        -------
+        list[str]
+            Sorted list of matching canonical paths.
+        """
+        return sorted(path for path in self._modules if path.endswith("/" + short_name))
+
+    def modules_accepting(self, ioc_type: str) -> list[str]:
+        """Return sorted list of canonical paths whose module class accepts the given IoC type.
+
+        Parameters
+        ----------
+        ioc_type:
+            IoC type string, e.g. 'ipv4', 'domain', 'sha256'.
+
+        Returns
+        -------
+        list[str]
+            Sorted list of canonical module paths (e.g. ['cti/threatfox', 'osint/abuseipdb']).
+        """
+        results = []
+        for path, cls in self._modules.items():
+            accepts = getattr(cls, "accepts", ())
+            if ioc_type in accepts:
+                results.append(path)
+        return sorted(results)

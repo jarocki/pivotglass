@@ -77,6 +77,7 @@ class PursuitModule(Protocol):
 # Exceptions
 # ---------------------------------------------------------------------------
 
+
 class ModuleError(Exception):
     """Base exception for module-level errors (rate limit, auth, network)."""
 
@@ -107,6 +108,7 @@ class RateLimitError(ModuleError):
 # BaseModule
 # ---------------------------------------------------------------------------
 
+
 class BaseModule:
     """Convenience base class implementing common PursuitModule patterns.
 
@@ -131,6 +133,7 @@ class BaseModule:
     description: str = ""
     author: str = ""
     module_type: str = ""
+    accepts: tuple = ()
 
     def __init__(self) -> None:
         self.options: dict[str, Any] = {}
