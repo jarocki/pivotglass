@@ -33,17 +33,15 @@ def console(tmp_path):
 
 
 def run_cmd(app: APConsole, cmd: str) -> str:
-    """Run a command and return captured stdout + Rich output.
+    """Run a command and return captured stdout.
 
-    Combines both poutput() (written to app.stdout) and Rich output
-    (written to app.rich_console file). Resets both buffers before each call.
+    Rich output now flows to self.stdout (DEC-CONSOLE-001 fix), so all
+    output — poutput() and Rich tables/panels — is captured from app.stdout.
     """
     app.stdout = io.StringIO()
     app.rich_console = app._make_rich_console()
     app.onecmd_plus_hooks(cmd)
-    plain = app.stdout.getvalue()
-    rich_out = app.rich_console.file.getvalue()
-    return plain + rich_out
+    return app.stdout.getvalue()
 
 
 # ---------------------------------------------------------------------------
@@ -97,14 +95,14 @@ def test_back_resets_prompt(console):
     """back returns to main prompt."""
     run_cmd(console, "use osint/whois_lookup")
     run_cmd(console, "back")
-    assert "[main]" in console.prompt
+    assert console.prompt == "ap> "
     assert console._active_module is None
 
 
 def test_back_without_module_is_safe(console):
     """back without a loaded module does not crash."""
     run_cmd(console, "back")
-    assert "[main]" in console.prompt
+    assert "ap>" in console.prompt or console.prompt == "ap> "
 
 
 # ---------------------------------------------------------------------------
@@ -225,7 +223,7 @@ def test_full_workflow_two_modules(console):
     out1 = run_cmd(console, "run")
     run_cmd(console, "back")
 
-    assert "[main]" in console.prompt
+    assert console.prompt == "ap> "
     assert console._active_module is None
 
     run_cmd(console, "use osint/dns_resolve")
@@ -429,9 +427,10 @@ class TestConsoleErrorInterpreter:
         import re
 
         exc = FileNotFoundError("workspace db not found")
+        console.stdout = io.StringIO()
         console.rich_console = console._make_rich_console()
         console.pexcept(exc)
-        out = console.rich_console.file.getvalue()
+        out = console.stdout.getvalue()
 
         assert "Traceback (most recent call last):" not in out
         assert re.search(r"[a-f0-9]{8}", out), "Expected diagnostic ID from pexcept"
@@ -439,9 +438,10 @@ class TestConsoleErrorInterpreter:
     def test_pexcept_hook_produces_friendly_panel(self, console):
         """APConsole.pexcept() renders a friendly panel for any exception."""
         exc = ValueError("totally unexpected state")
+        console.stdout = io.StringIO()
         console.rich_console = console._make_rich_console()
         console.pexcept(exc)
-        out = console.rich_console.file.getvalue()
+        out = console.stdout.getvalue()
 
         assert "Traceback (most recent call last):" not in out
         assert "What happened" in out or "diag" in out
@@ -490,7 +490,7 @@ class TestF63MilestoneCatchupIntegration:
         app.stdout = io.StringIO()
         app.rich_console = app._make_rich_console()
         app.onecmd_plus_hooks(cmd)
-        return app.stdout.getvalue() + app.rich_console.file.getvalue()
+        return app.stdout.getvalue()
 
     def test_milestone_announced_when_score_crosses_threshold(self, console, tmp_path):
         """When a run pushes total score past 100, the milestone message appears.
@@ -603,7 +603,7 @@ class TestF63StreakContinuedIntegration:
         app.stdout = io.StringIO()
         app.rich_console = app._make_rich_console()
         app.onecmd_plus_hooks(cmd)
-        return app.stdout.getvalue() + app.rich_console.file.getvalue()
+        return app.stdout.getvalue()
 
     def test_streak_continued_event_stored_after_hunt(self, console):
         """After a successful hunt, a streak_continued score event is in the workspace."""
@@ -665,7 +665,7 @@ class TestF63StreakContinuedIntegration:
         app.stdout = io.StringIO()
         app.rich_console = app._make_rich_console()
         app.onecmd_plus_hooks("run")
-        out = app.stdout.getvalue() + app.rich_console.file.getvalue()
+        out = app.stdout.getvalue()
 
         # streak_continued must have fired (incremented=True for first hunt)
         recent = app.workspace_mgr.get_recent_scores(limit=20)
@@ -718,7 +718,7 @@ class TestConsoleWorkspaceClear:
         app.stdout = io.StringIO()
         app.rich_console = app._make_rich_console()
         app.onecmd_plus_hooks("workspace clear")
-        out = app.stdout.getvalue() + app.rich_console.file.getvalue()
+        out = app.stdout.getvalue()
 
         assert "cleared" in out.lower() or "removed" in out.lower()
         assert app.workspace_mgr.get_stix_objects() == []
@@ -751,7 +751,7 @@ class TestConsoleWorkspaceClear:
         app.stdout = io.StringIO()
         app.rich_console = app._make_rich_console()
         app.onecmd_plus_hooks("workspace clear target")
-        out = app.stdout.getvalue() + app.rich_console.file.getvalue()
+        out = app.stdout.getvalue()
 
         assert "target" in out.lower()
         # keep workspace is active and untouched; target should be empty
@@ -782,7 +782,7 @@ class TestConsoleWorkspaceClear:
         app.stdout = io.StringIO()
         app.rich_console = app._make_rich_console()
         app.onecmd_plus_hooks("workspace clear")
-        out = app.stdout.getvalue() + app.rich_console.file.getvalue()
+        out = app.stdout.getvalue()
 
         assert "cancel" in out.lower()
         # Data must still be present
@@ -821,7 +821,7 @@ class TestConsoleDbStatusEnhanced:
         app.stdout = io.StringIO()
         app.rich_console = app._make_rich_console()
         app.onecmd_plus_hooks(cmd)
-        return app.stdout.getvalue() + app.rich_console.file.getvalue()
+        return app.stdout.getvalue()
 
     def test_do_db_status_contains_db_path_row(self, tmp_path):
         """db_status output contains the DB file path."""

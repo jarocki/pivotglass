@@ -84,6 +84,7 @@ class ShodanIP(BaseModule):
     description = "Query Shodan for IP host information, open ports, and vulnerabilities"
     author = "Adversary Pursuit"
     module_type = "osint"
+    accepts = ("ipv4", "ipv6")
 
     def __init__(self) -> None:
         super().__init__()
@@ -186,6 +187,7 @@ class ShodanIP(BaseModule):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _normalise_vulns(vulns: Any) -> list[str]:
     """Extract CVE IDs from Shodan's vulns field regardless of format.

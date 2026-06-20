@@ -52,6 +52,7 @@ class WhoisLookup(BaseModule):
     description = "WHOIS lookup for domains and IPs"
     author = "Adversary Pursuit"
     module_type = "osint"
+    accepts = ("ipv4", "ipv6", "domain")
 
     def __init__(self) -> None:
         super().__init__()
@@ -113,6 +114,7 @@ class WhoisLookup(BaseModule):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _classify_target(target: str) -> tuple[bool, int | None]:
     """Return (is_ip, version) for the given target string."""
     try:
@@ -126,7 +128,8 @@ async def _run_whois(target: str) -> str | None:
     """Run system whois command and return stdout, or None on failure."""
     try:
         proc = await asyncio.create_subprocess_exec(
-            "whois", target,
+            "whois",
+            target,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
         )
@@ -176,10 +179,7 @@ async def _resolve_ips(domain: str) -> list[dict]:
     results = []
     try:
         loop = asyncio.get_event_loop()
-        addrs = await loop.run_in_executor(
-            None,
-            lambda: socket.getaddrinfo(domain, None)
-        )
+        addrs = await loop.run_in_executor(None, lambda: socket.getaddrinfo(domain, None))
         seen: set[str] = set()
         for family, _type, _proto, _canon, sockaddr in addrs:
             ip = sockaddr[0]

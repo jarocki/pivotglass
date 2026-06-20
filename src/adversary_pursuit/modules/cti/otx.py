@@ -109,6 +109,7 @@ class AlienVaultOTX(BaseModule):
     description = "Query AlienVault OTX for threat intelligence on IPs and domains"
     author = "Adversary Pursuit"
     module_type = "cti"
+    accepts = ("ipv4", "ipv6", "domain", "url", "md5", "sha1", "sha256")
 
     def __init__(self) -> None:
         super().__init__()

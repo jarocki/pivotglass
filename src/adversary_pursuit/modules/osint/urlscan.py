@@ -142,6 +142,7 @@ class URLScan(BaseModule):
     description = "Submit and analyze URLs via URLScan.io"
     author = "Adversary Pursuit"
     module_type = "osint"
+    accepts = ("url", "domain")
 
     def __init__(self) -> None:
         super().__init__()

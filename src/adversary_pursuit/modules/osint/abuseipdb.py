@@ -61,6 +61,7 @@ class AbuseIPDB(BaseModule):
     description = "Check IP reputation via AbuseIPDB"
     author = "Adversary Pursuit"
     module_type = "osint"
+    accepts = ("ipv4", "ipv6")
 
     _API_URL = "https://api.abuseipdb.com/api/v2/check"
 
@@ -173,6 +174,7 @@ class AbuseIPDB(BaseModule):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _build_results(target: str, data: dict[str, Any]) -> list[dict]:
     """Construct STIX-like SCO dicts from the AbuseIPDB API response data.

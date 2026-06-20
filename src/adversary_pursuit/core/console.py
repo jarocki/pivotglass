@@ -5,13 +5,14 @@ PluginManager, and WorkspaceManager. Uses Rich for formatted output
 rendered through cmd2's stdout channel.
 
 @decision DEC-CONSOLE-001
-@title cmd2.Cmd base with Rich Console(file=StringIO) for formatted output
+@title cmd2.Cmd base with Rich Console(file=self.stdout) for formatted output
 @status accepted
 @rationale cmd2 does not have a native Cmd2BaseConsole (confirmed in Issue #1 spike).
            Rich output is captured by constructing Console(file=self.stdout) so that
            table/panel rendering flows through cmd2's existing stdout redirect mechanism.
-           For testing, _make_rich_console() creates a StringIO-backed Console that
-           tests can inspect directly. This pattern was validated in test_cmd2_rich_spike.py.
+           In tests, cmd2 is constructed with stdout=StringIO(), so Rich output
+           flows into the same StringIO, making all output capturable from app.stdout.
+           This pattern was validated in test_cmd2_rich_spike.py.
 
 @decision DEC-CONSOLE-002
 @title asyncio.run() bridge for async hunt() in sync cmd2 handlers
@@ -32,21 +33,20 @@ rendered through cmd2's stdout channel.
            __init__ time — the workspace is created lazily on first data operation.
 
 @decision DEC-CONSOLE-004
-@title ModeManager consulted for prompt prefix, run messages, and score celebration
+@title ModeManager consulted for score celebration; prompt is plain ap> / ap(<mod>)>
 @status accepted
-@rationale APConsole holds a single ModeManager instance. The prompt is rebuilt on
-           every mode switch (do_mode) and on module load/unload (do_use, do_back)
-           to prepend the active mode's prompt_prefix. run/hunt success messages use
-           mode_mgr.active.run_success (displayed via Rich after results). Score
-           celebration uses mode_mgr.active.score_celebration.format(points=total).
-           This wiring is localised to _execute_hunt and do_mode — future modes
-           integration points (hints, celebrations) will follow the same pattern.
+@rationale APConsole holds a single ModeManager instance. The prompt is ap> in main
+           context and ap(<module_path>)> when a module is loaded. Mode selection
+           updates the ModeManager for ap chat to consume but does not inject a prefix
+           into the REPL prompt (Phase 17R). Score celebration uses
+           mode_mgr.active.score_celebration.format(points=total).
+           run_fail and run_success persona strings are removed from _execute_hunt —
+           the Rich error panel from render_interactive is sufficient.
 """
 
 from __future__ import annotations
 
 import asyncio
-import io
 import json
 from pathlib import Path
 from typing import Any
@@ -322,7 +322,7 @@ class APConsole(cmd2.Cmd):
 
     # Suppress cmd2's intro message and default prompts
     intro = ""
-    prompt = "[main] ap> "
+    prompt = "ap> "
 
     def __init__(
         self,
@@ -371,20 +371,26 @@ class APConsole(cmd2.Cmd):
 
         self._last_report_path: Path | None = None
 
+        # Override cmd2's default prompt — cmd2.Cmd.__init__ sets self.prompt =
+        # Cmd.DEFAULT_PROMPT ("(Cmd) ") unconditionally, so the class-level
+        # attribute is not sufficient. Set here after super().__init__() runs.
+        self.prompt = "ap> "
+
     # ------------------------------------------------------------------
     # Rich console factory (supports test reset)
     # ------------------------------------------------------------------
 
     def _make_rich_console(self) -> Console:
-        """Create a StringIO-backed Rich Console for output capture.
+        """Create a Rich Console writing to self.stdout.
 
-        Using StringIO as the file means Rich output is captured alongside
-        cmd2's poutput() in tests. In production the console is constructed
-        the same way — the StringIO content is checked by tests.
+        Rich output flows through cmd2's stdout channel so all output
+        (poutput and Rich tables/panels) is captured from a single stream.
+        In tests, cmd2 is constructed with stdout=StringIO(), so Rich output
+        flows into the same StringIO, making all output capturable from app.stdout.
 
         See DEC-CONSOLE-001 for the rationale.
         """
-        return Console(file=io.StringIO(), highlight=False, markup=True)
+        return Console(file=self.stdout, highlight=False, markup=True, force_terminal=False)
 
     # ------------------------------------------------------------------
     # cmd2 lifecycle hooks
@@ -469,27 +475,39 @@ class APConsole(cmd2.Cmd):
     # ------------------------------------------------------------------
 
     def do_use(self, args: str) -> None:
-        """Load a module by path.
+        """Load a module by path or short name.
 
-        Usage: use <module_path>
-        Example: use osint/whois_lookup
+        Usage: use <module_path_or_short_name>
+        Examples:
+            use osint/whois_lookup     -- full path
+            use threatfox              -- short name (resolved to cti/threatfox when unambiguous)
         """
         path = args.strip()
         if not path:
             self.poutput("Usage: use <module_path>")
             return
 
-        module = self.plugin_mgr.get_module(path)
+        resolved = self.plugin_mgr.resolve_path(path)
+        if resolved is None:
+            cands = self.plugin_mgr.candidates(path)
+            if cands:
+                self.poutput(f"Ambiguous module name '{path}'. Candidates:")
+                for c in cands:
+                    self.poutput(f"  {c}")
+            else:
+                self.poutput(f"Module not found: '{path}'. Use 'search' to find available modules.")
+            return
+
+        module = self.plugin_mgr.get_module(resolved)
         if module is None:
-            self.poutput(f"Module not found: '{path}'. Use 'search' to find available modules.")
+            self.poutput(f"Module not found: '{resolved}'. Use 'search' to find available modules.")
             return
 
         self._active_module = module
-        self._active_module_path = path
+        self._active_module_path = resolved
         self._active_module_options = {}
-        prefix = self.mode_mgr.active.prompt_prefix
-        self.prompt = f"{prefix}[module] ap({path})> "
-        self.poutput(f"Module '{path}' loaded. Type 'show options' to see parameters.")
+        self.prompt = f"ap({resolved})> "
+        self.poutput(f"Module '{resolved}' loaded. Type 'show options' to see parameters.")
 
     # ------------------------------------------------------------------
     # back
@@ -503,8 +521,7 @@ class APConsole(cmd2.Cmd):
         self._active_module = None
         self._active_module_path = ""
         self._active_module_options = {}
-        prefix = self.mode_mgr.active.prompt_prefix
-        self.prompt = f"{prefix}[main] ap> "
+        self.prompt = "ap> "
 
     # ------------------------------------------------------------------
     # show
@@ -583,12 +600,23 @@ class APConsole(cmd2.Cmd):
         """
         self._execute_hunt()
 
-    def do_hunt(self, _: str) -> None:
-        """Alias for 'run'. Execute the active module.
+    def do_hunt(self, args: str) -> None:
+        """Execute hunt against an IoC, or run the active module if no IoC given.
 
-        Usage: hunt
+        Usage:
+            hunt            -- run the active module against TARGET (alias for run)
+            hunt <ioc>      -- detect IoC type, dispatch to all matching modules,
+                               store results, print per-module summary table.
+
+        IoC types supported: IPv4, IPv6, domain, URL, MD5, SHA1, SHA256, email.
+        Modules are selected by their 'accepts' tuple. Results are stored in the
+        active workspace.
         """
-        self._execute_hunt()
+        arg = args.strip()
+        if not arg:
+            self._execute_hunt()
+            return
+        self._hunt_ioc(arg)
 
     def _execute_hunt(self) -> None:
         """Shared implementation for run and hunt commands."""
@@ -614,10 +642,6 @@ class APConsole(cmd2.Cmd):
                 mode=self.mode_mgr.active,
                 interactive=False,
             )
-            # Wire run_fail: mode-flavored failure voice (DEC-62-KILL-DOC-LIES-001).
-            # render_interactive already showed the error panel; run_fail adds the
-            # character persona voice so the analyst hears the mode's reaction.
-            self.rich_console.print(self.mode_mgr.active.run_fail)
             return
         except Exception as exc:  # noqa: BLE001
             interp = interpret(
@@ -630,14 +654,10 @@ class APConsole(cmd2.Cmd):
                 mode=self.mode_mgr.active,
                 interactive=False,
             )
-            # Wire run_fail on generic exception path too (DEC-62-KILL-DOC-LIES-001).
-            self.rich_console.print(self.mode_mgr.active.run_fail)
             return
 
-        # Display results and show mode-specific success message
+        # Display results
         self._display_results(results)
-        if results:
-            self.rich_console.print(self.mode_mgr.active.run_success)
 
         # Store in workspace and score
         # @defprog-exempt: workspace/scoring errors are user-visible warnings —
@@ -828,6 +848,86 @@ class APConsole(cmd2.Cmd):
                     pass  # streak score storage must never interrupt the hunt flow
         except Exception:  # noqa: BLE001
             pass  # streak errors must never interrupt the hunt flow
+
+    def _hunt_ioc(self, ioc: str) -> None:
+        """Dispatch hunt <ioc>: detect type, run all matching modules, show summary table."""
+        from adversary_pursuit.core.ioc_types import detect_ioc_type
+
+        ioc_type = detect_ioc_type(ioc)
+        if ioc_type is None:
+            self.poutput(
+                f"Unrecognized IoC format: '{ioc}'. "
+                "Supported: IPv4, IPv6, domain, URL, MD5, SHA1, SHA256, email."
+            )
+            return
+
+        paths = self.plugin_mgr.modules_accepting(ioc_type)
+        if not paths:
+            self.poutput(f"No enrichment modules registered for type '{ioc_type}'.")
+            return
+
+        self.poutput(f"Hunting {ioc} (type: {ioc_type}) across {len(paths)} modules...")
+
+        results_by_path: dict[str, list[dict]] = {}
+        errors_by_path: dict[str, str] = {}
+
+        for path in paths:
+            module = self.plugin_mgr.get_module(path)
+            if module is None:
+                errors_by_path[path] = "Module unavailable"
+                continue
+            try:
+                module.initialize(self.config)
+                module_results = asyncio.run(module.hunt(ioc, {}))
+                results_by_path[path] = module_results
+            except Exception as exc:  # noqa: BLE001
+                errors_by_path[path] = str(exc)
+
+        # Persist all results
+        all_results: list[dict] = []
+        for path, r in results_by_path.items():
+            all_results.extend(r)
+
+        if all_results:
+            try:
+                count = self.workspace_mgr.store_stix_objects(
+                    all_results,
+                    module_name=f"hunt/{ioc_type}",
+                    target=ioc,
+                )
+                stored_msg = (
+                    f"Stored {count} new objects in workspace '{self.workspace_mgr.active}'."
+                )
+            except Exception as exc:  # noqa: BLE001
+                stored_msg = f"Warning: could not store results: {exc}"
+        else:
+            stored_msg = "No results to store."
+
+        # Summary table
+        table = Table(title=f"Hunt Results: {ioc} ({ioc_type})", show_header=True)
+        table.add_column("Module", style="cyan")
+        table.add_column("Status", style="white", justify="center")
+        table.add_column("Results", style="green")
+
+        for path in paths:
+            if path in results_by_path:
+                r = results_by_path[path]
+                status = "[green]OK[/green]"
+                results_str = str(len(r)) if r else "0"
+            else:
+                status = "[red]ERR[/red]"
+                results_str = errors_by_path.get(path, "unknown error")[:60]
+            table.add_row(path, status, results_str)
+
+        self.rich_console.print(table)
+
+        n_new = len(all_results)
+        try:
+            active_ws = self.workspace_mgr.active
+        except RuntimeError:
+            active_ws = "default"
+        self.poutput(stored_msg)
+        self.poutput(f"{n_new} IoC results available for pivot in workspace '{active_ws}'.")
 
     def _display_results(self, results: list[dict]) -> None:
         """Render hunt() results as a Rich table.
@@ -1316,12 +1416,8 @@ class APConsole(cmd2.Cmd):
             self.poutput(f"Error: {exc}")
             return
 
-        # Update prompt to reflect new mode prefix
-        prefix = mode.prompt_prefix
-        if self._active_module:
-            self.prompt = f"{prefix}[module] ap({self._active_module_path})> "
-        else:
-            self.prompt = f"{prefix}[main] ap> "
+        # Mode selection updates the manager for ap chat to consume.
+        # The REPL prompt stays plain (ap> / ap(<mod>)>) — no mode prefix (Phase 17R).
 
         # Display the mode's greeting
         self.rich_console.print(mode.greeting)

@@ -44,6 +44,7 @@ class DnsResolve(BaseModule):
     description = "DNS resolution and record lookup"
     author = "Adversary Pursuit"
     module_type = "osint"
+    accepts = ("domain",)
 
     def __init__(self) -> None:
         super().__init__()
@@ -104,6 +105,7 @@ class DnsResolve(BaseModule):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _resolve(domain: str, record_type: str) -> list[dict]:
     """Resolve A and/or AAAA records using socket.getaddrinfo.

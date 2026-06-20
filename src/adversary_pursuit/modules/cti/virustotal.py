@@ -57,6 +57,7 @@ class VirusTotal(BaseModule):
     description: str = "Query VirusTotal v3 for file, URL, IP, and domain analysis"
     author: str = "Adversary Pursuit"
     module_type: str = "cti"
+    accepts = ("ipv4", "ipv6", "domain", "url", "md5", "sha1", "sha256")
 
     def __init__(self) -> None:
         super().__init__()
@@ -135,9 +136,7 @@ class VirusTotal(BaseModule):
             return f"{base}/files/{target}"
         return f"{base}/domains/{target}"
 
-    def _build_results(
-        self, target: str, target_type: str, data: dict
-    ) -> list[dict]:
+    def _build_results(self, target: str, target_type: str, data: dict) -> list[dict]:
         """Convert VT API response to STIX-like dicts."""
         attrs = data.get("data", {}).get("attributes", {})
         stats = attrs.get("last_analysis_stats", {})

@@ -44,6 +44,7 @@ class PassiveTotal(BaseModule):
     description: str = "Query PassiveTotal/RiskIQ for passive DNS and WHOIS history"
     author: str = "Adversary Pursuit"
     module_type: str = "cti"
+    accepts = ("ipv4", "ipv6", "domain")
 
     def __init__(self) -> None:
         super().__init__()

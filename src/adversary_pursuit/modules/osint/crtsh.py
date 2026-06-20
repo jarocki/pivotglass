@@ -90,6 +90,7 @@ class CrtSh(BaseModule):
     description = "Search Certificate Transparency logs via crt.sh for subdomains"
     author = "Adversary Pursuit"
     module_type = "osint"
+    accepts = ("domain",)
     requires_api_key = False
 
     _API_URL = "https://crt.sh/"

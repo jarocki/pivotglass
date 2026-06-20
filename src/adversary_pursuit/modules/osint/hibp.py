@@ -92,6 +92,7 @@ class HIBP(BaseModule):
     description = "Check email addresses against HaveIBeenPwned breach database"
     author = "Adversary Pursuit"
     module_type = "osint"
+    accepts = ("email",)
 
     def __init__(self) -> None:
         super().__init__()
@@ -204,6 +205,7 @@ class HIBP(BaseModule):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _build_clean_sco(target: str) -> dict[str, Any]:
     """Return an email-addr SCO for an address with no breaches.

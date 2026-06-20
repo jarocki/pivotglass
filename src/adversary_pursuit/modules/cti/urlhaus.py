@@ -76,6 +76,7 @@ class URLHaus(BaseModule):
     description = "Check URLs/hosts against abuse.ch URLhaus malicious URL blocklist"
     author = "Adversary Pursuit"
     module_type = "cti"
+    accepts = ("url", "domain", "md5", "sha256")
     requires_api_key = False
 
     _HOST_URL = "https://urlhaus-api.abuse.ch/v1/host/"

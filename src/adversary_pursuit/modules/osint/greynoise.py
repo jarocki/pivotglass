@@ -84,6 +84,7 @@ class GreyNoise(BaseModule):
     description = "Check IP classification via GreyNoise Community API"
     author = "Adversary Pursuit"
     module_type = "osint"
+    accepts = ("ipv4", "ipv6")
 
     _API_URL = "https://api.greynoise.io/v3/community/{ip}"
 
