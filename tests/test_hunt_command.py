@@ -171,68 +171,73 @@ class TestHuntCommand:
 
 
 class TestHuntFleetInitialization:
-    """AP #97: hunt <ioc> must initialize modules with ConfigManager, not raw Config.
+    """AP #97 / AP #98: hunt <ioc> must initialize modules with a credential dict, not ConfigManager.
 
-    Without this test, the regression from Phase 17R (passing self.config_mgr.config
-    instead of self.config_mgr) would not surface in CI — the existing TestHuntCommand
-    tests use fakes without initialize() at all, so the wrong object type was invisible.
+    AP #97 regression: passing self.config_mgr.config (raw Config dataclass) to
+    module.initialize() — the dataclass has no .get() method.
 
-    The regression signature: every module that calls config.get("api_key", ...) in
-    initialize() would fail with "'Config' object has no attribute 'get'" because the
-    Pydantic Config dataclass exposes no .get() method.
+    AP #98 regression: passing self.config_mgr (ConfigManager) to module.initialize()
+    — modules' base contract is initialize(self, config: dict[str, Any]) and every
+    module calls self._config.get("api_key", "") with a 2-arg dict.get() signature.
+    ConfigManager.get() takes one arg and raises KeyError on miss.
+
+    After AP #98: _initialize_module calls resolve_module_credentials() to produce
+    a plain dict. Both call sites (fleet path and legacy run path) go through the
+    shared resolver (DEC-MODULE-CREDS-SHARED-001).
     """
 
     def _make_capturing_module_cls(self, recorded: dict):
-        """Return a PursuitModule subclass that records the init arg and calls .get()."""
+        """Return a PursuitModule subclass that records the init arg and calls .get().
+
+        After AP #98: initialize() always receives a plain dict (not ConfigManager).
+        The module exercises the real dict.get("api_key", "") access pattern inside
+        initialize() so the test fails immediately if a wrong type is passed.
+        """
         from adversary_pursuit.modules.base import BaseModule
 
         class CapturingModule(BaseModule):
-            """Records what was passed to initialize() and exercises .get() on it.
+            """Records what was passed to initialize() and exercises dict.get() on it.
 
-            Mimics the real failure path: real modules (virustotal, abuseipdb, otx…)
-            immediately call self._config.get("api_key", ...) in hunt().  If
-            initialize() received the raw Config dataclass, .get() raises AttributeError.
-            We surface that early inside initialize() itself so the test assertion
-            catches the wrong type before hunt() is ever invoked.
+            Mimics the real access pattern: real modules (virustotal, abuseipdb, otx…)
+            call self._config.get("api_key", "") inside initialize(). That is a 2-arg
+            dict.get() call. If initialize() receives ConfigManager or raw Config, this
+            raises — surfacing the regression before hunt() is ever invoked.
             """
 
             name = "test/capturing"
-            description = "Records init arg for AP #97 regression detection"
+            description = "Records init arg for AP #97/AP #98 regression detection"
             module_type = "test"
             accepts = ("ipv4",)
             options = {"TARGET": {"required": True, "description": "test"}}
 
             def initialize(self, config):
                 recorded["init_arg"] = config
-                # Exercise the same access pattern real modules use:
-                # self._config.get("api_key", "").  On ConfigManager this returns
-                # a string (possibly ""); on the raw Config dataclass it raises
-                # AttributeError — exactly the AP #97 regression.
-                _ = (
-                    config.get_api_key("test")
-                    if hasattr(config, "get_api_key")
-                    else config.get("api_key", "")
-                )  # noqa: E501
+                # Exercise the exact 2-arg dict.get pattern real modules use.
+                # On a plain dict this succeeds; on ConfigManager or raw Config it
+                # raises — catching both AP #97 and AP #98 regression classes.
+                recorded["resolved_key"] = config.get("api_key", "<missing>")
 
             async def hunt(self, target: str, options: dict) -> list[dict]:
                 return [{"type": "ipv4-addr", "value": target, "x_source": "capturing"}]
 
         return CapturingModule
 
-    def test_hunt_initializes_modules_with_config_manager(self, tmp_path):
-        """End-to-end: hunt <ioc> must pass ConfigManager to module.initialize().
+    def test_hunt_initializes_api_key_module_with_dict(self, tmp_path):
+        """End-to-end: hunt <ioc> must pass a plain dict to module.initialize() (AP #98).
 
-        Production sequence: do_hunt("8.8.8.8") → _hunt_ioc() → _initialize_module(module)
-        → module.initialize(<what?>). This test verifies <what?> is a ConfigManager
-        instance (not the raw Config dataclass) by intercepting the initialize() call
-        with a capturing module and asserting the type.
+        Production sequence: do_hunt("8.8.8.8") → _hunt_ioc() →
+        _initialize_module(module, path) → resolve_module_credentials(path, config_mgr) →
+        module.initialize(dict). This is the compound-interaction test: it crosses
+        APConsole → PluginManager → resolve_module_credentials → CapturingModule.initialize()
+        in one call, verifying all internal seams are wired correctly.
 
-        This is the compound-interaction test required by the dispatch: it crosses
-        APConsole → PluginManager → CapturingModule.initialize() in one call.
+        Failure modes caught:
+        - AP #97: config was raw Config dataclass (no .get() at all)
+        - AP #98: config was ConfigManager (1-arg .get(), raises on 2-arg call)
+        - Any future regression that passes a non-dict to initialize()
         """
         import io
 
-        from adversary_pursuit.core.config import ConfigManager
         from adversary_pursuit.core.console import APConsole
         from adversary_pursuit.core.plugin_mgr import PluginManager
 
@@ -259,24 +264,34 @@ class TestHuntFleetInitialization:
             "CapturingModule.initialize() was never called — hunt fleet did not "
             "reach the module's initialize() at all."
         )
-        assert isinstance(recorded["init_arg"], ConfigManager), (
-            f"hunt fleet must initialize modules with ConfigManager, "
+        assert isinstance(recorded["init_arg"], dict), (
+            f"hunt fleet must initialize modules with a plain dict, "
             f"got {type(recorded['init_arg']).__name__!r}. "
-            "AP #97: _hunt_ioc was passing self.config_mgr.config (raw Config "
-            "dataclass) instead of self.config_mgr."
+            "AP #98: _initialize_module must call resolve_module_credentials() "
+            "and pass the resulting dict, not the ConfigManager."
+        )
+        assert "api_key" in recorded["init_arg"], (
+            "Resolved dict for 'test/capturing' must contain 'api_key' key. "
+            "Unknown modules fall back to path-tail service lookup."
+        )
+        # The exact pattern real modules use in initialize():
+        resolved_key = recorded["init_arg"].get("api_key", "<missing>")
+        assert resolved_key != "<missing>", (
+            "dict.get('api_key', '') must not raise — 2-arg get is the real modules' "
+            "access pattern (AP #97 / AP #98 regression guard)."
         )
 
-    def test_initialize_module_passes_config_manager_not_dataclass(self, tmp_path):
+    def test_initialize_module_passes_dict_not_config_manager(self, tmp_path):
         """Direct unit test on _initialize_module — single helper, central invariant.
 
-        Verifies that APConsole._initialize_module(module) passes self.config_mgr
-        (the ConfigManager) and NOT self.config (the raw Config dataclass).  This
-        test is the fast inner loop for the AP #97 regression: one console, one
-        capturing module, one assert.
+        Verifies that APConsole._initialize_module(module, module_path) passes a
+        plain dict (produced by resolve_module_credentials) to module.initialize(),
+        NOT the ConfigManager and NOT the raw Config dataclass.
+
+        Fast inner loop for AP #97 / AP #98 regression: one console, one module, one assert.
         """
         import io
 
-        from adversary_pursuit.core.config import ConfigManager
         from adversary_pursuit.core.console import APConsole
 
         recorded: dict = {}
@@ -289,10 +304,16 @@ class TestHuntFleetInitialization:
         app.stdout = io.StringIO()
 
         module_instance = CapturingModule()
-        app._initialize_module(module_instance)
+        # test/capturing is unknown → falls back to path-tail "capturing" → {"api_key": ""}
+        app._initialize_module(module_instance, "test/capturing")
 
         assert "init_arg" in recorded, "_initialize_module did not call module.initialize()"
-        assert isinstance(recorded["init_arg"], ConfigManager), (
-            f"_initialize_module must pass self.config_mgr (ConfigManager), "
-            f"got {type(recorded['init_arg']).__name__!r}"
+        assert isinstance(recorded["init_arg"], dict), (
+            f"_initialize_module must pass a plain dict to module.initialize(), "
+            f"got {type(recorded['init_arg']).__name__!r}. "
+            "AP #98: resolver must return dict, not ConfigManager."
+        )
+        # dict.get("api_key", "") must work — this is what real modules call
+        assert recorded["init_arg"].get("api_key", "") == recorded["resolved_key"], (
+            "The resolved_key captured in initialize() must equal dict.get('api_key', '')"
         )

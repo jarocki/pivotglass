@@ -630,6 +630,7 @@ class APConsole(cmd2.Cmd):
             return
 
         try:
+            self._initialize_module(self._active_module, self._active_module_path)
             results = asyncio.run(self._active_module.hunt(target, self._active_module_options))
         except ModuleError as exc:
             interp = interpret(
@@ -852,30 +853,46 @@ class APConsole(cmd2.Cmd):
     # @decision DEC-HUNT-INIT-001
     # @title All module initialization in the REPL goes through _initialize_module
     # @status accepted
-    # @rationale Phase 17R's new fleet path (hunt <ioc>) passed self.config_mgr.config
-    #            (the raw Config Pydantic dataclass) to module.initialize() instead of
-    #            self.config_mgr (the ConfigManager that exposes .get()). The raw Config
-    #            dataclass has no .get() method, so every module that called
-    #            config.get("api_key", ...) in initialize() failed with
-    #            "'Config' object has no attribute 'get'" (AP #97).
-    #            Pulling the init call into one helper makes both call sites byte-identical
-    #            and forbids the same regression class from recurring (Sacred Practice 12 —
-    #            single rendering authority for this concept).
-    def _initialize_module(self, module: Any) -> None:
-        """Initialize a module with the ConfigManager.
+    # @rationale AP #97 fixed the fleet path (hunt <ioc>) which was passing
+    #            self.config_mgr.config (raw Config dataclass) to module.initialize()
+    #            instead of self.config_mgr. But AP #97's fix still passed the
+    #            ConfigManager directly — which is still wrong, because modules'
+    #            base contract is initialize(self, config: dict[str, Any]) and
+    #            every module calls self._config.get("api_key", "") inside
+    #            initialize(). ConfigManager.get() takes one arg and raises KeyError
+    #            on miss; modules need dict.get(key, default) (AP #98).
+    #
+    #            AP #98 introduces resolve_module_credentials() from
+    #            core/module_credentials.py — the same credential resolution authority
+    #            the chat agent (agent/tools.py::run_module) has always used. Both
+    #            call sites now consume the shared resolver (DEC-MODULE-CREDS-SHARED-001,
+    #            Sacred Practice 12 — single rendering authority).
+    def _initialize_module(self, module: Any, module_path: str) -> None:
+        """Initialize a module with the per-module credential dict.
 
-        Single authority for module initialization — both _execute_hunt (legacy
-        run/use path) and _hunt_ioc (fleet dispatch path) MUST call this method.
-        Passing self.config_mgr (not self.config) ensures modules that call
-        config.get() receive the manager that exposes that method (AP #97 fix).
+        Single authority for module initialization in the REPL — both
+        _execute_hunt (legacy run/use path) and _hunt_ioc (fleet dispatch path)
+        MUST call this method. The credential dict is built via
+        resolve_module_credentials() — the same authority the chat agent uses
+        (DEC-MODULE-CREDS-SHARED-001).
+
+        Why a dict, not the ConfigManager: modules' base class declares
+        initialize(self, config: dict[str, Any]) and every module calls
+        self._config.get("api_key", "") inside initialize(). Passing the
+        ConfigManager directly broke every API-key module (AP #97, AP #98).
 
         Parameters
         ----------
         module:
-            PursuitModule instance to initialize. ``initialize()`` is called
-            with ``self.config_mgr`` per the proven-correct production pattern.
+            PursuitModule instance to initialize.
+        module_path:
+            Canonical module path (e.g. "osint/shodan_ip", "cti/virustotal").
+            Used to look up the per-module credential dict.
         """
-        module.initialize(self.config_mgr)
+        from adversary_pursuit.core.module_credentials import resolve_module_credentials
+
+        init_config = resolve_module_credentials(module_path, self.config_mgr)
+        module.initialize(init_config)
 
     def _hunt_ioc(self, ioc: str) -> None:
         """Dispatch hunt <ioc>: detect type, run all matching modules, show summary table."""
@@ -905,7 +922,7 @@ class APConsole(cmd2.Cmd):
                 errors_by_path[path] = "Module unavailable"
                 continue
             try:
-                self._initialize_module(module)
+                self._initialize_module(module, path)
                 module_results = asyncio.run(module.hunt(ioc, {}))
                 results_by_path[path] = module_results
             except Exception as exc:  # noqa: BLE001
