@@ -168,3 +168,131 @@ class TestHuntCommand:
         sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         out = run_cmd(console, f"hunt {sha256}")
         assert "sha256" in out.lower() or "Hunting" in out
+
+
+class TestHuntFleetInitialization:
+    """AP #97: hunt <ioc> must initialize modules with ConfigManager, not raw Config.
+
+    Without this test, the regression from Phase 17R (passing self.config_mgr.config
+    instead of self.config_mgr) would not surface in CI — the existing TestHuntCommand
+    tests use fakes without initialize() at all, so the wrong object type was invisible.
+
+    The regression signature: every module that calls config.get("api_key", ...) in
+    initialize() would fail with "'Config' object has no attribute 'get'" because the
+    Pydantic Config dataclass exposes no .get() method.
+    """
+
+    def _make_capturing_module_cls(self, recorded: dict):
+        """Return a PursuitModule subclass that records the init arg and calls .get()."""
+        from adversary_pursuit.modules.base import BaseModule
+
+        class CapturingModule(BaseModule):
+            """Records what was passed to initialize() and exercises .get() on it.
+
+            Mimics the real failure path: real modules (virustotal, abuseipdb, otx…)
+            immediately call self._config.get("api_key", ...) in hunt().  If
+            initialize() received the raw Config dataclass, .get() raises AttributeError.
+            We surface that early inside initialize() itself so the test assertion
+            catches the wrong type before hunt() is ever invoked.
+            """
+
+            name = "test/capturing"
+            description = "Records init arg for AP #97 regression detection"
+            module_type = "test"
+            accepts = ("ipv4",)
+            options = {"TARGET": {"required": True, "description": "test"}}
+
+            def initialize(self, config):
+                recorded["init_arg"] = config
+                # Exercise the same access pattern real modules use:
+                # self._config.get("api_key", "").  On ConfigManager this returns
+                # a string (possibly ""); on the raw Config dataclass it raises
+                # AttributeError — exactly the AP #97 regression.
+                _ = (
+                    config.get_api_key("test")
+                    if hasattr(config, "get_api_key")
+                    else config.get("api_key", "")
+                )  # noqa: E501
+
+            async def hunt(self, target: str, options: dict) -> list[dict]:
+                return [{"type": "ipv4-addr", "value": target, "x_source": "capturing"}]
+
+        return CapturingModule
+
+    def test_hunt_initializes_modules_with_config_manager(self, tmp_path):
+        """End-to-end: hunt <ioc> must pass ConfigManager to module.initialize().
+
+        Production sequence: do_hunt("8.8.8.8") → _hunt_ioc() → _initialize_module(module)
+        → module.initialize(<what?>). This test verifies <what?> is a ConfigManager
+        instance (not the raw Config dataclass) by intercepting the initialize() call
+        with a capturing module and asserting the type.
+
+        This is the compound-interaction test required by the dispatch: it crosses
+        APConsole → PluginManager → CapturingModule.initialize() in one call.
+        """
+        import io
+
+        from adversary_pursuit.core.config import ConfigManager
+        from adversary_pursuit.core.console import APConsole
+        from adversary_pursuit.core.plugin_mgr import PluginManager
+
+        recorded: dict = {}
+        CapturingModule = self._make_capturing_module_cls(recorded)
+
+        app = APConsole(
+            config_dir=tmp_path / "config",
+            workspace_dir=tmp_path / "workspaces",
+        )
+        app.stdout = io.StringIO()
+
+        # Swap in a fresh PluginManager containing only our capturing module so
+        # real modules (which may emit network errors) don't pollute the result.
+        pm = PluginManager()
+        pm.register_module("test/capturing", CapturingModule)
+        app.plugin_mgr = pm
+
+        # Rebuild rich console so it routes through the new stdout
+        app.rich_console = app._make_rich_console()
+        app.onecmd_plus_hooks("hunt 8.8.8.8")
+
+        assert "init_arg" in recorded, (
+            "CapturingModule.initialize() was never called — hunt fleet did not "
+            "reach the module's initialize() at all."
+        )
+        assert isinstance(recorded["init_arg"], ConfigManager), (
+            f"hunt fleet must initialize modules with ConfigManager, "
+            f"got {type(recorded['init_arg']).__name__!r}. "
+            "AP #97: _hunt_ioc was passing self.config_mgr.config (raw Config "
+            "dataclass) instead of self.config_mgr."
+        )
+
+    def test_initialize_module_passes_config_manager_not_dataclass(self, tmp_path):
+        """Direct unit test on _initialize_module — single helper, central invariant.
+
+        Verifies that APConsole._initialize_module(module) passes self.config_mgr
+        (the ConfigManager) and NOT self.config (the raw Config dataclass).  This
+        test is the fast inner loop for the AP #97 regression: one console, one
+        capturing module, one assert.
+        """
+        import io
+
+        from adversary_pursuit.core.config import ConfigManager
+        from adversary_pursuit.core.console import APConsole
+
+        recorded: dict = {}
+        CapturingModule = self._make_capturing_module_cls(recorded)
+
+        app = APConsole(
+            config_dir=tmp_path / "config",
+            workspace_dir=tmp_path / "workspaces",
+        )
+        app.stdout = io.StringIO()
+
+        module_instance = CapturingModule()
+        app._initialize_module(module_instance)
+
+        assert "init_arg" in recorded, "_initialize_module did not call module.initialize()"
+        assert isinstance(recorded["init_arg"], ConfigManager), (
+            f"_initialize_module must pass self.config_mgr (ConfigManager), "
+            f"got {type(recorded['init_arg']).__name__!r}"
+        )
