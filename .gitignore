@@ -127,3 +127,22 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# macOS
+.DS_Store
+
+# Project-local scratch
+tmp/
+.worktrees/
+
+# Claude Code harness runtime state (per-session caches, lease/scope tracking,
+# lint advisories, SQLite state DB).
+# Tracked items under .claude/: settings.json (project config), agents/ (per-project
+# subagent overrides if any). Ignored: runtime state, per-session research dumps,
+# lint advisories.
+.claude/.*
+.claude/state
+.claude/state.db
+.claude/state.db-*
+.claude/tmp/
+.claude/research/
