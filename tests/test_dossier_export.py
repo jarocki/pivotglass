@@ -24,6 +24,11 @@ import stix2
 
 from adversary_pursuit.core.workspace import WorkspaceManager
 
+# Derive the repo root from this file's location so subprocess git calls work
+# regardless of which worktree pytest is invoked from.  tests/ sits one level
+# below the repo root, so parents[1] resolves to <repo_root>.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
 # ---------------------------------------------------------------------------
 # Fixtures — real WorkspaceManager (no internal mocks)
 # ---------------------------------------------------------------------------
@@ -360,7 +365,7 @@ class TestF59Invariant:
             ["git", "diff", "main", "--", "src/adversary_pursuit/core/workspace.py"],
             capture_output=True,
             text=True,
-            cwd="/Users/jarocki/src/ap/.worktrees/feature-68-m9-crowdsourced-dossiers",
+            cwd=str(_REPO_ROOT),
         )
         assert result.stdout.strip() == "", (
             f"core/workspace.py has been modified — F59 invariant violated. Diff:\n{result.stdout}"
@@ -374,7 +379,7 @@ class TestF59Invariant:
             ["git", "diff", "main", "--", "src/adversary_pursuit/models/database.py"],
             capture_output=True,
             text=True,
-            cwd="/Users/jarocki/src/ap/.worktrees/feature-68-m9-crowdsourced-dossiers",
+            cwd=str(_REPO_ROOT),
         )
         assert result.stdout.strip() == "", (
             "models/database.py has been modified — no new schema allowed in M-9. "
