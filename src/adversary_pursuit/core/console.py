@@ -849,6 +849,34 @@ class APConsole(cmd2.Cmd):
         except Exception:  # noqa: BLE001
             pass  # streak errors must never interrupt the hunt flow
 
+    # @decision DEC-HUNT-INIT-001
+    # @title All module initialization in the REPL goes through _initialize_module
+    # @status accepted
+    # @rationale Phase 17R's new fleet path (hunt <ioc>) passed self.config_mgr.config
+    #            (the raw Config Pydantic dataclass) to module.initialize() instead of
+    #            self.config_mgr (the ConfigManager that exposes .get()). The raw Config
+    #            dataclass has no .get() method, so every module that called
+    #            config.get("api_key", ...) in initialize() failed with
+    #            "'Config' object has no attribute 'get'" (AP #97).
+    #            Pulling the init call into one helper makes both call sites byte-identical
+    #            and forbids the same regression class from recurring (Sacred Practice 12 —
+    #            single rendering authority for this concept).
+    def _initialize_module(self, module: Any) -> None:
+        """Initialize a module with the ConfigManager.
+
+        Single authority for module initialization — both _execute_hunt (legacy
+        run/use path) and _hunt_ioc (fleet dispatch path) MUST call this method.
+        Passing self.config_mgr (not self.config) ensures modules that call
+        config.get() receive the manager that exposes that method (AP #97 fix).
+
+        Parameters
+        ----------
+        module:
+            PursuitModule instance to initialize. ``initialize()`` is called
+            with ``self.config_mgr`` per the proven-correct production pattern.
+        """
+        module.initialize(self.config_mgr)
+
     def _hunt_ioc(self, ioc: str) -> None:
         """Dispatch hunt <ioc>: detect type, run all matching modules, show summary table."""
         from adversary_pursuit.core.ioc_types import detect_ioc_type
@@ -877,7 +905,7 @@ class APConsole(cmd2.Cmd):
                 errors_by_path[path] = "Module unavailable"
                 continue
             try:
-                module.initialize(self.config)
+                self._initialize_module(module)
                 module_results = asyncio.run(module.hunt(ioc, {}))
                 results_by_path[path] = module_results
             except Exception as exc:  # noqa: BLE001
