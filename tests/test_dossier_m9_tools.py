@@ -22,6 +22,11 @@ import pytest
 
 from adversary_pursuit.agent.tools import ToolContext, create_tools
 
+# Derive the repo root from this file's location so subprocess calls work
+# regardless of which worktree pytest is invoked from.  tests/ sits one level
+# below the repo root, so parents[1] resolves to <repo_root>.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -268,7 +273,7 @@ class TestF64Invariants:
             ],
             capture_output=True,
             text=True,
-            cwd="/Users/jarocki/src/ap/.worktrees/feature-68-m9-crowdsourced-dossiers",
+            cwd=str(_REPO_ROOT),
         )
         # Should appear at least twice: definition site + usage site
         count = int(result.stdout.strip())
@@ -289,7 +294,7 @@ class TestF64Invariants:
                 ["grep", "-c", action, "src/adversary_pursuit/agent/tools.py"],
                 capture_output=True,
                 text=True,
-                cwd="/Users/jarocki/src/ap/.worktrees/feature-68-m9-crowdsourced-dossiers",
+                cwd=str(_REPO_ROOT),
             )
             count = int(result.stdout.strip())
             assert count >= 1, f"Action '{action}' not found in _DOSSIER_ACTIONS"
