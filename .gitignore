@@ -135,14 +135,8 @@ dmypy.json
 tmp/
 .worktrees/
 
-# Claude Code harness runtime state (per-session caches, lease/scope tracking,
-# lint advisories, SQLite state DB).
-# Tracked items under .claude/: settings.json (project config), agents/ (per-project
-# subagent overrides if any). Ignored: runtime state, per-session research dumps,
-# lint advisories.
-.claude/.*
-.claude/state
-.claude/state.db
-.claude/state.db-*
-.claude/tmp/
-.claude/research/
+# Claude Code harness — all per-session state, research, settings, and tool
+# scratch stays untracked. Per user policy: meta-conversations about the tool
+# remain untracked unless explicitly decided otherwise. To commit a single
+# Claude Code config file later, use `git add -f .claude/<file>`.
+.claude/
