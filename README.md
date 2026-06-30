@@ -28,7 +28,7 @@ The **v1 primary interface is `ap chat`** — a conversational AI agent powered 
 Install the latest release:
 
 ```bash
-pip install "https://github.com/jarocki/ap/releases/download/v0.1.0/adversary_pursuit-0.1.0-py3-none-any.whl[agent]"
+pip install "https://github.com/jarocki/ap/releases/download/v0.4.0/adversary_pursuit-0.4.0-py3-none-any.whl[agent]"
 ```
 
 The `[agent]` extras include `prompt-toolkit`, `litellm`, and other dependencies needed for the conversational `ap chat` interface. Omit `[agent]` if you only need the cmd2 REPL (`ap`).
