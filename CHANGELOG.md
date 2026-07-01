@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **AP #76**: `.gitignore` enhancement + committed 5 reckoning artifacts. Blocked ~5 days by AP #100 eval-race in the Claude Code harness; landed after AP #100 fix shipped 2026-07-01.
+- **AP #97/#98/#99**: `hunt <ioc>` config initializer chain — Config dataclass bug in Phase 17R fleet dispatch, resolved by extracting a shared credential resolver (`core/module_credentials.py`).
+- **AP #84**: 4 M-9 invariant tests referenced a removed worktree path; replaced with `Path(__file__).resolve().parents[1]` (Phase 17U).
+
+### Added
+- **Reckoning operationalization** (Phase 17X): `DEC-PAUSE-001` declaring pauses out-of-scope, `.github/workflows/regen-decisions.yml` for auto-regen on push to main, project-local `CLAUDE.md` with `DEC-BACKLOG-DISCIPLINE-001` (schedule-or-close every issue at filing).
+- **Phase 18 "Orchestrator Stability" roadmap** (umbrella issue #102): drain queue for 18 harness/runtime bugs.
+
+### Harness (Claude Code side; not shipped with adversary-pursuit but affects the delivery chain)
+- AP #75: Guardian completion auto-transitions in_progress work_items to `landed` — DEC-WORKITEM-AUTO-LAND-001 in `runtime/core/decision_work_registry.py`.
+- AP #100 (Phase 18 Slice 1): `git stash`, `status`, `log`, and other non-mutating git subcommands no longer trigger post-bash source-mutation eval invalidation. New helper `git_subcommand_for_classify` in `hooks/context-lib.sh` delegates to canonical Python parser (DEC-CLASSIFY-001).
+- 06-29 reckoning Confront #7: Pre-merge integration-test gate in `agents/reviewer.md` (`DEC-REVIEWER-INTEGRATION-GATE-001`).
+
 ## [0.4.0] — 2026-06-29
 
 This release jumps from `0.1.0` (initial alpha) to `0.4.0` to reflect ~6 weeks of shipped

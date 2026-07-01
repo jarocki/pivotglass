@@ -6,10 +6,18 @@ Gamified framework for hunting, pivoting, and discovery of adversary infrastruct
 
 The **v1 primary interface is `ap chat`** — a conversational AI agent powered by litellm that discovers and invokes OSINT/CTI modules as tools, gathers STIX 2.1 evidence, and surfaces gamification events (scores, celebrations, badges, hints) in the conversation. The classic `ap` Metasploit-style REPL ships alongside as a supporting power-user surface (per ADR-010).
 
+## What's new in v0.4.0
+
+- **Chat-agent hunt fleet + REPL revival** — `hunt <ioc>` auto-detects indicator type and dispatches all matching modules in one command; fuzzy `use <short_name>` resolves to canonical module paths; Rich tables now actually render in the REPL.
+- **Universal error routing** — agent tool exceptions flow through `ErrorInterpreter` and display as Rich panels instead of raw stack traces at the prompt.
+- **Workspace clear + chat workspace parity** — `ap chat` has full `workspace` subcommand parity with the REPL (list / create / switch / delete / clear); `db_status` shows DB path, size, per-table counts, and last-event timestamps.
+- **ANSI Shadow boot banner** — figlet wordmark + crosshair reticle + live metadata strip (version, IOC count, streak) replaces the original radar-dish ASCII art.
+- **30 LLM tools across 15 modules** — up from 21 tools / 11 modules at v0.1.0; includes the full M-1..M-9 dossier roadmap, C-1..C-4 character profiles, dossier-aware auto-pivot, crowdsourced dossier comparison, and novel-method achievement layer.
+
 ## Features
 
-- **11 OSINT/CTI Modules** — Shodan, VirusTotal, AbuseIPDB, HIBP, OTX, URLScan, Censys, PassiveTotal, GreyNoise, DNS, WHOIS
-- **21 LLM Tools** — All modules plus gamification, reports, graph, and workspace exposed to the agent
+- **15 OSINT/CTI Modules** — Shodan, VirusTotal, AbuseIPDB, HIBP, OTX, URLScan, Censys, PassiveTotal, GreyNoise, DNS, WHOIS, URLhaus, ThreatFox, MalwareBazaar, crt.sh
+- **30 LLM Tools** — All modules plus gamification, dossier, reports, graph, workspace, predictions, and crowdsourced comparison exposed to the agent
 - **Conversational AI Interface** — Chat with an LLM-powered analyst (`ap chat`)
 - **Classic CLI** — Metasploit-style REPL (`ap`) as a power-user surface
 - **STIX 2.1 Data Model** — Industry-standard threat intel storage with deduplication
@@ -222,7 +230,7 @@ These are handled locally (not sent to the LLM) for immediate, deterministic beh
 
 ## Agent LLM Tools
 
-The agent exposes 21 tools to the LLM in OpenAI function-calling format. The LLM selects and chains tools automatically based on the analyst's natural-language query.
+The agent exposes 30 tools to the LLM in OpenAI function-calling format. The LLM selects and chains tools automatically based on the analyst's natural-language query.
 
 ### Module Tools (10)
 
@@ -346,9 +354,14 @@ Both interfaces share the same module catalog:
 | `osint/hibp` | HIBP v3 | Email breach checking |
 | `osint/urlscan` | URLScan.io | URL analysis with async submit+poll |
 | `osint/censys_host` | Censys v2 | Host certificates and services |
+| `osint/greynoise` | GreyNoise Community | Noise/RIOT classification for IPs |
+| `osint/crtsh` | crt.sh | Certificate transparency log search (keyless) |
 | `cti/virustotal` | VirusTotal v3 | Multi-scanner verdicts (IP/domain/URL/hash) |
 | `cti/otx` | AlienVault OTX | Threat intel pulses + passive DNS |
 | `cti/passivetotal` | PassiveTotal | Passive DNS + WHOIS history |
+| `cti/urlhaus` | URLhaus | Malicious URL/payload feed lookup (keyless) |
+| `cti/threatfox` | ThreatFox | IOC lookup against ThreatFox database (keyless) |
+| `cti/malwarebazaar` | MalwareBazaar | Hash/malware family lookup (keyless) |
 
 ## Configuration
 
@@ -421,7 +434,7 @@ uv run ap           # Launch classic REPL
 - **Modules** — PursuitModule Protocol with `async def hunt()` returning STIX 2.1 dicts
 - **Storage** — SQLite per-workspace with STIX JSON blobs + deduplication
 - **Scoring** — CTFd parabolic decay formula: `value = ((min - init) / decay²) × count² + init`
-- **Agent** — litellm + OpenAI function-calling format; 21 tools wrapping all modules and gamification primitives (ADR-010: primary v1 interface)
+- **Agent** — litellm + OpenAI function-calling format; 30 tools wrapping all modules, gamification, dossier, and crowdsourced comparison primitives (ADR-010: primary v1 interface)
 - **cmd2 REPL** — Metasploit-style REPL; supporting power-user surface (ADR-010)
 - **Event Bus** — SpiderFoot-pattern pub/sub for auto-pivoting with depth limits (disabled by default; enable via `autopivot on`)
 - **Gamification** — Scoring, celebrations, badges, hints, challenges, and character modes shared across both interfaces
