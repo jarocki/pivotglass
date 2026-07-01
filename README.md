@@ -355,13 +355,13 @@ Both interfaces share the same module catalog:
 | `osint/urlscan` | URLScan.io | URL analysis with async submit+poll |
 | `osint/censys_host` | Censys v2 | Host certificates and services |
 | `osint/greynoise` | GreyNoise Community | Noise/RIOT classification for IPs |
-| `osint/urlhaus` | URLhaus | Malicious URL/payload feed lookup (keyless) |
+| `osint/crtsh` | crt.sh | Certificate transparency log search (keyless) |
 | `cti/virustotal` | VirusTotal v3 | Multi-scanner verdicts (IP/domain/URL/hash) |
 | `cti/otx` | AlienVault OTX | Threat intel pulses + passive DNS |
 | `cti/passivetotal` | PassiveTotal | Passive DNS + WHOIS history |
+| `cti/urlhaus` | URLhaus | Malicious URL/payload feed lookup (keyless) |
 | `cti/threatfox` | ThreatFox | IOC lookup against ThreatFox database (keyless) |
 | `cti/malwarebazaar` | MalwareBazaar | Hash/malware family lookup (keyless) |
-| `cti/crtsh` | crt.sh | Certificate transparency log search (keyless) |
 
 ## Configuration
 
