@@ -170,6 +170,17 @@ class AgentRunner:
         self.last_celebrations: list[str] = []
         self.last_badges: list = []  # list[Badge] — newly earned this turn
         self.last_challenges: list = []  # list[Challenge] — newly completed this turn
+        # Per-turn dedup set: an achievement key fires at most once per REPL turn.
+        # Bug 6 fix (DEC-P18S4-ACHIEVEMENT-DEDUP-001): "show details" from a single
+        # workspace command with N indicators would fire Nice find! N times.
+        #
+        # @decision DEC-P18S4-ACHIEVEMENT-DEDUP-001
+        # @title Achievement dedupe by celebration string hash per REPL turn
+        # @status accepted
+        # @rationale The tool loop processes N tool calls per turn; each call independently
+        #            computes a celebration and appends it. When the same celebration fires
+        #            multiple times in one turn (same art string), we coalesce to one.
+        _turn_seen_celebrations: set[str] = set()
 
         # M-7: wire self into ToolContext so run_module() can call self.narrate()
         # for high-weight dossier event celebration text (DEC-M7-CELEB-001).
@@ -208,7 +219,8 @@ class AgentRunner:
                     tc["function"]["name"],
                     args,
                 )
-                if celebration:
+                if celebration and celebration not in _turn_seen_celebrations:
+                    _turn_seen_celebrations.add(celebration)
                     self.last_celebrations.append(celebration)
                 if badges:
                     self.last_badges.extend(badges)
@@ -225,6 +237,20 @@ class AgentRunner:
         # Fallback if we hit max_rounds without a final text response
         # Clear narration runner reference before returning (M-7 cleanup).
         self.ctx._narration_runner = None
+        # Bug 3 fix: when all tool calls errored, the results above will be error panels.
+        # Detect whether any tool produced a real result (no [USER_SAW_PANEL] prefix).
+        # If every result is an error/empty, emit an honest fallback instead of filler.
+        _all_tool_messages = [
+            msg["content"]
+            for msg in self.conversation
+            if msg.get("role") == "tool" and isinstance(msg.get("content"), str)
+        ]
+        _any_real_result = any(
+            not c.startswith("[USER_SAW_PANEL]") and "error" not in c.lower()[:50]
+            for c in _all_tool_messages
+        )
+        if not _any_real_result and _all_tool_messages:
+            return "None of the queried services returned data. See the error panels above for details."
         return "I've completed several tool calls. Here's what I found based on the results above."
 
     def _call_llm(self) -> object:

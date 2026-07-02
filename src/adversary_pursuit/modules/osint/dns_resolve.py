@@ -148,8 +148,10 @@ async def _resolve(domain: str, record_type: str) -> list[dict]:
             stix_type = "ipv4-addr" if family == socket.AF_INET else "ipv6-addr"
             results.append({"type": stix_type, "value": ip})
     except socket.gaierror as exc:
-        logger.warning("DNS resolution failed for %s: %s", domain, exc)
+        # Bug 1 fix (Phase 18 Slice 4): DNS failure is expected for unknown/offline targets;
+        # downgrade to debug so resolver noise never bleeds into REPL stdout.
+        logger.debug("DNS resolution failed for %s: %s", domain, exc)
     except OSError as exc:
-        logger.warning("socket error resolving %s: %s", domain, exc)
+        logger.debug("socket error resolving %s: %s", domain, exc)
 
     return results
