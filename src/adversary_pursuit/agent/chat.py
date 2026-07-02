@@ -578,6 +578,59 @@ def run_chat() -> None:
         # locally (no LLM call) for deterministic, instant output. The plain-text
         # output is F64-compliant (no Rich markup in LLM-facing surfaces; the console
         # Panel wrapper here is Rich but the underlying report text is plain ASCII).
+
+        # "show" meta-commands — always handled locally; never dispatched to LLM.
+        # Bug 2 fix (Phase 18 Slice 4): "show details", "show <field>", and bare "show"
+        # must not fall through to the LLM. If there is no prior hunt in the current
+        # session, render a friendly message. If there is prior workspace data, show it.
+        #
+        # @decision DEC-P18S4-SHOW-TERMINAL-001
+        # @title show commands are terminal REPL handlers — never LLM dispatch
+        # @status accepted
+        # @rationale User typing "show details" expected to see prior hunt results, not
+        #            trigger new DNS/WHOIS tool calls. The "show" family is inspection-only:
+        #            it must be intercepted before LLM dispatch and render from workspace state.
+        if lower == "show" or (lower.startswith("show ") and not lower.startswith("show dossier")):
+            sub_field = lower[len("show") :].strip() if len(lower) > 4 else ""
+            try:
+                objects = runner.ctx.workspace_mgr.get_stix_objects()
+                runs = runner.ctx.workspace_mgr.get_module_runs()
+            except Exception:
+                objects, runs = [], []
+            if not objects and not runs:
+                console.print(
+                    "[yellow]No hunt results to show. Run a hunt first, then use "
+                    "`show details` to inspect it.[/yellow]"
+                )
+            else:
+                lines = [
+                    f"[bold]Workspace details[/bold] ({len(objects)} indicators, {len(runs)} module run(s)):"
+                ]
+                if sub_field in ("", "details"):
+                    for obj in objects[:20]:
+                        lines.append(f"  {obj.get('type', '?')}: {obj.get('value', '?')}")
+                    if len(objects) > 20:
+                        lines.append(f"  ... and {len(objects) - 20} more")
+                    if runs:
+                        lines.append(
+                            f"\nLast run: {runs[-1].get('module_name', '?')} on {runs[-1].get('target', '?')}"
+                        )
+                else:
+                    # Specific field — filter by STIX type or value keyword
+                    filtered = [
+                        o
+                        for o in objects
+                        if sub_field in o.get("type", "") or sub_field in str(o.get("value", ""))
+                    ]
+                    if filtered:
+                        lines = [f"[bold]{sub_field}[/bold] matches ({len(filtered)}):"]
+                        for obj in filtered[:20]:
+                            lines.append(f"  {obj.get('type', '?')}: {obj.get('value', '?')}")
+                    else:
+                        lines = [f"No workspace objects matching '{sub_field}'."]
+                console.print("\n".join(lines))
+            continue
+
         if lower == "dossier" or lower == "show dossier":
             from adversary_pursuit.dossier.panel import render as render_dossier
             from adversary_pursuit.dossier.slot_inference import infer_dossier_state

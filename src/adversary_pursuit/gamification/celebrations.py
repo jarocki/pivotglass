@@ -69,8 +69,20 @@ class MilestoneSpec:
 
 CELEBRATION_ART: dict[str, list[str]] = {
     "small": [
-        ("  ╔═══════════════════╗\n  ║   Nice find! 🎯   ║\n  ╚═══════════════════╝"),
-        ("  ┌───────────────────┐\n  │  Target acquired  │\n  └───────────────────┘"),
+        # Bug 5 fix (Phase 18 Slice 4): add description text below each ASCII art box so
+        # the achievement panel body is not just a bare title frame.
+        (
+            "  ╔═══════════════════╗\n"
+            "  ║   Nice find! 🎯   ║\n"
+            "  ╚═══════════════════╝\n"
+            "\nFound actionable intelligence in a hunt result."
+        ),
+        (
+            "  ┌───────────────────┐\n"
+            "  │  Target acquired  │\n"
+            "  └───────────────────┘\n"
+            "\nFirst data returned for a new target."
+        ),
     ],
     "medium": [
         (

@@ -139,10 +139,12 @@ async def _run_whois(target: str) -> str | None:
         logger.debug("whois command not found; skipping enrichment for %s", target)
         return None
     except asyncio.TimeoutError:
-        logger.warning("whois timed out for %s", target)
+        # Bug 1 fix (Phase 18 Slice 4): whois timeout is expected for many targets;
+        # downgrade to debug so resolver noise never bleeds into REPL stdout.
+        logger.debug("whois timed out for %s", target)
         return None
     except OSError as exc:
-        logger.warning("whois failed for %s: %s", target, exc)
+        logger.debug("whois failed for %s: %s", target, exc)
         return None
 
 

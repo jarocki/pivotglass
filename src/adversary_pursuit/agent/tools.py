@@ -161,6 +161,9 @@ from adversary_pursuit.core.event_bus import (
     PivotConfig,
 )
 from adversary_pursuit.core.graph import RelationshipGraph
+from adversary_pursuit.core.module_credentials import (
+    resolve_module_credentials as _resolve_module_credentials,
+)
 from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.streak import StreakManager
 from adversary_pursuit.core.workspace import WorkspaceManager
@@ -196,11 +199,6 @@ from adversary_pursuit.gamification.hints import (
     HintProvider,
     HintResult,
     InsufficientBalanceError,
-)
-from adversary_pursuit.core.module_credentials import (
-    resolve_module_credentials as _resolve_module_credentials,
-    SERVICE_NAMES as _SERVICE_NAMES,
-    CREDENTIAL_BUILDERS as _CREDENTIAL_BUILDERS,
 )
 from adversary_pursuit.gamification.modes import ModeManager
 from adversary_pursuit.gamification.scoring import ScoringEngine, make_streak_continued_event
@@ -445,6 +443,28 @@ class ToolContext:
         # Run hunt() via asyncio — modules are async
         results = asyncio.run(mod.hunt(target, options or {}))
 
+        # Bug 7 fix: Hunt success signal — at least one result beyond a bare domain-name SCO.
+        # dns_resolve always emits {"type":"domain-name","value":target} even on DNS failure.
+        # Scoring and achievements must only fire when the hunt returned substantive data.
+        # A bare domain-name dict has exactly 2 keys (type + value); enriched ones have more.
+        #
+        # @decision DEC-P18S4-HUNT-SUCCESS-GATE-001
+        # @title Celebration/badges/scoring gate on substantive hunt data, not bare SCO presence
+        # @status accepted
+        # @rationale dns_resolve.hunt() returns a bare {"type":"domain-name","value":target}
+        #            dict even when all DNS resolution fails. Without this gate, that lone SCO
+        #            triggers scoring (1 domain-name = points), celebration art, and badge checks
+        #            for every failed DNS query — "Target acquired" fires on a null result.
+        #            Gate: at least one result whose type is NOT domain-name, OR whose dict has
+        #            more than 2 keys (domain-name with whois/enrichment data). This excludes
+        #            the bare failure sentinel while preserving legitimate domain-name SCOs with
+        #            x_registrar, x_org, etc. from whois enrichment.
+        _hunt_succeeded = (
+            any(r.get("type") not in ("domain-name",) or len(r) > 2 for r in results)
+            if results
+            else False
+        )
+
         # Store in workspace (auto-creates default if none active)
         # Provenance kwargs: None until hunt() surfaces vendor metadata
         # (DEC-59-STIX-PROVENANCE-004). x_ap_fetched_at is defaulted by
@@ -588,7 +608,11 @@ class ToolContext:
         # narration rides result["celebration"] sidecar, NOT the LLM summary
         # (DEC-64-LLM-PANEL-SEPARATION-001 / DEC-M7-CELEB-001..004).
         celebration: str | None = None
-        if total > 0:
+        # Bug 7 fix: only fire celebration when the hunt produced substantive data
+        # (DEC-P18S4-HUNT-SUCCESS-GATE-001). total > 0 is necessary but not sufficient —
+        # a bare domain-name SCO scores points even on DNS failure, so we also require
+        # _hunt_succeeded (at least one non-bare domain-name result).
+        if total > 0 and _hunt_succeeded:
             art = self.celebration.celebrate(total)
             mode_points_line = self.mode_mgr.active.score_celebration.format(points=total)
             celebration = art + "\n" + mode_points_line
@@ -660,35 +684,43 @@ class ToolContext:
         # new dossier-aware badges can fire (DEC-M7-BADGE-001..005).
         # post_dossier is already computed above (from the M-4 wiring block).
         # load_predictions_log is called once here — same shape/idempotency as M-4.
+        #
+        # Bug 7 fix: badge check is also gated on _hunt_succeeded so workspace-
+        # accumulated stats don't trigger badges on bare DNS-failure tool calls
+        # (DEC-P18S4-HUNT-SUCCESS-GATE-001).
         newly_earned_badges: list = []
-        try:
-            if not self._awarded_badges:
-                # Seed from workspace: captures any badges earned by prior sessions
-                awarded_rows = self.workspace_mgr.get_awarded_badges()
-                self._awarded_badges = {row["badge_id"] for row in awarded_rows}
-            badge_stats = self.workspace_mgr.get_workspace_stats()
-            # M-7: extend badge_stats with dossier-aware metrics
+        if _hunt_succeeded:
+            # Bug 7 fix: badge check gated on _hunt_succeeded so workspace-accumulated
+            # stats don't trigger badges on bare DNS-failure tool calls
+            # (DEC-P18S4-HUNT-SUCCESS-GATE-001).
             try:
-                from adversary_pursuit.gamification.dossier_badges import build_dossier_stats
+                if not self._awarded_badges:
+                    # Seed from workspace: captures any badges earned by prior sessions
+                    awarded_rows = self.workspace_mgr.get_awarded_badges()
+                    self._awarded_badges = {row["badge_id"] for row in awarded_rows}
+                badge_stats = self.workspace_mgr.get_workspace_stats()
+                # M-7: extend badge_stats with dossier-aware metrics
+                try:
+                    from adversary_pursuit.gamification.dossier_badges import build_dossier_stats
 
-                _post_dossier_for_badges = post_dossier
-                _predictions_for_badges = load_predictions_log(self.workspace_mgr) or []
-                _dossier_stats = build_dossier_stats(
-                    _post_dossier_for_badges,
-                    _predictions_for_badges,
-                    workspace_mgr=self.workspace_mgr,  # M-8: novelty count
+                    _post_dossier_for_badges = post_dossier
+                    _predictions_for_badges = load_predictions_log(self.workspace_mgr) or []
+                    _dossier_stats = build_dossier_stats(
+                        _post_dossier_for_badges,
+                        _predictions_for_badges,
+                        workspace_mgr=self.workspace_mgr,  # M-8: novelty count
+                    )
+                    badge_stats = {**badge_stats, **_dossier_stats}
+                except Exception:  # noqa: BLE001
+                    pass  # dossier stats merge must never block badge check
+                newly_earned_badges = self.badge_mgr.check_all(
+                    badge_stats, already_awarded=self._awarded_badges
                 )
-                badge_stats = {**badge_stats, **_dossier_stats}
+                for badge in newly_earned_badges:
+                    self.workspace_mgr.store_badge_event(badge.id, badge.name)
+                    self._awarded_badges.add(badge.id)
             except Exception:  # noqa: BLE001
-                pass  # dossier stats merge must never block badge check
-            newly_earned_badges = self.badge_mgr.check_all(
-                badge_stats, already_awarded=self._awarded_badges
-            )
-            for badge in newly_earned_badges:
-                self.workspace_mgr.store_badge_event(badge.id, badge.name)
-                self._awarded_badges.add(badge.id)
-        except Exception:  # noqa: BLE001
-            pass  # badge check must never block tool result delivery
+                pass  # badge check must never block tool result delivery
 
         # Fire first_blood_message when badge-first-blood was earned this run
         # (F62-R0-002, DEC-62-CELEBRATIONS-001).

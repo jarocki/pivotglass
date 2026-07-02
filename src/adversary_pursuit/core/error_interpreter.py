@@ -491,6 +491,57 @@ def _interpret_sqlite_locked(exc: BaseException) -> dict:
     }
 
 
+def _is_not_found_error(exc: BaseException) -> bool:
+    """Match httpx.HTTPStatusError 404 responses — IOC not found on CTI APIs.
+
+    @decision DEC-P18S4-404-NOT-FOUND-001
+    @title 404 on CTI APIs is a negative result, not an error
+    @status accepted
+    @rationale ThreatFox, MalwareBazaar, VirusTotal, OTX and similar CTI APIs
+               return HTTP 404 when an IOC has no record — this is a normal
+               "not found" response, not a service failure. Showing a red "Hunt
+               failed" box confuses analysts into thinking the query broke when
+               the correct interpretation is "service has no record for target".
+               A neutral 'not_found' classification renders a subdued panel
+               with no x-prefix so the analyst sees a clear negative result.
+               Must be checked BEFORE _is_http_status_error_generic to win
+               (DEC-ERROR-ROUTING-002 ordering is: auth 401/403, rate-limit 429,
+               not-found 404, then generic 4xx/5xx).
+    """
+    if _is_httpx_http_status_error(exc):
+        status = getattr(exc.response, "status_code", None)  # type: ignore[attr-defined]
+        return status == 404
+    return False
+
+
+def _interpret_not_found(exc: BaseException) -> dict:
+    """Build ErrorInterpretation kwargs for a 404 Not Found response."""
+    msg = str(exc)
+    url_m = re.search(r"https?://([^/\s]+)(?:/[^\s]*)?", msg)
+    service = url_m.group(1).split(".")[0].capitalize() if url_m else "The service"
+    req = getattr(exc, "request", None)  # type: ignore[attr-defined]
+    target = ""
+    if req is not None:
+        req_url = str(getattr(req, "url", ""))
+        parts = [p for p in req_url.rstrip("/").split("/") if p]
+        if parts:
+            target = parts[-1]
+    body = (
+        f"{service} has no record for {target}."
+        if target
+        else f"{service} returned no match for the queried indicator."
+    )
+    return {
+        "severity": "info",
+        "category": "Not found",
+        "summary": body,
+        "suggested_fix": (
+            "This is a negative result — the service has no data for this indicator. "
+            "Try a different service or check that the indicator is correctly formatted."
+        ),
+    }
+
+
 def _is_llm_provider_error(exc: BaseException) -> bool:
     """Match litellm/provider auth failures and API-key-not-found errors."""
     exc_type = type(exc).__name__
@@ -596,6 +647,9 @@ _CATALOG: list[_CatalogEntry] = [
     (_is_sqlite_locked, _interpret_sqlite_locked, _NO_AUTO_FIX),
     # 7. LLM/litellm provider auth failures (must be checked AFTER modules auth)
     (_is_llm_provider_error, _interpret_llm_provider, _NO_AUTO_FIX),
+    # 2b. 404 Not Found — neutral "no record" result on CTI APIs (DEC-P18S4-404-NOT-FOUND-001).
+    #     Must come BEFORE the generic HTTPStatusError catch-all (entry 8).
+    (_is_not_found_error, _interpret_not_found, _NO_AUTO_FIX),
     # 8. Generic httpx.HTTPStatusError — 5xx → Service, 4xx fallthrough → Network.
     #    MUST be last HTTPStatusError entry: auth (401/403) and rate-limit (429)
     #    checks inside entries 1 and 2 win first (DEC-ERROR-ROUTING-002).
@@ -803,12 +857,16 @@ def render_interactive(
         )
 
     body = "\n".join(body_lines)
+    # Bug 4 fix (DEC-P18S4-404-NOT-FOUND-001): severity="info" (404 not-found) renders
+    # as a subdued dim panel — not yellow — so analysts see it as a neutral negative
+    # result rather than a warning/error.
+    _panel_style = "dim" if interp.severity == "info" else "yellow"
     console.print(
         Panel(
             body,
             title=title,
-            style="yellow",
-            border_style="yellow",
+            style=_panel_style,
+            border_style=_panel_style,
         )
     )
 
