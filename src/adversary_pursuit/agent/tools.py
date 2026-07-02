@@ -162,6 +162,12 @@ from adversary_pursuit.core.event_bus import (
 )
 from adversary_pursuit.core.graph import RelationshipGraph
 from adversary_pursuit.core.module_credentials import (
+    CREDENTIAL_BUILDERS as _CREDENTIAL_BUILDERS,  # noqa: F401 — re-exported for tests
+)
+from adversary_pursuit.core.module_credentials import (
+    SERVICE_NAMES as _SERVICE_NAMES,  # noqa: F401 — re-exported for tests
+)
+from adversary_pursuit.core.module_credentials import (
     resolve_module_credentials as _resolve_module_credentials,
 )
 from adversary_pursuit.core.plugin_mgr import PluginManager
