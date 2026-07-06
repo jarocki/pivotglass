@@ -884,8 +884,10 @@ def run_chat() -> None:
 
         # Normal chat — send to LLM
         # StatusBar shows character + model + elapsed time + activity while busy.
-        # Falls back to thinking_status when StatusBar construction fails.
-        # handle_error replaces raw tracebacks with a Rich Panel explanation.
+        # The bar is passed into runner.chat() so set_activity() fires around each
+        # tool call, driving the status bar phrase for that tool's slug
+        # (DEC-STATUS-ACTIVITY-WIRING-001). On any StatusBar construction failure
+        # the outer except block at line ~954 routes through handle_error.
         try:
             from adversary_pursuit.agent.banner import StatusBar
 
@@ -899,7 +901,7 @@ def run_chat() -> None:
                 workspace_mgr=getattr(runner.ctx, "workspace_mgr", None),
             )
             with _status_bar:
-                response = runner.chat(stripped)
+                response = runner.chat(stripped, status_bar=_status_bar)
             console.print(Markdown(response))
             console.print()
             # Render celebration panels after the LLM response — one per tool

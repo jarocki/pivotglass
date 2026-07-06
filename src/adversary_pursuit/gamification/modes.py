@@ -190,8 +190,9 @@ Character v2 (C-1 MVP, Phase 17B):
            and procedural (bureaucrat, columbo) archetypes. fourth_wall_stance="opaque":
            Deckard IS the replicant hunter. tool_preferences use affinity language per
            DEC-30-CHARACTER-V2-005. forbidden_voice blocks Blade Runner quote smuggling.
-           token budget verified <= 165. llm_profile=None intentionally — pure Rich-panel
-           mode, no LLM persona injection. Can be upgraded in a future slice.
+           token budget verified <= 165. Carries a non-None LLMPersonaProfile (weary,
+           laconic, understated, cool) with five signature_phrases and three tool_preferences
+           — full v2 LLM persona injection via AgentRunner.set_character (DEC-C1-FULLTROLL-003).
 
 @decision DEC-CHAR-HAL9000-001
 @title hal9000 CharacterMode + LLMPersonaProfile (Phase 18 Slice 5)
@@ -201,7 +202,9 @@ Character v2 (C-1 MVP, Phase 17B):
            contrasts with the human personas. fourth_wall_stance="opaque": HAL IS the
            mainframe. tool_preferences use affinity language per DEC-30-CHARACTER-V2-005.
            forbidden_voice blocks exclamation/reassurance drift. token budget verified <= 165.
-           llm_profile=None intentionally — pure Rich-panel mode. Can be upgraded later.
+           Carries a non-None LLMPersonaProfile (calm, measured, polite, faintly uncanny)
+           with five signature_phrases including "Dave" interjection and three tool_preferences
+           — full v2 LLM persona injection via AgentRunner.set_character (DEC-C1-FULLTROLL-003).
 """
 
 from __future__ import annotations

@@ -116,7 +116,7 @@ _WORDMARK_COLORS: list[str] = [
 # ---------------------------------------------------------------------------
 
 #: Maps character mode name → Rich colour string used for the prompt prefix.
-#: Covers all 10 DEFAULT_MODES entries.  Falls back to "cyan" for unknown modes.
+#: Covers all 11 DEFAULT_MODES entries.  Falls back to "cyan" for unknown modes.
 MODE_COLORS: dict[str, str] = {
     "default": "bold cyan",
     "ninja": "dim white",

@@ -237,3 +237,258 @@ class TestStatusBarContextManager:
         with bar:
             bar.set_activity("shodan")
             bar.set_activity(None)
+
+
+# ---------------------------------------------------------------------------
+# _status_slug_for_tool  (DEC-STATUS-ACTIVITY-WIRING-001)
+# ---------------------------------------------------------------------------
+
+
+class TestStatusSlugForTool:
+    """_status_slug_for_tool maps LLM tool names to activity slugs."""
+
+    def test_virustotal_lookup_maps_to_virustotal(self):
+        """virustotal_lookup -> 'virustotal'."""
+        from adversary_pursuit.agent.runner import _status_slug_for_tool
+
+        assert _status_slug_for_tool("virustotal_lookup") == "virustotal"
+
+    def test_whois_lookup_maps_to_whois(self):
+        """whois_lookup -> 'whois'."""
+        from adversary_pursuit.agent.runner import _status_slug_for_tool
+
+        assert _status_slug_for_tool("whois_lookup") == "whois"
+
+    def test_shodan_host_lookup_maps_to_shodan(self):
+        """shodan_host_lookup -> 'shodan'."""
+        from adversary_pursuit.agent.runner import _status_slug_for_tool
+
+        assert _status_slug_for_tool("shodan_host_lookup") == "shodan"
+
+    def test_otx_threat_intel_maps_to_otx(self):
+        """otx_threat_intel -> 'otx'."""
+        from adversary_pursuit.agent.runner import _status_slug_for_tool
+
+        assert _status_slug_for_tool("otx_threat_intel") == "otx"
+
+    def test_threatfox_lookup_maps_to_threatfox(self):
+        """threatfox_lookup -> 'threatfox'."""
+        from adversary_pursuit.agent.runner import _status_slug_for_tool
+
+        assert _status_slug_for_tool("threatfox_lookup") == "threatfox"
+
+    def test_dns_resolve_maps_to_dns_resolve(self):
+        """dns_resolve -> 'dns_resolve'."""
+        from adversary_pursuit.agent.runner import _status_slug_for_tool
+
+        assert _status_slug_for_tool("dns_resolve") == "dns_resolve"
+
+    def test_unknown_tool_returns_default_tool(self):
+        """Unknown tool returns 'default_tool' with no crash."""
+        from adversary_pursuit.agent.runner import _status_slug_for_tool
+
+        assert _status_slug_for_tool("completely_unknown_tool_xyz") == "default_tool"
+
+    def test_all_registered_tools_covered(self):
+        """Every tool name in create_tools() maps to a non-empty slug (no silent gaps)."""
+        from adversary_pursuit.agent.runner import _status_slug_for_tool
+        from adversary_pursuit.agent.tools import ToolContext, create_tools
+
+        ctx = ToolContext(config_dir="/tmp/ap_test_slug", workspace_dir="/tmp/ap_test_slug")
+        tool_defs = create_tools(ctx)
+        for td in tool_defs:
+            name = td["function"]["name"]
+            slug = _status_slug_for_tool(name)
+            assert isinstance(slug, str) and len(slug) > 0, (
+                f"_status_slug_for_tool({name!r}) returned empty/None: {slug!r}"
+            )
+
+
+# ---------------------------------------------------------------------------
+# NullStatusHook (DEC-STATUS-ACTIVITY-WIRING-001)
+# ---------------------------------------------------------------------------
+
+
+class TestNullStatusHook:
+    """NullStatusHook is a no-op that satisfies the _StatusHook Protocol."""
+
+    def test_set_activity_no_crash(self):
+        """NullStatusHook.set_activity() does not crash."""
+        from adversary_pursuit.agent.runner import NullStatusHook
+
+        hook = NullStatusHook()
+        hook.set_activity("virustotal")
+        hook.set_activity(None)
+
+    def test_is_singleton(self):
+        """_NULL_STATUS_HOOK is the default NullStatusHook instance."""
+        from adversary_pursuit.agent.runner import _NULL_STATUS_HOOK, NullStatusHook
+
+        assert isinstance(_NULL_STATUS_HOOK, NullStatusHook)
+
+
+# ---------------------------------------------------------------------------
+# runner.chat() status_bar wiring integration test
+# (DEC-STATUS-ACTIVITY-WIRING-001 — compound interaction)
+# ---------------------------------------------------------------------------
+
+
+class TestRunnerChatStatusBarWiring:
+    """Integration test: runner.chat() calls set_activity before/after tool calls.
+
+    Uses a real StatusBar (not mocked) so the activity phrase lookup executes
+    end-to-end. Mocking only at the LLM boundary (litellm.completion) and
+    the tool execution boundary (execute_tool), per Confront #7.
+    """
+
+    def _make_tool_use_response(self, tool_name: str, tool_id: str = "tc_test_001"):
+        """Produce a litellm-style message object that requests one tool call."""
+
+        class _FunctionObj:
+            def __init__(self):
+                self.name = tool_name
+                self.arguments = '{"target": "1.2.3.4"}'
+
+        class _ToolCallObj:
+            def __init__(self):
+                self.id = tool_id
+                self.function = _FunctionObj()
+
+        class _Message:
+            def __init__(self):
+                self.tool_calls = [_ToolCallObj()]
+                self.content = None
+
+        return _Message()
+
+    def _make_text_response(self, text: str = "Analysis complete."):
+        """Produce a litellm-style message object that returns a text response."""
+
+        class _Message:
+            def __init__(self):
+                self.tool_calls = None
+                self.content = text
+
+        return _Message()
+
+    def test_set_activity_called_around_tool_execution(self, tmp_path, monkeypatch):
+        """runner.chat() calls set_activity(slug) before tool call and set_activity(None) after.
+
+        This is the critical compound-interaction test: exercises the production
+        sequence LLM-call → tool dispatch → status bar update end-to-end, crossing
+        AgentRunner.chat() → execute_tool() → StatusBar.set_activity() boundaries.
+        StatusBar is a real instance (phrases.py is exercised). Mocking only at:
+        - _call_llm boundary (avoids litellm optional-dep issue in test env)
+        - execute_tool boundary (avoids real module HTTP calls)
+        """
+        import io
+
+        from rich.console import Console
+
+        from adversary_pursuit.agent.banner import StatusBar
+        from adversary_pursuit.agent.runner import AgentRunner
+        from adversary_pursuit.agent.tools import ToolContext
+
+        # Track set_activity call sequence
+        activity_calls: list = []
+
+        # Real StatusBar subclassed to record calls without live terminal dependency
+        class TrackingStatusBar(StatusBar):
+            def set_activity(self, tool_slug):
+                activity_calls.append(tool_slug)
+                super().set_activity(tool_slug)
+
+        console = Console(file=io.StringIO(), force_terminal=True)
+        ctx = ToolContext(config_dir=str(tmp_path), workspace_dir=str(tmp_path))
+        runner = AgentRunner(model="ollama/test", tool_context=ctx)
+
+        # Round 1: LLM requests a tool call for virustotal_lookup
+        # Round 2: LLM returns plain text (no more tool calls → loop ends)
+        call_count = 0
+
+        def fake_call_llm(self_inner):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return self._make_tool_use_response("virustotal_lookup")
+            return self._make_text_response("All done.")
+
+        import adversary_pursuit.agent.runner as _runner_module
+
+        monkeypatch.setattr(_runner_module.AgentRunner, "_call_llm", fake_call_llm)
+        # HAS_LITELLM may be False in the test env (litellm is optional).
+        # Patch it True so chat() proceeds past the import guard to our mocked _call_llm.
+        monkeypatch.setattr(_runner_module, "HAS_LITELLM", True)
+
+        # Patch execute_tool to avoid real module invocation
+        monkeypatch.setattr(
+            _runner_module, "execute_tool", lambda *a, **kw: ("Found 1 indicator", None, [], [])
+        )
+
+        bar = TrackingStatusBar(
+            console=console,
+            mode_name="hal9000",
+            model_display="ollama/test",
+            workspace_mgr=ctx.workspace_mgr,
+        )
+
+        result = runner.chat("investigate 1.2.3.4", status_bar=bar)
+
+        assert result == "All done."
+        # Must see at minimum one set_activity("virustotal") call
+        assert "virustotal" in activity_calls, (
+            f"Expected 'virustotal' in activity_calls, got: {activity_calls}"
+        )
+        # set_activity(None) must follow every non-None set_activity call
+        # (bar is reset to idle after tool returns)
+        none_positions = [i for i, v in enumerate(activity_calls) if v is None]
+        slug_positions = [i for i, v in enumerate(activity_calls) if v is not None]
+        assert none_positions, "set_activity(None) was never called after tool execution"
+        assert slug_positions, "set_activity(slug) was never called for the tool"
+        # For each slug call, there must be a subsequent None call
+        for sp in slug_positions:
+            assert any(np > sp for np in none_positions), (
+                f"No set_activity(None) found after set_activity call at position {sp}"
+            )
+
+    def test_chat_without_status_bar_still_works(self, tmp_path, monkeypatch):
+        """runner.chat() without status_bar= kwarg runs without error (default NullStatusHook)."""
+        from adversary_pursuit.agent.runner import AgentRunner
+        from adversary_pursuit.agent.tools import ToolContext
+
+        ctx = ToolContext(config_dir=str(tmp_path), workspace_dir=str(tmp_path))
+        runner = AgentRunner(model="ollama/test", tool_context=ctx)
+
+        import adversary_pursuit.agent.runner as _runner_module
+
+        monkeypatch.setattr(
+            _runner_module.AgentRunner,
+            "_call_llm",
+            lambda self_inner: self._make_text_response("Simple answer."),
+        )
+        monkeypatch.setattr(_runner_module, "HAS_LITELLM", True)
+
+        result = runner.chat("hello")  # no status_bar kwarg — uses NullStatusHook
+        assert result == "Simple answer."
+
+    def test_activity_phrase_lookup_virustotal_hal9000(self):
+        """set_activity('virustotal') on a hal9000 bar renders the expected activity phrase.
+
+        Directly tests that StatusBar._render_bar() with activity='virustotal' and
+        mode_name='hal9000' uses the hal9000 activity:virustotal phrase bucket.
+        """
+        from adversary_pursuit.agent.banner import StatusBar
+        from adversary_pursuit.gamification.phrases import PHRASES
+
+        console = make_console()
+        bar = StatusBar(console, mode_name="hal9000", model_display="test")
+        bar.set_activity("virustotal")
+        text = bar._render_bar()
+        plain = text.plain
+
+        # The hal9000 activity:virustotal phrases are:
+        #   "Querying VirusTotal, Dave" and "VirusTotal analysis proceeding"
+        hal_phrases = [p.text for p in PHRASES.get(("hal9000", "activity:virustotal"), ())]
+        assert any(p in plain for p in hal_phrases), (
+            f"Expected one of {hal_phrases} in bar, got: {plain!r}"
+        )
