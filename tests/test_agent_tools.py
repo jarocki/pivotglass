@@ -3091,7 +3091,8 @@ class TestRunChatHelp:
           user types a query → chat.py routes to runner.chat() → LLM called
         """
         _output, mock_runner = self._run_chat_with_inputs(["what is 8.8.8.8"], tmp_ctx)
-        mock_runner.chat.assert_called_once_with("what is 8.8.8.8")
+        mock_runner.chat.assert_called_once()
+        assert mock_runner.chat.call_args.args == ("what is 8.8.8.8",)
 
 
 # @mock-exempt: AgentRunner is an external LLM network boundary (litellm calls to
@@ -3274,7 +3275,8 @@ class TestModelMetaCommands:
             tmp_ctx,
             wizard_return="new-model",
         )
-        mock_runner.chat.assert_called_once_with("what is 8.8.8.8")
+        mock_runner.chat.assert_called_once()
+        assert mock_runner.chat.call_args.args == ("what is 8.8.8.8",)
 
     # ------------------------------------------------------------------
     # help table includes 'model' command (regression guard)
