@@ -145,6 +145,21 @@ class WorkspaceManager:
         )
         self._active: str | None = None
         self._engine = None
+        # @decision DEC-WORKSPACE-PIVOTS-001
+        # @title Session timing and pivot count are in-memory session metrics
+        # @status accepted
+        # @rationale elapsed_seconds and pivot_count are session-level metrics —
+        #            they reset on each WorkspaceManager instantiation (i.e., each
+        #            ap-chat session). Persisting them to SQLite would require a
+        #            new table or sentinel row, adding schema complexity with minimal
+        #            user value. In-memory tracking is sufficient for the StatusBar
+        #            display use case. _session_started_at is set on first switch()
+        #            call (not at __init__) so elapsed reflects active investigation
+        #            time, not process startup time. record_pivot() must be called
+        #            BEFORE switch() so it can compare new_target against the current
+        #            _active value.
+        self._session_started_at: float = 0.0
+        self._pivot_count: int = 0
 
     # ------------------------------------------------------------------
     # Workspace lifecycle
@@ -219,6 +234,8 @@ class WorkspaceManager:
         ValueError
             If the workspace does not exist.
         """
+        import time
+
         db_path = self._db_path(name)
         if not db_path.exists():
             raise ValueError(f"Workspace '{name}' does not exist")
@@ -226,6 +243,27 @@ class WorkspaceManager:
             self._engine.dispose()
         self._engine = create_engine(f"sqlite:///{db_path}")
         self._active = name
+        # Start session timer on first switch (DEC-WORKSPACE-PIVOTS-001)
+        if self._session_started_at == 0.0:
+            self._session_started_at = time.time()
+
+    def record_pivot(self, new_target: str) -> None:
+        """Record a workspace pivot when the active target changes.
+
+        Must be called BEFORE switch() so the comparison is made against the
+        current _active value (DEC-WORKSPACE-PIVOTS-001).
+
+        A pivot is counted only when there is already an active workspace AND
+        new_target differs from the current active workspace name. The first
+        target selection (when _active is None) is not counted as a pivot.
+
+        Parameters
+        ----------
+        new_target:
+            The workspace name being switched to.
+        """
+        if self._active is not None and new_target != self._active:
+            self._pivot_count += 1
 
     @property
     def active(self) -> str:
@@ -776,6 +814,8 @@ class WorkspaceManager:
 
             note_count = session.execute(select(func.count(AnalystNote.id))).scalar() or 0
 
+        import time
+
         return {
             "total_indicators": total_indicators,
             "domain_count": domain_count,
@@ -783,6 +823,10 @@ class WorkspaceManager:
             "module_run_count": module_run_count,
             "total_score": total_score,
             "note_count": note_count,
+            "elapsed_seconds": int(time.time() - self._session_started_at)
+            if self._session_started_at > 0.0
+            else 0,
+            "pivot_count": self._pivot_count,
         }
 
     # ------------------------------------------------------------------

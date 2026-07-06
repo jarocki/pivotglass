@@ -1070,6 +1070,7 @@ class APConsole(cmd2.Cmd):
             self.poutput("Usage: workspace switch <name>")
             return
         try:
+            self.workspace_mgr.record_pivot(name)
             self.workspace_mgr.switch(name)
             self.poutput(f"Switched to workspace '{name}'.")
         except ValueError as exc:

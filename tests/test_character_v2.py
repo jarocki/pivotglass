@@ -139,19 +139,31 @@ class TestCharacterModeLlmProfileField:
         C-2 (DEC-C2-NINJA-001) upgrades ninja.
         C-3 (DEC-C3-PHILOSOPHY-001..003) upgrades sun_tzu, bruce_lee, bureaucrat.
         C-4 (DEC-C4-COLUMBO-001) upgrades columbo — CLOSES the v2 character roadmap.
-        The remaining 4 modes are terminally KEEP_STATIC per DEC-C4-COLUMBO-101
-        (default: permanent; drunken_master/chuck_norris/bobby_hill: terminal).
+        Phase 18 Slice 5: drunken_master retired (DEC-DRUNKEN-MASTER-RETIRED-001);
+        deckard + hal9000 added with llm_profile set (DEC-CHAR-DECKARD-001,
+        DEC-CHAR-HAL9000-001). Remaining KEEP_STATIC modes:
+        default/chuck_norris/bobby_hill (DEC-C4-COLUMBO-101).
         """
-        # full_troll: C-1; ninja: C-2; sun_tzu/bruce_lee/bureaucrat: C-3; columbo: C-4.
-        upgraded_modes = {"full_troll", "ninja", "sun_tzu", "bruce_lee", "bureaucrat", "columbo"}
+        # Upgraded modes (have llm_profile set)
+        upgraded_modes = {
+            "full_troll",
+            "ninja",
+            "sun_tzu",
+            "bruce_lee",
+            "bureaucrat",
+            "columbo",
+            "deckard",
+            "hal9000",
+        }
         static_modes = {
             name: mode for name, mode in DEFAULT_MODES.items() if name not in upgraded_modes
         }
         for name, mode in static_modes.items():
             assert mode.llm_profile is None, (
                 f"Mode '{name}' has llm_profile set -- only full_troll (C-1), "
-                "ninja (C-2), sun_tzu/bruce_lee/bureaucrat (C-3), columbo (C-4) should have profiles. "
-                "(DEC-C4-COLUMBO-101: default/drunken_master/chuck_norris/bobby_hill terminally KEEP_STATIC)"
+                "ninja (C-2), sun_tzu/bruce_lee/bureaucrat (C-3), columbo (C-4), "
+                "deckard/hal9000 (Phase 18 Slice 5) should have profiles. "
+                "(DEC-C4-COLUMBO-101: default/chuck_norris/bobby_hill terminally KEEP_STATIC)"
             )
 
     def test_hint_style_not_reintroduced(self):
@@ -395,20 +407,21 @@ class TestSetCharacterIntegration:
             f"Got prefix: {sys_content[: len(expected_prefix) + 20]!r}"
         )
 
-    def test_set_character_drunken_master_uses_v1_composition_verbatim(self, runner):
-        """set_character with a still-static mode (drunken_master) must use F62 v1 path.
+    def test_set_character_chuck_norris_uses_v1_composition_verbatim(self, runner):
+        """set_character with a KEEP_STATIC mode (chuck_norris) must use F62 v1 path.
 
         Per DEC-C2-NINJA-003: the original test used ninja as the KEEP_STATIC carrier.
-        C-2 upgrades ninja (DEC-C2-NINJA-001), so drunken_master (llm_profile=None
-        through all C-slices per DEC-30-CHARACTER-V2-006) replaces it as the v1-path
-        assertion carrier. Semantics are identical — any mode with llm_profile=None
-        must produce the verbatim F62 composition.
+        C-2 upgraded ninja (DEC-C2-NINJA-001), so drunken_master replaced it.
+        Phase 18 Slice 5 retires drunken_master (DEC-DRUNKEN-MASTER-RETIRED-001),
+        so chuck_norris (llm_profile=None, terminal KEEP_STATIC per DEC-C4-COLUMBO-101)
+        replaces it as the v1-path assertion carrier. Semantics are identical — any
+        mode with llm_profile=None must produce the verbatim F62 composition.
         """
-        drunken_master = DEFAULT_MODES["drunken_master"]
-        assert drunken_master.llm_profile is None
-        runner.set_character(drunken_master)
+        chuck_norris = DEFAULT_MODES["chuck_norris"]
+        assert chuck_norris.llm_profile is None
+        runner.set_character(chuck_norris)
         sys_content = runner.conversation[0]["content"]
-        expected_prefix = f"Character mode: {drunken_master.name}\n{drunken_master.personality}\n\n"
+        expected_prefix = f"Character mode: {chuck_norris.name}\n{chuck_norris.personality}\n\n"
         assert sys_content.startswith(expected_prefix), (
             f"set_character with llm_profile=None deviated from v1 composition.\n"
             f"Expected prefix: {expected_prefix!r}\n"
@@ -2460,31 +2473,28 @@ class TestColumboDossierAwareContextHooks:
 
 
 class TestTierOneModesPermanentlyStatic:
-    """drunken_master, chuck_norris, and bobby_hill must remain llm_profile=None.
+    """chuck_norris and bobby_hill must remain llm_profile=None.
 
-    DEC-C4-COLUMBO-101 reclassifies these three modes from UPGRADE (per
-    DEC-30-CHARACTER-V2-002) to terminal KEEP_STATIC. This is a PERMANENT INVARIANT:
-    no successor C-slice exists. The v2 character roadmap is CLOSED after C-4.
+    DEC-C4-COLUMBO-101 reclassified drunken_master/chuck_norris/bobby_hill as
+    terminal KEEP_STATIC. Phase 18 Slice 5 retired drunken_master
+    (DEC-DRUNKEN-MASTER-RETIRED-001) — it is no longer in DEFAULT_MODES.
+    chuck_norris and bobby_hill remain terminal KEEP_STATIC.
 
-    Rationale (encoded in DEC-C4-COLUMBO-101):
-    - No usage pattern asks for LLM personas for these modes.
-    - v1-composition-carrier test path (drunken_master in test_character_v2.py:388
-      and test_agent_tools.py:1597-1651) stays intact by design.
-    - Three ≈165-token profile authoring tasks + ≈90 new tests for zero product value.
+    Phase 18 Slice 5 adds deckard and hal9000 WITH llm_profile set, so the
+    KEEP_STATIC set is now exactly {default, chuck_norris, bobby_hill} (3 modes).
 
     This test class is the terminal mechanical gate for that decision.
     """
 
-    def test_drunken_master_is_permanently_static(self):
-        """drunken_master must remain llm_profile=None (terminal KEEP_STATIC per DEC-C4-COLUMBO-101).
+    def test_drunken_master_not_in_default_modes(self):
+        """drunken_master was retired in Phase 18 Slice 5 (DEC-DRUNKEN-MASTER-RETIRED-001).
 
-        The v1-composition-carrier test path in test_set_character_drunken_master_uses_v1_composition_verbatim
-        (above) and in test_agent_tools.py:1597-1651 depends on this remaining None.
-        Do NOT add an llm_profile to drunken_master — this is a permanent decision.
+        It must NOT appear in DEFAULT_MODES. The v1-composition-carrier test path
+        has been migrated to chuck_norris (also llm_profile=None, KEEP_STATIC).
         """
-        assert DEFAULT_MODES["drunken_master"].llm_profile is None, (
-            "drunken_master.llm_profile must be None (terminal KEEP_STATIC per DEC-C4-COLUMBO-101). "
-            "The v1-carrier test path depends on this. Do NOT add a profile — permanent decision."
+        assert "drunken_master" not in DEFAULT_MODES, (
+            "drunken_master must not be in DEFAULT_MODES — "
+            "retired in Phase 18 Slice 5 (DEC-DRUNKEN-MASTER-RETIRED-001)."
         )
 
     def test_chuck_norris_is_permanently_static(self):
@@ -2501,23 +2511,33 @@ class TestTierOneModesPermanentlyStatic:
             "Do NOT add a profile — permanent decision, no C-5."
         )
 
-    def test_keep_static_set_is_exactly_four_modes(self):
-        """The KEEP_STATIC set must be exactly {default, drunken_master, chuck_norris, bobby_hill}.
+    def test_keep_static_set_is_exactly_three_modes(self):
+        """The KEEP_STATIC set must be exactly {default, chuck_norris, bobby_hill}.
 
-        DEC-C4-COLUMBO-101 closes the v2 character roadmap with:
-        - 6 UPGRADE (full_troll, ninja, sun_tzu, bruce_lee, bureaucrat, columbo)
-        - 4 KEEP_STATIC terminal (default, drunken_master, chuck_norris, bobby_hill)
+        Phase 18 Slice 5 disposition (DEC-DRUNKEN-MASTER-RETIRED-001):
+        - 8 UPGRADE (full_troll, ninja, sun_tzu, bruce_lee, bureaucrat, columbo,
+                     deckard, hal9000)
+        - 3 KEEP_STATIC terminal (default, chuck_norris, bobby_hill)
 
-        This test gates the final disposition permanently. Any mode added to
-        DEFAULT_MODES that ships with llm_profile=None should update this set
-        deliberately (after a new planner decision).
+        This test gates the current disposition. Any mode added to DEFAULT_MODES
+        that ships with llm_profile=None should update this set deliberately
+        (after a new planner decision).
         """
-        upgraded_modes = {"full_troll", "ninja", "sun_tzu", "bruce_lee", "bureaucrat", "columbo"}
-        expected_static = {"default", "drunken_master", "chuck_norris", "bobby_hill"}
+        upgraded_modes = {
+            "full_troll",
+            "ninja",
+            "sun_tzu",
+            "bruce_lee",
+            "bureaucrat",
+            "columbo",
+            "deckard",
+            "hal9000",
+        }
+        expected_static = {"default", "chuck_norris", "bobby_hill"}
         actual_static = {name for name, mode in DEFAULT_MODES.items() if mode.llm_profile is None}
         assert actual_static == expected_static, (
             f"KEEP_STATIC set mismatch. Expected {expected_static!r}, got {actual_static!r}. "
-            "Final v2 disposition: 6 UPGRADE + 4 KEEP_STATIC terminal (DEC-C4-COLUMBO-101). "
+            "Phase 18 Slice 5 disposition: 8 UPGRADE + 3 KEEP_STATIC terminal. "
             "If a new mode was added, update this set with a new planner decision."
         )
         # Sanity-check: upgraded_modes set must equal all non-static modes

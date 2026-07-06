@@ -29,7 +29,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from adversary_pursuit.core.config import ConfigManager
@@ -46,6 +46,126 @@ except ImportError:
 
 from adversary_pursuit.agent.tools import ToolContext, create_tools, execute_tool  # noqa: E402
 from adversary_pursuit.gamification.modes import CharacterMode  # noqa: E402
+
+# ---------------------------------------------------------------------------
+# StatusHook protocol and NullStatusHook default
+# ---------------------------------------------------------------------------
+# @decision DEC-STATUS-ACTIVITY-WIRING-001
+# @title _StatusHook Protocol for decoupling runner from Rich imports
+# @status accepted
+# @rationale runner.py must not import Rich directly — it is a library module
+#            used in non-Rich contexts (tests, cmd2 console). The Protocol lets
+#            StatusBar from banner.py satisfy the interface without a hard import.
+#            NullStatusHook (_NULL_STATUS_HOOK singleton) is the default so every
+#            call site in chat() is unconditional — no "if status_bar is not None"
+#            guards scattered across the hot path. Sacred Practice 12: one authority
+#            (PHRASES via StatusBar.set_activity) and one call pattern.
+#            The slug-mapping helper (_status_slug_for_tool) is colocated with the
+#            wiring so future tool additions only require one dict update, not
+#            two separate files.
+
+
+@runtime_checkable
+class _StatusHook(Protocol):
+    """Minimal interface for a status bar hook.
+
+    StatusBar in banner.py satisfies this protocol. NullStatusHook below is
+    the no-op default.  The runner depends only on this protocol — no Rich
+    import required at runner.py level.
+    """
+
+    def set_activity(self, tool_slug: str | None) -> None:
+        """Set the current tool-activity slug, or None to revert to idle."""
+        ...
+
+
+class NullStatusHook:
+    """No-op _StatusHook used when no status bar is active.
+
+    A single module-level instance (_NULL_STATUS_HOOK) is the default so the
+    runner never needs ``if status_bar is not None:`` guards.
+    """
+
+    def set_activity(self, tool_slug: str | None) -> None:  # noqa: ARG002
+        """No-op: silently ignore all activity updates."""
+
+
+_NULL_STATUS_HOOK: NullStatusHook = NullStatusHook()
+
+
+# ---------------------------------------------------------------------------
+# Tool-name → activity-slug mapping
+# ---------------------------------------------------------------------------
+
+# Maps every LLM-facing tool name (from create_tools) to the status-bar
+# activity slug used in pick(character, "activity:<slug>").
+# Keys must stay in sync with the tool names in tools.py:create_tools().
+# When a new tool is added, add an entry here; the test
+# test_all_registered_tools_covered will fail loudly if the mapping drifts.
+_TOOL_SLUG_MAP: dict[str, str] = {
+    "dns_resolve": "dns_resolve",
+    "whois_lookup": "whois",
+    "check_ip_reputation": "check_ip_reputation",
+    "shodan_host_lookup": "shodan",
+    "check_breaches": "check_breaches",
+    "otx_threat_intel": "otx",
+    "scan_url": "scan_url",
+    "virustotal_lookup": "virustotal",
+    "censys_host_lookup": "censys_host_lookup",
+    "passivetotal_lookup": "passivetotal_lookup",
+    "greynoise_lookup": "greynoise_lookup",
+    "urlhaus_lookup": "urlhaus_lookup",
+    "threatfox_lookup": "threatfox",
+    "malwarebazaar_lookup": "malwarebazaar_lookup",
+    "crtsh_lookup": "crtsh_lookup",
+    # workspace / meta tools — all use "default_tool" slug (no activity phrase)
+    "get_workspace_summary": "default_tool",
+    "search_workspace": "default_tool",
+    "get_next_hint": "default_tool",
+    "buy_hint": "default_tool",
+    "list_challenges": "default_tool",
+    "check_challenges": "default_tool",
+    "render_graph": "default_tool",
+    "export_workspace": "default_tool",
+    "get_dossier_state": "default_tool",
+    "create_dossier_prediction": "default_tool",
+    "create_dossier_note": "default_tool",
+    "falsify_dossier_prediction": "default_tool",
+    "generate_dossier_report": "default_tool",
+    "export_dossier": "default_tool",
+    "compare_dossier": "default_tool",
+}
+
+
+def _status_slug_for_tool(tool_name: str) -> str:
+    """Return the activity slug for *tool_name*, falling back to ``'default_tool'``.
+
+    The slug is used as the ``activity:<slug>`` phrase category key in the
+    phrases cache (DEC-PHRASE-CACHE-001). Unknown tool names are logged at
+    DEBUG and return ``'default_tool'`` so new tools degrade gracefully while
+    the test ``test_all_registered_tools_covered`` catches the gap loudly
+    (Sacred Practice 5 — fail loud where it matters, degrade gracefully at
+    runtime).
+
+    Parameters
+    ----------
+    tool_name:
+        LLM-facing tool name as registered in ``create_tools()``.
+
+    Returns
+    -------
+    str
+        Activity slug string, always non-empty.
+    """
+    slug = _TOOL_SLUG_MAP.get(tool_name)
+    if slug is None:
+        logger.debug(
+            "No activity slug mapping for tool %r — using 'default_tool'. "
+            "Add an entry to _TOOL_SLUG_MAP to suppress this warning.",
+            tool_name,
+        )
+        return "default_tool"
+    return slug
 
 
 class AgentRunner:
@@ -133,7 +253,7 @@ class AgentRunner:
             "point them out."
         )
 
-    def chat(self, user_message: str) -> str:
+    def chat(self, user_message: str, status_bar: "_StatusHook | None" = None) -> str:
         """Process a user message and return the agent's response.
 
         Handles the full loop: message → LLM → tool calls → results → LLM → response.
@@ -143,6 +263,12 @@ class AgentRunner:
         ----------
         user_message:
             The user's input message.
+        status_bar:
+            Optional status hook that receives ``set_activity(slug)`` before each
+            tool call and ``set_activity(None)`` after.  When None, a
+            ``NullStatusHook`` is used so there are no None-guards in the hot
+            path (DEC-STATUS-ACTIVITY-WIRING-001).  Pass the ``StatusBar``
+            instance from ``banner.py`` at the call site in ``chat.py``.
 
         Returns
         -------
@@ -159,6 +285,9 @@ class AgentRunner:
                 "litellm is required for the conversational interface. "
                 "Install it with: uv pip install 'adversary-pursuit[agent]'"
             )
+
+        # Resolve hook — NullStatusHook eliminates None-check guards below.
+        _hook: _StatusHook = status_bar if status_bar is not None else _NULL_STATUS_HOOK
 
         self.conversation.append({"role": "user", "content": user_message})
 
@@ -210,15 +339,23 @@ class AgentRunner:
                 }
             )
             for tc in tool_calls:
+                tool_name = tc["function"]["name"]
                 try:
                     args = json.loads(tc["function"]["arguments"])
                 except (json.JSONDecodeError, KeyError):
                     args = {}
-                summary, celebration, badges, challenges = execute_tool(
-                    self.ctx,
-                    tc["function"]["name"],
-                    args,
-                )
+                # Signal the status bar with the tool-specific activity slug
+                # before execution, then clear to idle (None) after — whether
+                # the call succeeds or raises. DEC-STATUS-ACTIVITY-WIRING-001.
+                _hook.set_activity(_status_slug_for_tool(tool_name))
+                try:
+                    summary, celebration, badges, challenges = execute_tool(
+                        self.ctx,
+                        tool_name,
+                        args,
+                    )
+                finally:
+                    _hook.set_activity(None)
                 if celebration and celebration not in _turn_seen_celebrations:
                     _turn_seen_celebrations.add(celebration)
                     self.last_celebrations.append(celebration)

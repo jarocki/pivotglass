@@ -60,7 +60,6 @@ from rich.table import Table
 from adversary_pursuit.agent.banner import (
     get_mode_color,
     render_boot_banner,
-    thinking_status,
 )
 from adversary_pursuit.agent.error_handler import handle_error
 from adversary_pursuit.agent.provider_setup import run_provider_wizard
@@ -884,11 +883,25 @@ def run_chat() -> None:
             continue
 
         # Normal chat — send to LLM
-        # thinking_status shows a spinner while the LLM/tools are running.
-        # handle_error replaces raw tracebacks with a Rich Panel explanation.
+        # StatusBar shows character + model + elapsed time + activity while busy.
+        # The bar is passed into runner.chat() so set_activity() fires around each
+        # tool call, driving the status bar phrase for that tool's slug
+        # (DEC-STATUS-ACTIVITY-WIRING-001). On any StatusBar construction failure
+        # the outer except block at line ~954 routes through handle_error.
         try:
-            with thinking_status(console):
-                response = runner.chat(stripped)
+            from adversary_pursuit.agent.banner import StatusBar
+
+            _mode_name = (
+                runner.ctx.mode_mgr.active.name if hasattr(runner.ctx, "mode_mgr") else "default"
+            )
+            _status_bar = StatusBar(
+                console=console,
+                mode_name=_mode_name,
+                model_display=runner.model,
+                workspace_mgr=getattr(runner.ctx, "workspace_mgr", None),
+            )
+            with _status_bar:
+                response = runner.chat(stripped, status_bar=_status_bar)
             console.print(Markdown(response))
             console.print()
             # Render celebration panels after the LLM response — one per tool

@@ -116,18 +116,19 @@ _WORDMARK_COLORS: list[str] = [
 # ---------------------------------------------------------------------------
 
 #: Maps character mode name → Rich colour string used for the prompt prefix.
-#: Covers all 10 DEFAULT_MODES entries.  Falls back to "cyan" for unknown modes.
+#: Covers all 11 DEFAULT_MODES entries.  Falls back to "cyan" for unknown modes.
 MODE_COLORS: dict[str, str] = {
     "default": "bold cyan",
     "ninja": "dim white",
     "full_troll": "bold magenta",
-    "drunken_master": "bold yellow",
     "sun_tzu": "cyan",
     "chuck_norris": "bold red",
     "bureaucrat": "white",
     "bobby_hill": "bold green",
     "bruce_lee": "bold blue",
     "columbo": "bold yellow",
+    "deckard": "bold yellow",
+    "hal9000": "bold red",
 }
 
 _FALLBACK_COLOR = "cyan"
@@ -437,6 +438,148 @@ def _typewriter(
         console.file.flush() if hasattr(console, "file") else None
         time.sleep(delay)
     console.print()  # newline after last char
+
+
+# ---------------------------------------------------------------------------
+# StatusBar — Rich Live status bar (Phase 18 Slice 5)
+# ---------------------------------------------------------------------------
+
+
+class StatusBar:
+    """Rich Live status bar replacing the plain 'Thinking...' spinner.
+
+    Displays a one-line status strip while the LLM is busy, showing:
+    character prefix + mode name | model name (shortened) | elapsed mm:ss
+    | pivot count (when > 0) | activity phrase.
+
+    Usage::
+
+        with StatusBar(console, mode_name="deckard", model_display="ollama/qwen2.5:8b",
+                       workspace_mgr=wm) as bar:
+            bar.set_activity("virustotal")
+            response = runner.chat(user_input)
+
+    The bar is transient — it disappears when the context manager exits,
+    leaving a clean terminal for the LLM response.
+
+    @decision DEC-STATUS-BAR-001
+    @title StatusBar uses Rich Live (transient=True) for the thinking indicator
+    @status accepted
+    @rationale Rich Live with transient=True cleans up the status line when the
+               LLM returns, leaving no visual noise before the response. The bar
+               encodes session context (character, model, elapsed time, pivot count,
+               current tool activity) so the user always knows what the agent is
+               doing and which character is active. Phrases are pulled from the
+               phrases.py cache so the activity text is character-voiced. Falls back
+               to "Thinking..." on any phrase-lookup exception to stay robust.
+               workspace_mgr is optional so StatusBar can be constructed before a
+               workspace is active (e.g., in tests or early chat startup).
+    """
+
+    def __init__(
+        self,
+        console: Console,
+        mode_name: str,
+        model_display: str,
+        workspace_mgr=None,
+        dossier_state=None,  # optional DossierState object (reserved for future use)
+    ) -> None:
+        self._console = console
+        self._mode_name = mode_name
+        self._model_display = model_display
+        self._workspace_mgr = workspace_mgr
+        self._dossier_state = dossier_state
+        self._activity: str | None = None
+        self._live: object | None = None  # rich.live.Live instance
+
+    def _render_bar(self):
+        """Build the Rich Text object for the current status bar state."""
+        from rich.text import Text
+
+        from adversary_pursuit.gamification.modes import DEFAULT_MODES
+
+        parts: list[str] = []
+
+        # 1. Character prefix + mode name
+        mode = DEFAULT_MODES.get(self._mode_name)
+        prefix = mode.prompt_prefix if mode else ""
+        parts.append(f"{prefix} {self._mode_name}" if prefix else self._mode_name)
+
+        # 2. Model — strip "ollama/" or other provider prefix, take last segment
+        model_short = (
+            self._model_display.split("/")[-1]
+            if "/" in self._model_display
+            else self._model_display
+        )
+        parts.append(model_short)
+
+        # 3. Workspace elapsed mm:ss
+        if self._workspace_mgr is not None:
+            try:
+                stats = self._workspace_mgr.get_workspace_stats()
+                elapsed = stats.get("elapsed_seconds", 0)
+                mm = elapsed // 60
+                ss = elapsed % 60
+                parts.append(f"{mm:02d}:{ss:02d}")
+
+                # 4. Pivot count (omit when zero)
+                pivots = stats.get("pivot_count", 0)
+                if pivots > 0:
+                    parts.append(f"{pivots} pivot{'s' if pivots != 1 else ''}")
+            except Exception:
+                pass
+
+        # 5. Activity phrase (character-voiced)
+        cat = f"activity:{self._activity}" if self._activity is not None else "activity:thinking"
+        try:
+            from adversary_pursuit.gamification.phrases import pick
+
+            activity_text = pick(self._mode_name, cat)
+        except Exception:
+            activity_text = "Thinking..."
+        parts.append(activity_text)
+
+        bar_str = " │ ".join(parts)
+        text = Text()
+        text.append(bar_str, style="dim cyan")
+        return text
+
+    def set_activity(self, tool_slug: str | None) -> None:
+        """Update the current activity slug and refresh the live display.
+
+        Parameters
+        ----------
+        tool_slug:
+            Activity slug matching an ``activity:<slug>`` phrase category
+            (e.g. ``"virustotal"``, ``"shodan"``). Pass ``None`` to revert
+            to the default ``"activity:thinking"`` phrase.
+        """
+        self._activity = tool_slug
+        if self._live is not None:
+            try:
+                self._live.update(self._render_bar())  # type: ignore[attr-defined]
+            except Exception:
+                pass
+
+    def __enter__(self) -> "StatusBar":
+        from rich.live import Live
+
+        self._live = Live(
+            self._render_bar(),
+            console=self._console,
+            transient=True,
+            refresh_per_second=4,
+        )
+        self._live.__enter__()  # type: ignore[union-attr]
+        return self
+
+    def __exit__(self, *args) -> None:
+        if self._live is not None:
+            try:
+                self._live.__exit__(*args)  # type: ignore[union-attr]
+            except Exception:
+                pass
+            self._live = None
 
 
 # ---------------------------------------------------------------------------

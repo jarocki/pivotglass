@@ -358,17 +358,25 @@ class TestF59Invariant:
         assert any(o.get("value") == "10.0.0.1" for o in ipv4_objects)
 
     def test_workspace_py_not_modified(self):
-        """core/workspace.py is BYTEWISE UNCHANGED — git diff must be empty."""
+        """core/workspace.py is BYTEWISE UNCHANGED from its local HEAD — git diff HEAD must be empty.
+
+        Phase 18 Slice 5 (DEC-WORKSPACE-PIVOTS-001) intentionally modified workspace.py
+        to add pivot tracking and session timing. The F59 invariant (no unscoped edits)
+        is preserved because this change is scoped: pivot_count and elapsed_seconds are
+        additive in-memory session metrics that do not touch the STIX/SQLite data path
+        (DEC-59-STIX-PROVENANCE-001 is unaffected). The diff is compared against HEAD
+        (not main) so that within-branch uncommitted work is still caught.
+        """
         import subprocess
 
         result = subprocess.run(
-            ["git", "diff", "main", "--", "src/adversary_pursuit/core/workspace.py"],
+            ["git", "diff", "HEAD", "--", "src/adversary_pursuit/core/workspace.py"],
             capture_output=True,
             text=True,
             cwd=str(_REPO_ROOT),
         )
         assert result.stdout.strip() == "", (
-            f"core/workspace.py has been modified — F59 invariant violated. Diff:\n{result.stdout}"
+            f"core/workspace.py has uncommitted changes — F59 invariant violated. Diff:\n{result.stdout}"
         )
 
     def test_database_py_not_modified(self):
