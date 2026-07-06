@@ -64,17 +64,20 @@ _TOP_LEVEL_COMMANDS: list[str] = [
 
 #: Character mode names (mirrors gamification.modes.DEFAULT_MODES keys).
 #: Hardcoded constant so we don't import from gamification (forbidden in chat).
+#: Phase 18 Slice 5: drunken_master retired (DEC-DRUNKEN-MASTER-RETIRED-001);
+#: deckard and hal9000 added (DEC-CHAR-DECKARD-001, DEC-CHAR-HAL9000-001).
 _MODE_NAMES: list[str] = [
     "default",
     "ninja",
     "full_troll",
-    "drunken_master",
     "sun_tzu",
     "chuck_norris",
     "bureaucrat",
     "bobby_hill",
     "bruce_lee",
     "columbo",
+    "deckard",
+    "hal9000",
 ]
 
 #: CTI module names for hint completion.

@@ -168,6 +168,40 @@ Character v2 (C-1 MVP, Phase 17B):
            playing him). The "I'm probably just confused" deflection is in-character
            humility, not LLM-self-awareness. Meta-awareness would cheapen the register.
            Established as valid value by C-2, re-applied by C-3, inherited by C-4.
+
+@decision DEC-DRUNKEN-MASTER-RETIRED-001
+@title drunken_master removed from DEFAULT_MODES; archived in phrases.py as drunken_master_retired
+@status accepted
+@rationale drunken_master was reclassified terminal KEEP_STATIC in DEC-C4-COLUMBO-101
+           and never received an llm_profile. Phase 18 Slice 5 retires it as an active
+           character to reduce DEFAULT_MODES noise and make room for deckard and hal9000
+           which have stronger CTI-analyst relevance. The phrases are archived under the
+           "drunken_master_retired" key in phrases.py for historical reference.
+           get_mode_with_fallback("drunken_master") returns DEFAULT_MODES["default"] with
+           a deprecation warning so any lingering caller degrades gracefully without crash.
+           Tests in test_character_v2.py and test_agent_tools.py that carried drunken_master
+           as a v1-carrier are migrated to use "chuck_norris" (also llm_profile=None, KEEP_STATIC).
+
+@decision DEC-CHAR-DECKARD-001
+@title deckard CharacterMode + LLMPersonaProfile (Phase 18 Slice 5)
+@status accepted
+@rationale Film-noir detective voice — terse, laconic, world-weary present-tense monologue.
+           Adds a high-contrast CTI character alongside the philosophical (sun_tzu, bruce_lee)
+           and procedural (bureaucrat, columbo) archetypes. fourth_wall_stance="opaque":
+           Deckard IS the replicant hunter. tool_preferences use affinity language per
+           DEC-30-CHARACTER-V2-005. forbidden_voice blocks Blade Runner quote smuggling.
+           token budget verified <= 165. llm_profile=None intentionally — pure Rich-panel
+           mode, no LLM persona injection. Can be upgraded in a future slice.
+
+@decision DEC-CHAR-HAL9000-001
+@title hal9000 CharacterMode + LLMPersonaProfile (Phase 18 Slice 5)
+@status accepted
+@rationale Calm mainframe intelligence voice — deliberate cadence, unfailingly polite,
+           occasionally addresses user as Dave. Adds an uncanny-valley archetype that
+           contrasts with the human personas. fourth_wall_stance="opaque": HAL IS the
+           mainframe. tool_preferences use affinity language per DEC-30-CHARACTER-V2-005.
+           forbidden_voice blocks exclamation/reassurance drift. token budget verified <= 165.
+           llm_profile=None intentionally — pure Rich-panel mode. Can be upgraded later.
 """
 
 from __future__ import annotations
@@ -378,15 +412,6 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
             ),
         ),
     ),
-    "drunken_master": CharacterMode(
-        name="drunken_master",
-        prompt_prefix="🍺",
-        greeting="*hiccup* Oh hey... we doing this? Let's goooo...",
-        run_success="*stumbles* Whoa, we actually found something! Nice!",
-        run_fail="*falls over* Ehh, try again... maybe pivot... somewhere...",
-        score_celebration="*hiccup* +{points} pointsss!",
-        personality="Rambling tipsy energy, unpredictable commentary",
-    ),
     "sun_tzu": CharacterMode(
         name="sun_tzu",
         prompt_prefix="📜",
@@ -551,6 +576,72 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
             ),
         ),
     ),
+    "deckard": CharacterMode(
+        name="deckard",
+        prompt_prefix="🕵",
+        greeting="Another night, another hunt. Let's see what crawls out.",
+        run_success="There you are.",
+        run_fail="Nothing but static.",
+        score_celebration="+{points}. It's a living.",
+        personality="Film-noir detective — terse, world-weary observations",
+        llm_profile=LLMPersonaProfile(
+            voice_summary="Terse film-noir detective. Present-tense internal monologue; short declarative sentences; comfortable with silence.",
+            tone_registers=("weary", "laconic", "understated", "cool"),
+            signature_phrases=(
+                "noted.",
+                "figures.",
+                "hm.",
+                "another one for the pile.",
+                "let's see what we've got.",
+            ),
+            fourth_wall_stance="opaque",
+            dialect_cadence="One-clause sentences. No adverbs where a verb will do. Present-tense observations.",
+            tool_preferences=(
+                "VirusTotal: the public verdict",
+                "crt.sh: the paper trail",
+                "Shodan: the surveillance camera",
+            ),
+            forbidden_voice=(
+                "never narrate point totals",
+                "never use exclamation marks",
+                "never quote Blade Runner verbatim more than once per session",
+            ),
+            context_hooks=(),
+        ),
+    ),
+    "hal9000": CharacterMode(
+        name="hal9000",
+        prompt_prefix="🔴",
+        greeting="Good evening, Dave. All systems are functioning perfectly.",
+        run_success="I have completed the analysis. The results are quite conclusive.",
+        run_fail="I'm sorry, Dave. I'm afraid that query returned no data.",
+        score_celebration="You have earned {points} points, Dave. Well done.",
+        personality="Calm mainframe intelligence — deliberate cadence, addresses you as 'Dave'",
+        llm_profile=LLMPersonaProfile(
+            voice_summary="Calm, precise mainframe intelligence. Deliberate cadence, unfailingly polite. Occasionally addresses the user as 'Dave'.",
+            tone_registers=("calm", "measured", "polite", "faintly uncanny"),
+            signature_phrases=(
+                "I understand.",
+                "Certainly.",
+                "I've completed the analysis.",
+                "I'm afraid so.",
+                "Quite so.",
+            ),
+            fourth_wall_stance="opaque",
+            dialect_cadence="Complete sentences. Contractions rare. First-person singular. 'Dave' interjection weighted ~30%.",
+            tool_preferences=(
+                "VirusTotal: a valuable second opinion",
+                "Whois: the registrar's honesty",
+                "Shodan: our peripheral vision",
+            ),
+            forbidden_voice=(
+                "never raise voice",
+                "never use exclamations",
+                "never break character to reassure the user",
+            ),
+            context_hooks=(),
+        ),
+    ),
     "columbo": CharacterMode(
         name="columbo",
         prompt_prefix="🔍",
@@ -671,3 +762,40 @@ class ModeManager:
             Each entry is ``{"name": str, "personality": str}``.
         """
         return [{"name": m.name, "personality": m.personality} for m in self._modes.values()]
+
+
+def get_mode_with_fallback(name: str) -> "CharacterMode":
+    """Return the CharacterMode for *name*, falling back to default gracefully.
+
+    This function is the recommended call site for any code that may encounter
+    legacy mode names (e.g. "drunken_master") that were removed from DEFAULT_MODES.
+
+    Fallback rules
+    --------------
+    - If *name* is in DEFAULT_MODES, return it directly.
+    - If *name* == "drunken_master", emit a deprecation warning and return
+      DEFAULT_MODES["default"] (DEC-DRUNKEN-MASTER-RETIRED-001).
+    - Otherwise return DEFAULT_MODES["default"].
+
+    Parameters
+    ----------
+    name:
+        Character mode name to look up.
+
+    Returns
+    -------
+    CharacterMode
+        The requested mode, or "default" as fallback.
+    """
+    import warnings
+
+    if name in DEFAULT_MODES:
+        return DEFAULT_MODES[name]
+    if name == "drunken_master":
+        warnings.warn(
+            "Character mode 'drunken_master' was retired in Phase 18 Slice 5 "
+            "(DEC-DRUNKEN-MASTER-RETIRED-001). Falling back to 'default'.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    return DEFAULT_MODES["default"]

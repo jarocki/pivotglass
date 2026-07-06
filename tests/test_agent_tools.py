@@ -1597,20 +1597,24 @@ class TestModeWiring:
     # --- (7) list_modes ---
 
     def test_list_modes_returns_all_mode_names(self, tmp_ctx):
-        """ModeManager.list_modes() returns entries for all built-in modes."""
+        """ModeManager.list_modes() returns entries for all built-in modes.
+
+        Phase 18 Slice 5: drunken_master retired, deckard + hal9000 added.
+        """
         modes = tmp_ctx.mode_mgr.list_modes()
         names = {m["name"] for m in modes}
         expected = {
             "default",
             "ninja",
             "full_troll",
-            "drunken_master",
             "sun_tzu",
             "chuck_norris",
             "bureaucrat",
             "bobby_hill",
             "bruce_lee",
             "columbo",
+            "deckard",
+            "hal9000",
         }
         assert expected == names
 
@@ -1638,31 +1642,30 @@ class TestModeWiring:
     def test_set_character_injects_personality_into_system_prompt(self, tmp_ctx):
         """AgentRunner.set_character(mode) includes mode.personality in system prompt.
 
-        Uses drunken_master (llm_profile=None through all C-slices) to test the v1
-        composition path where personality is injected directly. sun_tzu was used here
-        before C-3 but was upgraded in C-3 (DEC-C3-PHILOSOPHY-001) to the v2 profile
-        path — upgraded modes use voice_summary instead of personality in the system
-        prompt. drunken_master is the v1-composition carrier per DEC-C2-NINJA-003 /
-        DEC-30-CHARACTER-V2-006 (ships at llm_profile=None pending C-4).
+        Uses chuck_norris (llm_profile=None, terminal KEEP_STATIC per DEC-C4-COLUMBO-101)
+        to test the v1 composition path where personality is injected directly.
+        drunken_master was the prior v1-carrier but was retired in Phase 18 Slice 5
+        (DEC-DRUNKEN-MASTER-RETIRED-001). chuck_norris inherits the carrier role:
+        same llm_profile=None invariant, same v1-composition semantics.
         """
         from adversary_pursuit.agent.runner import AgentRunner
 
         r = AgentRunner(tool_context=tmp_ctx)
-        drunken_master_mode = tmp_ctx.mode_mgr.switch("drunken_master")
-        r.set_character(drunken_master_mode)
+        chuck_norris_mode = tmp_ctx.mode_mgr.switch("chuck_norris")
+        r.set_character(chuck_norris_mode)
 
-        assert drunken_master_mode.personality in r.system_prompt
+        assert chuck_norris_mode.personality in r.system_prompt
 
     def test_set_character_updates_conversation_system_slot(self, tmp_ctx):
         """AgentRunner.set_character() updates conversation[0] system message."""
         from adversary_pursuit.agent.runner import AgentRunner
 
         r = AgentRunner(tool_context=tmp_ctx)
-        drunken_mode = tmp_ctx.mode_mgr.switch("drunken_master")
-        r.set_character(drunken_mode)
+        chuck_norris_mode = tmp_ctx.mode_mgr.switch("chuck_norris")
+        r.set_character(chuck_norris_mode)
 
         assert r.conversation[0]["role"] == "system"
-        assert drunken_mode.personality in r.conversation[0]["content"]
+        assert chuck_norris_mode.personality in r.conversation[0]["content"]
 
     def test_set_character_preserves_conversation_history_length(self, tmp_ctx):
         """set_character() only modifies conversation[0], does not append or truncate."""
