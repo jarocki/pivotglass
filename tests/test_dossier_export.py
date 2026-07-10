@@ -360,19 +360,28 @@ class TestF59Invariant:
     def test_workspace_py_not_modified(self):
         """core/workspace.py changes must be scoped — git diff HEAD must be empty or known-safe.
 
-        Phase 18 Slice 5 (DEC-WORKSPACE-PIVOTS-001) intentionally modified workspace.py
-        to add pivot tracking and session timing. The F59 invariant (no unscoped edits)
-        is preserved because this change is scoped: pivot_count and elapsed_seconds are
-        additive in-memory session metrics that do not touch the STIX/SQLite data path
-        (DEC-59-STIX-PROVENANCE-001 is unaffected). The diff is compared against HEAD
-        (not main) so that within-branch uncommitted work is still caught.
+        # @decision DEC-F59-GUARD-ALLOWLIST-001
+        # @title F59 guard uses symbol-keyed allowlist, not indent-width heuristic
+        # @status accepted
+        # @rationale Reviewer round 2 (Concern 1): the previous guard used
+        #   ``ln.startswith("+    ")`` to allow function bodies, which silently
+        #   permits ANY 4-space-indented addition — including unscoped new methods.
+        #   The tighter fix: every added ``+`` line must contain at least one token
+        #   from ALLOWED_ADDED_SYMBOLS (symbols explicitly scoped per-phase) OR be a
+        #   structural line that cannot introduce logic (blank, comment, docstring,
+        #   decorator). This gates on WHAT was added, not HOW it was indented.
 
-        Phase 18 Slice 6 (DEC-TUI-EVENTS-001) explicitly extends workspace.py with
-        module-level ``wire_event_bus()`` and ``notify_target_changed()`` helpers for
-        TUI TargetChanged event dispatch. These additions are purely additive:
-        they add no new SQLite operations, no new STIX mutations, and no new columns.
-        The _EVENT_BUS default is None (no-op), preserving Slice 5 behavior exactly.
-        Diffs containing only these two function names are therefore scoped and allowed.
+        Allowed additions to workspace.py per phase:
+          Slice 5 (DEC-WORKSPACE-PIVOTS-001):
+            session_started_at, record_pivot, pivot_count
+          Slice 6 (DEC-WORKSPACE-TUI-NOTIFY-001, Concern 2 Option B):
+            notify_target_changed, DEC-WORKSPACE-TUI-NOTIFY-001
+            (wire_event_bus and _EVENT_BUS were removed in Slice 6 Round 2
+             as part of the Option B refactor — their removal shows as '-' lines
+             which this guard does not check.)
+
+        The diff is compared against HEAD (not main) so that within-branch
+        uncommitted work is still caught.
         """
         import subprocess
 
@@ -384,28 +393,76 @@ class TestF59Invariant:
         )
         diff = result.stdout.strip()
         if diff == "":
-            return  # Clean — no change needed
-        # Allow Slice 6 TUI bus additions: wire_event_bus + notify_target_changed
-        # These are the only scoped additions permitted by the Slice 6 scope manifest.
-        # Any other diff content is still a violation.
-        _SLICE6_ALLOWED = {"wire_event_bus", "notify_target_changed", "_EVENT_BUS"}
-        diff_lines = [
+            return  # Clean — nothing uncommitted
+
+        # @decision DEC-F59-GUARD-ALLOWLIST-001
+        # Only additions containing one of these symbols are scoped for this branch.
+        # Additions outside these symbols require a new planner stage + DEC-ID.
+        ALLOWED_ADDED_SYMBOLS = {
+            # Slice 5: in-memory session metrics (DEC-WORKSPACE-PIVOTS-001)
+            "session_started_at",
+            "record_pivot",
+            "pivot_count",
+            # Slice 6: explicit-bus TUI notification helper (DEC-WORKSPACE-TUI-NOTIFY-001)
+            "notify_target_changed",
+            "DEC-WORKSPACE-TUI-NOTIFY-001",
+        }
+
+        added_lines = [
             ln for ln in diff.splitlines() if ln.startswith("+") and not ln.startswith("+++")
         ]
-        unexpected = [
-            ln
-            for ln in diff_lines
-            if not any(token in ln for token in _SLICE6_ALLOWED)
-            and ln.strip() not in ("+", "")
-            and not ln.startswith("+#")
-            and not ln.startswith('+"')
-            and not ln.startswith("+    #")
-            and not ln.startswith("+    ")
-            and not ln.startswith("+ ")
-        ]
+
+        # Classify added lines as structural (cannot introduce new logic) or substantive.
+        # A line is structural when it is blank, a comment (#...), a decorator (@...),
+        # or is inside a docstring block (tracked by in_docstring toggle).
+        # Triple-quote markers are detected by checking for 3 consecutive same-quote chars
+        # without materializing the literal in source (avoids ruff string-parse confusion).
+        _TRIPLE_DOUBLE = '"' * 3  # noqa: ISC003
+        _TRIPLE_SINGLE = "'" * 3  # noqa: ISC003
+
+        def _classify_unexpected(lines: list[str], allowed: set[str]) -> list[str]:
+            unexpected_out: list[str] = []
+            in_docstring = False
+            for ln in lines:
+                stripped = ln[1:].strip()  # remove leading '+'
+
+                # Track docstring open/close state via triple-quote markers
+                is_triple_quote_line = stripped.startswith(_TRIPLE_DOUBLE) or stripped.startswith(
+                    _TRIPLE_SINGLE
+                )
+                if is_triple_quote_line:
+                    # Toggle: opening enters docstring, closing exits it.
+                    # A line with 2+ triple-quote tokens is a complete single-line docstring.
+                    marker = (
+                        _TRIPLE_DOUBLE if stripped.startswith(_TRIPLE_DOUBLE) else _TRIPLE_SINGLE
+                    )
+                    token_count = stripped.count(marker)
+                    if not in_docstring:
+                        in_docstring = token_count < 2  # single-line stays closed; multi opens
+                    else:
+                        in_docstring = False  # closing triple-quote
+                    continue  # triple-quote lines themselves are always structural
+
+                # Inside a docstring: all content is structural prose
+                if in_docstring:
+                    continue
+
+                # Blank, comment, or decorator — structural
+                if stripped == "" or stripped.startswith("#") or stripped.startswith("@"):
+                    continue
+
+                # Allowed: the line contains a scoped symbol
+                if any(sym in ln for sym in allowed):
+                    continue
+
+                unexpected_out.append(ln)
+            return unexpected_out
+
+        unexpected = _classify_unexpected(added_lines, ALLOWED_ADDED_SYMBOLS)
         assert not unexpected, (
-            "core/workspace.py has unexpected uncommitted changes — F59 invariant violated.\n"
-            "Only wire_event_bus/notify_target_changed/_EVENT_BUS additions are scoped for Slice 6.\n"
+            "core/workspace.py has unexpected uncommitted additions — F59 invariant violated.\n"
+            "Only symbols in ALLOWED_ADDED_SYMBOLS are scoped for this branch.\n"
+            "To add new symbols: update the planner Evaluation Contract and add to the allowlist.\n"
             "Unexpected lines:\n" + "\n".join(unexpected)
         )
 

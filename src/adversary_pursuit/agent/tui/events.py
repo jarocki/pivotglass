@@ -66,15 +66,17 @@ class BatteryStarted:
         Canonical battery name (e.g. "identity_battery").
     tools:
         Ordered tuple of tool names to be executed.
-    target_slot:
-        DossierSlotName.value string this battery targets.
+    target_slots:
+        Tuple of DossierSlotName.value strings this battery targets.
+        Multi-slot batteries (e.g. reputation covers ttps + capability)
+        emit all covered slot names so the live pane can display them.
     reason:
         Human-readable reason why this battery was dispatched.
     """
 
     battery_name: str
     tools: tuple[str, ...]
-    target_slot: str  # DossierSlotName.value
+    target_slots: tuple[str, ...]  # tuple of DossierSlotName.value strings
     reason: str
 
 

@@ -52,7 +52,8 @@ def _all_tool_names() -> set[str]:
 
 
 def test_default_batteries_count():
-    assert len(DEFAULT_BATTERIES) == 5
+    # 5 tool-driven batteries + 1 synthesis sentinel (DEC-BATTERY-REGISTRY-001)
+    assert len(DEFAULT_BATTERIES) == 6
 
 
 def test_identity_battery_present():

@@ -37,12 +37,20 @@ class Battery:
     name:
         Canonical battery identifier (e.g. "identity_battery").
     tools:
-        Ordered tuple of tool names to execute.
-    target_slot:
-        The dossier slot this battery contributes to.
+        Ordered tuple of tool names to execute. For the ``synthesis_battery``
+        sentinel this is an empty tuple — dispatch fires an LLM synthesis call
+        instead of tool calls (C-11: batteries deterministic, LLM synthesizes).
+    target_slots:
+        Tuple of dossier slots this battery contributes evidence for.
+        A battery is dispatched when ANY of its target_slots is not yet FILLED
+        (or dossier_state is None). Multi-slot batteries (e.g. reputation covers
+        TTPs + CAPABILITY; behavioral covers TIMING + TARGETING) satisfy C-3:
+        every slot must have at least one battery that can contribute evidence.
     applies_to:
         Tuple of STIX SCO type strings this battery is valid for.
         Used by dispatch_batteries() in battery_registry.py to filter.
+        For the synthesis_battery sentinel, this is ("__any__",) meaning
+        it matches all target types once sufficient tool-driven slots are filled.
     hypothesis_hint:
         Short description of what the battery is trying to establish.
         Shown in the live pane when the battery starts.
@@ -50,7 +58,7 @@ class Battery:
 
     name: str
     tools: tuple[str, ...]
-    target_slot: DossierSlotName
+    target_slots: tuple[DossierSlotName, ...]  # multi-slot (C-3)
     applies_to: tuple[str, ...]  # target type strings
     hypothesis_hint: str
 
@@ -126,7 +134,7 @@ class BatteryRun:
             BatteryStarted(
                 battery_name=self._battery.name,
                 tools=tuple(self._pending_tools),
-                target_slot=self._battery.target_slot.value,
+                target_slots=tuple(s.value for s in self._battery.target_slots),
                 reason=self._battery.hypothesis_hint,
             )
         )

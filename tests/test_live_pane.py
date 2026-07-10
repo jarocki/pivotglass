@@ -85,7 +85,7 @@ def test_state2_target_set_and_battery():
         BatteryStarted(
             battery_name="infrastructure_battery",
             tools=("shodan_host_lookup", "censys_host_lookup", "dns_resolve"),
-            target_slot="infrastructure",
+            target_slots=("infrastructure",),
             reason="filling INFRASTRUCTURE",
         )
     )
@@ -117,7 +117,7 @@ def test_state3_battery_mid_flight():
         BatteryStarted(
             battery_name="identity_battery",
             tools=("whois_lookup", "crtsh_lookup", "check_breaches"),
-            target_slot="identity",
+            target_slots=("identity",),
             reason="filling IDENTITY",
         )
     )
@@ -185,7 +185,7 @@ def test_state5_battery_failed():
                 "check_ip_reputation",
                 "greynoise_lookup",
             ),
-            target_slot="ttps",
+            target_slots=("ttps",),
             reason="best-effort",
         )
     )
@@ -207,7 +207,7 @@ def test_state5_idle_after_battery_finished():
         BatteryStarted(
             battery_name="identity_battery",
             tools=("whois_lookup",),
-            target_slot="identity",
+            target_slots=("identity",),
             reason="test",
         )
     )
@@ -232,7 +232,7 @@ def test_state6_focus_yield():
         BatteryStarted(
             battery_name="identity_battery",
             tools=("whois_lookup", "crtsh_lookup", "check_breaches"),
-            target_slot="identity",
+            target_slots=("identity",),
             reason="filling IDENTITY",
         )
     )
@@ -251,7 +251,7 @@ def test_state6_yield_stop_updates_hint():
         BatteryStarted(
             battery_name="behavioral_battery",
             tools=("passivetotal_lookup", "scan_url"),
-            target_slot="timing",
+            target_slots=("timing",),
             reason="test",
         )
     )
@@ -283,7 +283,7 @@ def test_live_pane_uses_real_phrase_cache():
         BatteryStarted(
             battery_name="identity_battery",
             tools=("whois_lookup",),
-            target_slot="identity",
+            target_slots=("identity",),
             reason="filling IDENTITY",
         )
     )

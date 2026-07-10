@@ -112,53 +112,48 @@ _LOG = logging.getLogger(__name__)
 _DEFAULT_WORKSPACE_DIR = Path.home() / ".ap" / "workspaces"
 
 # ---------------------------------------------------------------------------
-# Optional EventBus wiring for TUI TargetChanged notifications (Slice 6)
+# TUI TargetChanged notification helper (Slice 6, Concern 2 Option B)
 # ---------------------------------------------------------------------------
 
-# Optional module-level EventBus for TUI TargetChanged events.
-# Set via wire_event_bus(). None = no-op (Slice 5 behavior).
-_EVENT_BUS: object = None  # EventBus | None
+# @decision DEC-WORKSPACE-TUI-NOTIFY-001
+# @title notify_target_changed takes bus explicitly — no module-level singleton
+# @status accepted
+# @rationale Concern 2 (reviewer round 2): the previous _EVENT_BUS module-level
+#   global created hidden state that persisted across tests and required an
+#   explicit wire_event_bus(None) teardown call in every test that touched it.
+#   Option B (reviewer recommendation): pass the bus explicitly as the first
+#   parameter of notify_target_changed(). Callers that hold no bus reference
+#   (e.g. APConsole._tui_bus = None before TUI activation) pass None and the
+#   call is a no-op. This eliminates hidden state, makes test isolation automatic
+#   (no module-level teardown required), and is self-documenting at the callsite.
+#   Sacred Practice 12 (single authority per state domain): the bus reference is
+#   owned by the TUI session (TuiApplication / _run_tui_chat), not by this module.
 
 
-def wire_event_bus(bus: object) -> None:
-    """Wire an EventBus for TUI target-change notifications.
+def notify_target_changed(bus: object, target: str, target_type: str) -> None:
+    """Publish a TargetChanged event to *bus*, if any.
 
-    Call this once when the TUI is active (typically in _run_tui_chat before
-    TuiApplication.run()). Pass None to disable notifications (restores
-    Slice 5 behavior). The bus is stored at module level so
-    notify_target_changed() can publish without the caller threading the bus
-    through every call site.
+    No-op when *bus* is None (Slice 5 / non-TUI behavior). Swallows all
+    exceptions so TUI notification never crashes the console or chat path
+    (Sacred Practice 5 applies to the data layer, not the UI notification layer).
 
     Parameters
     ----------
     bus:
         An EventBus instance (from adversary_pursuit.agent.tui.events), or
-        None to unwire.
-    """
-    global _EVENT_BUS
-    _EVENT_BUS = bus
-
-
-def notify_target_changed(target: str, target_type: str) -> None:
-    """Publish a TargetChanged event to the wired EventBus, if any.
-
-    No-op when no bus is wired (_EVENT_BUS is None). Swallows all exceptions
-    so TUI notification never crashes the console path (Sacred Practice 5
-    applies to the data layer, not the UI notification layer).
-
-    Parameters
-    ----------
+        None to disable notification (no-op). Callers that have no active
+        TUI session must pass None explicitly.
     target:
         The raw target string (e.g. "evil.example.com").
     target_type:
         STIX SCO type string or "unrecognized-type" when detection fails.
     """
-    if _EVENT_BUS is None:
+    if bus is None:
         return
     try:
         from adversary_pursuit.agent.tui.events import TargetChanged
 
-        _EVENT_BUS.publish(TargetChanged(target=target, target_type=target_type))  # type: ignore[attr-defined]
+        bus.publish(TargetChanged(target=target, target_type=target_type))  # type: ignore[attr-defined]
     except Exception:  # noqa: BLE001
         _LOG.debug("notify_target_changed: failed to publish TargetChanged (suppressed)")
 
