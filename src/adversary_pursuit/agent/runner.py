@@ -78,6 +78,14 @@ class _StatusHook(Protocol):
         """Set the current tool-activity slug, or None to revert to idle."""
         ...
 
+    def set_battery(self, name: str | None) -> None:
+        """Set the current active battery name, or None when idle."""
+        ...
+
+    def set_hypothesis(self, text: str | None) -> None:
+        """Set the current hypothesis text."""
+        ...
+
 
 class NullStatusHook:
     """No-op _StatusHook used when no status bar is active.
@@ -88,6 +96,12 @@ class NullStatusHook:
 
     def set_activity(self, tool_slug: str | None) -> None:  # noqa: ARG002
         """No-op: silently ignore all activity updates."""
+
+    def set_battery(self, name: str | None) -> None:  # noqa: ARG002
+        """No-op."""
+
+    def set_hypothesis(self, text: str | None) -> None:  # noqa: ARG002
+        """No-op."""
 
 
 _NULL_STATUS_HOOK: NullStatusHook = NullStatusHook()

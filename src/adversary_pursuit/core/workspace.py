@@ -111,6 +111,57 @@ _LOG = logging.getLogger(__name__)
 # Default workspace directory
 _DEFAULT_WORKSPACE_DIR = Path.home() / ".ap" / "workspaces"
 
+# ---------------------------------------------------------------------------
+# Optional EventBus wiring for TUI TargetChanged notifications (Slice 6)
+# ---------------------------------------------------------------------------
+
+# Optional module-level EventBus for TUI TargetChanged events.
+# Set via wire_event_bus(). None = no-op (Slice 5 behavior).
+_EVENT_BUS: object = None  # EventBus | None
+
+
+def wire_event_bus(bus: object) -> None:
+    """Wire an EventBus for TUI target-change notifications.
+
+    Call this once when the TUI is active (typically in _run_tui_chat before
+    TuiApplication.run()). Pass None to disable notifications (restores
+    Slice 5 behavior). The bus is stored at module level so
+    notify_target_changed() can publish without the caller threading the bus
+    through every call site.
+
+    Parameters
+    ----------
+    bus:
+        An EventBus instance (from adversary_pursuit.agent.tui.events), or
+        None to unwire.
+    """
+    global _EVENT_BUS
+    _EVENT_BUS = bus
+
+
+def notify_target_changed(target: str, target_type: str) -> None:
+    """Publish a TargetChanged event to the wired EventBus, if any.
+
+    No-op when no bus is wired (_EVENT_BUS is None). Swallows all exceptions
+    so TUI notification never crashes the console path (Sacred Practice 5
+    applies to the data layer, not the UI notification layer).
+
+    Parameters
+    ----------
+    target:
+        The raw target string (e.g. "evil.example.com").
+    target_type:
+        STIX SCO type string or "unrecognized-type" when detection fails.
+    """
+    if _EVENT_BUS is None:
+        return
+    try:
+        from adversary_pursuit.agent.tui.events import TargetChanged
+
+        _EVENT_BUS.publish(TargetChanged(target=target, target_type=target_type))  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001
+        _LOG.debug("notify_target_changed: failed to publish TargetChanged (suppressed)")
+
 
 class WorkspaceManager:
     """Manages investigation workspaces.

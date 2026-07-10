@@ -586,6 +586,25 @@ class APConsole(cmd2.Cmd):
         self._active_module_options[name] = value
         self.poutput(f"{name} => {value}")
 
+        # Notify TUI event bus when TARGET changes (Slice 6).
+        # Swallowed entirely so TUI notification never crashes the console path.
+        if name == "TARGET":
+            try:
+                from adversary_pursuit.core.workspace import _EVENT_BUS, notify_target_changed
+
+                if _EVENT_BUS is not None:
+                    # Auto-detect target type from the value using the same logic
+                    # as the hunt pipeline so the TUI sees a consistent type label.
+                    try:
+                        from adversary_pursuit.modules.base import detect_ioc_type
+
+                        target_type = detect_ioc_type(value) or "unrecognized-type"
+                    except Exception:  # noqa: BLE001
+                        target_type = "unrecognized-type"
+                    notify_target_changed(value, target_type)
+            except Exception:  # noqa: BLE001
+                pass  # TUI notification must never crash the console path
+
     # ------------------------------------------------------------------
     # run / hunt
     # ------------------------------------------------------------------

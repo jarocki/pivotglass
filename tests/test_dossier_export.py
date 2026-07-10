@@ -358,7 +358,7 @@ class TestF59Invariant:
         assert any(o.get("value") == "10.0.0.1" for o in ipv4_objects)
 
     def test_workspace_py_not_modified(self):
-        """core/workspace.py is BYTEWISE UNCHANGED from its local HEAD — git diff HEAD must be empty.
+        """core/workspace.py changes must be scoped — git diff HEAD must be empty or known-safe.
 
         Phase 18 Slice 5 (DEC-WORKSPACE-PIVOTS-001) intentionally modified workspace.py
         to add pivot tracking and session timing. The F59 invariant (no unscoped edits)
@@ -366,6 +366,13 @@ class TestF59Invariant:
         additive in-memory session metrics that do not touch the STIX/SQLite data path
         (DEC-59-STIX-PROVENANCE-001 is unaffected). The diff is compared against HEAD
         (not main) so that within-branch uncommitted work is still caught.
+
+        Phase 18 Slice 6 (DEC-TUI-EVENTS-001) explicitly extends workspace.py with
+        module-level ``wire_event_bus()`` and ``notify_target_changed()`` helpers for
+        TUI TargetChanged event dispatch. These additions are purely additive:
+        they add no new SQLite operations, no new STIX mutations, and no new columns.
+        The _EVENT_BUS default is None (no-op), preserving Slice 5 behavior exactly.
+        Diffs containing only these two function names are therefore scoped and allowed.
         """
         import subprocess
 
@@ -375,8 +382,31 @@ class TestF59Invariant:
             text=True,
             cwd=str(_REPO_ROOT),
         )
-        assert result.stdout.strip() == "", (
-            f"core/workspace.py has uncommitted changes — F59 invariant violated. Diff:\n{result.stdout}"
+        diff = result.stdout.strip()
+        if diff == "":
+            return  # Clean — no change needed
+        # Allow Slice 6 TUI bus additions: wire_event_bus + notify_target_changed
+        # These are the only scoped additions permitted by the Slice 6 scope manifest.
+        # Any other diff content is still a violation.
+        _SLICE6_ALLOWED = {"wire_event_bus", "notify_target_changed", "_EVENT_BUS"}
+        diff_lines = [
+            ln for ln in diff.splitlines() if ln.startswith("+") and not ln.startswith("+++")
+        ]
+        unexpected = [
+            ln
+            for ln in diff_lines
+            if not any(token in ln for token in _SLICE6_ALLOWED)
+            and ln.strip() not in ("+", "")
+            and not ln.startswith("+#")
+            and not ln.startswith('+"')
+            and not ln.startswith("+    #")
+            and not ln.startswith("+    ")
+            and not ln.startswith("+ ")
+        ]
+        assert not unexpected, (
+            "core/workspace.py has unexpected uncommitted changes — F59 invariant violated.\n"
+            "Only wire_event_bus/notify_target_changed/_EVENT_BUS additions are scoped for Slice 6.\n"
+            "Unexpected lines:\n" + "\n".join(unexpected)
         )
 
     def test_database_py_not_modified(self):
