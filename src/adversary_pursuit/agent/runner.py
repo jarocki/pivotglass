@@ -22,6 +22,30 @@ Supports multiple LLM backends via litellm.
            can always be imported and instantiated — the error only surfaces
            when the user actually tries to chat. This pattern matches how
            optional features are handled throughout the codebase.
+
+@decision DEC-RUNNER-CONVERSATION-INTEGRITY-001
+@title Conversation-transactional per-tool_call block + torn-history healing
+@status accepted
+@rationale Two production bugs surfaced immediately after Slice 6 landed:
+           (1) _hook.set_activity raised AttributeError (LivePane did not
+           implement _StatusHook). The assistant tool_call message was already
+           committed to self.conversation before the hook call raised, leaving
+           history torn: an assistant tool_call with no matching tool_result.
+           The next user turn sent OpenAI a malformed conversation and litellm
+           rejected it with BadRequestError about orphaned tool_call_ids.
+           Fix has two independent layers:
+           Layer A — _safe_hook_call: hook is best-effort UI state; any
+           exception from a hook method is swallowed with a debug log so the
+           runner always proceeds to execute the tool regardless of UI errors.
+           Layer B — per-tool_call finally block: even if Layer A is bypassed
+           or a future bug is introduced, the finally clause guarantees a
+           tool_result is appended for every tc.id before any exception can
+           propagate. If the tool itself raises, a synthetic error result is
+           emitted so the LLM can see the error and possibly recover; the
+           conversation is always well-formed.
+           Additionally, _heal_torn_history() runs at chat() entry and repairs
+           any pre-existing torn history from a previous interrupted session,
+           so operators who already hit the crash do not need to restart.
 """
 
 from __future__ import annotations
@@ -105,6 +129,29 @@ class NullStatusHook:
 
 
 _NULL_STATUS_HOOK: NullStatusHook = NullStatusHook()
+
+
+def _safe_hook_call(hook: "_StatusHook", method_name: str, *args: object) -> None:
+    """Call a status-hook method, swallowing any exception with a debug log.
+
+    Status hooks are best-effort UI state. A hook that raises (e.g. an
+    incomplete LivePane implementation, a broken Rich context, or a test stub)
+    must never crash the runner or leave conversation history torn.
+
+    Parameters
+    ----------
+    hook:
+        The _StatusHook instance to call.
+    method_name:
+        Name of the method to call (``"set_activity"``, ``"set_battery"``,
+        or ``"set_hypothesis"``).
+    *args:
+        Positional arguments forwarded to the method.
+    """
+    try:
+        getattr(hook, method_name)(*args)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("status hook %s(%r) raised: %s", method_name, args, exc)
 
 
 # ---------------------------------------------------------------------------
@@ -303,6 +350,14 @@ class AgentRunner:
         # Resolve hook — NullStatusHook eliminates None-check guards below.
         _hook: _StatusHook = status_bar if status_bar is not None else _NULL_STATUS_HOOK
 
+        # Heal any torn conversation history before adding a new user message
+        # (DEC-RUNNER-CONVERSATION-INTEGRITY-001).  Operators who hit the Slice 6
+        # AttributeError crash do not need to restart the REPL — the heal pass
+        # detects orphaned assistant tool_call messages (no matching tool_result)
+        # and inserts synthetic "[previous turn interrupted]" tool_results so the
+        # conversation is well-formed before we add the new user message.
+        self._heal_torn_history()
+
         self.conversation.append({"role": "user", "content": user_message})
 
         # Accumulate celebration strings, newly-earned Badge objects, and
@@ -344,7 +399,13 @@ class AgentRunner:
                 self.conversation.append({"role": "assistant", "content": assistant_msg})
                 return assistant_msg
 
-            # Execute all tool calls in this round
+            # Execute all tool calls in this round.
+            # DEC-RUNNER-CONVERSATION-INTEGRITY-001: the assistant tool_call
+            # message is committed first (required by OpenAI protocol), then
+            # each tc is executed inside a try/finally so a tool_result is
+            # always appended for every tc.id — even when the hook or the tool
+            # itself raises.  This keeps conversation history well-formed so
+            # subsequent LLM calls are never rejected for orphaned tool_call_ids.
             self.conversation.append(
                 {
                     "role": "assistant",
@@ -353,37 +414,54 @@ class AgentRunner:
                 }
             )
             for tc in tool_calls:
+                tc_id = tc["id"]
                 tool_name = tc["function"]["name"]
                 try:
                     args = json.loads(tc["function"]["arguments"])
                 except (json.JSONDecodeError, KeyError):
                     args = {}
-                # Signal the status bar with the tool-specific activity slug
-                # before execution, then clear to idle (None) after — whether
-                # the call succeeds or raises. DEC-STATUS-ACTIVITY-WIRING-001.
-                _hook.set_activity(_status_slug_for_tool(tool_name))
+
+                tool_result_content: str | None = None
                 try:
-                    summary, celebration, badges, challenges = execute_tool(
-                        self.ctx,
-                        tool_name,
-                        args,
+                    # Layer A: hook is best-effort UI state — exceptions are
+                    # swallowed by _safe_hook_call so the runner never crashes
+                    # due to a broken hook (DEC-RUNNER-CONVERSATION-INTEGRITY-001).
+                    _safe_hook_call(_hook, "set_activity", _status_slug_for_tool(tool_name))
+                    try:
+                        summary, celebration, badges, challenges = execute_tool(
+                            self.ctx,
+                            tool_name,
+                            args,
+                        )
+                    finally:
+                        _safe_hook_call(_hook, "set_activity", None)
+                    if celebration and celebration not in _turn_seen_celebrations:
+                        _turn_seen_celebrations.add(celebration)
+                        self.last_celebrations.append(celebration)
+                    if badges:
+                        self.last_badges.extend(badges)
+                    if challenges:
+                        self.last_challenges.extend(challenges)
+                    tool_result_content = summary
+                except Exception as exc:  # noqa: BLE001
+                    # Layer B: preserve conversation integrity — OpenAI requires a
+                    # tool_result for every assistant tool_call in history.  Emit a
+                    # synthetic error result so the LLM can see what failed and
+                    # possibly recover; do not re-raise so the turn can continue.
+                    tool_result_content = f"[internal error executing {tool_name}: {exc}]"
+                    logger.exception(
+                        "tool execution %s raised — emitting synthetic tool_result", tool_name
                     )
                 finally:
-                    _hook.set_activity(None)
-                if celebration and celebration not in _turn_seen_celebrations:
-                    _turn_seen_celebrations.add(celebration)
-                    self.last_celebrations.append(celebration)
-                if badges:
-                    self.last_badges.extend(badges)
-                if challenges:
-                    self.last_challenges.extend(challenges)
-                self.conversation.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tc["id"],
-                        "content": summary,
-                    }
-                )
+                    # Unconditional append: guarantees a tool_result for tc_id
+                    # regardless of which exception path was taken above.
+                    self.conversation.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tc_id,
+                            "content": tool_result_content or "[empty]",
+                        }
+                    )
 
         # Fallback if we hit max_rounds without a final text response
         # Clear narration runner reference before returning (M-7 cleanup).
@@ -403,6 +481,55 @@ class AgentRunner:
         if not _any_real_result and _all_tool_messages:
             return "None of the queried services returned data. See the error panels above for details."
         return "I've completed several tool calls. Here's what I found based on the results above."
+
+    def _heal_torn_history(self) -> None:
+        """Repair any torn conversation history before processing a new user turn.
+
+        A "torn" history occurs when an exception interrupted chat() after the
+        assistant tool_call message was committed to self.conversation but before
+        all matching tool_result messages were appended.  OpenAI's API (and
+        litellm's validator) reject requests with orphaned tool_call_ids, so the
+        next user turn would immediately fail with a BadRequestError.
+
+        This method walks the conversation from the end and, for every assistant
+        message that carries tool_calls, checks whether each tc.id has a matching
+        tool_result in the messages that follow.  Any missing tool_result is filled
+        with the synthetic content "[previous turn interrupted]" so the history
+        is well-formed before the new user message is appended.
+
+        Idempotent: calling it on an already-well-formed conversation is a no-op.
+        Only appends; never removes or modifies existing messages.
+
+        DEC-RUNNER-CONVERSATION-INTEGRITY-001
+        """
+        # Build a set of tool_call_ids that already have a tool_result.
+        covered: set[str] = {
+            msg["tool_call_id"]
+            for msg in self.conversation
+            if msg.get("role") == "tool" and "tool_call_id" in msg
+        }
+
+        # Walk every assistant tool_call message and append synthetic results
+        # for any tc.id not yet covered.
+        repairs: list[dict] = []
+        for msg in self.conversation:
+            if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                for tc in msg["tool_calls"]:
+                    tc_id = tc.get("id")
+                    if tc_id and tc_id not in covered:
+                        repairs.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tc_id,
+                                "content": "[previous turn interrupted]",
+                            }
+                        )
+                        covered.add(tc_id)
+                        logger.debug(
+                            "_heal_torn_history: inserted synthetic tool_result for %s", tc_id
+                        )
+
+        self.conversation.extend(repairs)
 
     def _call_llm(self) -> object:
         """Call the LLM with current conversation and tools.
