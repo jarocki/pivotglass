@@ -78,6 +78,14 @@ class _StatusHook(Protocol):
         """Set the current tool-activity slug, or None to revert to idle."""
         ...
 
+    def set_battery(self, name: str | None) -> None:
+        """Set the current active battery name, or None when idle."""
+        ...
+
+    def set_hypothesis(self, text: str | None) -> None:
+        """Set the current hypothesis text."""
+        ...
+
 
 class NullStatusHook:
     """No-op _StatusHook used when no status bar is active.
@@ -88,6 +96,12 @@ class NullStatusHook:
 
     def set_activity(self, tool_slug: str | None) -> None:  # noqa: ARG002
         """No-op: silently ignore all activity updates."""
+
+    def set_battery(self, name: str | None) -> None:  # noqa: ARG002
+        """No-op."""
+
+    def set_hypothesis(self, text: str | None) -> None:  # noqa: ARG002
+        """No-op."""
 
 
 _NULL_STATUS_HOOK: NullStatusHook = NullStatusHook()
@@ -497,6 +511,104 @@ class AgentRunner:
             return None
         except Exception:  # noqa: BLE001
             return None
+
+    def handle_input(self, text: str, status_bar: "_StatusHook | None" = None) -> str:
+        """Route user input from the TUI to a yield command or the LLM.
+
+        This is the single authoritative entry point for TUI input (Sacred
+        Practice 12).  The legacy REPL calls ``.chat()`` directly because it
+        owns its own yield-command parsing.  The TUI must NEVER call ``.chat()``
+        directly — all TUI input goes through this method.
+
+        Routing contract (DEC-RUNNER-HANDLE-INPUT-001):
+
+        1. Attempt ``yield_commands.parse_yield(text)``.
+           - On a valid YieldCommand: call ``dispatch_yield`` and return its
+             character-voiced feedback string.  ``chat()`` is NOT called.
+           - On ``None`` (input is not a yield command): fall through to LLM.
+        2. If the verb looks like a yield verb but ``parse_yield`` returns None
+           (e.g. ``"focus"`` with no arg), route to the LLM rather than raising.
+           This is the graceful-degradation path: users who mistype a yield
+           command get an LLM response instead of a crash (Sacred Practice 5).
+        3. For all non-yield input call ``self.chat(text, status_bar=status_bar)``
+           and return the result.
+
+        Returns a string in every code path — never None — so callers can
+        unconditionally append the result to the scrollback buffer.
+
+        Parameters
+        ----------
+        text:
+            Raw input string from the TUI, already stripped.
+        status_bar:
+            Optional status hook forwarded to ``chat()`` for tool-activity
+            display.  The LivePane in ``TuiApplication`` satisfies the
+            ``_StatusHook`` protocol and is wired here by ``_on_input_accepted``.
+
+        Returns
+        -------
+        str
+            LLM response text, or a character-voiced yield acknowledgement.
+
+        @decision DEC-RUNNER-HANDLE-INPUT-001
+        @title handle_input as single TUI entry point — yield-first routing
+        @status accepted
+        @rationale TuiApplication previously called runner.handle_input() which
+                   did not exist, causing AttributeError on every user keystroke.
+                   Adding handle_input() as the authoritative TUI entry point:
+                   (a) fixes the crash, (b) unifies yield-command detection at
+                   the runner boundary so the TUI never calls .chat() directly
+                   (Sacred Practice 12 — single source of truth per input path),
+                   (c) gracefully routes malformed yield-shaped input to the LLM
+                   rather than crashing (Sacred Practice 5 — fail loud on
+                   unexpected state, fail graceful on user-typed ambiguity).
+                   The legacy REPL in chat.py is unaffected — it calls .chat()
+                   directly and handles its own yield parsing.
+        """
+        from adversary_pursuit.agent.yield_commands import parse_yield
+
+        # Try yield-command parsing first.  parse_yield returns None for:
+        #   - input that doesn't start with a known verb
+        #   - verbs with missing or extra argument tokens (e.g. "focus" alone)
+        # In all None cases we fall through to the LLM — no exception is raised.
+        try:
+            cmd = parse_yield(text)
+        except Exception:  # noqa: BLE001
+            # parse_yield is pure string logic and should never raise, but
+            # defensive catch: treat unexpected parser errors as "not a yield".
+            cmd = None
+
+        if cmd is not None:
+            from adversary_pursuit.agent.yield_commands import dispatch_yield
+
+            # Use the runner's active character name if available via the mode
+            # manager held by the TUI caller.  When the runner itself has no
+            # character attribute (duck-typed callers) default to "default".
+            character = getattr(self, "_character", "default")
+
+            # No active battery run at this layer — dispatch_yield accepts None.
+            # EventBus is not held directly by the runner; pass None-safe stub
+            # when unavailable.  The TuiApplication's event_bus is wired through
+            # dispatch_yield at the call site in _on_input_accepted for the
+            # full-featured path; here we use the fallback None bus guard inside
+            # dispatch_yield (which always publishes to a real bus when given one).
+            #
+            # For the runner-level entry point, use a minimal no-op bus when the
+            # caller did not inject one.  TuiApplication._on_input_accepted calls
+            # dispatch_yield itself for the yield path and does NOT call
+            # handle_input for yield commands — so this code path is reached only
+            # by tests or callers that want unified routing.
+            try:
+                from adversary_pursuit.agent.tui.events import EventBus as _EventBus
+
+                _bus = _EventBus()
+                feedback = dispatch_yield(cmd, None, _bus, character)
+            except Exception:  # noqa: BLE001
+                feedback = f"[{cmd.primitive}]"
+            return feedback
+
+        # Non-yield input: route to the LLM via chat().
+        return self.chat(text, status_bar=status_bar)
 
     def reset(self) -> None:
         """Reset conversation history to just the system prompt."""

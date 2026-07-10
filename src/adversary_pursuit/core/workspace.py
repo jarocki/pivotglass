@@ -111,6 +111,52 @@ _LOG = logging.getLogger(__name__)
 # Default workspace directory
 _DEFAULT_WORKSPACE_DIR = Path.home() / ".ap" / "workspaces"
 
+# ---------------------------------------------------------------------------
+# TUI TargetChanged notification helper (Slice 6, Concern 2 Option B)
+# ---------------------------------------------------------------------------
+
+# @decision DEC-WORKSPACE-TUI-NOTIFY-001
+# @title notify_target_changed takes bus explicitly — no module-level singleton
+# @status accepted
+# @rationale Concern 2 (reviewer round 2): the previous _EVENT_BUS module-level
+#   global created hidden state that persisted across tests and required an
+#   explicit wire_event_bus(None) teardown call in every test that touched it.
+#   Option B (reviewer recommendation): pass the bus explicitly as the first
+#   parameter of notify_target_changed(). Callers that hold no bus reference
+#   (e.g. APConsole._tui_bus = None before TUI activation) pass None and the
+#   call is a no-op. This eliminates hidden state, makes test isolation automatic
+#   (no module-level teardown required), and is self-documenting at the callsite.
+#   Sacred Practice 12 (single authority per state domain): the bus reference is
+#   owned by the TUI session (TuiApplication / _run_tui_chat), not by this module.
+
+
+def notify_target_changed(bus: object, target: str, target_type: str) -> None:
+    """Publish a TargetChanged event to *bus*, if any.
+
+    No-op when *bus* is None (Slice 5 / non-TUI behavior). Swallows all
+    exceptions so TUI notification never crashes the console or chat path
+    (Sacred Practice 5 applies to the data layer, not the UI notification layer).
+
+    Parameters
+    ----------
+    bus:
+        An EventBus instance (from adversary_pursuit.agent.tui.events), or
+        None to disable notification (no-op). Callers that have no active
+        TUI session must pass None explicitly.
+    target:
+        The raw target string (e.g. "evil.example.com").
+    target_type:
+        STIX SCO type string or "unrecognized-type" when detection fails.
+    """
+    if bus is None:
+        return
+    try:
+        from adversary_pursuit.agent.tui.events import TargetChanged
+
+        bus.publish(TargetChanged(target=target, target_type=target_type))  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001
+        _LOG.debug("notify_target_changed: failed to publish TargetChanged (suppressed)")
+
 
 class WorkspaceManager:
     """Manages investigation workspaces.

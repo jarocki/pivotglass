@@ -53,6 +53,74 @@ if TYPE_CHECKING:
 _LOG = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Optional EventBus wiring for TUI slot-transition notifications (Slice 6)
+# ---------------------------------------------------------------------------
+
+# Optional module-level EventBus for TUI slot-transition notifications.
+# Set via wire_slot_transition_bus(). None = no-op (Slice 5 behavior).
+_SLOT_TRANSITION_BUS: object = None  # EventBus | None
+
+
+def wire_slot_transition_bus(bus: object) -> None:
+    """Wire an EventBus so save_dossier_state emits SlotTransition events.
+
+    Call this once when the TUI is active. Pass None to unwire.
+    The bus is stored as a module-level reference so save_dossier_state() can
+    publish without requiring callers to thread the bus through every call site.
+
+    Parameters
+    ----------
+    bus:
+        An EventBus instance (from adversary_pursuit.agent.tui.events), or
+        None to disable TUI notifications (restores Slice 5 behavior).
+    """
+    global _SLOT_TRANSITION_BUS
+    _SLOT_TRANSITION_BUS = bus
+
+
+def _emit_slot_transitions(
+    old_state: "DossierState", new_state: "DossierState", bus: object
+) -> None:
+    """Emit SlotTransition events for each slot whose status changed.
+
+    Compares ``old_state`` and ``new_state`` slot-by-slot and publishes one
+    ``SlotTransition`` event per changed slot to ``bus``. Skips slots that are
+    absent in either state (graceful handling of fresh workspaces).
+
+    Parameters
+    ----------
+    old_state:
+        DossierState before the save.
+    new_state:
+        DossierState after the save.
+    bus:
+        EventBus to publish to. Must have a ``publish(event)`` method.
+    """
+    from adversary_pursuit.agent.tui.events import SlotTransition
+
+    for slot_name in DossierSlotName:
+        old_slot = old_state.slots.get(slot_name)
+        new_slot = new_state.slots.get(slot_name)
+        old_status = old_slot.status if old_slot is not None else None
+        new_status = new_slot.status if new_slot is not None else None
+        if old_status != new_status and old_status is not None and new_status is not None:
+            try:
+                bus.publish(  # type: ignore[attr-defined]
+                    SlotTransition(
+                        slot_name=slot_name.value,
+                        old_status=old_status.value,
+                        new_status=new_status.value,
+                    )
+                )
+            except Exception:  # noqa: BLE001
+                # TUI notification must never crash the persistence path.
+                _LOG.debug(
+                    "_emit_slot_transitions: failed to publish SlotTransition for slot %s",
+                    slot_name.value,
+                )
+
+
+# ---------------------------------------------------------------------------
 # Reserved action constant (registered alongside workspace.py _RESERVED_ACTIONS)
 # ---------------------------------------------------------------------------
 
@@ -233,7 +301,11 @@ def load_dossier_state(workspace_mgr: "WorkspaceManager") -> DossierState | None
             raise
 
 
-def save_dossier_state(workspace_mgr: "WorkspaceManager", state: DossierState) -> None:
+def save_dossier_state(
+    workspace_mgr: "WorkspaceManager",
+    state: DossierState,
+    old_state: "DossierState | None" = None,
+) -> None:
     """Persist the DossierState snapshot for the active workspace.
 
     Upserts a sentinel row in ``score_events``: deletes any existing
@@ -241,12 +313,22 @@ def save_dossier_state(workspace_mgr: "WorkspaceManager", state: DossierState) -
     payload in the ``indicator`` column. Keeps exactly one sentinel row per
     workspace (idempotent F63 pattern, DEC-M4-PERSIST-001).
 
+    When ``old_state`` is provided and ``_SLOT_TRANSITION_BUS`` is wired, emits
+    ``SlotTransition`` events for each slot whose status changed (Slice 6 TUI
+    integration). The emission is best-effort: any error is logged at DEBUG
+    and never raises (TUI notification must never crash the persistence path).
+
     Parameters
     ----------
     workspace_mgr:
         Active WorkspaceManager instance.
     state:
         The DossierState to persist. Must have all 9 slots present.
+    old_state:
+        Optional previous DossierState for slot-transition diff. When provided
+        and ``_SLOT_TRANSITION_BUS`` is set, ``SlotTransition`` events are
+        published for changed slots. Pass ``None`` (default) to suppress
+        event emission (Slice 5 behavior — no bus, no diff).
     """
     from sqlalchemy import select
     from sqlalchemy.orm import Session
@@ -277,6 +359,15 @@ def save_dossier_state(workspace_mgr: "WorkspaceManager", state: DossierState) -
         session.commit()
 
     _LOG.debug("save_dossier_state: persisted snapshot (%d bytes)", len(payload))
+
+    # Emit SlotTransition events if the TUI bus is wired and old_state was provided.
+    # Best-effort: any error is swallowed so TUI notification never crashes the
+    # persistence path (Sacred Practice 5 applies to the persistence layer, not the UI).
+    if _SLOT_TRANSITION_BUS is not None and old_state is not None:
+        try:
+            _emit_slot_transitions(old_state, state, _SLOT_TRANSITION_BUS)
+        except Exception:  # noqa: BLE001
+            _LOG.debug("save_dossier_state: failed to emit slot transition events (suppressed)")
 
 
 # ---------------------------------------------------------------------------

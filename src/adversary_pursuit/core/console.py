@@ -371,6 +371,13 @@ class APConsole(cmd2.Cmd):
 
         self._last_report_path: Path | None = None
 
+        # TUI EventBus reference (DEC-WORKSPACE-TUI-NOTIFY-001 Option B).
+        # Stays None in the cmd2 console path (TUI is not launched from APConsole).
+        # Set to an active EventBus by the TUI session host if APConsole is ever
+        # embedded in a future TUI-aware cmd2 path. Pass to notify_target_changed()
+        # at the do_set TARGET callsite; no-op when None.
+        self._tui_bus: object = None
+
         # Override cmd2's default prompt — cmd2.Cmd.__init__ sets self.prompt =
         # Cmd.DEFAULT_PROMPT ("(Cmd) ") unconditionally, so the class-level
         # attribute is not sufficient. Set here after super().__init__() runs.
@@ -585,6 +592,27 @@ class APConsole(cmd2.Cmd):
         name, value = parts[0].upper(), parts[1]
         self._active_module_options[name] = value
         self.poutput(f"{name} => {value}")
+
+        # Notify TUI event bus when TARGET changes (Slice 6, DEC-WORKSPACE-TUI-NOTIFY-001).
+        # Uses the explicit-bus pattern (Option B): self._tui_bus is None when the
+        # cmd2 console is running standalone (no TUI session active), making this
+        # block a fast no-op. Swallowed entirely so TUI notification never crashes
+        # the console path.
+        if name == "TARGET" and self._tui_bus is not None:
+            try:
+                from adversary_pursuit.core.workspace import notify_target_changed
+
+                # Auto-detect target type from the value using the same logic
+                # as the hunt pipeline so the TUI sees a consistent type label.
+                try:
+                    from adversary_pursuit.modules.base import detect_ioc_type
+
+                    target_type = detect_ioc_type(value) or "unrecognized-type"
+                except Exception:  # noqa: BLE001
+                    target_type = "unrecognized-type"
+                notify_target_changed(self._tui_bus, value, target_type)
+            except Exception:  # noqa: BLE001
+                pass  # TUI notification must never crash the console path
 
     # ------------------------------------------------------------------
     # run / hunt

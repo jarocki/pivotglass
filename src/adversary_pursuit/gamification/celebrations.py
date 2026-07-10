@@ -248,6 +248,77 @@ class CelebrationEngine:
         threshold_id = last_announced_id if last_announced_id is not None else 0
         return [ms for ms in MILESTONES if ms.threshold <= total_score and ms.id > threshold_id]
 
+    # @decision DEC-CELEBRATION-UNIFY-QUIET-001
+    # @title Retire loud Achievement Unlocked panels in TUI path (C-9-A)
+    # @status accepted
+    # @rationale The TUI chat path (Slice 6+) renders celebrations as in-flow
+    #            one-liners via quiet_celebrate() / quiet_badge_earned() instead of
+    #            yellow ASCII-art Panels. The legacy REPL path continues using
+    #            celebrate() + Panel for backward compatibility. The underlying ASCII
+    #            art strings (CELEBRATION_ART) and the legacy celebrate() method are
+    #            NOT removed — the legacy REPL depends on them. C-9-A only retires the
+    #            Panel wrapper in chat.py for the TUI code path.
+
+    def quiet_celebrate(self, character: str, points: int) -> str | None:
+        """Return a one-line character-voiced celebration string, or None when points==0.
+
+        Used by the TUI path (Slice 6+) instead of the loud ASCII-art Panel.
+        Falls back to PHRASES via pick(character, "score_celebration").
+
+        Parameters
+        ----------
+        character:
+            Active character name (e.g. "deckard", "hal9000").
+        points:
+            Points earned this turn. Returns None when 0 (no celebration warranted).
+
+        Returns
+        -------
+        str | None
+            Formatted one-liner with {points} substituted, or None.
+        """
+        if not points:
+            return None
+        from adversary_pursuit.gamification.phrases import pick
+
+        template = pick(character, "score_celebration")
+        return template.format(points=points)
+
+    def quiet_badge_earned(
+        self,
+        character: str,
+        badge_name: str,
+        badge_rarity: str,
+        badge_emoji: str = "",
+    ) -> str:
+        """Return a one-line in-flow badge reveal string.
+
+        Used by the TUI path (Slice 6+) instead of the loud Badge Earned! Panel.
+        Format: ``{emoji} {character_voiced phrase}`` where the phrase comes from
+        pick(character, f"badge_earned:{badge_rarity}").
+
+        Parameters
+        ----------
+        character:
+            Active character name.
+        badge_name:
+            Human-readable badge name (e.g. "First Blood").
+        badge_rarity:
+            Rarity string: "common", "uncommon", "rare", "epic", "legendary".
+        badge_emoji:
+            Optional emoji prefix (e.g. "🥇"). Empty string produces no prefix.
+
+        Returns
+        -------
+        str
+            One-line reveal string, e.g. ``"🥇 First Blood earned. The hunt has begun."``
+        """
+        from adversary_pursuit.gamification.phrases import pick
+
+        voice = pick(character, f"badge_earned:{badge_rarity}")
+        prefix = f"{badge_emoji} " if badge_emoji else ""
+        return f"{prefix}{badge_name}: {voice}"
+
     def first_blood_message(self) -> str | None:
         """Return the first-discovery celebration message, or None if already fired.
 

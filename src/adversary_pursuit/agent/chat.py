@@ -47,6 +47,7 @@ Launched via `ap chat` or `python -m adversary_pursuit chat`.
 from __future__ import annotations
 
 import os
+import sys
 
 from rich.console import Console
 from rich.markdown import Markdown
@@ -221,6 +222,13 @@ def run_chat() -> None:
     config.toml), runs the interactive provider/model setup wizard before
     entering the chat loop.
 
+    Routing (Slice 6+):
+      - Default: TUI path via _run_tui_chat() (Textual-based interface).
+      - Legacy: prompt_toolkit REPL via _run_legacy_chat_loop() when:
+          * ``--legacy-repl`` is passed on the command line, OR
+          * ``AP_REPL=legacy`` environment variable is set, OR
+          * stdin is not a TTY (piped / CI context).
+
     Meta-commands (handled locally, not sent to the LLM):
       workspace <name>              -- switch active workspace
       mode                          -- list available character modes
@@ -269,17 +277,84 @@ def run_chat() -> None:
         handle_error(exc, console, None, None)
         return
 
+    # @decision DEC-CHAT-TUI-ROUTING-001
+    # @title AP_REPL=legacy / --legacy-repl / non-TTY stdin fall back to prompt_toolkit loop
+    # @status accepted
+    # @rationale The TUI path (Slice 6+) requires a real TTY and the textual package.
+    #            Three opt-out mechanisms let CI, piped scripts, and users who prefer the
+    #            classic REPL keep the Slice 5 experience without code changes. The three
+    #            conditions are OR'd: any one triggers legacy. The TUI path is the default
+    #            for interactive sessions with a real TTY and textual installed.
+    use_legacy = (
+        os.environ.get("AP_REPL", "").lower() == "legacy"
+        or "--legacy-repl" in sys.argv
+        or not sys.stdin.isatty()
+    )
+
+    if use_legacy:
+        _run_legacy_chat_loop(runner, console, config_mgr)
+    else:
+        _run_tui_chat(runner, console, config_mgr)
+
+
+def _run_tui_chat(runner: object, console: "Console", config_mgr: "ConfigManager") -> None:
+    """Run the TUI REPL path (Slice 6+). Falls back to legacy on import or TTY errors.
+
+    Creates a per-session EventBus and TuiApplication, then hands control to
+    the Textual app. On NotATTYError or ImportError, falls back transparently
+    to the legacy prompt_toolkit loop so ``ap chat`` always works.
+
+    Parameters
+    ----------
+    runner:
+        Configured AgentRunner instance.
+    console:
+        Rich Console for fallback rendering.
+    config_mgr:
+        Active ConfigManager (passed through to legacy fallback).
+    """
+    try:
+        from adversary_pursuit.agent.tui.application import TuiApplication
+        from adversary_pursuit.agent.tui.events import EventBus
+
+        bus = EventBus()
+        app = TuiApplication(runner, runner.ctx.workspace_mgr, runner.ctx.mode_mgr, bus)  # type: ignore[attr-defined]
+        app.run()
+    except ImportError as exc:
+        console.print(f"[yellow]TUI unavailable ({exc}) — falling back to legacy REPL.[/yellow]")
+        _run_legacy_chat_loop(runner, console, config_mgr)
+    except Exception as exc:  # noqa: BLE001
+        # Catch NotATTYError by class name to avoid a hard import dependency.
+        # The TUI module may not be installed in all environments.
+        if type(exc).__name__ == "NotATTYError":
+            console.print("[dim]No TTY detected — falling back to legacy REPL.[/dim]")
+            _run_legacy_chat_loop(runner, console, config_mgr)
+        else:
+            raise
+
+
+def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "ConfigManager") -> None:
+    """Run the legacy prompt_toolkit REPL loop (Slice 5 path).
+
+    Extracted from run_chat() so it can be called from both the legacy path
+    and the TUI fallback path without code duplication.
+
+    Parameters
+    ----------
+    runner:
+        Configured AgentRunner instance.
+    console:
+        Rich Console for output.
+    config_mgr:
+        Active ConfigManager for wizard re-runs and editing mode.
+    """
     # Build a single PromptSession that persists history across the loop
-    editing_mode = config_mgr.get_editing_mode()
+    editing_mode = config_mgr.get_editing_mode()  # type: ignore[attr-defined]
     prompt_session = ChatPromptSession(editing_mode=editing_mode)
 
     def _mode_prompt() -> str:
-        """Return a Rich-markup prompt string reflecting the active mode's prefix.
-
-        The emoji prefix comes from the CharacterMode; the mode-specific colour
-        is applied to the 'ap>' portion via get_mode_color() from banner.py.
-        """
-        mode = runner.ctx.mode_mgr.active
+        """Return a Rich-markup prompt string reflecting the active mode's prefix."""
+        mode = runner.ctx.mode_mgr.active  # type: ignore[attr-defined]
         color = get_mode_color(mode.name)
         prefix = mode.prompt_prefix  # e.g. "🥷" or "" for default
         return f"{prefix}[{color}]ap>[/{color}] "
