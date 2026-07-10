@@ -17,6 +17,28 @@ character-specific refresh cadence.
            This is a design affordance — the pane itself does not animate text;
            it simply re-renders at the cadence so tool-queue updates are seen
            promptly.
+
+@decision DEC-LIVE-PANE-STATUS-HOOK-001
+@title LivePane implements the _StatusHook protocol (set_activity/set_battery/set_hypothesis)
+@status accepted
+@rationale Slice 6 wired TuiApplication to pass the LivePane instance as the
+           status_bar argument to runner.handle_input / runner.chat. The runner
+           calls set_activity(slug) before each tool call and set_activity(None)
+           after. Without these three methods, every tool call in the TUI raised
+           AttributeError immediately. The fix adds all three protocol methods to
+           LivePane:
+           - set_activity: stores an activity slug; render() picks a phrase via
+             pick(character, "activity:<slug>") and shows it in row 5 when no
+             battery is running (battery events still dominate row 5 when active).
+           - set_battery: stores a battery name set via the runner (distinct from
+             the EventBus path — the runner hook fires for battery names the
+             EventBus may not have announced yet). Stored for future row use.
+           - set_hypothesis: stores hypothesis text set via the runner; updates
+             the hypothesis row (row 3) alongside the existing EventBus path.
+           All three methods are idempotent (same-value repeated calls are no-ops
+           after the first) and accept None to reset to idle state. The @runtime_checkable
+           protocol on _StatusHook in runner.py allows isinstance() checks in tests
+           to catch regression before deployment.
 """
 
 from __future__ import annotations
@@ -119,6 +141,15 @@ class LivePane:
         # Discoverability: flash hint on first battery
         self._first_battery_seen: bool = False
         self._flash_until: float = 0.0
+
+        # _StatusHook protocol state (DEC-LIVE-PANE-STATUS-HOOK-001)
+        # Set by runner.chat() via set_activity/set_battery/set_hypothesis.
+        # These are the "runner-pushed" values; EventBus events are the
+        # "battery-system-pushed" values and take precedence in row 5 when a
+        # battery is active (existing _battery_active logic dominates).
+        self._activity: str | None = None  # activity slug from runner
+        self._hook_battery: str | None = None  # battery name from runner hook
+        self._hook_hypothesis: str | None = None  # hypothesis from runner hook
 
         # Subscribe to all event types
         bus.subscribe(TargetChanged, self._on_target_changed)
@@ -223,6 +254,79 @@ class LivePane:
                     1 for s in dossier_state.slots.values() if s.status == SlotStatus.FILLED
                 )
 
+    # ------------------------------------------------------------------
+    # _StatusHook protocol methods (DEC-LIVE-PANE-STATUS-HOOK-001)
+    # ------------------------------------------------------------------
+
+    def set_activity(self, tool_slug: str | None) -> None:
+        """Set the current tool-activity slug, or None to revert to idle.
+
+        Called by runner.chat() before/after each LLM tool call. The slug is
+        used to pick a character-voiced phrase via pick(character,
+        "activity:<slug>") and is shown in row 5 when no EventBus battery is
+        active. The method is idempotent: repeated calls with the same value
+        are no-ops after the first.
+
+        Parameters
+        ----------
+        tool_slug:
+            Activity slug string (e.g. "virustotal", "dns_resolve"), or None
+            to reset to idle. Must be str or None; any other type raises
+            TypeError immediately (Sacred Practice 5 — fail loud on invalid
+            input, not silently).
+        """
+        if tool_slug is not None and not isinstance(tool_slug, str):
+            raise TypeError(f"set_activity expects str or None, got {type(tool_slug).__name__!r}")
+        with self._lock:
+            if self._activity == tool_slug:
+                return  # idempotent
+            self._activity = tool_slug
+
+    def set_battery(self, name: str | None) -> None:
+        """Set the current active battery name from the runner hook, or None when idle.
+
+        This is the runner-hook path; the EventBus BatteryStarted/BatteryFinished
+        events are the primary authority for battery state. This method stores a
+        supplemental runner-level battery reference (e.g. when the runner knows
+        which battery it is about to run before BatteryStarted fires).
+
+        Parameters
+        ----------
+        name:
+            Battery name string, or None. Must be str or None.
+        """
+        if name is not None and not isinstance(name, str):
+            raise TypeError(f"set_battery expects str or None, got {type(name).__name__!r}")
+        with self._lock:
+            if self._hook_battery == name:
+                return  # idempotent
+            self._hook_battery = name
+
+    def set_hypothesis(self, text: str | None) -> None:
+        """Set the current hypothesis text from the runner hook.
+
+        Supplements the EventBus HypothesisChanged path. When the runner
+        receives hypothesis text from the LLM response and calls this method,
+        the pane renders the updated text in row 3. The EventBus path still
+        takes precedence when a HypothesisChanged event fires (it overwrites
+        self._hypothesis directly).
+
+        Parameters
+        ----------
+        text:
+            Hypothesis text string, or None to reset. Must be str or None.
+        """
+        if text is not None and not isinstance(text, str):
+            raise TypeError(f"set_hypothesis expects str or None, got {type(text).__name__!r}")
+        with self._lock:
+            if self._hook_hypothesis == text:
+                return  # idempotent
+            self._hook_hypothesis = text
+
+    # ------------------------------------------------------------------
+    # Refresh cadence and render
+    # ------------------------------------------------------------------
+
     @property
     def refresh_hz(self) -> float:
         """Refresh rate in Hz for the active character."""
@@ -246,13 +350,16 @@ class LivePane:
         mode = self._mode_name
         model = self._model_display or ""
         target = self._target
-        hypothesis = self._hypothesis
+        # EventBus hypothesis takes precedence; runner-hook hypothesis fills in
+        # when no HypothesisChanged event has fired yet.
+        hypothesis = self._hypothesis if self._hypothesis != "—" else (self._hook_hypothesis or "—")
         dossier_state = self._dossier_state
         slots_filled = self._slots_filled
         battery_active = self._battery_active
         battery_name = self._battery_name
         current_tool = self._current_tool
         pending_tools = list(self._pending_tools)
+        activity_slug = self._activity  # runner-pushed activity slug
         now = time.monotonic()
         flash_active = battery_active and (now < self._flash_until)
 
@@ -277,7 +384,12 @@ class LivePane:
         pad4 = max(1, 72 - len("dossier: " + strip) - len(slot_count))
         row4 = f"dossier: {strip}" + " " * pad4 + slot_count
 
-        # Row 5: activity — tool queue summary or idle phrase
+        # Row 5: activity — tool queue summary, runner-activity phrase, or idle
+        # Priority: EventBus battery events (current_tool / battery_name) take
+        # precedence over the runner-hook activity slug so running batteries
+        # always display their tool queue. When no battery is active and the
+        # runner has set an activity slug, show a character-voiced phrase. When
+        # neither source provides activity, show "idle".
         if battery_active and current_tool:
             remaining = len(pending_tools)
             if remaining:
@@ -286,6 +398,16 @@ class LivePane:
                 row5 = f"  {current_tool}"
         elif battery_active and battery_name:
             row5 = f"  {battery_name} running…"
+        elif activity_slug is not None:
+            # Runner-pushed activity: resolve a character-voiced phrase.
+            # pick() falls back gracefully for unknown slugs (returns FALLBACK).
+            from adversary_pursuit.gamification.phrases import pick
+
+            try:
+                phrase = pick(mode, f"activity:{activity_slug}")
+            except (ValueError, Exception):  # noqa: BLE001
+                phrase = activity_slug  # bare slug as last resort
+            row5 = f"  {phrase}"
         else:
             row5 = "  idle"
 
