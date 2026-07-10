@@ -210,13 +210,18 @@ class TuiApplication:
             self.emit_scrollback(feedback)
             return
 
-        # Route to agent runner
+        # Route to agent runner via handle_input — the single TUI entry point
+        # (DEC-RUNNER-HANDLE-INPUT-001, Sacred Practice 12).  LivePane satisfies
+        # the _StatusHook protocol so tool-activity updates flow to the live pane
+        # during LLM tool calls without the runner importing Rich directly.
         self.emit_scrollback(f"> {text}")
         if self._runner is not None:
             try:
                 # Runner is expected to be synchronous or to manage its own
-                # threading. Output is emitted via emit_scrollback callbacks.
-                self._runner.handle_input(text)
+                # threading. handle_input always returns a str (never None).
+                result = self._runner.handle_input(text, status_bar=self._live_pane)
+                if result:
+                    self._scrollback.emit_line(result)
             except Exception as exc:  # noqa: BLE001
                 self.emit_scrollback(f"[error] {exc}")
 
