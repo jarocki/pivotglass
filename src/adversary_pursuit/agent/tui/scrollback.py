@@ -125,6 +125,17 @@ class ScrollbackBuffer:
             self._lines.extend(bordered_lines)
             self._lines.append(bottom)
 
+    def clear(self) -> None:
+        """Clear all stored lines from the buffer.
+
+        This is the only mutation that removes content — used by the ``clear``
+        REPL verb to give the analyst a clean screen. The append-only invariant
+        (DEC-TUI-SCROLLBACK-001) applies to normal session output; ``clear()``
+        is an explicit user-requested reset, not a background mutation.
+        """
+        with self._lock:
+            self._lines.clear()
+
     # ------------------------------------------------------------------
     # Read API
     # ------------------------------------------------------------------

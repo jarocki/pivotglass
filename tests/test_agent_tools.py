@@ -3082,17 +3082,17 @@ class TestRunChatHelp:
     # ------------------------------------------------------------------
 
     def test_plain_text_still_invokes_runner_chat(self, tmp_ctx):
-        """Non-meta-command input must still reach runner.chat() for LLM dispatch.
+        """Non-meta-command input must still reach runner.handle_input() for LLM dispatch.
 
         This is the compound-interaction regression guard: adding the 'help'
         interceptor must not silently capture ordinary chat messages.
 
-        Production sequence:
-          user types a query → chat.py routes to runner.chat() → LLM called
+        Production sequence (Slice 6L):
+          user types a query → chat.py routes to runner.handle_input() → verb/yield/LLM chain
         """
         _output, mock_runner = self._run_chat_with_inputs(["what is 8.8.8.8"], tmp_ctx)
-        mock_runner.chat.assert_called_once()
-        assert mock_runner.chat.call_args.args == ("what is 8.8.8.8",)
+        mock_runner.handle_input.assert_called_once()
+        assert mock_runner.handle_input.call_args.args == ("what is 8.8.8.8",)
 
 
 # @mock-exempt: AgentRunner is an external LLM network boundary (litellm calls to
@@ -3269,14 +3269,14 @@ class TestModelMetaCommands:
         assert mock_runner.model == "updated-to-new-model"
 
     def test_model_select_plain_text_still_routes_to_llm(self, tmp_ctx):
-        """After 'model select', a subsequent plain text input still reaches LLM."""
+        """After 'model select', a subsequent plain text input still reaches handle_input."""
         _output, mock_runner, _cfg = self._run_chat_model_cmd(
             ["model select", "what is 8.8.8.8"],
             tmp_ctx,
             wizard_return="new-model",
         )
-        mock_runner.chat.assert_called_once()
-        assert mock_runner.chat.call_args.args == ("what is 8.8.8.8",)
+        mock_runner.handle_input.assert_called_once()
+        assert mock_runner.handle_input.call_args.args == ("what is 8.8.8.8",)
 
     # ------------------------------------------------------------------
     # help table includes 'model' command (regression guard)
