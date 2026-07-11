@@ -640,25 +640,15 @@ class AgentRunner:
             return None
 
     def handle_input(self, text: str, status_bar: "_StatusHook | None" = None) -> str:
-        """Route user input from the TUI to a yield command or the LLM.
+        """Route user input from the TUI through the priority chain.
 
-        This is the single authoritative entry point for TUI input (Sacred
-        Practice 12).  The legacy REPL calls ``.chat()`` directly because it
-        owns its own yield-command parsing.  The TUI must NEVER call ``.chat()``
-        directly — all TUI input goes through this method.
+        This is the single authoritative entry point for all TUI input (Sacred
+        Practice 12).  Priority order (DEC-RUNNER-INPUT-PRIORITY-001):
 
-        Routing contract (DEC-RUNNER-HANDLE-INPUT-001):
-
-        1. Attempt ``yield_commands.parse_yield(text)``.
-           - On a valid YieldCommand: call ``dispatch_yield`` and return its
-             character-voiced feedback string.  ``chat()`` is NOT called.
-           - On ``None`` (input is not a yield command): fall through to LLM.
-        2. If the verb looks like a yield verb but ``parse_yield`` returns None
-           (e.g. ``"focus"`` with no arg), route to the LLM rather than raising.
-           This is the graceful-degradation path: users who mistype a yield
-           command get an LLM response instead of a crash (Sacred Practice 5).
-        3. For all non-yield input call ``self.chat(text, status_bar=status_bar)``
-           and return the result.
+        1. REPL verbs (local-first, instant, no LLM) — help, status, clear,
+           quit, exit, q, mode <name>, use <ioc>.
+        2. Yield commands — stop, focus, add, skip.
+        3. LLM chat — everything else.
 
         Returns a string in every code path — never None — so callers can
         unconditionally append the result to the scrollback buffer.
@@ -669,62 +659,98 @@ class AgentRunner:
             Raw input string from the TUI, already stripped.
         status_bar:
             Optional status hook forwarded to ``chat()`` for tool-activity
-            display.  The LivePane in ``TuiApplication`` satisfies the
-            ``_StatusHook`` protocol and is wired here by ``_on_input_accepted``.
+            display.
 
         Returns
         -------
         str
-            LLM response text, or a character-voiced yield acknowledgement.
+            Character-voiced local response, yield acknowledgement, or LLM
+            response text.
 
-        @decision DEC-RUNNER-HANDLE-INPUT-001
-        @title handle_input as single TUI entry point — yield-first routing
+        Raises
+        ------
+        SystemExit
+            When the user types quit/exit/q — raised by dispatch_repl_verb
+            after emitting the farewell phrase to the caller.
+
+        @decision DEC-RUNNER-INPUT-PRIORITY-001
+        @title handle_input priority: REPL verbs → yield commands → LLM chat
         @status accepted
-        @rationale TuiApplication previously called runner.handle_input() which
-                   did not exist, causing AttributeError on every user keystroke.
-                   Adding handle_input() as the authoritative TUI entry point:
-                   (a) fixes the crash, (b) unifies yield-command detection at
-                   the runner boundary so the TUI never calls .chat() directly
-                   (Sacred Practice 12 — single source of truth per input path),
-                   (c) gracefully routes malformed yield-shaped input to the LLM
-                   rather than crashing (Sacred Practice 5 — fail loud on
-                   unexpected state, fail graceful on user-typed ambiguity).
-                   The legacy REPL in chat.py is unaffected — it calls .chat()
-                   directly and handles its own yield parsing.
+        @rationale The operator directive "all commands should run locally
+                   unless they must use an LLM" requires a clear intercept
+                   order. REPL verbs (Slice 6L) are tried first because they
+                   are the most specific: exact terminal commands with zero
+                   ambiguity. Yield commands (Slice 6) are tried second because
+                   they require a running battery context. Natural language
+                   investigation queries fall through to the LLM last.
+                   All three paths return str; SystemExit is raised only for
+                   quit/exit/q (caller must handle). This supersedes
+                   DEC-RUNNER-HANDLE-INPUT-001 (yield-first routing introduced
+                   in Slice 6) by prepending the REPL verb layer.
         """
+        from adversary_pursuit.agent.repl_verbs import (
+            _FarewellExit,
+            dispatch_repl_verb,
+            parse_repl_verb,
+        )
         from adversary_pursuit.agent.yield_commands import parse_yield
 
-        # Try yield-command parsing first.  parse_yield returns None for:
-        #   - input that doesn't start with a known verb
-        #   - verbs with missing or extra argument tokens (e.g. "focus" alone)
-        # In all None cases we fall through to the LLM — no exception is raised.
+        # --- Priority 1: REPL verbs (local, instant, no LLM) ---
+        # parse_repl_verb returns None for any input that is not a known
+        # terminal command, so callers who type natural language pass through.
+        try:
+            verb = parse_repl_verb(text)
+        except Exception:  # noqa: BLE001
+            verb = None
+
+        if verb is not None:
+            # Resolve mode_mgr and workspace_mgr from ctx (duck-typed).
+            _mode_mgr = getattr(self.ctx, "mode_mgr", None)
+            _workspace_mgr = getattr(self.ctx, "workspace_mgr", None)
+
+            # Resolve event_bus if the runner carries one (injected by callers
+            # that want TargetChanged to flow to the live pane).
+            _event_bus = getattr(self, "_event_bus", None)
+
+            # Resolve scrollback_clear: not available at runner level; callers
+            # that own a ScrollbackBuffer can inject it via _scrollback_clear.
+            _scrollback_clear = getattr(self, "_scrollback_clear", None)
+
+            try:
+                result = dispatch_repl_verb(
+                    verb,
+                    ctx=self.ctx,
+                    mode_mgr=_mode_mgr,
+                    workspace_mgr=_workspace_mgr,
+                    status_bar=status_bar,
+                    scrollback_clear=_scrollback_clear,
+                    event_bus=_event_bus,
+                )
+                return result
+            except _FarewellExit as exc:
+                # Propagate SystemExit so the TUI/REPL loop terminates, but
+                # return the farewell phrase first by re-raising after the
+                # caller has a chance to emit it.  We re-raise here so the
+                # chain is: dispatch returns phrase → _FarewellExit carries it
+                # → caller catches and emits then lets it propagate.
+                raise exc
+            except SystemExit:
+                raise
+            except Exception:  # noqa: BLE001
+                # Defensive: unexpected error in verb dispatch → fall through
+                # to yield → LLM rather than crashing.
+                pass
+
+        # --- Priority 2: Yield commands ---
         try:
             cmd = parse_yield(text)
         except Exception:  # noqa: BLE001
-            # parse_yield is pure string logic and should never raise, but
-            # defensive catch: treat unexpected parser errors as "not a yield".
             cmd = None
 
         if cmd is not None:
             from adversary_pursuit.agent.yield_commands import dispatch_yield
 
-            # Use the runner's active character name if available via the mode
-            # manager held by the TUI caller.  When the runner itself has no
-            # character attribute (duck-typed callers) default to "default".
             character = getattr(self, "_character", "default")
-
-            # No active battery run at this layer — dispatch_yield accepts None.
-            # EventBus is not held directly by the runner; pass None-safe stub
-            # when unavailable.  The TuiApplication's event_bus is wired through
-            # dispatch_yield at the call site in _on_input_accepted for the
-            # full-featured path; here we use the fallback None bus guard inside
-            # dispatch_yield (which always publishes to a real bus when given one).
-            #
-            # For the runner-level entry point, use a minimal no-op bus when the
-            # caller did not inject one.  TuiApplication._on_input_accepted calls
-            # dispatch_yield itself for the yield path and does NOT call
-            # handle_input for yield commands — so this code path is reached only
-            # by tests or callers that want unified routing.
             try:
                 from adversary_pursuit.agent.tui.events import EventBus as _EventBus
 
@@ -734,7 +760,7 @@ class AgentRunner:
                 feedback = f"[{cmd.primitive}]"
             return feedback
 
-        # Non-yield input: route to the LLM via chat().
+        # --- Priority 3: LLM chat ---
         return self.chat(text, status_bar=status_bar)
 
     def reset(self) -> None:

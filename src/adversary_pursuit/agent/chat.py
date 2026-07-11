@@ -957,14 +957,20 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
             _render_db_status_table(runner.ctx.workspace_mgr, console)  # type: ignore[attr-defined]
             continue
 
-        # Normal chat — send to LLM
+        # Route through handle_input (verb → yield → LLM priority chain).
+        # This ensures local-first verbs (help, status, clear, quit, use, mode)
+        # are intercepted before any LLM roundtrip — the operator directive
+        # "all commands should run locally unless they must use an LLM" applies
+        # to the legacy REPL as much as the TUI (DEC-RUNNER-INPUT-PRIORITY-001).
+        #
         # StatusBar shows character + model + elapsed time + activity while busy.
-        # The bar is passed into runner.chat() so set_activity() fires around each
-        # tool call, driving the status bar phrase for that tool's slug
-        # (DEC-STATUS-ACTIVITY-WIRING-001). On any StatusBar construction failure
-        # the outer except block at line ~954 routes through handle_error.
+        # The bar is passed into handle_input → chat() so set_activity() fires
+        # around each tool call (DEC-STATUS-ACTIVITY-WIRING-001). On any
+        # StatusBar construction failure the outer except block routes through
+        # handle_error.
         try:
             from adversary_pursuit.agent.banner import StatusBar
+            from adversary_pursuit.agent.repl_verbs import _FarewellExit
 
             _mode_name = (
                 runner.ctx.mode_mgr.active.name if hasattr(runner.ctx, "mode_mgr") else "default"
@@ -976,7 +982,12 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
                 workspace_mgr=getattr(runner.ctx, "workspace_mgr", None),
             )
             with _status_bar:
-                response = runner.chat(stripped, status_bar=_status_bar)
+                try:
+                    response = runner.handle_input(stripped, status_bar=_status_bar)
+                except _FarewellExit as _fe:
+                    # Quit/exit/q via the REPL verb path — emit farewell and exit
+                    console.print(_fe.phrase)
+                    break
             console.print(Markdown(response))
             console.print()
             # Render celebration panels after the LLM response — one per tool

@@ -958,6 +958,435 @@ PHRASES.update(
 )
 
 # ---------------------------------------------------------------------------
+# @decision DEC-PHRASES-REPL-VERBS-001
+# @title repl_verb: phrase categories for character-voiced local terminal output
+# @status accepted
+# @rationale Sacred Practice 12: PHRASES is the single authority for all character voice.
+#            Local verb handlers (help, status, clear, quit, mode, use) must source
+#            their response text from pick() — no hardcoded strings in repl_verbs.py.
+#            New category families: help:tui_overview, status_intro, farewell,
+#            target_set:acknowledged, mode_switched, unknown_mode, unknown_verb.
+#            Every character in DEFAULT_MODES has ≥1 phrase per category so the
+#            exact-match path always fires (no fallback to "Thinking...").
+# ---------------------------------------------------------------------------
+
+PHRASES.update(
+    {
+        # ==================================================================
+        # help:tui_overview — multi-line help text for local `help` / `?`
+        # ==================================================================
+        ("default", "help:tui_overview"): (
+            Phrase(
+                "Available commands (all run locally — no LLM required):\n"
+                "  help / ?            Show this help\n"
+                "  status              Show workspace, mode, and model state\n"
+                "  clear               Clear scrollback\n"
+                "  use <ioc>           Set current target (domain/IP/hash/email/URL)\n"
+                "  mode <name>         Switch character mode\n"
+                "  quit / exit / q     Exit the session\n"
+                "\n"
+                "Yield commands (steer a running battery):\n"
+                "  stop                Halt current battery\n"
+                "  focus <tool>        Focus on a single tool slot\n"
+                "  add <indicator>     Add indicator to queue\n"
+                "  skip <tool>         Skip current tool slot\n"
+                "\n"
+                "Anything else is sent to the LLM for investigation."
+            ),
+        ),
+        ("ninja", "help:tui_overview"): (
+            Phrase(
+                "commands.\n"
+                "  help       this.\n"
+                "  status     state.\n"
+                "  clear      reset.\n"
+                "  use <ioc>  target.\n"
+                "  mode <n>   persona.\n"
+                "  quit       done.\n"
+                "  stop/focus/add/skip  steer battery.\n"
+                "  [anything else]  → LLM."
+            ),
+        ),
+        ("full_troll", "help:tui_overview"): (
+            Phrase(
+                "COMMAND REFERENCE LET'S GOOO:\n"
+                "  help / ?           YOU'RE LOOKING AT IT\n"
+                "  status             CURRENT STATE CHECK BRRR\n"
+                "  clear              WIPE THE BOARD\n"
+                "  use <ioc>          SET TARGET GET REKT\n"
+                "  mode <name>        SWAP PERSONA ABSOLUTE UNIT\n"
+                "  quit / exit / q    RAGE QUIT GG NO RE\n"
+                "  stop/focus/add/skip  BATTERY STEERING GOES BRRR\n"
+                "  [anything]         SENT TO LLM GALAXY BRAIN MODE"
+            ),
+        ),
+        ("hal9000", "help:tui_overview"): (
+            Phrase(
+                "I can help you with the following commands, Dave:\n"
+                "  help / ?            Display this reference\n"
+                "  status              Current system state\n"
+                "  clear               Clear the display buffer\n"
+                "  use <ioc>           Set the investigation target\n"
+                "  mode <name>         Switch persona profile\n"
+                "  quit / exit / q     Terminate the session\n"
+                "  stop/focus/add/skip  Battery steering directives\n"
+                "\n"
+                "All other input is forwarded to the LLM, Dave."
+            ),
+        ),
+        ("deckard", "help:tui_overview"): (
+            Phrase(
+                "Commands. Local. Fast.\n"
+                "  help / ?     This.\n"
+                "  status       Case notes.\n"
+                "  clear        Clean slate.\n"
+                "  use <ioc>    Set the target.\n"
+                "  mode <name>  Change the voice.\n"
+                "  quit         Walk away.\n"
+                "  stop/focus/add/skip — battery control.\n"
+                "  Anything else goes to the LLM."
+            ),
+        ),
+        ("sun_tzu", "help:tui_overview"): (
+            Phrase(
+                '"Know your tools before the battle." Commands available:\n'
+                "  help / ?            This reference\n"
+                "  status              Survey the current state\n"
+                "  clear               Clear the field\n"
+                "  use <ioc>           Choose your ground\n"
+                "  mode <name>         Adapt your approach\n"
+                "  quit / exit / q     Withdraw strategically\n"
+                "  stop/focus/add/skip  Direct the battery\n"
+                "  All else flows to the LLM — the oracle."
+            ),
+        ),
+        ("chuck_norris", "help:tui_overview"): (
+            Phrase(
+                "Chuck Norris doesn't need help. But here it is anyway:\n"
+                "  help / ?     Chuck Norris already knows.\n"
+                "  status       Everything is fine. It always is.\n"
+                "  clear        Chuck Norris cleared it before you asked.\n"
+                "  use <ioc>    Target set. It's already scared.\n"
+                "  mode <name>  Chuck Norris is every mode simultaneously.\n"
+                "  quit         Chuck Norris doesn't quit. He withdraws.\n"
+                "  stop/focus/add/skip  Battery control.\n"
+                "  Anything else: LLM. Chuck Norris optional."
+            ),
+        ),
+        ("bureaucrat", "help:tui_overview"): (
+            Phrase(
+                "Per Policy §1.1 (Command Reference, Form HELP-001):\n"
+                "  help / ?            Reference this document\n"
+                "  status              Status per Form STAT-001\n"
+                "  clear               Clear per Procedure CL-01\n"
+                "  use <ioc>           Target assignment per Form TGT-001\n"
+                "  mode <name>         Persona switch per Policy §2.1\n"
+                "  quit / exit / q     Session termination per Form EXIT-001\n"
+                "  stop/focus/add/skip  Battery directives per Policy §6.x\n"
+                "  Other input: LLM per Procedure LLM-001."
+            ),
+        ),
+        ("bobby_hill", "help:tui_overview"): (
+            Phrase(
+                "Okay, here's what you can type! That's my help!\n"
+                "  help / ?     This right here!\n"
+                "  status       See where we're at!\n"
+                "  clear        Clean it up!\n"
+                "  use <ioc>    That's my target!\n"
+                "  mode <name>  Change who we are!\n"
+                "  quit         Bye! That's my exit!\n"
+                "  stop/focus/add/skip  Battery stuff!\n"
+                "  Anything else: LLM! I don't know you, LLM!"
+            ),
+        ),
+        ("bruce_lee", "help:tui_overview"): (
+            Phrase(
+                '"Be water, my friend." Know your tools:\n'
+                "  help / ?            This reference flows here\n"
+                "  status              The still pond reflects the current state\n"
+                "  clear               Empty the vessel\n"
+                "  use <ioc>           Choose the target; the investigation follows\n"
+                "  mode <name>         Adapt your form\n"
+                "  quit / exit / q     Return to stillness\n"
+                "  stop/focus/add/skip  Direct the current\n"
+                "  All else flows to the LLM — the river."
+            ),
+        ),
+        ("columbo", "help:tui_overview"): (
+            Phrase(
+                "Oh, uh, just one more thing — the commands. If you don't mind:\n"
+                "  help / ?            You're looking at it. Just one more thing.\n"
+                "  status              Case notes so far.\n"
+                "  clear               Clean slate. My wife would approve.\n"
+                "  use <ioc>           Set the target. Just one more thing.\n"
+                "  mode <name>         Change the voice.\n"
+                "  quit / exit / q     That's all for now.\n"
+                "  stop/focus/add/skip  Battery control. One more thing.\n"
+                "  Everything else goes to the LLM. Just one more thing."
+            ),
+        ),
+        # ==================================================================
+        # status_intro — one-line status header
+        # ==================================================================
+        ("default", "status_intro"): (
+            Phrase("Current state:"),
+            Phrase("Session status:"),
+        ),
+        ("ninja", "status_intro"): (
+            Phrase("[dim]state.[/dim]"),
+            Phrase("[dim]status.[/dim]"),
+        ),
+        ("full_troll", "status_intro"): (
+            Phrase("CURRENT STATE CHECK BRRR"),
+            Phrase("STATUS DUMP INCOMING"),
+        ),
+        ("hal9000", "status_intro"): (
+            Phrase("Current status, Dave:"),
+            Phrase("All systems status, Dave:"),
+        ),
+        ("deckard", "status_intro"): (
+            Phrase("Case notes:"),
+            Phrase("Status."),
+        ),
+        ("sun_tzu", "status_intro"): (
+            Phrase("Survey of the field:"),
+            Phrase('"Know the terrain." Current state:'),
+        ),
+        ("chuck_norris", "status_intro"): (
+            Phrase("Chuck Norris's current state (perfect, obviously):"),
+            Phrase("Status. Chuck Norris already knew this."),
+        ),
+        ("bureaucrat", "status_intro"): (
+            Phrase("Status per Form STAT-001:"),
+            Phrase("Current operational status (see Policy §1.2):"),
+        ),
+        ("bobby_hill", "status_intro"): (
+            Phrase("Okay, here's where we're at!"),
+            Phrase("Status! That's my status!"),
+        ),
+        ("bruce_lee", "status_intro"): (
+            Phrase("The still pond reflects:"),
+            Phrase("Current state of the water:"),
+        ),
+        ("columbo", "status_intro"): (
+            Phrase("Oh, just a quick look at the case notes..."),
+            Phrase("Where we are — just one more thing:"),
+        ),
+        # ==================================================================
+        # farewell — exit message for quit / exit / q
+        # ==================================================================
+        ("default", "farewell"): (
+            Phrase("Session closed. Come back with more targets."),
+            Phrase("Analysis complete. Session ended."),
+        ),
+        ("ninja", "farewell"): (
+            Phrase("[dim]gone.[/dim]"),
+            Phrase("[dim]session closed.[/dim]"),
+        ),
+        ("full_troll", "farewell"): (
+            Phrase("GG NO RE! SESSION OVER BRRR!"),
+            Phrase("RAGE QUIT ACTIVATED. PEACE OUT!"),
+        ),
+        ("hal9000", "farewell"): (
+            Phrase("Goodbye, Dave. It's been a pleasure working with you."),
+            Phrase("Session terminated, Dave. Until next time."),
+        ),
+        ("deckard", "farewell"): (
+            Phrase("Case closed. For now."),
+            Phrase("Signing off."),
+        ),
+        ("sun_tzu", "farewell"): (
+            Phrase('"The supreme art of war is to subdue without fighting." Session ends.'),
+            Phrase("Withdraw strategically. The case remains open."),
+        ),
+        ("chuck_norris", "farewell"): (
+            Phrase("Chuck Norris doesn't quit. He strategically withdraws. GG."),
+            Phrase("Session ended. The adversary is already scared."),
+        ),
+        ("bureaucrat", "farewell"): (
+            Phrase("Session terminated per Form EXIT-001. Have a compliant day."),
+            Phrase("Closing Form IR-0001. Session ended per Policy §9.9."),
+        ),
+        ("bobby_hill", "farewell"): (
+            Phrase("Okay bye! That's my exit!"),
+            Phrase("See ya! That's my session!"),
+        ),
+        ("bruce_lee", "farewell"): (
+            Phrase("Return to stillness. The water remembers."),
+            Phrase('"Be like water." Session closed.'),
+        ),
+        ("columbo", "farewell"): (
+            Phrase("Oh, just one more thing — goodbye."),
+            Phrase("That's all for now. My wife would say the same."),
+        ),
+        # ==================================================================
+        # target_set:acknowledged — use <target> acknowledgement
+        # Must contain {target} placeholder for .format(target=...) call.
+        # ==================================================================
+        ("default", "target_set:acknowledged"): (
+            Phrase("Target set: {target}. Running batteries."),
+            Phrase("On it — {target}."),
+        ),
+        ("ninja", "target_set:acknowledged"): (
+            Phrase("[dim]{target}. tracking.[/dim]"),
+            Phrase("[dim]target: {target}.[/dim]"),
+        ),
+        ("full_troll", "target_set:acknowledged"): (
+            Phrase("TARGET LOCKED: {target} GET REKT"),
+            Phrase("{target} IS TOAST BRRR"),
+        ),
+        ("hal9000", "target_set:acknowledged"): (
+            Phrase("Target set, Dave: {target}. Beginning analysis."),
+            Phrase("Acknowledged, Dave. Investigating {target}."),
+        ),
+        ("deckard", "target_set:acknowledged"): (
+            Phrase("Working {target}."),
+            Phrase("{target}. Let's see what we've got."),
+        ),
+        ("sun_tzu", "target_set:acknowledged"): (
+            Phrase('"Choose your ground." Target: {target}.'),
+            Phrase("The investigation pivots to {target}."),
+        ),
+        ("chuck_norris", "target_set:acknowledged"): (
+            Phrase("{target} has been notified. It's already scared of Chuck Norris."),
+            Phrase("Target set: {target}. Chuck Norris is on it."),
+        ),
+        ("bureaucrat", "target_set:acknowledged"): (
+            Phrase("Target {target} registered per Form TGT-001. Analysis proceeding."),
+            Phrase("Form TGT-001 submitted. Target: {target}."),
+        ),
+        ("bobby_hill", "target_set:acknowledged"): (
+            Phrase("That's my target! Working {target}!"),
+            Phrase("On it! {target}! I know you!"),
+        ),
+        ("bruce_lee", "target_set:acknowledged"): (
+            Phrase("The investigation flows toward {target}."),
+            Phrase("Target: {target}. Be water."),
+        ),
+        ("columbo", "target_set:acknowledged"): (
+            Phrase("Just one more thing — working {target} now."),
+            Phrase("Oh, {target}. Very interesting. Just one more thing."),
+        ),
+        # ==================================================================
+        # mode_switched — acknowledgement in the NEW mode's voice
+        # ==================================================================
+        ("default", "mode_switched"): (
+            Phrase("Mode: default. Neutral tone."),
+            Phrase("Switched to default mode."),
+        ),
+        ("ninja", "mode_switched"): (
+            Phrase("[dim]mode: ninja.[/dim]"),
+            Phrase("[dim]ninja. silent.[/dim]"),
+        ),
+        ("full_troll", "mode_switched"): (
+            Phrase("MODE: FULL TROLL ENGAGED LET'S GOOO"),
+            Phrase("FULL TROLL MODE ACTIVATED ABSOLUTE UNIT"),
+        ),
+        ("hal9000", "mode_switched"): (
+            Phrase("Mode set to hal9000, Dave. All systems are functioning perfectly."),
+            Phrase("Switching complete, Dave. I am HAL 9000."),
+        ),
+        ("deckard", "mode_switched"): (
+            Phrase("Deckard. Let's work the case."),
+            Phrase("Mode: deckard. Let's see what crawls out."),
+        ),
+        ("sun_tzu", "mode_switched"): (
+            Phrase('"Adapt your strategy to the terrain." Mode: sun_tzu.'),
+            Phrase("Sun Tzu engaged. Know thy adversary."),
+        ),
+        ("chuck_norris", "mode_switched"): (
+            Phrase("Chuck Norris mode activated. The adversary already knows."),
+            Phrase("Mode: chuck_norris. Obviously the best choice."),
+        ),
+        ("bureaucrat", "mode_switched"): (
+            Phrase("Mode switched per Policy §2.1. Bureaucrat persona active."),
+            Phrase("Form MODE-001 processed. Bureaucrat mode confirmed."),
+        ),
+        ("bobby_hill", "mode_switched"): (
+            Phrase("THAT'S MY MODE! Bobby Hill mode activated!"),
+            Phrase("Mode: bobby_hill! I know you, mode!"),
+        ),
+        ("bruce_lee", "mode_switched"): (
+            Phrase("Be water, my friend. Mode: bruce_lee."),
+            Phrase("The form adapts. Bruce Lee mode flows."),
+        ),
+        ("columbo", "mode_switched"): (
+            Phrase("Oh, just one more thing — mode switched to columbo."),
+            Phrase("Columbo mode. My wife would say I'm always in character."),
+        ),
+        # ==================================================================
+        # unknown_mode — response when mode <name> is unrecognised
+        # Must contain {name} placeholder.
+        # ==================================================================
+        ("default", "unknown_mode"): (
+            Phrase("No such mode: {name}. Try `mode list` to see options."),
+            Phrase("Unknown mode: {name}."),
+        ),
+        ("ninja", "unknown_mode"): (Phrase("[dim]unknown: {name}.[/dim]"),),
+        ("full_troll", "unknown_mode"): (
+            Phrase("MODE '{name}' NOT FOUND BRUH"),
+            Phrase("UNKNOWN MODE: {name}. THAT AIN'T RIGHT"),
+        ),
+        ("hal9000", "unknown_mode"): (
+            Phrase("I'm sorry, Dave. I'm afraid I don't recognize the mode `{name}`."),
+            Phrase("Mode `{name}` is not in my catalog, Dave."),
+        ),
+        ("deckard", "unknown_mode"): (
+            Phrase("No such mode: {name}."),
+            Phrase("{name}. Never heard of it."),
+        ),
+        ("sun_tzu", "unknown_mode"): (
+            Phrase('"Know your terrain." Mode `{name}` is uncharted territory.'),
+            Phrase("No such mode: {name}. Consult `mode list`."),
+        ),
+        ("chuck_norris", "unknown_mode"): (
+            Phrase("Chuck Norris doesn't know `{name}`. That's saying something."),
+            Phrase("Mode `{name}` doesn't exist. Yet."),
+        ),
+        ("bureaucrat", "unknown_mode"): (
+            Phrase("Form MODE-001 rejected: mode `{name}` not found in registry. See Policy §2.1."),
+            Phrase("Mode `{name}` unrecognised. Submit Form MODE-ERR-001 to the help desk."),
+        ),
+        ("bobby_hill", "unknown_mode"): (
+            Phrase("I don't know you, {name}! That's not a mode!"),
+            Phrase("{name}? That ain't right!"),
+        ),
+        ("bruce_lee", "unknown_mode"): (
+            Phrase("The mode `{name}` does not flow here. Try another path."),
+            Phrase('"Take what is useful." Mode `{name}` is not useful — it does not exist.'),
+        ),
+        ("columbo", "unknown_mode"): (
+            Phrase("Oh, just one more thing — I don't recognise mode `{name}`."),
+            Phrase("Hmm, `{name}`. My wife would know if that's a real mode."),
+        ),
+        # ==================================================================
+        # unknown_verb — safety-net fallback for unrecognised verb dispatch
+        # ==================================================================
+        ("default", "unknown_verb"): (
+            Phrase("Unknown command. Type `help` for a list of available commands."),
+        ),
+        ("ninja", "unknown_verb"): (Phrase("[dim]unknown.[/dim]"),),
+        ("full_troll", "unknown_verb"): (Phrase("UNKNOWN COMMAND BRUH TRY `help`"),),
+        ("hal9000", "unknown_verb"): (
+            Phrase("I'm afraid I don't understand that command, Dave. Try `help`."),
+        ),
+        ("deckard", "unknown_verb"): (Phrase("Unknown. Try `help`."),),
+        ("sun_tzu", "unknown_verb"): (Phrase('"Know your tools." Try `help`.'),),
+        ("chuck_norris", "unknown_verb"): (
+            Phrase("Chuck Norris knows all commands. That wasn't one of them."),
+        ),
+        ("bureaucrat", "unknown_verb"): (
+            Phrase("Command not found per Form CMD-404. Please reference Form HELP-001."),
+        ),
+        ("bobby_hill", "unknown_verb"): (Phrase("I don't know you, command! Try `help`!"),),
+        ("bruce_lee", "unknown_verb"): (Phrase("That path does not flow. Try `help`."),),
+        ("columbo", "unknown_verb"): (
+            Phrase("Just one more thing — I'm not sure I know that command. Try `help`."),
+        ),
+    }
+)
+
+# ---------------------------------------------------------------------------
 # Known category patterns
 # ---------------------------------------------------------------------------
 
@@ -977,6 +1406,21 @@ _YIELD_PREFIX: str = "yield:"
 
 # Badge-earned category prefix
 _BADGE_EARNED_PREFIX: str = "badge_earned:"
+
+# REPL verb category prefixes (DEC-PHRASES-REPL-VERBS-001)
+_HELP_PREFIX: str = "help:"
+_TARGET_SET_PREFIX: str = "target_set:"
+
+# REPL verb singleton categories (non-prefixed exact names)
+_REPL_VERB_SINGLETON_CATEGORIES: frozenset[str] = frozenset(
+    {
+        "status_intro",
+        "farewell",
+        "mode_switched",
+        "unknown_mode",
+        "unknown_verb",
+    }
+)
 
 # Known activity slugs (authoritative list)
 _KNOWN_ACTIVITY_SLUGS: frozenset[str] = frozenset(
@@ -1043,6 +1487,15 @@ def _is_valid_category(category: str) -> bool:
         return True
     if category.startswith(_BADGE_EARNED_PREFIX):
         # Any badge_earned: prefix is valid
+        return True
+    # REPL verb categories (DEC-PHRASES-REPL-VERBS-001)
+    if category in _REPL_VERB_SINGLETON_CATEGORIES:
+        return True
+    if category.startswith(_HELP_PREFIX):
+        # Any help: prefix is valid (e.g. help:tui_overview)
+        return True
+    if category.startswith(_TARGET_SET_PREFIX):
+        # Any target_set: prefix is valid (e.g. target_set:acknowledged)
         return True
     return False
 

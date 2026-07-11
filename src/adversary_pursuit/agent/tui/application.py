@@ -186,44 +186,55 @@ class TuiApplication:
     # ------------------------------------------------------------------
 
     def _on_input_accepted(self, buffer: Buffer) -> None:
-        """Handle Enter key — route input to yield parser or agent runner."""
+        """Handle Enter key — route all input through handle_input priority chain.
+
+        All three dispatch layers (REPL verbs → yield commands → LLM chat)
+        are handled inside runner.handle_input (DEC-RUNNER-INPUT-PRIORITY-001).
+        The TUI wires two callables onto the runner before dispatch so the verb
+        dispatcher can access TUI-specific behaviour:
+
+        - ``_scrollback_clear``: callable that clears the scrollback buffer
+          (invoked by the ``clear`` verb).
+        - ``_event_bus``: EventBus for publishing TargetChanged events
+          (invoked by the ``use <ioc>`` verb).
+
+        LivePane satisfies ``_StatusHook`` so tool-activity phrases flow to the
+        live pane during LLM tool calls without the runner importing Rich.
+        """
         text = buffer.text.strip()
         buffer.reset()
 
         if not text:
             return
 
-        # Try yield command first
-        from adversary_pursuit.agent.yield_commands import parse_yield
+        self.emit_scrollback(f"> {text}")
 
-        cmd = parse_yield(text)
-        if cmd is not None:
-            from adversary_pursuit.agent.yield_commands import dispatch_yield
-
-            character = "default"
-            if self._mode_mgr is not None:
-                character = self._mode_mgr.active.name
-
-            # Active battery run is not held here — dispatch_yield accepts None
-            feedback = dispatch_yield(cmd, None, self._event_bus, character)
-            self.emit_scrollback(f"> {text}")
-            self.emit_scrollback(feedback)
+        if self._runner is None:
             return
 
-        # Route to agent runner via handle_input — the single TUI entry point
-        # (DEC-RUNNER-HANDLE-INPUT-001, Sacred Practice 12).  LivePane satisfies
-        # the _StatusHook protocol so tool-activity updates flow to the live pane
-        # during LLM tool calls without the runner importing Rich directly.
-        self.emit_scrollback(f"> {text}")
-        if self._runner is not None:
-            try:
-                # Runner is expected to be synchronous or to manage its own
-                # threading. handle_input always returns a str (never None).
-                result = self._runner.handle_input(text, status_bar=self._live_pane)
-                if result:
-                    self._scrollback.emit_line(result)
-            except Exception as exc:  # noqa: BLE001
-                self.emit_scrollback(f"[error] {exc}")
+        # Inject TUI-specific callables onto the runner so verb dispatch
+        # can clear scrollback and publish events without importing TUI modules.
+        # These are ephemeral attributes — set before the call, not stored
+        # permanently on the runner class (duck-typed injection pattern).
+        self._runner._scrollback_clear = self._scrollback.clear  # type: ignore[attr-defined]
+        self._runner._event_bus = self._event_bus  # type: ignore[attr-defined]
+
+        try:
+            from adversary_pursuit.agent.repl_verbs import _FarewellExit
+
+            # handle_input always returns a str (never None).
+            result = self._runner.handle_input(text, status_bar=self._live_pane)
+            if result:
+                self._scrollback.emit_line(result)
+        except _FarewellExit as exc:
+            # quit/exit/q — emit farewell phrase then exit the TUI.
+            if exc.phrase:
+                self._scrollback.emit_line(exc.phrase)
+            self._app.exit()
+        except SystemExit:
+            self._app.exit()
+        except Exception as exc:  # noqa: BLE001
+            self.emit_scrollback(f"[error] {exc}")
 
     # ------------------------------------------------------------------
     # Public API
