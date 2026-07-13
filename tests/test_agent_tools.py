@@ -1597,25 +1597,18 @@ class TestModeWiring:
     # --- (7) list_modes ---
 
     def test_list_modes_returns_all_mode_names(self, tmp_ctx):
-        """ModeManager.list_modes() returns entries for all built-in modes.
+        """ModeManager.list_modes() returns entries for exactly the built-in modes.
 
-        Phase 18 Slice 5: drunken_master retired, deckard + hal9000 added.
+        The expected set is derived from DEFAULT_MODES so that adding a new
+        character mode updates this invariant automatically — no stale snapshot
+        needed.  Phase 18 Slice 5: drunken_master retired, deckard + hal9000
+        added.  Phase 18 Slice 7A: neuromancer added.
         """
+        from adversary_pursuit.gamification.modes import DEFAULT_MODES
+
         modes = tmp_ctx.mode_mgr.list_modes()
         names = {m["name"] for m in modes}
-        expected = {
-            "default",
-            "ninja",
-            "full_troll",
-            "sun_tzu",
-            "chuck_norris",
-            "bureaucrat",
-            "bobby_hill",
-            "bruce_lee",
-            "columbo",
-            "deckard",
-            "hal9000",
-        }
+        expected = set(DEFAULT_MODES.keys())
         assert expected == names
 
     def test_list_modes_entries_have_personality(self, tmp_ctx):
