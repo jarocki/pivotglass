@@ -274,11 +274,13 @@ class TuiApplication:
         mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
         active_theme = theme_for(mode_name)
         border_color = resolved_border_color(active_theme)
-        heading_style = active_theme.heading_color
+        # heading_color stores hex only (DEC-TUI-PTK-COLOR-COMPAT-001).
+        # bold is a separate PTK modifier token, not embedded in the color value.
+        heading_style = f"bold fg:{active_theme.heading_color}"
         rows = self._live_pane.render()
         parts: list[tuple[str, str]] = []
         for i, row in enumerate(rows):
-            # Row 0 (index 0) is the character identity line — use heading_color for accent
+            # Row 0 (index 0) is the character identity line — use bold heading_color for accent
             style = heading_style if i == 0 else f"fg:{border_color}"
             parts.append((style, row))
             if i < len(rows) - 1:

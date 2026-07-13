@@ -1,4 +1,4 @@
-"""Tests for Phase 18 Slice 7A: TUI application theme color injection.
+"""Tests for Phase 18 Slice 7A (updated Slice 7Ah2): TUI application theme color injection.
 
 Verifies that TuiApplication injects character theme colors into the PTK
 FormattedText tuples returned by _get_header_formatted() and
@@ -10,8 +10,11 @@ Production sequence (what these tests cover):
   2. On each PTK render cycle, _get_header_formatted() and
      _get_live_pane_formatted() call theme_for(active_mode_name) to get the
      CharacterTheme, then resolved_border_color(theme) to get the border color.
-  3. They build FormattedText with style tokens like ``fg:bright_magenta``
-     so PTK's renderer applies the character color to every border row.
+  3. They build FormattedText with style tokens like ``fg:#ff5fff``
+     (hex, PTK-compatible) so PTK's renderer applies the character color to
+     every border row. Row 0 of the live pane uses ``bold fg:#ff5fff`` so
+     the heading is bold without embedding the modifier in the color value
+     (DEC-TUI-PTK-COLOR-COMPAT-001).
   4. When the active mode changes, the next render cycle automatically picks
      up the new theme — no explicit cache invalidation is required.
 
@@ -25,6 +28,8 @@ Production sequence (what these tests cover):
            in FormattedText are non-empty and contain the expected color string
            for the active character mode. If a future refactor accidentally
            reverts to ("", ...) style tokens, these tests fail immediately.
+           Slice 7Ah2: color strings updated to hex values; heading row style
+           updated to ``bold fg:#xxxxxx`` form (DEC-TUI-PTK-COLOR-COMPAT-001).
 """
 
 from __future__ import annotations
@@ -90,11 +95,11 @@ class TestHeaderFormattedTextHasThemeColor:
     """_get_header_formatted() must inject fg:<border_color> style tokens."""
 
     def test_header_formatted_text_has_theme_color_neuromancer(self, monkeypatch) -> None:
-        """With neuromancer mode active, header style tokens contain 'bright_magenta'."""
+        """With neuromancer mode active, header style tokens contain '#ff5fff' (bright_magenta hex)."""
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("neuromancer")
         theme = theme_for("neuromancer")
-        expected_color = resolved_border_color(theme)  # "bright_magenta"
+        expected_color = resolved_border_color(theme)  # "#ff5fff"
 
         ft = app._get_header_formatted()
         style_tokens = [style for style, _ in ft]
@@ -106,11 +111,11 @@ class TestHeaderFormattedTextHasThemeColor:
         )
 
     def test_header_formatted_text_has_theme_color_hal9000(self, monkeypatch) -> None:
-        """With hal9000 mode active, header style tokens contain 'bright_red'."""
+        """With hal9000 mode active, header style tokens contain '#ff5555' (bright_red hex)."""
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("hal9000")
         theme = theme_for("hal9000")
-        expected_color = resolved_border_color(theme)  # "bright_red"
+        expected_color = resolved_border_color(theme)  # "#ff5555"
 
         ft = app._get_header_formatted()
         style_tokens = [style for style, _ in ft]
@@ -155,11 +160,11 @@ class TestLivePaneFormattedTextHasThemeColor:
     """_get_live_pane_formatted() must inject character theme colors into style tokens."""
 
     def test_live_pane_formatted_text_has_theme_color_neuromancer(self, monkeypatch) -> None:
-        """With neuromancer mode active, live pane style tokens contain 'bright_magenta'."""
+        """With neuromancer mode active, live pane style tokens contain '#ff5fff' (bright_magenta hex)."""
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("neuromancer")
         theme = theme_for("neuromancer")
-        expected_color = resolved_border_color(theme)  # "bright_magenta"
+        expected_color = resolved_border_color(theme)  # "#ff5fff"
 
         ft = app._get_live_pane_formatted()
         style_tokens = [style for style, _ in ft]
@@ -170,11 +175,11 @@ class TestLivePaneFormattedTextHasThemeColor:
         )
 
     def test_live_pane_formatted_text_has_theme_color_hal9000(self, monkeypatch) -> None:
-        """With hal9000 mode active, live pane style tokens contain 'bright_red'."""
+        """With hal9000 mode active, live pane style tokens contain '#ff5555' (bright_red hex)."""
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("hal9000")
         theme = theme_for("hal9000")
-        expected_color = resolved_border_color(theme)
+        expected_color = resolved_border_color(theme)  # "#ff5555"
 
         ft = app._get_live_pane_formatted()
         style_tokens = [style for style, _ in ft]
@@ -195,19 +200,26 @@ class TestLivePaneFormattedTextHasThemeColor:
             f"Expected 6 content rows in live pane FormattedText, got {len(content_rows)}"
         )
 
-    def test_live_pane_row1_uses_heading_color(self, monkeypatch) -> None:
-        """Row 1 of the live pane (character identity) must use heading_color, not border_color."""
+    def test_live_pane_row1_uses_bold_heading_color(self, monkeypatch) -> None:
+        """Row 1 of live pane (character identity) must use 'bold fg:<heading_color>'.
+
+        Slice 7Ah2: heading_color stores hex only; bold is prepended at injection
+        site in application.py (DEC-TUI-PTK-COLOR-COMPAT-001). The row1 style
+        token must be 'bold fg:#xxxxxx', not the bare heading_color hex string.
+        """
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("neuromancer")
         theme = theme_for("neuromancer")
 
         ft = app._get_live_pane_formatted()
-        # Row 1 is the first content tuple
         content_parts = [(style, text) for style, text in ft if text != "\n"]
         row1_style = content_parts[0][0]
 
-        assert theme.heading_color in row1_style or row1_style == theme.heading_color, (
-            f"Row 1 style should be heading_color='{theme.heading_color}', got '{row1_style}'"
+        expected_style = f"bold fg:{theme.heading_color}"
+        assert row1_style == expected_style, (
+            f"Row 1 style should be '{expected_style}', got '{row1_style}'. "
+            f"The bold modifier must be prepended at the PTK injection site "
+            f"(DEC-TUI-PTK-COLOR-COMPAT-001), not stored in heading_color."
         )
 
 
@@ -265,54 +277,66 @@ class TestSwitchingCharacterUpdatesStyleTokens:
 
 
 # ---------------------------------------------------------------------------
-# High-contrast env var — style tokens swap to bright_white
+# High-contrast env var — style tokens swap to #ffffff (white hex)
 # ---------------------------------------------------------------------------
 
 
 class TestHighContrastEnvSwapsStyleTokens:
-    """AP_TUI_HIGH_CONTRAST=1 must switch style tokens to the high_contrast_border color."""
+    """AP_TUI_HIGH_CONTRAST=1 must switch style tokens to the high_contrast_border color (#ffffff)."""
 
-    def test_high_contrast_header_style_is_bright_white(self, monkeypatch) -> None:
-        """With AP_TUI_HIGH_CONTRAST=1, header style tokens use bright_white."""
+    def test_high_contrast_header_style_is_white_hex(self, monkeypatch) -> None:
+        """With AP_TUI_HIGH_CONTRAST=1, header style tokens use #ffffff (white hex).
+
+        Updated in Slice 7Ah2: high_contrast_border is now '#ffffff' (PTK-compatible)
+        instead of 'bright_white' (DEC-TUI-PTK-COLOR-COMPAT-001).
+        """
         monkeypatch.setenv("AP_TUI_HIGH_CONTRAST", "1")
         app = _make_app("neuromancer")
 
         ft = app._get_header_formatted()
         style_tokens = [style for style, text in ft if text.strip()]
 
-        assert all("bright_white" in tok for tok in style_tokens), (
-            f"Expected 'bright_white' in all border style tokens with AP_TUI_HIGH_CONTRAST=1. "
+        assert all("#ffffff" in tok for tok in style_tokens), (
+            f"Expected '#ffffff' in all border style tokens with AP_TUI_HIGH_CONTRAST=1. "
             f"Got: {style_tokens}"
         )
 
-    def test_high_contrast_live_pane_style_contains_bright_white(self, monkeypatch) -> None:
-        """With AP_TUI_HIGH_CONTRAST=1, live pane rows 2–6 use bright_white border."""
+    def test_high_contrast_live_pane_style_contains_white_hex(self, monkeypatch) -> None:
+        """With AP_TUI_HIGH_CONTRAST=1, live pane rows 2–6 use #ffffff border.
+
+        Updated in Slice 7Ah2: high_contrast_border is now '#ffffff' (PTK-compatible)
+        instead of 'bright_white' (DEC-TUI-PTK-COLOR-COMPAT-001).
+        """
         monkeypatch.setenv("AP_TUI_HIGH_CONTRAST", "1")
         app = _make_app("neuromancer")
 
         ft = app._get_live_pane_formatted()
         content_parts = [(style, text) for style, text in ft if text != "\n"]
-        # Rows 2–6 (index 1–5) should use fg:bright_white
+        # Rows 2–6 (index 1–5) should use fg:#ffffff
         border_row_tokens = [style for style, _ in content_parts[1:]]
 
-        assert all("bright_white" in tok for tok in border_row_tokens), (
-            f"Expected 'bright_white' in live pane rows 2-6 with AP_TUI_HIGH_CONTRAST=1. "
+        assert all("#ffffff" in tok for tok in border_row_tokens), (
+            f"Expected '#ffffff' in live pane rows 2-6 with AP_TUI_HIGH_CONTRAST=1. "
             f"Got: {border_row_tokens}"
         )
 
     def test_normal_mode_without_high_contrast_uses_character_color(self, monkeypatch) -> None:
-        """Without AP_TUI_HIGH_CONTRAST, neuromancer gets bright_magenta, not bright_white."""
+        """Without AP_TUI_HIGH_CONTRAST, neuromancer gets #ff5fff (bright_magenta hex), not #ffffff.
+
+        Updated in Slice 7Ah2: hex codes replace Rich color names
+        (DEC-TUI-PTK-COLOR-COMPAT-001).
+        """
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("neuromancer")
 
         ft = app._get_header_formatted()
         style_tokens = [style for style, text in ft if text.strip()]
 
-        assert any("bright_magenta" in tok for tok in style_tokens), (
-            f"Expected 'bright_magenta' in header tokens without high-contrast. Got: {style_tokens}"
+        assert any("#ff5fff" in tok for tok in style_tokens), (
+            f"Expected '#ff5fff' in header tokens without high-contrast. Got: {style_tokens}"
         )
-        assert not any("bright_white" in tok for tok in style_tokens), (
-            f"Did not expect 'bright_white' without high-contrast. Got: {style_tokens}"
+        assert not any(tok == "fg:#ffffff" for tok in style_tokens), (
+            f"Did not expect 'fg:#ffffff' without high-contrast. Got: {style_tokens}"
         )
 
 
@@ -334,7 +358,7 @@ class TestEndToEndRenderSequence:
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("chuck_norris")
         theme = theme_for("chuck_norris")
-        expected_color = resolved_border_color(theme)  # "bright_magenta"
+        expected_color = resolved_border_color(theme)  # "#ff5fff" (bright_magenta hex)
 
         header_ft = app._get_header_formatted()
         live_ft = app._get_live_pane_formatted()
