@@ -57,6 +57,7 @@ from adversary_pursuit.agent.tui.events import (
     TargetChanged,
     YieldReceived,
 )
+from adversary_pursuit.agent.tui.themes import theme_for  # noqa: E402
 from adversary_pursuit.dossier.slot_glyphs import SLOT_ORDER, render_slot_strip
 
 # ---------------------------------------------------------------------------
@@ -73,6 +74,8 @@ _REFRESH_HZ: dict[str, float] = {
     "bureaucrat": 2.0,
     "chuck_norris": 2.0,
     "bobby_hill": 2.0,
+    "columbo": 2.0,
+    "neuromancer": 3.0,  # urgent cyberpunk pacing — faster than default, slower than troll
     "full_troll": 4.0,
 }
 
@@ -227,15 +230,27 @@ class LivePane:
     # ------------------------------------------------------------------
 
     def set_character(self, mode_name: str) -> None:
-        """Update the active character, which changes the refresh cadence.
+        """Update the active character, which changes the refresh cadence and theme.
 
         Parameters
         ----------
         mode_name:
-            New character mode name.
+            New character mode name. The active theme (``active_theme``) updates
+            immediately so the next render cycle uses the new character's colors.
         """
         with self._lock:
             self._mode_name = mode_name
+
+    @property
+    def active_theme(self):
+        """Return the CharacterTheme for the current active character.
+
+        Used by TuiApplication to read the border/accent colors for PTK styling.
+        Delegates to ``theme_for(mode_name)`` which falls back to ``"default"``
+        for unknown characters (DEC-TUI-THEME-001).
+        """
+        with self._lock:
+            return theme_for(self._mode_name)
 
     def set_dossier_state(self, dossier_state) -> None:
         """Inject an updated DossierState for strip rendering.

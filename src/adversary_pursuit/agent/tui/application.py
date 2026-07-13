@@ -33,8 +33,10 @@ from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
 
 from adversary_pursuit.agent.tui.events import EventBus
+from adversary_pursuit.agent.tui.header import HeaderPane
 from adversary_pursuit.agent.tui.live_pane import LivePane
 from adversary_pursuit.agent.tui.scrollback import ScrollbackBuffer
+from adversary_pursuit.agent.tui.themes import theme_for  # character theme dispatch
 
 
 class NotATTYError(RuntimeError):
@@ -99,6 +101,14 @@ class TuiApplication:
             workspace_mgr=workspace_mgr,
         )
 
+        # Header pane — top-anchored 3-row strip (DEC-TUI-HEADER-001).
+        # Subscribes to TargetChanged events to maintain CURRENT / PRIOR breadcrumb.
+        workspace_name = workspace_mgr.active if workspace_mgr is not None else "default"
+        self._header_pane = HeaderPane(
+            bus=event_bus,
+            workspace_name=workspace_name,
+        )
+
         # Build prompt_toolkit layout
         self._input_buffer = Buffer(
             name="input",
@@ -123,6 +133,17 @@ class TuiApplication:
         @kb.add("c-d")
         def _exit(event) -> None:  # type: ignore[no-untyped-def]
             event.app.exit()
+
+        # Header pane — fixed 3 rows at the top (DEC-TUI-HEADER-001)
+        header_control = FormattedTextControl(
+            text=self._get_header_formatted,
+            focusable=False,
+        )
+        header_window = Window(
+            content=header_control,
+            height=3,
+            dont_extend_height=True,
+        )
 
         scrollback_control = FormattedTextControl(
             text=self._get_scrollback_formatted,
@@ -151,7 +172,7 @@ class TuiApplication:
         )
 
         layout = Layout(
-            HSplit([scrollback_window, input_window, live_pane_window]),
+            HSplit([header_window, scrollback_window, input_window, live_pane_window]),
             focused_element=input_window,
         )
 
@@ -161,6 +182,22 @@ class TuiApplication:
             full_screen=True,
             mouse_support=False,
         )
+
+    def _get_header_formatted(self) -> FormattedText:
+        """Return the header pane as FormattedText for PTK.
+
+        Uses the active character's theme for border color styling
+        (DEC-TUI-THEME-001 / DEC-TUI-HEADER-001).
+        """
+        mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
+        active_theme = theme_for(mode_name)
+        rows = self._header_pane.render(theme=active_theme)
+        parts = []
+        for i, row in enumerate(rows):
+            parts.append(("", row))
+            if i < len(rows) - 1:
+                parts.append(("", "\n"))
+        return FormattedText(parts)
 
     def _get_scrollback_formatted(self) -> FormattedText:
         """Return the scrollback buffer as FormattedText for PTK."""
@@ -310,3 +347,8 @@ class TuiApplication:
     def live_pane(self) -> LivePane:
         """The live pane instance."""
         return self._live_pane
+
+    @property
+    def header_pane(self) -> HeaderPane:
+        """The header pane instance (DEC-TUI-HEADER-001)."""
+        return self._header_pane

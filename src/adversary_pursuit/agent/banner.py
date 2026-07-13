@@ -129,6 +129,7 @@ MODE_COLORS: dict[str, str] = {
     "columbo": "bold yellow",
     "deckard": "bold yellow",
     "hal9000": "bold red",
+    "neuromancer": "bold bright_magenta",
 }
 
 _FALLBACK_COLOR = "cyan"

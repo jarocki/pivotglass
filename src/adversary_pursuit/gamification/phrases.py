@@ -479,6 +479,59 @@ PHRASES: dict[tuple[str, str], tuple[Phrase, ...]] = {
     ),
     ("columbo", "activity:composing"): (Phrase("Just writing this up — one more thing..."),),
     # ------------------------------------------------------------------
+    # neuromancer
+    # ------------------------------------------------------------------
+    ("neuromancer", "greeting"): (
+        Phrase("You're jacked in. Case, let's ride.", weight=1.0),
+        Phrase("Chiba nights. The deck is warm.", weight=0.7),
+        Phrase("Wintermute wants this one. Let's work.", weight=0.5, tags=("famous",)),
+    ),
+    ("neuromancer", "run_success"): (
+        Phrase("Cracked the ICE.", weight=1.0),
+        Phrase("Score. Now we move.", weight=1.0),
+        Phrase("The matrix parts. We see through.", weight=0.6),
+    ),
+    ("neuromancer", "run_fail"): (
+        Phrase("The ICE bit back. Reroute.", weight=1.0),
+        Phrase("Static. Try another angle, Case.", weight=1.0),
+        Phrase("Dead net. Jack elsewhere.", weight=0.7),
+    ),
+    ("neuromancer", "score_celebration"): (
+        Phrase("+{points}. Meat still online.", weight=1.0),
+        Phrase("+{points}. Case, we're up.", weight=1.0),
+        Phrase("+{points}. The sprawl keeps score.", weight=0.6),
+    ),
+    ("neuromancer", "activity:virustotal"): (
+        Phrase("VT: the AI reads the sample.", weight=1.0),
+        Phrase("VT pulls a verdict.", weight=0.7),
+        Phrase("Cold read from VirusTotal.", weight=0.6),
+    ),
+    ("neuromancer", "activity:whois"): (
+        Phrase("WHOIS: who owns this corner of the sprawl.", weight=1.0),
+        Phrase("Registry sweep. Finding the owner.", weight=0.7),
+    ),
+    ("neuromancer", "activity:shodan"): (
+        Phrase("Shodan: eyes in the sprawl.", weight=1.0),
+        Phrase("Scanning the infrastructure. Every node a story.", weight=0.7),
+    ),
+    ("neuromancer", "activity:otx"): (
+        Phrase("OTX: pulling threat feeds from the matrix.", weight=1.0),
+        Phrase("OTX cross-ref.", weight=0.7),
+    ),
+    ("neuromancer", "activity:threatfox"): (
+        Phrase("ThreatFox: scanning the dark net channels.", weight=1.0),
+        Phrase("ThreatFox lookup.", weight=0.7),
+    ),
+    ("neuromancer", "activity:thinking"): (
+        Phrase("The deck spins.", weight=1.0),
+        Phrase("Working the trace.", weight=1.0),
+        Phrase("The matrix hums.", weight=0.6),
+    ),
+    ("neuromancer", "activity:composing"): (
+        Phrase("Pushing data through the channel.", weight=1.0),
+        Phrase("Composing the report. ICE holding.", weight=0.7),
+    ),
+    # ------------------------------------------------------------------
     # deckard
     # ------------------------------------------------------------------
     ("deckard", "greeting"): (
@@ -794,6 +847,27 @@ PHRASES.update(
             Phrase("Watching the patterns. They always repeat."),
             Phrase("Behavioral sweep. Habits don't lie."),
         ),
+        # neuromancer
+        ("neuromancer", "battery:identity"): (
+            Phrase("Identity sweep. Who's hiding in the sprawl.", weight=1.0),
+            Phrase("Case, running identity trace.", weight=0.7),
+        ),
+        ("neuromancer", "battery:infrastructure"): (
+            Phrase("Infrastructure sweep. Every node in the matrix.", weight=1.0),
+            Phrase("Mapping the ICE. Infrastructure run.", weight=0.7),
+        ),
+        ("neuromancer", "battery:reputation"): (
+            Phrase("Reputation check. The sprawl has a long memory.", weight=1.0),
+            Phrase("Pulling the rap sheet from the matrix.", weight=0.7),
+        ),
+        ("neuromancer", "battery:payload"): (
+            Phrase("Payload analysis. What weapon did they load.", weight=1.0),
+            Phrase("Examining the construct. Payload run.", weight=0.7),
+        ),
+        ("neuromancer", "battery:behavioral"): (
+            Phrase("Behavioral sweep. How does their ICE move.", weight=1.0),
+            Phrase("Pattern recognition. Watching the matrix.", weight=0.7),
+        ),
         # hal9000
         ("hal9000", "battery:identity"): (
             Phrase("Running identity battery, Dave.", tags=("dave",)),
@@ -914,6 +988,23 @@ PHRASES.update(
         ("deckard", "yield:focus"): (Phrase("Narrowing the field."),),
         ("deckard", "yield:add"): (Phrase("Another name on the list."),),
         ("deckard", "yield:skip"): (Phrase("Skip it. Dead end."),),
+        # neuromancer
+        ("neuromancer", "yield:stop"): (
+            Phrase("Battery stopped. Jacking out of this channel.", weight=1.0),
+            Phrase("Stopped. The deck goes quiet.", weight=0.7),
+        ),
+        ("neuromancer", "yield:focus"): (
+            Phrase("Locked on {target}. Reroute the queue.", weight=1.0),
+            Phrase("Focus. One target, one channel.", weight=0.7),
+        ),
+        ("neuromancer", "yield:add"): (
+            Phrase("Another name in the sprawl. Added.", weight=1.0),
+            Phrase("Added to the queue, Case.", weight=0.7),
+        ),
+        ("neuromancer", "yield:skip"): (
+            Phrase("Skipping. The ICE is too thick here.", weight=1.0),
+            Phrase("Skip. Find another channel.", weight=0.7),
+        ),
         # hal9000
         ("hal9000", "yield:stop"): (
             Phrase("Battery halted as requested, Dave.", tags=("dave",)),
@@ -934,6 +1025,26 @@ PHRASES.update(
         # ------------------------------------------------------------------
         # badge_earned: categories — quiet in-flow badge reveal (C-9-A)
         # ------------------------------------------------------------------
+        ("neuromancer", "badge_earned:common"): (
+            Phrase("Badge earned. The matrix acknowledges.", weight=1.0),
+            Phrase("Another mark on the deck, Case.", weight=0.7),
+        ),
+        ("neuromancer", "badge_earned:uncommon"): (
+            Phrase("Uncommon badge. The sprawl noticed.", weight=1.0),
+            Phrase("Solid find, Case. Uncommon territory.", weight=0.7),
+        ),
+        ("neuromancer", "badge_earned:rare"): (
+            Phrase("Rare badge. Wintermute is watching.", weight=1.0),
+            Phrase("Rare. The ICE cracked wide open.", weight=0.7),
+        ),
+        ("neuromancer", "badge_earned:epic"): (
+            Phrase("Epic badge. The matrix bends for you.", weight=1.0),
+            Phrase("Epic. Case, you're writing history.", weight=0.7),
+        ),
+        ("neuromancer", "badge_earned:legendary"): (
+            Phrase("Legendary. Wintermute calls it done.", weight=1.0),
+            Phrase("Legendary. The sprawl will remember this run.", weight=0.5, tags=("famous",)),
+        ),
         ("default", "badge_earned:common"): (
             Phrase("Badge earned."),
             Phrase("New badge unlocked."),
@@ -1125,6 +1236,21 @@ PHRASES.update(
                 "  Everything else goes to the LLM. Just one more thing."
             ),
         ),
+        ("neuromancer", "help:tui_overview"): (
+            Phrase(
+                "Case, here's the deck:\n"
+                "  use <ioc>      jack into a target\n"
+                "  focus <ioc>    reroute the queue mid-run\n"
+                "  stop           kill the current battery\n"
+                "  mode <name>    switch persona\n"
+                "  status         current console state\n"
+                "  clear          wipe the scrollback\n"
+                "  quit           jack out\n\n"
+                "Feed me an IP, a domain, a URL, an email, or a hash.\n"
+                "Wintermute wants results.",
+                weight=1.0,
+            ),
+        ),
         # ==================================================================
         # status_intro — one-line status header
         # ==================================================================
@@ -1172,6 +1298,10 @@ PHRASES.update(
             Phrase("Oh, just a quick look at the case notes..."),
             Phrase("Where we are — just one more thing:"),
         ),
+        ("neuromancer", "status_intro"): (
+            Phrase("Case, current run:", weight=1.0),
+            Phrase("Console:", weight=0.7),
+        ),
         # ==================================================================
         # farewell — exit message for quit / exit / q
         # ==================================================================
@@ -1218,6 +1348,11 @@ PHRASES.update(
         ("columbo", "farewell"): (
             Phrase("Oh, just one more thing — goodbye."),
             Phrase("That's all for now. My wife would say the same."),
+        ),
+        ("neuromancer", "farewell"): (
+            Phrase("Jacking out. Chiba dawn.", weight=1.0),
+            Phrase("Case out. The matrix goes dark.", weight=1.0),
+            Phrase("Disconnecting. The sprawl hums on.", weight=0.6),
         ),
         # ==================================================================
         # target_set:acknowledged — use <target> acknowledgement
@@ -1267,6 +1402,11 @@ PHRASES.update(
             Phrase("Just one more thing — working {target} now."),
             Phrase("Oh, {target}. Very interesting. Just one more thing."),
         ),
+        ("neuromancer", "target_set:acknowledged"): (
+            Phrase("Target {target}. Cowboy up.", weight=1.0),
+            Phrase("Locked on {target}. Deck warm.", weight=1.0),
+            Phrase("{target}. The matrix hums. Let's ride.", weight=0.6),
+        ),
         # ==================================================================
         # mode_switched — acknowledgement in the NEW mode's voice
         # ==================================================================
@@ -1314,6 +1454,10 @@ PHRASES.update(
             Phrase("Oh, just one more thing — mode switched to columbo."),
             Phrase("Columbo mode. My wife would say I'm always in character."),
         ),
+        ("neuromancer", "mode_switched"): (
+            Phrase("Neuromancer online. The sprawl waits.", weight=1.0),
+            Phrase("Jacked in. Case, the deck is yours.", weight=0.7),
+        ),
         # ==================================================================
         # unknown_mode — response when mode <name> is unrecognised
         # Must contain {name} placeholder.
@@ -1359,6 +1503,10 @@ PHRASES.update(
             Phrase("Oh, just one more thing — I don't recognise mode `{name}`."),
             Phrase("Hmm, `{name}`. My wife would know if that's a real mode."),
         ),
+        ("neuromancer", "unknown_mode"): (
+            Phrase("No such mode: {name}. Chiba doesn't know that name.", weight=1.0),
+            Phrase("Mode {name} not in the deck. Try another.", weight=0.7),
+        ),
         # ==================================================================
         # unknown_verb — safety-net fallback for unrecognised verb dispatch
         # ==================================================================
@@ -1382,6 +1530,11 @@ PHRASES.update(
         ("bruce_lee", "unknown_verb"): (Phrase("That path does not flow. Try `help`."),),
         ("columbo", "unknown_verb"): (
             Phrase("Just one more thing — I'm not sure I know that command. Try `help`."),
+        ),
+        ("neuromancer", "unknown_verb"): (
+            Phrase(
+                "Unknown command, Case. The deck doesn't recognize that. Try `help`.", weight=1.0
+            ),
         ),
     }
 )

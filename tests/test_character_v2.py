@@ -143,6 +143,7 @@ class TestCharacterModeLlmProfileField:
         deckard + hal9000 added with llm_profile set (DEC-CHAR-DECKARD-001,
         DEC-CHAR-HAL9000-001). Remaining KEEP_STATIC modes:
         default/chuck_norris/bobby_hill (DEC-C4-COLUMBO-101).
+        Phase 18 Slice 7A: neuromancer added with llm_profile set (DEC-CHAR-NEUROMANCER-001).
         """
         # Upgraded modes (have llm_profile set)
         upgraded_modes = {
@@ -154,6 +155,7 @@ class TestCharacterModeLlmProfileField:
             "columbo",
             "deckard",
             "hal9000",
+            "neuromancer",  # Phase 18 Slice 7A (DEC-CHAR-NEUROMANCER-001)
         }
         static_modes = {
             name: mode for name, mode in DEFAULT_MODES.items() if name not in upgraded_modes
@@ -162,7 +164,8 @@ class TestCharacterModeLlmProfileField:
             assert mode.llm_profile is None, (
                 f"Mode '{name}' has llm_profile set -- only full_troll (C-1), "
                 "ninja (C-2), sun_tzu/bruce_lee/bureaucrat (C-3), columbo (C-4), "
-                "deckard/hal9000 (Phase 18 Slice 5) should have profiles. "
+                "deckard/hal9000 (Phase 18 Slice 5), neuromancer (Phase 18 Slice 7A) "
+                "should have profiles. "
                 "(DEC-C4-COLUMBO-101: default/chuck_norris/bobby_hill terminally KEEP_STATIC)"
             )
 
@@ -2514,9 +2517,9 @@ class TestTierOneModesPermanentlyStatic:
     def test_keep_static_set_is_exactly_three_modes(self):
         """The KEEP_STATIC set must be exactly {default, chuck_norris, bobby_hill}.
 
-        Phase 18 Slice 5 disposition (DEC-DRUNKEN-MASTER-RETIRED-001):
-        - 8 UPGRADE (full_troll, ninja, sun_tzu, bruce_lee, bureaucrat, columbo,
-                     deckard, hal9000)
+        Phase 18 Slice 7A disposition (DEC-CHAR-NEUROMANCER-001):
+        - 9 UPGRADE (full_troll, ninja, sun_tzu, bruce_lee, bureaucrat, columbo,
+                     deckard, hal9000, neuromancer)
         - 3 KEEP_STATIC terminal (default, chuck_norris, bobby_hill)
 
         This test gates the current disposition. Any mode added to DEFAULT_MODES
@@ -2532,12 +2535,13 @@ class TestTierOneModesPermanentlyStatic:
             "columbo",
             "deckard",
             "hal9000",
+            "neuromancer",  # Phase 18 Slice 7A (DEC-CHAR-NEUROMANCER-001)
         }
         expected_static = {"default", "chuck_norris", "bobby_hill"}
         actual_static = {name for name, mode in DEFAULT_MODES.items() if mode.llm_profile is None}
         assert actual_static == expected_static, (
             f"KEEP_STATIC set mismatch. Expected {expected_static!r}, got {actual_static!r}. "
-            "Phase 18 Slice 5 disposition: 8 UPGRADE + 3 KEEP_STATIC terminal. "
+            "Phase 18 Slice 7A disposition: 9 UPGRADE + 3 KEEP_STATIC terminal. "
             "If a new mode was added, update this set with a new planner decision."
         )
         # Sanity-check: upgraded_modes set must equal all non-static modes
