@@ -106,31 +106,41 @@ class TestBannerModeColorReadsFromTheme:
                 f"(DEC-BANNER-MODE-COLOR-UNIFIED-001)."
             )
 
-    def test_get_mode_color_neuromancer_is_bold_bright_magenta(self) -> None:
-        """neuromancer heading_color is 'bold bright_magenta' — verify via get_mode_color."""
+    def test_get_mode_color_neuromancer_is_bright_magenta_hex(self) -> None:
+        """neuromancer heading_color is '#ff5fff' (bright_magenta hex, PTK-compatible).
+
+        Updated in Slice 7Ah2: bold modifier removed from stored value; hex replaces
+        Rich color name (DEC-TUI-PTK-COLOR-COMPAT-001). get_mode_color() callers
+        (e.g. chat.py _mode_prompt) apply bold in their own markup wrappers.
+        """
         result = get_mode_color("neuromancer")
-        assert result == "bold bright_magenta", (
-            f"neuromancer mode color should be 'bold bright_magenta', got '{result}'"
-        )
+        assert result == "#ff5fff", f"neuromancer mode color should be '#ff5fff', got '{result}'"
 
-    def test_get_mode_color_hal9000_is_bold_bright_red(self) -> None:
-        """hal9000 heading_color is 'bold bright_red'."""
+    def test_get_mode_color_hal9000_is_bright_red_hex(self) -> None:
+        """hal9000 heading_color is '#ff5555' (bright_red hex, PTK-compatible).
+
+        Updated in Slice 7Ah2: bold modifier removed from stored value; hex replaces
+        Rich color name (DEC-TUI-PTK-COLOR-COMPAT-001).
+        """
         result = get_mode_color("hal9000")
-        assert result == "bold bright_red", (
-            f"hal9000 mode color should be 'bold bright_red', got '{result}'"
-        )
+        assert result == "#ff5555", f"hal9000 mode color should be '#ff5555', got '{result}'"
 
-    def test_get_mode_color_chuck_norris_is_bold_bright_magenta(self) -> None:
-        """chuck_norris heading_color is 'bold bright_magenta' (neon storyboard palette)."""
+    def test_get_mode_color_chuck_norris_is_bright_magenta_hex(self) -> None:
+        """chuck_norris heading_color is '#ff5fff' (bright_magenta hex, neon storyboard palette).
+
+        Updated in Slice 7Ah2: bold modifier removed from stored value; hex replaces
+        Rich color name (DEC-TUI-PTK-COLOR-COMPAT-001).
+        """
         result = get_mode_color("chuck_norris")
-        assert result == "bold bright_magenta", (
-            f"chuck_norris mode color should be 'bold bright_magenta', got '{result}'"
-        )
+        assert result == "#ff5fff", f"chuck_norris mode color should be '#ff5fff', got '{result}'"
 
-    def test_get_mode_color_default_contains_cyan(self) -> None:
-        """default heading_color contains 'cyan'."""
+    def test_get_mode_color_default_contains_cyan_hex(self) -> None:
+        """default heading_color is '#00d7d7' (cyan hex, PTK-compatible).
+
+        Updated in Slice 7Ah2: hex replaces Rich color name (DEC-TUI-PTK-COLOR-COMPAT-001).
+        """
         result = get_mode_color("default")
-        assert "cyan" in result, f"default mode color should contain 'cyan', got '{result}'"
+        assert result == "#00d7d7", f"default mode color should be '#00d7d7', got '{result}'"
 
     def test_get_mode_color_unknown_returns_fallback(self) -> None:
         """Unknown mode returns the fallback color, not a KeyError."""

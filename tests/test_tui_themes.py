@@ -1,4 +1,4 @@
-"""Tests for Phase 18 Slice 7A: TUI character theme system.
+"""Tests for Phase 18 Slice 7A (updated Slice 7Ah2): TUI character theme system.
 
 Covers:
 - Every mode in DEFAULT_MODES has a matching theme in DEFAULT_THEMES
@@ -6,7 +6,7 @@ Covers:
 - theme_for() falls back to "default" theme for unknown characters
 - AP_TUI_HIGH_CONTRAST=1 → resolved_border_color returns high_contrast_border
 - AP_TUI_HIGH_CONTRAST=0 / unset → returns normal border_color
-- Neuromancer theme has expected colors (bright_magenta border, cyberpunk palette)
+- All theme color values are hex strings (DEC-TUI-PTK-COLOR-COMPAT-001)
 
 @decision DEC-TEST-TUI-THEMES-001
 @title Theme coverage test: every DEFAULT_MODES character must have a DEFAULT_THEMES entry
@@ -17,7 +17,8 @@ Covers:
            so no character falls through to the generic "default" fallback silently.
            Parametrize over DEFAULT_MODES.keys() so new characters added in future
            slices automatically require a theme entry (test fails loudly — Sacred
-           Practice 5).
+           Practice 5). Slice 7Ah2: color assertions updated to hex values after
+           the PTK compatibility fix (DEC-TUI-PTK-COLOR-COMPAT-001).
 """
 
 from __future__ import annotations
@@ -78,24 +79,40 @@ class TestThemeFor:
     """theme_for() API contract."""
 
     def test_theme_for_neuromancer(self) -> None:
-        """neuromancer theme has bright_magenta border (cyberpunk storyboard palette)."""
+        """neuromancer theme has #ff5fff border (bright_magenta hex, cyberpunk storyboard palette).
+
+        Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
+        (DEC-TUI-PTK-COLOR-COMPAT-001).
+        """
         theme = theme_for("neuromancer")
-        assert theme.border_color == "bright_magenta"
+        assert theme.border_color == "#ff5fff"
 
     def test_theme_for_hal9000(self) -> None:
-        """hal9000 theme has bright_red border (storyboard red palette)."""
+        """hal9000 theme has #ff5555 border (bright_red hex, storyboard red palette).
+
+        Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
+        (DEC-TUI-PTK-COLOR-COMPAT-001).
+        """
         theme = theme_for("hal9000")
-        assert theme.border_color == "bright_red"
+        assert theme.border_color == "#ff5555"
 
     def test_theme_for_chuck_norris(self) -> None:
-        """chuck_norris theme has bright_magenta border (storyboard neon palette)."""
+        """chuck_norris theme has #ff5fff border (bright_magenta hex, storyboard neon palette).
+
+        Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
+        (DEC-TUI-PTK-COLOR-COMPAT-001).
+        """
         theme = theme_for("chuck_norris")
-        assert theme.border_color == "bright_magenta"
+        assert theme.border_color == "#ff5fff"
 
     def test_theme_for_default(self) -> None:
-        """default theme has cyan border."""
+        """default theme has #00d7d7 border (cyan hex).
+
+        Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
+        (DEC-TUI-PTK-COLOR-COMPAT-001).
+        """
         theme = theme_for("default")
-        assert theme.border_color == "cyan"
+        assert theme.border_color == "#00d7d7"
 
     def test_theme_for_unknown_falls_back_to_default(self) -> None:
         """Unknown character falls back to the 'default' theme (not a KeyError)."""
@@ -107,12 +124,20 @@ class TestThemeFor:
         assert isinstance(theme_for("ninja"), CharacterTheme)
 
     def test_neuromancer_accent_bright_cyan(self) -> None:
-        """neuromancer accent color is bright_cyan (cyberpunk palette)."""
-        assert theme_for("neuromancer").accent_color == "bright_cyan"
+        """neuromancer accent color is #5fffff (bright_cyan hex, cyberpunk palette).
+
+        Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
+        (DEC-TUI-PTK-COLOR-COMPAT-001).
+        """
+        assert theme_for("neuromancer").accent_color == "#5fffff"
 
     def test_neuromancer_text_yellow(self) -> None:
-        """neuromancer text color is yellow (matches storyboard yellow-on-purple content)."""
-        assert theme_for("neuromancer").text_color == "yellow"
+        """neuromancer text color is #d7d700 (yellow hex, storyboard yellow-on-purple content).
+
+        Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
+        (DEC-TUI-PTK-COLOR-COMPAT-001).
+        """
+        assert theme_for("neuromancer").text_color == "#d7d700"
 
 
 class TestHighContrastMode:
@@ -149,9 +174,14 @@ class TestHighContrastMode:
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
         assert is_high_contrast_mode() is False
 
-    def test_high_contrast_border_is_bright_white_for_all_themes(self) -> None:
-        """Every character theme has bright_white as the high_contrast_border."""
+    def test_high_contrast_border_is_white_hex_for_all_themes(self) -> None:
+        """Every character theme has #ffffff as the high_contrast_border.
+
+        Updated in Slice 7Ah2: #ffffff replaces 'bright_white' for PTK compatibility
+        (DEC-TUI-PTK-COLOR-COMPAT-001). #ffffff is the hex equivalent of white and
+        is accepted by both Rich and prompt_toolkit's parse_color.
+        """
         for char_name, theme in DEFAULT_THEMES.items():
-            assert theme.high_contrast_border == "bright_white", (
-                f"DEFAULT_THEMES['{char_name}'].high_contrast_border != 'bright_white'"
+            assert theme.high_contrast_border == "#ffffff", (
+                f"DEFAULT_THEMES['{char_name}'].high_contrast_border != '#ffffff'"
             )

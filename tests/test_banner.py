@@ -148,9 +148,13 @@ class TestGetModeColor:
         """sun_tzu mode returns a non-empty color string from the theme system."""
         assert len(get_mode_color("sun_tzu")) > 0
 
-    def test_default_mode_is_cyan(self):
-        """default theme heading_color contains 'cyan' (DEC-TUI-THEME-001)."""
-        assert "cyan" in get_mode_color("default")
+    def test_default_mode_is_cyan_hex(self):
+        """default theme heading_color is '#00d7d7' (cyan hex, PTK-compatible).
+
+        Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
+        (DEC-TUI-PTK-COLOR-COMPAT-001).
+        """
+        assert get_mode_color("default") == "#00d7d7"
 
     def test_return_type_is_always_str(self):
         for mode_name in list(_MODE_NAMES) + ["bogus_mode", "", "NINJA"]:
