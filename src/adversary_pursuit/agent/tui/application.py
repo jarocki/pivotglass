@@ -106,7 +106,31 @@ class TuiApplication:
 
         # Header pane — top-anchored 3-row strip (DEC-TUI-HEADER-001).
         # Subscribes to TargetChanged events to maintain CURRENT / PRIOR breadcrumb.
-        workspace_name = workspace_mgr.active if workspace_mgr is not None else "default"
+        #
+        # @decision DEC-TUI-COLD-START-HARDENING-001
+        # @title TuiApplication.__init__ tolerates workspace_mgr.active raising on cold start
+        # @status accepted
+        # @rationale WorkspaceManager.active is a property that raises RuntimeError when
+        #            _active is None (intentional fail-loud design — callers that assume an
+        #            active workspace should fail immediately). However, TuiApplication.__init__
+        #            is a "may not be active yet" caller: on cold start / first launch, no
+        #            workspace has been switched to, so the property raises before the header
+        #            pane is constructed. The fix wraps the .active call in try/except
+        #            RuntimeError and falls back to "default". WorkspaceManager.get_session()
+        #            auto-switches to "default" on first DB access, so the header will display
+        #            the correct name once any DB interaction occurs. Catching only RuntimeError
+        #            (the specific type workspace.py raises) preserves fail-loud behavior for
+        #            all other exception types (Sacred Practice 5).
+        if workspace_mgr is None:
+            workspace_name = "default"
+        else:
+            try:
+                workspace_name = workspace_mgr.active
+            except RuntimeError:
+                # Cold start: no workspace switched to yet. WorkspaceManager.get_session()
+                # will auto-switch to "default" on first DB access, so "default" is the
+                # accurate name to render in the header until that happens.
+                workspace_name = "default"
         self._header_pane = HeaderPane(
             bus=event_bus,
             workspace_name=workspace_name,
