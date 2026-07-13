@@ -29,9 +29,7 @@ from rich.console import Console
 
 from adversary_pursuit.agent import banner as banner_module
 from adversary_pursuit.agent.banner import (
-    _FALLBACK_COLOR,
     _WORDMARK_DEFAULT,
-    MODE_COLORS,
     get_mode_color,
     render_boot_banner,
     thinking_status,
@@ -112,28 +110,46 @@ class TestGetModeColor:
             assert isinstance(color, str)
             assert len(color) > 0
 
-    def test_mode_colors_dict_covers_all_repl_modes(self):
-        """MODE_COLORS must contain an entry for every mode in _MODE_NAMES."""
+    def test_get_mode_color_consistent_with_themes(self):
+        """get_mode_color() must return the same value as theme_for(name).heading_color.
+
+        DEC-BANNER-MODE-COLOR-UNIFIED-001: banner.get_mode_color() is now a thin
+        wrapper around theme_for().heading_color. This test enforces that the two
+        are identical — no parallel dict, no dual-authority drift.
+        """
+        from adversary_pursuit.agent.tui.themes import theme_for
+
         for mode_name in _MODE_NAMES:
-            assert mode_name in MODE_COLORS, (
-                f"MODE_COLORS is missing an entry for mode '{mode_name}'. "
-                "Add it to banner.MODE_COLORS."
+            assert get_mode_color(mode_name) == theme_for(mode_name).heading_color, (
+                f"get_mode_color('{mode_name}') diverges from theme_for('{mode_name}').heading_color"
             )
 
-    def test_unknown_mode_returns_fallback(self):
+    def test_unknown_mode_returns_default_theme_heading_color(self):
+        """Unknown mode falls back through theme_for() → default theme → heading_color.
+
+        theme_for() returns the 'default' theme for unknown names, so get_mode_color()
+        returns the default theme's heading_color rather than the raw _FALLBACK_COLOR
+        constant (DEC-BANNER-MODE-COLOR-UNIFIED-001).
+        """
+        from adversary_pursuit.agent.tui.themes import theme_for
+
         result = get_mode_color("not_a_real_mode")
-        assert result == _FALLBACK_COLOR
+        assert result == theme_for("default").heading_color
 
-    def test_ninja_is_dim(self):
-        assert "dim" in get_mode_color("ninja")
+    def test_ninja_has_non_empty_color(self):
+        """ninja mode returns a non-empty color string from the theme system."""
+        assert len(get_mode_color("ninja")) > 0
 
-    def test_full_troll_is_magenta(self):
-        assert "magenta" in get_mode_color("full_troll")
+    def test_full_troll_has_non_empty_color(self):
+        """full_troll mode returns a non-empty color string from the theme system."""
+        assert len(get_mode_color("full_troll")) > 0
 
-    def test_sun_tzu_is_cyan(self):
-        assert "cyan" in get_mode_color("sun_tzu")
+    def test_sun_tzu_has_non_empty_color(self):
+        """sun_tzu mode returns a non-empty color string from the theme system."""
+        assert len(get_mode_color("sun_tzu")) > 0
 
     def test_default_mode_is_cyan(self):
+        """default theme heading_color contains 'cyan' (DEC-TUI-THEME-001)."""
         assert "cyan" in get_mode_color("default")
 
     def test_return_type_is_always_str(self):
@@ -317,7 +333,8 @@ class TestBannerCompoundInteraction:
         assert buf.getvalue() == ""
 
         color = get_mode_color("ninja")
-        assert "dim" in color
+        # ninja heading_color is "bold white" (from DEFAULT_THEMES) — verify non-empty str
+        assert isinstance(color, str) and len(color) > 0
 
         with thinking_status(console):
             pass

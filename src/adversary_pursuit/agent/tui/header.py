@@ -37,7 +37,7 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass
 
-from adversary_pursuit.agent.tui.themes import CharacterTheme, resolved_border_color
+from adversary_pursuit.agent.tui.themes import CharacterTheme
 
 # ---------------------------------------------------------------------------
 # Data types
@@ -91,17 +91,17 @@ def render_header(state: HeaderState, theme: CharacterTheme, width: int = 80) ->
     -------
     list[str]
         Exactly 3 plain-text strings: top border, prior row, bottom border.
-        Rich markup is NOT included — callers may wrap these in styled
-        FormattedText segments using theme colors.
+        Rich markup is NOT included — callers apply character theme styles at
+        the FormattedText layer (see TuiApplication._get_header_formatted).
 
     Notes
     -----
-    The border color is available via ``resolved_border_color(theme)`` for
-    callers that want to style the output. The raw strings are markup-free
-    so they can be measured for width without stripping escape codes.
+    This function is markup-free by design: callers (TuiApplication) wrap
+    the returned strings in PTK FormattedText tuples with ``fg:<border_color>``
+    style tokens resolved via ``resolved_border_color(theme)`` at the call site
+    (DEC-TUI-APP-THEME-INJECT-001). Keeping the strings markup-free lets callers
+    measure rendered width without stripping escape codes.
     """
-    _ = resolved_border_color(theme)  # available for styled callers; not applied here
-
     # Build the title bar content: "ADVERSARY PURSUIT v0.4 ─── CURRENT: X ─── WORKSPACE: Y"
     title_parts = [
         f"ADVERSARY PURSUIT {state.version}",

@@ -36,7 +36,10 @@ from adversary_pursuit.agent.tui.events import EventBus
 from adversary_pursuit.agent.tui.header import HeaderPane
 from adversary_pursuit.agent.tui.live_pane import LivePane
 from adversary_pursuit.agent.tui.scrollback import ScrollbackBuffer
-from adversary_pursuit.agent.tui.themes import theme_for  # character theme dispatch
+from adversary_pursuit.agent.tui.themes import (  # character theme dispatch
+    resolved_border_color,
+    theme_for,
+)
 
 
 class NotATTYError(RuntimeError):
@@ -186,34 +189,74 @@ class TuiApplication:
     def _get_header_formatted(self) -> FormattedText:
         """Return the header pane as FormattedText for PTK.
 
-        Uses the active character's theme for border color styling
-        (DEC-TUI-THEME-001 / DEC-TUI-HEADER-001).
+        Applies the active character's border color to every row of the header
+        (DEC-TUI-THEME-001 / DEC-TUI-HEADER-001). The render_header() function
+        returns plain-text strings; style tokens are injected here at the PTK
+        FormattedText layer so the renderer stays markup-free and measurable.
+
+        @decision DEC-TUI-APP-THEME-INJECT-001
+        @title Theme colors are applied at the FormattedText layer in TuiApplication
+        @status accepted
+        @rationale render_header / LivePane.render return plain strings so they
+                   can be width-measured without stripping escape codes. The PTK
+                   FormattedText style token is the correct injection point — it
+                   is applied by PTK's renderer without polluting the string
+                   length invariants. All three pane builders (header, live pane,
+                   scrollback) apply fg:<border_color> so the single authority
+                   for color (DEFAULT_THEMES in themes.py) is read once per render
+                   cycle and applied uniformly (Sacred Practice 12).
         """
         mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
         active_theme = theme_for(mode_name)
+        border_color = resolved_border_color(active_theme)
         rows = self._header_pane.render(theme=active_theme)
-        parts = []
+        parts: list[tuple[str, str]] = []
         for i, row in enumerate(rows):
-            parts.append(("", row))
+            parts.append((f"fg:{border_color}", row))
             if i < len(rows) - 1:
                 parts.append(("", "\n"))
         return FormattedText(parts)
 
     def _get_scrollback_formatted(self) -> FormattedText:
-        """Return the scrollback buffer as FormattedText for PTK."""
+        """Return the scrollback buffer as FormattedText for PTK.
+
+        Scrollback lines are emitted as terminal-default text (style ``""``).
+        The scrollback buffer stores plain strings that may contain Rich markup
+        stripped by emit_line; we do not re-apply character theme colors here
+        because the scrollback content is heterogeneous (user input, tool output,
+        error panels) and does not belong to any single character's palette.
+        Character-themed borders are applied only to the header and live pane
+        (DEC-TUI-APP-THEME-INJECT-001).
+        """
         lines = self._scrollback.get_lines()
-        # Each line followed by a newline; plain style
-        parts = []
+        parts: list[tuple[str, str]] = []
         for line in lines:
             parts.append(("", line + "\n"))
         return FormattedText(parts)
 
     def _get_live_pane_formatted(self) -> FormattedText:
-        """Return the live pane as FormattedText for PTK."""
+        """Return the live pane as FormattedText for PTK.
+
+        Applies the active character's border color to the live pane rows so
+        the pane participates in the per-character visual identity system
+        (DEC-TUI-THEME-001 / DEC-TUI-APP-THEME-INJECT-001).
+
+        Row 1 (character identity line) uses ``heading_color`` for bold accent.
+        Rows 2–6 (target, hypothesis, dossier, activity, yield hint) use
+        ``fg:<border_color>`` so the pane frame is character-colored throughout.
+        The theme is resolved fresh on every render call so a mode change takes
+        effect on the next refresh cycle without any additional cache invalidation.
+        """
+        mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
+        active_theme = theme_for(mode_name)
+        border_color = resolved_border_color(active_theme)
+        heading_style = active_theme.heading_color
         rows = self._live_pane.render()
-        parts = []
+        parts: list[tuple[str, str]] = []
         for i, row in enumerate(rows):
-            parts.append(("", row))
+            # Row 0 (index 0) is the character identity line — use heading_color for accent
+            style = heading_style if i == 0 else f"fg:{border_color}"
+            parts.append((style, row))
             if i < len(rows) - 1:
                 parts.append(("", "\n"))
         return FormattedText(parts)
