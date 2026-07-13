@@ -112,30 +112,34 @@ _WORDMARK_COLORS: list[str] = [
 ]
 
 # ---------------------------------------------------------------------------
-# Mode → colour mapping
+# Mode → colour mapping (DEC-TUI-THEME-001 / Sacred Practice 12)
 # ---------------------------------------------------------------------------
 
-#: Maps character mode name → Rich colour string used for the prompt prefix.
-#: Covers all 11 DEFAULT_MODES entries.  Falls back to "cyan" for unknown modes.
-MODE_COLORS: dict[str, str] = {
-    "default": "bold cyan",
-    "ninja": "dim white",
-    "full_troll": "bold magenta",
-    "sun_tzu": "cyan",
-    "chuck_norris": "bold red",
-    "bureaucrat": "white",
-    "bobby_hill": "bold green",
-    "bruce_lee": "bold blue",
-    "columbo": "bold yellow",
-    "deckard": "bold yellow",
-    "hal9000": "bold red",
-}
+# @decision DEC-BANNER-MODE-COLOR-UNIFIED-001
+# @title get_mode_color() delegates to themes.py; MODE_COLORS dict removed
+# @status accepted
+# @rationale Prior to Slice 7A, banner.py maintained its own MODE_COLORS dict
+#            in parallel with DEFAULT_THEMES in themes.py — a dual-authority
+#            violation of Sacred Practice 12. This round deletes MODE_COLORS
+#            and routes get_mode_color() through theme_for(name).heading_color,
+#            making DEFAULT_THEMES the single authority for all character color
+#            strings. The function signature is unchanged so chat.py callers
+#            require no update. theme_for() already falls back to the "default"
+#            theme for unknown characters (DEC-TUI-THEME-001), preserving the
+#            graceful-degradation contract.
 
 _FALLBACK_COLOR = "cyan"
 
 
 def get_mode_color(mode_name: str) -> str:
     """Return the Rich colour string for *mode_name*.
+
+    Delegates to ``theme_for(mode_name).heading_color`` so that
+    ``DEFAULT_THEMES`` in ``themes.py`` is the single authority for character
+    color strings (DEC-TUI-THEME-001 / DEC-BANNER-MODE-COLOR-UNIFIED-001 /
+    Sacred Practice 12). Falls back to ``"cyan"`` only when the theme lookup
+    itself raises unexpectedly — under normal operation theme_for() always
+    returns a valid theme.
 
     Parameters
     ----------
@@ -145,11 +149,16 @@ def get_mode_color(mode_name: str) -> str:
     Returns
     -------
     str
-        A Rich colour/style string (e.g. ``"bold magenta"``).  Falls back to
-        ``"cyan"`` for unrecognised modes so new modes added to gamification
-        degrade gracefully.
+        A Rich colour/style string (e.g. ``"bold bright_magenta"``).  Falls
+        back to ``"cyan"`` for unrecognised modes because theme_for() returns
+        the default theme for unknown names.
     """
-    return MODE_COLORS.get(mode_name, _FALLBACK_COLOR)
+    try:
+        from adversary_pursuit.agent.tui.themes import theme_for
+
+        return theme_for(mode_name).heading_color
+    except Exception:  # noqa: BLE001
+        return _FALLBACK_COLOR
 
 
 # ---------------------------------------------------------------------------

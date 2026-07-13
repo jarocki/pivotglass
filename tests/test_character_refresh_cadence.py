@@ -60,9 +60,13 @@ def test_refresh_hz_bobby_hill():
     assert _REFRESH_HZ["bobby_hill"] == 2.0
 
 
-def test_refresh_hz_table_has_ten_characters():
-    """The _REFRESH_HZ table must have exactly 10 character entries."""
-    assert len(_REFRESH_HZ) == 10
+def test_refresh_hz_table_has_twelve_characters():
+    """The _REFRESH_HZ table must have exactly 12 character entries.
+
+    Phase 18 Slice 7A: neuromancer added (3.0 Hz urgent pacing).
+    Phase 18 Slice 5: columbo added.
+    """
+    assert len(_REFRESH_HZ) == 12
 
 
 def test_refresh_hz_all_values_are_positive_floats():

@@ -99,17 +99,19 @@ class TestDefaultModes:
         "columbo",
         "deckard",
         "hal9000",
+        "neuromancer",  # Phase 18 Slice 7A (DEC-CHAR-NEUROMANCER-001)
     }
 
-    def test_eleven_modes_present(self):
-        """Exactly 11 modes should exist: default + 10 personality modes.
+    def test_twelve_modes_present(self):
+        """Exactly 12 modes should exist: default + 11 personality modes.
 
+        Phase 18 Slice 7A: neuromancer added (DEC-CHAR-NEUROMANCER-001).
         Phase 18 Slice 5: drunken_master retired, deckard + hal9000 added.
         """
-        assert len(DEFAULT_MODES) == 11
+        assert len(DEFAULT_MODES) == 12
 
     def test_all_expected_names_present(self):
-        """All 11 named modes are in DEFAULT_MODES."""
+        """All 12 named modes are in DEFAULT_MODES."""
         assert set(DEFAULT_MODES.keys()) == self.EXPECTED_NAMES
 
     def test_default_mode_exists(self):
@@ -318,9 +320,9 @@ class TestModeManagerListModes:
         assert isinstance(result, list)
 
     def test_list_modes_count(self, mgr: ModeManager):
-        """list_modes() returns 11 entries (Phase 18 Slice 5: -drunken_master +deckard +hal9000)."""
+        """list_modes() returns 12 entries (Slice 7A: +neuromancer; Slice 5: -drunken_master +deckard +hal9000)."""
         result = mgr.list_modes()
-        assert len(result) == 11
+        assert len(result) == 12
 
     def test_list_modes_contains_dicts_with_name_and_personality(self, mgr: ModeManager):
         """Each entry is a dict with 'name' and 'personality' keys."""

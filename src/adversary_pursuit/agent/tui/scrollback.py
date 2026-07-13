@@ -97,6 +97,19 @@ class ScrollbackBuffer:
 
         Each line of *body* is word-wrapped to fit inside the border.
 
+        Styling note (DEC-TUI-APP-THEME-INJECT-001): Panel lines are stored
+        as plain strings in the scrollback buffer. Character theme colors are
+        applied at the PTK FormattedText layer in TuiApplication, not inside
+        ScrollbackBuffer. Because the scrollback's own FormattedText builder
+        (``_get_scrollback_formatted``) uses terminal-default style (``""``),
+        panel border characters rendered here will appear in the terminal's
+        default foreground color rather than the character's border_color.
+        This is intentional: the scrollback is a mixed-content audit trail
+        (user input, tool output, error panels) and applying a single
+        character palette would misrepresent heterogeneous content. If a
+        caller wants a themed panel, it should emit Rich-markup text via
+        ``emit_line()`` before storing the panel content.
+
         Parameters
         ----------
         title:
