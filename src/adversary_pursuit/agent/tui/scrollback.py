@@ -166,6 +166,22 @@ class ScrollbackBuffer:
         with self._lock:
             return list(self._lines)
 
+    def get_window(self, limit: int, offset: int = 0) -> list[str]:
+        """Return a bounded window from the end of the transcript.
+
+        ``offset=0`` follows the newest output. Positive offsets move the
+        window backwards for PageUp-style navigation. Keeping this operation
+        bounded prevents the full-screen renderer from copying and rebuilding
+        an hours-long transcript on every status refresh.
+        """
+        if limit <= 0:
+            return []
+        offset = max(0, offset)
+        with self._lock:
+            end = max(0, len(self._lines) - offset)
+            start = max(0, end - limit)
+            return list(self._lines[start:end])
+
     # ------------------------------------------------------------------
     # Rich protocol
     # ------------------------------------------------------------------

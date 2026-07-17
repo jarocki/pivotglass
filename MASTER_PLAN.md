@@ -62,6 +62,7 @@ The risk: dormancy is a pattern. The antidote is code, not more planning. Issue 
 3. **STIX 2.1 is the lingua franca.** All module output speaks STIX. This is non-negotiable for interoperability with OpenCTI, MISP, and the broader CTI ecosystem.
 4. **Modules are pure data producers.** Modules query external sources and return STIX observables. They don't render output, manage state, or trigger side effects. The console orchestrates; the gamification engine observes.
 5. **Playfulness and rigor are not opposites.** Bobby Hill mode and STIX 2.1 compliance coexist. The tool is simultaneously serious in its analytical capabilities and absurd in its celebration of them.
+6. **Deterministic and API-first; LLM only where it earns the call.** Local commands, target classification, tool selection, API queries, persistence, scoring, and known transforms run without an LLM. Use the LLM for synthesis, hypothesis formation, creative reasoning, or work that genuinely requires a broad subject-matter corpus. One reasoning call consumes aggregated evidence; never spend tokens choosing an obvious API battery or re-narrating facts already rendered by the interface.
 
 ## Non-Goals (v1)
 

@@ -23,20 +23,38 @@ from __future__ import annotations
 import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
+from io import StringIO
+from pathlib import Path
 
 from prompt_toolkit import Application
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.enums import EditingMode
+from prompt_toolkit.filters import Condition
 from prompt_toolkit.formatted_text import FormattedText
+from prompt_toolkit.history import FileHistory, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.layout.containers import HSplit, Window
+from prompt_toolkit.layout.containers import (
+    ConditionalContainer,
+    Float,
+    FloatContainer,
+    HSplit,
+    VSplit,
+    Window,
+)
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
+from prompt_toolkit.widgets import Box, Frame
+from rich.console import Console
 
+from adversary_pursuit.agent.repl_input import APCompleter
 from adversary_pursuit.agent.tui.events import EventBus
 from adversary_pursuit.agent.tui.header import HeaderPane
 from adversary_pursuit.agent.tui.live_pane import LivePane
 from adversary_pursuit.agent.tui.scrollback import ScrollbackBuffer
 from adversary_pursuit.agent.tui.themes import (  # character theme dispatch
+    pursuit_title_for,
     resolved_border_color,
     theme_for,
 )
@@ -47,6 +65,54 @@ class NotATTYError(RuntimeError):
 
     Callers should catch this and fall back to the legacy Rich REPL.
     """
+
+
+_HELP_TEXT = """QUICK CONTROL
+
+  use <ioc>        Set or pivot the active target
+  investigate ... Ask AP to hunt or explain
+  stop             Halt the active battery
+  focus <tool>     Prioritize one source
+  add <tool>       Add a source to the hunt
+  skip <tool>      Skip a queued source
+
+DECK
+
+  status           Investigation snapshot
+  mode <name>      Change voice and palette
+  workspace ...    Manage investigation spaces
+  clear            Clear the intelligence feed
+
+KEYS
+
+  Tab              Complete commands and arguments
+  PageUp/PageDown  Browse the intelligence feed
+  Esc >            Jump to newest activity
+  ?                Open or close this help deck
+
+Press Esc, ?, q, or Enter to return to the hunt."""
+
+
+class _TuiConsole:
+    """Small Rich-console adapter that routes panels into TUI scrollback."""
+
+    def __init__(self, emit) -> None:  # type: ignore[no-untyped-def]
+        self._emit = emit
+
+    def print(self, *objects, **kwargs) -> None:  # type: ignore[no-untyped-def]
+        stream = StringIO()
+        console = Console(file=stream, color_system=None, width=96, highlight=False)
+        console.print(*objects, **kwargs)
+        rendered = stream.getvalue().rstrip()
+        # The diagnostic remains recorded, but normal flow should present the
+        # recovery action rather than assign log-reading homework to the user.
+        lines = []
+        for line in rendered.splitlines():
+            if "Debug log:" in line:
+                line = line.split("Debug log:", 1)[0].rstrip() + "  Details retained automatically"
+            lines.append(line)
+        if lines:
+            self._emit("\n".join(lines))
 
 
 class TuiApplication:
@@ -90,6 +156,11 @@ class TuiApplication:
         self._workspace_mgr = workspace_mgr
         self._mode_mgr = mode_mgr
         self._event_bus = event_bus
+        self._executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ap-command")
+        self._chat_lock = threading.Lock()
+        self._scroll_offset = 0
+        self._help_visible = False
+        self._prompt_phase = False
 
         # Shared scrollback buffer written by all session output paths
         self._scrollback = ScrollbackBuffer()
@@ -141,8 +212,18 @@ class TuiApplication:
             name="input",
             multiline=False,
             accept_handler=self._on_input_accepted,
+            completer=APCompleter(),
+            history=self._build_history(),
+            auto_suggest=AutoSuggestFromHistory(),
+            complete_while_typing=False,
         )
         self._app = self._build_app()
+
+        # Tool failures previously rendered to the underlying Rich console,
+        # outside the full-screen deck. Route them into the investigation feed.
+        ctx = getattr(self._runner, "ctx", None)
+        if ctx is not None:
+            ctx.console = _TuiConsole(self.emit_scrollback)
 
         # Background refresh thread state
         self._refresh_thread: threading.Thread | None = None
@@ -160,6 +241,47 @@ class TuiApplication:
         @kb.add("c-d")
         def _exit(event) -> None:  # type: ignore[no-untyped-def]
             event.app.exit()
+
+        @kb.add("pageup")
+        def _page_up(event) -> None:  # type: ignore[no-untyped-def]
+            self._scroll_offset += 10
+            event.app.invalidate()
+
+        @kb.add("pagedown")
+        def _page_down(event) -> None:  # type: ignore[no-untyped-def]
+            self._scroll_offset = max(0, self._scroll_offset - 10)
+            event.app.invalidate()
+
+        @kb.add("escape", "<")
+        def _oldest(event) -> None:  # type: ignore[no-untyped-def]
+            self._scroll_offset = 10**9
+            event.app.invalidate()
+
+        @kb.add("escape", ">")
+        def _newest(event) -> None:  # type: ignore[no-untyped-def]
+            self._scroll_offset = 0
+            event.app.invalidate()
+
+        help_closed = Condition(lambda: not self._help_visible)
+        help_open = Condition(lambda: self._help_visible)
+
+        @kb.add("?", filter=help_closed)
+        def _show_help(event) -> None:  # type: ignore[no-untyped-def]
+            # A question mark inside a sentence remains ordinary input. An
+            # empty command line makes '?' the instant help instrument.
+            if self._input_buffer.text:
+                self._input_buffer.insert_text("?")
+                return
+            self._help_visible = True
+            event.app.invalidate()
+
+        @kb.add("escape", filter=help_open)
+        @kb.add("?", filter=help_open)
+        @kb.add("q", filter=help_open)
+        @kb.add("enter", filter=help_open)
+        def _hide_help(event) -> None:  # type: ignore[no-untyped-def]
+            self._help_visible = False
+            event.app.invalidate()
 
         # Header pane — fixed 3 rows at the top (DEC-TUI-HEADER-001)
         header_control = FormattedTextControl(
@@ -182,11 +304,17 @@ class TuiApplication:
             wrap_lines=True,
         )
 
+        prompt_window = Window(
+            content=FormattedTextControl(self._get_prompt_formatted),
+            width=2,
+            dont_extend_width=True,
+        )
         input_window = Window(
             content=BufferControl(buffer=self._input_buffer, focusable=True),
             height=1,
             dont_extend_height=True,
         )
+        input_row = VSplit([prompt_window, input_window], height=1)
 
         live_pane_control = FormattedTextControl(
             text=self._get_live_pane_formatted,
@@ -198,8 +326,31 @@ class TuiApplication:
             dont_extend_height=True,
         )
 
+        feed = Frame(
+            body=scrollback_window,
+            title=self._get_pursuit_title_formatted,
+        )
+        base = HSplit([header_window, feed, input_row, live_pane_window])
+        help_window = ConditionalContainer(
+            content=Box(
+                body=Frame(
+                    body=Window(
+                        content=FormattedTextControl(self._get_help_formatted),
+                        wrap_lines=False,
+                    ),
+                    title=" ?  OPERATOR HELP ",
+                ),
+                padding=1,
+            ),
+            filter=Condition(lambda: self._help_visible),
+        )
+        root = FloatContainer(
+            content=base,
+            floats=[Float(content=help_window, width=70, height=27)],
+        )
+
         layout = Layout(
-            HSplit([header_window, scrollback_window, input_window, live_pane_window]),
+            root,
             focused_element=input_window,
         )
 
@@ -208,7 +359,35 @@ class TuiApplication:
             key_bindings=kb,
             full_screen=True,
             mouse_support=False,
+            editing_mode=self._editing_mode(),
         )
+
+    def _get_prompt_formatted(self) -> FormattedText:
+        mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
+        theme = theme_for(mode_name)
+        glyph = "▶" if self._prompt_phase else ">"
+        return FormattedText(
+            [(f"blink bold reverse fg:{theme.accent_color}", f"{glyph} ")]
+        )
+
+    def _get_help_formatted(self) -> FormattedText:
+        mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
+        theme = theme_for(mode_name)
+        parts: list[tuple[str, str]] = []
+        for line in _HELP_TEXT.splitlines():
+            if line in {"QUICK CONTROL", "DECK", "KEYS"}:
+                parts.append((f"bold fg:{theme.accent_color}", line + "\n"))
+            elif line.startswith("Press "):
+                parts.append((f"bold reverse fg:{theme.accent_color}", line))
+            else:
+                parts.append((f"fg:{theme.text_color}", line + "\n"))
+        return FormattedText(parts)
+
+    def _get_pursuit_title_formatted(self) -> FormattedText:
+        mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
+        theme = theme_for(mode_name)
+        title = pursuit_title_for(mode_name)
+        return FormattedText([(f"bold fg:{theme.heading_color}", f" {title} ")])
 
     def _get_header_formatted(self) -> FormattedText:
         """Return the header pane as FormattedText for PTK.
@@ -252,7 +431,10 @@ class TuiApplication:
         Character-themed borders are applied only to the header and live pane
         (DEC-TUI-APP-THEME-INJECT-001).
         """
-        lines = self._scrollback.get_lines()
+        # A bounded render window is essential: the live pane refreshes while
+        # tools run, and rebuilding an unbounded transcript made long sessions
+        # progressively slower.
+        lines = self._scrollback.get_window(limit=500, offset=self._scroll_offset)
         parts: list[tuple[str, str]] = []
         for line in lines:
             parts.append(("", line + "\n"))
@@ -325,22 +507,135 @@ class TuiApplication:
         self._runner._scrollback_clear = self._scrollback.clear  # type: ignore[attr-defined]
         self._runner._event_bus = self._event_bus  # type: ignore[attr-defined]
 
-        try:
-            from adversary_pursuit.agent.repl_verbs import _FarewellExit
+        # Never run network/LLM work on prompt_toolkit's render thread. Apart
+        # from freezing repaint and completion, the old synchronous call made
+        # the advertised yield controls unusable while a hunt was active.
+        self._executor.submit(self._process_input, text)
 
-            # handle_input always returns a str (never None).
-            result = self._runner.handle_input(text, status_bar=self._live_pane)
+    def _process_input(self, text: str) -> None:
+        """Dispatch one command away from the render thread.
+
+        Natural-language chat mutations are serialized because AgentRunner's
+        conversation is ordered state. Local/yield commands remain concurrent
+        so ``stop``, ``focus``, ``add`` and ``skip`` work during a slow hunt.
+        """
+        from adversary_pursuit.agent.repl_verbs import _FarewellExit, parse_repl_verb
+        from adversary_pursuit.agent.yield_commands import parse_yield
+
+        try:
+            verb = parse_repl_verb(text)
+            is_local = verb is not None or parse_yield(text) is not None
+            if is_local:
+                result = self._runner.handle_input(text, status_bar=self._live_pane)
+            else:
+                with self._chat_lock:
+                    result = self._runner.handle_input(text, status_bar=self._live_pane)
             if result:
-                self._scrollback.emit_line(result)
+                self.emit_scrollback(result)
+            if verb is not None and verb.name == "use":
+                self._run_target_batteries(verb.args[0])
         except _FarewellExit as exc:
-            # quit/exit/q — emit farewell phrase then exit the TUI.
             if exc.phrase:
-                self._scrollback.emit_line(exc.phrase)
+                self.emit_scrollback(exc.phrase)
             self._app.exit()
         except SystemExit:
             self._app.exit()
         except Exception as exc:  # noqa: BLE001
-            self.emit_scrollback(f"[error] {exc}")
+            self._emit_error_card(exc, text)
+
+    def _run_target_batteries(self, target: str) -> None:
+        """Run deterministic local/API batteries, then synthesize once.
+
+        Target classification and tool selection do not spend tokens. The LLM
+        sees only the aggregated evidence and is called at most once, where its
+        reasoning adds value: synthesis, hypotheses, and the next pivot.
+        """
+        from adversary_pursuit.agent.battery import BatteryRun
+        from adversary_pursuit.agent.battery_registry import dispatch_batteries
+        from adversary_pursuit.agent.tools import execute_tool
+        from adversary_pursuit.core.ioc_types import detect_ioc_type
+
+        ioc_type = detect_ioc_type(target)
+        stix_types = {
+            "ipv4": "ipv4-addr",
+            "ipv6": "ipv6-addr",
+            "domain": "domain-name",
+            "url": "url",
+            "email": "email-addr",
+            "sha256": "file",
+            "sha1": "file",
+            "md5": "file",
+        }
+        target_type = stix_types.get(ioc_type or "", "unrecognized-type")
+        batteries = dispatch_batteries(target_type, dossier_state=None)
+        if not batteries:
+            self.emit_scrollback(f"No local hunting battery matches {target_type} yet.")
+            return
+
+        schemas = {
+            schema.get("function", {}).get("name"): schema.get("function", {})
+            for schema in getattr(self._runner, "tools", ())
+            if isinstance(schema, dict)
+        }
+        evidence: list[str] = []
+
+        def run_tool(tool_name: str, value: str) -> None:
+            function = schemas.get(tool_name)
+            if function is None:
+                self.emit_scrollback(f"◇ {tool_name}: unavailable — continuing")
+                return
+            parameters = function.get("parameters", {})
+            properties = parameters.get("properties", {})
+            required = parameters.get("required", ())
+            argument_name = required[0] if required else next(iter(properties), "target")
+            summary, celebration, _badges, _challenges = execute_tool(
+                self._runner.ctx, tool_name, {argument_name: value}
+            )
+            evidence.append(f"[{tool_name}]\n{summary}")
+            self._scrollback.emit_panel(tool_name.upper().replace("_", " "), summary)
+            if celebration:
+                self.emit_scrollback(celebration)
+
+        try:
+            for battery in batteries:
+                if not battery.tools:
+                    continue
+                run = BatteryRun(battery, self._event_bus, run_tool)
+                self._runner._active_battery_run = run  # type: ignore[attr-defined]
+                run.run(target)
+        finally:
+            self._runner._active_battery_run = None  # type: ignore[attr-defined]
+
+        if not evidence:
+            return
+        narrate = getattr(self._runner, "narrate", None)
+        if not callable(narrate):
+            return
+        prompt = (
+            "Synthesize this deterministic threat-hunting evidence. Identify the strongest "
+            "finding, uncertainties, one defensible hypothesis, and the highest-value next "
+            f"pivot. Be concise and do not repeat raw fields. Target: {target}\n\n"
+            + "\n\n".join(evidence)
+        )
+        synthesis = narrate(prompt, max_tokens=300)
+        if synthesis:
+            self._scrollback.emit_panel("HUNT SYNTHESIS", synthesis)
+            self._app.invalidate()
+
+    def _emit_error_card(self, exc: BaseException, command: str) -> None:
+        """Turn an exception into an in-context recovery card."""
+        from adversary_pursuit.core.error_interpreter import interpret
+
+        interp = interpret(exc, context={"surface": "tui", "command": command[:200]})
+        body = (
+            f"{interp.summary}\n\n"
+            f"NEXT  {interp.suggested_fix}\n"
+            f"RETRY Re-run the command when ready\n"
+            f"REF   {interp.diagnostic_id} (details retained automatically)"
+        )
+        self._scrollback.emit_panel(f"{interp.category.upper()} · RECOVERY", body)
+        self._scroll_offset = 0
+        self._app.invalidate()
 
     # ------------------------------------------------------------------
     # Public API
@@ -355,6 +650,7 @@ class TuiApplication:
             Plain-text string. Multi-line strings are split on newlines.
         """
         self._scrollback.emit_line(text)
+        self._scroll_offset = 0
         # Invalidate the PTK app so the new line is rendered promptly
         try:
             self._app.invalidate()
@@ -378,6 +674,7 @@ class TuiApplication:
             self._app.run()
         finally:
             self._stop_refresh.set()
+            self._executor.shutdown(wait=False, cancel_futures=True)
 
     # ------------------------------------------------------------------
     # Background refresh loop
@@ -386,9 +683,13 @@ class TuiApplication:
     def _refresh_loop(self) -> None:
         """Background thread: invalidate the app at the live pane cadence."""
         while not self._stop_refresh.is_set():
-            hz = self._live_pane.refresh_hz
+            # Faster redraws do not make network work faster. Two frames per
+            # second keeps activity feeling live without continuously repainting
+            # the terminal while the operator is typing.
+            hz = min(self._live_pane.refresh_hz, 2.0)
             interval = 1.0 / max(hz, 0.1)
             time.sleep(interval)
+            self._prompt_phase = not self._prompt_phase
             try:
                 self._app.invalidate()
             except Exception:  # noqa: BLE001
@@ -406,6 +707,21 @@ class TuiApplication:
         except Exception:  # noqa: BLE001
             pass
         return ""
+
+    def _editing_mode(self) -> EditingMode:
+        config = getattr(self._runner, "_config_mgr", None)
+        configured = config.get_editing_mode() if config is not None else "vi"
+        env = __import__("os").environ.get("AP_EDITING_MODE", configured).lower()
+        return EditingMode.EMACS if env == "emacs" else EditingMode.VI
+
+    @staticmethod
+    def _build_history():
+        history_path = Path.home() / ".ap" / "chat_history"
+        try:
+            history_path.parent.mkdir(parents=True, exist_ok=True)
+            return FileHistory(str(history_path))
+        except OSError:
+            return InMemoryHistory()
 
     @property
     def scrollback(self) -> ScrollbackBuffer:

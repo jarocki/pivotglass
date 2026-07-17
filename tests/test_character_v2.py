@@ -156,6 +156,7 @@ class TestCharacterModeLlmProfileField:
             "deckard",
             "hal9000",
             "neuromancer",  # Phase 18 Slice 7A (DEC-CHAR-NEUROMANCER-001)
+            "trinity",
         }
         static_modes = {
             name: mode for name, mode in DEFAULT_MODES.items() if name not in upgraded_modes
@@ -2476,29 +2477,19 @@ class TestColumboDossierAwareContextHooks:
 
 
 class TestTierOneModesPermanentlyStatic:
-    """chuck_norris and bobby_hill must remain llm_profile=None.
+    """Classic static modes must remain llm_profile=None.
 
     DEC-C4-COLUMBO-101 reclassified drunken_master/chuck_norris/bobby_hill as
-    terminal KEEP_STATIC. Phase 18 Slice 5 retired drunken_master
-    (DEC-DRUNKEN-MASTER-RETIRED-001) — it is no longer in DEFAULT_MODES.
-    chuck_norris and bobby_hill remain terminal KEEP_STATIC.
+    terminal KEEP_STATIC. Drunken Master is deprecated but remains selectable.
 
     Phase 18 Slice 5 adds deckard and hal9000 WITH llm_profile set, so the
-    KEEP_STATIC set is now exactly {default, chuck_norris, bobby_hill} (3 modes).
+    KEEP_STATIC set includes the default and three classic static modes.
 
     This test class is the terminal mechanical gate for that decision.
     """
 
-    def test_drunken_master_not_in_default_modes(self):
-        """drunken_master was retired in Phase 18 Slice 5 (DEC-DRUNKEN-MASTER-RETIRED-001).
-
-        It must NOT appear in DEFAULT_MODES. The v1-composition-carrier test path
-        has been migrated to chuck_norris (also llm_profile=None, KEEP_STATIC).
-        """
-        assert "drunken_master" not in DEFAULT_MODES, (
-            "drunken_master must not be in DEFAULT_MODES — "
-            "retired in Phase 18 Slice 5 (DEC-DRUNKEN-MASTER-RETIRED-001)."
-        )
+    def test_drunken_master_remains_static(self):
+        assert DEFAULT_MODES["drunken_master"].llm_profile is None
 
     def test_chuck_norris_is_permanently_static(self):
         """chuck_norris must remain llm_profile=None (terminal KEEP_STATIC per DEC-C4-COLUMBO-101)."""
@@ -2514,13 +2505,13 @@ class TestTierOneModesPermanentlyStatic:
             "Do NOT add a profile — permanent decision, no C-5."
         )
 
-    def test_keep_static_set_is_exactly_three_modes(self):
-        """The KEEP_STATIC set must be exactly {default, chuck_norris, bobby_hill}.
+    def test_keep_static_set_is_exactly_four_modes(self):
+        """The KEEP_STATIC set includes the deprecated classic.
 
         Phase 18 Slice 7A disposition (DEC-CHAR-NEUROMANCER-001):
         - 9 UPGRADE (full_troll, ninja, sun_tzu, bruce_lee, bureaucrat, columbo,
                      deckard, hal9000, neuromancer)
-        - 3 KEEP_STATIC terminal (default, chuck_norris, bobby_hill)
+        - 4 KEEP_STATIC terminal (default, drunken_master, chuck_norris, bobby_hill)
 
         This test gates the current disposition. Any mode added to DEFAULT_MODES
         that ships with llm_profile=None should update this set deliberately
@@ -2536,12 +2527,13 @@ class TestTierOneModesPermanentlyStatic:
             "deckard",
             "hal9000",
             "neuromancer",  # Phase 18 Slice 7A (DEC-CHAR-NEUROMANCER-001)
+            "trinity",
         }
-        expected_static = {"default", "chuck_norris", "bobby_hill"}
+        expected_static = {"default", "drunken_master", "chuck_norris", "bobby_hill"}
         actual_static = {name for name, mode in DEFAULT_MODES.items() if mode.llm_profile is None}
         assert actual_static == expected_static, (
             f"KEEP_STATIC set mismatch. Expected {expected_static!r}, got {actual_static!r}. "
-            "Phase 18 Slice 7A disposition: 9 UPGRADE + 3 KEEP_STATIC terminal. "
+            "Disposition: upgraded personas + 4 KEEP_STATIC modes. "
             "If a new mode was added, update this set with a new planner decision."
         )
         # Sanity-check: upgraded_modes set must equal all non-static modes

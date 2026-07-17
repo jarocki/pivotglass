@@ -141,26 +141,18 @@ class TestPickAPI:
 
 
 # ---------------------------------------------------------------------------
-# drunken_master retirement
+# drunken_master compatibility
 # ---------------------------------------------------------------------------
 
 
-class TestDrunkenMasterRetired:
-    """drunken_master must NOT be present in DEFAULT_MODES (retired in Phase 18 Slice 5)."""
+class TestDrunkenMasterDeprecated:
+    """drunken_master is deprecated but remains selectable and voiced."""
 
-    def test_drunken_master_not_in_default_modes(self):
-        """drunken_master was retired — it must not be in DEFAULT_MODES."""
-        assert "drunken_master" not in DEFAULT_MODES, (
-            "drunken_master must not be in DEFAULT_MODES — "
-            "it was retired in Phase 18 Slice 5 (DEC-DRUNKEN-MASTER-RETIRED-001)"
-        )
+    def test_drunken_master_in_default_modes(self):
+        assert "drunken_master" in DEFAULT_MODES
 
-    def test_drunken_master_archived_phrases_exist(self):
-        """drunken_master phrases are archived under drunken_master_retired key."""
-        assert ("drunken_master_retired", "greeting") in PHRASES, (
-            "drunken_master_retired greeting phrases not found in PHRASES archive"
-        )
-        assert len(PHRASES[("drunken_master_retired", "greeting")]) >= 3
+    def test_drunken_master_phrases_exist(self):
+        assert len(PHRASES[("drunken_master", "greeting")]) >= 3
 
 
 # ---------------------------------------------------------------------------

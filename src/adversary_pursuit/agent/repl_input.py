@@ -57,6 +57,13 @@ _TOP_LEVEL_COMMANDS: list[str] = [
     "report",
     "help",
     "model",
+    "status",
+    "clear",
+    "use",
+    "stop",
+    "focus",
+    "add",
+    "skip",
     "quit",
     "exit",
     "?",
@@ -64,12 +71,12 @@ _TOP_LEVEL_COMMANDS: list[str] = [
 
 #: Character mode names (mirrors gamification.modes.DEFAULT_MODES keys).
 #: Hardcoded constant so we don't import from gamification (forbidden in chat).
-#: Phase 18 Slice 5: drunken_master retired (DEC-DRUNKEN-MASTER-RETIRED-001);
-#: deckard and hal9000 added (DEC-CHAR-DECKARD-001, DEC-CHAR-HAL9000-001).
+#: Deprecated modes remain discoverable so deprecation never destroys user choice.
 _MODE_NAMES: list[str] = [
     "default",
     "ninja",
     "full_troll",
+    "drunken_master",
     "sun_tzu",
     "chuck_norris",
     "bureaucrat",
@@ -78,6 +85,8 @@ _MODE_NAMES: list[str] = [
     "columbo",
     "deckard",
     "hal9000",
+    "neuromancer",
+    "trinity",
 ]
 
 #: CTI module names for hint completion.

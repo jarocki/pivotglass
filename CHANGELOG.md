@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Cyber-deck recovery**: the full-screen TUI no longer runs LLM/network work on
+  the terminal render thread. The interface remains responsive during hunts and
+  `stop` / `focus` / `add` / `skip` can execute while work is active. Restored
+  contextual Tab completion, persistent history suggestions, configured vi/emacs
+  editing, bounded transcript rendering, PageUp/PageDown navigation, and a themed
+  command prompt. Redraws are capped at 2 Hz to prevent long sessions from becoming
+  progressively slower.
+- **Flow-state interface pass**: tool and runner failures now appear inside the
+  intelligence feed as recovery cards with a direct next action and compact
+  diagnostic reference; detailed logs remain automatic and out of the normal
+  workflow. Added an instant `?` overlay help deck, a framed intelligence viewport,
+  and a high-contrast animated command marker so the input locus is unmistakable.
+- **Trinity mode**: added a Matrix-operator persona with a White Rabbit (`🐇`)
+  prompt identity and matrix-green deck theme. Replaced the generic "Intelligence
+  Feed" label with live, mode-specific adversary-hunting and pursuit titles.
+- **Persona preservation + world titles**: restored Drunken Master as a selectable,
+  visibly deprecated classic; the earlier removal confused deprecation with deletion.
+  Mode viewport names now describe each character's world (`THE MATRIX`, `THE SPRAWL`,
+  `DEEP SPACE`, `THE ARENA`, and others) rather than repeating “Pursuit.”
 - **AP #76**: `.gitignore` enhancement + committed 5 reckoning artifacts. Blocked ~5 days by AP #100 eval-race in the Claude Code harness; landed after AP #100 fix shipped 2026-07-01.
 - **AP #97/#98/#99**: `hunt <ioc>` config initializer chain — Config dataclass bug in Phase 17R fleet dispatch, resolved by extracting a shared credential resolver (`core/module_credentials.py`).
 - **AP #84**: 4 M-9 invariant tests referenced a removed worktree path; replaced with `Path(__file__).resolve().parents[1]` (Phase 17U).

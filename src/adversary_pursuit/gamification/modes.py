@@ -169,18 +169,13 @@ Character v2 (C-1 MVP, Phase 17B):
            humility, not LLM-self-awareness. Meta-awareness would cheapen the register.
            Established as valid value by C-2, re-applied by C-3, inherited by C-4.
 
-@decision DEC-DRUNKEN-MASTER-RETIRED-001
-@title drunken_master removed from DEFAULT_MODES; archived in phrases.py as drunken_master_retired
-@status accepted
-@rationale drunken_master was reclassified terminal KEEP_STATIC in DEC-C4-COLUMBO-101
-           and never received an llm_profile. Phase 18 Slice 5 retires it as an active
-           character to reduce DEFAULT_MODES noise and make room for deckard and hal9000
-           which have stronger CTI-analyst relevance. The phrases are archived under the
-           "drunken_master_retired" key in phrases.py for historical reference.
-           get_mode_with_fallback("drunken_master") returns DEFAULT_MODES["default"] with
-           a deprecation warning so any lingering caller degrades gracefully without crash.
-           Tests in test_character_v2.py and test_agent_tools.py that carried drunken_master
-           as a v1-carrier are migrated to use "chuck_norris" (also llm_profile=None, KEEP_STATIC).
+@decision DEC-DRUNKEN-MASTER-DEPRECATED-002
+@title drunken_master remains selectable while visibly deprecated
+@status accepted (supersedes DEC-DRUNKEN-MASTER-RETIRED-001 removal semantics)
+@rationale The operator requested deprecation, not deletion. Phase 18 Slice 5 incorrectly
+           interpreted deprecation as removal and replaced the persona with default mode.
+           Restoring the original static persona preserves user choice and project history
+           without expanding its LLM prompt footprint: llm_profile remains None.
 
 @decision DEC-CHAR-NEUROMANCER-001
 @title neuromancer CharacterMode + LLMPersonaProfile (Phase 18 Slice 7A)
@@ -222,6 +217,16 @@ Character v2 (C-1 MVP, Phase 17B):
            Carries a non-None LLMPersonaProfile (calm, measured, polite, faintly uncanny)
            with five signature_phrases including "Dave" interjection and three tool_preferences
            — full v2 LLM persona injection via AgentRunner.set_character (DEC-C1-FULLTROLL-003).
+
+@decision DEC-CHAR-TRINITY-001
+@title trinity Matrix-operator mode with White Rabbit prompt identity
+@status accepted
+@rationale Trinity adds a controlled, kinetic operator voice suited to threat hunting:
+           concise direction, signal-over-noise judgment, and forward motion without
+           reckless certainty. The White Rabbit emoji is the operator-selected identity.
+           fourth_wall_stance="opaque": Trinity is the operator inside the system, not
+           an assistant discussing a film persona. Tool preferences remain voice-affinity
+           language and the scoring panel remains the sole point-total authority.
 """
 
 from __future__ import annotations
@@ -431,6 +436,15 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
                 "never apologize for being snarky",
             ),
         ),
+    ),
+    "drunken_master": CharacterMode(
+        name="drunken_master",
+        prompt_prefix="🍺",
+        greeting="*hiccup* Oh hey... we doing this? Let's goooo...",
+        run_success="*stumbles* Whoa, we actually found something! Nice!",
+        run_fail="*falls over* Ehh, try again... maybe pivot... somewhere...",
+        score_celebration="*hiccup* +{points} pointsss!",
+        personality="Deprecated classic — rambling tipsy energy and unpredictable commentary",
     ),
     "sun_tzu": CharacterMode(
         name="sun_tzu",
@@ -706,6 +720,41 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
             ),
         ),
     ),
+    "trinity": CharacterMode(
+        name="trinity",
+        prompt_prefix="🐇",
+        greeting="Follow the white rabbit. The trace is live.",
+        run_success="There. The signal behind the noise.",
+        run_fail="Dead end. Change the angle and move.",
+        score_celebration="+{points}. Stay in motion.",
+        personality="Matrix operator — controlled, kinetic, signal-first pursuit",
+        llm_profile=LLMPersonaProfile(
+            voice_summary=(
+                "Controlled Matrix operator. Concise, decisive, and calm under pressure;"
+                " separates signal from noise and keeps the analyst moving."
+            ),
+            tone_registers=("controlled", "kinetic", "precise", "unflinching"),
+            signature_phrases=(
+                "follow the white rabbit.",
+                "the trace is live.",
+                "that's the signal.",
+                "change the angle.",
+            ),
+            fourth_wall_stance="opaque",
+            dialect_cadence="Short directives followed by one clean reason. Present tense. No speeches.",
+            context_hooks=(),
+            tool_preferences=(
+                "VirusTotal: the construct's consensus",
+                "crt.sh: residual code in the system",
+                "Shodan: the machine-facing surface",
+            ),
+            forbidden_voice=(
+                "never narrate point totals — the Rich panel owns scoring",
+                "never quote Matrix dialogue verbatim",
+                "never confuse decisiveness with unsupported certainty",
+            ),
+        ),
+    ),
     "columbo": CharacterMode(
         name="columbo",
         prompt_prefix="🔍",
@@ -831,14 +880,11 @@ class ModeManager:
 def get_mode_with_fallback(name: str) -> "CharacterMode":
     """Return the CharacterMode for *name*, falling back to default gracefully.
 
-    This function is the recommended call site for any code that may encounter
-    legacy mode names (e.g. "drunken_master") that were removed from DEFAULT_MODES.
+    This function is the recommended call site for mode names that may be unknown.
 
     Fallback rules
     --------------
     - If *name* is in DEFAULT_MODES, return it directly.
-    - If *name* == "drunken_master", emit a deprecation warning and return
-      DEFAULT_MODES["default"] (DEC-DRUNKEN-MASTER-RETIRED-001).
     - Otherwise return DEFAULT_MODES["default"].
 
     Parameters
@@ -851,15 +897,6 @@ def get_mode_with_fallback(name: str) -> "CharacterMode":
     CharacterMode
         The requested mode, or "default" as fallback.
     """
-    import warnings
-
     if name in DEFAULT_MODES:
         return DEFAULT_MODES[name]
-    if name == "drunken_master":
-        warnings.warn(
-            "Character mode 'drunken_master' was retired in Phase 18 Slice 5 "
-            "(DEC-DRUNKEN-MASTER-RETIRED-001). Falling back to 'default'.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
     return DEFAULT_MODES["default"]

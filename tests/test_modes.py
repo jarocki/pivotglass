@@ -78,19 +78,13 @@ def run_cmd(app: APConsole, cmd: str) -> str:
 
 
 class TestDefaultModes:
-    """Verify all 11 modes exist in DEFAULT_MODES with required fields.
-
-    Phase 18 Slice 5 changes:
-    - drunken_master REMOVED (retired per DEC-DRUNKEN-MASTER-RETIRED-001)
-    - deckard ADDED (DEC-CHAR-DECKARD-001)
-    - hal9000 ADDED (DEC-CHAR-HAL9000-001)
-    Net result: 10 - 1 + 2 = 11 modes.
-    """
+    """Verify the complete, backward-compatible mode catalogue."""
 
     EXPECTED_NAMES = {
         "default",
         "ninja",
         "full_troll",
+        "drunken_master",
         "sun_tzu",
         "chuck_norris",
         "bureaucrat",
@@ -100,18 +94,15 @@ class TestDefaultModes:
         "deckard",
         "hal9000",
         "neuromancer",  # Phase 18 Slice 7A (DEC-CHAR-NEUROMANCER-001)
+        "trinity",
     }
 
-    def test_twelve_modes_present(self):
-        """Exactly 12 modes should exist: default + 11 personality modes.
-
-        Phase 18 Slice 7A: neuromancer added (DEC-CHAR-NEUROMANCER-001).
-        Phase 18 Slice 5: drunken_master retired, deckard + hal9000 added.
-        """
-        assert len(DEFAULT_MODES) == 12
+    def test_fourteen_modes_present(self):
+        """Exactly 14 modes should exist, including deprecated classics."""
+        assert len(DEFAULT_MODES) == 14
 
     def test_all_expected_names_present(self):
-        """All 12 named modes are in DEFAULT_MODES."""
+        """All 14 named modes are in DEFAULT_MODES."""
         assert set(DEFAULT_MODES.keys()) == self.EXPECTED_NAMES
 
     def test_default_mode_exists(self):
@@ -123,11 +114,9 @@ class TestDefaultModes:
     def test_full_troll_mode_exists(self):
         assert "full_troll" in DEFAULT_MODES
 
-    def test_drunken_master_mode_not_present(self):
-        """drunken_master was retired in Phase 18 Slice 5 (DEC-DRUNKEN-MASTER-RETIRED-001)."""
-        assert "drunken_master" not in DEFAULT_MODES, (
-            "drunken_master must not be in DEFAULT_MODES — retired in Phase 18 Slice 5"
-        )
+    def test_drunken_master_mode_remains_selectable(self):
+        """Deprecated modes remain available to existing users."""
+        assert DEFAULT_MODES["drunken_master"].llm_profile is None
 
     def test_sun_tzu_mode_exists(self):
         assert "sun_tzu" in DEFAULT_MODES
@@ -154,6 +143,12 @@ class TestDefaultModes:
     def test_hal9000_mode_exists(self):
         """hal9000 added in Phase 18 Slice 5 (DEC-CHAR-HAL9000-001)."""
         assert "hal9000" in DEFAULT_MODES
+
+    def test_trinity_mode_uses_white_rabbit_identity(self):
+        mode = DEFAULT_MODES["trinity"]
+        assert mode.prompt_prefix == "🐇"
+        assert mode.llm_profile is not None
+        assert "Matrix operator" in mode.personality
 
 
 # ---------------------------------------------------------------------------
@@ -320,9 +315,9 @@ class TestModeManagerListModes:
         assert isinstance(result, list)
 
     def test_list_modes_count(self, mgr: ModeManager):
-        """list_modes() returns 12 entries (Slice 7A: +neuromancer; Slice 5: -drunken_master +deckard +hal9000)."""
+        """list_modes() returns one entry for every current mode."""
         result = mgr.list_modes()
-        assert len(result) == 12
+        assert len(result) == len(DEFAULT_MODES)
 
     def test_list_modes_contains_dicts_with_name_and_personality(self, mgr: ModeManager):
         """Each entry is a dict with 'name' and 'personality' keys."""

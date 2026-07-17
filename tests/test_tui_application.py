@@ -16,11 +16,17 @@
 
 from __future__ import annotations
 
+import threading
+import time
 from unittest.mock import MagicMock, patch  # @mock-exempt: sys.stdin.isatty is OS/TTY boundary
 
 import pytest
 
-from adversary_pursuit.agent.tui.application import NotATTYError, TuiApplication
+from adversary_pursuit.agent.tui.application import (
+    NotATTYError,
+    TuiApplication,
+    _TuiConsole,
+)
 from adversary_pursuit.agent.tui.events import EventBus
 from adversary_pursuit.agent.tui.live_pane import LivePane
 from adversary_pursuit.agent.tui.scrollback import ScrollbackBuffer
@@ -182,6 +188,149 @@ def test_scrollback_buffer_append_only():
     snap2 = buf.get_lines()
     assert len(snap2) >= len(snap1)
     assert "first" in snap2
+
+
+def test_scrollback_window_is_bounded_and_supports_page_offset():
+    buf = ScrollbackBuffer()
+    for number in range(20):
+        buf.emit_line(f"line {number}")
+
+    assert buf.get_window(limit=5) == [f"line {number}" for number in range(15, 20)]
+    assert buf.get_window(limit=5, offset=5) == [f"line {number}" for number in range(10, 15)]
+
+
+def test_tui_input_restores_contextual_completer_and_history():
+    app = _make_app()
+    assert app._input_buffer.completer is not None
+    assert app._input_buffer.history is not None
+
+
+def test_tui_scrollback_renderer_only_requests_bounded_window():
+    app = _make_app()
+    app._scrollback.get_window = MagicMock(return_value=["recent"])
+
+    rendered = app._get_scrollback_formatted()
+
+    app._scrollback.get_window.assert_called_once_with(limit=500, offset=0)
+    assert any("recent" in text for _style, text in rendered)
+
+
+def test_input_accept_does_not_block_render_thread():
+    app = _make_app()
+    started = threading.Event()
+    release = threading.Event()
+
+    def slow_handle_input(text, status_bar=None):
+        started.set()
+        release.wait(timeout=2)
+        return "done"
+
+    app._runner.handle_input = slow_handle_input
+    app._input_buffer.text = "investigate example.com"
+
+    before = time.monotonic()
+    app._on_input_accepted(app._input_buffer)
+    elapsed = time.monotonic() - before
+
+    assert elapsed < 0.1
+    assert started.wait(timeout=1)
+    release.set()
+    app._executor.shutdown(wait=True)
+
+
+def test_help_overlay_content_is_immediately_discoverable():
+    app = _make_app()
+    rendered = app._get_help_formatted()
+    text = "".join(fragment for _style, fragment in rendered)
+
+    assert "OPERATOR" not in text  # title belongs to the overlay frame
+    assert "use <ioc>" in text
+    assert "stop" in text
+    assert "Tab" in text
+    assert "Press Esc" in text
+
+
+def test_prompt_marker_is_high_contrast_and_animated():
+    app = _make_app()
+
+    first = list(app._get_prompt_formatted())
+    app._prompt_phase = True
+    second = list(app._get_prompt_formatted())
+
+    assert "blink" in first[0][0]
+    assert "reverse" in first[0][0]
+    assert first[0][1] == "> "
+    assert second[0][1] == "▶ "
+
+
+def test_pursuit_title_tracks_active_mode():
+    app = _make_app()
+    app._mode_mgr = MagicMock()
+    app._mode_mgr.active.name = "trinity"
+
+    rendered = app._get_pursuit_title_formatted()
+
+    assert any("THE MATRIX" in text for _style, text in rendered)
+    assert all("INTELLIGENCE FEED" not in text for _style, text in rendered)
+
+
+def test_target_hunt_uses_tools_then_one_synthesis_call():
+    app = _make_app()
+    app._runner.tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "whois_lookup",
+                "parameters": {
+                    "properties": {"domain": {"type": "string"}},
+                    "required": ["domain"],
+                },
+            },
+        }
+    ]
+    app._runner.narrate = MagicMock(return_value="Synthesized next pivot")
+
+    with patch(
+        "adversary_pursuit.agent.tools.execute_tool",
+        return_value=("WHOIS evidence", None, [], []),
+    ) as tool:
+        app._run_target_batteries("example.com")
+
+    tool.assert_called_once_with(app._runner.ctx, "whois_lookup", {"domain": "example.com"})
+    app._runner.narrate.assert_called_once()
+    assert app._runner.narrate.call_args.kwargs["max_tokens"] == 300
+
+
+def test_tui_console_keeps_debug_details_out_of_normal_flow():
+    emitted = []
+    console = _TuiConsole(emitted.append)
+
+    console.print("Diagnostic ID: cafe1234  Debug log: /tmp/debug.log")
+
+    assert len(emitted) == 1
+    assert "cafe1234" in emitted[0]
+    assert "Details retained automatically" in emitted[0]
+    assert "/tmp/debug.log" not in emitted[0]
+
+
+def test_runner_error_becomes_recovery_card():
+    app = _make_app()
+    interp = MagicMock(
+        category="Network",
+        summary="Provider unavailable.",
+        suggested_fix="Check the connection.",
+        diagnostic_id="cafe1234",
+    )
+
+    with patch("adversary_pursuit.core.error_interpreter.interpret", return_value=interp):
+        app._emit_error_card(RuntimeError("boom"), "investigate example.com")
+
+    text = "\n".join(app._scrollback.get_lines())
+    assert "NETWORK · RECOVERY" in text
+    assert "NEXT  Check the connection." in text
+    assert "RETRY" in text
+    assert "cafe1234" in text
+    assert "debug.log" not in text
 
 
 # ---------------------------------------------------------------------------

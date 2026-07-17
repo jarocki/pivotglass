@@ -134,6 +134,15 @@ DEFAULT_THEMES: dict[str, CharacterTheme] = {
         dim_color="#7a7a00",  # dim yellow (dark yellow)
         high_contrast_border="#ffffff",
     ),
+    "drunken_master": CharacterTheme(
+        name="drunken_master",
+        border_color="#d78700",
+        accent_color="#ffff5f",
+        heading_color="#d78700",
+        text_color="#ffffff",
+        dim_color="#5f3f00",
+        high_contrast_border="#ffffff",
+    ),
     "sun_tzu": CharacterTheme(
         name="sun_tzu",
         border_color="#d7d700",  # yellow
@@ -218,6 +227,36 @@ DEFAULT_THEMES: dict[str, CharacterTheme] = {
         dim_color="#6b006b",  # dim magenta (dark magenta)
         high_contrast_border="#ffffff",
     ),
+    "trinity": CharacterTheme(
+        name="trinity",
+        border_color="#00ff5f",  # matrix green
+        accent_color="#ffffff",  # white rabbit
+        heading_color="#00ff5f",
+        text_color="#d7ffd7",
+        dim_color="#005f2f",
+        high_contrast_border="#ffffff",
+    ),
+}
+
+
+# Character-specific name for the main investigation surface. This is UI
+# vocabulary, so it lives beside the character visual themes rather than in
+# the analytical mode/persona schema.
+PURSUIT_TITLES: dict[str, str] = {
+    "default": "THE HUNT",
+    "ninja": "THE SHADOWS",
+    "full_troll": "THE THUNDERDOME",
+    "drunken_master": "THE TAVERN",
+    "sun_tzu": "THE WAR ROOM",
+    "chuck_norris": "THE ARENA",
+    "bureaucrat": "THE CASE FILE",
+    "bobby_hill": "THE BACK ALLEY",
+    "bruce_lee": "THE DOJO",
+    "columbo": "THE PRECINCT",
+    "deckard": "THE RAIN",
+    "hal9000": "DEEP SPACE",
+    "neuromancer": "THE SPRAWL",
+    "trinity": "THE MATRIX",
 }
 
 
@@ -243,6 +282,11 @@ def theme_for(character_name: str) -> CharacterTheme:
         The theme for the requested character, or the default theme.
     """
     return DEFAULT_THEMES.get(character_name, DEFAULT_THEMES["default"])
+
+
+def pursuit_title_for(character_name: str) -> str:
+    """Return the mode-specific title for the live investigation surface."""
+    return PURSUIT_TITLES.get(character_name, PURSUIT_TITLES["default"])
 
 
 def is_high_contrast_mode() -> bool:

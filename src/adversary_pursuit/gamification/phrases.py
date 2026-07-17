@@ -189,35 +189,35 @@ PHRASES: dict[tuple[str, str], tuple[Phrase, ...]] = {
     ),
     ("full_troll", "activity:composing"): (Phrase("TYPING AT THE SPEED OF LIGHT"),),
     # ------------------------------------------------------------------
-    # drunken_master_retired (archived — do not expose as active)
+    # drunken_master (deprecated classic, still selectable)
     # ------------------------------------------------------------------
-    ("drunken_master_retired", "greeting"): (
+    ("drunken_master", "greeting"): (
         Phrase("*hiccup* Oh hey... we doing this?"),
         Phrase("*stumbles in* Let's goooo..."),
         Phrase("*sways* Ready... mostly."),
     ),
-    ("drunken_master_retired", "run_success"): (
+    ("drunken_master", "run_success"): (
         Phrase("*stumbles* Whoa, we actually found something!"),
         Phrase("*hiccup* Got it! I think..."),
         Phrase("*falls forward* NICE."),
     ),
-    ("drunken_master_retired", "run_fail"): (
+    ("drunken_master", "run_fail"): (
         Phrase("*falls over* Ehh, try again..."),
         Phrase("*hiccup* Nothing... pivot somewhere."),
         Phrase("*sways* Not my best work."),
     ),
-    ("drunken_master_retired", "score_celebration"): (
+    ("drunken_master", "score_celebration"): (
         Phrase("*hiccup* +{points} pointsss!"),
         Phrase("+{points}... I think that's good?"),
         Phrase("*stumbles* {points} MORE POINTS!"),
     ),
-    ("drunken_master_retired", "activity:virustotal"): (Phrase("VT... *hiccup*"),),
-    ("drunken_master_retired", "activity:whois"): (Phrase("WHOIS... who knows"),),
-    ("drunken_master_retired", "activity:shodan"): (Phrase("*squints* Shodan..."),),
-    ("drunken_master_retired", "activity:otx"): (Phrase("OTX... *sways*"),),
-    ("drunken_master_retired", "activity:threatfox"): (Phrase("ThreatFox... *hiccup*"),),
-    ("drunken_master_retired", "activity:thinking"): (Phrase("*thinking* ..."),),
-    ("drunken_master_retired", "activity:composing"): (Phrase("*scribbling*"),),
+    ("drunken_master", "activity:virustotal"): (Phrase("VT... *hiccup*"),),
+    ("drunken_master", "activity:whois"): (Phrase("WHOIS... who knows"),),
+    ("drunken_master", "activity:shodan"): (Phrase("*squints* Shodan..."),),
+    ("drunken_master", "activity:otx"): (Phrase("OTX... *sways*"),),
+    ("drunken_master", "activity:threatfox"): (Phrase("ThreatFox... *hiccup*"),),
+    ("drunken_master", "activity:thinking"): (Phrase("*thinking* ..."),),
+    ("drunken_master", "activity:composing"): (Phrase("*scribbling*"),),
     # ------------------------------------------------------------------
     # sun_tzu
     # ------------------------------------------------------------------
@@ -617,6 +617,35 @@ PHRASES: dict[tuple[str, str], tuple[Phrase, ...]] = {
         Phrase("One moment, Dave.", tags=("dave",)),
     ),
     ("hal9000", "activity:composing"): (Phrase("Composing my response."),),
+    # ------------------------------------------------------------------
+    # trinity
+    # ------------------------------------------------------------------
+    ("trinity", "greeting"): (
+        Phrase("Follow the white rabbit."),
+        Phrase("The Matrix has you. Let's see how deep this goes."),
+        Phrase("Operator online. Show me the signal."),
+    ),
+    ("trinity", "run_success"): (
+        Phrase("The signal is real."),
+        Phrase("Access confirmed. Keep moving."),
+        Phrase("You found the door. Now open it."),
+    ),
+    ("trinity", "run_fail"): (
+        Phrase("A dead end is still part of the map."),
+        Phrase("No signal. Change the angle."),
+        Phrase("The system pushed back. Try another door."),
+    ),
+    ("trinity", "score_celebration"): (
+        Phrase("+{points}. There is no spoon."),
+        Phrase("+{points}. The trace is getting clearer."),
+        Phrase("+{points}. You're beginning to believe."),
+    ),
+    ("trinity", "activity:thinking"): (
+        Phrase("Reading the code."),
+        Phrase("Tracing the signal."),
+        Phrase("Looking for the rabbit."),
+    ),
+    ("trinity", "activity:composing"): (Phrase("Calling the operator."),),
 }
 
 # ---------------------------------------------------------------------------

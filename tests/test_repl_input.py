@@ -40,15 +40,14 @@ from unittest.mock import MagicMock, patch
 from prompt_toolkit.document import Document
 
 from adversary_pursuit.agent.repl_input import (
+    _MODE_NAMES,
+    _TOP_LEVEL_COMMANDS,
     HISTORY_PATH,
     APCompleter,
     ChatPromptSession,
-    _MODE_NAMES,
-    _TOP_LEVEL_COMMANDS,
     _strip_rich_markup,
     prompt_user,
 )
-
 
 # ---------------------------------------------------------------------------
 # APCompleter — top-level command completion
@@ -63,6 +62,11 @@ def _completions(text: str) -> list[str]:
 
 
 class TestAPCompleterTopLevel:
+    def test_tui_power_commands_are_discoverable(self):
+        results = _completions("")
+        for command in ("use", "status", "clear", "stop", "focus", "add", "skip"):
+            assert command in results
+
     def test_he_suggests_help_only(self):
         # "he" prefix matches "help" but NOT "hint" ("hint" starts with "hi")
         results = _completions("he")
@@ -117,6 +121,12 @@ class TestAPCompleterTopLevel:
 
 
 class TestAPCompleterModeSubcommand:
+    def test_neuromancer_mode_is_discoverable(self):
+        assert "neuromancer" in _completions("mode neuro")
+
+    def test_trinity_mode_is_discoverable(self):
+        assert "trinity" in _completions("mode tri")
+
     def test_mode_space_suggests_all_modes(self):
         results = _completions("mode ")
         for mode in _MODE_NAMES:
