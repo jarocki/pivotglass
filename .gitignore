@@ -140,3 +140,6 @@ tmp/
 # remain untracked unless explicitly decided otherwise. To commit a single
 # Claude Code config file later, use `git add -f .claude/<file>`.
 .claude/
+
+# Separate nested project — never include its files in AP changes or commits.
+career-narrative/

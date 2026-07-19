@@ -206,6 +206,18 @@ class TestBug3HonestFallback:
             "Bug 3 fix string not found in runner.py"
         )
 
+    def test_fallback_is_scoped_to_current_turn(self):
+        """A prior successful tool result must not mask current-turn failures."""
+        conversation = [
+            {"role": "user", "content": "first hunt"},
+            {"role": "tool", "tool_call_id": "old", "content": "Found real data"},
+            {"role": "user", "content": "second hunt"},
+            {"role": "tool", "tool_call_id": "new", "content": "[USER_SAW_PANEL] Auth error"},
+        ]
+        turn_start = 2
+        result = self._run_fallback_logic(conversation[turn_start:])
+        assert result.startswith("None of the queried services returned data")
+
 
 # ---------------------------------------------------------------------------
 # Bug 4: 404 misinterpreted as failure

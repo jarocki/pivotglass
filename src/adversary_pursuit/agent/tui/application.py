@@ -54,6 +54,7 @@ from adversary_pursuit.agent.tui.header import HeaderPane
 from adversary_pursuit.agent.tui.live_pane import LivePane
 from adversary_pursuit.agent.tui.scrollback import ScrollbackBuffer
 from adversary_pursuit.agent.tui.themes import (  # character theme dispatch
+    is_high_contrast_mode,
     pursuit_title_for,
     resolved_border_color,
     theme_for,
@@ -315,6 +316,10 @@ class TuiApplication:
             dont_extend_height=True,
         )
         input_row = VSplit([prompt_window, input_window], height=1)
+        command_deck = Frame(
+            body=input_row,
+            title=self._get_command_title_formatted,
+        )
 
         live_pane_control = FormattedTextControl(
             text=self._get_live_pane_formatted,
@@ -325,12 +330,18 @@ class TuiApplication:
             height=6,
             dont_extend_height=True,
         )
+        instruments = Frame(
+            body=live_pane_window,
+            title=self._get_instruments_title_formatted,
+        )
 
         feed = Frame(
             body=scrollback_window,
             title=self._get_pursuit_title_formatted,
         )
-        base = HSplit([header_window, feed, input_row, live_pane_window])
+        # Storyboard hierarchy: identity band, dominant intelligence field,
+        # explicit command deck, then a dense analyst instrument cluster.
+        base = HSplit([header_window, feed, command_deck, instruments])
         help_window = ConditionalContainer(
             content=Box(
                 body=Frame(
@@ -388,6 +399,28 @@ class TuiApplication:
         theme = theme_for(mode_name)
         title = pursuit_title_for(mode_name)
         return FormattedText([(f"bold fg:{theme.heading_color}", f" {title} ")])
+
+    def _get_command_title_formatted(self) -> FormattedText:
+        """Return the storyboard-inspired command-deck label."""
+        mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
+        theme = theme_for(mode_name)
+        return FormattedText(
+            [
+                (f"bold fg:{theme.accent_color}", " COMMAND DECK "),
+                (f"fg:{theme.dim_color}", "  natural language + local controls "),
+            ]
+        )
+
+    def _get_instruments_title_formatted(self) -> FormattedText:
+        """Return the label for activity, dossier, model, and mode telemetry."""
+        mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
+        theme = theme_for(mode_name)
+        return FormattedText(
+            [
+                (f"bold fg:{theme.heading_color}", " ANALYST INSTRUMENTS "),
+                (f"fg:{theme.dim_color}", "  activity · dossier · persona "),
+            ]
+        )
 
     def _get_header_formatted(self) -> FormattedText:
         """Return the header pane as FormattedText for PTK.
@@ -462,8 +495,21 @@ class TuiApplication:
         rows = self._live_pane.render()
         parts: list[tuple[str, str]] = []
         for i, row in enumerate(rows):
-            # Row 0 (index 0) is the character identity line — use bold heading_color for accent
-            style = heading_style if i == 0 else f"fg:{border_color}"
+            # The storyboard uses a multi-color instrument cluster: identity,
+            # evidence state, dossier progress, and live activity each need a
+            # distinct glanceable channel while retaining one persona palette.
+            if i == 0:
+                style = heading_style
+            elif is_high_contrast_mode():
+                style = f"fg:{border_color}"
+            elif i in {1, 2}:
+                style = f"fg:{active_theme.text_color}"
+            elif i == 3:
+                style = f"bold fg:{active_theme.accent_color}"
+            elif i == 4:
+                style = f"bold fg:{border_color}"
+            else:
+                style = f"fg:{active_theme.accent_color}"
             parts.append((style, row))
             if i < len(rows) - 1:
                 parts.append(("", "\n"))

@@ -647,10 +647,10 @@ _CATALOG: list[_CatalogEntry] = [
     (_is_sqlite_locked, _interpret_sqlite_locked, _NO_AUTO_FIX),
     # 7. LLM/litellm provider auth failures (must be checked AFTER modules auth)
     (_is_llm_provider_error, _interpret_llm_provider, _NO_AUTO_FIX),
-    # 2b. 404 Not Found — neutral "no record" result on CTI APIs (DEC-P18S4-404-NOT-FOUND-001).
+    # 8. 404 Not Found — neutral "no record" result on CTI APIs (DEC-P18S4-404-NOT-FOUND-001).
     #     Must come BEFORE the generic HTTPStatusError catch-all (entry 8).
     (_is_not_found_error, _interpret_not_found, _NO_AUTO_FIX),
-    # 8. Generic httpx.HTTPStatusError — 5xx → Service, 4xx fallthrough → Network.
+    # 9. Generic httpx.HTTPStatusError — 5xx → Service, 4xx fallthrough → Network.
     #    MUST be last HTTPStatusError entry: auth (401/403) and rate-limit (429)
     #    checks inside entries 1 and 2 win first (DEC-ERROR-ROUTING-002).
     (_is_http_status_error_generic, _interpret_http_status_error_generic, _NO_AUTO_FIX),

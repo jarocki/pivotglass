@@ -177,8 +177,9 @@ def dispatch_repl_verb(
 ) -> str:
     """Dispatch a parsed REPL verb locally.
 
-    All output strings come from PHRASES via pick() — no hardcoded strings
-    here (DEC-PHRASE-CACHE-001, DEC-PHRASES-REPL-VERBS-001).
+    All character-voiced output comes from PHRASES via pick(). Structural
+    status labels remain fixed for scanability (DEC-PHRASE-CACHE-001,
+    DEC-PHRASES-REPL-VERBS-001).
 
     Parameters
     ----------

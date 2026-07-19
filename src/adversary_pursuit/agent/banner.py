@@ -132,7 +132,7 @@ _FALLBACK_COLOR = "cyan"
 
 
 def get_mode_color(mode_name: str) -> str:
-    """Return the Rich colour string for *mode_name*.
+    """Return the Rich/PTK-compatible hex color for *mode_name*.
 
     Delegates to ``theme_for(mode_name).heading_color`` so that
     ``DEFAULT_THEMES`` in ``themes.py`` is the single authority for character
@@ -149,9 +149,9 @@ def get_mode_color(mode_name: str) -> str:
     Returns
     -------
     str
-        A Rich colour/style string (e.g. ``"bold bright_magenta"``).  Falls
-        back to ``"cyan"`` for unrecognised modes because theme_for() returns
-        the default theme for unknown names.
+        A hex color string (e.g. ``"#ff5fff"``) accepted by Rich and PTK.
+        Bold is applied at rendering call sites, not stored here. Falls back
+        to ``"cyan"`` only if theme lookup raises unexpectedly.
     """
     try:
         from adversary_pursuit.agent.tui.themes import theme_for

@@ -28,7 +28,18 @@ Adversary Pursuit (AP) is a gamified framework for hunting, pivoting, and discov
 
 **Problem:** CTI/OSINT analysts navigate a fragmented landscape of disconnected scripts, web portals, and APIs. Learning curves are steep. There's no unified framework that makes the process engaging, educational, and competitive.
 
-**Solution (v1, revised 2026-04-29):** A multi-platform Python CLI application whose **primary user-facing interface is an agentic AI chat** (`ap chat`, smolagents/litellm-driven). The agent discovers and invokes modular OSINT/CTI integrations as tools, gathers STIX 2.1 evidence into per-investigation workspaces, and observes scoring/celebration/badge/hint events as part of the chat experience. A Metasploit-like cmd2 REPL (`ap`) ships alongside as a power-user surface for direct `use → set → run` workflows; it is supporting infrastructure, not the primary UX.
+**Solution (v1, revised 2026-07-19):** A multi-platform Python CLI application whose **primary user-facing interface is an agentic AI cyberdeck** (`ap`; `ap chat` remains a compatibility alias, LiteLLM-driven). The agent discovers and invokes modular OSINT/CTI integrations as tools, gathers STIX 2.1 evidence into per-investigation workspaces, and observes scoring/celebration/badge/hint events as part of the chat experience. A Metasploit-like cmd2 REPL (`ap basic` / `ap repl`) ships alongside as a power-user surface for direct `use → set → run` workflows; it is supporting infrastructure, not the primary UX.
+
+**Current implementation checkpoint (2026-07-19):** v0.4.0 is released. The
+interactive AI cyberdeck is the bare `ap` command, with `ap chat` retained as a
+compatibility alias; the classic console is `ap basic` / `ap repl`. The shipped
+catalog contains 15 CTI/OSINT modules, 30 LLM tools, and 14 character modes.
+Phase 17O through Phase 18 Slice 7A have landed. The storyboard-aligned deck
+hierarchy and responsive operator controls are implemented; the studies in
+`storyboard/` remain design targets rather than claims of pixel-identical runtime
+output. Older “active,” “next,” and
+“implementer-complete” language below is preserved only inside historical phase
+records and must not be interpreted as current repository state.
 
 **Target:** v1 -- multi-platform Python CLI (skipping Jupyter prototype). The agentic chat is the entry point users are expected to reach for first; the cmd2 REPL is the "manual transmission" alternative for power users.
 
@@ -40,8 +51,8 @@ Both layers exist because they serve different user journeys:
 
 | Layer | Role | When users reach for it |
 |-------|------|--------------------------|
-| `ap chat` (agent / litellm) | **Primary v1 interface.** Conversational; the LLM chooses tools, combines results, and narrates findings. | First-time users, mixed-domain investigations, "what is this indicator?" exploratory queries. |
-| `ap` (cmd2 REPL) | Supporting power-user surface. Direct, deterministic `use → set → run` over individual modules with full Rich rendering. | Power users who want explicit control, scripted/macro workflows, one-shot module runs, scenarios where determinism matters more than narration. |
+| `ap` (`ap chat` alias; agent / litellm) | **Primary v1 interface.** Conversational cyberdeck; deterministic/API work runs locally and the LLM synthesizes evidence. | First-time users, mixed-domain investigations, "what is this indicator?" exploratory queries. |
+| `ap basic` / `ap repl` (cmd2) | Supporting power-user surface. Direct, deterministic `use → set → run` over individual modules with full Rich rendering. | Power users who want explicit control, scripted/macro workflows, one-shot module runs, scenarios where determinism matters more than narration. |
 
 Both layers share the same module catalog, workspace authority, scoring engine, and gamification primitives. Gamification observes tool execution events regardless of caller — the divergence is in **how** events are surfaced, not in **whether** they fire.
 
@@ -58,7 +69,10 @@ The risk: dormancy is a pattern. The antidote is code, not more planning. Issue 
 ## Principles
 
 1. **Fun is a first-class design constraint.** Gamification is not a veneer applied after the "real" tool is built. Scoring, modes, and celebrations are co-equal architectural citizens alongside the module system and data model.
-2. **Metasploit UX is the interaction model.** The `use → set → run` workflow, tab completion, workspaces, and module namespaces -- users who know msfconsole should feel at home immediately.
+2. **The cyberdeck is the primary interaction model.** Investigation state,
+   evidence, command input, and analyst instruments remain visible together.
+   The classic console preserves the familiar Metasploit-style `use → set → run`
+   workflow for operators who want direct module control.
 3. **STIX 2.1 is the lingua franca.** All module output speaks STIX. This is non-negotiable for interoperability with OpenCTI, MISP, and the broader CTI ecosystem.
 4. **Modules are pure data producers.** Modules query external sources and return STIX observables. They don't render output, manage state, or trigger side effects. The console orchestrates; the gamification engine observes.
 5. **Playfulness and rigor are not opposites.** Bobby Hill mode and STIX 2.1 compliance coexist. The tool is simultaneously serious in its analytical capabilities and absurd in its celebration of them.
@@ -145,7 +159,7 @@ These are explicitly out of scope for v1. They may appear in future versions but
 
 | Phase 17W -- v0.4.0 Release Cut (W-V040-RELEASE-CUT) | **Status:** completed (impl TBD-sha, 2026-06-29; merge TBD-sha) | docs/metadata-only slice closing AP #82 and 06-29 reckoning Confront #5. Bumps pyproject.toml 0.1.0 -> 0.4.0; creates CHANGELOG.md (Keep-a-Changelog 1.1.0); updates README.md install URL. release.yml fires on tag push v*.*.* (already wired). Tag v0.4.0 created by Guardian after merge. |
 
-| Phase 17X -- Reckoning Operationalization (W-17X-RECKONING-OPS) | **Status:** completed (impl `8a56f7b`, 2026-06-30; merge `83030d3`) | docs/config slice shipping 4 of 7 AP-repo-side artifacts from the 06-29 reckoning operationalization. DEC-PAUSE-001 (Confront #3): pauses out-of-scope. DEC-REGEN-WIRED-001 (Confront #4): regen_decisions.py wired into GitHub Actions. DEC-BACKLOG-DISCIPLINE-001 (Confront #2): schedule-or-close-at-filing rule in CLAUDE.md. Phase 18 roadmap (Confront #6): 7 OPEN orchestrator/runtime bugs announced with drain order. Scope: MASTER_PLAN.md + CLAUDE.md (NEW) + .github/workflows/regen-decisions.yml (NEW) + DECISIONS.md. |
+| Phase 17X -- Reckoning Operationalization (W-17X-RECKONING-OPS) | **Status:** completed (impl `8a56f7b`, 2026-06-30; merge `83030d3`) | docs/config slice shipping 4 of 7 AP-repo-side artifacts from the 06-29 reckoning operationalization. DEC-PAUSE-001 (Confront #3): pauses out-of-scope. DEC-REGEN-WIRED-001 (Confront #4): regen_decisions.py wired into GitHub Actions. DEC-BACKLOG-DISCIPLINE-001 (Confront #2): schedule-or-close-at-filing rule originally landed in CLAUDE.md and moved to tool-neutral AGENTS.md on 2026-07-18. Phase 18 roadmap (Confront #6): 7 OPEN orchestrator/runtime bugs announced with drain order. Original scope: MASTER_PLAN.md + CLAUDE.md (later superseded) + .github/workflows/regen-decisions.yml + DECISIONS.md. |
 
 | Phase 18 Slice 1 -- AP #100 eval-race fix (harness) (W-P18-01-EVAL-RACE) | **Status:** completed (harness impl `da7204b`; harness merge `12d7429`, 2026-07-01) | hooks/context-lib.sh + pre/post-bash: `git stash`, `status`, `log`, and other non-mutating git subcommands no longer trigger post-bash source-mutation eval invalidation. New helper `git_subcommand_for_classify` in `hooks/context-lib.sh` delegates to canonical Python parser (DEC-CLASSIFY-001). Shipped on the Claude Code harness repo; not in AP main. Unblocked AP #76. |
 
@@ -3393,7 +3407,7 @@ After Phase 17P lands, autonomous-continuation decision will be one of: `goal_co
 | ADR-007 | asyncio event bus for auto-pivot | SpiderFoot-proven pattern, Python-native, enables cascading discovery |
 | ADR-008 | Parabolic decay scoring | CTFd-proven formula, self-balancing difficulty valuation |
 | ADR-009 | httpx over requests | Async-capable, HTTP/2, modern API |
-| ADR-010 | **Agentic AI chat (`ap chat`, litellm-driven) is the v1 primary user-facing interface; the cmd2 REPL (`ap`) is a supporting power-user surface.** | Per user direction (2026-04-29). The original 2026-04-05 plan named cmd2 (#2) as "the heart of the application," but after Phase 1-4 landed and #25 introduced an agentic chat (`707f956`, `17120e7`), the user clarified that the v1 vision is conversational. Modules already form a uniform tool surface that an LLM agent can discover and invoke (DEC-AGENT-TOOLS-001/002); gamification primitives (`ScoringEngine`, `CelebrationEngine`, `BadgeManager`, `HintProvider`, `ModeManager`, event bus) are already cleanly separated from the cmd2 console and can observe tool execution events regardless of caller. Treating the agent as primary is therefore architecturally cheap; what remains is wiring the gamification touchpoints into the agent path (W-AGENT-CELEBRATIONS, W-AGENT-BADGES, W-AGENT-HINTS, W-AGENT-MODES, W-AGENT-AUTOPIVOT). Supersedes the v1 Non-Goal language about "Machine-assisted features" via a narrow carve-out for LLM-driven tool selection (see Non-Goals (v1) above). |
+| ADR-010 | **The AI-augmented cyberdeck (`ap`; `ap chat` compatibility alias, litellm-driven) is the primary user-facing interface; the cmd2 console (`ap basic` / `ap repl`) is a supporting power-user surface.** | Per user direction (2026-04-29, command routing clarified 2026-07-17). The original plan named cmd2 as “the heart of the application,” but the product vision is conversational and evidence-grounded. Modules, workspace state, and gamification remain shared across both surfaces; deterministic local/API execution is preferred and LLM use is reserved for selection, synthesis, and genuine reasoning. |
 
 ---
 

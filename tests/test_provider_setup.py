@@ -58,6 +58,31 @@ from adversary_pursuit.core.config import ConfigManager
 # Helpers
 # ---------------------------------------------------------------------------
 
+_CREDENTIAL_ENV_VARS = {
+    "AP_SHODAN_API_KEY", "SHODAN_API_KEY",
+    "AP_VIRUSTOTAL_API_KEY", "AP_VT_API_KEY", "VIRUSTOTAL_API_KEY", "VT_API_KEY",
+    "AP_CENSYS_ID", "AP_CENSYS_SECRET", "AP_CENSYS_PAT",
+    "CENSYS_API_ID", "CENSYS_API_SECRET", "CENSYS_PAT",
+    "AP_URLSCAN_API_KEY", "URLSCAN_API_KEY",
+    "AP_ABUSEIPDB_API_KEY", "ABUSEIPDB_API_KEY",
+    "AP_GREYNOISE_API_KEY", "GREYNOISE_API_KEY",
+    "AP_HIBP_API_KEY", "HIBP_API_KEY",
+    "AP_OTX_API_KEY", "OTX_API_KEY",
+    "AP_PASSIVETOTAL_USER", "AP_PASSIVETOTAL_KEY", "AP_PT_USER", "AP_PT_API_KEY",
+    "PT_USERNAME", "PT_API_KEY",
+    "AP_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY",
+    "AP_OPENAI_API_KEY", "OPENAI_API_KEY",
+    "AP_OPENROUTER_API_KEY", "OPENROUTER_API_KEY",
+    "AP_GOOGLE_API_KEY", "GOOGLE_API_KEY",
+}
+
+
+@pytest.fixture(autouse=True)
+def _isolate_real_credentials(monkeypatch):
+    """Prevent host credentials from affecting wizard tests or failure output."""
+    for name in _CREDENTIAL_ENV_VARS:
+        monkeypatch.delenv(name, raising=False)
+
 
 def make_config_mgr(tmp_path: Path) -> ConfigManager:
     """Return a ConfigManager wired to a temp directory (no real ~/.ap touch)."""

@@ -566,6 +566,7 @@ class TestResolveKeys:
             "AP_HIBP_API_KEY",
             "VIRUSTOTAL_API_KEY",
             "AP_VIRUSTOTAL_API_KEY",
+            "AP_VT_API_KEY",
             "VT_API_KEY",
             "OTX_API_KEY",
             "AP_OTX_API_KEY",
@@ -573,6 +574,8 @@ class TestResolveKeys:
             "PT_USERNAME",
             "AP_PASSIVETOTAL_KEY",
             "PT_API_KEY",
+            "GREYNOISE_API_KEY",
+            "AP_GREYNOISE_API_KEY",
         ]
         saved = {k: os.environ.pop(k, None) for k in all_env_vars}
         try:

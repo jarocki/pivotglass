@@ -1,7 +1,7 @@
 """Terminal chat interface for AP agent — prompt_toolkit-powered REPL.
 
 Provides a Rich-based interactive REPL that wraps AgentRunner.
-Launched via `ap chat` or `python -m adversary_pursuit chat`.
+Launched by default via ``ap``. ``ap chat`` remains a compatibility alias.
 
 @decision DEC-AGENT-CHAT-001
 @title prompt_toolkit REPL with history, autocomplete, vi keybindings
@@ -51,6 +51,7 @@ import sys
 
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
@@ -357,7 +358,7 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
         mode = runner.ctx.mode_mgr.active  # type: ignore[attr-defined]
         color = get_mode_color(mode.name)
         prefix = mode.prompt_prefix  # e.g. "🥷" or "" for default
-        return f"{prefix}[{color}]ap>[/{color}] "
+        return f"{prefix}[bold {color}]ap>[/bold {color}] "
 
     while True:
         try:
@@ -697,7 +698,7 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
                         if sub_field in o.get("type", "") or sub_field in str(o.get("value", ""))
                     ]
                     if filtered:
-                        lines = [f"[bold]{sub_field}[/bold] matches ({len(filtered)}):"]
+                        lines = [f"[bold]{escape(sub_field)}[/bold] matches ({len(filtered)}):"]
                         for obj in filtered[:20]:
                             lines.append(f"  {obj.get('type', '?')}: {obj.get('value', '?')}")
                     else:

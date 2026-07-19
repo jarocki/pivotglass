@@ -854,9 +854,9 @@ class TestHTTPStatusErrorCatalogCoverage:
         """HTTPStatusError 400 (4xx fallthrough) → category 'Network' (DEC-ERROR-ROUTING-002)."""
         import httpx
 
-        resp = httpx.Response(404, request=httpx.Request("GET", "http://x"))
+        resp = httpx.Response(400, request=httpx.Request("GET", "http://x"))
         exc = httpx.HTTPStatusError(
-            "Client error '404 Not Found'", request=resp.request, response=resp
+            "Client error '400 Bad Request'", request=resp.request, response=resp
         )
         interp = interpret(exc)
         assert interp.category == "Network", f"Expected 'Network', got {interp.category!r}"

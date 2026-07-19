@@ -358,6 +358,10 @@ class AgentRunner:
         # conversation is well-formed before we add the new user message.
         self._heal_torn_history()
 
+        # Bound all fallback analysis to this turn. Historical tool results are
+        # valid conversation context, but they must not make a later all-error
+        # turn look successful (AP #105).
+        turn_start = len(self.conversation)
         self.conversation.append({"role": "user", "content": user_message})
 
         # Accumulate celebration strings, newly-earned Badge objects, and
@@ -471,7 +475,7 @@ class AgentRunner:
         # If every result is an error/empty, emit an honest fallback instead of filler.
         _all_tool_messages = [
             msg["content"]
-            for msg in self.conversation
+            for msg in self.conversation[turn_start:]
             if msg.get("role") == "tool" and isinstance(msg.get("content"), str)
         ]
         _any_real_result = any(

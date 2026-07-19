@@ -7,7 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Documentation reset**: replaced the legacy feature inventory with an
+  operator-facing README that documents the AI-first launch contract, cyberdeck
+  layout, deterministic evidence flow, current commands, 15-module catalog,
+  configuration, architecture, personas, and project governance. Historical
+  roadmap language is now explicitly subordinate to the current implementation
+  checkpoint.
+- **AI-first launch + storyboard deck hierarchy**: bare `ap` now opens the
+  AI-augmented cyberdeck; the classic Metasploit-like console remains available
+  as `ap basic` and `ap repl` (`ap chat` remains compatible). The full-screen
+  interface now follows the storyboard hierarchy with explicit intelligence,
+  command-deck, and multi-color analyst-instrument regions.
+
 ### Fixed
+- **Repository hygiene sweep**: reconciled GitHub issues with shipped code and
+  retired the obsolete Claude-harness backlog (31 issues closed). Fixed the
+  remaining small Slice 4/6L/7Ah2 follow-ups: current-turn-only error fallback,
+  literal HTTP 400 regression coverage, escaped `show <field>` Rich markup,
+  accurate error-catalog numbering and color docstrings, honest structural-label
+  documentation, and restored bold classic-console prompts.
 - **Cyber-deck recovery**: the full-screen TUI no longer runs LLM/network work on
   the terminal render thread. The interface remains responsive during hunts and
   `stop` / `focus` / `add` / `skip` can execute while work is active. Restored
@@ -32,7 +51,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **AP #84**: 4 M-9 invariant tests referenced a removed worktree path; replaced with `Path(__file__).resolve().parents[1]` (Phase 17U).
 
 ### Added
-- **Reckoning operationalization** (Phase 17X): `DEC-PAUSE-001` declaring pauses out-of-scope, `.github/workflows/regen-decisions.yml` for auto-regen on push to main, project-local `CLAUDE.md` with `DEC-BACKLOG-DISCIPLINE-001` (schedule-or-close every issue at filing).
+- **Protected visual design context**: added the three persona cyberdeck studies
+  under `storyboard/` and the UX-team assessment under `reckonings/` as durable,
+  repository-owned inputs to future interface work.
+- **Shared operating philosophy**: added `PHILOSOPHY.md` as AP's durable
+  judgment framework for evidence, human–computational collaboration,
+  optionality, stewardship, and long-horizon decisions. Project guidance now
+  applies it through tool-neutral `AGENTS.md` repository governance where no
+  more specific instruction or accepted decision controls.
+- **Reckoning operationalization** (Phase 17X): `DEC-PAUSE-001` declaring pauses out-of-scope, `.github/workflows/regen-decisions.yml` for auto-regen on push to main, and repository governance with `DEC-BACKLOG-DISCIPLINE-001` (schedule-or-close every issue at filing). The original Claude-specific file was superseded by tool-neutral `AGENTS.md` on 2026-07-18.
 - **Phase 18 "Orchestrator Stability" roadmap** (umbrella issue #102): drain queue for 18 harness/runtime bugs.
 
 ### Harness (Claude Code side; not shipped with adversary-pursuit but affects the delivery chain)
