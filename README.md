@@ -1,6 +1,6 @@
-# Adversary Pursuit
+# Pivotglass
 
-Adversary Pursuit (AP) is an AI-augmented cyberdeck for hunting, pivoting, and
+Pivotglass (formerly Adversary Pursuit / AP) is an AI-augmented cockpit for hunting, pivoting, and
 discovering adversary infrastructure, indicators, and TTPs. It combines
 deterministic OSINT/CTI collection, STIX 2.1 evidence, investigation workspaces,
 and gamification with an LLM used for tool selection, synthesis, and genuine
@@ -12,34 +12,50 @@ The primary interface is simply:
 $ ap
 ```
 
-`ap chat` remains a compatibility alias. The classic Metasploit-like console is
-available as `ap basic` or `ap repl` for direct `use` / `set` / `run` workflows.
+Bare `ap` starts a loopback-only local web server and opens the React/Next.js
+cockpit. `ap chat` and `ap tui` retain the terminal cyberdeck; the classic
+Metasploit-like console remains `ap basic` / `ap repl` for direct
+`use` / `set` / `run` workflows.
 
 > AP is an investigative aid, not an oracle. Evidence remains distinct from
 > inference, uncertainty should remain visible, and the operator retains
 > authority over consequential actions.
 
-## The cyberdeck
+## The Pivotglass cockpit
 
-The full-screen interface is organized around the investigation rather than the
-chat transcript:
+The primary locally hosted web interface is organized around the investigation
+rather than the chat transcript:
 
-- **Intelligence feed** — tool activity, evidence, synthesis, scoring, and errors
-- **Command deck** — natural-language tasking and deterministic local commands
-- **Analyst instruments** — active workspace, persona, model, score, streak,
-  dossier progress, and run telemetry
-- **Operator controls** — stop, focus, add, and skip supported work while it runs
+- **Intelligence stream** — scrollable retrieval briefings and returned evidence
+- **Command rail** — rapid indicator acquisition without terminal paging limits
+- **Hunt instruments** — workspace, artifact, source, and transport telemetry
+- **Artifact field** — Microsoft Flint compiles semantic evidence charts to a
+  locally bundled Chart.js renderer
 
-The current implementation follows the visual hierarchy established by the
+The web cockpit is statically built, served by AP on `127.0.0.1`, and loads no
+CDN code, remote fonts, analytics, or telemetry. Exact npm versions and SHA-512
+integrity hashes are committed in `web/package-lock.json`; release verification
+checks registry signatures, available SLSA provenance, and known vulnerabilities.
+See [`docs/WEB_SUPPLY_CHAIN.md`](docs/WEB_SUPPLY_CHAIN.md).
+
+The terminal cyberdeck remains supported while the web surface reaches feature
+parity. Use `[` and `]` there to browse older and newer intelligence.
+
+Each mode now selects a cockpit, not only a palette: HAL operates Discovery
+One optics, Deckard gets a Spinner/Voight-Kampff display, Neuromancer uses an
+Ono-Sendai ICE monitor, Trinity uses the Nebuchadnezzar operator link, and the
+other personas have equally distinct deck geometry and instrument vocabulary.
+HUD values are live controls and state—not decorative gauges.
+
+The visual language continues to draw from the hierarchy established by the
 protected design studies in [`storyboard/`](storyboard/):
 
 | Neuromancer | HAL 9000 | Chuck Norris |
 |---|---|---|
 | ![Neuromancer cyberdeck mockup](storyboard/AP-TUI-neuromancer-mockup.png) | ![HAL 9000 cyberdeck mockup](storyboard/AP-TUI-HAL-mockup.png) | ![Chuck Norris cyberdeck mockup](storyboard/AP-TUI-Chuck-mockup.png) |
 
-These are design targets, not screenshots of identical runtime output. AP adapts
-the layout to terminal width and keeps decorative persona voice subordinate to
-analytical accuracy.
+These are historical design targets, not screenshots of the web runtime.
+Pivotglass keeps decorative persona voice subordinate to analytical accuracy.
 
 ## Quick start
 
@@ -50,6 +66,7 @@ AP requires Python 3.12 or newer. For development, the repository uses
 git clone https://github.com/jarocki/ap.git
 cd ap
 uv sync --extra agent
+cd web && npm ci && npm run build && cd ..
 uv run ap
 ```
 
@@ -60,12 +77,14 @@ python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/
 ap
 ```
 
-The `agent` extra supplies LiteLLM and prompt-toolkit for the default cyberdeck.
-The core install is sufficient for the classic console.
+The `agent` extra supplies LiteLLM and prompt-toolkit for terminal AI mode. The
+release wheel includes the prebuilt, integrity-verified web cockpit.
 
 ```text
-ap                 AI-augmented cyberdeck (default)
-ap chat            Compatibility alias for the cyberdeck
+ap                 Local Pivotglass web cockpit (default)
+ap web             Local Pivotglass web cockpit
+ap chat            Terminal AI cyberdeck
+ap tui             Terminal AI cyberdeck
 ap basic           Classic direct-control console
 ap repl            Alias for the classic console
 ap --help          Interface summary
@@ -118,18 +137,27 @@ but it deliberately omits the cyberdeck's persona-driven presentation.
 
 ## Evidence sources
 
-AP ships 15 modules and exposes them, together with workspace, dossier, graph,
-and gamification capabilities, through 30 agent tools.
+AP ships 14 modules and exposes them, together with workspace, dossier, graph,
+and gamification capabilities, through 29 agent tools.
 
 | Category | Modules |
 |---|---|
 | Network and host intelligence | Shodan, Censys, GreyNoise, AbuseIPDB |
 | Threat intelligence | VirusTotal, AlienVault OTX, ThreatFox, URLhaus, MalwareBazaar |
-| Domain and URL intelligence | DNS, WHOIS, crt.sh, URLScan, PassiveTotal |
+| Domain and URL intelligence | WHOIS, crt.sh, URLScan, PassiveTotal |
 | Identity exposure | Have I Been Pwned |
 
-DNS and WHOIS work without credentials. Other services may require an API key
-or account and can have their own terms, quotas, and data-handling requirements.
+WHOIS and crt.sh work without credentials. AP never sends direct DNS queries
+from the operator host; resolution and passive-DNS metadata must come from an
+explicit intelligence service such as DomainTools, DNSDB, URLScan, VirusTotal,
+PassiveTotal, or Censys. Services may require an API key or account and can have
+their own terms, quotas, and data-handling requirements.
+
+While those services respond, the intelligence feed doubles as an analyst
+briefing: it names the artifacts being requested, explains their analytical
+value, and suggests which relationships, timestamps, confidence signals, and
+caveats to inspect. These are retrieval goals—not findings. Returned results
+remain separately labeled as observed evidence.
 
 ## Configuration
 

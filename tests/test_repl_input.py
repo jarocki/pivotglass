@@ -129,6 +129,7 @@ class TestAPCompleterModeSubcommand:
 
     def test_mode_space_suggests_all_modes(self):
         results = _completions("mode ")
+        assert "list" in results
         for mode in _MODE_NAMES:
             assert mode in results
 

@@ -57,7 +57,7 @@ from adversary_pursuit.agent.tui.events import (
     TargetChanged,
     YieldReceived,
 )
-from adversary_pursuit.agent.tui.themes import theme_for  # noqa: E402
+from adversary_pursuit.agent.tui.themes import pursuit_title_for, theme_for  # noqa: E402
 from adversary_pursuit.dossier.slot_glyphs import SLOT_ORDER, render_slot_strip
 
 # ---------------------------------------------------------------------------
@@ -90,6 +90,7 @@ _YIELD_HINT_ACTIVE = "► yield: stop · focus <tool> · add <tool> · skip <too
 
 # Flash duration for first-battery discoverability nudge (seconds)
 _FLASH_DURATION: float = 3.0
+_SPINNER_FRAMES: tuple[str, ...] = ("◐", "◓", "◑", "◒")
 
 
 class LivePane:
@@ -118,11 +119,13 @@ class LivePane:
         mode_name: str = "default",
         model_display: str = "",
         workspace_mgr=None,
+        feed_emit=None,
     ) -> None:
         self._lock = threading.Lock()
         self._mode_name = mode_name
         self._model_display = model_display
         self._workspace_mgr = workspace_mgr
+        self._feed_emit = feed_emit
         self._session_start = time.monotonic()
 
         # State updated by event handlers
@@ -285,7 +288,7 @@ class LivePane:
         Parameters
         ----------
         tool_slug:
-            Activity slug string (e.g. "virustotal", "dns_resolve"), or None
+            Activity slug string (e.g. "virustotal", "passivetotal"), or None
             to reset to idle. Must be str or None; any other type raises
             TypeError immediately (Sacred Practice 5 — fail loud on invalid
             input, not silently).
@@ -338,6 +341,35 @@ class LivePane:
                 return  # idempotent
             self._hook_hypothesis = text
 
+    def show_tool_start(self, tool_name: str, arguments: dict) -> None:
+        """Expose an LLM-selected deterministic probe in the intelligence feed."""
+        if self._feed_emit is not None:
+            self._feed_emit("probe", tool_name, arguments)
+
+    def show_tool_result(self, tool_name: str, summary: str) -> None:
+        """Expose a grounded preview after an LLM-selected tool completes."""
+        if self._feed_emit is not None:
+            self._feed_emit("evidence", tool_name, summary)
+
+    def hud_state(self) -> dict[str, object]:
+        """Return a thread-safe snapshot for the functional cockpit HUD."""
+        with self._lock:
+            hypothesis = (
+                self._hypothesis
+                if self._hypothesis != "—"
+                else (self._hook_hypothesis or "—")
+            )
+            activity = self._current_tool or self._activity or self._battery_name or "idle"
+            return {
+                "target": self._target,
+                "target_type": self._target_type or "unclassified",
+                "hypothesis": hypothesis,
+                "activity": activity,
+                "queued": len(self._pending_tools),
+                "active": self._battery_active or self._activity is not None,
+                "slots": self._slots_filled,
+            }
+
     # ------------------------------------------------------------------
     # Refresh cadence and render
     # ------------------------------------------------------------------
@@ -377,12 +409,14 @@ class LivePane:
         activity_slug = self._activity  # runner-pushed activity slug
         now = time.monotonic()
         flash_active = battery_active and (now < self._flash_until)
+        hz = _REFRESH_HZ.get(mode, _DEFAULT_HZ)
+        spinner = _SPINNER_FRAMES[int(now * max(hz, 1.0)) % len(_SPINNER_FRAMES)]
 
         # Row 1: character + model + workspace elapsed
         elapsed = int(now - self._session_start)
         elapsed_str = f"{elapsed // 60:02d}:{elapsed % 60:02d}"
         right_segment = f"{model} │ ws {elapsed_str}" if model else f"ws {elapsed_str}"
-        left_segment = f"🕵 {mode}"
+        left_segment = f"{mode.upper()} // {pursuit_title_for(mode)}"
         # Pad to ~72 chars
         pad = max(1, 72 - len(left_segment) - len(right_segment))
         row1 = left_segment + " " * pad + right_segment
@@ -408,11 +442,11 @@ class LivePane:
         if battery_active and current_tool:
             remaining = len(pending_tools)
             if remaining:
-                row5 = f"  {current_tool}  (+{remaining} queued)"
+                row5 = f" {spinner} {current_tool}  (+{remaining} queued)"
             else:
-                row5 = f"  {current_tool}"
+                row5 = f" {spinner} {current_tool}"
         elif battery_active and battery_name:
-            row5 = f"  {battery_name} running…"
+            row5 = f" {spinner} {battery_name} running…"
         elif activity_slug is not None:
             # Runner-pushed activity: resolve a character-voiced phrase.
             # pick() falls back gracefully for unknown slugs (returns FALLBACK).
@@ -422,7 +456,7 @@ class LivePane:
                 phrase = pick(mode, f"activity:{activity_slug}")
             except (ValueError, Exception):  # noqa: BLE001
                 phrase = activity_slug  # bare slug as last resort
-            row5 = f"  {phrase}"
+            row5 = f" {spinner} {phrase}"
         else:
             row5 = "  idle"
 

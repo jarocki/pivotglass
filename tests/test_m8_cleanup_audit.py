@@ -138,15 +138,15 @@ def tmp_ctx(tmp_path):
 
 
 class TestToolCatalogPostM8:
-    """create_tools() returns 30 tools with correct generate_dossier_report schema (M-9: +2)."""
+    """create_tools() returns 29 tools after direct-DNS removal."""
 
     def test_tool_count_is_28(self, tmp_ctx):
-        """create_tools returns exactly 30 tools (M-8 floor 28 + M-9 +2 — DEC-M9-TOOLCOUNT-001)."""
+        """The historical M-9 catalog minus the forbidden direct-DNS tool is 29."""
         from adversary_pursuit.agent.tools import create_tools
 
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 30, (
-            f"Expected 30 tools, got {len(tools)}. "
+        assert len(tools) == 29, (
+            f"Expected 29 tools, got {len(tools)}. "
             "M-8 removed start_report_interview, answer_report_question, generate_report. "
             "M-9 added export_dossier, compare_dossier (DEC-M9-TOOLCOUNT-001)."
         )
@@ -182,7 +182,7 @@ class TestToolCatalogPostM8:
 
         tools = create_tools(tmp_ctx)
         roundtripped = json.loads(json.dumps(tools))
-        assert len(roundtripped) == 30
+        assert len(roundtripped) == 29
 
     def test_execute_generate_dossier_report_no_style_param(self, tmp_ctx):
         """_execute_generate_dossier_report(ctx) call signature is (ctx,) only."""

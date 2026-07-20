@@ -164,7 +164,6 @@ def _safe_hook_call(hook: "_StatusHook", method_name: str, *args: object) -> Non
 # When a new tool is added, add an entry here; the test
 # test_all_registered_tools_covered will fail loudly if the mapping drifts.
 _TOOL_SLUG_MAP: dict[str, str] = {
-    "dns_resolve": "dns_resolve",
     "whois_lookup": "whois",
     "check_ip_reputation": "check_ip_reputation",
     "shodan_host_lookup": "shodan",
@@ -431,6 +430,9 @@ class AgentRunner:
                     # swallowed by _safe_hook_call so the runner never crashes
                     # due to a broken hook (DEC-RUNNER-CONVERSATION-INTEGRITY-001).
                     _safe_hook_call(_hook, "set_activity", _status_slug_for_tool(tool_name))
+                    show_tool_start = getattr(_hook, "show_tool_start", None)
+                    if callable(show_tool_start):
+                        show_tool_start(tool_name, args)
                     try:
                         summary, celebration, badges, challenges = execute_tool(
                             self.ctx,
@@ -447,6 +449,9 @@ class AgentRunner:
                     if challenges:
                         self.last_challenges.extend(challenges)
                     tool_result_content = summary
+                    show_tool_result = getattr(_hook, "show_tool_result", None)
+                    if callable(show_tool_result):
+                        show_tool_result(tool_name, summary)
                 except Exception as exc:  # noqa: BLE001
                     # Layer B: preserve conversation integrity — OpenAI requires a
                     # tool_result for every assistant tool_call in history.  Emit a
@@ -730,6 +735,22 @@ class AgentRunner:
                     scrollback_clear=_scrollback_clear,
                     event_bus=_event_bus,
                 )
+                # The mode manager owns selection, while AgentRunner owns the
+                # LLM system prompt. Keep both authorities synchronized after
+                # a successful local mode switch; previously the TUI changed
+                # only its palette and the model continued speaking in the old
+                # voice.
+                if verb.name == "mode" and _mode_mgr is not None:
+                    try:
+                        active_mode = _mode_mgr.active
+                        if active_mode.name == verb.args[0].lower():
+                            self.set_character(active_mode)
+                            self._character = active_mode.name
+                            set_live_character = getattr(status_bar, "set_character", None)
+                            if callable(set_live_character):
+                                set_live_character(active_mode.name)
+                    except Exception as exc:  # noqa: BLE001
+                        logger.debug("mode synchronization failed: %s", exc)
                 return result
             except _FarewellExit as exc:
                 # Propagate SystemExit so the TUI/REPL loop terminates, but
@@ -796,6 +817,7 @@ class AgentRunner:
             replace the simple ``mode.personality`` prefix.
         """
         logger.debug("Setting character mode: %s", mode.name)
+        self._character = mode.name
         if mode.llm_profile is not None:
             # v2 path: inject structured LLM persona profile (roadmap §3.3 template).
             # @decision DEC-C1-FULLTROLL-003

@@ -60,9 +60,9 @@ DEFAULT_BATTERIES: dict[str, Battery] = {
     ),
     "infrastructure_battery": Battery(
         name="infrastructure_battery",
-        tools=("shodan_host_lookup", "censys_host_lookup", "dns_resolve"),
+        tools=("shodan_host_lookup", "censys_host_lookup"),
         target_slots=(DossierSlotName.INFRASTRUCTURE,),
-        applies_to=("domain-name", "ipv4-addr", "ipv6-addr"),
+        applies_to=("ipv4-addr", "ipv6-addr"),
         hypothesis_hint="hosted infrastructure fingerprint",
     ),
     "reputation_battery": Battery(
@@ -83,6 +83,8 @@ DEFAULT_BATTERIES: dict[str, Battery] = {
     ),
     "behavioral_battery": Battery(
         name="behavioral_battery",
+        # Passive DNS and interaction metadata come from explicit services;
+        # AP never issues direct resolver queries from the operator host.
         tools=("passivetotal_lookup", "scan_url"),
         # C-3 cross-cutting: covers both TIMING (when the actor operates) and
         # TARGETING (which assets/geographies the actor targets).

@@ -32,7 +32,9 @@ Production sequence:
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from adversary_pursuit.agent.runner import AgentRunner
 
@@ -288,6 +290,27 @@ class TestModeVerbDoesNotCallChat:
 
         mock_verb.assert_called_once()
         mock_chat.assert_not_called()
+
+    def test_mode_switch_updates_llm_persona_and_live_pane(self):
+        """A local mode switch changes voice authority, not only TUI color."""
+        runner = _make_runner()
+        status = MagicMock()
+
+        runner.handle_input("mode ninja", status_bar=status)
+
+        assert runner._character == "ninja"
+        assert runner.system_prompt.startswith("Character mode: ninja\n")
+        status.set_character.assert_called_once_with("ninja")
+
+    @pytest.mark.parametrize("text", ["mode", "mode list"])
+    def test_mode_list_is_local_stable_and_does_not_call_llm(self, text: str):
+        runner = _make_runner()
+        with patch("adversary_pursuit.agent.runner.AgentRunner.chat") as mock_chat:
+            first = runner.handle_input(text)
+            second = runner.handle_input(text)
+        mock_chat.assert_not_called()
+        assert first == second
+        assert first.startswith("Character modes (* active)\n")
 
 
 # ---------------------------------------------------------------------------

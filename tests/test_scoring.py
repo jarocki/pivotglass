@@ -59,8 +59,14 @@ def workspace(tmp_path):
 
 
 @pytest.fixture
-def console(tmp_path):
+def console(tmp_path, monkeypatch):
     """APConsole with isolated temp dirs."""
+    async def _mock_hunt(self, target, options):
+        return [{"type": "domain-name", "value": target, "x_registrar": "Test Registrar"}]
+
+    monkeypatch.setattr(
+        "adversary_pursuit.modules.osint.whois_lookup.WhoisLookup.hunt", _mock_hunt
+    )
     app = APConsole(
         config_dir=tmp_path / "config",
         workspace_dir=tmp_path / "workspaces",
@@ -598,11 +604,11 @@ class TestConsoleScoreCommand:
 
     def test_score_command_shows_total_after_run(self, console):
         """After a successful run, score command shows non-zero total."""
-        run_cmd(console, "use osint/dns_resolve")
+        run_cmd(console, "use osint/whois_lookup")
         run_cmd(console, "set TARGET example.com")
         run_cmd(console, "run")
         out = run_cmd(console, "score")
-        # Total score should be positive (dns_resolve returns IPs/domains)
+        # Total score should be positive (the mocked service returns an enriched domain)
         assert out.strip()  # has some output
         # Score increased from 0 — look for a number > 0
         # The output should contain the score table or total
@@ -610,7 +616,7 @@ class TestConsoleScoreCommand:
 
     def test_score_command_includes_recent_events(self, console):
         """score command output includes recent scoring events."""
-        run_cmd(console, "use osint/dns_resolve")
+        run_cmd(console, "use osint/whois_lookup")
         run_cmd(console, "set TARGET example.com")
         run_cmd(console, "run")
         out = run_cmd(console, "score")
@@ -619,7 +625,7 @@ class TestConsoleScoreCommand:
 
     def test_run_command_displays_points(self, console):
         """run command displays points earned after execution."""
-        run_cmd(console, "use osint/dns_resolve")
+        run_cmd(console, "use osint/whois_lookup")
         run_cmd(console, "set TARGET example.com")
         out = run_cmd(console, "run")
         # Should show point gain
@@ -627,8 +633,8 @@ class TestConsoleScoreCommand:
 
     def test_run_command_without_results_no_crash(self, console):
         """run with a target that returns no results does not crash."""
-        run_cmd(console, "use osint/dns_resolve")
-        run_cmd(console, "set TARGET 192.0.2.1")  # RFC 5737 — unlikely to resolve
+        run_cmd(console, "use osint/whois_lookup")
+        run_cmd(console, "set TARGET 192.0.2.1")  # RFC 5737 documentation fixture
         # Should not raise
         out = run_cmd(console, "run")
         assert isinstance(out, str)

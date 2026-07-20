@@ -1615,7 +1615,6 @@ _KNOWN_ACTIVITY_SLUGS: frozenset[str] = frozenset(
         "thinking",
         "composing",
         # Extended tool slugs (additional tools in _MODULE_MAP)
-        "dns_resolve",
         "whois_lookup",
         "check_ip_reputation",
         "shodan_host_lookup",

@@ -36,8 +36,8 @@ apply to all modules; module-specific hints apply to a loaded module.
 @decision DEC-HINT-004
 @title Module-specific hints use module base name (not full path)
 @status accepted
-@rationale Modules are loaded by path (e.g. "osint/dns_resolve") but hints
-           are keyed by base name (e.g. "dns_resolve"). APConsole strips the
+@rationale Modules are loaded by path (e.g. "osint/abuseipdb") but hints
+           are keyed by base name (e.g. "abuseipdb"). APConsole strips the
            prefix when calling HintProvider methods. This keeps hint definitions
            readable and independent of the module namespace layout, which may
            change in v2 when additional module types are added.
@@ -61,7 +61,7 @@ class Hint:
     cost:
         Point cost to reveal. 0 = free. Paid hints are 10-20 points.
     module:
-        Module base name this hint applies to (e.g. "dns_resolve"), or None
+        Module base name this hint applies to (e.g. "abuseipdb"), or None
         for general hints that apply to all modules.
     """
 
@@ -188,53 +188,11 @@ _DEFAULT_HINTS: list[Hint] = [
         id="hint-general-paid-004",
         text=(
             "Passive DNS records show what domains have resolved to an IP over time. "
-            "Combine PassiveTotal or OTX passive DNS with current active DNS to find "
+            "Combine PassiveTotal, VirusTotal, or OTX passive DNS to find "
             "infrastructure that has been rotated but not fully cleaned up."
         ),
         cost=20,
         module=None,
-    ),
-    # -----------------------------------------------------------------------
-    # dns_resolve — free
-    # -----------------------------------------------------------------------
-    Hint(
-        id="hint-dns-001",
-        text=(
-            "dns_resolve performs A, AAAA, MX, NS, TXT, and PTR lookups. "
-            "Check NS records — adversaries sometimes use custom nameservers "
-            "across multiple domains."
-        ),
-        cost=0,
-        module="dns_resolve",
-    ),
-    Hint(
-        id="hint-dns-002",
-        text=(
-            "TXT records often contain SPF, DKIM, and verification tokens that "
-            "can link domains to known services or leak infrastructure details."
-        ),
-        cost=0,
-        module="dns_resolve",
-    ),
-    # dns_resolve — paid
-    Hint(
-        id="hint-dns-paid-001",
-        text=(
-            "Check for wildcard DNS entries (* records). Adversaries use wildcard "
-            "DNS for phishing kits so any subdomain resolves to the same landing page."
-        ),
-        cost=10,
-        module="dns_resolve",
-    ),
-    Hint(
-        id="hint-dns-paid-002",
-        text=(
-            "MX records point to mail servers. If the MX and A record point to "
-            "different IPs, the mail infrastructure may be hosted separately — "
-            "a useful pivot to hosting providers."
-        ),
-        cost=15,
-        module="dns_resolve",
     ),
     # -----------------------------------------------------------------------
     # whois_lookup — free
@@ -557,10 +515,10 @@ class HintProvider:
         provider = HintProvider()
 
         # Get the next unrevealed hint (free first)
-        result = provider.get_next_hint(module="dns_resolve")
+        result = provider.get_next_hint(module="abuseipdb")
 
         # Get all free hints at once
-        free = provider.get_free_hints(module="dns_resolve")
+        free = provider.get_free_hints(module="abuseipdb")
 
         # Buy a paid hint (raises InsufficientBalanceError if can't afford)
         result = provider.buy_hint(current_score=score)
@@ -595,7 +553,7 @@ class HintProvider:
         Parameters
         ----------
         module:
-            Module base name (e.g. "dns_resolve") to include module-specific
+            Module base name (e.g. "abuseipdb") to include module-specific
             hints. Pass None to return only general free hints.
 
         Returns

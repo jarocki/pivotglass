@@ -1782,7 +1782,7 @@ class APConsole(cmd2.Cmd):
         Paid hints deduct points from your workspace score (10-20 pts each).
 
         Module base name is derived from the active module path by stripping
-        the namespace prefix (e.g. 'osint/dns_resolve' -> 'dns_resolve').
+        the namespace prefix (e.g. 'osint/abuseipdb' -> 'abuseipdb').
         See DEC-HINT-004 for rationale.
         """
         sub = args.strip().lower() if args.strip() else ""
@@ -1790,7 +1790,7 @@ class APConsole(cmd2.Cmd):
         # Derive module base name from active module path (DEC-HINT-004)
         module_name: str | None = None
         if self._active_module_path:
-            # "osint/dns_resolve" -> "dns_resolve"; "dns_resolve" -> "dns_resolve"
+            # "osint/abuseipdb" -> "abuseipdb"; "abuseipdb" -> "abuseipdb"
             module_name = (
                 self._active_module_path.split("/")[-1] if self._active_module_path else None
             )

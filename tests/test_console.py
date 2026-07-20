@@ -85,10 +85,10 @@ def test_use_unknown_module_shows_error(console):
     assert "not found" in combined or "unknown" in combined or "error" in combined
 
 
-def test_use_dns_resolve(console):
-    """use osint/dns_resolve loads the dns module."""
-    run_cmd(console, "use osint/dns_resolve")
-    assert "dns_resolve" in console.prompt
+def test_use_whois_lookup(console):
+    """use osint/whois_lookup loads the WHOIS module."""
+    run_cmd(console, "use osint/whois_lookup")
+    assert "whois_lookup" in console.prompt
 
 
 def test_back_resets_prompt(console):
@@ -123,12 +123,11 @@ def test_show_options_without_module(console):
     assert isinstance(out, str)
 
 
-def test_show_options_dns_shows_record_type(console):
-    """show options for dns_resolve shows RECORD_TYPE option."""
-    run_cmd(console, "use osint/dns_resolve")
+def test_show_options_whois_shows_target(console):
+    """show options for WHOIS shows its target option."""
+    run_cmd(console, "use osint/whois_lookup")
     out = run_cmd(console, "show options")
     assert "TARGET" in out
-    assert "RECORD_TYPE" in out
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +161,7 @@ def test_set_clears_on_new_use(console):
     run_cmd(console, "use osint/whois_lookup")
     run_cmd(console, "set TARGET old.com")
     run_cmd(console, "back")
-    run_cmd(console, "use osint/dns_resolve")
+    run_cmd(console, "use osint/whois_lookup")
     assert console._active_module_options.get("TARGET", "") == ""
 
 
@@ -186,7 +185,7 @@ def test_run_without_target_shows_error(console):
 
 def test_run_stores_results(console):
     """Full use -> set -> run workflow stores objects in workspace."""
-    run_cmd(console, "use osint/dns_resolve")
+    run_cmd(console, "use osint/whois_lookup")
     run_cmd(console, "set TARGET example.com")
     out = run_cmd(console, "run")
     combined = out.lower()
@@ -195,7 +194,7 @@ def test_run_stores_results(console):
 
 def test_hunt_alias_works(console):
     """hunt is an alias for run."""
-    run_cmd(console, "use osint/dns_resolve")
+    run_cmd(console, "use osint/whois_lookup")
     run_cmd(console, "set TARGET example.com")
     out = run_cmd(console, "hunt")
     combined = out.lower()
@@ -204,7 +203,7 @@ def test_hunt_alias_works(console):
 
 def test_run_displays_results_table(console):
     """run displays result data for a resolved domain."""
-    run_cmd(console, "use osint/dns_resolve")
+    run_cmd(console, "use osint/whois_lookup")
     run_cmd(console, "set TARGET example.com")
     out = run_cmd(console, "run")
     assert "example.com" in out or "domain" in out.lower() or "addr" in out.lower()
@@ -226,7 +225,7 @@ def test_full_workflow_two_modules(console):
     assert console.prompt == "ap> "
     assert console._active_module is None
 
-    run_cmd(console, "use osint/dns_resolve")
+    run_cmd(console, "use osint/whois_lookup")
     run_cmd(console, "set TARGET 8.8.8.8")
     out2 = run_cmd(console, "run")
 
@@ -511,7 +510,7 @@ class TestF63MilestoneCatchupIntegration:
         # (workspace is fresh — get_last_milestone_id returns None already)
 
         # Run a module that adds at least 1 point to push over 100
-        self._run(console, "use osint/dns_resolve")
+        self._run(console, "use osint/whois_lookup")
         self._run(console, "set TARGET example.com")
         out = self._run(console, "run")
 
@@ -530,7 +529,7 @@ class TestF63MilestoneCatchupIntegration:
             [{"action": "new_ip", "points": 150, "indicator": "seed"}]
         )
 
-        self._run(console, "use osint/dns_resolve")
+        self._run(console, "use osint/whois_lookup")
         self._run(console, "set TARGET example.com")
         self._run(console, "run")
 
@@ -548,7 +547,7 @@ class TestF63MilestoneCatchupIntegration:
             [{"action": "new_ip", "points": 200, "indicator": "existing"}]
         )
         # Quiet-start: run a hunt that produces NO new results (target won't resolve)
-        self._run(console, "use osint/dns_resolve")
+        self._run(console, "use osint/whois_lookup")
         self._run(console, "set TARGET 192.0.2.255")  # RFC 5737 — no results expected
         self._run(console, "run")
 
@@ -607,7 +606,7 @@ class TestF63StreakContinuedIntegration:
 
     def test_streak_continued_event_stored_after_hunt(self, console):
         """After a successful hunt, a streak_continued score event is in the workspace."""
-        self._run(console, "use osint/dns_resolve")
+        self._run(console, "use osint/whois_lookup")
         self._run(console, "set TARGET example.com")
         self._run(console, "run")
 
@@ -618,7 +617,7 @@ class TestF63StreakContinuedIntegration:
 
     def test_streak_continued_points_correct_for_day_one(self, console):
         """First hunt ever → streak_continued event has 10 points (day 1 tier)."""
-        self._run(console, "use osint/dns_resolve")
+        self._run(console, "use osint/whois_lookup")
         self._run(console, "set TARGET example.com")
         self._run(console, "run")
 
@@ -629,7 +628,7 @@ class TestF63StreakContinuedIntegration:
 
     def test_streak_continued_visible_in_output(self, console):
         """streak_continued action line appears in _execute_hunt output."""
-        self._run(console, "use osint/dns_resolve")
+        self._run(console, "use osint/whois_lookup")
         self._run(console, "set TARGET example.com")
         out = self._run(console, "run")
 
@@ -660,7 +659,7 @@ class TestF63StreakContinuedIntegration:
 
         app.stdout = io.StringIO()
         app.rich_console = app._make_rich_console()
-        app.onecmd_plus_hooks("use osint/dns_resolve")
+        app.onecmd_plus_hooks("use osint/whois_lookup")
         app.onecmd_plus_hooks("set TARGET example.com")
         app.stdout = io.StringIO()
         app.rich_console = app._make_rich_console()

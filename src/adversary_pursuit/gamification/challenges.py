@@ -239,7 +239,7 @@ class ChallengeManager:
                     "stix_type": "ipv4-addr",
                     "min_count": 1,
                 },
-                hints=["Try the dns_resolve module with any domain"],
+                hints=["Use PassiveTotal, VirusTotal, URLScan, or Censys enrichment"],
             ),
             Challenge(
                 id="ch-002",
@@ -252,7 +252,7 @@ class ChallengeManager:
                     "stix_type": "domain-name",
                     "min_count": 5,
                 },
-                hints=["Use whois_lookup and dns_resolve on different targets"],
+                hints=["Use WHOIS plus passive-DNS or certificate intelligence"],
             ),
             Challenge(
                 id="ch-003",

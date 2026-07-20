@@ -1,0 +1,3 @@
+# Next.js export artifacts are generated, minified runtime assets. Preserve
+# their exact bytes and do not apply source-code whitespace diagnostics.
+web/out/** -text whitespace=-trailing-space

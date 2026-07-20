@@ -169,7 +169,7 @@ class APCompleter(Completer):
             return
 
         if cmd == "mode":
-            yield from _match(arg_word, _MODE_NAMES)
+            yield from _match(arg_word, ["list", *_MODE_NAMES])
         elif cmd == "hint":
             yield from _match(arg_word, _MODULE_NAMES + ["buy"])
         elif cmd == "export":

@@ -28,12 +28,16 @@ Adversary Pursuit (AP) is a gamified framework for hunting, pivoting, and discov
 
 **Problem:** CTI/OSINT analysts navigate a fragmented landscape of disconnected scripts, web portals, and APIs. Learning curves are steep. There's no unified framework that makes the process engaging, educational, and competitive.
 
-**Solution (v1, revised 2026-07-19):** A multi-platform Python CLI application whose **primary user-facing interface is an agentic AI cyberdeck** (`ap`; `ap chat` remains a compatibility alias, LiteLLM-driven). The agent discovers and invokes modular OSINT/CTI integrations as tools, gathers STIX 2.1 evidence into per-investigation workspaces, and observes scoring/celebration/badge/hint events as part of the chat experience. A Metasploit-like cmd2 REPL (`ap basic` / `ap repl`) ships alongside as a power-user surface for direct `use → set → run` workflows; it is supporting infrastructure, not the primary UX.
+**Solution (v1, revised 2026-07-19):** A multi-platform Python analysis engine whose **primary user-facing interface is the locally hosted Pivotglass web cockpit** (`ap`; React/Next.js presentation over the existing deterministic authorities). The terminal AI cyberdeck remains at `ap chat` / `ap tui`, and the Metasploit-like cmd2 REPL remains at `ap basic` / `ap repl`. All surfaces share the module, workspace, evidence, scoring, and policy authorities.
 
 **Current implementation checkpoint (2026-07-19):** v0.4.0 is released. The
-interactive AI cyberdeck is the bare `ap` command, with `ap chat` retained as a
-compatibility alias; the classic console is `ap basic` / `ap repl`. The shipped
-catalog contains 15 CTI/OSINT modules, 30 LLM tools, and 14 character modes.
+locally hosted Pivotglass web cockpit is the bare `ap` command; the terminal AI
+cyberdeck is `ap chat` / `ap tui`, and the classic console is `ap basic` / `ap repl`. The shipped
+catalog contains 14 CTI/OSINT modules, 29 LLM tools, and 14 character modes.
+Direct DNS resolution from the operator host was prohibited on 2026-07-19;
+domain metadata must be obtained from explicit intelligence-service APIs. The
+web cockpit is a static Next.js export served on loopback by the Python process;
+Microsoft Flint 0.3.0 compiles semantic evidence charts for local rendering.
 Phase 17O through Phase 18 Slice 7A have landed. The storyboard-aligned deck
 hierarchy and responsive operator controls are implemented; the studies in
 `storyboard/` remain design targets rather than claims of pixel-identical runtime

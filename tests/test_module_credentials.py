@@ -34,10 +34,9 @@ class TestResolveModuleCredentials:
     """Unit tests for resolve_module_credentials() precedence logic."""
 
     def test_keyless_module_returns_empty_dict(self):
-        """dns_resolve, whois_lookup, and F61 modules return {} — no API key needed."""
+        """WHOIS and F61 modules return {} — no API key needed."""
         # @mock-exempt: ConfigManager is external I/O boundary
         cfg = Mock()
-        assert resolve_module_credentials("osint/dns_resolve", cfg) == {}
         assert resolve_module_credentials("osint/whois_lookup", cfg) == {}
         assert resolve_module_credentials("osint/crtsh", cfg) == {}
         assert resolve_module_credentials("cti/threatfox", cfg) == {}
@@ -156,7 +155,6 @@ class TestServiceNamesMapping:
 
     def test_keyless_modules_map_to_none(self):
         """Keyless modules are mapped to None."""
-        assert SERVICE_NAMES["osint/dns_resolve"] is None
         assert SERVICE_NAMES["osint/whois_lookup"] is None
         assert SERVICE_NAMES["cti/urlhaus"] is None
         assert SERVICE_NAMES["cti/threatfox"] is None

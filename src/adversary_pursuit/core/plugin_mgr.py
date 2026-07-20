@@ -41,7 +41,6 @@ logger = logging.getLogger(__name__)
 
 _BUILTIN_MODULES: list[tuple[str, str]] = [
     ("osint/whois_lookup", "adversary_pursuit.modules.osint.whois_lookup:WhoisLookup"),
-    ("osint/dns_resolve", "adversary_pursuit.modules.osint.dns_resolve:DnsResolve"),
     ("osint/abuseipdb", "adversary_pursuit.modules.osint.abuseipdb:AbuseIPDB"),
     ("osint/urlscan", "adversary_pursuit.modules.osint.urlscan:URLScan"),
     ("osint/hibp", "adversary_pursuit.modules.osint.hibp:HIBP"),
@@ -88,7 +87,7 @@ class PluginManager:
     pm.load_plugins()
     mod = pm.get_module("osint/whois_lookup")
     mod.initialize(config)
-    results = await mod.hunt("example.com", {})
+    results = await mod.hunt("investigation.invalid", {})
     """
 
     def __init__(self) -> None:

@@ -109,6 +109,9 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+web/node_modules/
+web/.next/
+web/tsconfig.tsbuildinfo
 
 # Spyder project settings
 .spyderproject

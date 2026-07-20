@@ -38,7 +38,12 @@ from unittest.mock import MagicMock, patch  # @mock-exempt: sys.stdin.isatty is 
 
 from adversary_pursuit.agent.tui.application import TuiApplication
 from adversary_pursuit.agent.tui.events import EventBus
-from adversary_pursuit.agent.tui.themes import resolved_border_color, theme_for
+from adversary_pursuit.agent.tui.themes import (
+    COCKPIT_PROFILES,
+    cockpit_for,
+    resolved_border_color,
+    theme_for,
+)
 
 # ---------------------------------------------------------------------------
 # Test stubs
@@ -64,6 +69,13 @@ class _FakeModeManager:
 
 class _FakeRunner:
     model = "test/model"
+
+
+def test_every_mode_has_a_distinct_cockpit_identity() -> None:
+    assert len(COCKPIT_PROFILES) == 14
+    assert len({profile.vehicle for profile in COCKPIT_PROFILES.values()}) == 14
+    assert cockpit_for("hal9000").vehicle == "DISCOVERY ONE"
+    assert cockpit_for("neuromancer").vehicle == "ONO-SENDAI VII"
 
 
 def _make_app(mode_name: str = "default") -> TuiApplication:

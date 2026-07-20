@@ -145,7 +145,7 @@ class TestToolContextInit:
         """Plugin manager loads all built-in modules after ToolContext init."""
         modules = tmp_ctx.plugin_mgr.list_modules()
         module_names = [m["name"] for m in modules]
-        assert "osint/dns_resolve" in module_names
+        assert "osint/dns_resolve" not in module_names
         assert "osint/whois_lookup" in module_names
         assert "osint/abuseipdb" in module_names
         assert "osint/shodan_ip" in module_names
@@ -178,9 +178,9 @@ class TestCreateTools:
         assert isinstance(tools, list)
 
     def test_returns_twenty_two_tools(self, tmp_ctx):
-        """create_tools returns exactly 30 tool definitions (M-9: +2 tools export_dossier + compare_dossier — DEC-M9-TOOLCOUNT-001)."""
+        """create_tools returns 29 definitions after direct-DNS removal."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 30
+        assert len(tools) == 29
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -212,7 +212,6 @@ class TestCreateTools:
         tools = create_tools(tmp_ctx)
         names = {t["function"]["name"] for t in tools}
         expected = {
-            "dns_resolve",
             "whois_lookup",
             "check_ip_reputation",
             "shodan_host_lookup",
@@ -257,14 +256,6 @@ class TestCreateTools:
         }
         assert names == expected
 
-    def test_dns_resolve_has_required_domain(self, tmp_ctx):
-        """dns_resolve tool has 'domain' as a required parameter."""
-        tools = create_tools(tmp_ctx)
-        dns_tool = next(t for t in tools if t["function"]["name"] == "dns_resolve")
-        params = dns_tool["function"]["parameters"]
-        assert "domain" in params["properties"]
-        assert "domain" in params["required"]
-
     def test_check_ip_reputation_has_required_ip(self, tmp_ctx):
         """check_ip_reputation tool has 'ip_address' as required."""
         tools = create_tools(tmp_ctx)
@@ -287,7 +278,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 30
+        assert len(roundtripped) == 29
 
     # --- New tool schema tests ---
 
@@ -356,18 +347,6 @@ class TestExecuteToolDispatch:
         assert "nonexistent_tool" in summary
         assert celebration is None
 
-    def test_dns_resolve_dispatches_to_dns_module(self, tmp_ctx):
-        """execute_tool('dns_resolve') runs the osint/dns_resolve module."""
-        mock_mod = self._make_mock_module(SAMPLE_DOMAIN_RESULTS)
-        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
-            summary, _celebration, _badges, _challenges = execute_tool(
-                tmp_ctx, "dns_resolve", {"domain": "example.com"}
-            )
-            assert isinstance(summary, str)
-            assert "Found" in summary
-            # Verify get_module was called with correct path
-            mock_get.assert_called_once_with("osint/dns_resolve")
-
     def test_whois_lookup_dispatches(self, tmp_ctx):
         """execute_tool('whois_lookup') runs the osint/whois_lookup module."""
         mock_mod = self._make_mock_module(SAMPLE_DOMAIN_RESULTS)
@@ -432,7 +411,7 @@ class TestExecuteToolDispatch:
         """execute_tool returns (error_string, None) when module not found."""
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=None):
             summary, celebration, _badges, _challenges = execute_tool(
-                tmp_ctx, "dns_resolve", {"domain": "example.com"}
+                tmp_ctx, "whois_lookup", {"target": "example.com"}
             )
         assert "Error" in summary
         assert celebration is None
@@ -449,7 +428,7 @@ class TestExecuteToolDispatch:
         mock_mod.initialize = MagicMock()
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             summary, celebration, _badges, _challenges = execute_tool(
-                tmp_ctx, "dns_resolve", {"domain": "example.com"}
+                tmp_ctx, "whois_lookup", {"target": "example.com"}
             )
         assert summary.startswith("[USER_SAW_PANEL]"), (
             f"Expected [USER_SAW_PANEL] prefix, got: {summary!r}"
@@ -762,7 +741,7 @@ class TestModuleMap:
 
     def test_module_map_has_eleven_entries(self):
         """_MODULE_MAP has exactly 15 entries (11 prior + 4 keyless hunters F61)."""
-        assert len(_MODULE_MAP) == 15
+        assert len(_MODULE_MAP) == 14
 
     def test_module_map_contains_new_tools(self):
         """_MODULE_MAP contains virustotal_lookup, censys_host_lookup, passivetotal_lookup."""
@@ -1429,7 +1408,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 30
+        assert len(r.tools) == 29
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""
@@ -3399,19 +3378,6 @@ class TestServiceNameMap:
             f"get_api_key('shodan_ip') must not be called; actual calls: {calls_made}"
         )
 
-    def test_run_module_dns_resolve_initializes_empty(self, tmp_ctx):
-        """run_module('osint/dns_resolve') passes empty init_config (no API key needed)."""
-        from unittest.mock import AsyncMock, MagicMock, patch
-
-        mock_mod = MagicMock()
-        mock_mod.hunt = AsyncMock(return_value=SAMPLE_DOMAIN_RESULTS)
-        mock_mod.initialize = MagicMock()
-
-        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            tmp_ctx.run_module("osint/dns_resolve", "example.com", {})
-
-        mock_mod.initialize.assert_called_once_with({})
-
     def test_run_module_whois_lookup_initializes_empty(self, tmp_ctx):
         """run_module('osint/whois_lookup') passes empty init_config (no API key needed)."""
         from unittest.mock import AsyncMock, MagicMock, patch
@@ -5014,7 +4980,7 @@ class TestM6RankerWiring:
         # Enable autopivot so the cascade branch is entered (production code path).
         # Without this, process_results is never called and ranker_calls stays empty.
         ctx.autopivot_enabled = True
-        mod = ctx.plugin_mgr.get_module("osint/dns_resolve")
+        mod = ctx.plugin_mgr.get_module("osint/whois_lookup")
         with (
             patch.object(
                 mod, "hunt", new=AsyncMock(return_value=[{"type": "ipv4-addr", "value": "5.5.5.5"}])
@@ -5022,7 +4988,7 @@ class TestM6RankerWiring:
             patch.object(ctx.event_bus, "process_results", side_effect=_capture_process_results),
         ):
             assert ctx.config.general.auto_pivot_policy.dossier_aware_ranking is True
-            ctx.run_module("osint/dns_resolve", "5.5.5.5", {})
+            ctx.run_module("osint/whois_lookup", "5.5.5.5", {})
 
         assert len(ranker_calls) == 1, "process_results must be called exactly once"
         captured = ranker_calls[0]
@@ -5055,14 +5021,14 @@ class TestM6RankerWiring:
 
         # Enable autopivot so the cascade branch is entered (production code path).
         ctx.autopivot_enabled = True
-        mod = ctx.plugin_mgr.get_module("osint/dns_resolve")
+        mod = ctx.plugin_mgr.get_module("osint/whois_lookup")
         with (
             patch.object(
                 mod, "hunt", new=AsyncMock(return_value=[{"type": "ipv4-addr", "value": "5.5.5.5"}])
             ),
             patch.object(ctx.event_bus, "process_results", side_effect=_capture_process_results),
         ):
-            ctx.run_module("osint/dns_resolve", "5.5.5.5", {})
+            ctx.run_module("osint/whois_lookup", "5.5.5.5", {})
 
         assert len(ranker_calls) == 1
         assert ranker_calls[0] is None, (
@@ -5103,7 +5069,7 @@ class TestM6RankerWiring:
         # inside it — is actually entered. Without this the assert would trivially
         # pass with count=0 (no call, no second call either).
         ctx.autopivot_enabled = True
-        mod = ctx.plugin_mgr.get_module("osint/dns_resolve")
+        mod = ctx.plugin_mgr.get_module("osint/whois_lookup")
         with (
             patch.object(
                 mod, "hunt", new=AsyncMock(return_value=[{"type": "ipv4-addr", "value": "5.5.5.5"}])
@@ -5114,7 +5080,7 @@ class TestM6RankerWiring:
                 side_effect=_counting_load,
             ),
         ):
-            ctx.run_module("osint/dns_resolve", "5.5.5.5", {})
+            ctx.run_module("osint/whois_lookup", "5.5.5.5", {})
 
         assert len(load_call_count) == 1, (
             f"load_dossier_state must be called exactly once per hunt; got {len(load_call_count)}"
@@ -5484,7 +5450,7 @@ class TestExecuteToolFriendlyErrorRouting:
         exc = httpx.ConnectError("Connection refused connecting to api.example.com")
 
         with patch.object(ctx, "run_module", side_effect=exc):
-            result, _cel, _b, _c = execute_tool(ctx, "dns_resolve", {"domain": "evil.example.com"})
+            result, _cel, _b, _c = execute_tool(ctx, "whois_lookup", {"target": "evil.example.com"})
 
         assert result.startswith("[USER_SAW_PANEL]"), f"Missing marker: {result!r}"
         assert "Network" in result, f"Expected 'Network' in LLM string: {result!r}"
@@ -5502,7 +5468,7 @@ class TestExecuteToolFriendlyErrorRouting:
         exc = ValueError("synthetic unknown error from test")
 
         with patch.object(ctx, "run_module", side_effect=exc):
-            result, _cel, _b, _c = execute_tool(ctx, "dns_resolve", {"domain": "evil.example.com"})
+            result, _cel, _b, _c = execute_tool(ctx, "whois_lookup", {"target": "evil.example.com"})
 
         assert result.startswith("[USER_SAW_PANEL]"), f"Missing marker: {result!r}"
         # unknown-fallback category is 'Unknown'

@@ -449,16 +449,16 @@ class ToolContext:
         # Run hunt() via asyncio — modules are async
         results = asyncio.run(mod.hunt(target, options or {}))
 
-        # Bug 7 fix: Hunt success signal — at least one result beyond a bare domain-name SCO.
-        # dns_resolve always emits {"type":"domain-name","value":target} even on DNS failure.
+        # Hunt success signal — at least one result beyond a bare domain-name SCO.
         # Scoring and achievements must only fire when the hunt returned substantive data.
         # A bare domain-name dict has exactly 2 keys (type + value); enriched ones have more.
         #
         # @decision DEC-P18S4-HUNT-SUCCESS-GATE-001
         # @title Celebration/badges/scoring gate on substantive hunt data, not bare SCO presence
         # @status accepted
-        # @rationale dns_resolve.hunt() returns a bare {"type":"domain-name","value":target}
-        #            dict even when all DNS resolution fails. Without this gate, that lone SCO
+        # @rationale Some enrichment modules return a bare
+        #            {"type":"domain-name","value":target} sentinel when no metadata exists.
+        #            Without this gate, that lone SCO
         #            triggers scoring (1 domain-name = points), celebration art, and badge checks
         #            for every failed DNS query — "Target acquired" fires on a null result.
         #            Gate: at least one result whose type is NOT domain-name, OR whose dict has
@@ -973,34 +973,10 @@ def create_tools(ctx: ToolContext) -> list[dict]:
     Returns
     -------
     list[dict]
-        12 tool definitions covering all built-in AP modules plus workspace ops.
-        7 OSINT/CTI modules + VT + Censys + PassiveTotal + 2 workspace tools.
+        Function definitions covering all built-in AP modules, workspace
+        operations, dossier workflows, hints, challenges, and operator control.
     """
     return [
-        {
-            "type": "function",
-            "function": {
-                "name": "dns_resolve",
-                "description": (
-                    "Resolve DNS records for a domain. Returns IP addresses and domain information."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "domain": {
-                            "type": "string",
-                            "description": "Domain name to resolve",
-                        },
-                        "record_type": {
-                            "type": "string",
-                            "description": "DNS record type (A, AAAA, MX, NS, TXT)",
-                            "default": "A",
-                        },
-                    },
-                    "required": ["domain"],
-                },
-            },
-        },
         {
             "type": "function",
             "function": {
@@ -1392,7 +1368,7 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                 "description": (
                     "Get the next free contextual hint for the current investigation. "
                     "Free hints (cost=0) are always available without score penalty. "
-                    "Optionally filter to a specific module (e.g. 'dns_resolve', "
+                    "Optionally filter to a specific module (e.g. 'virustotal', "
                     "'abuseipdb'). Returns None when all free hints have been revealed."
                 ),
                 "parameters": {
@@ -1402,7 +1378,7 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                             "type": "string",
                             "description": (
                                 "Module base name to get module-specific hints "
-                                "(e.g. 'dns_resolve', 'abuseipdb'). "
+                                "(e.g. 'virustotal', 'abuseipdb'). "
                                 "Omit for general hints only."
                             ),
                         },
@@ -1427,7 +1403,7 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                             "type": "string",
                             "description": (
                                 "Module base name to get module-specific paid hints "
-                                "(e.g. 'dns_resolve', 'abuseipdb'). "
+                                "(e.g. 'virustotal', 'abuseipdb'). "
                                 "Omit for general paid hints."
                             ),
                         },
@@ -1853,10 +1829,6 @@ def create_tools(ctx: ToolContext) -> list[dict]:
 # arg_extractor is a callable that takes the arguments dict and returns
 # (target: str, options: dict) for run_module().
 _MODULE_MAP: dict[str, tuple[str, Any]] = {
-    "dns_resolve": (
-        "osint/dns_resolve",
-        lambda a: (a["domain"], {"RECORD_TYPE": a.get("record_type", "A")}),
-    ),
     "whois_lookup": (
         "osint/whois_lookup",
         lambda a: (a["target"], {}),
@@ -2196,7 +2168,7 @@ def _execute_get_next_hint(ctx: ToolContext, module: str | None = None) -> str:
     ctx:
         The shared ToolContext holding the session-scoped HintProvider.
     module:
-        Module base name to include module-specific hints (e.g. "dns_resolve").
+        Module base name to include module-specific hints (e.g. "virustotal").
         Pass None for general hints only.
 
     Returns

@@ -7,7 +7,7 @@ Covers:
 - HintProvider.get_free_hints returns only cost=0 hints
 - HintProvider.buy_hint deducts score and returns the hint
 - HintProvider.buy_hint returns None and raises InsufficientBalanceError when score too low
-- Module-specific hints exist for: dns_resolve, whois_lookup, abuseipdb, shodan_ip, hibp, otx, urlscan
+- Module-specific hints exist for supported enrichment modules.
 - General hints fallback when module-specific hints exhausted
 - Already-revealed hints are not returned again
 - Console do_hint command: 'hint' shows next hint
@@ -19,7 +19,7 @@ Covers:
 - HintProvider tracks revealed hints across calls
 
 Production sequence tested:
-  In a real session, the analyst loads a module ('use osint/dns_resolve'),
+  In a real session, the analyst loads a module ('use osint/whois_lookup'),
   then types 'hint' to see general hints and module-specific hints about that
   module. The 'hint free' command shows all free hints at once. 'hint buy'
   deducts 10-20 points from the score and reveals a paid hint. This test suite
@@ -144,9 +144,9 @@ class TestHintProviderFreeHints:
 
     def test_module_specific_free_hints(self):
         provider = HintProvider()
-        free = provider.get_free_hints(module="dns_resolve")
-        assert any(h.module == "dns_resolve" for h in free), (
-            "Expected at least one dns_resolve-specific free hint"
+        free = provider.get_free_hints(module="whois_lookup")
+        assert any(h.module == "whois_lookup" for h in free), (
+            "Expected at least one WHOIS-specific free hint"
         )
 
     def test_get_free_hints_no_duplicates(self):
@@ -261,7 +261,6 @@ class TestModuleSpecificHints:
     """All required modules must have at least one specific hint."""
 
     REQUIRED_MODULES = [
-        "dns_resolve",
         "whois_lookup",
         "abuseipdb",
         "shodan_ip",
@@ -280,11 +279,11 @@ class TestModuleSpecificHints:
     def test_module_hints_include_general(self):
         provider = HintProvider()
         # get_module_hints returns both general and module-specific
-        all_hints = provider.get_module_hints("dns_resolve")
+        all_hints = provider.get_module_hints("whois_lookup")
         general = [h for h in all_hints if h.module is None]
-        specific = [h for h in all_hints if h.module == "dns_resolve"]
+        specific = [h for h in all_hints if h.module == "whois_lookup"]
         assert len(general) > 0, "Expected general hints mixed in"
-        assert len(specific) > 0, "Expected dns_resolve-specific hints"
+        assert len(specific) > 0, "Expected WHOIS-specific hints"
 
     def test_module_hints_ordered_by_cost(self):
         provider = HintProvider()
@@ -359,8 +358,8 @@ class TestConsoleHintCommand:
     def test_hint_free_with_active_module(self, tmp_path):
         """Module-specific hints appear when a module is loaded."""
         console = _make_console(tmp_path)
-        # Simulate loading dns_resolve module by setting module path
-        console._active_module_path = "osint/dns_resolve"
+        # Simulate loading a supported module by setting its path.
+        console._active_module_path = "osint/whois_lookup"
         console._active_module = object()  # sentinel for "module is loaded"
         console.do_hint("free")
         output = _rich_output(console)

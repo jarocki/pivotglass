@@ -277,11 +277,11 @@ class TestStatusSlugForTool:
 
         assert _status_slug_for_tool("threatfox_lookup") == "threatfox"
 
-    def test_dns_resolve_maps_to_dns_resolve(self):
-        """dns_resolve -> 'dns_resolve'."""
+    def test_removed_dns_resolve_is_not_a_known_activity(self):
+        """Removed direct-DNS tooling receives the neutral fallback slug."""
         from adversary_pursuit.agent.runner import _status_slug_for_tool
 
-        assert _status_slug_for_tool("dns_resolve") == "dns_resolve"
+        assert _status_slug_for_tool("dns_resolve") == "default_tool"
 
     def test_unknown_tool_returns_default_tool(self):
         """Unknown tool returns 'default_tool' with no crash."""

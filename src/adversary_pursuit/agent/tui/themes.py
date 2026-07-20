@@ -98,6 +98,17 @@ class CharacterTheme:
     high_contrast_border: str
 
 
+@dataclass(frozen=True)
+class CockpitProfile:
+    """Mode-specific cockpit vocabulary and perspective geometry."""
+
+    deck_name: str
+    vehicle: str
+    hud_title: str
+    left_rail: str
+    right_rail: str
+
+
 # ---------------------------------------------------------------------------
 # DEFAULT_THEMES — single authority for all character visual themes
 # (DEC-TUI-THEME-001 / Sacred Practice 12)
@@ -260,6 +271,24 @@ PURSUIT_TITLES: dict[str, str] = {
 }
 
 
+COCKPIT_PROFILES: dict[str, CockpitProfile] = {
+    "default": CockpitProfile("HUNT CONTROL", "AP-01 PURSUIT DECK", "TACTICAL HUD", "╲", "╱"),
+    "ninja": CockpitProfile("SHADOW SCOPE", "NIGHT-RUNNER", "SILENT TELEMETRY", "⟍", "⟋"),
+    "full_troll": CockpitProfile("THUNDERDOME", "CHAOS WAGON", "HYPE METERS", "⚡", "⚡"),
+    "drunken_master": CockpitProfile("TAVERN GYRO", "WOBBLE-CLASS SKIFF", "BALANCE BOARD", "≈", "≈"),
+    "sun_tzu": CockpitProfile("WAR TABLE", "COMMAND CHARIOT", "BATTLE MAP", "《", "》"),
+    "chuck_norris": CockpitProfile("STRIKE ARENA", "ROUNDHOUSE-1", "THREAT LOCK", "◢", "◣"),
+    "bureaucrat": CockpitProfile("CASE FILE", "FORM 27-B/6", "COMPLIANCE HUD", "┏", "┓"),
+    "bobby_hill": CockpitProfile("BACK ALLEY", "PURSE DEFENDER", "DANG-IT PANEL", "╱", "╲"),
+    "bruce_lee": CockpitProfile("FLOW DECK", "INTERCEPTOR WATER", "FLOW STATE", "〈", "〉"),
+    "columbo": CockpitProfile("PRECINCT DESK", "PEUGEOT 403", "ONE MORE THING", "⌜", "⌝"),
+    "deckard": CockpitProfile("RAIN SCOPE", "SPINNER 9732", "VOIGHT-KAMPFF HUD", "◥", "◤"),
+    "hal9000": CockpitProfile("DEEP SPACE", "DISCOVERY ONE", "HAL OPTICS", "◉", "◉"),
+    "neuromancer": CockpitProfile("THE SPRAWL", "ONO-SENDAI VII", "ICE MONITOR", "⟫", "⟪"),
+    "trinity": CockpitProfile("THE MATRIX", "NEBUCHADNEZZAR", "OPERATOR LINK", "⧹", "⧸"),
+}
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -287,6 +316,11 @@ def theme_for(character_name: str) -> CharacterTheme:
 def pursuit_title_for(character_name: str) -> str:
     """Return the mode-specific title for the live investigation surface."""
     return PURSUIT_TITLES.get(character_name, PURSUIT_TITLES["default"])
+
+
+def cockpit_for(character_name: str) -> CockpitProfile:
+    """Return the mode's cockpit profile, falling back to hunt control."""
+    return COCKPIT_PROFILES.get(character_name, COCKPIT_PROFILES["default"])
 
 
 def is_high_contrast_mode() -> bool:

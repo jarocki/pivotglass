@@ -32,7 +32,7 @@ passed to ``PursuitModule.initialize()`` from either the chat-agent path
     ApiKeysConfig), so Shodan keys were never resolved from config or env vars
     via the 3-layer chain. The fix is an explicit map from module_path to
     canonical service name. None signals that the module needs no API key
-    (dns_resolve, whois_lookup). Modules absent from the map fall back to the
+    (for example, whois_lookup). Modules absent from the map fall back to the
     path tail for forward-compat with future plugins. Multi-key modules (Censys,
     PassiveTotal) stay in CREDENTIAL_BUILDERS and are never looked up here.
 
@@ -65,7 +65,6 @@ SERVICE_NAMES: dict[str, str | None] = {
     "cti/virustotal": "virustotal",
     "cti/otx": "otx",
     "osint/greynoise": "greynoise",
-    "osint/dns_resolve": None,  # no key needed
     "osint/whois_lookup": None,  # no key needed
     # F61 keyless modules — no API key needed (DEC-61-SCOPING-001)
     "cti/urlhaus": None,
@@ -104,8 +103,7 @@ def resolve_module_credentials(module_path: str, config_mgr: Any) -> dict:
     Precedence:
     1. ``CREDENTIAL_BUILDERS``: multi-key modules (Censys, PassiveTotal).
     2. ``SERVICE_NAMES``: maps module_path to canonical service name for
-       ``get_api_key()``. ``None`` means no API key needed (e.g. dns_resolve,
-       whois_lookup).
+       ``get_api_key()``. ``None`` means no API key needed (e.g. whois_lookup).
     3. Fallback: path tail used as service name (forward-compat with future plugins).
 
     Parameters
@@ -129,7 +127,7 @@ def resolve_module_credentials(module_path: str, config_mgr: Any) -> dict:
     # Resolve canonical service name; fall back to path tail for unknown modules.
     service_name = SERVICE_NAMES.get(module_path, module_path.split("/")[-1])
     if service_name is None:
-        # No key needed (e.g. dns_resolve, whois_lookup)
+        # No key needed (e.g. whois_lookup)
         return {}
 
     api_key = config_mgr.get_api_key(service_name) or ""

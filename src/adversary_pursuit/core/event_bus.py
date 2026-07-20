@@ -86,7 +86,6 @@ class PivotConfig:
 DEFAULT_SUBSCRIPTIONS: dict[str, list[str]] = {
     "osint/abuseipdb": ["ipv4-addr"],
     "osint/shodan_ip": ["ipv4-addr"],
-    "osint/dns_resolve": ["domain-name"],
     "osint/whois_lookup": ["domain-name"],
     "cti/otx": ["ipv4-addr", "domain-name"],
     "osint/hibp": ["email-addr"],

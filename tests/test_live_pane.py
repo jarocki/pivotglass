@@ -71,6 +71,26 @@ def test_state1_idle_row_count_exact():
     assert len(pane.render()) == 6
 
 
+def test_active_activity_has_visible_spinner():
+    """An in-flight LLM/tool action must visibly differ from the idle pane."""
+    pane, _bus = _make_pane(mode_name="hal9000")
+    pane.set_activity("thinking")
+
+    activity = pane.render()[4]
+
+    assert any(frame in activity for frame in ("◐", "◓", "◑", "◒"))
+    assert "idle" not in activity.lower()
+
+
+def test_persona_identity_uses_world_title_not_generic_emoji():
+    pane, _bus = _make_pane(mode_name="neuromancer")
+
+    identity = pane.render()[0]
+
+    assert "NEUROMANCER // THE SPRAWL" in identity
+    assert "🕵" not in identity
+
+
 # ---------------------------------------------------------------------------
 # State 2: target set, battery started
 # ---------------------------------------------------------------------------

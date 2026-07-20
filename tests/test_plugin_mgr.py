@@ -12,13 +12,11 @@ called at app startup, then get_module() / search() are called per user
 command. Tests exercise this full sequence including mixed states.
 
 @decision DEC-TEST-MODULE-001
-@title Test built-in modules with real network calls (no mocks)
+@title Keep integration fixtures honest about reserved test domains
 @status accepted
-@rationale Per Sacred Practice #5, tests run against real implementations.
-           WhoisLookup and DnsResolve use stdlib (socket, subprocess) with
-           no external API keys — network calls to example.com are acceptable
-           test fixtures. Mocking socket.getaddrinfo would only prove the
-           mock, not the module behavior.
+@rationale example.com is an IANA-reserved documentation fixture, never live
+           adversary infrastructure. AP must not issue direct DNS queries;
+           domain metadata comes from explicit intelligence-service APIs.
 """
 
 import asyncio
@@ -33,7 +31,6 @@ from adversary_pursuit.modules.base import (
     PursuitModule,
     RateLimitError,
 )
-from adversary_pursuit.modules.osint.dns_resolve import DnsResolve
 from adversary_pursuit.modules.osint.whois_lookup import WhoisLookup
 
 # ---------------------------------------------------------------------------
@@ -47,11 +44,6 @@ class TestPursuitModuleProtocol:
     def test_whois_satisfies_protocol(self):
         """WhoisLookup must satisfy PursuitModule isinstance check."""
         module = WhoisLookup()
-        assert isinstance(module, PursuitModule)
-
-    def test_dns_satisfies_protocol(self):
-        """DnsResolve must satisfy PursuitModule isinstance check."""
-        module = DnsResolve()
         assert isinstance(module, PursuitModule)
 
     def test_base_module_has_required_attributes(self):
@@ -125,13 +117,13 @@ class TestPluginManager:
     """Full PluginManager lifecycle: load, get, search, list."""
 
     def test_load_plugins_discovers_builtin_modules(self):
-        """load_plugins() must register whois_lookup and dns_resolve."""
+        """load_plugins() registers WHOIS and forbids direct DNS."""
         pm = PluginManager()
         pm.load_plugins()
         modules = pm.list_modules()
         names = [m["name"] for m in modules]
         assert "osint/whois_lookup" in names
-        assert "osint/dns_resolve" in names
+        assert "osint/dns_resolve" not in names
 
     def test_get_module_whois(self):
         """get_module('osint/whois_lookup') returns a WhoisLookup instance."""
@@ -140,14 +132,6 @@ class TestPluginManager:
         mod = pm.get_module("osint/whois_lookup")
         assert mod is not None
         assert isinstance(mod, WhoisLookup)
-
-    def test_get_module_dns(self):
-        """get_module('osint/dns_resolve') returns a DnsResolve instance."""
-        pm = PluginManager()
-        pm.load_plugins()
-        mod = pm.get_module("osint/dns_resolve")
-        assert mod is not None
-        assert isinstance(mod, DnsResolve)
 
     def test_get_module_unknown_returns_none(self):
         """get_module() for unknown path returns None."""
@@ -164,15 +148,6 @@ class TestPluginManager:
         names = [r["name"] for r in results]
         assert "osint/whois_lookup" in names
 
-    def test_search_dns(self):
-        """search('dns') finds the dns module."""
-        pm = PluginManager()
-        pm.load_plugins()
-        results = pm.search("dns")
-        assert len(results) >= 1
-        names = [r["name"] for r in results]
-        assert "osint/dns_resolve" in names
-
     def test_search_no_match_returns_empty(self):
         """search with no match returns empty list."""
         pm = PluginManager()
@@ -180,8 +155,8 @@ class TestPluginManager:
         results = pm.search("xxxxxxnonexistentxxxxxx")
         assert results == []
 
-    def test_list_modules_returns_both_builtins(self):
-        """list_modules() returns at least the two built-in modules."""
+    def test_list_modules_returns_builtin_catalog(self):
+        """list_modules() returns the built-in module catalog."""
         pm = PluginManager()
         pm.load_plugins()
         modules = pm.list_modules()
@@ -290,59 +265,6 @@ class TestWhoisLookupHunt:
         module = WhoisLookup()
         module.initialize({})
         results = await module.hunt("8.8.8.8", {})
-        assert isinstance(results, list)
-        assert len(results) >= 1
-
-
-class TestDnsResolveHunt:
-    """DnsResolve.hunt() against real example.com using socket.getaddrinfo."""
-
-    async def test_hunt_returns_list(self):
-        """hunt() returns a non-empty list for example.com."""
-        module = DnsResolve()
-        module.initialize({})
-        results = await module.hunt("example.com", {})
-        assert isinstance(results, list)
-        assert len(results) >= 1
-
-    async def test_hunt_result_has_stix_type(self):
-        """Each result dict must have a 'type' key."""
-        module = DnsResolve()
-        module.initialize({})
-        results = await module.hunt("example.com", {})
-        for r in results:
-            assert "type" in r
-
-    async def test_hunt_returns_ipv4_addr(self):
-        """At least one result should be an ipv4-addr SCO."""
-        module = DnsResolve()
-        module.initialize({})
-        results = await module.hunt("example.com", {})
-        types = [r.get("type") for r in results]
-        assert "ipv4-addr" in types
-
-    async def test_hunt_returns_domain_name(self):
-        """At least one result should be a domain-name SCO."""
-        module = DnsResolve()
-        module.initialize({})
-        results = await module.hunt("example.com", {})
-        types = [r.get("type") for r in results]
-        assert "domain-name" in types
-
-    async def test_hunt_domain_name_has_value(self):
-        """domain-name result must have value matching target."""
-        module = DnsResolve()
-        module.initialize({})
-        results = await module.hunt("example.com", {})
-        domain_results = [r for r in results if r.get("type") == "domain-name"]
-        assert len(domain_results) >= 1
-        assert domain_results[0]["value"] == "example.com"
-
-    async def test_hunt_with_options_record_type(self):
-        """hunt() accepts RECORD_TYPE option."""
-        module = DnsResolve()
-        module.initialize({})
-        results = await module.hunt("example.com", {"RECORD_TYPE": "A"})
         assert isinstance(results, list)
         assert len(results) >= 1
 

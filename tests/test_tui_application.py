@@ -247,6 +247,8 @@ def test_help_overlay_content_is_immediately_discoverable():
     assert "use <ioc>" in text
     assert "stop" in text
     assert "Tab" in text
+    assert "[ / ]" in text
+    assert "Trackpad/wheel" in text
     assert "Press Esc" in text
 
 
@@ -274,6 +276,33 @@ def test_pursuit_title_tracks_active_mode():
     assert all("INTELLIGENCE FEED" not in text for _style, text in rendered)
 
 
+def test_cockpit_hud_reports_live_functional_state():
+    app = _make_app()
+    app._scroll_offset = 20
+    app._live_pane.set_activity("virustotal")
+
+    text = "".join(fragment for _style, fragment in app._get_hud_formatted())
+
+    assert "TACTICAL HUD" in text
+    assert "PROBE  virustotal" in text
+    assert "FEED -20 lines" in text
+    assert "ACTIVE" in text
+    assert "[ older · ] newer" in text
+
+
+def test_universal_scroll_helpers_move_feed_both_directions():
+    app = _make_app()
+
+    app._scroll_older()
+    app._scroll_older(lines=4)
+    assert app._scroll_offset == 14
+
+    app._scroll_newer(lines=4)
+    assert app._scroll_offset == 10
+    app._scroll_newer(lines=100)
+    assert app._scroll_offset == 0
+
+
 def test_target_hunt_uses_tools_then_one_synthesis_call():
     app = _make_app()
     app._runner.tools = [
@@ -299,6 +328,35 @@ def test_target_hunt_uses_tools_then_one_synthesis_call():
     tool.assert_called_once_with(app._runner.ctx, "whois_lookup", {"domain": "example.com"})
     app._runner.narrate.assert_called_once()
     assert app._runner.narrate.call_args.kwargs["max_tokens"] == 300
+    prompt = app._runner.narrate.call_args.args[0]
+    assert "ANALYST INTUITION" in prompt
+    assert "EVIDENCE, INFERENCE" in prompt
+    feed = "\n".join(app._scrollback.get_lines())
+    assert "PROBE · WHOIS LOOKUP" in feed
+    assert "EVIDENCE · WHOIS LOOKUP" in feed
+    assert "EPIPHANY · DEFAULT · INFERENCE" in feed
+
+
+def test_interesting_snippet_is_bounded_and_keeps_observed_lines():
+    summary = "\n".join(f"field-{number}: value" for number in range(10))
+
+    snippet = TuiApplication._interesting_snippet(summary, max_lines=3, width=12)
+
+    assert len(snippet.splitlines()) == 3
+    assert all(len(line) <= 12 for line in snippet.splitlines())
+
+
+def test_llm_selected_tool_trace_is_visible_and_provenanced():
+    app = _make_app()
+
+    app._live_pane.show_tool_start("virustotal_lookup", {"target": "example.com"})
+    app._live_pane.show_tool_result("virustotal_lookup", "malicious: 4\nharmless: 61")
+
+    feed = "\n".join(app._scrollback.get_lines())
+    assert "PROBE · VIRUSTOTAL LOOKUP" in feed
+    assert "EVIDENCE · VIRUSTOTAL LOOKUP" in feed
+    assert "malicious: 4" in feed
+    assert "PROVENANCE  virustotal_lookup" in feed
 
 
 def test_tui_console_keeps_debug_details_out_of_normal_flow():

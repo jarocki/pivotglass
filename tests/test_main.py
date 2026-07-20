@@ -7,19 +7,26 @@ import pytest
 from adversary_pursuit import __main__
 
 
-def test_bare_ap_launches_ai_cyberdeck(monkeypatch):
+def test_bare_ap_launches_web_cockpit(monkeypatch):
     monkeypatch.setattr("sys.argv", ["ap"])
-    with patch("adversary_pursuit.agent.chat.run_chat") as run_chat:
+    with patch("adversary_pursuit.web.server.run_web") as run_web:
         __main__.main()
-    run_chat.assert_called_once_with()
+    run_web.assert_called_once_with()
 
 
-@pytest.mark.parametrize("command", ["chat"])
-def test_chat_remains_compatibility_alias(monkeypatch, command):
+@pytest.mark.parametrize("command", ["chat", "tui"])
+def test_terminal_cyberdeck_aliases(monkeypatch, command):
     monkeypatch.setattr("sys.argv", ["ap", command])
     with patch("adversary_pursuit.agent.chat.run_chat") as run_chat:
         __main__.main()
     run_chat.assert_called_once_with()
+
+
+def test_web_command_launches_web_cockpit(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["ap", "web"])
+    with patch("adversary_pursuit.web.server.run_web") as run_web:
+        __main__.main()
+    run_web.assert_called_once_with()
 
 
 @pytest.mark.parametrize("command", ["basic", "repl"])
@@ -34,7 +41,8 @@ def test_help_describes_both_interfaces(monkeypatch, capsys):
     monkeypatch.setattr("sys.argv", ["ap", "--help"])
     __main__.main()
     output = capsys.readouterr().out
-    assert "ap                    Launch the AI cyberdeck" in output
+    assert "ap                    Launch the local Pivotglass web cockpit" in output
+    assert "ap tui" in output
     assert "ap basic" in output
     assert "ap repl" in output
 

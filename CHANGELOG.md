@@ -8,6 +8,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Deterministic TUI mode controls**: `mode` and `mode list` now show the same
+  local character catalogue every time, selected modes are acknowledged by
+  their exact name, unknown modes receive one stable error with valid choices,
+  and local state-changing commands are serialized to prevent rapid-input
+  races. Mode catalogue completion and the in-deck help expose the command.
+- **Pivotglass web cockpit is now primary**: bare `ap` serves a static
+  React/Next.js cockpit on loopback; `ap web` is explicit, `ap chat` / `ap tui`
+  retain the terminal cyberdeck, and `ap basic` / `ap repl` retain direct
+  control. Microsoft Flint compiles the first evidence-distribution
+  visualization. The browser layer calls existing Python authorities rather
+  than duplicating investigation logic.
+- **Verifiable web supply chain**: exact npm versions and SHA-512 lockfile
+  integrity are committed; registry signature/provenance verification and a
+  zero-moderate-vulnerability audit are release gates. Runtime assets are local
+  and the server binds to `127.0.0.1` with a restrictive CSP and no telemetry.
+- **Enrichment briefings teach while services respond**: every deterministic
+  enrichment probe now explains which artifacts its source is gathering, why
+  they matter, and what the analyst should watch for. Cards remain explicitly
+  prospective until results arrive, preserving the boundary between analytical
+  guidance and observed evidence.
+- **No direct DNS from the operator host**: removed the `dns_resolve` module,
+  plugin entry point, agent tool, auto-pivot subscription, and battery dispatch.
+  Domain enrichment now routes through explicit intelligence-service APIs such
+  as PassiveTotal, VirusTotal, URLScan, OTX, and Censys. WHOIS no longer falls
+  back to `socket.getaddrinfo`. The active catalog is 14 modules / 29 tools.
+- **Living, voiced cyberdeck**: mode changes now update the LLM persona as well
+  as the palette. Active work has a real spinner, laptop-friendly
+  keyboard-independent feed navigation, stronger persona/world identity, and
+  visible probe/evidence/provenance
+  cards. Hunt synthesis now surfaces a concise character-voiced analyst
+  intuition and clearly labels evidence, inference, uncertainty, and next pivot.
+- **Mode-specific cockpit HUDs**: all 14 modes now select distinct vehicle/deck
+  vocabulary and perspective rails. The six-row tactical HUD reports real
+  target lock, classification, active probe, queue depth, dossier progress,
+  feed position, and active/standby state. Trackpad/wheel scrolling and
+  universal `[`/`]` feed keys replace reliance on Mac-intercepted modifiers.
 - **Documentation reset**: replaced the legacy feature inventory with an
   operator-facing README that documents the AI-first launch contract, cyberdeck
   layout, deterministic evidence flow, current commands, 15-module catalog,

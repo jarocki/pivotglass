@@ -41,6 +41,7 @@ from adversary_pursuit.agent.repl_verbs import (
     dispatch_repl_verb,
     parse_repl_verb,
 )
+from adversary_pursuit.gamification.modes import DEFAULT_MODES
 
 # ---------------------------------------------------------------------------
 # P-1: zero-argument verbs
@@ -180,9 +181,10 @@ class TestParseMode:
         assert verb.name == "mode"
         assert verb.args == ("xyzzy",)
 
-    def test_parse_mode_alone_returns_none(self):
-        """'mode' with no argument → None (routes to LLM)."""
-        assert parse_repl_verb("mode") is None
+    @pytest.mark.parametrize("text", ["mode", "mode list", "MODE LIST"])
+    def test_parse_mode_catalogue_matches(self, text: str):
+        """Both documented catalogue forms use one deterministic local verb."""
+        assert parse_repl_verb(text) == ReplVerb(name="mode_list", args=())
 
     def test_parse_mode_multi_token_returns_none(self):
         """'mode ninja list' — two arg tokens → None (routes to LLM)."""
@@ -351,6 +353,28 @@ class TestDispatchMode:
         assert mgr.active.name == "ninja"
         assert isinstance(result, str)
         assert len(result) > 0
+        assert result.startswith("Mode switched: ninja\n")
+
+    @pytest.mark.parametrize("mode_name", sorted(DEFAULT_MODES))
+    def test_dispatch_mode_acknowledges_exact_selected_mode(self, mode_name: str):
+        mgr = self._make_mode_mgr("default")
+        result = dispatch_repl_verb(
+            ReplVerb(name="mode", args=(mode_name,)),
+            ctx=None,
+            mode_mgr=mgr,
+            workspace_mgr=None,
+        )
+        assert result.splitlines()[0] == f"Mode switched: {mode_name}"
+        assert mgr.active.name == mode_name
+
+    def test_dispatch_mode_list_is_stable_and_marks_active(self):
+        mgr = self._make_mode_mgr("trinity")
+        verb = ReplVerb(name="mode_list", args=())
+        first = dispatch_repl_verb(verb, ctx=None, mode_mgr=mgr, workspace_mgr=None)
+        second = dispatch_repl_verb(verb, ctx=None, mode_mgr=mgr, workspace_mgr=None)
+        assert first == second
+        assert first.startswith("Character modes (* active)\n")
+        assert "* trinity" in first
 
     def test_dispatch_unknown_mode_returns_voiced_error(self):
         mgr = self._make_mode_mgr("default")
@@ -372,15 +396,14 @@ class TestDispatchMode:
 
 
 # ---------------------------------------------------------------------------
-# D-5: all dispatch output comes from PHRASES via pick()
+# D-5: narrative dispatch output comes from PHRASES via pick()
 # ---------------------------------------------------------------------------
 
 
 class TestDispatchUsesPickForOutput:
-    """Every dispatch_repl_verb return string comes from PHRASES via pick().
+    """Narrative dispatch output comes from PHRASES via pick().
 
-    Verified by monkeypatching pick() and asserting it was called for each
-    verb's output. No hardcoded strings in dispatch_repl_verb.
+    Mode control output is deliberately structural and deterministic.
     """
 
     def test_dispatch_help_uses_pick(self):
@@ -424,27 +447,22 @@ class TestDispatchUsesPickForOutput:
         mock_pick.assert_called_with("default", "target_set:acknowledged")
         assert "8.8.8.8" in result
 
-    def test_dispatch_mode_switch_uses_pick(self):
+    def test_dispatch_mode_switch_is_deterministic_not_random_phrase(self):
         from adversary_pursuit.gamification.modes import ModeManager
 
         mgr = ModeManager()
         verb = ReplVerb(name="mode", args=("ninja",))
-        with patch(
-            "adversary_pursuit.agent.repl_verbs.pick", return_value="[ninja mode]"
-        ) as mock_pick:
+        with patch("adversary_pursuit.agent.repl_verbs.pick") as mock_pick:
             result = dispatch_repl_verb(verb, ctx=None, mode_mgr=mgr, workspace_mgr=None)
-        mock_pick.assert_called_with("ninja", "mode_switched")
-        assert result == "[ninja mode]"
+        mock_pick.assert_not_called()
+        assert result.startswith("Mode switched: ninja\n")
 
-    def test_dispatch_unknown_mode_uses_pick(self):
+    def test_dispatch_unknown_mode_is_deterministic_not_random_phrase(self):
         verb = ReplVerb(name="mode", args=("xyzzy",))
-        with patch(
-            "adversary_pursuit.agent.repl_verbs.pick",
-            return_value="No such mode: {name}",
-        ) as mock_pick:
+        with patch("adversary_pursuit.agent.repl_verbs.pick") as mock_pick:
             result = dispatch_repl_verb(verb, ctx=None, mode_mgr=None, workspace_mgr=None)
-        mock_pick.assert_called_with("default", "unknown_mode")
-        assert "{name}" not in result or "xyzzy" in result
+        mock_pick.assert_not_called()
+        assert result.startswith("Unknown mode: xyzzy\nAvailable modes:")
 
 
 # ---------------------------------------------------------------------------

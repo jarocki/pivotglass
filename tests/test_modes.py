@@ -52,8 +52,14 @@ def mgr() -> ModeManager:
 
 
 @pytest.fixture
-def console(tmp_path) -> APConsole:
+def console(tmp_path, monkeypatch) -> APConsole:
     """APConsole with isolated temp dirs."""
+    async def _mock_hunt(self, target, options):
+        return [{"type": "domain-name", "value": target, "x_registrar": "Test Registrar"}]
+
+    monkeypatch.setattr(
+        "adversary_pursuit.modules.osint.whois_lookup.WhoisLookup.hunt", _mock_hunt
+    )
     app = APConsole(
         config_dir=tmp_path / "config",
         workspace_dir=tmp_path / "workspaces",
@@ -414,7 +420,7 @@ class TestConsoleModeRunIntegration:
 
     def test_default_mode_run_success_message(self, console: APConsole):
         """In default mode, run success shows default mode's run_success text."""
-        run_cmd(console, "use osint/dns_resolve")
+        run_cmd(console, "use osint/whois_lookup")
         run_cmd(console, "set TARGET example.com")
         out = run_cmd(console, "run")
         # default mode run_success: "Hunt complete. Results stored."
@@ -429,7 +435,7 @@ class TestConsoleModeRunIntegration:
         checking for a persona string.
         """
         run_cmd(console, "mode ninja")
-        run_cmd(console, "use osint/dns_resolve")
+        run_cmd(console, "use osint/whois_lookup")
         run_cmd(console, "set TARGET example.com")
         out = run_cmd(console, "run")
         # Hunt completed — either results were displayed or stored message appeared
@@ -443,7 +449,7 @@ class TestConsoleModeRunIntegration:
         verify the hunt ran rather than checking for a persona string.
         """
         run_cmd(console, "mode full_troll")
-        run_cmd(console, "use osint/dns_resolve")
+        run_cmd(console, "use osint/whois_lookup")
         run_cmd(console, "set TARGET example.com")
         run_cmd(console, "run")
         # Hunt completed — mode is active even if persona string not in REPL output
@@ -460,7 +466,7 @@ class TestConsoleModeScoreCelebration:
 
     def test_default_mode_score_celebration(self, console: APConsole):
         """In default mode, score celebration shows '+{points} points!'."""
-        run_cmd(console, "use osint/dns_resolve")
+        run_cmd(console, "use osint/whois_lookup")
         run_cmd(console, "set TARGET example.com")
         out = run_cmd(console, "run")
         # default: "+{points} points!" — should contain "points"
@@ -469,7 +475,7 @@ class TestConsoleModeScoreCelebration:
     def test_ninja_mode_score_celebration(self, console: APConsole):
         """In ninja mode, score celebration uses ninja's minimal template."""
         run_cmd(console, "mode ninja")
-        run_cmd(console, "use osint/dns_resolve")
+        run_cmd(console, "use osint/whois_lookup")
         run_cmd(console, "set TARGET example.com")
         out = run_cmd(console, "run")
         # ninja score_celebration: "[dim]+{points}[/dim]" — contains a number

@@ -1,6 +1,6 @@
 """REPL verb parser and dispatcher — local-first TUI terminal commands.
 
-Local verbs intercept user input BEFORE any LLM roundtrip.  They handle
+Local verbs intercept user input BEFORE any LLM roundtrip. They handle
 canonical terminal operations (help, status, clear, quit, exit, q, mode,
 use) deterministically and instantly, with character voice provided by the
 phrase cache (DEC-PHRASE-CACHE-001).
@@ -21,8 +21,9 @@ None to yield_commands → LLM without ambiguity.
            roundtrip boundary. Placing this logic in a dedicated module mirrors
            yield_commands.py (DEC-YIELD-COMMANDS-001) and keeps the runner.py
            priority order explicit: verb → yield → LLM (DEC-RUNNER-INPUT-PRIORITY-001).
-           All character voice strings come from phrases.py via pick() — no
-           hardcoded strings here (DEC-PHRASE-CACHE-001 / DEC-PHRASES-REPL-VERBS-001).
+           Character narration comes from phrases.py via pick(). Control-plane
+           mode output is intentionally deterministic: exact state must not
+           vary with persona phrase selection.
 """
 
 from __future__ import annotations
@@ -86,6 +87,7 @@ def parse_repl_verb(text: str) -> ReplVerb | None:
 
     Grammar:
         help, ?, status, clear, quit, exit, q  → ReplVerb(name, ())
+        mode, mode list                         → ReplVerb("mode_list", ())
         mode <name>                             → ReplVerb("mode", (name,))
         use <ioc>                               → ReplVerb("use", (ioc,))
                                                   only when ioc looks like an
@@ -97,7 +99,6 @@ def parse_repl_verb(text: str) -> ReplVerb | None:
         help me please            — extra tokens after zero-arg verb
         use foo com bar           — multi-token argument after "use"
         use notareal              — single token after "use" but no IOC shape
-        mode                      — "mode" with no argument
         quit please               — "quit" with trailing tokens
 
     Parameters
@@ -120,6 +121,10 @@ def parse_repl_verb(text: str) -> ReplVerb | None:
     if verb not in _ALL_VERBS:
         return None
 
+    # ``mode`` and ``mode list`` are deterministic local catalogue commands.
+    if verb == "mode" and (len(tokens) == 1 or (len(tokens) == 2 and tokens[1].lower() == "list")):
+        return ReplVerb(name="mode_list", args=())
+
     # --- Zero-argument verbs ---
     if verb in _NO_ARG_VERBS:
         # Must appear alone — any trailing tokens mean it is not a local verb
@@ -135,7 +140,7 @@ def parse_repl_verb(text: str) -> ReplVerb | None:
         return None  # unreachable; defensive
 
     if len(tokens) < 2:  # noqa: PLR2004
-        # "mode" or "use" alone — no argument → route to LLM
+        # "use" alone — no argument → route to LLM
         return None
 
     if len(tokens) > 2:  # noqa: PLR2004
@@ -303,14 +308,21 @@ def dispatch_repl_verb(
         if _mode_mgr is not None and mode_name in _KNOWN_MODES:
             try:
                 new_mode = _mode_mgr.switch(mode_name)
-                # Update character for the response (now the NEW mode's voice)
-                new_character = new_mode.name
-                return pick(new_character, "mode_switched")
+                return f"Mode switched: {new_mode.name}\n{new_mode.greeting}"
             except Exception:  # noqa: BLE001
                 pass
-        # Unknown mode
-        phrase = pick(character, "unknown_mode")
-        return phrase.format(name=mode_name)
+        available = ", ".join(sorted(_KNOWN_MODES))
+        return f"Unknown mode: {mode_name}\nAvailable modes: {available}"
+
+    # --- mode / mode list ---
+    if name == "mode_list":
+        active_name = character
+        entries = _mode_mgr.list_modes() if _mode_mgr is not None else []
+        lines = ["Character modes (* active)"]
+        for entry in entries:
+            marker = "*" if entry["name"] == active_name else " "
+            lines.append(f"{marker} {entry['name']}")
+        return "\n".join(lines)
 
     # Unreachable — all verb names handled above
     return pick(character, "unknown_verb")

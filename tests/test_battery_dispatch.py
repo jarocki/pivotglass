@@ -86,9 +86,9 @@ def test_dispatch_domain_name_includes_identity():
     assert "identity_battery" in names
 
 
-def test_dispatch_domain_name_includes_infrastructure():
+def test_dispatch_domain_name_excludes_direct_infrastructure_probes():
     names = {b.name for b in dispatch_batteries("domain-name", None)}
-    assert "infrastructure_battery" in names
+    assert "infrastructure_battery" not in names
 
 
 def test_dispatch_ipv4_includes_infrastructure_reputation_behavioral():
@@ -174,7 +174,7 @@ def test_all_battery_tools_exist_in_create_tools():
 _DISPATCH_MATRIX = [
     # (target_type, battery_name, in_result)
     ("domain-name", "identity_battery", True),
-    ("domain-name", "infrastructure_battery", True),
+    ("domain-name", "infrastructure_battery", False),
     ("domain-name", "reputation_battery", True),
     ("domain-name", "payload_battery", False),
     ("domain-name", "behavioral_battery", True),

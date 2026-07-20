@@ -1,14 +1,15 @@
 """WHOIS lookup module — stdlib only, no API key required.
 
 @decision DEC-MODULE-WHOIS-001
-@title Use subprocess whois with socket fallback; stdlib only
+@title Use subprocess whois without DNS resolution; stdlib only
 @status accepted
 @rationale python-whois is an optional dependency and was not included in the
            initial dependency set. The system whois command is available on
            macOS and most Linux distributions. We try subprocess first and
-           fall back to socket.getaddrinfo for basic IP resolution if whois
-           is unavailable. This keeps the module functional in minimal
-           environments while providing richer data when whois is available.
+           never fall back to an operating-system resolver: direct DNS queries from the
+           operator host are forbidden. DNS and hosting metadata must come
+           from explicit intelligence services such as DomainTools, DNSDB,
+           URLScan, VirusTotal, PassiveTotal, or Censys.
            Full python-whois or ipwhois integration can replace this in a
            future issue once the dependency is approved.
 
@@ -27,7 +28,6 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import logging
-import socket
 from typing import Any
 
 from adversary_pursuit.modules.base import BaseModule
@@ -39,8 +39,7 @@ class WhoisLookup(BaseModule):
     """WHOIS lookup for domains and IP addresses.
 
     No API key required. Uses the system whois command when available,
-    falling back to socket-based resolution for basic info. See
-    DEC-MODULE-WHOIS-001.
+    without performing DNS resolution. See DEC-MODULE-WHOIS-001.
 
     Returns STIX 2.1 SCO dicts (plain dicts, not stix2 objects).
     At minimum returns a domain-name or ipv4-addr/ipv6-addr SCO.
@@ -101,11 +100,6 @@ class WhoisLookup(BaseModule):
             primary.update(parsed)
 
         results.append(primary)
-
-        # For domains, also resolve to IPs and include those
-        if not is_ip:
-            ip_results = await _resolve_ips(target)
-            results.extend(ip_results)
 
         return results
 
@@ -174,24 +168,3 @@ def _parse_whois(raw: str) -> dict[str, Any]:
                 break
 
     return custom
-
-
-async def _resolve_ips(domain: str) -> list[dict]:
-    """Resolve domain to IP addresses using socket.getaddrinfo."""
-    results = []
-    try:
-        loop = asyncio.get_event_loop()
-        addrs = await loop.run_in_executor(None, lambda: socket.getaddrinfo(domain, None))
-        seen: set[str] = set()
-        for family, _type, _proto, _canon, sockaddr in addrs:
-            ip = sockaddr[0]
-            if ip in seen:
-                continue
-            seen.add(ip)
-            if family == socket.AF_INET:
-                results.append({"type": "ipv4-addr", "value": ip})
-            elif family == socket.AF_INET6:
-                results.append({"type": "ipv6-addr", "value": ip})
-    except (socket.gaierror, OSError) as exc:
-        logger.debug("DNS resolution failed for %s: %s", domain, exc)
-    return results

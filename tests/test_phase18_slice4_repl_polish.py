@@ -2,7 +2,6 @@
 
 # @mock-exempt: hunt() is mocked at the asyncio/HTTP boundary (external service calls);
 # _is_httpx_http_status_error is mocked because httpx is an external HTTP library;
-# socket.getaddrinfo is mocked to simulate DNS failure without real network calls;
 # asyncio.create_subprocess_exec is mocked to simulate whois without live system calls;
 # AgentRunner internals (_call_llm, execute_tool) are mocked at the LLM/tool dispatch
 # boundary so runner chat loop logic can be tested without a live API key.
@@ -45,7 +44,6 @@ editable install (main src/). See DEC-P18S4-TEST-PYTHONPATH-001.
 from __future__ import annotations
 
 import logging
-import socket
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -55,52 +53,7 @@ from unittest.mock import AsyncMock, patch
 
 
 class TestBug1LoggingDowngrade:
-    """DNS and whois resolution failures must emit debug-level logs, not warning."""
-
-    def test_dns_resolve_gaierror_is_debug_not_warning(self, caplog):
-        """socket.gaierror during _resolve() must not emit a WARNING record.
-
-        _resolve() is async and uses loop.run_in_executor with socket.getaddrinfo.
-        We patch the module-level socket.getaddrinfo used inside the executor lambda.
-        """
-        import asyncio
-
-        from adversary_pursuit.modules.osint import dns_resolve
-
-        with caplog.at_level(logging.DEBUG, logger="adversary_pursuit.modules.osint.dns_resolve"):
-            # @mock-exempt: socket.getaddrinfo is an OS-level external boundary
-            with patch.object(
-                dns_resolve.socket, "getaddrinfo", side_effect=socket.gaierror("NXDOMAIN")
-            ):
-                result = asyncio.run(dns_resolve._resolve("nonexistent.invalid", "A"))
-
-        assert result == [], "Failed DNS resolution should return empty list"
-        warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
-        assert not warning_records, (
-            f"Expected no WARNING records for DNS gaierror; got: {[r.message for r in warning_records]}"
-        )
-        debug_records = [r for r in caplog.records if r.levelno == logging.DEBUG]
-        assert any("DNS resolution failed" in r.message for r in debug_records), (
-            "Expected a DEBUG record mentioning DNS resolution failure"
-        )
-
-    def test_dns_resolve_oserror_is_debug_not_warning(self, caplog):
-        """OSError during _resolve() must not emit a WARNING record."""
-        import asyncio
-
-        from adversary_pursuit.modules.osint import dns_resolve
-
-        with caplog.at_level(logging.DEBUG, logger="adversary_pursuit.modules.osint.dns_resolve"):
-            with patch.object(
-                dns_resolve.socket, "getaddrinfo", side_effect=OSError("network unreachable")
-            ):
-                result = asyncio.run(dns_resolve._resolve("example.com", "A"))
-
-        assert result == []
-        warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
-        assert not warning_records, (
-            f"Expected no WARNING records for OSError; got: {[r.message for r in warning_records]}"
-        )
+    """WHOIS failures must emit debug-level logs, not warning."""
 
     def test_whois_timeout_is_debug_not_warning(self, caplog):
         """asyncio.TimeoutError during whois lookup must not emit a WARNING record."""
@@ -563,16 +516,16 @@ class TestBug7HuntSuccessGate:
         ctx.workspace_mgr.create("default")
         ctx.workspace_mgr.switch("default")
 
-        # @mock-exempt: hunt() is the external HTTP/DNS boundary — mocked to return
-        # the DNS failure sentinel (bare domain-name dict) without real network calls.
+        # @mock-exempt: hunt() is the external service boundary — mocked to return
+        # a bare domain-name dict without real network calls.
         bare_dns_result = [{"type": "domain-name", "value": "evil.example.com"}]
 
         with patch.object(
-            ctx.plugin_mgr.get_module("osint/dns_resolve"),
+            ctx.plugin_mgr.get_module("osint/whois_lookup"),
             "hunt",
             new=AsyncMock(return_value=bare_dns_result),
         ):
-            result = ctx.run_module("osint/dns_resolve", "evil.example.com", {})
+            result = ctx.run_module("osint/whois_lookup", "evil.example.com", {})
 
         assert result.get("celebration") is None, (
             f"Expected no celebration for bare domain-name result; got: {result.get('celebration')!r}"
@@ -595,11 +548,11 @@ class TestBug7HuntSuccessGate:
         ]
 
         with patch.object(
-            ctx.plugin_mgr.get_module("osint/dns_resolve"),
+            ctx.plugin_mgr.get_module("osint/whois_lookup"),
             "hunt",
             new=AsyncMock(return_value=real_results),
         ):
-            result = ctx.run_module("osint/dns_resolve", "evil.example.com", {})
+            result = ctx.run_module("osint/whois_lookup", "evil.example.com", {})
 
         # celebration may or may not be set depending on scoring thresholds, but
         # the badge check should have been reached (no guard prevented it)

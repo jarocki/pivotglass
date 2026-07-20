@@ -48,12 +48,14 @@ from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.widgets import Box, Frame
 from rich.console import Console
 
+from adversary_pursuit.agent.enrichment_briefings import render_briefing
 from adversary_pursuit.agent.repl_input import APCompleter
 from adversary_pursuit.agent.tui.events import EventBus
 from adversary_pursuit.agent.tui.header import HeaderPane
 from adversary_pursuit.agent.tui.live_pane import LivePane
 from adversary_pursuit.agent.tui.scrollback import ScrollbackBuffer
 from adversary_pursuit.agent.tui.themes import (  # character theme dispatch
+    cockpit_for,
     is_high_contrast_mode,
     pursuit_title_for,
     resolved_border_color,
@@ -80,14 +82,17 @@ _HELP_TEXT = """QUICK CONTROL
 DECK
 
   status           Investigation snapshot
-  mode <name>      Change voice and palette
+  mode / mode list List character modes
+  mode <name>      Change character and cockpit
   workspace ...    Manage investigation spaces
   clear            Clear the intelligence feed
 
 KEYS
 
   Tab              Complete commands and arguments
-  PageUp/PageDown  Browse the intelligence feed
+  [ / ]            Older / newer intelligence (works on every keyboard)
+  Trackpad/wheel   Scroll the intelligence feed
+  PageUp/PageDown  Terminal paging alternative
   Esc >            Jump to newest activity
   ?                Open or close this help deck
 
@@ -174,6 +179,7 @@ class TuiApplication:
             mode_name=mode_name,
             model_display=model_display,
             workspace_mgr=workspace_mgr,
+            feed_emit=self._emit_agent_trace,
         )
 
         # Header pane — top-anchored 3-row strip (DEC-TUI-HEADER-001).
@@ -245,12 +251,60 @@ class TuiApplication:
 
         @kb.add("pageup")
         def _page_up(event) -> None:  # type: ignore[no-untyped-def]
-            self._scroll_offset += 10
+            self._scroll_older()
             event.app.invalidate()
 
         @kb.add("pagedown")
         def _page_down(event) -> None:  # type: ignore[no-untyped-def]
-            self._scroll_offset = max(0, self._scroll_offset - 10)
+            self._scroll_newer()
+            event.app.invalidate()
+
+        # Laptop-friendly aliases. Alt+Arrow arrives as Escape followed by
+        # Arrow in ordinary terminal emulators and does not steal editing keys.
+        @kb.add("escape", "up")
+        def _laptop_page_up(event) -> None:  # type: ignore[no-untyped-def]
+            self._scroll_older()
+            event.app.invalidate()
+
+        @kb.add("escape", "down")
+        def _laptop_page_down(event) -> None:  # type: ignore[no-untyped-def]
+            self._scroll_newer()
+            event.app.invalidate()
+
+        @kb.add("c-up")
+        def _control_page_up(event) -> None:  # type: ignore[no-untyped-def]
+            self._scroll_older()
+            event.app.invalidate()
+
+        @kb.add("c-down")
+        def _control_page_down(event) -> None:  # type: ignore[no-untyped-def]
+            self._scroll_newer()
+            event.app.invalidate()
+
+        @kb.add("[")
+        def _universal_page_up(event) -> None:  # type: ignore[no-untyped-def]
+            if self._input_buffer.text:
+                self._input_buffer.insert_text("[")
+            else:
+                self._scroll_older()
+            event.app.invalidate()
+
+        @kb.add("]")
+        def _universal_page_down(event) -> None:  # type: ignore[no-untyped-def]
+            if self._input_buffer.text:
+                self._input_buffer.insert_text("]")
+            else:
+                self._scroll_newer()
+            event.app.invalidate()
+
+        @kb.add("<scroll-up>")
+        def _wheel_up(event) -> None:  # type: ignore[no-untyped-def]
+            self._scroll_older(lines=4)
+            event.app.invalidate()
+
+        @kb.add("<scroll-down>")
+        def _wheel_down(event) -> None:  # type: ignore[no-untyped-def]
+            self._scroll_newer(lines=4)
             event.app.invalidate()
 
         @kb.add("escape", "<")
@@ -330,8 +384,14 @@ class TuiApplication:
             height=6,
             dont_extend_height=True,
         )
+        hud_window = Window(
+            content=FormattedTextControl(self._get_hud_formatted),
+            width=34,
+            height=6,
+            dont_extend_height=True,
+        )
         instruments = Frame(
-            body=live_pane_window,
+            body=VSplit([live_pane_window, Window(width=1, char="│"), hud_window]),
             title=self._get_instruments_title_formatted,
         )
 
@@ -369,7 +429,7 @@ class TuiApplication:
             layout=layout,
             key_bindings=kb,
             full_screen=True,
-            mouse_support=False,
+            mouse_support=True,
             editing_mode=self._editing_mode(),
         )
 
@@ -397,8 +457,15 @@ class TuiApplication:
     def _get_pursuit_title_formatted(self) -> FormattedText:
         mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
         theme = theme_for(mode_name)
+        profile = cockpit_for(mode_name)
         title = pursuit_title_for(mode_name)
-        return FormattedText([(f"bold fg:{theme.heading_color}", f" {title} ")])
+        return FormattedText(
+            [
+                (f"fg:{theme.dim_color}", f" {profile.left_rail}━━ "),
+                (f"bold fg:{theme.heading_color}", f"{title} // {profile.vehicle}"),
+                (f"fg:{theme.dim_color}", f" ━━{profile.right_rail} "),
+            ]
+        )
 
     def _get_command_title_formatted(self) -> FormattedText:
         """Return the storyboard-inspired command-deck label."""
@@ -415,12 +482,38 @@ class TuiApplication:
         """Return the label for activity, dossier, model, and mode telemetry."""
         mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
         theme = theme_for(mode_name)
+        profile = cockpit_for(mode_name)
         return FormattedText(
             [
-                (f"bold fg:{theme.heading_color}", " ANALYST INSTRUMENTS "),
-                (f"fg:{theme.dim_color}", "  activity · dossier · persona "),
+                (f"bold fg:{theme.heading_color}", f" {profile.deck_name} "),
+                (f"fg:{theme.dim_color}", f"  {profile.hud_title} · live instruments "),
             ]
         )
+
+    def _get_hud_formatted(self) -> FormattedText:
+        """Render six active, functional cockpit instruments."""
+        mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
+        theme = theme_for(mode_name)
+        profile = cockpit_for(mode_name)
+        state = self._live_pane.hud_state()
+        feed_state = "LIVE" if self._scroll_offset == 0 else f"-{self._scroll_offset} lines"
+        active = "ACTIVE" if state["active"] else "STANDBY"
+        rows = [
+            f"{profile.left_rail} {profile.hud_title} {profile.right_rail}",
+            f"LOCK   {str(state['target'])[:23]}",
+            f"CLASS  {str(state['target_type'])[:23]}",
+            f"PROBE  {str(state['activity'])[:17]}  q:{state['queued']}",
+            f"DOSSIER {state['slots']}/9   FEED {feed_state}",
+            f"{active}   [ older · ] newer",
+        ]
+        parts: list[tuple[str, str]] = []
+        for index, row in enumerate(rows):
+            color = theme.heading_color if index in {0, 5} else theme.text_color
+            weight = "bold " if index in {0, 5} else ""
+            parts.append((f"{weight}fg:{color}", row))
+            if index < len(rows) - 1:
+                parts.append(("", "\n"))
+        return FormattedText(parts)
 
     def _get_header_formatted(self) -> FormattedText:
         """Return the header pane as FormattedText for PTK.
@@ -519,6 +612,14 @@ class TuiApplication:
     # Input handling
     # ------------------------------------------------------------------
 
+    def _scroll_older(self, lines: int = 10) -> None:
+        """Move the intelligence viewport toward older evidence."""
+        self._scroll_offset += max(1, lines)
+
+    def _scroll_newer(self, lines: int = 10) -> None:
+        """Move the intelligence viewport toward live evidence."""
+        self._scroll_offset = max(0, self._scroll_offset - max(1, lines))
+
     def _on_input_accepted(self, buffer: Buffer) -> None:
         """Handle Enter key — route all input through handle_input priority chain.
 
@@ -570,10 +671,18 @@ class TuiApplication:
 
         try:
             verb = parse_repl_verb(text)
-            is_local = verb is not None or parse_yield(text) is not None
-            if is_local:
+            yield_command = parse_yield(text)
+            if yield_command is not None:
+                # Yield controls must remain available while another command
+                # owns the serialized conversation/state mutation lane.
                 result = self._runner.handle_input(text, status_bar=self._live_pane)
             else:
+                if verb is None:
+                    self._live_pane.set_activity("thinking")
+                    self._scrollback.emit_rule("ANALYSIS CHANNEL OPEN")
+                    self.emit_scrollback(
+                        "◇ Reasoning over the current evidence and selecting justified probes…"
+                    )
                 with self._chat_lock:
                     result = self._runner.handle_input(text, status_bar=self._live_pane)
             if result:
@@ -588,6 +697,8 @@ class TuiApplication:
             self._app.exit()
         except Exception as exc:  # noqa: BLE001
             self._emit_error_card(exc, text)
+        finally:
+            self._live_pane.set_activity(None)
 
     def _run_target_batteries(self, target: str) -> None:
         """Run deterministic local/API batteries, then synthesize once.
@@ -634,11 +745,20 @@ class TuiApplication:
             properties = parameters.get("properties", {})
             required = parameters.get("required", ())
             argument_name = required[0] if required else next(iter(properties), "target")
+            self._scrollback.emit_panel(
+                f"PROBE · {tool_name.upper().replace('_', ' ')}",
+                render_briefing(tool_name, value),
+            )
+            self._app.invalidate()
             summary, celebration, _badges, _challenges = execute_tool(
                 self._runner.ctx, tool_name, {argument_name: value}
             )
             evidence.append(f"[{tool_name}]\n{summary}")
-            self._scrollback.emit_panel(tool_name.upper().replace("_", " "), summary)
+            snippet = self._interesting_snippet(summary)
+            self._scrollback.emit_panel(
+                f"EVIDENCE · {tool_name.upper().replace('_', ' ')}",
+                f"OBSERVED\n{snippet}\n\nPROVENANCE  {tool_name} · stored in workspace",
+            )
             if celebration:
                 self.emit_scrollback(celebration)
 
@@ -658,15 +778,43 @@ class TuiApplication:
         if not callable(narrate):
             return
         prompt = (
-            "Synthesize this deterministic threat-hunting evidence. Identify the strongest "
-            "finding, uncertainties, one defensible hypothesis, and the highest-value next "
-            f"pivot. Be concise and do not repeat raw fields. Target: {target}\n\n"
+            "Synthesize this deterministic threat-hunting evidence in the active character "
+            "voice. Do not reveal hidden chain-of-thought. Give one brief ANALYST INTUITION "
+            "line that externalizes the useful hunch, then label EVIDENCE, INFERENCE, "
+            "UNCERTAINTY, and NEXT PIVOT. Treat only tool output as observed evidence. "
+            f"Be concise and do not repeat raw fields. Target: {target}\n\n"
             + "\n\n".join(evidence)
         )
+        self._live_pane.set_activity("composing")
         synthesis = narrate(prompt, max_tokens=300)
+        self._live_pane.set_activity(None)
         if synthesis:
-            self._scrollback.emit_panel("HUNT SYNTHESIS", synthesis)
+            character = getattr(self._mode_mgr.active, "name", "default").upper()
+            self._scrollback.emit_panel(f"EPIPHANY · {character} · INFERENCE", synthesis)
             self._app.invalidate()
+
+    @staticmethod
+    def _interesting_snippet(summary: str, *, max_lines: int = 4, width: int = 66) -> str:
+        """Return a compact, deterministic evidence preview for the live feed."""
+        lines = [line.strip() for line in summary.splitlines() if line.strip()]
+        selected = lines[:max_lines] or ["No printable fields returned."]
+        return "\n".join(line[:width] for line in selected)
+
+    def _emit_agent_trace(self, kind: str, tool_name: str, payload) -> None:  # type: ignore[no-untyped-def]
+        """Render LLM-selected tool work without confusing it with synthesis."""
+        display = tool_name.upper().replace("_", " ")
+        if kind == "probe":
+            target = next(iter(payload.values()), "unspecified")
+            body = render_briefing(tool_name, str(target))
+            self._scrollback.emit_panel(f"PROBE · {display}", body)
+        else:
+            snippet = self._interesting_snippet(str(payload))
+            self._scrollback.emit_panel(
+                f"EVIDENCE · {display}",
+                f"OBSERVED\n{snippet}\n\nPROVENANCE  {tool_name} · stored in workspace",
+            )
+        self._scroll_offset = 0
+        self._app.invalidate()
 
     def _emit_error_card(self, exc: BaseException, command: str) -> None:
         """Turn an exception into an in-context recovery card."""
