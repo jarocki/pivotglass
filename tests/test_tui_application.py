@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import threading
 import time
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch  # @mock-exempt: sys.stdin.isatty is OS/TTY boundary
 
 import pytest
@@ -211,7 +212,7 @@ def test_tui_scrollback_renderer_only_requests_bounded_window():
 
     rendered = app._get_scrollback_formatted()
 
-    app._scrollback.get_window.assert_called_once_with(limit=500, offset=0)
+    app._scrollback.get_window.assert_called_once_with(limit=5000)
     assert any("recent" in text for _style, text in rendered)
 
 
@@ -249,6 +250,7 @@ def test_help_overlay_content_is_immediately_discoverable():
     assert "Tab" in text
     assert "[ / ]" in text
     assert "Trackpad/wheel" in text
+    assert "Drag scrollbar" in text
     assert "Press Esc" in text
 
 
@@ -261,8 +263,10 @@ def test_prompt_marker_is_high_contrast_and_animated():
 
     assert "blink" in first[0][0]
     assert "reverse" in first[0][0]
-    assert first[0][1] == "> "
-    assert second[0][1] == "▶ "
+    assert first[0][1] == ">"
+    assert second[0][1] == "▶"
+    assert first[1] == ("", " ")
+    assert second[1] == ("", " ")
 
 
 def test_pursuit_title_tracks_active_mode():
@@ -300,6 +304,46 @@ def test_universal_scroll_helpers_move_feed_both_directions():
     app._scroll_newer(lines=4)
     assert app._scroll_offset == 10
     app._scroll_newer(lines=100)
+    assert app._scroll_offset == 0
+
+
+def test_dragging_feed_scrollbar_moves_between_oldest_and_live_output():
+    app = _make_app()
+    render_info = SimpleNamespace(content_height=100, window_height=20)
+
+    app._drag_scrollback(0.0, render_info)
+    assert app._scroll_offset == 80
+
+    app._drag_scrollback(1.0, render_info)
+    assert app._scroll_offset == 0
+
+
+def test_scrollback_cursor_tracks_requested_live_relative_offset():
+    app = _make_app()
+    for number in range(30):
+        app._scrollback.emit_line(f"line {number}")
+
+    app._scroll_offset = 7
+
+    assert app._get_scrollback_cursor_position().y == 22
+
+
+def test_new_output_preserves_historical_reading_position():
+    app = _make_app()
+    app._scrollback.emit_line("old evidence")
+    app._scroll_offset = 1
+
+    app.emit_scrollback("new evidence\nsecond line")
+
+    assert app._scroll_offset == 3
+
+
+def test_new_output_keeps_following_when_feed_is_live():
+    app = _make_app()
+    app._scroll_offset = 0
+
+    app.emit_scrollback("new evidence")
+
     assert app._scroll_offset == 0
 
 

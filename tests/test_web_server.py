@@ -22,6 +22,24 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
     assert state["objects"] == []
     assert "virustotal_lookup" in state["briefings"]
     assert state["briefings"]["passivetotal_lookup"]["artifacts"].startswith("passive-DNS")
+    assert state["character"] == "default"
+    assert len(state["dossier_slots"]) == 9
+    assert {slot["status"] for slot in state["dossier_slots"]} == {"empty"}
+    assert len(state["modes"]) == 14
+    trinity = next(mode for mode in state["modes"] if mode["name"] == "trinity")
+    assert trinity["theme"]["heading_color"] == "#00ff5f"
+    assert trinity["cockpit"]["vehicle"] == "NEBUCHADNEZZAR"
+
+
+def test_switch_mode_reuses_canonical_character_and_cockpit_authorities(tmp_path):
+    service = _service(tmp_path)
+
+    state = service.switch_mode("hal9000")
+
+    assert state["character"] == "hal9000"
+    active = next(mode for mode in state["modes"] if mode["name"] == "hal9000")
+    assert active["theme"]["heading_color"] == "#ff5555"
+    assert active["cockpit"]["hud_title"] == "HAL OPTICS"
 
 
 def test_investigate_rejects_non_indicator(tmp_path):

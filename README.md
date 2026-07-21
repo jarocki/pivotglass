@@ -28,9 +28,14 @@ rather than the chat transcript:
 
 - **Intelligence stream** — scrollable retrieval briefings and returned evidence
 - **Command rail** — rapid indicator acquisition without terminal paging limits
-- **Hunt instruments** — workspace, artifact, source, and transport telemetry
+- **Character deck** — the same 14 canonical voices, palettes, vehicle names,
+  greetings, and HUD vocabulary as the terminal cyberdeck
+- **Hunt instruments** — live link power, token-channel state, probe inventory,
+  dossier occupancy, workspace, artifact, transport, and fault telemetry
 - **Artifact field** — Microsoft Flint compiles semantic evidence charts to a
   locally bundled Chart.js renderer
+- **Navigation and field manual** — the DECK menu jumps between cockpit panes,
+  switches characters, and exposes contextual operator help (`?`)
 
 The web cockpit is statically built, served by AP on `127.0.0.1`, and loads no
 CDN code, remote fonts, analytics, or telemetry. Exact npm versions and SHA-512
@@ -39,7 +44,9 @@ checks registry signatures, available SLSA provenance, and known vulnerabilities
 See [`docs/WEB_SUPPLY_CHAIN.md`](docs/WEB_SUPPLY_CHAIN.md).
 
 The terminal cyberdeck remains supported while the web surface reaches feature
-parity. Use `[` and `]` there to browse older and newer intelligence.
+parity. Its intelligence feed is a true scrolling viewport: drag the visible
+scrollbar, use the mouse wheel or trackpad over the feed, press PageUp/PageDown,
+or use `[` and `]` to browse older and newer intelligence.
 
 Each mode now selects a cockpit, not only a palette: HAL operates Discovery
 One optics, Deckard gets a Spinner/Voight-Kampff display, Neuromancer uses an
@@ -70,10 +77,10 @@ cd web && npm ci && npm run build && cd ..
 uv run ap
 ```
 
-To install the v0.4.0 wheel directly:
+To install the v0.4.1 wheel directly:
 
 ```bash
-python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.4.0/adversary_pursuit-0.4.0-py3-none-any.whl"
+python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.4.1/adversary_pursuit-0.4.1-py3-none-any.whl"
 ap
 ```
 

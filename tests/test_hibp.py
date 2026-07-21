@@ -442,12 +442,14 @@ class TestHIBPRequestMechanics:
         assert headers.get("hibp-api-key") == "my-secret-key"
 
     def test_user_agent_header_is_set(self, mock_success):
-        """user-agent header is set to adversary-pursuit/0.1.0."""
+        """user-agent header tracks the canonical runtime version."""
+        from adversary_pursuit import __version__
+
         mod = HIBP()
         mod.initialize({"api_key": "test-key"})
         asyncio.run(mod.hunt("victim@example.com", {}))
         headers = mock_success.get.call_args.kwargs.get("headers", {})
-        assert headers.get("user-agent") == "adversary-pursuit/0.1.0"
+        assert headers.get("user-agent") == f"adversary-pursuit/{__version__}"
 
     def test_truncate_false_omits_query_param(self, mock_success):
         """Default TRUNCATE=false does not send truncateResponse param."""

@@ -30,6 +30,7 @@ from pathlib import Path
 from prompt_toolkit import Application
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.data_structures import Point
 from prompt_toolkit.enums import EditingMode
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.formatted_text import FormattedText
@@ -45,6 +46,8 @@ from prompt_toolkit.layout.containers import (
 )
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
+from prompt_toolkit.layout.margins import ScrollbarMargin
+from prompt_toolkit.mouse_events import MouseEvent, MouseEventType
 from prompt_toolkit.widgets import Box, Frame
 from rich.console import Console
 
@@ -70,6 +73,39 @@ class NotATTYError(RuntimeError):
     """
 
 
+class _DraggableScrollbarMargin(ScrollbarMargin):
+    """Visible PTK scrollbar whose track supports click-and-drag navigation."""
+
+    def __init__(self, on_fraction) -> None:  # type: ignore[no-untyped-def]
+        super().__init__(display_arrows=True, up_arrow_symbol="▲", down_arrow_symbol="▼")
+        self._on_fraction = on_fraction
+        self._dragging = False
+
+    def create_margin(self, window_render_info, width: int, height: int):  # type: ignore[no-untyped-def]
+        rendered = super().create_margin(window_render_info, width, height)
+        row = 0
+        result = []
+
+        def handler_for(bound_row: int):  # type: ignore[no-untyped-def]
+            def handle(mouse_event: MouseEvent):
+                if mouse_event.event_type == MouseEventType.MOUSE_DOWN:
+                    self._dragging = True
+                elif mouse_event.event_type == MouseEventType.MOUSE_UP:
+                    self._dragging = False
+                elif mouse_event.event_type != MouseEventType.MOUSE_MOVE or not self._dragging:
+                    return NotImplemented
+                usable = max(1, height - 1)
+                self._on_fraction(min(1.0, max(0.0, bound_row / usable)), window_render_info)
+                return None
+
+            return handle
+
+        for style, text, *rest in rendered:
+            result.append((style, text, handler_for(row)))
+            row += text.count("\n")
+        return result
+
+
 _HELP_TEXT = """QUICK CONTROL
 
   use <ioc>        Set or pivot the active target
@@ -91,7 +127,8 @@ KEYS
 
   Tab              Complete commands and arguments
   [ / ]            Older / newer intelligence (works on every keyboard)
-  Trackpad/wheel   Scroll the intelligence feed
+  Drag scrollbar   Jump through the intelligence feed
+  Trackpad/wheel   Scroll the intelligence feed under the pointer
   PageUp/PageDown  Terminal paging alternative
   Esc >            Jump to newest activity
   ?                Open or close this help deck
@@ -165,6 +202,7 @@ class TuiApplication:
         self._executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ap-command")
         self._chat_lock = threading.Lock()
         self._scroll_offset = 0
+        self._scrollback_window: Window | None = None
         self._help_visible = False
         self._prompt_phase = False
 
@@ -352,12 +390,17 @@ class TuiApplication:
         scrollback_control = FormattedTextControl(
             text=self._get_scrollback_formatted,
             focusable=False,
+            get_cursor_position=self._get_scrollback_cursor_position,
         )
         scrollback_window = Window(
             content=scrollback_control,
             dont_extend_height=False,
-            wrap_lines=True,
+            wrap_lines=False,
+            always_hide_cursor=True,
+            get_vertical_scroll=self._get_scrollback_vertical_scroll,
+            right_margins=[_DraggableScrollbarMargin(self._drag_scrollback)],
         )
+        self._scrollback_window = scrollback_window
 
         prompt_window = Window(
             content=FormattedTextControl(self._get_prompt_formatted),
@@ -438,7 +481,10 @@ class TuiApplication:
         theme = theme_for(mode_name)
         glyph = "▶" if self._prompt_phase else ">"
         return FormattedText(
-            [(f"blink bold reverse fg:{theme.accent_color}", f"{glyph} ")]
+            [
+                (f"blink bold reverse fg:{theme.accent_color}", glyph),
+                ("", " "),
+            ]
         )
 
     def _get_help_formatted(self) -> FormattedText:
@@ -560,11 +606,29 @@ class TuiApplication:
         # A bounded render window is essential: the live pane refreshes while
         # tools run, and rebuilding an unbounded transcript made long sessions
         # progressively slower.
-        lines = self._scrollback.get_window(limit=500, offset=self._scroll_offset)
+        lines = self._scrollback.get_window(limit=5000)
         parts: list[tuple[str, str]] = []
         for line in lines:
             parts.append(("", line + "\n"))
         return FormattedText(parts)
+
+    def _get_scrollback_cursor_position(self) -> Point:
+        """Anchor PTK's viewport at the requested distance from live output."""
+        line_count = min(5000, len(self._scrollback.get_lines()))
+        return Point(x=0, y=max(0, line_count - 1 - self._scroll_offset))
+
+    def _get_scrollback_vertical_scroll(self, window: Window) -> int:
+        """Translate live-relative scroll state into a real PTK viewport row."""
+        line_count = min(5000, len(self._scrollback.get_lines()))
+        height = window.render_info.window_height if window.render_info is not None else 1
+        return max(0, line_count - height - self._scroll_offset)
+
+    def _drag_scrollback(self, fraction: float, render_info) -> None:  # type: ignore[no-untyped-def]
+        """Move the intelligence feed from a scrollbar track position."""
+        maximum = max(0, render_info.content_height - render_info.window_height)
+        desired_from_top = round(maximum * fraction)
+        self._scroll_offset = maximum - desired_from_top
+        self._app.invalidate()
 
     def _get_live_pane_formatted(self) -> FormattedText:
         """Return the live pane as FormattedText for PTK.
@@ -679,7 +743,7 @@ class TuiApplication:
             else:
                 if verb is None:
                     self._live_pane.set_activity("thinking")
-                    self._scrollback.emit_rule("ANALYSIS CHANNEL OPEN")
+                    self._append_rule("ANALYSIS CHANNEL OPEN")
                     self.emit_scrollback(
                         "◇ Reasoning over the current evidence and selecting justified probes…"
                     )
@@ -687,6 +751,8 @@ class TuiApplication:
                     result = self._runner.handle_input(text, status_bar=self._live_pane)
             if result:
                 self.emit_scrollback(result)
+            if verb is not None and verb.name == "clear":
+                self._scroll_offset = 0
             if verb is not None and verb.name == "use":
                 self._run_target_batteries(verb.args[0])
         except _FarewellExit as exc:
@@ -745,7 +811,7 @@ class TuiApplication:
             properties = parameters.get("properties", {})
             required = parameters.get("required", ())
             argument_name = required[0] if required else next(iter(properties), "target")
-            self._scrollback.emit_panel(
+            self._append_panel(
                 f"PROBE · {tool_name.upper().replace('_', ' ')}",
                 render_briefing(tool_name, value),
             )
@@ -755,7 +821,7 @@ class TuiApplication:
             )
             evidence.append(f"[{tool_name}]\n{summary}")
             snippet = self._interesting_snippet(summary)
-            self._scrollback.emit_panel(
+            self._append_panel(
                 f"EVIDENCE · {tool_name.upper().replace('_', ' ')}",
                 f"OBSERVED\n{snippet}\n\nPROVENANCE  {tool_name} · stored in workspace",
             )
@@ -790,7 +856,7 @@ class TuiApplication:
         self._live_pane.set_activity(None)
         if synthesis:
             character = getattr(self._mode_mgr.active, "name", "default").upper()
-            self._scrollback.emit_panel(f"EPIPHANY · {character} · INFERENCE", synthesis)
+            self._append_panel(f"EPIPHANY · {character} · INFERENCE", synthesis)
             self._app.invalidate()
 
     @staticmethod
@@ -806,14 +872,13 @@ class TuiApplication:
         if kind == "probe":
             target = next(iter(payload.values()), "unspecified")
             body = render_briefing(tool_name, str(target))
-            self._scrollback.emit_panel(f"PROBE · {display}", body)
+            self._append_panel(f"PROBE · {display}", body)
         else:
             snippet = self._interesting_snippet(str(payload))
-            self._scrollback.emit_panel(
+            self._append_panel(
                 f"EVIDENCE · {display}",
                 f"OBSERVED\n{snippet}\n\nPROVENANCE  {tool_name} · stored in workspace",
             )
-        self._scroll_offset = 0
         self._app.invalidate()
 
     def _emit_error_card(self, exc: BaseException, command: str) -> None:
@@ -827,8 +892,7 @@ class TuiApplication:
             f"RETRY Re-run the command when ready\n"
             f"REF   {interp.diagnostic_id} (details retained automatically)"
         )
-        self._scrollback.emit_panel(f"{interp.category.upper()} · RECOVERY", body)
-        self._scroll_offset = 0
+        self._append_panel(f"{interp.category.upper()} · RECOVERY", body)
         self._app.invalidate()
 
     # ------------------------------------------------------------------
@@ -843,13 +907,27 @@ class TuiApplication:
         text:
             Plain-text string. Multi-line strings are split on newlines.
         """
-        self._scrollback.emit_line(text)
-        self._scroll_offset = 0
+        self._append_feed(lambda: self._scrollback.emit_line(text))
         # Invalidate the PTK app so the new line is rendered promptly
         try:
             self._app.invalidate()
         except Exception:  # noqa: BLE001
             pass  # app may not be running yet during early setup
+
+    def _append_feed(self, writer) -> None:  # type: ignore[no-untyped-def]
+        """Append output without stealing an analyst's historical viewport."""
+        was_reviewing_history = self._scroll_offset > 0
+        before = len(self._scrollback.get_lines())
+        writer()
+        if was_reviewing_history:
+            added = max(0, len(self._scrollback.get_lines()) - before)
+            self._scroll_offset += added
+
+    def _append_panel(self, title: str, body: str) -> None:
+        self._append_feed(lambda: self._scrollback.emit_panel(title, body))
+
+    def _append_rule(self, title: str = "") -> None:
+        self._append_feed(lambda: self._scrollback.emit_rule(title))
 
     def run(self) -> None:
         """Start the TUI application.

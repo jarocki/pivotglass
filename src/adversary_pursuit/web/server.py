@@ -17,10 +17,20 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from rich.text import Text
+
 from adversary_pursuit.agent.battery_registry import dispatch_batteries
 from adversary_pursuit.agent.enrichment_briefings import BRIEFINGS
 from adversary_pursuit.agent.tools import ToolContext, create_tools, execute_tool
+from adversary_pursuit.agent.tui.themes import (
+    COCKPIT_PROFILES,
+    DEFAULT_THEMES,
+    PURSUIT_TITLES,
+)
 from adversary_pursuit.core.ioc_types import detect_ioc_type
+from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+from adversary_pursuit.dossier.state import load_dossier_state
+from adversary_pursuit.gamification.modes import DEFAULT_MODES, ModeManager
 
 _LOG = logging.getLogger(__name__)
 _SOURCE_WEB_ROOT = Path(__file__).parents[3] / "web" / "out"
@@ -44,6 +54,7 @@ class WebCockpitService:
     def __init__(self, ctx: ToolContext | None = None) -> None:
         self.ctx = ctx or ToolContext()
         self._investigation_lock = threading.Lock()
+        self.mode_mgr = ModeManager()
         workspaces = self.ctx.workspace_mgr.list_workspaces()
         if "default" not in workspaces:
             self.ctx.workspace_mgr.create("default")
@@ -55,12 +66,43 @@ class WebCockpitService:
     def state(self) -> dict[str, Any]:
         """Return the current workspace snapshot for the cockpit."""
         objects = self.ctx.workspace_mgr.get_stix_objects()
+        dossier_state = load_dossier_state(self.ctx.workspace_mgr)
+        dossier_slots = []
+        for slot_name in DossierSlotName:
+            slot = dossier_state.slots.get(slot_name) if dossier_state is not None else None
+            dossier_slots.append(
+                {
+                    "name": slot_name.value,
+                    "status": slot.status.value if slot is not None else SlotStatus.EMPTY.value,
+                    "evidence_count": slot.evidence_count if slot is not None else 0,
+                }
+            )
+        modes = []
+        for entry in self.mode_mgr.list_modes():
+            name = entry["name"]
+            modes.append(
+                {
+                    **entry,
+                    "greeting": Text.from_markup(DEFAULT_MODES[name].greeting).plain,
+                    "theme": asdict(DEFAULT_THEMES[name]),
+                    "cockpit": asdict(COCKPIT_PROFILES[name]),
+                    "pursuit_title": PURSUIT_TITLES[name],
+                }
+            )
         return {
             "workspace": "default",
             "stats": self.ctx.workspace_mgr.get_workspace_stats(),
             "objects": objects,
             "briefings": {name: asdict(value) for name, value in BRIEFINGS.items()},
+            "character": self.mode_mgr.active.name,
+            "modes": modes,
+            "dossier_slots": dossier_slots,
         }
+
+    def switch_mode(self, name: str) -> dict[str, Any]:
+        """Switch the web cockpit using the canonical character authority."""
+        self.mode_mgr.switch(name)
+        return self.state()
 
     def investigate(self, target: str) -> dict[str, Any]:
         """Run deterministic applicable batteries and return grounded events."""
@@ -184,7 +226,7 @@ def _handler(service: WebCockpitService, web_root: Path):
             if not self._host_allowed():
                 self._json({"error": "loopback host required"}, HTTPStatus.FORBIDDEN)
                 return
-            if self.path != "/api/investigate":
+            if self.path not in {"/api/investigate", "/api/mode"}:
                 self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
                 return
             try:
@@ -192,6 +234,12 @@ def _handler(service: WebCockpitService, web_root: Path):
                 if length > 16_384:
                     raise ValueError("request too large")
                 payload = json.loads(self.rfile.read(length) or b"{}")
+                if self.path == "/api/mode":
+                    name = str(payload.get("name", "")).strip()
+                    if not name:
+                        raise ValueError("mode name is required")
+                    self._json(service.switch_mode(name))
+                    return
                 target = str(payload.get("target", "")).strip()
                 if not target:
                     raise ValueError("target is required")

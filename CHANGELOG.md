@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-07-21
+
 ### Changed
+- **Character-driven Pivotglass cockpit and true TUI scrolling**: the local web
+  cockpit now consumes the canonical 14-mode theme and cockpit authorities,
+  adds mode-aware voice, navigation, help, operational meters, dossier cells,
+  alerts, animation, and active system telemetry. The terminal intelligence
+  feed now uses a real prompt-toolkit viewport with a visible draggable
+  scrollbar, pointer wheel support, and PageUp/PageDown navigation.
 - **Deterministic TUI mode controls**: `mode` and `mode list` now show the same
   local character catalogue every time, selected modes are acknowledged by
   their exact name, unknown modes receive one stable error with valid choices,
@@ -174,6 +182,7 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/jarocki/ap/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/jarocki/ap/compare/v0.1.0...v0.4.0
 [0.1.0]: https://github.com/jarocki/ap/releases/tag/v0.1.0

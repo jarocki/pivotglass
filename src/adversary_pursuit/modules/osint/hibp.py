@@ -31,9 +31,8 @@ API docs: https://haveibeenpwned.com/API/v3#BreachedAccount
 @status accepted
 @rationale haveibeenpwned.com enforces a User-Agent header on all API v3
            requests; requests without one return 403. The project-wide
-           user-agent string "adversary-pursuit/0.1.0" is used, matching
-           the version declared in pyproject.toml. Future implementers
-           should update this string when the package version bumps.
+           user-agent string is derived from adversary_pursuit.__version__,
+           preventing API identification from drifting across releases.
 
 @decision DEC-MODULE-HIBP-004
 @title TRUNCATE option maps to truncateResponse query parameter
@@ -52,6 +51,7 @@ from typing import Any
 
 import httpx
 
+from adversary_pursuit import __version__
 from adversary_pursuit.modules.base import (
     AuthenticationError,
     BaseModule,
@@ -61,7 +61,7 @@ from adversary_pursuit.modules.base import (
 logger = logging.getLogger(__name__)
 
 _API_BASE = "https://haveibeenpwned.com/api/v3/breachedaccount"
-_USER_AGENT = "adversary-pursuit/0.1.0"
+_USER_AGENT = f"adversary-pursuit/{__version__}"
 
 
 class HIBP(BaseModule):
