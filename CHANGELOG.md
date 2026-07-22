@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-07-21
+
+### Added
+
+- Accessible 3×3 RGB task constellation with non-color lifecycle marks,
+  hover/focus previews, bounded attention twinkles, and complete per-probe
+  transition and evidence drill-down.
+- Persistent collapsible panes, active-pane navigation, interactive dossier
+  cells, task-oriented contextual Help, and the optional Sensei Flow Dojo.
+- Phrase-based multi-voice web soundtrack and a 32-second layered terminal
+  movement with motifs, riffs, lead passages, imitative counterpoint, and
+  releases.
+
+### Fixed
+
+- Prevented one probe from rendering three or four permanently expanded feed
+  cards, while preserving every immutable event behind the task detail.
+- Prevented `?` from opening Help while typing, made overlays mutually
+  exclusive, restored opener focus, respected reduced motion during scrolling,
+  and removed horizontal overflow at 320- and 1024-pixel widths.
+- Made interactive affordances explicit and removed title-only dossier hints.
+
+### Verified
+
+- Focused Python lifecycle/music/QA tests, TypeScript checking, optimized web
+  build, browser interaction checks for Help and persistent collapse, and
+  browser layout checks at 320 and 1024 pixels.
+
 ## [0.5.0] — 2026-07-21
 
 ### Added
@@ -384,7 +412,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/ap/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/jarocki/ap/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/jarocki/ap/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/jarocki/ap/compare/v0.4.9...v0.5.0
 [0.4.9]: https://github.com/jarocki/ap/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/jarocki/ap/compare/v0.4.7...v0.4.8

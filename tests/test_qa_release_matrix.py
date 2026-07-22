@@ -36,10 +36,13 @@ def test_first_wave_signature_worlds_are_structurally_distinct():
 
 def test_web_music_is_local_opt_in_and_effects_have_off_path():
     page = Path("web/app/page.tsx").read_text()
+    engine = Path("web/app/flow-music.ts").read_text()
     css = Path("web/app/pivotglass.css").read_text()
-    assert "new AudioContext()" in page
+    assert "new AudioContext()" in engine
+    assert "schedule()" in engine
+    assert 'MusicPhase = "idle" | "investigating" | "caution" | "complete"' in engine
     assert "OFF BY DEFAULT" in page
-    assert "fetch(" not in page[page.index("function startMusic"):page.index("function toggleMusic")]
+    assert "fetch(" not in engine
     assert ".effects-off .ambient-environment{display:none}" in css
 
 

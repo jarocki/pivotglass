@@ -1,5 +1,6 @@
 """Procedural music remains local, optional, and independent of analysis."""
 
+import wave
 from pathlib import Path
 from unittest.mock import patch
 
@@ -16,12 +17,28 @@ def test_music_starts_muted_and_reports_unavailable_honestly(tmp_path: Path):
     assert not tmp_path.exists() or list(tmp_path.iterdir()) == []
 
 
-def test_renderer_writes_owned_local_mono_wave(tmp_path: Path):
+def test_renderer_writes_owned_local_layered_wave(tmp_path: Path):
     controller = ProceduralMusicController(tmp_path, mode="sensei", volume=20)
     output = tmp_path / "sensei.wav"
     controller._render(output)
     assert output.read_bytes().startswith(b"RIFF")
-    assert output.stat().st_size < 100_000
+    with wave.open(str(output), "rb") as rendered:
+        assert rendered.getframerate() == 22_050
+        assert rendered.getnchannels() == 1
+        assert 31 <= rendered.getnframes() / rendered.getframerate() <= 33
+        frames = rendered.readframes(rendered.getnframes())
+    assert len(set(frames[index : index + 2] for index in range(0, len(frames), 2))) > 1_000
+
+
+def test_renderer_is_deterministic_and_character_distinct(tmp_path: Path):
+    sensei_a = tmp_path / "sensei-a.wav"
+    sensei_b = tmp_path / "sensei-b.wav"
+    sprawl = tmp_path / "sprawl.wav"
+    ProceduralMusicController(tmp_path, mode="sensei", volume=20)._render(sensei_a)
+    ProceduralMusicController(tmp_path, mode="sensei", volume=20)._render(sensei_b)
+    ProceduralMusicController(tmp_path, mode="the_sprawl", volume=20)._render(sprawl)
+    assert sensei_a.read_bytes() == sensei_b.read_bytes()
+    assert sensei_a.read_bytes() != sprawl.read_bytes()
 
 
 def test_mode_and_volume_are_clamped_without_starting_audio(tmp_path: Path):

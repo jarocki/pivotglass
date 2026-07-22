@@ -26,7 +26,9 @@ Metasploit-like console remains `ap basic` / `ap repl` for direct
 The primary locally hosted web interface is organized around the investigation
 rather than the chat transcript:
 
-- **Intelligence stream** — scrollable retrieval briefings and returned evidence
+- **Task constellation** — one accessible 3×3 RGB tile per deterministic probe;
+  hover or focus previews its state, and activation opens its complete ordered
+  transition and evidence history without flooding the cockpit with cards
 - **Command rail** — rapid indicator acquisition without terminal paging limits
 - **Character deck** — the same 10 canonical voices, palettes, vehicle names,
   greetings, and HUD vocabulary as the terminal cyberdeck
@@ -34,10 +36,10 @@ rather than the chat transcript:
   dossier occupancy, workspace, artifact, transport, and fault telemetry
 - **Artifact field** — Microsoft Flint compiles semantic evidence charts to a
   locally bundled Chart.js renderer
-- **Navigation and field manual** — a persistent pane switcher and searchable
+- **Navigation and field manual** — persistent collapsible panes, a searchable
   Command/Control-K palette navigate the cockpit; DECK switches characters and
   controls full, reduced, or disabled effects plus narration intensity; `?`
-  opens contextual help
+  opens contextual, task-oriented help with controls that perform each route
 
 The web cockpit is statically built, served by AP on `127.0.0.1`, and loads no
 CDN code, remote fonts, analytics, or telemetry. Exact npm versions and SHA-512
@@ -54,9 +56,15 @@ locate a transcript entry, `open <ev-id>` to inspect stored evidence, and
 `back` to return to the exact previous reading position.
 
 Both interfaces provide opt-in local generative atmosphere with visible mute
-state and volume control. Pivotglass exposes it in DECK; the TUI uses Alt-M as
-an immediate mute toggle. Sound begins muted, carries no analytical meaning,
-and requires no stream, account, downloaded recording, or network request.
+state and volume control. The soundtrack uses layered, character-specific
+movements with recurring motifs, riffs, lead passages, restrained imitative
+counterpoint, and quiet releases. Pivotglass exposes it in DECK; the TUI uses
+Alt-M as an immediate mute toggle. Sound begins muted, carries no analytical
+meaning, and requires no stream, account, recording, or network request.
+
+Sensei also includes the optional keyboard-and-touch Flow Dojo diversion. Its
+score is explicitly presentation-only and never affects evidence, confidence,
+alerts, or dossier state.
 
 Each mode selects a cockpit, not only a palette: The Computer operates a logic
 core, Detective works a rain-soaked caseboard, The Sprawl uses a perspective
@@ -87,10 +95,10 @@ cd web && npm ci && npm run build && cd ..
 uv run ap
 ```
 
-To install the v0.5.0 wheel directly:
+To install the v0.5.1 wheel directly:
 
 ```bash
-python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.5.0/adversary_pursuit-0.5.0-py3-none-any.whl"
+python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.5.1/adversary_pursuit-0.5.1-py3-none-any.whl"
 ap
 ```
 

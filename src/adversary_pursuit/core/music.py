@@ -125,16 +125,49 @@ class ProceduralMusicController:
         self._muted = True
 
     def _render(self, path: Path) -> None:
-        sample_rate = 8_000
-        seconds = 6
-        amplitude = int(2_400 * (self.volume / 100))
+        """Render an original four-part movement with recurring, evolving motifs.
+
+        The score is deterministic and consumes no analytical state.  Its form
+        moves through ambient, riff, melody, imitation, and release sections so
+        the loop breathes without turning hunt results into musical claims.
+        """
+        sample_rate = 22_050
+        seconds = 32
+        amplitude = 4_800 * (self.volume / 100)
         notes = _PALETTES.get(self.mode, _PALETTES["default"])
+        intervals = (1.0, 9 / 8, 4 / 3, 3 / 2, 5 / 3)
+        motif = (0, 2, 4, 1, 3, 2, 0, 4)
+        beat = 0.62 if self.mode in {"sensei", "m4tr1x", "full_troll"} else 0.82
         frames = bytearray()
         for index in range(sample_rate * seconds):
-            segment = min(len(notes) - 1, index // (sample_rate * 2))
-            phase = 2 * math.pi * notes[segment] * index / sample_rate
-            envelope = 0.55 + 0.45 * math.sin(math.pi * (index % (sample_rate * 2)) / (sample_rate * 2))
-            frames.extend(struct.pack("<h", int(amplitude * envelope * math.sin(phase))))
+            time = index / sample_rate
+            step = int(time / beat)
+            section = int(time // 8)  # bed -> riff -> imitation -> release
+            within = (time % beat) / beat
+            envelope = min(1.0, within / 0.08) * max(0.0, 1.0 - within) ** 1.7
+
+            root = notes[0] / 2
+            drone = math.sin(2 * math.pi * root * time) * 0.22
+            bass_degree = motif[(step // 2 + section) % len(motif)]
+            bass_frequency = notes[0] * intervals[bass_degree]
+            bass = math.sin(2 * math.pi * bass_frequency * time) * envelope * 0.22
+
+            lead_degree = motif[(step + section) % len(motif)]
+            lead_frequency = notes[1] * intervals[lead_degree]
+            lead_density = 0.0 if section == 0 and step % 4 else (0.18 if section < 3 else 0.10)
+            lead = math.sin(2 * math.pi * lead_frequency * time) * envelope * lead_density
+
+            # A restrained delayed answer creates two-voice imitation in the
+            # third section, then recedes for a quiet cadence.
+            answer_step = max(0, step - 2)
+            answer_degree = motif[(answer_step + 1) % len(motif)]
+            answer_frequency = notes[2] * intervals[answer_degree]
+            answer = math.sin(2 * math.pi * answer_frequency * time) * envelope * (0.11 if section == 2 else 0.03)
+
+            shimmer = math.sin(2 * math.pi * (lead_frequency * 2.01) * time) * envelope * (0.025 if step % 3 == 0 else 0.0)
+            slow_breath = 0.78 + 0.22 * math.sin(2 * math.pi * time / 16)
+            sample = amplitude * slow_breath * (drone + bass + lead + answer + shimmer)
+            frames.extend(struct.pack("<h", max(-32767, min(32767, int(sample)))))
         with wave.open(str(path), "wb") as output:
             output.setnchannels(1)
             output.setsampwidth(2)
