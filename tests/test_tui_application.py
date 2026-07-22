@@ -31,6 +31,8 @@ from adversary_pursuit.agent.tui.application import (
 from adversary_pursuit.agent.tui.events import EventBus
 from adversary_pursuit.agent.tui.live_pane import LivePane
 from adversary_pursuit.agent.tui.scrollback import ScrollbackBuffer
+from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.dossier.state import default_deferred_state, save_dossier_state
 
 # ---------------------------------------------------------------------------
 # Fake runner — minimal duck-type for TuiApplication.__init__
@@ -124,6 +126,24 @@ def test_tui_application_instantiates():
     assert app is not None
 
 
+def test_tui_initializes_live_pane_from_persisted_dossier(tmp_path):
+    bus = EventBus()
+    runner = FakeRunner()
+    workspace_mgr = WorkspaceManager(workspace_dir=tmp_path)
+    workspace_mgr.create("default")
+    workspace_mgr.switch("default")
+    persisted = default_deferred_state()
+    save_dossier_state(workspace_mgr, persisted)
+    with (
+        patch("sys.stdin.isatty", return_value=True),
+        patch.object(TuiApplication, "_build_app", return_value=MagicMock()),
+    ):
+        app = TuiApplication(runner, workspace_mgr, FakeModeManager(), bus)
+
+    assert app._live_pane._dossier_state is not None
+    assert app._live_pane._dossier_state.slots == persisted.slots
+
+
 def test_tui_application_has_run_method():
     app = _make_app()
     assert callable(getattr(app, "run", None))
@@ -206,14 +226,16 @@ def test_tui_input_restores_contextual_completer_and_history():
     assert app._input_buffer.history is not None
 
 
-def test_tui_scrollback_renderer_only_requests_bounded_window():
+def test_tui_scrollback_renderer_keeps_complete_session_history():
     app = _make_app()
-    app._scrollback.get_window = MagicMock(return_value=["recent"])
+    for number in range(5005):
+        app._scrollback.emit_line(f"line {number}")
 
     rendered = app._get_scrollback_formatted()
 
-    app._scrollback.get_window.assert_called_once_with(limit=5000)
-    assert any("recent" in text for _style, text in rendered)
+    text = "".join(fragment for _style, fragment in rendered)
+    assert "line 0" in text
+    assert "line 5004" in text
 
 
 def test_input_accept_does_not_block_render_thread():
@@ -251,6 +273,8 @@ def test_help_overlay_content_is_immediately_discoverable():
     assert "[ / ]" in text
     assert "Trackpad/wheel" in text
     assert "Drag scrollbar" in text
+    assert "open <ev-id>" in text
+    assert "find <text>" in text
     assert "Press Esc" in text
 
 
@@ -296,6 +320,8 @@ def test_cockpit_hud_reports_live_functional_state():
 
 def test_universal_scroll_helpers_move_feed_both_directions():
     app = _make_app()
+    for number in range(100):
+        app._scrollback.emit_line(str(number))
 
     app._scroll_older()
     app._scroll_older(lines=4)
@@ -305,6 +331,25 @@ def test_universal_scroll_helpers_move_feed_both_directions():
     assert app._scroll_offset == 10
     app._scroll_newer(lines=100)
     assert app._scroll_offset == 0
+
+
+def test_page_size_uses_rendered_viewport_minus_context_row():
+    app = _make_app()
+    app._scrollback_window = SimpleNamespace(
+        render_info=SimpleNamespace(window_height=24)
+    )
+
+    assert app._page_size() == 23
+
+
+def test_transcript_search_jumps_to_matching_line():
+    app = _make_app()
+    for line in ("alpha", "important evidence", "omega"):
+        app._scrollback.emit_line(line)
+
+    app._find_transcript("important")
+
+    assert app._scroll_offset == 1
 
 
 def test_dragging_feed_scrollbar_moves_between_oldest_and_live_output():

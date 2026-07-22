@@ -123,6 +123,9 @@ DECK
   mode <name>      Change character and cockpit
   workspace ...    Manage investigation spaces
   clear            Clear the intelligence feed
+  open <ev-id>     Inspect stored evidence details
+  back             Return to the prior transcript position
+  find <text>      Search the complete session transcript
 
 KEYS
 
@@ -208,6 +211,7 @@ class TuiApplication:
         self._help_visible = False
         self._prompt_phase = False
         self._evidence_details: dict[str, dict] = {}
+        self._detail_return_anchor: int | None = None
 
         # Shared scrollback buffer written by all session output paths
         self._scrollback = ScrollbackBuffer()
@@ -222,6 +226,7 @@ class TuiApplication:
             workspace_mgr=workspace_mgr,
             feed_emit=self._emit_agent_trace,
         )
+        self._refresh_dossier_state()
 
         # Header pane — top-anchored 3-row strip (DEC-TUI-HEADER-001).
         # Subscribes to TargetChanged events to maintain CURRENT / PRIOR breadcrumb.
@@ -292,34 +297,34 @@ class TuiApplication:
 
         @kb.add("pageup")
         def _page_up(event) -> None:  # type: ignore[no-untyped-def]
-            self._scroll_older()
+            self._scroll_older(self._page_size())
             event.app.invalidate()
 
         @kb.add("pagedown")
         def _page_down(event) -> None:  # type: ignore[no-untyped-def]
-            self._scroll_newer()
+            self._scroll_newer(self._page_size())
             event.app.invalidate()
 
         # Laptop-friendly aliases. Alt+Arrow arrives as Escape followed by
         # Arrow in ordinary terminal emulators and does not steal editing keys.
         @kb.add("escape", "up")
         def _laptop_page_up(event) -> None:  # type: ignore[no-untyped-def]
-            self._scroll_older()
+            self._scroll_older(self._page_size())
             event.app.invalidate()
 
         @kb.add("escape", "down")
         def _laptop_page_down(event) -> None:  # type: ignore[no-untyped-def]
-            self._scroll_newer()
+            self._scroll_newer(self._page_size())
             event.app.invalidate()
 
         @kb.add("c-up")
         def _control_page_up(event) -> None:  # type: ignore[no-untyped-def]
-            self._scroll_older()
+            self._scroll_older(self._page_size())
             event.app.invalidate()
 
         @kb.add("c-down")
         def _control_page_down(event) -> None:  # type: ignore[no-untyped-def]
-            self._scroll_newer()
+            self._scroll_newer(self._page_size())
             event.app.invalidate()
 
         @kb.add("[")
@@ -350,12 +355,15 @@ class TuiApplication:
 
         @kb.add("escape", "<")
         def _oldest(event) -> None:  # type: ignore[no-untyped-def]
-            self._scroll_offset = 10**9
+            self._scroll_offset = max(
+                0, len(self._scrollback.get_lines()) - self._page_size()
+            )
             event.app.invalidate()
 
         @kb.add("escape", ">")
         def _newest(event) -> None:  # type: ignore[no-untyped-def]
             self._scroll_offset = 0
+            self._unread_attention = 0
             event.app.invalidate()
 
         help_closed = Condition(lambda: not self._help_visible)
@@ -608,10 +616,9 @@ class TuiApplication:
         Character-themed borders are applied only to the header and live pane
         (DEC-TUI-APP-THEME-INJECT-001).
         """
-        # A bounded render window is essential: the live pane refreshes while
-        # tools run, and rebuilding an unbounded transcript made long sessions
-        # progressively slower.
-        lines = self._scrollback.get_window(limit=5000)
+        # The complete session transcript is interactive. ScrollbackBuffer is
+        # append-only, so every line remains addressable until explicit clear.
+        lines = self._scrollback.get_lines()
         parts: list[tuple[str, str]] = []
         for line in lines:
             parts.append(("", line + "\n"))
@@ -619,12 +626,12 @@ class TuiApplication:
 
     def _get_scrollback_cursor_position(self) -> Point:
         """Anchor PTK's viewport at the requested distance from live output."""
-        line_count = min(5000, len(self._scrollback.get_lines()))
+        line_count = len(self._scrollback.get_lines())
         return Point(x=0, y=max(0, line_count - 1 - self._scroll_offset))
 
     def _get_scrollback_vertical_scroll(self, window: Window) -> int:
         """Translate live-relative scroll state into a real PTK viewport row."""
-        line_count = min(5000, len(self._scrollback.get_lines()))
+        line_count = len(self._scrollback.get_lines())
         height = window.render_info.window_height if window.render_info is not None else 1
         return max(0, line_count - height - self._scroll_offset)
 
@@ -685,7 +692,8 @@ class TuiApplication:
 
     def _scroll_older(self, lines: int = 10) -> None:
         """Move the intelligence viewport toward older evidence."""
-        self._scroll_offset += max(1, lines)
+        maximum = max(0, len(self._scrollback.get_lines()) - self._page_size())
+        self._scroll_offset = min(maximum, self._scroll_offset + max(1, lines))
 
     def _scroll_newer(self, lines: int = 10) -> None:
         """Move the intelligence viewport toward live evidence."""
@@ -744,7 +752,20 @@ class TuiApplication:
 
         try:
             if text.lower().startswith("open "):
+                self._detail_return_anchor = max(
+                    0, len(self._scrollback.get_lines()) - self._scroll_offset
+                )
                 self._open_evidence(text.split(maxsplit=1)[1].strip())
+                return
+            if text.lower() in {"back", "close"} and self._detail_return_anchor is not None:
+                self._scroll_offset = max(
+                    0, len(self._scrollback.get_lines()) - self._detail_return_anchor
+                )
+                self._detail_return_anchor = None
+                self._app.invalidate()
+                return
+            if text.lower().startswith("find "):
+                self._find_transcript(text.split(maxsplit=1)[1].strip())
                 return
             verb = parse_repl_verb(text)
             yield_command = parse_yield(text)
@@ -767,6 +788,8 @@ class TuiApplication:
                 self._scroll_offset = 0
             if verb is not None and verb.name == "use":
                 self._run_target_batteries(verb.args[0])
+            if verb is not None and verb.name == "workspace":
+                self._refresh_dossier_state()
         except _FarewellExit as exc:
             if exc.phrase:
                 self.emit_scrollback(exc.phrase)
@@ -964,7 +987,41 @@ class TuiApplication:
             "DETAIL SOURCE stored workspace · no network or model call"
         )
         self._append_panel(f"EVIDENCE DETAIL · {detail['reference']}", body)
+        self.emit_scrollback("Type `back` to return to the exact prior transcript position.")
         self._app.invalidate()
+
+    def _find_transcript(self, query: str) -> None:
+        """Jump to the newest transcript line containing *query*."""
+        if not query:
+            self._append_panel("TRANSCRIPT SEARCH", "Usage: find <text>")
+            return
+        lines = self._scrollback.get_lines()
+        match = next(
+            (index for index in range(len(lines) - 1, -1, -1) if query.lower() in lines[index].lower()),
+            None,
+        )
+        if match is None:
+            self._append_panel("TRANSCRIPT SEARCH", f"No match for: {query}")
+            return
+        self._scroll_offset = max(0, len(lines) - 1 - match)
+        self._app.invalidate()
+
+    def _refresh_dossier_state(self) -> None:
+        """Load the canonical persisted dossier snapshot into the live pane."""
+        if self._workspace_mgr is None or not hasattr(self, "_live_pane"):
+            return
+        from adversary_pursuit.core.workspace import WorkspaceManager
+        from adversary_pursuit.dossier.state import load_dossier_state
+
+        if not isinstance(self._workspace_mgr, WorkspaceManager):
+            return
+        self._live_pane.set_dossier_state(load_dossier_state(self._workspace_mgr))
+
+    def _page_size(self) -> int:
+        """Return one viewport minus a context row."""
+        info = self._scrollback_window.render_info if self._scrollback_window is not None else None
+        height = info.window_height if info is not None else 11
+        return max(1, height - 1)
 
     # ------------------------------------------------------------------
     # Public API
@@ -1010,6 +1067,9 @@ class TuiApplication:
         Launches the background live-pane refresh thread, then enters the
         prompt_toolkit event loop (blocking until Ctrl-C/Ctrl-D).
         """
+        from adversary_pursuit.dossier.state import wire_slot_transition_bus
+
+        wire_slot_transition_bus(self._event_bus)
         self._stop_refresh.clear()
         self._refresh_thread = threading.Thread(
             target=self._refresh_loop,
@@ -1022,6 +1082,9 @@ class TuiApplication:
         finally:
             self._stop_refresh.set()
             self._executor.shutdown(wait=False, cancel_futures=True)
+            from adversary_pursuit.dossier.state import wire_slot_transition_bus
+
+            wire_slot_transition_bus(None)
 
     # ------------------------------------------------------------------
     # Background refresh loop

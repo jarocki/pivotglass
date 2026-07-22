@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] — 2026-07-21
+
+### Added
+
+- Complete interactive TUI session history with no hidden 5,000-line render
+  boundary.
+- Local `find <text>`, `open <ev-id>`, and `back` transcript navigation with
+  stable evidence anchors and exact return positioning.
+- Startup loading of the canonical persisted dossier snapshot and production
+  lifecycle wiring for slot-transition events.
+- Viewport-derived PageUp/PageDown behavior and regression coverage for complete
+  history, transcript search, dossier initialization, mouse dragging, and
+  laptop-safe navigation.
+
+### Changed
+
+- Page navigation moves one rendered viewport minus a context row and clamps to
+  real transcript bounds.
+- Returning to live output clears unread telemetry without deleting history.
+- TUI help and README now document evidence drill-down and transcript search.
+
 ## [0.4.4] — 2026-07-21
 
 ### Added
@@ -237,7 +258,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.4...HEAD
+[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.5...HEAD
+[0.4.5]: https://github.com/jarocki/ap/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/jarocki/ap/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/jarocki/ap/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/jarocki/ap/compare/v0.4.1...v0.4.2

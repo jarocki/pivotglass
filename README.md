@@ -46,7 +46,10 @@ See [`docs/WEB_SUPPLY_CHAIN.md`](docs/WEB_SUPPLY_CHAIN.md).
 The terminal cyberdeck remains supported while the web surface reaches feature
 parity. Its intelligence feed is a true scrolling viewport: drag the visible
 scrollbar, use the mouse wheel or trackpad over the feed, press PageUp/PageDown,
-or use `[` and `]` to browse older and newer intelligence.
+or use `[` and `]` to browse older and newer intelligence. The complete current
+session remains interactive until an explicit `clear`; use `find <text>` to
+locate a transcript entry, `open <ev-id>` to inspect stored evidence, and
+`back` to return to the exact previous reading position.
 
 Each mode now selects a cockpit, not only a palette: HAL operates Discovery
 One optics, Deckard gets a Spinner/Voight-Kampff display, Neuromancer uses an
@@ -77,10 +80,10 @@ cd web && npm ci && npm run build && cd ..
 uv run ap
 ```
 
-To install the v0.4.4 wheel directly:
+To install the v0.4.5 wheel directly:
 
 ```bash
-python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.4.4/adversary_pursuit-0.4.4-py3-none-any.whl"
+python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.4.5/adversary_pursuit-0.4.5-py3-none-any.whl"
 ap
 ```
 
