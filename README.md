@@ -34,8 +34,10 @@ rather than the chat transcript:
   dossier occupancy, workspace, artifact, transport, and fault telemetry
 - **Artifact field** — Microsoft Flint compiles semantic evidence charts to a
   locally bundled Chart.js renderer
-- **Navigation and field manual** — the DECK menu jumps between cockpit panes,
-  switches characters, and exposes contextual operator help (`?`)
+- **Navigation and field manual** — a persistent pane switcher and searchable
+  Command/Control-K palette navigate the cockpit; DECK switches characters and
+  controls full, reduced, or disabled effects plus narration intensity; `?`
+  opens contextual help
 
 The web cockpit is statically built, served by AP on `127.0.0.1`, and loads no
 CDN code, remote fonts, analytics, or telemetry. Exact npm versions and SHA-512
@@ -80,10 +82,10 @@ cd web && npm ci && npm run build && cd ..
 uv run ap
 ```
 
-To install the v0.4.5 wheel directly:
+To install the v0.4.6 wheel directly:
 
 ```bash
-python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.4.5/adversary_pursuit-0.4.5-py3-none-any.whl"
+python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.4.6/adversary_pursuit-0.4.6-py3-none-any.whl"
 ap
 ```
 

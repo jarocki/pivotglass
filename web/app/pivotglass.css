@@ -38,7 +38,12 @@ to{top:100vh}
 .deck-menu button small{color:var(--dim);text-transform:none;max-width:230px}
 .deck-menu label{display:block;color:var(--accent);font-size:10px;letter-spacing:.15em;padding:7px}
 .deck-menu hr{border:0;border-top:1px solid var(--line)}
+.segmented{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px 7px 8px}
+.segmented button{border:1px solid color-mix(in srgb,var(--line) 45%,transparent);background:#02080b;color:var(--dim);padding:5px;font-size:9px;text-transform:uppercase;cursor:pointer}
+.segmented button.selected{color:var(--heading);border-color:var(--heading);background:color-mix(in srgb,var(--line) 16%,#02080b)}
 .voice-strip{border:1px solid color-mix(in srgb,var(--line) 46%,transparent);padding:7px 11px;font-size:10px;letter-spacing:.08em;background:color-mix(in srgb,var(--line) 6%,#020508)}
+.pane-switcher{display:flex;gap:5px;overflow:auto}
+.pane-switcher button{white-space:nowrap;border:1px solid color-mix(in srgb,var(--line) 45%,transparent);background:#02080b;color:var(--heading);padding:6px 9px;font-size:9px;text-transform:uppercase;cursor:pointer}
 .voice-strip b,.voice-strip i{color:var(--heading)}
 .voice-strip i{font-style:normal}
 .voice-strip span{color:var(--ink)}
@@ -66,8 +71,8 @@ to{top:100vh}
 .ok-text{color:var(--accent)}
 .danger{color:#ff6077}
 .caution{color:#ffbf3f}
-.cockpit-grid{flex:1;min-height:560px;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(350px,.75fr);gap:10px}
-.panel{position:relative;min-height:0}
+.cockpit-grid{flex:1;min-width:0;min-height:560px;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(350px,.75fr);gap:10px}
+.panel{position:relative;min-width:0;min-height:0}
 .panel::before,.panel::after{content:"";position:absolute;z-index:2;width:28px;height:8px;top:-1px;border-top:2px solid var(--heading)}
 .panel::before{left:-1px;border-left:2px solid var(--heading)}
 .panel::after{right:-1px;border-right:2px solid var(--heading)}
@@ -99,7 +104,7 @@ to{top:100vh}
 .evidence-link,.artifact-list button{border:1px solid color-mix(in srgb,var(--line) 60%,transparent);background:#02080b;color:var(--heading);padding:6px 9px;cursor:pointer;text-align:left}
 .evidence-link{margin:4px 6px 0 0;font-size:9px;letter-spacing:.1em}
 pre{white-space:pre-wrap;word-break:break-word;max-height:230px;overflow:auto;color:var(--ink);font:10px/1.45 inherit}
-.right-stack{min-height:0;display:grid;grid-template-rows:auto 1fr auto;gap:10px}
+.right-stack{min-width:0;min-height:0;display:grid;grid-template-rows:auto 1fr auto;gap:10px}
 .instruments dl{margin:0;padding:7px 12px}
 .instruments dl div{display:flex;justify-content:space-between;border-bottom:1px solid color-mix(in srgb,var(--line) 22%,transparent);padding:7px 0}
 dt{color:var(--dim);font-size:9px;letter-spacing:.12em}
@@ -111,6 +116,10 @@ dd{margin:0;color:var(--heading);font-size:11px}
 .dossier-grid i.deferred{opacity:.45;background:repeating-linear-gradient(135deg,transparent 0 3px,color-mix(in srgb,var(--dim) 25%,transparent) 4px)}
 .chart-panel{padding-bottom:8px}
 .chart-panel canvas{max-height:260px;padding:10px}
+.chart-data{width:calc(100% - 20px);margin:0 10px 8px;border-collapse:collapse;font-size:9px}
+.chart-data caption{text-align:left;color:var(--dim);padding:4px 0}
+.chart-data th,.chart-data td{text-align:left;border-bottom:1px solid color-mix(in srgb,var(--line) 22%,transparent);padding:3px 5px}
+.chart-data th{color:var(--heading)}
 .artifact-list{display:grid;gap:4px;padding:0 10px 10px}
 .artifact-list button{display:flex;justify-content:space-between;gap:8px;font-size:9px}
 .artifact-list button span{color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -141,6 +150,16 @@ dd{margin:0;color:var(--heading);font-size:11px}
 .detail-drawer dl div{display:grid;grid-template-columns:140px 1fr;gap:10px;border-bottom:1px solid color-mix(in srgb,var(--line) 25%,transparent);padding:7px 0}
 .detail-drawer dd{overflow-wrap:anywhere}
 .detail-drawer>small{display:block;margin-top:20px;color:var(--dim)}
+.command-palette{width:min(620px,92vw);max-height:78vh;overflow:auto;border:1px solid var(--line);background:#03090dfb;padding:12px;box-shadow:0 0 80px #000}
+.command-palette input{width:100%;border:1px solid var(--line);background:#020508;color:var(--ink);padding:12px;margin-bottom:7px}
+.command-palette button{display:block;width:100%;border:0;border-bottom:1px solid color-mix(in srgb,var(--line) 25%,transparent);background:transparent;color:var(--ink);padding:10px;text-align:left;cursor:pointer}
+.command-palette button:hover,.command-palette button:focus{background:color-mix(in srgb,var(--line) 17%,transparent);color:var(--heading)}
+.effects-reduced .scanline,.effects-off .scanline,.effects-off .reticle{animation:none}
+.effects-off .scanline{display:none}
+.effects-off .lamp,.effects-reduced .lamp{animation:none}
+.narration-off .voice-strip span{display:none}
+.narration-brief .voice-strip span{max-width:42ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
 footer{color:var(--dim);font-size:9px;letter-spacing:.12em;padding:0 2px}
 @media(max-width:1000px){main{padding:10px}
 .cockpit-grid{grid-template-columns:1fr}
@@ -151,7 +170,9 @@ footer{color:var(--dim);font-size:9px;letter-spacing:.12em;padding:0 2px}
 }
 @media(max-width:650px){.masthead{align-items:flex-start}
 .brand h1{font-size:21px}
-.brand .eyebrow,.brand small,.help-button{display:none}
+.brand .eyebrow,.brand small{display:none}
+.menu-button span,.status-cluster .lamp{display:none}
+.menu-button,.help-button{padding:7px}
 .command-rail form{grid-template-columns:1fr auto auto}
 .prompt{grid-column:1/-1}
 .voice-strip i{display:none}

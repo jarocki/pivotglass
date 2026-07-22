@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.6] — 2026-07-21
+
+### Added
+
+- Persistent responsive pane switcher and searchable Command/Control-K command
+  palette.
+- URL-restorable pane selection and focus-trapped, focus-restoring dialogs.
+- Full, reduced, and off visual-effect controls plus independent full, brief,
+  and off narration controls persisted locally.
+- Keyboard-accessible Flint data table alongside the visual artifact chart.
+- Non-color semantic cues and a reduced-motion media policy.
+
+### Fixed
+
+- Removed a 350-pixel intrinsic panel minimum that caused page-level overflow
+  at a 320-pixel viewport while retaining every primary control.
+- Kept operator help available on compact screens.
+
+### Verified
+
+- Exercised the production build in a live browser at desktop and 320-pixel
+  widths, including command search, dialog focus, chart semantics, control
+  visibility, and document bounds.
+
 ## [0.4.5] — 2026-07-21
 
 ### Added
@@ -258,7 +282,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.5...HEAD
+[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.6...HEAD
+[0.4.6]: https://github.com/jarocki/ap/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/jarocki/ap/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/jarocki/ap/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/jarocki/ap/compare/v0.4.2...v0.4.3
