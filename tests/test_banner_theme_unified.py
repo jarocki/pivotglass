@@ -106,33 +106,33 @@ class TestBannerModeColorReadsFromTheme:
                 f"(DEC-BANNER-MODE-COLOR-UNIFIED-001)."
             )
 
-    def test_get_mode_color_neuromancer_is_bright_magenta_hex(self) -> None:
-        """neuromancer heading_color is '#ff5fff' (bright_magenta hex, PTK-compatible).
+    def test_get_mode_color_the_sprawl_is_bright_magenta_hex(self) -> None:
+        """the_sprawl heading_color is '#ff5fff' (bright_magenta hex, PTK-compatible).
 
         Updated in Slice 7Ah2: bold modifier removed from stored value; hex replaces
         Rich color name (DEC-TUI-PTK-COLOR-COMPAT-001). get_mode_color() callers
         (e.g. chat.py _mode_prompt) apply bold in their own markup wrappers.
         """
-        result = get_mode_color("neuromancer")
-        assert result == "#ff5fff", f"neuromancer mode color should be '#ff5fff', got '{result}'"
+        result = get_mode_color("the_sprawl")
+        assert result == "#ff5fff", f"the_sprawl mode color should be '#ff5fff', got '{result}'"
 
-    def test_get_mode_color_hal9000_is_bright_red_hex(self) -> None:
-        """hal9000 heading_color is '#ff5555' (bright_red hex, PTK-compatible).
-
-        Updated in Slice 7Ah2: bold modifier removed from stored value; hex replaces
-        Rich color name (DEC-TUI-PTK-COLOR-COMPAT-001).
-        """
-        result = get_mode_color("hal9000")
-        assert result == "#ff5555", f"hal9000 mode color should be '#ff5555', got '{result}'"
-
-    def test_get_mode_color_chuck_norris_is_bright_magenta_hex(self) -> None:
-        """chuck_norris heading_color is '#ff5fff' (bright_magenta hex, neon storyboard palette).
+    def test_get_mode_color_the_computer_is_bright_red_hex(self) -> None:
+        """the_computer heading_color is '#ff5555' (bright_red hex, PTK-compatible).
 
         Updated in Slice 7Ah2: bold modifier removed from stored value; hex replaces
         Rich color name (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
-        result = get_mode_color("chuck_norris")
-        assert result == "#ff5fff", f"chuck_norris mode color should be '#ff5fff', got '{result}'"
+        result = get_mode_color("the_computer")
+        assert result == "#ff5555", f"the_computer mode color should be '#ff5555', got '{result}'"
+
+    def test_get_mode_color_sensei_is_bright_magenta_hex(self) -> None:
+        """sensei heading_color is '#ff5fff' (bright_magenta hex, neon storyboard palette).
+
+        Updated in Slice 7Ah2: bold modifier removed from stored value; hex replaces
+        Rich color name (DEC-TUI-PTK-COLOR-COMPAT-001).
+        """
+        result = get_mode_color("sensei")
+        assert result == "#5f5fff", f"sensei mode color should be '#5f5fff', got '{result}'"
 
     def test_get_mode_color_default_contains_cyan_hex(self) -> None:
         """default heading_color is '#00d7d7' (cyan hex, PTK-compatible).

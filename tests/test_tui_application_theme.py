@@ -72,10 +72,10 @@ class _FakeRunner:
 
 
 def test_every_mode_has_a_distinct_cockpit_identity() -> None:
-    assert len(COCKPIT_PROFILES) == 14
-    assert len({profile.vehicle for profile in COCKPIT_PROFILES.values()}) == 14
-    assert cockpit_for("hal9000").vehicle == "DISCOVERY ONE"
-    assert cockpit_for("neuromancer").vehicle == "ONO-SENDAI VII"
+    assert len(COCKPIT_PROFILES) == 10
+    assert len({profile.vehicle for profile in COCKPIT_PROFILES.values()}) == 10
+    assert cockpit_for("the_computer").vehicle == "GAME GRID"
+    assert cockpit_for("the_sprawl").vehicle == "ONO-SENDAI VII"
 
 
 def _make_app(mode_name: str = "default") -> TuiApplication:
@@ -106,11 +106,11 @@ def _make_app(mode_name: str = "default") -> TuiApplication:
 class TestHeaderFormattedTextHasThemeColor:
     """_get_header_formatted() must inject fg:<border_color> style tokens."""
 
-    def test_header_formatted_text_has_theme_color_neuromancer(self, monkeypatch) -> None:
-        """With neuromancer mode active, header style tokens contain '#ff5fff' (bright_magenta hex)."""
+    def test_header_formatted_text_has_theme_color_the_sprawl(self, monkeypatch) -> None:
+        """With the_sprawl mode active, header style tokens contain '#ff5fff' (bright_magenta hex)."""
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
-        app = _make_app("neuromancer")
-        theme = theme_for("neuromancer")
+        app = _make_app("the_sprawl")
+        theme = theme_for("the_sprawl")
         expected_color = resolved_border_color(theme)  # "#ff5fff"
 
         ft = app._get_header_formatted()
@@ -118,28 +118,28 @@ class TestHeaderFormattedTextHasThemeColor:
 
         # At least one row must carry fg:<border_color>
         assert any(expected_color in tok for tok in style_tokens), (
-            f"Expected 'fg:{expected_color}' in FormattedText style tokens for neuromancer. "
+            f"Expected 'fg:{expected_color}' in FormattedText style tokens for the_sprawl. "
             f"Got: {style_tokens}"
         )
 
-    def test_header_formatted_text_has_theme_color_hal9000(self, monkeypatch) -> None:
-        """With hal9000 mode active, header style tokens contain '#ff5555' (bright_red hex)."""
+    def test_header_formatted_text_has_theme_color_the_computer(self, monkeypatch) -> None:
+        """With the_computer mode active, header style tokens contain '#ff5555' (bright_red hex)."""
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
-        app = _make_app("hal9000")
-        theme = theme_for("hal9000")
+        app = _make_app("the_computer")
+        theme = theme_for("the_computer")
         expected_color = resolved_border_color(theme)  # "#ff5555"
 
         ft = app._get_header_formatted()
         style_tokens = [style for style, _ in ft]
 
         assert any(expected_color in tok for tok in style_tokens), (
-            f"Expected '{expected_color}' in header style tokens for hal9000. Got: {style_tokens}"
+            f"Expected '{expected_color}' in header style tokens for the_computer. Got: {style_tokens}"
         )
 
     def test_header_formatted_text_no_empty_style_on_border_rows(self, monkeypatch) -> None:
         """Border rows must NOT use the empty style ('') — that was the pre-Slice-7A bug."""
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
-        app = _make_app("neuromancer")
+        app = _make_app("the_sprawl")
 
         ft = app._get_header_formatted()
         # Filter out the newline separator tuples (which may legitimately be "")
@@ -171,33 +171,33 @@ class TestHeaderFormattedTextHasThemeColor:
 class TestLivePaneFormattedTextHasThemeColor:
     """_get_live_pane_formatted() must inject character theme colors into style tokens."""
 
-    def test_live_pane_formatted_text_has_theme_color_neuromancer(self, monkeypatch) -> None:
-        """With neuromancer mode active, live pane style tokens contain '#ff5fff' (bright_magenta hex)."""
+    def test_live_pane_formatted_text_has_theme_color_the_sprawl(self, monkeypatch) -> None:
+        """With the_sprawl mode active, live pane style tokens contain '#ff5fff' (bright_magenta hex)."""
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
-        app = _make_app("neuromancer")
-        theme = theme_for("neuromancer")
+        app = _make_app("the_sprawl")
+        theme = theme_for("the_sprawl")
         expected_color = resolved_border_color(theme)  # "#ff5fff"
 
         ft = app._get_live_pane_formatted()
         style_tokens = [style for style, _ in ft]
 
         assert any(expected_color in tok for tok in style_tokens), (
-            f"Expected '{expected_color}' in live pane style tokens for neuromancer. "
+            f"Expected '{expected_color}' in live pane style tokens for the_sprawl. "
             f"Got: {style_tokens}"
         )
 
-    def test_live_pane_formatted_text_has_theme_color_hal9000(self, monkeypatch) -> None:
-        """With hal9000 mode active, live pane style tokens contain '#ff5555' (bright_red hex)."""
+    def test_live_pane_formatted_text_has_theme_color_the_computer(self, monkeypatch) -> None:
+        """With the_computer mode active, live pane style tokens contain '#ff5555' (bright_red hex)."""
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
-        app = _make_app("hal9000")
-        theme = theme_for("hal9000")
+        app = _make_app("the_computer")
+        theme = theme_for("the_computer")
         expected_color = resolved_border_color(theme)  # "#ff5555"
 
         ft = app._get_live_pane_formatted()
         style_tokens = [style for style, _ in ft]
 
         assert any(expected_color in tok for tok in style_tokens), (
-            f"Expected '{expected_color}' in live pane style tokens for hal9000. "
+            f"Expected '{expected_color}' in live pane style tokens for the_computer. "
             f"Got: {style_tokens}"
         )
 
@@ -220,8 +220,8 @@ class TestLivePaneFormattedTextHasThemeColor:
         token must be 'bold fg:#xxxxxx', not the bare heading_color hex string.
         """
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
-        app = _make_app("neuromancer")
-        theme = theme_for("neuromancer")
+        app = _make_app("the_sprawl")
+        theme = theme_for("the_sprawl")
 
         ft = app._get_live_pane_formatted()
         content_parts = [(style, text) for style, text in ft if text != "\n"]
@@ -244,7 +244,7 @@ class TestSwitchingCharacterUpdatesStyleTokens:
     """When the mode changes, the next render cycle applies the new theme colors."""
 
     def test_switching_character_updates_header_style_tokens(self, monkeypatch) -> None:
-        """Switch from default to hal9000; header style tokens must reflect the new color."""
+        """Switch from default to the_computer; header style tokens must reflect the new color."""
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("default")
 
@@ -252,39 +252,39 @@ class TestSwitchingCharacterUpdatesStyleTokens:
         ft_default = app._get_header_formatted()
         default_tokens = {style for style, _ in ft_default if style}
 
-        # Switch the mode manager to hal9000
-        app._mode_mgr.switch("hal9000")
+        # Switch the mode manager to the_computer
+        app._mode_mgr.switch("the_computer")
 
         ft_hal = app._get_header_formatted()
         hal_tokens = {style for style, _ in ft_hal if style}
 
         # The token sets must differ
         assert default_tokens != hal_tokens, (
-            "Style tokens did not change after mode switch from default to hal9000. "
-            f"default: {default_tokens}, hal9000: {hal_tokens}"
+            "Style tokens did not change after mode switch from default to the_computer. "
+            f"default: {default_tokens}, the_computer: {hal_tokens}"
         )
-        # hal9000 border color must appear
-        hal_border = resolved_border_color(theme_for("hal9000"))
+        # the_computer border color must appear
+        hal_border = resolved_border_color(theme_for("the_computer"))
         assert any(hal_border in tok for tok in hal_tokens), (
-            f"Expected '{hal_border}' in hal9000 header tokens. Got: {hal_tokens}"
+            f"Expected '{hal_border}' in the_computer header tokens. Got: {hal_tokens}"
         )
 
     def test_switching_character_updates_live_pane_style_tokens(self, monkeypatch) -> None:
-        """Switch from default to hal9000; live pane style tokens must change."""
+        """Switch from default to the_computer; live pane style tokens must change."""
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("default")
 
         ft_default = app._get_live_pane_formatted()
         default_tokens = {style for style, _ in ft_default if style}
 
-        app._mode_mgr.switch("hal9000")
+        app._mode_mgr.switch("the_computer")
 
         ft_hal = app._get_live_pane_formatted()
         hal_tokens = {style for style, _ in ft_hal if style}
 
         assert default_tokens != hal_tokens, (
             "Live pane style tokens did not change after mode switch. "
-            f"default: {default_tokens}, hal9000: {hal_tokens}"
+            f"default: {default_tokens}, the_computer: {hal_tokens}"
         )
 
 
@@ -303,7 +303,7 @@ class TestHighContrastEnvSwapsStyleTokens:
         instead of 'bright_white' (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
         monkeypatch.setenv("AP_TUI_HIGH_CONTRAST", "1")
-        app = _make_app("neuromancer")
+        app = _make_app("the_sprawl")
 
         ft = app._get_header_formatted()
         style_tokens = [style for style, text in ft if text.strip()]
@@ -320,7 +320,7 @@ class TestHighContrastEnvSwapsStyleTokens:
         instead of 'bright_white' (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
         monkeypatch.setenv("AP_TUI_HIGH_CONTRAST", "1")
-        app = _make_app("neuromancer")
+        app = _make_app("the_sprawl")
 
         ft = app._get_live_pane_formatted()
         content_parts = [(style, text) for style, text in ft if text != "\n"]
@@ -333,13 +333,13 @@ class TestHighContrastEnvSwapsStyleTokens:
         )
 
     def test_normal_mode_without_high_contrast_uses_character_color(self, monkeypatch) -> None:
-        """Without AP_TUI_HIGH_CONTRAST, neuromancer gets #ff5fff (bright_magenta hex), not #ffffff.
+        """Without AP_TUI_HIGH_CONTRAST, the_sprawl gets #ff5fff (bright_magenta hex), not #ffffff.
 
         Updated in Slice 7Ah2: hex codes replace Rich color names
         (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
-        app = _make_app("neuromancer")
+        app = _make_app("the_sprawl")
 
         ft = app._get_header_formatted()
         style_tokens = [style for style, text in ft if text.strip()]
@@ -368,8 +368,8 @@ class TestEndToEndRenderSequence:
     def test_header_and_live_pane_use_same_border_color(self, monkeypatch) -> None:
         """Header and live pane must use the same resolved border color for a given mode."""
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
-        app = _make_app("chuck_norris")
-        theme = theme_for("chuck_norris")
+        app = _make_app("sensei")
+        theme = theme_for("sensei")
         expected_color = resolved_border_color(theme)  # "#ff5fff" (bright_magenta hex)
 
         header_ft = app._get_header_formatted()
@@ -379,10 +379,10 @@ class TestEndToEndRenderSequence:
         live_has_color = any(expected_color in style for style, text in live_ft if text != "\n")
 
         assert header_has_color, (
-            f"Header does not contain '{expected_color}' for chuck_norris. "
+            f"Header does not contain '{expected_color}' for sensei. "
             f"Tokens: {[s for s, _ in header_ft]}"
         )
         assert live_has_color, (
-            f"Live pane does not contain '{expected_color}' for chuck_norris. "
+            f"Live pane does not contain '{expected_color}' for sensei. "
             f"Tokens: {[s for s, _ in live_ft]}"
         )

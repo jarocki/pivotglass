@@ -28,7 +28,7 @@ rather than the chat transcript:
 
 - **Intelligence stream** — scrollable retrieval briefings and returned evidence
 - **Command rail** — rapid indicator acquisition without terminal paging limits
-- **Character deck** — the same 14 canonical voices, palettes, vehicle names,
+- **Character deck** — the same 10 canonical voices, palettes, vehicle names,
   greetings, and HUD vocabulary as the terminal cyberdeck
 - **Hunt instruments** — live link power, token-channel state, probe inventory,
   dossier occupancy, workspace, artifact, transport, and fault telemetry
@@ -53,10 +53,10 @@ session remains interactive until an explicit `clear`; use `find <text>` to
 locate a transcript entry, `open <ev-id>` to inspect stored evidence, and
 `back` to return to the exact previous reading position.
 
-Each mode now selects a cockpit, not only a palette: HAL operates Discovery
-One optics, Deckard gets a Spinner/Voight-Kampff display, Neuromancer uses an
-Ono-Sendai ICE monitor, Trinity uses the Nebuchadnezzar operator link, and the
-other personas have equally distinct deck geometry and instrument vocabulary.
+Each mode selects a cockpit, not only a palette: The Computer operates a logic
+core, Detective works a rain-soaked caseboard, The Sprawl uses a perspective
+grid, M4TR1X runs an operator construct, and the other archetypes have equally
+distinct geometry and instrument vocabulary.
 HUD values are live controls and state—not decorative gauges.
 
 The visual language continues to draw from the hierarchy established by the
@@ -82,10 +82,10 @@ cd web && npm ci && npm run build && cd ..
 uv run ap
 ```
 
-To install the v0.4.6 wheel directly:
+To install the v0.4.7 wheel directly:
 
 ```bash
-python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.4.6/adversary_pursuit-0.4.6-py3-none-any.whl"
+python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.4.7/adversary_pursuit-0.4.7-py3-none-any.whl"
 ap
 ```
 
@@ -199,11 +199,13 @@ badges there. Dossiers make analytical coverage explicit across identity,
 infrastructure, TTPs, deception, and other investigation dimensions; missing or
 inferred information is not presented as observed fact.
 
-Fourteen durable character modes alter voice, prompts, and visual accents:
-Default, Ninja, Full Troll, Drunken Master, Sun Tzu, Chuck Norris, Bureaucrat,
-Bobby Hill, Bruce Lee, Columbo, Deckard, HAL 9000, Neuromancer, and Trinity.
-Personas are presentation and reasoning aids—not separate truth systems—and are
-not silently removed when deprecated.
+Ten durable character archetypes alter voice, prompts, and visual accents:
+Default, Ninja, Full Troll, Bureaucrat, Strategist, Sensei, Detective, The
+Computer, The Sprawl, and M4TR1X. Historical identifiers migrate locally to
+their approved archetype for one compatibility window. Drunken Master and
+Bobby Hill are retired from selection with explicit guidance; their historical
+records remain readable. Personas are presentation and reasoning aids—not
+separate truth systems.
 
 ## Architecture
 

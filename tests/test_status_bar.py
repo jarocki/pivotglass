@@ -66,9 +66,9 @@ class TestStatusBarRenderBar:
 
     def test_render_includes_mode_name(self):
         """Rendered bar contains the mode name."""
-        bar = StatusBar(make_console(), mode_name="deckard", model_display="ollama/qwen2.5:8b")
+        bar = StatusBar(make_console(), mode_name="detective", model_display="ollama/qwen2.5:8b")
         text = bar._render_bar()
-        assert "deckard" in text.plain
+        assert "detective" in text.plain
 
     def test_render_includes_model_short(self):
         """Rendered bar contains the shortened model name (last segment after /)."""
@@ -114,7 +114,7 @@ class TestStatusBarRenderBar:
 
     def test_render_includes_activity_phrase(self):
         """Rendered bar contains a non-empty activity phrase."""
-        bar = StatusBar(make_console(), mode_name="deckard", model_display="m")
+        bar = StatusBar(make_console(), mode_name="detective", model_display="m")
         text = bar._render_bar()
         # Should have something after the last separator
         assert len(text.plain.strip()) > 0
@@ -150,7 +150,7 @@ class TestStatusBarSetActivity:
 
     def test_set_activity_virustotal_no_crash(self):
         """set_activity('virustotal') does not crash when not in live context."""
-        bar = StatusBar(make_console(), mode_name="deckard", model_display="m")
+        bar = StatusBar(make_console(), mode_name="detective", model_display="m")
         bar.set_activity("virustotal")  # no crash; _live is None so update is skipped
 
     def test_set_activity_none_no_crash(self):
@@ -173,10 +173,10 @@ class TestStatusBarSetActivity:
 
     def test_activity_reflected_in_render(self):
         """After set_activity, _render_bar() uses the new activity slug."""
-        bar = StatusBar(make_console(), mode_name="deckard", model_display="m")
+        bar = StatusBar(make_console(), mode_name="detective", model_display="m")
         bar.set_activity("virustotal")
         text = bar._render_bar()
-        # deckard has "Running VT" / "Pulling VT sheet" for activity:virustotal
+        # detective has "Running VT" / "Pulling VT sheet" for activity:virustotal
         plain = text.plain
         assert len(plain.strip()) > 0  # at minimum something rendered
 
@@ -233,7 +233,7 @@ class TestStatusBarContextManager:
     def test_set_activity_inside_context_no_crash(self):
         """set_activity inside the context manager does not crash."""
         console = make_console()
-        bar = StatusBar(console, mode_name="deckard", model_display="m")
+        bar = StatusBar(console, mode_name="detective", model_display="m")
         with bar:
             bar.set_activity("shodan")
             bar.set_activity(None)
@@ -427,7 +427,7 @@ class TestRunnerChatStatusBarWiring:
 
         bar = TrackingStatusBar(
             console=console,
-            mode_name="hal9000",
+            mode_name="the_computer",
             model_display="ollama/test",
             workspace_mgr=ctx.workspace_mgr,
         )
@@ -471,24 +471,24 @@ class TestRunnerChatStatusBarWiring:
         result = runner.chat("hello")  # no status_bar kwarg — uses NullStatusHook
         assert result == "Simple answer."
 
-    def test_activity_phrase_lookup_virustotal_hal9000(self):
-        """set_activity('virustotal') on a hal9000 bar renders the expected activity phrase.
+    def test_activity_phrase_lookup_virustotal_the_computer(self):
+        """set_activity('virustotal') on a the_computer bar renders the expected activity phrase.
 
         Directly tests that StatusBar._render_bar() with activity='virustotal' and
-        mode_name='hal9000' uses the hal9000 activity:virustotal phrase bucket.
+        mode_name='the_computer' uses the the_computer activity:virustotal phrase bucket.
         """
         from adversary_pursuit.agent.banner import StatusBar
         from adversary_pursuit.gamification.phrases import PHRASES
 
         console = make_console()
-        bar = StatusBar(console, mode_name="hal9000", model_display="test")
+        bar = StatusBar(console, mode_name="the_computer", model_display="test")
         bar.set_activity("virustotal")
         text = bar._render_bar()
         plain = text.plain
 
-        # The hal9000 activity:virustotal phrases are:
+        # The the_computer activity:virustotal phrases are:
         #   "Querying VirusTotal, Dave" and "VirusTotal analysis proceeding"
-        hal_phrases = [p.text for p in PHRASES.get(("hal9000", "activity:virustotal"), ())]
+        hal_phrases = [p.text for p in PHRASES.get(("the_computer", "activity:virustotal"), ())]
         assert any(p in plain for p in hal_phrases), (
             f"Expected one of {hal_phrases} in bar, got: {plain!r}"
         )

@@ -296,11 +296,11 @@ def test_prompt_marker_is_high_contrast_and_animated():
 def test_pursuit_title_tracks_active_mode():
     app = _make_app()
     app._mode_mgr = MagicMock()
-    app._mode_mgr.active.name = "trinity"
+    app._mode_mgr.active.name = "m4tr1x"
 
     rendered = app._get_pursuit_title_formatted()
 
-    assert any("THE MATRIX" in text for _style, text in rendered)
+    assert any("THE M4TR1X" in text for _style, text in rendered)
     assert all("INTELLIGENCE FEED" not in text for _style, text in rendered)
 
 

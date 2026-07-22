@@ -84,31 +84,26 @@ def run_cmd(app: APConsole, cmd: str) -> str:
 
 
 class TestDefaultModes:
-    """Verify the complete, backward-compatible mode catalogue."""
+    """Verify the canonical v0.4.7 character catalogue."""
 
     EXPECTED_NAMES = {
         "default",
         "ninja",
         "full_troll",
-        "drunken_master",
-        "sun_tzu",
-        "chuck_norris",
         "bureaucrat",
-        "bobby_hill",
-        "bruce_lee",
-        "columbo",
-        "deckard",
-        "hal9000",
-        "neuromancer",  # Phase 18 Slice 7A (DEC-CHAR-NEUROMANCER-001)
-        "trinity",
+        "strategist",
+        "sensei",
+        "detective",
+        "the_computer",
+        "the_sprawl",
+        "m4tr1x",
     }
 
-    def test_fourteen_modes_present(self):
-        """Exactly 14 modes should exist, including deprecated classics."""
-        assert len(DEFAULT_MODES) == 14
+    def test_ten_modes_present(self):
+        assert len(DEFAULT_MODES) == 10
 
     def test_all_expected_names_present(self):
-        """All 14 named modes are in DEFAULT_MODES."""
+        """Only reviewed canonical names are selectable."""
         assert set(DEFAULT_MODES.keys()) == self.EXPECTED_NAMES
 
     def test_default_mode_exists(self):
@@ -120,41 +115,21 @@ class TestDefaultModes:
     def test_full_troll_mode_exists(self):
         assert "full_troll" in DEFAULT_MODES
 
-    def test_drunken_master_mode_remains_selectable(self):
-        """Deprecated modes remain available to existing users."""
-        assert DEFAULT_MODES["drunken_master"].llm_profile is None
+    def test_retired_modes_are_not_selectable(self):
+        assert "drunken_master" not in DEFAULT_MODES
+        assert "bobby_hill" not in DEFAULT_MODES
 
-    def test_sun_tzu_mode_exists(self):
-        assert "sun_tzu" in DEFAULT_MODES
-
-    def test_chuck_norris_mode_exists(self):
-        assert "chuck_norris" in DEFAULT_MODES
+    def test_consolidated_archetypes_exist(self):
+        assert {"strategist", "sensei", "detective"} <= DEFAULT_MODES.keys()
 
     def test_bureaucrat_mode_exists(self):
         assert "bureaucrat" in DEFAULT_MODES
 
-    def test_bobby_hill_mode_exists(self):
-        assert "bobby_hill" in DEFAULT_MODES
-
-    def test_bruce_lee_mode_exists(self):
-        assert "bruce_lee" in DEFAULT_MODES
-
-    def test_columbo_mode_exists(self):
-        assert "columbo" in DEFAULT_MODES
-
-    def test_deckard_mode_exists(self):
-        """deckard added in Phase 18 Slice 5 (DEC-CHAR-DECKARD-001)."""
-        assert "deckard" in DEFAULT_MODES
-
-    def test_hal9000_mode_exists(self):
-        """hal9000 added in Phase 18 Slice 5 (DEC-CHAR-HAL9000-001)."""
-        assert "hal9000" in DEFAULT_MODES
-
-    def test_trinity_mode_uses_white_rabbit_identity(self):
-        mode = DEFAULT_MODES["trinity"]
+    def test_m4tr1x_mode_uses_white_rabbit_identity(self):
+        mode = DEFAULT_MODES["m4tr1x"]
         assert mode.prompt_prefix == "🐇"
         assert mode.llm_profile is not None
-        assert "Matrix operator" in mode.personality
+        assert "operator" in mode.personality
 
 
 # ---------------------------------------------------------------------------
@@ -305,6 +280,29 @@ class TestModeManagerSwitch:
         # The error should list at least some available mode names
         assert "default" in error_msg or "ninja" in error_msg
 
+    @pytest.mark.parametrize(
+        ("legacy", "canonical"),
+        [
+            ("sun_tzu", "strategist"),
+            ("chuck_norris", "sensei"),
+            ("bruce_lee", "sensei"),
+            ("columbo", "detective"),
+            ("deckard", "detective"),
+            ("hal9000", "the_computer"),
+            ("neuromancer", "the_sprawl"),
+            ("trinity", "m4tr1x"),
+        ],
+    )
+    def test_legacy_names_migrate_deterministically(
+        self, mgr: ModeManager, legacy: str, canonical: str
+    ):
+        assert mgr.switch(legacy).name == canonical
+
+    @pytest.mark.parametrize("retired", ["drunken_master", "bobby_hill"])
+    def test_retired_names_return_local_guidance(self, mgr: ModeManager, retired: str):
+        with pytest.raises(ValueError, match="retired in v0.4.7"):
+            mgr.switch(retired)
+
     def test_switch_does_not_affect_other_modes(self, mgr: ModeManager):
         """Switching modes does not mutate DEFAULT_MODES entries."""
         original_greeting = DEFAULT_MODES["ninja"].greeting
@@ -342,7 +340,7 @@ class TestModeManagerListModes:
         """Calling list_modes() does not change the active mode."""
         mgr.switch("bruce_lee")
         mgr.list_modes()
-        assert mgr.active.name == "bruce_lee"
+        assert mgr.active.name == "sensei"
 
 
 # ---------------------------------------------------------------------------

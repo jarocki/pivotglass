@@ -32,7 +32,11 @@ from dataclasses import dataclass
 from typing import Callable
 
 from adversary_pursuit.core.ioc_types import detect_ioc_type
-from adversary_pursuit.gamification.modes import DEFAULT_MODES
+from adversary_pursuit.gamification.modes import (
+    DEFAULT_MODES,
+    LEGACY_MODE_ALIASES,
+    RETIRED_MODES,
+)
 from adversary_pursuit.gamification.phrases import pick
 
 # ---------------------------------------------------------------------------
@@ -49,6 +53,9 @@ _ALL_VERBS: frozenset[str] = _NO_ARG_VERBS | _ONE_ARG_VERBS
 
 # Known mode names (from DEFAULT_MODES — single authority)
 _KNOWN_MODES: frozenset[str] = frozenset(DEFAULT_MODES.keys())
+_ACCEPTED_MODE_NAMES: frozenset[str] = frozenset(
+    {*DEFAULT_MODES, *LEGACY_MODE_ALIASES, *RETIRED_MODES}
+)
 
 
 # ---------------------------------------------------------------------------
@@ -305,12 +312,12 @@ def dispatch_repl_verb(
     # --- mode <name> ---
     if name == "mode":
         mode_name = verb.args[0].lower()
-        if _mode_mgr is not None and mode_name in _KNOWN_MODES:
+        if _mode_mgr is not None and mode_name in _ACCEPTED_MODE_NAMES:
             try:
                 new_mode = _mode_mgr.switch(mode_name)
                 return f"Mode switched: {new_mode.name}\n{new_mode.greeting}"
-            except Exception:  # noqa: BLE001
-                pass
+            except ValueError as exc:
+                return str(exc)
         available = ", ".join(sorted(_KNOWN_MODES))
         return f"Unknown mode: {mode_name}\nAvailable modes: {available}"
 

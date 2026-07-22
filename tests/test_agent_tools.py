@@ -1553,9 +1553,9 @@ class TestModeWiring:
         """ModeManager.switch() returns the newly-activated CharacterMode."""
         from adversary_pursuit.gamification.modes import CharacterMode
 
-        result = tmp_ctx.mode_mgr.switch("sun_tzu")
+        result = tmp_ctx.mode_mgr.switch("strategist")
         assert isinstance(result, CharacterMode)
-        assert result.name == "sun_tzu"
+        assert result.name == "strategist"
 
     # --- (6) Unknown mode name ---
 
@@ -1580,8 +1580,8 @@ class TestModeWiring:
 
         The expected set is derived from DEFAULT_MODES so that adding a new
         character mode updates this invariant automatically — no stale snapshot
-        needed.  Phase 18 Slice 5: drunken_master retired, deckard + hal9000
-        added.  Phase 18 Slice 7A: neuromancer added.
+        needed.  Phase 18 Slice 5: drunken_master retired, detective + the_computer
+        added.  Phase 18 Slice 7A: the_sprawl added.
         """
         from adversary_pursuit.gamification.modes import DEFAULT_MODES
 
@@ -1614,30 +1614,30 @@ class TestModeWiring:
     def test_set_character_injects_personality_into_system_prompt(self, tmp_ctx):
         """AgentRunner.set_character(mode) includes mode.personality in system prompt.
 
-        Uses chuck_norris (llm_profile=None, terminal KEEP_STATIC per DEC-C4-COLUMBO-101)
+        Uses sensei (llm_profile=None, terminal KEEP_STATIC per DEC-C4-COLUMBO-101)
         to test the v1 composition path where personality is injected directly.
         drunken_master was the prior v1-carrier but was retired in Phase 18 Slice 5
-        (DEC-DRUNKEN-MASTER-RETIRED-001). chuck_norris inherits the carrier role:
+        (DEC-DRUNKEN-MASTER-RETIRED-001). sensei inherits the carrier role:
         same llm_profile=None invariant, same v1-composition semantics.
         """
         from adversary_pursuit.agent.runner import AgentRunner
 
         r = AgentRunner(tool_context=tmp_ctx)
-        chuck_norris_mode = tmp_ctx.mode_mgr.switch("chuck_norris")
-        r.set_character(chuck_norris_mode)
+        sensei_mode = tmp_ctx.mode_mgr.switch("sensei")
+        r.set_character(sensei_mode)
 
-        assert chuck_norris_mode.personality in r.system_prompt
+        assert sensei_mode.llm_profile.voice_summary in r.system_prompt
 
     def test_set_character_updates_conversation_system_slot(self, tmp_ctx):
         """AgentRunner.set_character() updates conversation[0] system message."""
         from adversary_pursuit.agent.runner import AgentRunner
 
         r = AgentRunner(tool_context=tmp_ctx)
-        chuck_norris_mode = tmp_ctx.mode_mgr.switch("chuck_norris")
-        r.set_character(chuck_norris_mode)
+        sensei_mode = tmp_ctx.mode_mgr.switch("sensei")
+        r.set_character(sensei_mode)
 
         assert r.conversation[0]["role"] == "system"
-        assert chuck_norris_mode.personality in r.conversation[0]["content"]
+        assert sensei_mode.llm_profile.voice_summary in r.conversation[0]["content"]
 
     def test_set_character_preserves_conversation_history_length(self, tmp_ctx):
         """set_character() only modifies conversation[0], does not append or truncate."""
@@ -1685,36 +1685,36 @@ class TestModeWiring:
             f"Expected '{expected_text}' in celebration: {result['celebration']!r}"
         )
 
-    def test_celebration_uses_sun_tzu_template_after_switch(self, tmp_ctx):
-        """run_module celebration uses sun_tzu mode template after switch."""
-        tmp_ctx.mode_mgr.switch("sun_tzu")
+    def test_celebration_uses_strategist_template_after_switch(self, tmp_ctx):
+        """run_module celebration uses strategist mode template after switch."""
+        tmp_ctx.mode_mgr.switch("strategist")
 
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
 
         assert result["total_points"] > 0
-        # sun_tzu template: '"Supreme excellence." +{points} points earned.'
+        # strategist template: '"Supreme excellence." +{points} points earned.'
         expected_text = f"+{result['total_points']} points earned."
         assert expected_text in result["celebration"], (
-            f"Expected sun_tzu template text '{expected_text}' in: {result['celebration']!r}"
+            f"Expected strategist template text '{expected_text}' in: {result['celebration']!r}"
         )
 
     # --- (9) Compound: switch mode -> run tool -> celebration uses new mode template ---
 
     def test_compound_mode_switch_then_tool_uses_mode_celebration(self, tmp_ctx):
-        """Compound: switch to sun_tzu mode, run tool, celebration uses sun_tzu template.
+        """Compound: switch to strategist mode, run tool, celebration uses strategist template.
 
         This is the required compound-interaction test exercising the real
         production sequence: ModeManager.switch() -> runner.set_character()
         -> ToolContext.run_module() -> celebration computed with active mode's
         score_celebration template.
 
-        Production path: chat.py 'mode sun_tzu' -> mode_mgr.switch('sun_tzu')
+        Production path: chat.py 'mode strategist' -> mode_mgr.switch('strategist')
         -> runner.set_character(mode) -> user runs a query -> execute_tool()
-        -> run_module() -> celebration uses sun_tzu template.
+        -> run_module() -> celebration uses strategist template.
 
-        Note: sun_tzu was upgraded in C-3 (DEC-C3-PHILOSOPHY-001) and now uses the
+        Note: strategist was upgraded in C-3 (DEC-C3-PHILOSOPHY-001) and now uses the
         v2 profile composition path. The system-prompt assertion uses voice_summary
         (the v2 voice field) rather than personality (the v1 field). The score_celebration
         template (a static voice field, not the LLM profile) is unchanged by the upgrade.
@@ -1724,12 +1724,12 @@ class TestModeWiring:
         # 1. Create runner sharing the same ToolContext
         r = AgentRunner(tool_context=tmp_ctx)
 
-        # 2. Switch to sun_tzu mode (as chat.py 'mode sun_tzu' would do)
-        new_mode = tmp_ctx.mode_mgr.switch("sun_tzu")
+        # 2. Switch to strategist mode (as chat.py 'mode strategist' would do)
+        new_mode = tmp_ctx.mode_mgr.switch("strategist")
         r.set_character(new_mode)
 
-        # 3. Verify system prompt reflects sun_tzu persona.
-        # sun_tzu now uses v2 profile composition (C-3 DEC-C3-PHILOSOPHY-001):
+        # 3. Verify system prompt reflects strategist persona.
+        # strategist now uses v2 profile composition (C-3 DEC-C3-PHILOSOPHY-001):
         # voice_summary is injected, not the v1 personality string.
         assert new_mode.llm_profile is not None
         assert new_mode.llm_profile.voice_summary in r.system_prompt
@@ -1741,12 +1741,12 @@ class TestModeWiring:
 
         assert result["total_points"] > 0
 
-        # 5. Celebration must contain sun_tzu's score_celebration template text.
+        # 5. Celebration must contain strategist's score_celebration template text.
         # score_celebration is a static voice field — unchanged by the C-3 upgrade.
-        # sun_tzu template: '"Supreme excellence." +{points} points earned.'
+        # strategist template: '"Supreme excellence." +{points} points earned.'
         expected_text = f"+{result['total_points']} points earned."
         assert expected_text in result["celebration"], (
-            f"Expected sun_tzu template text '{expected_text}' in: {result['celebration']!r}"
+            f"Expected strategist template text '{expected_text}' in: {result['celebration']!r}"
         )
 
 

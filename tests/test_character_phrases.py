@@ -7,7 +7,7 @@ Covers:
 - pick() falls back to default for unknown character
 - pick() raises ValueError for unknown category
 - drunken_master NOT in DEFAULT_MODES (retired)
-- deckard and hal9000 present with valid LLMPersonaProfile
+- detective and the_computer present with valid LLMPersonaProfile
 
 @decision DEC-TEST-PHRASES-001
 @title Phrase-cache tests verify coverage, fallback ladder, and error contract
@@ -117,7 +117,7 @@ class TestPickAPI:
     def test_pick_unknown_category_error_includes_category_name(self):
         """ValueError message includes the unknown category name."""
         with pytest.raises(ValueError) as exc_info:
-            pick("deckard", "totally_bogus_cat")
+            pick("detective", "totally_bogus_cat")
         assert "totally_bogus_cat" in str(exc_info.value)
 
     def test_pick_activity_virustotal_returns_string_for_all_modes(self):
@@ -146,55 +146,55 @@ class TestPickAPI:
 
 
 class TestDrunkenMasterDeprecated:
-    """drunken_master is deprecated but remains selectable and voiced."""
+    """Historical phrases remain readable while the mode is retired."""
 
-    def test_drunken_master_in_default_modes(self):
-        assert "drunken_master" in DEFAULT_MODES
+    def test_drunken_master_not_in_default_modes(self):
+        assert "drunken_master" not in DEFAULT_MODES
 
     def test_drunken_master_phrases_exist(self):
         assert len(PHRASES[("drunken_master", "greeting")]) >= 3
 
 
 # ---------------------------------------------------------------------------
-# deckard and hal9000 presence and profile validity
+# detective and the_computer presence and profile validity
 # ---------------------------------------------------------------------------
 
 
 class TestDeckardHal9000Presence:
-    """deckard and hal9000 must be in DEFAULT_MODES with valid LLMPersonaProfile."""
+    """detective and the_computer must be in DEFAULT_MODES with valid LLMPersonaProfile."""
 
-    def test_deckard_in_default_modes(self):
-        """deckard must be in DEFAULT_MODES."""
-        assert "deckard" in DEFAULT_MODES, "deckard not found in DEFAULT_MODES"
+    def test_detective_in_default_modes(self):
+        """detective must be in DEFAULT_MODES."""
+        assert "detective" in DEFAULT_MODES, "detective not found in DEFAULT_MODES"
 
-    def test_hal9000_in_default_modes(self):
-        """hal9000 must be in DEFAULT_MODES."""
-        assert "hal9000" in DEFAULT_MODES, "hal9000 not found in DEFAULT_MODES"
+    def test_the_computer_in_default_modes(self):
+        """the_computer must be in DEFAULT_MODES."""
+        assert "the_computer" in DEFAULT_MODES, "the_computer not found in DEFAULT_MODES"
 
-    def test_deckard_has_llm_profile(self):
-        """deckard must have a non-None LLMPersonaProfile."""
-        assert DEFAULT_MODES["deckard"].llm_profile is not None, (
-            "deckard.llm_profile is None — expected LLMPersonaProfile"
+    def test_detective_has_llm_profile(self):
+        """detective must have a non-None LLMPersonaProfile."""
+        assert DEFAULT_MODES["detective"].llm_profile is not None, (
+            "detective.llm_profile is None — expected LLMPersonaProfile"
         )
 
-    def test_hal9000_has_llm_profile(self):
-        """hal9000 must have a non-None LLMPersonaProfile."""
-        assert DEFAULT_MODES["hal9000"].llm_profile is not None, (
-            "hal9000.llm_profile is None — expected LLMPersonaProfile"
+    def test_the_computer_has_llm_profile(self):
+        """the_computer must have a non-None LLMPersonaProfile."""
+        assert DEFAULT_MODES["the_computer"].llm_profile is not None, (
+            "the_computer.llm_profile is None — expected LLMPersonaProfile"
         )
 
-    def test_deckard_profile_fields_non_empty(self):
-        """deckard LLMPersonaProfile must have all required fields non-empty."""
-        profile = DEFAULT_MODES["deckard"].llm_profile
+    def test_detective_profile_fields_non_empty(self):
+        """detective LLMPersonaProfile must have all required fields non-empty."""
+        profile = DEFAULT_MODES["detective"].llm_profile
         assert profile.voice_summary
         assert profile.tone_registers
         assert profile.signature_phrases
         assert profile.fourth_wall_stance
         assert profile.dialect_cadence
 
-    def test_hal9000_profile_fields_non_empty(self):
-        """hal9000 LLMPersonaProfile must have all required fields non-empty."""
-        profile = DEFAULT_MODES["hal9000"].llm_profile
+    def test_the_computer_profile_fields_non_empty(self):
+        """the_computer LLMPersonaProfile must have all required fields non-empty."""
+        profile = DEFAULT_MODES["the_computer"].llm_profile
         assert profile.voice_summary
         assert profile.tone_registers
         assert profile.signature_phrases

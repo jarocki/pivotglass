@@ -31,10 +31,10 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
     assert state["character"] == "default"
     assert len(state["dossier_slots"]) == 9
     assert {slot["status"] for slot in state["dossier_slots"]} == {"empty"}
-    assert len(state["modes"]) == 14
-    trinity = next(mode for mode in state["modes"] if mode["name"] == "trinity")
-    assert trinity["theme"]["heading_color"] == "#00ff5f"
-    assert trinity["cockpit"]["vehicle"] == "NEBUCHADNEZZAR"
+    assert len(state["modes"]) == 10
+    m4tr1x = next(mode for mode in state["modes"] if mode["name"] == "m4tr1x")
+    assert m4tr1x["theme"]["heading_color"] == "#00ff5f"
+    assert m4tr1x["cockpit"]["vehicle"] == "OPERATOR DECK"
 
 
 def test_switch_mode_reuses_canonical_character_and_cockpit_authorities(tmp_path):
@@ -42,10 +42,10 @@ def test_switch_mode_reuses_canonical_character_and_cockpit_authorities(tmp_path
 
     state = service.switch_mode("hal9000")
 
-    assert state["character"] == "hal9000"
-    active = next(mode for mode in state["modes"] if mode["name"] == "hal9000")
+    assert state["character"] == "the_computer"
+    active = next(mode for mode in state["modes"] if mode["name"] == "the_computer")
     assert active["theme"]["heading_color"] == "#ff5555"
-    assert active["cockpit"]["hud_title"] == "HAL OPTICS"
+    assert active["cockpit"]["hud_title"] == "LOGIC MONITOR"
 
 
 def test_investigate_rejects_non_indicator(tmp_path):

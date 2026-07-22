@@ -52,7 +52,9 @@ every character's border color to ``high_contrast_border`` for accessibility.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+
+from adversary_pursuit.gamification.modes import canonical_mode_name
 
 
 @dataclass(frozen=True)
@@ -109,12 +111,26 @@ class CockpitProfile:
     right_rail: str
 
 
+@dataclass(frozen=True)
+class CharacterPresentation:
+    """Reviewed cross-interface contract consumed by TUI and Pivotglass."""
+
+    geometry_family: str
+    ambient_layer: str
+    motion_language: str
+    instrument_vocabulary: tuple[str, ...]
+    event_flourish: str
+    voice_policy: str
+    repetition_budget: int
+    music_palette: str
+
+
 # ---------------------------------------------------------------------------
 # DEFAULT_THEMES — single authority for all character visual themes
 # (DEC-TUI-THEME-001 / Sacred Practice 12)
 # ---------------------------------------------------------------------------
 
-DEFAULT_THEMES: dict[str, CharacterTheme] = {
+_LEGACY_THEMES: dict[str, CharacterTheme] = {
     # Hex-only colors throughout (DEC-TUI-PTK-COLOR-COMPAT-001).
     # bold / dim modifiers are applied at PTK injection sites, never stored here.
     # high_contrast_border is #ffffff for every character (DEC-TUI-HIGH-CONTRAST-001).
@@ -249,11 +265,24 @@ DEFAULT_THEMES: dict[str, CharacterTheme] = {
     ),
 }
 
+DEFAULT_THEMES: dict[str, CharacterTheme] = {
+    "default": _LEGACY_THEMES["default"],
+    "ninja": _LEGACY_THEMES["ninja"],
+    "full_troll": _LEGACY_THEMES["full_troll"],
+    "bureaucrat": _LEGACY_THEMES["bureaucrat"],
+    "strategist": replace(_LEGACY_THEMES["sun_tzu"], name="strategist"),
+    "sensei": replace(_LEGACY_THEMES["bruce_lee"], name="sensei"),
+    "detective": replace(_LEGACY_THEMES["deckard"], name="detective"),
+    "the_computer": replace(_LEGACY_THEMES["hal9000"], name="the_computer"),
+    "the_sprawl": replace(_LEGACY_THEMES["neuromancer"], name="the_sprawl"),
+    "m4tr1x": replace(_LEGACY_THEMES["trinity"], name="m4tr1x"),
+}
+
 
 # Character-specific name for the main investigation surface. This is UI
 # vocabulary, so it lives beside the character visual themes rather than in
 # the analytical mode/persona schema.
-PURSUIT_TITLES: dict[str, str] = {
+_LEGACY_PURSUIT_TITLES: dict[str, str] = {
     "default": "THE HUNT",
     "ninja": "THE SHADOWS",
     "full_troll": "THE THUNDERDOME",
@@ -270,8 +299,21 @@ PURSUIT_TITLES: dict[str, str] = {
     "trinity": "THE MATRIX",
 }
 
+PURSUIT_TITLES: dict[str, str] = {
+    "default": "THE HUNT",
+    "ninja": "THE SHADOWS",
+    "full_troll": "THE THUNDERDOME",
+    "bureaucrat": "THE CASE FILE",
+    "strategist": "THE WAR ROOM",
+    "sensei": "THE DOJO",
+    "detective": "THE CASEBOARD",
+    "the_computer": "THE COMPUTER",
+    "the_sprawl": "THE SPRAWL",
+    "m4tr1x": "THE M4TR1X",
+}
 
-COCKPIT_PROFILES: dict[str, CockpitProfile] = {
+
+_LEGACY_COCKPIT_PROFILES: dict[str, CockpitProfile] = {
     "default": CockpitProfile("HUNT CONTROL", "AP-01 PURSUIT DECK", "TACTICAL HUD", "╲", "╱"),
     "ninja": CockpitProfile("SHADOW SCOPE", "NIGHT-RUNNER", "SILENT TELEMETRY", "⟍", "⟋"),
     "full_troll": CockpitProfile("THUNDERDOME", "CHAOS WAGON", "HYPE METERS", "⚡", "⚡"),
@@ -286,6 +328,33 @@ COCKPIT_PROFILES: dict[str, CockpitProfile] = {
     "hal9000": CockpitProfile("DEEP SPACE", "DISCOVERY ONE", "HAL OPTICS", "◉", "◉"),
     "neuromancer": CockpitProfile("THE SPRAWL", "ONO-SENDAI VII", "ICE MONITOR", "⟫", "⟪"),
     "trinity": CockpitProfile("THE MATRIX", "NEBUCHADNEZZAR", "OPERATOR LINK", "⧹", "⧸"),
+}
+
+COCKPIT_PROFILES: dict[str, CockpitProfile] = {
+    "default": _LEGACY_COCKPIT_PROFILES["default"],
+    "ninja": _LEGACY_COCKPIT_PROFILES["ninja"],
+    "full_troll": _LEGACY_COCKPIT_PROFILES["full_troll"],
+    "bureaucrat": _LEGACY_COCKPIT_PROFILES["bureaucrat"],
+    "strategist": _LEGACY_COCKPIT_PROFILES["sun_tzu"],
+    "sensei": CockpitProfile("THE DOJO", "INTERCEPTOR WATER", "COMBAT FLOW", "〈", "〉"),
+    "detective": CockpitProfile("CASEBOARD", "NIGHT SHIFT", "DEDUCTION SCOPE", "⌜", "⌝"),
+    "the_computer": CockpitProfile("SYSTEM CORE", "GAME GRID", "LOGIC MONITOR", "◉", "◉"),
+    "the_sprawl": _LEGACY_COCKPIT_PROFILES["neuromancer"],
+    "m4tr1x": CockpitProfile("THE M4TR1X", "OPERATOR DECK", "SIGNAL LINK", "⧹", "⧸"),
+}
+
+
+PRESENTATION_CONTRACTS: dict[str, CharacterPresentation] = {
+    "default": CharacterPresentation("cockpit", "radar", "measured", ("power", "tokens", "dossier"), "sweep", "neutral analyst", 2, "control_room"),
+    "ninja": CharacterPresentation("shadow_scope", "mist", "minimal", ("trace", "silence", "lock"), "vanish", "terse and exact", 1, "night_ops"),
+    "full_troll": CharacterPresentation("arcade_rig", "glitch", "punchy", ("hype", "combo", "loot"), "screen_shake", "sarcastic sidekick; evidence stays explicit", 3, "chaos_arcade"),
+    "bureaucrat": CharacterPresentation("form_terminal", "paper", "procedural", ("forms", "queue", "compliance"), "stamp", "dry procedural deadpan", 2, "office_machine"),
+    "strategist": CharacterPresentation("war_table", "ink_map", "deliberate", ("terrain", "initiative", "reserve"), "standard_unfurls", "patient strategic guidance", 2, "war_room"),
+    "sensei": CharacterPresentation("pixel_arena", "dojo", "responsive", ("stance", "focus", "momentum"), "clean_strike", "disciplined martial mentor", 2, "dojo_pulse"),
+    "detective": CharacterPresentation("caseboard", "rain", "investigative", ("clues", "alibis", "threads"), "clue_pin", "observant and disarming", 3, "noir_case"),
+    "the_computer": CharacterPresentation("system_core", "lens", "precise", ("logic", "resources", "confidence"), "diagnostic", "calm strategic machine", 2, "mainframe"),
+    "the_sprawl": CharacterPresentation("perspective_grid", "city_noise", "urgent", ("ice", "signal", "deck"), "grid_ripple", "noir-tech second person", 3, "sprawl_night"),
+    "m4tr1x": CharacterPresentation("construct", "code_rain", "kinetic", ("signal", "trace", "operator"), "white_rabbit", "ensemble operator; signal first", 2, "construct_rain"),
 }
 
 
@@ -310,17 +379,26 @@ def theme_for(character_name: str) -> CharacterTheme:
     CharacterTheme
         The theme for the requested character, or the default theme.
     """
-    return DEFAULT_THEMES.get(character_name, DEFAULT_THEMES["default"])
+    resolved = canonical_mode_name(character_name, allow_retired=True)
+    return DEFAULT_THEMES.get(resolved, DEFAULT_THEMES["default"])
 
 
 def pursuit_title_for(character_name: str) -> str:
     """Return the mode-specific title for the live investigation surface."""
-    return PURSUIT_TITLES.get(character_name, PURSUIT_TITLES["default"])
+    resolved = canonical_mode_name(character_name, allow_retired=True)
+    return PURSUIT_TITLES.get(resolved, PURSUIT_TITLES["default"])
 
 
 def cockpit_for(character_name: str) -> CockpitProfile:
     """Return the mode's cockpit profile, falling back to hunt control."""
-    return COCKPIT_PROFILES.get(character_name, COCKPIT_PROFILES["default"])
+    resolved = canonical_mode_name(character_name, allow_retired=True)
+    return COCKPIT_PROFILES.get(resolved, COCKPIT_PROFILES["default"])
+
+
+def presentation_for(character_name: str) -> CharacterPresentation:
+    """Return the canonical cross-interface presentation contract."""
+    resolved = canonical_mode_name(character_name, allow_retired=True)
+    return PRESENTATION_CONTRACTS.get(resolved, PRESENTATION_CONTRACTS["default"])
 
 
 def is_high_contrast_mode() -> bool:

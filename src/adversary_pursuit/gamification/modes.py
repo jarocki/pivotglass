@@ -231,7 +231,7 @@ Character v2 (C-1 MVP, Phase 17B):
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 @dataclass(frozen=True)
@@ -340,7 +340,7 @@ class CharacterMode:
     llm_profile: LLMPersonaProfile | None = None
 
 
-DEFAULT_MODES: dict[str, CharacterMode] = {
+_LEGACY_MODE_CATALOG: dict[str, CharacterMode] = {
     "default": CharacterMode(
         name="default",
         prompt_prefix="",
@@ -816,6 +816,111 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
 }
 
 
+# Canonical v0.4.7 roster. Historical identifiers remain resolvable for one
+# compatibility window, but are not selectable entries and never create a
+# second copy of character policy.
+LEGACY_MODE_ALIASES: dict[str, str] = {
+    "sun_tzu": "strategist",
+    "chuck_norris": "sensei",
+    "bruce_lee": "sensei",
+    "columbo": "detective",
+    "deckard": "detective",
+    "hal9000": "the_computer",
+    "neuromancer": "the_sprawl",
+    "trinity": "m4tr1x",
+}
+
+RETIRED_MODES: dict[str, str] = {
+    "drunken_master": "default",
+    "bobby_hill": "full_troll",
+}
+
+_RETIRED_MESSAGES: dict[str, str] = {
+    "drunken_master": (
+        "Mode retired in v0.4.7: drunken_master. "
+        "Its investigation history is preserved; use default for a neutral cockpit."
+    ),
+    "bobby_hill": (
+        "Mode retired in v0.4.7: bobby_hill. "
+        "Its sarcastic-sidekick energy continues in full_troll."
+    ),
+}
+
+
+def _canonical_mode(source: str, name: str, **changes: object) -> CharacterMode:
+    """Build one canonical mode from a reviewed legacy voice contract."""
+    return replace(_LEGACY_MODE_CATALOG[source], name=name, **changes)
+
+
+DEFAULT_MODES: dict[str, CharacterMode] = {
+    "default": _LEGACY_MODE_CATALOG["default"],
+    "ninja": _LEGACY_MODE_CATALOG["ninja"],
+    "full_troll": replace(
+        _LEGACY_MODE_CATALOG["full_troll"],
+        personality="Sarcastic sidekick — irreverent, loud, and evidence-aware",
+    ),
+    "bureaucrat": _LEGACY_MODE_CATALOG["bureaucrat"],
+    "strategist": _canonical_mode(
+        "sun_tzu",
+        "strategist",
+        personality="Patient strategist — aphoristic guidance without false certainty",
+    ),
+    "sensei": _canonical_mode(
+        "bruce_lee",
+        "sensei",
+        greeting="Enter the arena. Adapt to the evidence; strike only when the opening is real.",
+        run_success="Clean technique. The evidence, not the flourish, landed the strike.",
+        run_fail="Reset your stance. A miss is information; change the angle.",
+        score_celebration="Momentum restored: +{points}.",
+        personality="Martial-arts sensei — disciplined, adaptive, and quietly formidable",
+    ),
+    "detective": _canonical_mode(
+        "columbo",
+        "detective",
+        greeting="The case is open. Start with the obvious question, then inspect what does not fit.",
+        run_success="That detail changes the case. One more question before we close it.",
+        run_fail="Nothing conclusive yet. Return to the facts and test the alibi.",
+        score_celebration="Case progress: +{points}.",
+        personality="Detective — observant, disarming, deductive, and noir-edged",
+    ),
+    "the_computer": _canonical_mode(
+        "hal9000",
+        "the_computer",
+        greeting="THE COMPUTER is online. Shall we play a game of verifiable inference?",
+        run_success="Analysis complete. The evidence graph has converged.",
+        run_fail="The requested conclusion is unsupported. Additional evidence is required.",
+        score_celebration="Resource allocation increased by {points} units.",
+        personality="The Computer — measured machine intelligence with strategic-game instincts",
+    ),
+    "the_sprawl": _canonical_mode(
+        "neuromancer",
+        "the_sprawl",
+        greeting="The Sprawl is awake. Jack in; the city has a paper trail.",
+        personality="The Sprawl — urgent noir-tech navigation through hostile infrastructure",
+    ),
+    "m4tr1x": _canonical_mode(
+        "trinity",
+        "m4tr1x",
+        greeting="Follow the signal. The construct is live, and the rabbit has moved.",
+        personality="M4TR1X — ensemble operator voice, kinetic and signal-first",
+    ),
+}
+
+
+def canonical_mode_name(name: str, *, allow_retired: bool = False) -> str:
+    """Resolve a current or legacy identifier through the single migration map.
+
+    Retired identifiers are rejected for explicit selection. Renderers that
+    need to display historical records may opt into their documented successor.
+    """
+    normalized = name.strip().lower()
+    if normalized in RETIRED_MODES:
+        if allow_retired:
+            return RETIRED_MODES[normalized]
+        raise ValueError(_RETIRED_MESSAGES[normalized])
+    return LEGACY_MODE_ALIASES.get(normalized, normalized)
+
+
 class ModeManager:
     """Manages the active character mode for an APConsole session.
 
@@ -860,11 +965,12 @@ class ModeManager:
         ValueError
             If the mode name is not recognised. Message includes available names.
         """
-        if name not in self._modes:
+        resolved = canonical_mode_name(name)
+        if resolved not in self._modes:
             available = ", ".join(sorted(self._modes.keys()))
             raise ValueError(f"Unknown mode: {name!r}. Available: {available}")
-        self._active = name
-        return self._modes[name]
+        self._active = resolved
+        return self._modes[resolved]
 
     def list_modes(self) -> list[dict]:
         """Return a summary list of all modes.
@@ -897,6 +1003,10 @@ def get_mode_with_fallback(name: str) -> "CharacterMode":
     CharacterMode
         The requested mode, or "default" as fallback.
     """
-    if name in DEFAULT_MODES:
-        return DEFAULT_MODES[name]
+    try:
+        resolved = canonical_mode_name(name, allow_retired=True)
+    except (AttributeError, ValueError):
+        resolved = "default"
+    if resolved in DEFAULT_MODES:
+        return DEFAULT_MODES[resolved]
     return DEFAULT_MODES["default"]

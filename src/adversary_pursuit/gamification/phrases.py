@@ -1637,6 +1637,30 @@ _VALID_CATEGORIES: frozenset[str] = frozenset(
 _FALLBACK: str = "Thinking..."
 
 # ---------------------------------------------------------------------------
+_CANONICAL_VOICE_SOURCES: dict[str, tuple[str, ...]] = {
+    "strategist": ("sun_tzu",),
+    "sensei": ("bruce_lee", "chuck_norris"),
+    "detective": ("columbo", "deckard"),
+    "the_computer": ("hal9000",),
+    "the_sprawl": ("neuromancer",),
+    "m4tr1x": ("trinity",),
+}
+
+# Materialize canonical keys once after all legacy phrase-bank extensions have
+# loaded. Values remain the same immutable tuples, so there is still one phrase
+# authority rather than copied prose that can drift.
+for _canonical, _sources in _CANONICAL_VOICE_SOURCES.items():
+    _categories = {
+        category for (character, category) in PHRASES if character in _sources
+    }
+    for _category in _categories:
+        PHRASES[(_canonical, _category)] = tuple(
+            phrase
+            for _source in _sources
+            for phrase in PHRASES.get((_source, _category), ())
+        )
+
+
 # RNG (module-level, seeded for reproducibility in tests)
 # ---------------------------------------------------------------------------
 
@@ -1681,9 +1705,15 @@ def _is_valid_category(category: str) -> bool:
     return False
 
 
+def _voice_source(character: str) -> str:
+    """Resolve a canonical archetype to its reviewed phrase-bank source."""
+    return character
+
+
 def has_phrases(character: str, category: str) -> bool:
     """Return True if there are phrases for (character, category)."""
-    return (character, category) in PHRASES and len(PHRASES[(character, category)]) > 0
+    key = (_voice_source(character), category)
+    return key in PHRASES and len(PHRASES[key]) > 0
 
 
 def pick(character: str, category: str) -> str:
@@ -1724,7 +1754,7 @@ def pick(character: str, category: str) -> str:
         )
 
     # 1. Try exact (character, category)
-    pool = PHRASES.get((character, category))
+    pool = PHRASES.get((_voice_source(character), category))
     if pool:
         return _weighted_choice(pool)
 

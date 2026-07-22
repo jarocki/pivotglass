@@ -1,27 +1,27 @@
-"""Tests for Phase 18 Slice 7A: neuromancer character mode.
+"""Tests for Phase 18 Slice 7A: the_sprawl character mode.
 
 Covers:
-- DEFAULT_MODES["neuromancer"] exists with correct fields
+- DEFAULT_MODES["the_sprawl"] exists with correct fields
 - prompt_prefix == "🌆", llm_profile is not None
 - voice_summary mentions Gibson/Case/second-person
-- pick("neuromancer", "greeting") returns non-empty string
-- pick("neuromancer", "help:tui_overview") returns multi-line string with Case/matrix/Wintermute
-- pick("neuromancer", "target_set:acknowledged").format(target=...) contains the target
-- ModeManager can switch to neuromancer
-- neuromancer is NOT in the KEEP_STATIC list (it has an llm_profile)
+- pick("the_sprawl", "greeting") returns non-empty string
+- pick("the_sprawl", "help:tui_overview") returns multi-line string with Case/matrix/Wintermute
+- pick("the_sprawl", "target_set:acknowledged").format(target=...) contains the target
+- ModeManager can switch to the_sprawl
+- the_sprawl is NOT in the KEEP_STATIC list (it has an llm_profile)
 
 @decision DEC-TEST-CHAR-NEUROMANCER-001
 @title Neuromancer smoke tests: voice registration, phrase pick, mode switch
 @status accepted
-@rationale Three verification levels: (1) CharacterMode schema — neuromancer
+@rationale Three verification levels: (1) CharacterMode schema — the_sprawl
            exists in DEFAULT_MODES with correct prompt_prefix and a non-None
            LLMPersonaProfile; (2) voice registration smoke test — voice_summary
            contains the key vocabulary markers (Gibson, Case, second-person)
            proving the profile is not a placeholder; (3) phrase pick() coverage —
-           every greeting/help/target_set call returns meaningful neuromancer-voiced
+           every greeting/help/target_set call returns meaningful the_sprawl-voiced
            text so the production sequence (user types 'use evil.com' → TUI picks
            a phrase) works end-to-end. ModeManager switch test covers the production
-           sequence: ModeManager() → switch("neuromancer") → active.name check.
+           sequence: ModeManager() → switch("the_sprawl") → active.name check.
 """
 
 from __future__ import annotations
@@ -31,48 +31,48 @@ from adversary_pursuit.gamification.phrases import pick
 
 
 class TestNeuromancerModeExists:
-    """DEFAULT_MODES["neuromancer"] is present and structurally correct."""
+    """DEFAULT_MODES["the_sprawl"] is present and structurally correct."""
 
-    def test_neuromancer_in_default_modes(self) -> None:
-        assert "neuromancer" in DEFAULT_MODES, (
-            "neuromancer not found in DEFAULT_MODES — did you add it to modes.py?"
+    def test_the_sprawl_in_default_modes(self) -> None:
+        assert "the_sprawl" in DEFAULT_MODES, (
+            "the_sprawl not found in DEFAULT_MODES — did you add it to modes.py?"
         )
 
     def test_prompt_prefix_is_city_skyline(self) -> None:
         """Avatar must be 🌆 (Chiba city skyline mood per operator directive)."""
-        mode = DEFAULT_MODES["neuromancer"]
+        mode = DEFAULT_MODES["the_sprawl"]
         assert mode.prompt_prefix == "🌆", (
-            f"neuromancer prompt_prefix expected '🌆', got {mode.prompt_prefix!r}"
+            f"the_sprawl prompt_prefix expected '🌆', got {mode.prompt_prefix!r}"
         )
 
     def test_llm_profile_is_not_none(self) -> None:
-        """neuromancer must have a non-None LLMPersonaProfile (full v2 upgrade)."""
-        mode = DEFAULT_MODES["neuromancer"]
+        """the_sprawl must have a non-None LLMPersonaProfile (full v2 upgrade)."""
+        mode = DEFAULT_MODES["the_sprawl"]
         assert mode.llm_profile is not None, (
-            "neuromancer.llm_profile is None — it should be a full LLMPersonaProfile"
+            "the_sprawl.llm_profile is None — it should be a full LLMPersonaProfile"
         )
 
     def test_name_matches_key(self) -> None:
-        mode = DEFAULT_MODES["neuromancer"]
-        assert mode.name == "neuromancer"
+        mode = DEFAULT_MODES["the_sprawl"]
+        assert mode.name == "the_sprawl"
 
     def test_greeting_non_empty(self) -> None:
-        mode = DEFAULT_MODES["neuromancer"]
-        assert mode.greeting, "neuromancer.greeting must not be empty"
+        mode = DEFAULT_MODES["the_sprawl"]
+        assert mode.greeting, "the_sprawl.greeting must not be empty"
 
     def test_run_success_non_empty(self) -> None:
-        mode = DEFAULT_MODES["neuromancer"]
-        assert mode.run_success, "neuromancer.run_success must not be empty"
+        mode = DEFAULT_MODES["the_sprawl"]
+        assert mode.run_success, "the_sprawl.run_success must not be empty"
 
     def test_run_fail_non_empty(self) -> None:
-        mode = DEFAULT_MODES["neuromancer"]
-        assert mode.run_fail, "neuromancer.run_fail must not be empty"
+        mode = DEFAULT_MODES["the_sprawl"]
+        assert mode.run_fail, "the_sprawl.run_fail must not be empty"
 
     def test_score_celebration_has_points_placeholder(self) -> None:
         """score_celebration must contain {points} for .format(points=N) callers."""
-        mode = DEFAULT_MODES["neuromancer"]
+        mode = DEFAULT_MODES["the_sprawl"]
         assert "{points}" in mode.score_celebration, (
-            "neuromancer.score_celebration must contain '{points}' placeholder"
+            "the_sprawl.score_celebration must contain '{points}' placeholder"
         )
 
 
@@ -80,7 +80,7 @@ class TestNeuromancerLLMProfile:
     """LLMPersonaProfile voice registration smoke tests."""
 
     def _profile(self):
-        return DEFAULT_MODES["neuromancer"].llm_profile
+        return DEFAULT_MODES["the_sprawl"].llm_profile
 
     def test_voice_summary_mentions_gibson_or_case(self) -> None:
         """voice_summary must reference Gibson, Case, or second-person — core register markers."""
@@ -90,7 +90,7 @@ class TestNeuromancerLLMProfile:
         )
 
     def test_fourth_wall_stance_is_opaque(self) -> None:
-        """neuromancer IS the voice — opaque stance (never meta_aware)."""
+        """the_sprawl IS the voice — opaque stance (never meta_aware)."""
         assert self._profile().fourth_wall_stance == "opaque"
 
     def test_tone_registers_non_empty(self) -> None:
@@ -127,88 +127,88 @@ class TestNeuromancerLLMProfile:
 
 
 class TestNeuromancerPhrases:
-    """pick() returns correct neuromancer-voiced phrases."""
+    """pick() returns correct the_sprawl-voiced phrases."""
 
     def test_greeting_returns_non_empty_string(self) -> None:
-        result = pick("neuromancer", "greeting")
+        result = pick("the_sprawl", "greeting")
         assert isinstance(result, str) and result.strip()
 
     def test_run_success_returns_non_empty_string(self) -> None:
-        result = pick("neuromancer", "run_success")
+        result = pick("the_sprawl", "run_success")
         assert isinstance(result, str) and result.strip()
 
     def test_run_fail_returns_non_empty_string(self) -> None:
-        result = pick("neuromancer", "run_fail")
+        result = pick("the_sprawl", "run_fail")
         assert isinstance(result, str) and result.strip()
 
     def test_score_celebration_formats_with_points(self) -> None:
-        template = pick("neuromancer", "score_celebration")
+        template = pick("the_sprawl", "score_celebration")
         formatted = template.format(points=42)
         assert "42" in formatted
 
     def test_help_tui_overview_is_multiline(self) -> None:
         """help:tui_overview must be a multi-line string for Case-voice help."""
-        result = pick("neuromancer", "help:tui_overview")
+        result = pick("the_sprawl", "help:tui_overview")
         assert "\n" in result, "help:tui_overview should be multi-line"
 
     def test_help_tui_overview_contains_case(self) -> None:
         """help:tui_overview must mention 'Case' (second-person protagonist)."""
-        result = pick("neuromancer", "help:tui_overview")
+        result = pick("the_sprawl", "help:tui_overview")
         assert "Case" in result, f"'Case' not in help:tui_overview: {result!r}"
 
     def test_help_tui_overview_contains_matrix_or_wintermute(self) -> None:
         """help:tui_overview must mention 'matrix', 'sprawl', or 'Wintermute'."""
-        result = pick("neuromancer", "help:tui_overview")
+        result = pick("the_sprawl", "help:tui_overview")
         assert any(word in result for word in ("matrix", "sprawl", "Wintermute")), (
             f"Gibson vocabulary not in help:tui_overview: {result!r}"
         )
 
     def test_target_set_acknowledged_formats_with_target(self) -> None:
         """target_set:acknowledged must format with {target} placeholder."""
-        template = pick("neuromancer", "target_set:acknowledged")
+        template = pick("the_sprawl", "target_set:acknowledged")
         formatted = template.format(target="1.2.3.4")
         assert "1.2.3.4" in formatted, f"target '1.2.3.4' not in formatted result: {formatted!r}"
 
     def test_farewell_non_empty(self) -> None:
-        result = pick("neuromancer", "farewell")
+        result = pick("the_sprawl", "farewell")
         assert isinstance(result, str) and result.strip()
 
     def test_mode_switched_non_empty(self) -> None:
-        result = pick("neuromancer", "mode_switched")
+        result = pick("the_sprawl", "mode_switched")
         assert isinstance(result, str) and result.strip()
 
     def test_unknown_mode_formats_with_name(self) -> None:
-        template = pick("neuromancer", "unknown_mode")
+        template = pick("the_sprawl", "unknown_mode")
         formatted = template.format(name="bogus_mode")
         assert "bogus_mode" in formatted
 
     def test_status_intro_non_empty(self) -> None:
-        result = pick("neuromancer", "status_intro")
+        result = pick("the_sprawl", "status_intro")
         assert isinstance(result, str) and result.strip()
 
     def test_thinking_activity_non_empty(self) -> None:
-        result = pick("neuromancer", "activity:thinking")
+        result = pick("the_sprawl", "activity:thinking")
         assert isinstance(result, str) and result.strip()
 
 
 class TestNeuromancerModeSwitch:
-    """ModeManager can switch to neuromancer (production sequence)."""
+    """ModeManager can switch to the_sprawl (production sequence)."""
 
-    def test_mode_manager_switch_to_neuromancer(self) -> None:
-        """ModeManager().switch('neuromancer') returns the neuromancer CharacterMode."""
+    def test_mode_manager_switch_to_the_sprawl(self) -> None:
+        """ModeManager().switch('the_sprawl') returns the the_sprawl CharacterMode."""
         mgr = ModeManager()
-        mode = mgr.switch("neuromancer")
-        assert mode.name == "neuromancer"
-        assert mgr.active.name == "neuromancer"
+        mode = mgr.switch("the_sprawl")
+        assert mode.name == "the_sprawl"
+        assert mgr.active.name == "the_sprawl"
 
-    def test_mode_manager_active_is_neuromancer_after_switch(self) -> None:
+    def test_mode_manager_active_is_the_sprawl_after_switch(self) -> None:
         mgr = ModeManager()
-        mgr.switch("neuromancer")
+        mgr.switch("the_sprawl")
         assert mgr.active.prompt_prefix == "🌆"
 
-    def test_mode_manager_switch_back_from_neuromancer(self) -> None:
-        """Can switch away from neuromancer to another mode."""
+    def test_mode_manager_switch_back_from_the_sprawl(self) -> None:
+        """Can switch away from the_sprawl to another mode."""
         mgr = ModeManager()
-        mgr.switch("neuromancer")
+        mgr.switch("the_sprawl")
         mgr.switch("default")
         assert mgr.active.name == "default"

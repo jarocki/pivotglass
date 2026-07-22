@@ -374,7 +374,7 @@ class TestDispatchMode:
         second = dispatch_repl_verb(verb, ctx=None, mode_mgr=mgr, workspace_mgr=None)
         assert first == second
         assert first.startswith("Character modes (* active)\n")
-        assert "* trinity" in first
+        assert "* m4tr1x" in first
 
     def test_dispatch_unknown_mode_returns_voiced_error(self):
         mgr = self._make_mode_mgr("default")

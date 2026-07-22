@@ -144,9 +144,9 @@ class TestGetModeColor:
         """full_troll mode returns a non-empty color string from the theme system."""
         assert len(get_mode_color("full_troll")) > 0
 
-    def test_sun_tzu_has_non_empty_color(self):
-        """sun_tzu mode returns a non-empty color string from the theme system."""
-        assert len(get_mode_color("sun_tzu")) > 0
+    def test_strategist_has_non_empty_color(self):
+        """strategist mode returns a non-empty color string from the theme system."""
+        assert len(get_mode_color("strategist")) > 0
 
     def test_default_mode_is_cyan_hex(self):
         """default theme heading_color is '#00d7d7' (cyan hex, PTK-compatible).

@@ -137,26 +137,26 @@ class TestCharacterModeLlmProfileField:
 
         C-1 (DEC-C1-FULLTROLL-001) upgraded full_troll.
         C-2 (DEC-C2-NINJA-001) upgrades ninja.
-        C-3 (DEC-C3-PHILOSOPHY-001..003) upgrades sun_tzu, bruce_lee, bureaucrat.
-        C-4 (DEC-C4-COLUMBO-001) upgrades columbo — CLOSES the v2 character roadmap.
+        C-3 (DEC-C3-PHILOSOPHY-001..003) upgrades strategist, sensei, bureaucrat.
+        C-4 (DEC-C4-COLUMBO-001) upgrades detective — CLOSES the v2 character roadmap.
         Phase 18 Slice 5: drunken_master retired (DEC-DRUNKEN-MASTER-RETIRED-001);
-        deckard + hal9000 added with llm_profile set (DEC-CHAR-DECKARD-001,
+        detective + the_computer added with llm_profile set (DEC-CHAR-DECKARD-001,
         DEC-CHAR-HAL9000-001). Remaining KEEP_STATIC modes:
-        default/chuck_norris/bobby_hill (DEC-C4-COLUMBO-101).
-        Phase 18 Slice 7A: neuromancer added with llm_profile set (DEC-CHAR-NEUROMANCER-001).
+        default/sensei/bobby_hill (DEC-C4-COLUMBO-101).
+        Phase 18 Slice 7A: the_sprawl added with llm_profile set (DEC-CHAR-NEUROMANCER-001).
         """
         # Upgraded modes (have llm_profile set)
         upgraded_modes = {
             "full_troll",
             "ninja",
-            "sun_tzu",
-            "bruce_lee",
+            "strategist",
+            "sensei",
             "bureaucrat",
-            "columbo",
-            "deckard",
-            "hal9000",
-            "neuromancer",  # Phase 18 Slice 7A (DEC-CHAR-NEUROMANCER-001)
-            "trinity",
+            "detective",
+            "detective",
+            "the_computer",
+            "the_sprawl",  # Phase 18 Slice 7A (DEC-CHAR-NEUROMANCER-001)
+            "m4tr1x",
         }
         static_modes = {
             name: mode for name, mode in DEFAULT_MODES.items() if name not in upgraded_modes
@@ -164,10 +164,10 @@ class TestCharacterModeLlmProfileField:
         for name, mode in static_modes.items():
             assert mode.llm_profile is None, (
                 f"Mode '{name}' has llm_profile set -- only full_troll (C-1), "
-                "ninja (C-2), sun_tzu/bruce_lee/bureaucrat (C-3), columbo (C-4), "
-                "deckard/hal9000 (Phase 18 Slice 5), neuromancer (Phase 18 Slice 7A) "
+                "ninja (C-2), strategist/sensei/bureaucrat (C-3), detective (C-4), "
+                "detective/the_computer (Phase 18 Slice 5), the_sprawl (Phase 18 Slice 7A) "
                 "should have profiles. "
-                "(DEC-C4-COLUMBO-101: default/chuck_norris/bobby_hill terminally KEEP_STATIC)"
+                "(DEC-C4-COLUMBO-101: default/sensei/bobby_hill terminally KEEP_STATIC)"
             )
 
     def test_hint_style_not_reintroduced(self):
@@ -411,26 +411,14 @@ class TestSetCharacterIntegration:
             f"Got prefix: {sys_content[: len(expected_prefix) + 20]!r}"
         )
 
-    def test_set_character_chuck_norris_uses_v1_composition_verbatim(self, runner):
-        """set_character with a KEEP_STATIC mode (chuck_norris) must use F62 v1 path.
-
-        Per DEC-C2-NINJA-003: the original test used ninja as the KEEP_STATIC carrier.
-        C-2 upgraded ninja (DEC-C2-NINJA-001), so drunken_master replaced it.
-        Phase 18 Slice 5 retires drunken_master (DEC-DRUNKEN-MASTER-RETIRED-001),
-        so chuck_norris (llm_profile=None, terminal KEEP_STATIC per DEC-C4-COLUMBO-101)
-        replaces it as the v1-path assertion carrier. Semantics are identical — any
-        mode with llm_profile=None must produce the verbatim F62 composition.
-        """
-        chuck_norris = DEFAULT_MODES["chuck_norris"]
-        assert chuck_norris.llm_profile is None
-        runner.set_character(chuck_norris)
+    def test_set_character_sensei_uses_profile_composition(self, runner):
+        """The consolidated Sensei ships a complete LLM voice profile."""
+        sensei = DEFAULT_MODES["sensei"]
+        assert sensei.llm_profile is not None
+        runner.set_character(sensei)
         sys_content = runner.conversation[0]["content"]
-        expected_prefix = f"Character mode: {chuck_norris.name}\n{chuck_norris.personality}\n\n"
-        assert sys_content.startswith(expected_prefix), (
-            f"set_character with llm_profile=None deviated from v1 composition.\n"
-            f"Expected prefix: {expected_prefix!r}\n"
-            f"Got prefix: {sys_content[: len(expected_prefix) + 20]!r}"
-        )
+        assert sys_content.startswith(f"Character mode: {sensei.name}\nVoice: ")
+        assert sensei.llm_profile.voice_summary in sys_content
 
     def test_set_character_ninja_injects_profile(self, runner):
         """set_character with ninja (llm_profile != None after C-2) must inject profile text.
@@ -1108,30 +1096,30 @@ class TestNinjaF64PanelSeparation:
 
 
 # ---------------------------------------------------------------------------
-# 11. C-3: sun_tzu LLMPersonaProfile content (DEC-C3-PHILOSOPHY-001)
+# 11. C-3: strategist LLMPersonaProfile content (DEC-C3-PHILOSOPHY-001)
 # ---------------------------------------------------------------------------
 
 
 class TestSunTzuProfileContent:
-    """sun_tzu must carry the LLMPersonaProfile specified in DEC-C3-PHILOSOPHY-001
+    """strategist must carry the LLMPersonaProfile specified in DEC-C3-PHILOSOPHY-001
     (character-c3-philosophy-bureaucrat.md §3.1). Mirrors TestNinjaProfileContent.
     """
 
     @pytest.fixture
     def profile(self) -> LLMPersonaProfile:
-        """Return sun_tzu's llm_profile."""
-        mode = DEFAULT_MODES["sun_tzu"]
+        """Return strategist's llm_profile."""
+        mode = DEFAULT_MODES["strategist"]
         assert mode.llm_profile is not None, (
-            "sun_tzu.llm_profile is None -- DEC-C3-PHILOSOPHY-001 requires it to be set"
+            "strategist.llm_profile is None -- DEC-C3-PHILOSOPHY-001 requires it to be set"
         )
         return mode.llm_profile
 
-    def test_sun_tzu_has_llm_profile(self):
-        """sun_tzu must have a non-None LLMPersonaProfile (C-3 gate)."""
-        mode = DEFAULT_MODES["sun_tzu"]
+    def test_strategist_has_llm_profile(self):
+        """strategist must have a non-None LLMPersonaProfile (C-3 gate)."""
+        mode = DEFAULT_MODES["strategist"]
         assert mode.llm_profile is not None
 
-    def test_sun_tzu_profile_voice_summary_content(self, profile: LLMPersonaProfile):
+    def test_strategist_profile_voice_summary_content(self, profile: LLMPersonaProfile):
         """voice_summary must capture strategist / Art of War / oblique register."""
         vs = profile.voice_summary.lower()
         assert any(
@@ -1141,7 +1129,7 @@ class TestSunTzuProfileContent:
             "Must contain at least one of: strateg, art of war, oblique, patient, gnomic"
         )
 
-    def test_sun_tzu_profile_tone_registers_content(self, profile: LLMPersonaProfile):
+    def test_strategist_profile_tone_registers_content(self, profile: LLMPersonaProfile):
         """tone_registers must be a tuple with ≥ 2 entries including anchor registers."""
         assert isinstance(profile.tone_registers, tuple)
         assert len(profile.tone_registers) >= 2, (
@@ -1154,7 +1142,7 @@ class TestSunTzuProfileContent:
             f"{expected - registers_lower}"
         )
 
-    def test_sun_tzu_profile_signature_phrases_content(self, profile: LLMPersonaProfile):
+    def test_strategist_profile_signature_phrases_content(self, profile: LLMPersonaProfile):
         """signature_phrases must include at least one canonical Art of War phrase."""
         assert isinstance(profile.signature_phrases, tuple)
         assert len(profile.signature_phrases) >= 2, (
@@ -1167,33 +1155,33 @@ class TestSunTzuProfileContent:
             f"{canonical} (DEC-C3-PHILOSOPHY-001 voice anchors)"
         )
 
-    def test_sun_tzu_profile_fourth_wall_stance(self, profile: LLMPersonaProfile):
-        """fourth_wall_stance must be 'opaque' for sun_tzu (DEC-C3-PHILOSOPHY-006).
+    def test_strategist_profile_fourth_wall_stance(self, profile: LLMPersonaProfile):
+        """fourth_wall_stance must be 'opaque' for strategist (DEC-C3-PHILOSOPHY-006).
 
-        sun_tzu is the strategist role — no meta-awareness of being an LLM/tool.
+        strategist is the strategist role — no meta-awareness of being an LLM/tool.
         """
         assert profile.fourth_wall_stance == "opaque", (
             f"fourth_wall_stance must be 'opaque', got {profile.fourth_wall_stance!r}"
         )
 
-    def test_sun_tzu_profile_dialect_cadence_content(self, profile: LLMPersonaProfile):
+    def test_strategist_profile_dialect_cadence_content(self, profile: LLMPersonaProfile):
         """dialect_cadence must describe aphoristic / quote-then-application cadence."""
         dc = profile.dialect_cadence.lower()
         assert any(
             word in dc for word in ("aphor", "quote", "short", "second-person", "no modern slang")
         ), (
             f"dialect_cadence '{profile.dialect_cadence}' doesn't capture the "
-            "aphoristic / quote-then-application rhythm expected for sun_tzu"
+            "aphoristic / quote-then-application rhythm expected for strategist"
         )
 
-    def test_sun_tzu_profile_context_hooks_empty(self, profile: LLMPersonaProfile):
-        """context_hooks must be empty tuple for sun_tzu (DEC-C3-PHILOSOPHY-005)."""
+    def test_strategist_profile_context_hooks_empty(self, profile: LLMPersonaProfile):
+        """context_hooks must be empty tuple for strategist (DEC-C3-PHILOSOPHY-005)."""
         assert profile.context_hooks == (), (
-            f"context_hooks must be () for sun_tzu in C-3 (deferred to C-4), "
+            f"context_hooks must be () for strategist in C-3 (deferred to C-4), "
             f"got {profile.context_hooks!r}"
         )
 
-    def test_sun_tzu_profile_tool_preferences_content(self, profile: LLMPersonaProfile):
+    def test_strategist_profile_tool_preferences_content(self, profile: LLMPersonaProfile):
         """tool_preferences must be voice-affinity ONLY (NOT selection instructions)."""
         assert isinstance(profile.tool_preferences, tuple)
         assert len(profile.tool_preferences) >= 1, (
@@ -1213,7 +1201,7 @@ class TestSunTzuProfileContent:
             f"tool_preferences doesn't reference any known CTI tools: {profile.tool_preferences}"
         )
 
-    def test_sun_tzu_profile_forbidden_voice_content(self, profile: LLMPersonaProfile):
+    def test_strategist_profile_forbidden_voice_content(self, profile: LLMPersonaProfile):
         """forbidden_voice must include F64 point-narration guard AND voice-register guard.
 
         Two distinct guards required:
@@ -1232,8 +1220,8 @@ class TestSunTzuProfileContent:
             f"forbidden_voice must include modern-slang/exclamation guard: {profile.forbidden_voice}"
         )
 
-    def test_sun_tzu_profile_token_budget(self, profile: LLMPersonaProfile):
-        """sun_tzu profile must not exceed 165 tokens (DEC-30-CHARACTER-V2-003).
+    def test_strategist_profile_token_budget(self, profile: LLMPersonaProfile):
+        """strategist profile must not exceed 165 tokens (DEC-30-CHARACTER-V2-003).
 
         Uses 4-chars-per-token proxy. Mirrors test_ninja_profile_token_budget.
         """
@@ -1251,21 +1239,21 @@ class TestSunTzuProfileContent:
         )
         approx_tokens = _rough_token_count(profile_text)
         assert approx_tokens <= 165, (
-            f"sun_tzu profile exceeds 165-token budget: ~{approx_tokens} tokens "
+            f"strategist profile exceeds 165-token budget: ~{approx_tokens} tokens "
             f"(DEC-30-CHARACTER-V2-003). Content: {profile_text!r}"
         )
 
 
 # ---------------------------------------------------------------------------
-# 12. C-3: sun_tzu persona-swap tool-call-identity hard gate
+# 12. C-3: strategist persona-swap tool-call-identity hard gate
 # ---------------------------------------------------------------------------
 
 
 class TestSunTzuPersonaSwapHardGates:
-    """Mirrors TestNinjaPersonaSwapHardGates for sun_tzu.
+    """Mirrors TestNinjaPersonaSwapHardGates for strategist.
 
-    HARD GATE: DEC-C1-FULLTROLL-004 extended to sun_tzu (DEC-C3-PHILOSOPHY-004).
-    Tool call sequence under sun_tzu MUST equal default-mode sequence for the same
+    HARD GATE: DEC-C1-FULLTROLL-004 extended to strategist (DEC-C3-PHILOSOPHY-004).
+    Tool call sequence under strategist MUST equal default-mode sequence for the same
     query under the same deterministic mock LLM.
 
     @mock-exempt: litellm.completion is an external LLM API boundary.
@@ -1282,7 +1270,7 @@ class TestSunTzuPersonaSwapHardGates:
         mock_resp.choices[0].message = MagicMock()
         mock_resp.choices[0].message.content = None
         mock_resp.choices[0].message.tool_calls = [MagicMock()]
-        mock_resp.choices[0].message.tool_calls[0].id = "call_sun_tzu"
+        mock_resp.choices[0].message.tool_calls[0].id = "call_strategist"
         mock_resp.choices[0].message.tool_calls[0].type = "function"
         mock_resp.choices[0].message.tool_calls[0].function = MagicMock()
         mock_resp.choices[0].message.tool_calls[0].function.name = tool_name
@@ -1327,10 +1315,10 @@ class TestSunTzuPersonaSwapHardGates:
 
         return tool_calls_recorded
 
-    def test_sun_tzu_swap_preserves_tool_call_identity(self, tmp_path):
-        """Same query under sun_tzu vs default must produce identical tool calls.
+    def test_strategist_swap_preserves_tool_call_identity(self, tmp_path):
+        """Same query under strategist vs default must produce identical tool calls.
 
-        HARD GATE for DEC-C1-FULLTROLL-004 (extended to sun_tzu by C-3,
+        HARD GATE for DEC-C1-FULLTROLL-004 (extended to strategist by C-3,
         DEC-C3-PHILOSOPHY-004) and DEC-30-CHARACTER-V2-005: tool_preferences
         is voice-affinity ONLY, NEVER tool-selection bias.
         """
@@ -1347,27 +1335,27 @@ class TestSunTzuPersonaSwapHardGates:
 
         query = "What do you know about evil.example.com?"
 
-        calls_under_sun_tzu = self._run_chat_with_mode(runner, DEFAULT_MODES["sun_tzu"], query)
+        calls_under_strategist = self._run_chat_with_mode(runner, DEFAULT_MODES["strategist"], query)
         calls_under_default = self._run_chat_with_mode(runner, DEFAULT_MODES["default"], query)
 
-        assert calls_under_sun_tzu == calls_under_default, (
-            "HARD GATE FAILURE: sun_tzu persona swap changed tool call sequence!\n"
-            f"  sun_tzu calls: {calls_under_sun_tzu}\n"
+        assert calls_under_strategist == calls_under_default, (
+            "HARD GATE FAILURE: strategist persona swap changed tool call sequence!\n"
+            f"  strategist calls: {calls_under_strategist}\n"
             f"  default calls: {calls_under_default}\n"
             "tool_preferences must be voice-affinity ONLY (DEC-C3-PHILOSOPHY-004)"
         )
 
 
 # ---------------------------------------------------------------------------
-# 13. C-3: sun_tzu F64 panel-separation hard gates
+# 13. C-3: strategist F64 panel-separation hard gates
 # ---------------------------------------------------------------------------
 
 
 class TestSunTzuF64PanelSeparation:
-    """F64 DEC-64-LLM-PANEL-SEPARATION-001 for sun_tzu. Mirrors TestNinjaF64PanelSeparation."""
+    """F64 DEC-64-LLM-PANEL-SEPARATION-001 for strategist. Mirrors TestNinjaF64PanelSeparation."""
 
-    def test_sun_tzu_persona_text_not_present_in_tool_result_summary(self, tmp_path):
-        """sun_tzu persona voice text must NOT appear in the summary returned by execute_tool."""
+    def test_strategist_persona_text_not_present_in_tool_result_summary(self, tmp_path):
+        """strategist persona voice text must NOT appear in the summary returned by execute_tool."""
         from adversary_pursuit.agent.tools import ToolContext, execute_tool
 
         config_dir = tmp_path / "config"
@@ -1378,54 +1366,54 @@ class TestSunTzuF64PanelSeparation:
         ctx.workspace_mgr.create("default")
         ctx.workspace_mgr.switch("default")
 
-        ctx.mode_mgr.switch("sun_tzu")
+        ctx.mode_mgr.switch("strategist")
 
         result_summary, _, _, _ = execute_tool(ctx, "dns_resolve", {"target": "test.example"})
 
-        profile = DEFAULT_MODES["sun_tzu"].llm_profile
+        profile = DEFAULT_MODES["strategist"].llm_profile
         if profile is not None:
             for phrase in profile.signature_phrases:
                 assert phrase not in result_summary, (
-                    f"sun_tzu persona signature phrase {phrase!r} leaked into tool result summary.\n"
+                    f"strategist persona signature phrase {phrase!r} leaked into tool result summary.\n"
                     f"Summary: {result_summary!r}"
                 )
 
-    def test_sun_tzu_does_not_smuggle_point_totals(self):
-        """sun_tzu LLM profile must not narrate point totals (F64 invariant)."""
-        profile = DEFAULT_MODES["sun_tzu"].llm_profile
+    def test_strategist_does_not_smuggle_point_totals(self):
+        """strategist LLM profile must not narrate point totals (F64 invariant)."""
+        profile = DEFAULT_MODES["strategist"].llm_profile
         assert profile is not None
 
         all_fv = " ".join(profile.forbidden_voice).lower()
         assert "point" in all_fv or "pts" in all_fv or "score" in all_fv, (
-            "sun_tzu forbidden_voice must include a point-total narration guard (F64)"
+            "strategist forbidden_voice must include a point-total narration guard (F64)"
         )
 
 
 # ---------------------------------------------------------------------------
-# 14. C-3: bruce_lee LLMPersonaProfile content (DEC-C3-PHILOSOPHY-002)
+# 14. C-3: sensei LLMPersonaProfile content (DEC-C3-PHILOSOPHY-002)
 # ---------------------------------------------------------------------------
 
 
 class TestBruceLeeProfileContent:
-    """bruce_lee must carry the LLMPersonaProfile specified in DEC-C3-PHILOSOPHY-002
+    """sensei must carry the LLMPersonaProfile specified in DEC-C3-PHILOSOPHY-002
     (character-c3-philosophy-bureaucrat.md §3.2). Mirrors TestNinjaProfileContent.
     """
 
     @pytest.fixture
     def profile(self) -> LLMPersonaProfile:
-        """Return bruce_lee's llm_profile."""
-        mode = DEFAULT_MODES["bruce_lee"]
+        """Return sensei's llm_profile."""
+        mode = DEFAULT_MODES["sensei"]
         assert mode.llm_profile is not None, (
-            "bruce_lee.llm_profile is None -- DEC-C3-PHILOSOPHY-002 requires it to be set"
+            "sensei.llm_profile is None -- DEC-C3-PHILOSOPHY-002 requires it to be set"
         )
         return mode.llm_profile
 
-    def test_bruce_lee_has_llm_profile(self):
-        """bruce_lee must have a non-None LLMPersonaProfile (C-3 gate)."""
-        mode = DEFAULT_MODES["bruce_lee"]
+    def test_sensei_has_llm_profile(self):
+        """sensei must have a non-None LLMPersonaProfile (C-3 gate)."""
+        mode = DEFAULT_MODES["sensei"]
         assert mode.llm_profile is not None
 
-    def test_bruce_lee_profile_voice_summary_content(self, profile: LLMPersonaProfile):
+    def test_sensei_profile_voice_summary_content(self, profile: LLMPersonaProfile):
         """voice_summary must capture flow-state / water / zen-philosopher register."""
         vs = profile.voice_summary.lower()
         assert any(
@@ -1435,7 +1423,7 @@ class TestBruceLeeProfileContent:
             "Must contain at least one of: flow, water, zen, philosopher, adapt, movement"
         )
 
-    def test_bruce_lee_profile_tone_registers_content(self, profile: LLMPersonaProfile):
+    def test_sensei_profile_tone_registers_content(self, profile: LLMPersonaProfile):
         """tone_registers must be a tuple with ≥ 2 entries including anchor registers."""
         assert isinstance(profile.tone_registers, tuple)
         assert len(profile.tone_registers) >= 2, (
@@ -1448,7 +1436,7 @@ class TestBruceLeeProfileContent:
             f"{expected - registers_lower}"
         )
 
-    def test_bruce_lee_profile_signature_phrases_content(self, profile: LLMPersonaProfile):
+    def test_sensei_profile_signature_phrases_content(self, profile: LLMPersonaProfile):
         """signature_phrases must include at least one canonical Bruce Lee phrase."""
         assert isinstance(profile.signature_phrases, tuple)
         assert len(profile.signature_phrases) >= 2, (
@@ -1461,30 +1449,30 @@ class TestBruceLeeProfileContent:
             f"{canonical} (DEC-C3-PHILOSOPHY-002 voice anchors)"
         )
 
-    def test_bruce_lee_profile_fourth_wall_stance(self, profile: LLMPersonaProfile):
-        """fourth_wall_stance must be 'opaque' for bruce_lee (DEC-C3-PHILOSOPHY-006)."""
+    def test_sensei_profile_fourth_wall_stance(self, profile: LLMPersonaProfile):
+        """fourth_wall_stance must be 'opaque' for sensei (DEC-C3-PHILOSOPHY-006)."""
         assert profile.fourth_wall_stance == "opaque", (
             f"fourth_wall_stance must be 'opaque', got {profile.fourth_wall_stance!r}"
         )
 
-    def test_bruce_lee_profile_dialect_cadence_content(self, profile: LLMPersonaProfile):
+    def test_sensei_profile_dialect_cadence_content(self, profile: LLMPersonaProfile):
         """dialect_cadence must describe nature-metaphor / short-declarative cadence."""
         dc = profile.dialect_cadence.lower()
         assert any(
             word in dc for word in ("nature", "metaphor", "short", "declarative", "second-person")
         ), (
             f"dialect_cadence '{profile.dialect_cadence}' doesn't capture the "
-            "nature-metaphor / short-declarative rhythm expected for bruce_lee"
+            "nature-metaphor / short-declarative rhythm expected for sensei"
         )
 
-    def test_bruce_lee_profile_context_hooks_empty(self, profile: LLMPersonaProfile):
-        """context_hooks must be empty tuple for bruce_lee (DEC-C3-PHILOSOPHY-005)."""
+    def test_sensei_profile_context_hooks_empty(self, profile: LLMPersonaProfile):
+        """context_hooks must be empty tuple for sensei (DEC-C3-PHILOSOPHY-005)."""
         assert profile.context_hooks == (), (
-            f"context_hooks must be () for bruce_lee in C-3 (deferred to C-4), "
+            f"context_hooks must be () for sensei in C-3 (deferred to C-4), "
             f"got {profile.context_hooks!r}"
         )
 
-    def test_bruce_lee_profile_tool_preferences_content(self, profile: LLMPersonaProfile):
+    def test_sensei_profile_tool_preferences_content(self, profile: LLMPersonaProfile):
         """tool_preferences must be voice-affinity ONLY (NOT selection instructions)."""
         assert isinstance(profile.tool_preferences, tuple)
         assert len(profile.tool_preferences) >= 1, (
@@ -1504,7 +1492,7 @@ class TestBruceLeeProfileContent:
             tool in all_prefs for tool in ("crt.sh", "crt", "dns", "virustotal", "shodan")
         ), f"tool_preferences doesn't reference any known CTI tools: {profile.tool_preferences}"
 
-    def test_bruce_lee_profile_forbidden_voice_content(self, profile: LLMPersonaProfile):
+    def test_sensei_profile_forbidden_voice_content(self, profile: LLMPersonaProfile):
         """forbidden_voice must include F64 point-narration guard AND voice-register guard."""
         assert isinstance(profile.forbidden_voice, tuple)
         assert len(profile.forbidden_voice) >= 1, (
@@ -1520,8 +1508,8 @@ class TestBruceLeeProfileContent:
             f"forbidden_voice must include sarcasm/snark/exclamation guard: {profile.forbidden_voice}"
         )
 
-    def test_bruce_lee_profile_token_budget(self, profile: LLMPersonaProfile):
-        """bruce_lee profile must not exceed 165 tokens (DEC-30-CHARACTER-V2-003)."""
+    def test_sensei_profile_token_budget(self, profile: LLMPersonaProfile):
+        """sensei profile must not exceed 165 tokens (DEC-30-CHARACTER-V2-003)."""
         profile_text = " ".join(
             [
                 profile.voice_summary,
@@ -1536,20 +1524,20 @@ class TestBruceLeeProfileContent:
         )
         approx_tokens = _rough_token_count(profile_text)
         assert approx_tokens <= 165, (
-            f"bruce_lee profile exceeds 165-token budget: ~{approx_tokens} tokens "
+            f"sensei profile exceeds 165-token budget: ~{approx_tokens} tokens "
             f"(DEC-30-CHARACTER-V2-003). Content: {profile_text!r}"
         )
 
 
 # ---------------------------------------------------------------------------
-# 15. C-3: bruce_lee persona-swap tool-call-identity hard gate
+# 15. C-3: sensei persona-swap tool-call-identity hard gate
 # ---------------------------------------------------------------------------
 
 
 class TestBruceLeePersonaSwapHardGates:
-    """Mirrors TestNinjaPersonaSwapHardGates for bruce_lee.
+    """Mirrors TestNinjaPersonaSwapHardGates for sensei.
 
-    HARD GATE: DEC-C1-FULLTROLL-004 extended to bruce_lee (DEC-C3-PHILOSOPHY-004).
+    HARD GATE: DEC-C1-FULLTROLL-004 extended to sensei (DEC-C3-PHILOSOPHY-004).
 
     @mock-exempt: litellm.completion is an external LLM API boundary.
     execute_tool is mocked at the tool-dispatch boundary.
@@ -1565,7 +1553,7 @@ class TestBruceLeePersonaSwapHardGates:
         mock_resp.choices[0].message = MagicMock()
         mock_resp.choices[0].message.content = None
         mock_resp.choices[0].message.tool_calls = [MagicMock()]
-        mock_resp.choices[0].message.tool_calls[0].id = "call_bruce_lee"
+        mock_resp.choices[0].message.tool_calls[0].id = "call_sensei"
         mock_resp.choices[0].message.tool_calls[0].type = "function"
         mock_resp.choices[0].message.tool_calls[0].function = MagicMock()
         mock_resp.choices[0].message.tool_calls[0].function.name = tool_name
@@ -1610,10 +1598,10 @@ class TestBruceLeePersonaSwapHardGates:
 
         return tool_calls_recorded
 
-    def test_bruce_lee_swap_preserves_tool_call_identity(self, tmp_path):
-        """Same query under bruce_lee vs default must produce identical tool calls.
+    def test_sensei_swap_preserves_tool_call_identity(self, tmp_path):
+        """Same query under sensei vs default must produce identical tool calls.
 
-        HARD GATE for DEC-C1-FULLTROLL-004 (extended to bruce_lee by C-3,
+        HARD GATE for DEC-C1-FULLTROLL-004 (extended to sensei by C-3,
         DEC-C3-PHILOSOPHY-004) and DEC-30-CHARACTER-V2-005.
         """
         from adversary_pursuit.agent.runner import AgentRunner
@@ -1629,33 +1617,33 @@ class TestBruceLeePersonaSwapHardGates:
 
         query = "What do you know about evil.example.com?"
 
-        calls_under_bruce_lee = self._run_chat_with_mode(runner, DEFAULT_MODES["bruce_lee"], query)
+        calls_under_sensei = self._run_chat_with_mode(runner, DEFAULT_MODES["sensei"], query)
         calls_under_default = self._run_chat_with_mode(runner, DEFAULT_MODES["default"], query)
 
-        assert calls_under_bruce_lee == calls_under_default, (
-            "HARD GATE FAILURE: bruce_lee persona swap changed tool call sequence!\n"
-            f"  bruce_lee calls: {calls_under_bruce_lee}\n"
+        assert calls_under_sensei == calls_under_default, (
+            "HARD GATE FAILURE: sensei persona swap changed tool call sequence!\n"
+            f"  sensei calls: {calls_under_sensei}\n"
             f"  default calls:   {calls_under_default}\n"
             "tool_preferences must be voice-affinity ONLY (DEC-C3-PHILOSOPHY-004)"
         )
 
 
 # ---------------------------------------------------------------------------
-# 16. C-3: bruce_lee F64 panel-separation hard gates
+# 16. C-3: sensei F64 panel-separation hard gates
 # ---------------------------------------------------------------------------
 
 
 class TestBruceLeeF64PanelSeparation:
-    """F64 DEC-64-LLM-PANEL-SEPARATION-001 for bruce_lee. Mirrors TestNinjaF64PanelSeparation."""
+    """F64 DEC-64-LLM-PANEL-SEPARATION-001 for sensei. Mirrors TestNinjaF64PanelSeparation."""
 
-    def test_bruce_lee_persona_text_not_present_in_tool_result_summary(self, tmp_path):
-        """bruce_lee persona voice text must NOT appear in the summary returned by execute_tool.
+    def test_sensei_persona_text_not_present_in_tool_result_summary(self, tmp_path):
+        """sensei persona voice text must NOT appear in the summary returned by execute_tool.
 
         The summary contains run_fail (Rich-stripped static voice) — that is expected.
         We only check signature_phrases that are NOT already substrings of the static
         voice fields (run_fail, run_success, greeting). A phrase shared verbatim with
         run_fail reaching the summary is run_fail wiring, not a persona profile leak.
-        For bruce_lee, "Don't fear failure." is both a signature_phrase AND the prefix
+        For sensei, "Don't fear failure." is both a signature_phrase AND the prefix
         of run_fail — we skip it here; the F62 run_fail single-authority tests cover it.
         """
         from adversary_pursuit.agent.tools import ToolContext, execute_tool
@@ -1668,11 +1656,11 @@ class TestBruceLeeF64PanelSeparation:
         ctx.workspace_mgr.create("default")
         ctx.workspace_mgr.switch("default")
 
-        ctx.mode_mgr.switch("bruce_lee")
+        ctx.mode_mgr.switch("sensei")
 
         result_summary, _, _, _ = execute_tool(ctx, "dns_resolve", {"target": "test.example"})
 
-        mode = DEFAULT_MODES["bruce_lee"]
+        mode = DEFAULT_MODES["sensei"]
         profile = mode.llm_profile
         # Collect the static voice strings so we can exclude overlapping phrases.
         static_voice = " ".join(
@@ -1685,18 +1673,18 @@ class TestBruceLeeF64PanelSeparation:
                     # Its presence in the summary is the F62 run_fail wiring, not a leak.
                     continue
                 assert phrase not in result_summary, (
-                    f"bruce_lee persona signature phrase {phrase!r} leaked into tool result summary.\n"
+                    f"sensei persona signature phrase {phrase!r} leaked into tool result summary.\n"
                     f"Summary: {result_summary!r}"
                 )
 
-    def test_bruce_lee_does_not_smuggle_point_totals(self):
-        """bruce_lee LLM profile must not narrate point totals (F64 invariant)."""
-        profile = DEFAULT_MODES["bruce_lee"].llm_profile
+    def test_sensei_does_not_smuggle_point_totals(self):
+        """sensei LLM profile must not narrate point totals (F64 invariant)."""
+        profile = DEFAULT_MODES["sensei"].llm_profile
         assert profile is not None
 
         all_fv = " ".join(profile.forbidden_voice).lower()
         assert "point" in all_fv or "pts" in all_fv or "score" in all_fv, (
-            "bruce_lee forbidden_voice must include a point-total narration guard (F64)"
+            "sensei forbidden_voice must include a point-total narration guard (F64)"
         )
 
 
@@ -1998,16 +1986,16 @@ class TestBureaucratF64PanelSeparation:
 
 
 # ---------------------------------------------------------------------------
-# 20. C-4: columbo LLMPersonaProfile content (DEC-C4-COLUMBO-001)
+# 20. C-4: detective LLMPersonaProfile content (DEC-C4-COLUMBO-001)
 # ---------------------------------------------------------------------------
 
 
 class TestColumboProfileContent:
-    """columbo must carry the LLMPersonaProfile specified in DEC-C4-COLUMBO-001
-    (character-c4-columbo.md §3.1 / Phase 17M). Mirrors TestNinjaProfileContent
+    """detective must carry the LLMPersonaProfile specified in DEC-C4-COLUMBO-001
+    (character-c4-detective.md §3.1 / Phase 17M). Mirrors TestNinjaProfileContent
     with the critical inversion: context_hooks is NON-EMPTY (first in the v2 catalog).
 
-    Compound-interaction coverage: columbo profile flows through
+    Compound-interaction coverage: detective profile flows through
     AgentRunner.set_character -> context_hooks joined with "; " at runner.py:379 ->
     rendered as "Investigation-context hooks: ..." in the system prompt.
     All three dossier-aware hint strings appear verbatim in the LLM system context.
@@ -2015,19 +2003,19 @@ class TestColumboProfileContent:
 
     @pytest.fixture
     def profile(self) -> LLMPersonaProfile:
-        """Return columbo's llm_profile."""
-        mode = DEFAULT_MODES["columbo"]
+        """Return detective's llm_profile."""
+        mode = DEFAULT_MODES["detective"]
         assert mode.llm_profile is not None, (
-            "columbo.llm_profile is None -- DEC-C4-COLUMBO-001 requires it to be set"
+            "detective.llm_profile is None -- DEC-C4-COLUMBO-001 requires it to be set"
         )
         return mode.llm_profile
 
-    def test_columbo_has_llm_profile(self):
-        """columbo must have a non-None LLMPersonaProfile (C-4 gate)."""
-        mode = DEFAULT_MODES["columbo"]
+    def test_detective_has_llm_profile(self):
+        """detective must have a non-None LLMPersonaProfile (C-4 gate)."""
+        mode = DEFAULT_MODES["detective"]
         assert mode.llm_profile is not None
 
-    def test_columbo_profile_voice_summary_content(self, profile: LLMPersonaProfile):
+    def test_detective_profile_voice_summary_content(self, profile: LLMPersonaProfile):
         """voice_summary must capture rumpled-detective / LA / investigative register."""
         vs = profile.voice_summary.lower()
         assert any(
@@ -2038,7 +2026,7 @@ class TestColumboProfileContent:
             "obvious, disarming"
         )
 
-    def test_columbo_profile_tone_registers_content(self, profile: LLMPersonaProfile):
+    def test_detective_profile_tone_registers_content(self, profile: LLMPersonaProfile):
         """tone_registers must be a tuple with >= 2 entries including anchor registers."""
         assert isinstance(profile.tone_registers, tuple)
         assert len(profile.tone_registers) >= 2, (
@@ -2051,8 +2039,8 @@ class TestColumboProfileContent:
             f"{expected - registers_lower}"
         )
 
-    def test_columbo_profile_signature_phrases_content(self, profile: LLMPersonaProfile):
-        """signature_phrases must include canonical columbo voice anchors."""
+    def test_detective_profile_signature_phrases_content(self, profile: LLMPersonaProfile):
+        """signature_phrases must include canonical detective voice anchors."""
         assert isinstance(profile.signature_phrases, tuple)
         assert len(profile.signature_phrases) >= 2, (
             "signature_phrases must have 2-5 catch-phrases per schema"
@@ -2066,44 +2054,44 @@ class TestColumboProfileContent:
             f"signature_phrases missing 'my wife always says': {profile.signature_phrases}"
         )
 
-    def test_columbo_profile_fourth_wall_stance(self, profile: LLMPersonaProfile):
-        """fourth_wall_stance must be 'opaque' for columbo (DEC-C4-COLUMBO-006).
+    def test_detective_profile_fourth_wall_stance(self, profile: LLMPersonaProfile):
+        """fourth_wall_stance must be 'opaque' for detective (DEC-C4-COLUMBO-006).
 
-        columbo IS the detective — no meta-awareness of being an LLM or tool.
+        detective IS the detective — no meta-awareness of being an LLM or tool.
         Mirrors DEC-C2-NINJA-001 / DEC-C3-PHILOSOPHY-006 stance choice.
         """
         assert profile.fourth_wall_stance == "opaque", (
             f"fourth_wall_stance must be 'opaque', got {profile.fourth_wall_stance!r}"
         )
 
-    def test_columbo_profile_dialect_cadence_content(self, profile: LLMPersonaProfile):
+    def test_detective_profile_dialect_cadence_content(self, profile: LLMPersonaProfile):
         """dialect_cadence must describe trailing-off / mid-thought / 'just one more thing' cadence."""
         dc = profile.dialect_cadence.lower()
         assert any(
             word in dc for word in ("trailing", "mid-thought", "pivot", "interruption", "one more")
         ), (
             f"dialect_cadence '{profile.dialect_cadence}' doesn't capture the "
-            "trailing-off / mid-thought-pivot / 'just one more thing' rhythm expected for columbo"
+            "trailing-off / mid-thought-pivot / 'just one more thing' rhythm expected for detective"
         )
 
-    def test_columbo_profile_context_hooks_not_empty(self, profile: LLMPersonaProfile):
-        """context_hooks MUST be non-empty for columbo (DEC-C4-COLUMBO-001/103).
+    def test_detective_profile_context_hooks_not_empty(self, profile: LLMPersonaProfile):
+        """context_hooks MUST be non-empty for detective (DEC-C4-COLUMBO-001/103).
 
         This is the critical INVERSION of the C-1/C-2/C-3 pattern:
-        columbo is the FIRST persona in the v2 catalog to carry non-empty context_hooks.
+        detective is the FIRST persona in the v2 catalog to carry non-empty context_hooks.
         The three hook strings encode dossier-aware conditional voice lines referencing
         real M-4 DossierSlotName / SlotStatus enum vocabulary.
         """
         assert len(profile.context_hooks) > 0, (
-            "context_hooks must be NON-EMPTY for columbo (DEC-C4-COLUMBO-001/103). "
-            "columbo is the first v2 persona to carry dossier-aware context_hooks."
+            "context_hooks must be NON-EMPTY for detective (DEC-C4-COLUMBO-001/103). "
+            "detective is the first v2 persona to carry dossier-aware context_hooks."
         )
         assert len(profile.context_hooks) == 3, (
-            f"columbo must carry exactly 3 context_hooks (one per anchor slot), "
+            f"detective must carry exactly 3 context_hooks (one per anchor slot), "
             f"got {len(profile.context_hooks)}: {profile.context_hooks}"
         )
 
-    def test_columbo_profile_tool_preferences_content(self, profile: LLMPersonaProfile):
+    def test_detective_profile_tool_preferences_content(self, profile: LLMPersonaProfile):
         """tool_preferences must be voice-affinity ONLY (NOT selection instructions).
 
         Columbo's WHOIS framing ('who owns the place?') is the highest-risk case for
@@ -2123,13 +2111,13 @@ class TestColumboProfileContent:
             assert "must use" not in pref_lower, (
                 f"tool_preferences entry contains 'must use': {pref!r}"
             )
-        # Must reference WHOIS (the columbo voice anchor) per DEC-C4-COLUMBO-004
+        # Must reference WHOIS (the detective voice anchor) per DEC-C4-COLUMBO-004
         all_prefs = " ".join(profile.tool_preferences).lower()
         assert "whois" in all_prefs, (
-            f"tool_preferences must reference WHOIS (columbo voice anchor): {profile.tool_preferences}"
+            f"tool_preferences must reference WHOIS (detective voice anchor): {profile.tool_preferences}"
         )
 
-    def test_columbo_profile_forbidden_voice_content(self, profile: LLMPersonaProfile):
+    def test_detective_profile_forbidden_voice_content(self, profile: LLMPersonaProfile):
         """forbidden_voice must include F64 point-narration guard AND humility-register guard."""
         assert isinstance(profile.forbidden_voice, tuple)
         assert len(profile.forbidden_voice) >= 1, (
@@ -2143,11 +2131,11 @@ class TestColumboProfileContent:
         # Humility-register guard: must mention confidence/confident or humility
         assert any(word in all_fv for word in ("confident", "humility", "humble")), (
             f"forbidden_voice must include humility-register guard "
-            f"(humility-as-disarmament is columbo's register): {profile.forbidden_voice}"
+            f"(humility-as-disarmament is detective's register): {profile.forbidden_voice}"
         )
 
-    def test_columbo_profile_schema_completeness(self, profile: LLMPersonaProfile):
-        """All 8 schema fields must be present and typed correctly for columbo."""
+    def test_detective_profile_schema_completeness(self, profile: LLMPersonaProfile):
+        """All 8 schema fields must be present and typed correctly for detective."""
         from dataclasses import fields as dataclass_fields
 
         required = {
@@ -2171,8 +2159,8 @@ class TestColumboProfileContent:
         assert isinstance(profile.tool_preferences, tuple)
         assert isinstance(profile.forbidden_voice, tuple)
 
-    def test_columbo_profile_token_budget(self, profile: LLMPersonaProfile):
-        """columbo profile must not exceed 165 tokens (DEC-30-CHARACTER-V2-003).
+    def test_detective_profile_token_budget(self, profile: LLMPersonaProfile):
+        """detective profile must not exceed 165 tokens (DEC-30-CHARACTER-V2-003).
 
         Uses 4-chars-per-token proxy. context_hooks is the largest field due to
         the three dossier-aware hint strings; the trim-path in the plan §3.1
@@ -2192,23 +2180,23 @@ class TestColumboProfileContent:
         )
         approx_tokens = _rough_token_count(profile_text)
         assert approx_tokens <= 165, (
-            f"columbo profile exceeds 165-token budget: ~{approx_tokens} tokens. "
+            f"detective profile exceeds 165-token budget: ~{approx_tokens} tokens. "
             f"Content: {profile_text!r}"
         )
 
 
 # ---------------------------------------------------------------------------
-# 21. C-4: columbo persona-swap tool-call-identity hard gate
+# 21. C-4: detective persona-swap tool-call-identity hard gate
 # ---------------------------------------------------------------------------
 
 
 class TestColumboPersonaSwapHardGates:
-    """Mirrors TestNinjaPersonaSwapHardGates for columbo.
+    """Mirrors TestNinjaPersonaSwapHardGates for detective.
 
-    HARD GATE: DEC-C1-FULLTROLL-004 extended to columbo (DEC-C4-COLUMBO-004).
-    Tool call sequence under columbo MUST equal default-mode sequence for the same
+    HARD GATE: DEC-C1-FULLTROLL-004 extended to detective (DEC-C4-COLUMBO-004).
+    Tool call sequence under detective MUST equal default-mode sequence for the same
     query under the same deterministic mock LLM. The WHOIS "obvious question" framing
-    in tool_preferences is the highest-risk case for columbo — detective framing of
+    in tool_preferences is the highest-risk case for detective — detective framing of
     "who owns the place?" could plausibly bias WHOIS selection. This test is the
     mechanical proof it does not.
 
@@ -2229,7 +2217,7 @@ class TestColumboPersonaSwapHardGates:
         mock_resp.choices[0].message = MagicMock()
         mock_resp.choices[0].message.content = None
         mock_resp.choices[0].message.tool_calls = [MagicMock()]
-        mock_resp.choices[0].message.tool_calls[0].id = "call_columbo"
+        mock_resp.choices[0].message.tool_calls[0].id = "call_detective"
         mock_resp.choices[0].message.tool_calls[0].type = "function"
         mock_resp.choices[0].message.tool_calls[0].function = MagicMock()
         mock_resp.choices[0].message.tool_calls[0].function.name = tool_name
@@ -2274,16 +2262,16 @@ class TestColumboPersonaSwapHardGates:
 
         return tool_calls_recorded
 
-    def test_columbo_swap_preserves_tool_call_identity(self, tmp_path):
-        """Same query under columbo vs default must produce identical tool calls.
+    def test_detective_swap_preserves_tool_call_identity(self, tmp_path):
+        """Same query under detective vs default must produce identical tool calls.
 
-        HARD GATE for DEC-C1-FULLTROLL-004 (extended to columbo by C-4,
-        DEC-C4-COLUMBO-004) and DEC-30-CHARACTER-V2-005. The columbo WHOIS
+        HARD GATE for DEC-C1-FULLTROLL-004 (extended to detective by C-4,
+        DEC-C4-COLUMBO-004) and DEC-30-CHARACTER-V2-005. The detective WHOIS
         framing ("the obvious question — who owns the place?") is the highest-risk
         case: a real detective would bias toward WHOIS. This test proves the
         persona profile does NOT bias tool selection.
 
-        Production sequence: AgentRunner.__init__ -> set_character(columbo) ->
+        Production sequence: AgentRunner.__init__ -> set_character(detective) ->
         chat() loop with mock LLM -> tool-call record must equal default-mode record.
         """
         from adversary_pursuit.agent.runner import AgentRunner
@@ -2299,33 +2287,33 @@ class TestColumboPersonaSwapHardGates:
 
         query = "What do you know about evil.example.com?"
 
-        calls_under_columbo = self._run_chat_with_mode(runner, DEFAULT_MODES["columbo"], query)
+        calls_under_detective = self._run_chat_with_mode(runner, DEFAULT_MODES["detective"], query)
         calls_under_default = self._run_chat_with_mode(runner, DEFAULT_MODES["default"], query)
 
-        assert calls_under_columbo == calls_under_default, (
-            "HARD GATE FAILURE: columbo persona swap changed tool call sequence!\n"
-            f"  columbo calls: {calls_under_columbo}\n"
+        assert calls_under_detective == calls_under_default, (
+            "HARD GATE FAILURE: detective persona swap changed tool call sequence!\n"
+            f"  detective calls: {calls_under_detective}\n"
             f"  default calls: {calls_under_default}\n"
             "tool_preferences must be voice-affinity ONLY (DEC-C4-COLUMBO-004)"
         )
 
 
 # ---------------------------------------------------------------------------
-# 22. C-4: columbo F64 panel-separation hard gates
+# 22. C-4: detective F64 panel-separation hard gates
 # ---------------------------------------------------------------------------
 
 
 class TestColumboF64PanelSeparation:
-    """F64 DEC-64-LLM-PANEL-SEPARATION-001 for columbo. Mirrors TestNinjaF64PanelSeparation.
+    """F64 DEC-64-LLM-PANEL-SEPARATION-001 for detective. Mirrors TestNinjaF64PanelSeparation.
 
-    columbo's signature phrases ("just one more thing", "my wife always says") are
+    detective's signature phrases ("just one more thing", "my wife always says") are
     also present in the static F62 voice templates (greeting, run_fail, etc.). We
     exclude phrases that overlap with static voice to avoid false positives —
     the presence of run_fail text in the summary is F62 wiring, not a profile leak.
     """
 
-    def test_columbo_persona_text_not_present_in_tool_result_summary(self, tmp_path):
-        """columbo persona voice text must NOT appear in the summary returned by execute_tool.
+    def test_detective_persona_text_not_present_in_tool_result_summary(self, tmp_path):
+        """detective persona voice text must NOT appear in the summary returned by execute_tool.
 
         The summary is the LLM-facing tool result — pure data output (STIX SCOs + stats),
         not persona narration (F64 DEC-64-LLM-PANEL-SEPARATION-001).
@@ -2344,11 +2332,11 @@ class TestColumboF64PanelSeparation:
         ctx.workspace_mgr.create("default")
         ctx.workspace_mgr.switch("default")
 
-        ctx.mode_mgr.switch("columbo")
+        ctx.mode_mgr.switch("detective")
 
         result_summary, _, _, _ = execute_tool(ctx, "dns_resolve", {"target": "test.example"})
 
-        mode = DEFAULT_MODES["columbo"]
+        mode = DEFAULT_MODES["detective"]
         profile = mode.llm_profile
         # Collect static voice strings to exclude overlapping phrases (F62 wiring).
         static_voice = " ".join(
@@ -2362,32 +2350,32 @@ class TestColumboF64PanelSeparation:
                     # TestBruceLeeF64PanelSeparation pattern).
                     continue
                 assert phrase not in result_summary, (
-                    f"columbo persona signature phrase {phrase!r} leaked into tool result summary.\n"
+                    f"detective persona signature phrase {phrase!r} leaked into tool result summary.\n"
                     f"Summary: {result_summary!r}"
                 )
 
-    def test_columbo_does_not_smuggle_point_totals(self):
-        """columbo LLM profile must not narrate point totals (F64 invariant).
+    def test_detective_does_not_smuggle_point_totals(self):
+        """detective LLM profile must not narrate point totals (F64 invariant).
 
         forbidden_voice must include the point-total prohibition guard.
-        Mirrors test_full_troll_response_does_not_smuggle_point_totals for columbo.
+        Mirrors test_full_troll_response_does_not_smuggle_point_totals for detective.
         """
-        profile = DEFAULT_MODES["columbo"].llm_profile
+        profile = DEFAULT_MODES["detective"].llm_profile
         assert profile is not None
 
         all_fv = " ".join(profile.forbidden_voice).lower()
         assert "point" in all_fv or "pts" in all_fv or "score" in all_fv, (
-            "columbo forbidden_voice must include a point-total narration guard (F64)"
+            "detective forbidden_voice must include a point-total narration guard (F64)"
         )
 
 
 # ---------------------------------------------------------------------------
-# 23. C-4: columbo dossier-aware context_hooks substrate guard
+# 23. C-4: detective dossier-aware context_hooks substrate guard
 # ---------------------------------------------------------------------------
 
 
 class TestColumboDossierAwareContextHooks:
-    """columbo context_hooks must reference real DossierSlotName and SlotStatus vocabulary.
+    """detective context_hooks must reference real DossierSlotName and SlotStatus vocabulary.
 
     DEC-C4-COLUMBO-103: the conditional-hint convention uses DossierSlotName enum
     values ('identity', 'predictions', 'denial') and SlotStatus enum values
@@ -2410,30 +2398,30 @@ class TestColumboDossierAwareContextHooks:
 
     @pytest.fixture
     def context_hooks(self) -> tuple[str, ...]:
-        """Return columbo's context_hooks."""
-        profile = DEFAULT_MODES["columbo"].llm_profile
+        """Return detective's context_hooks."""
+        profile = DEFAULT_MODES["detective"].llm_profile
         assert profile is not None
         return profile.context_hooks
 
-    def test_columbo_context_hooks_reference_valid_slot_names(self, context_hooks: tuple[str, ...]):
+    def test_detective_context_hooks_reference_valid_slot_names(self, context_hooks: tuple[str, ...]):
         """Each context_hook must reference at least one real DossierSlotName value.
 
         The slot name vocabulary is the M-4 substrate: identity, predictions, denial.
         Any hook that does NOT mention a real slot name is semantically disconnected
-        from the dossier state the columbo profile is meant to bridge to.
+        from the dossier state the detective profile is meant to bridge to.
         """
         assert len(context_hooks) > 0, (
-            "columbo context_hooks is empty — cannot validate slot name references"
+            "detective context_hooks is empty — cannot validate slot name references"
         )
         hooks_text = " ".join(context_hooks).lower()
         found_slots = {slot for slot in self.VALID_SLOT_NAMES if slot in hooks_text}
         assert len(found_slots) >= 1, (
-            f"columbo context_hooks must reference at least one real DossierSlotName value "
+            f"detective context_hooks must reference at least one real DossierSlotName value "
             f"from {self.VALID_SLOT_NAMES!r}. Found in hooks: {found_slots!r}. "
             f"Hooks: {context_hooks!r}"
         )
 
-    def test_columbo_context_hooks_reference_valid_status_values(
+    def test_detective_context_hooks_reference_valid_status_values(
         self, context_hooks: tuple[str, ...]
     ):
         """Each context_hook must reference at least one real SlotStatus enum value.
@@ -2445,12 +2433,12 @@ class TestColumboDossierAwareContextHooks:
         hooks_text = " ".join(context_hooks).lower()
         found_statuses = {status for status in self.VALID_STATUS_VALUES if status in hooks_text}
         assert len(found_statuses) >= 1, (
-            f"columbo context_hooks must reference at least one real SlotStatus value "
+            f"detective context_hooks must reference at least one real SlotStatus value "
             f"from {self.VALID_STATUS_VALUES!r}. Found in hooks: {found_statuses!r}. "
             f"Hooks: {context_hooks!r}"
         )
 
-    def test_columbo_each_hook_references_slot_and_status(self, context_hooks: tuple[str, ...]):
+    def test_detective_each_hook_references_slot_and_status(self, context_hooks: tuple[str, ...]):
         """Each individual hook string must contain both a slot name AND a status value.
 
         Per DEC-C4-COLUMBO-103 convention: 'when slot <slot_id> is <status>: <voice_line>'.
@@ -2472,76 +2460,18 @@ class TestColumboDossierAwareContextHooks:
 
 
 # ---------------------------------------------------------------------------
-# 24. C-4: tier-1 voice modes permanently static (DEC-C4-COLUMBO-101)
+# 24. v0.4.7 canonical disposition
 # ---------------------------------------------------------------------------
 
 
-class TestTierOneModesPermanentlyStatic:
-    """Classic static modes must remain llm_profile=None.
-
-    DEC-C4-COLUMBO-101 reclassified drunken_master/chuck_norris/bobby_hill as
-    terminal KEEP_STATIC. Drunken Master is deprecated but remains selectable.
-
-    Phase 18 Slice 5 adds deckard and hal9000 WITH llm_profile set, so the
-    KEEP_STATIC set includes the default and three classic static modes.
-
-    This test class is the terminal mechanical gate for that decision.
-    """
-
-    def test_drunken_master_remains_static(self):
-        assert DEFAULT_MODES["drunken_master"].llm_profile is None
-
-    def test_chuck_norris_is_permanently_static(self):
-        """chuck_norris must remain llm_profile=None (terminal KEEP_STATIC per DEC-C4-COLUMBO-101)."""
-        assert DEFAULT_MODES["chuck_norris"].llm_profile is None, (
-            "chuck_norris.llm_profile must be None (terminal KEEP_STATIC per DEC-C4-COLUMBO-101). "
-            "Do NOT add a profile — permanent decision, no C-5."
-        )
-
-    def test_bobby_hill_is_permanently_static(self):
-        """bobby_hill must remain llm_profile=None (terminal KEEP_STATIC per DEC-C4-COLUMBO-101)."""
-        assert DEFAULT_MODES["bobby_hill"].llm_profile is None, (
-            "bobby_hill.llm_profile must be None (terminal KEEP_STATIC per DEC-C4-COLUMBO-101). "
-            "Do NOT add a profile — permanent decision, no C-5."
-        )
-
-    def test_keep_static_set_is_exactly_four_modes(self):
-        """The KEEP_STATIC set includes the deprecated classic.
-
-        Phase 18 Slice 7A disposition (DEC-CHAR-NEUROMANCER-001):
-        - 9 UPGRADE (full_troll, ninja, sun_tzu, bruce_lee, bureaucrat, columbo,
-                     deckard, hal9000, neuromancer)
-        - 4 KEEP_STATIC terminal (default, drunken_master, chuck_norris, bobby_hill)
-
-        This test gates the current disposition. Any mode added to DEFAULT_MODES
-        that ships with llm_profile=None should update this set deliberately
-        (after a new planner decision).
-        """
-        upgraded_modes = {
-            "full_troll",
-            "ninja",
-            "sun_tzu",
-            "bruce_lee",
-            "bureaucrat",
-            "columbo",
-            "deckard",
-            "hal9000",
-            "neuromancer",  # Phase 18 Slice 7A (DEC-CHAR-NEUROMANCER-001)
-            "trinity",
-        }
-        expected_static = {"default", "drunken_master", "chuck_norris", "bobby_hill"}
+class TestCanonicalCharacterDisposition:
+    def test_only_default_remains_static(self):
         actual_static = {name for name, mode in DEFAULT_MODES.items() if mode.llm_profile is None}
-        assert actual_static == expected_static, (
-            f"KEEP_STATIC set mismatch. Expected {expected_static!r}, got {actual_static!r}. "
-            "Disposition: upgraded personas + 4 KEEP_STATIC modes. "
-            "If a new mode was added, update this set with a new planner decision."
-        )
-        # Sanity-check: upgraded_modes set must equal all non-static modes
-        all_modes = set(DEFAULT_MODES.keys())
-        assert all_modes == upgraded_modes | expected_static, (
-            f"Mode catalog changed. All modes: {all_modes!r}. "
-            "Update upgraded_modes and expected_static accordingly."
-        )
+        assert actual_static == {"default"}
+
+    def test_retired_modes_are_absent(self):
+        assert "drunken_master" not in DEFAULT_MODES
+        assert "bobby_hill" not in DEFAULT_MODES
 
 
 # ---------------------------------------------------------------------------

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.7] — 2026-07-21
+
+### Added
+
+- Canonical presentation contracts for geometry, ambient layers, motion,
+  instrumentation, event flourishes, character voice, repetition limits, and
+  the procedural-music palette planned for each interface.
+- Deterministic one-window migration aliases for historical character names.
+
+### Changed
+
+- Consolidated the selectable roster into original archetypes: Strategist,
+  Sensei, Detective, The Computer, The Sprawl, and M4TR1X alongside Default,
+  Ninja, Full Troll, and Bureaucrat.
+- Folded the approved martial-arts, detective, computer, and cyberpunk
+  influences into those archetypes while retaining evidence-first voice rules.
+
+### Removed
+
+- Retired Drunken Master and Bobby Hill from selectable TUI and Pivotglass
+  catalogues. Explicit commands receive stable local retirement guidance;
+  historical display can still resolve through documented successors.
+
 ## [0.4.6] — 2026-07-21
 
 ### Added
@@ -282,7 +305,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.6...HEAD
+[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.7...HEAD
+[0.4.7]: https://github.com/jarocki/ap/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/jarocki/ap/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/jarocki/ap/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/jarocki/ap/compare/v0.4.3...v0.4.4

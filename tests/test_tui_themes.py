@@ -78,32 +78,32 @@ class TestThemeCoverage:
 class TestThemeFor:
     """theme_for() API contract."""
 
-    def test_theme_for_neuromancer(self) -> None:
-        """neuromancer theme has #ff5fff border (bright_magenta hex, cyberpunk storyboard palette).
+    def test_theme_for_the_sprawl(self) -> None:
+        """the_sprawl theme has #ff5fff border (bright_magenta hex, cyberpunk storyboard palette).
 
         Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
         (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
-        theme = theme_for("neuromancer")
+        theme = theme_for("the_sprawl")
         assert theme.border_color == "#ff5fff"
 
-    def test_theme_for_hal9000(self) -> None:
-        """hal9000 theme has #ff5555 border (bright_red hex, storyboard red palette).
+    def test_theme_for_the_computer(self) -> None:
+        """the_computer theme has #ff5555 border (bright_red hex, storyboard red palette).
 
         Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
         (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
-        theme = theme_for("hal9000")
+        theme = theme_for("the_computer")
         assert theme.border_color == "#ff5555"
 
-    def test_theme_for_chuck_norris(self) -> None:
-        """chuck_norris theme has #ff5fff border (bright_magenta hex, storyboard neon palette).
+    def test_theme_for_sensei(self) -> None:
+        """sensei theme has #ff5fff border (bright_magenta hex, storyboard neon palette).
 
         Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
         (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
-        theme = theme_for("chuck_norris")
-        assert theme.border_color == "#ff5fff"
+        theme = theme_for("sensei")
+        assert theme.border_color == "#5f5fff"
 
     def test_theme_for_default(self) -> None:
         """default theme has #00d7d7 border (cyan hex).
@@ -123,21 +123,21 @@ class TestThemeFor:
         """theme_for() always returns a CharacterTheme instance."""
         assert isinstance(theme_for("ninja"), CharacterTheme)
 
-    def test_neuromancer_accent_bright_cyan(self) -> None:
-        """neuromancer accent color is #5fffff (bright_cyan hex, cyberpunk palette).
+    def test_the_sprawl_accent_bright_cyan(self) -> None:
+        """the_sprawl accent color is #5fffff (bright_cyan hex, cyberpunk palette).
 
         Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
         (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
-        assert theme_for("neuromancer").accent_color == "#5fffff"
+        assert theme_for("the_sprawl").accent_color == "#5fffff"
 
-    def test_neuromancer_text_yellow(self) -> None:
-        """neuromancer text color is #d7d700 (yellow hex, storyboard yellow-on-purple content).
+    def test_the_sprawl_text_yellow(self) -> None:
+        """the_sprawl text color is #d7d700 (yellow hex, storyboard yellow-on-purple content).
 
         Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
         (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
-        assert theme_for("neuromancer").text_color == "#d7d700"
+        assert theme_for("the_sprawl").text_color == "#d7d700"
 
 
 class TestHighContrastMode:
@@ -146,21 +146,21 @@ class TestHighContrastMode:
     def test_high_contrast_env_1_returns_high_contrast_border(self, monkeypatch) -> None:
         """AP_TUI_HIGH_CONTRAST=1 → resolved_border_color returns high_contrast_border."""
         monkeypatch.setenv("AP_TUI_HIGH_CONTRAST", "1")
-        theme = theme_for("neuromancer")
+        theme = theme_for("the_sprawl")
         result = resolved_border_color(theme)
         assert result == theme.high_contrast_border
 
     def test_high_contrast_env_0_returns_normal_border(self, monkeypatch) -> None:
         """AP_TUI_HIGH_CONTRAST=0 → resolved_border_color returns border_color."""
         monkeypatch.setenv("AP_TUI_HIGH_CONTRAST", "0")
-        theme = theme_for("neuromancer")
+        theme = theme_for("the_sprawl")
         result = resolved_border_color(theme)
         assert result == theme.border_color
 
     def test_high_contrast_env_unset_returns_normal_border(self, monkeypatch) -> None:
         """Unset AP_TUI_HIGH_CONTRAST → resolved_border_color returns border_color."""
         monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
-        theme = theme_for("hal9000")
+        theme = theme_for("the_computer")
         result = resolved_border_color(theme)
         assert result == theme.border_color
 
