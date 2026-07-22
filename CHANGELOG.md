@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-07-21
+
+### Added
+
+- A shared, UI-neutral investigation lifecycle with stable IDs, timestamps,
+  resumable cursors, per-probe states, cancellation acknowledgement, and
+  incremental event delivery.
+- Live elapsed-time feedback and incremental probe/evidence cards in
+  Pivotglass.
+- Focused lifecycle, cursor, cancellation, and truthful-instrumentation tests.
+- The approved v0.4.2 through v0.5.0 QA/UX release plan.
+
+### Changed
+
+- Pivotglass now starts investigations asynchronously and polls an authoritative
+  event stream rather than waiting on one opaque synchronous request.
+- Approximate reactor, probe, token, and hull meters now report measured state
+  or explicitly say that a measurement is unavailable or not engaged.
+
 ## [0.4.1] — 2026-07-21
 
 ### Changed
@@ -182,7 +201,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/jarocki/ap/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/jarocki/ap/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/jarocki/ap/compare/v0.1.0...v0.4.0
 [0.1.0]: https://github.com/jarocki/ap/releases/tag/v0.1.0

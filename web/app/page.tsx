@@ -7,17 +7,20 @@ import { assembleChartjs } from "flint-chart";
 Chart.register(...registerables);
 
 type Briefing = { source: string; artifacts: string; purpose: string; watch_for: string };
-type FeedEvent = { kind: "probe" | "evidence"; tool: string; source: string; briefing?: Briefing; summary?: string };
+type Lifecycle = "planned" | "queued" | "running" | "succeeded" | "empty" | "failed" | "skipped" | "cancelled";
+type FeedEvent = { event_id: string; sequence: number; event_class: string; severity: string; lifecycle: Lifecycle; content_class: "evidence" | "narration" | "system"; tool?: string; source?: string; briefing?: Briefing; summary?: string; reason?: string; result_count?: number; actions?: string[] };
 type Theme = { border_color: string; accent_color: string; heading_color: string; text_color: string; dim_color: string };
 type Cockpit = { deck_name: string; vehicle: string; hud_title: string; left_rail: string; right_rail: string };
 type Mode = { name: string; personality: string; greeting: string; pursuit_title: string; theme: Theme; cockpit: Cockpit };
 type DossierSlot = { name: string; status: "empty" | "partial" | "filled" | "deferred"; evidence_count: number };
-type State = { workspace: string; stats: Record<string, number>; objects: Array<{ type?: string; value?: string }>; briefings: Record<string, Briefing>; character: string; modes: Mode[]; dossier_slots: DossierSlot[] };
+type Instruments = { local_api: { available: boolean; checked_at: string }; sources: { configured: number; queued: number }; model_tokens: { available: boolean; reason: string; used?: number }; active_investigations: number };
+type State = { workspace: string; stats: Record<string, number>; objects: Array<{ type?: string; value?: string }>; briefings: Record<string, Briefing>; character: string; modes: Mode[]; dossier_slots: DossierSlot[]; instruments: Instruments };
+type InvestigationSnapshot = { investigation_id: string; lifecycle: Lifecycle; cursor: number; events: FeedEvent[] };
 
 const paneIds = ["intelligence", "dossier", "artifact-field", "systems"] as const;
 
-function Meter({ label, value, detail, warning = false }: { label: string; value: number; detail: string; warning?: boolean }) {
-  return <div className={`meter ${warning ? "warning" : ""}`}><div><span>{label}</span><b>{detail}</b></div><div className="meter-track"><i style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></div></div>;
+function Meter({ label, value, detail, warning = false }: { label: string; value: number | null; detail: string; warning?: boolean }) {
+  return <div className={`meter ${warning ? "warning" : ""} ${value === null ? "unavailable" : ""}`}><div><span>{label}</span><b>{detail}</b></div><div className="meter-track"><i style={{ width: value === null ? "0%" : `${Math.max(0, Math.min(100, value))}%` }} /></div></div>;
 }
 
 function DistributionChart({ objects, theme }: { objects: State["objects"]; theme: Theme }) {
@@ -48,10 +51,13 @@ export default function Cockpit() {
   const [error, setError] = useState("");
   const [help, setHelp] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [investigationId, setInvestigationId] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState(0);
   const feedRef = useRef<HTMLDivElement>(null);
 
   const refresh = async () => { const response = await fetch("/api/state", { cache: "no-store" }); setState(await response.json()); };
   useEffect(() => { refresh().catch((reason) => setError(String(reason))); }, []);
+  useEffect(() => { if (!active) return; const started = Date.now(); const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000); return () => window.clearInterval(timer); }, [active]);
   useEffect(() => { const key = (event: KeyboardEvent) => { if (event.key === "?") setHelp((value) => !value); if (event.key === "Escape") { setHelp(false); setMenu(false); } }; window.addEventListener("keydown", key); return () => window.removeEventListener("keydown", key); }, []);
 
   const mode = state?.modes.find((item) => item.name === state.character) ?? state?.modes[0];
@@ -59,7 +65,7 @@ export default function Cockpit() {
   const style = { "--line": theme.border_color, "--accent": theme.accent_color, "--heading": theme.heading_color, "--ink": theme.text_color, "--dim": theme.dim_color } as CSSProperties;
   const dossier = state?.dossier_slots.filter((slot) => slot.status === "filled").length ?? 0;
   const dossierProgress = state?.dossier_slots.filter((slot) => slot.status === "filled" || slot.status === "partial").length ?? 0;
-  const availableSources = Object.keys(state?.briefings ?? {}).length;
+  const configuredSources = state?.instruments.sources.configured ?? 0;
 
   async function switchMode(name: string) {
     const response = await fetch("/api/mode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
@@ -72,13 +78,25 @@ export default function Cockpit() {
     event.preventDefault(); const value = target.trim(); if (!value || !state) return;
     setError(""); setActive(true);
     try {
-      const planResponse = await fetch(`/api/plan?target=${encodeURIComponent(value)}`, { cache: "no-store" });
-      const plan = await planResponse.json(); if (!planResponse.ok) throw new Error(plan.error ?? "Unable to plan investigation");
-      setFeed(plan.events); requestAnimationFrame(() => feedRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
       const response = await fetch("/api/investigate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target: value }) });
-      const result = await response.json(); if (!response.ok) throw new Error(result.error ?? "Investigation failed");
-      setFeed(result.events); await refresh(); requestAnimationFrame(() => feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: "smooth" }));
-    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); } finally { setActive(false); }
+      const result = await response.json() as InvestigationSnapshot & { error?: string }; if (!response.ok) throw new Error(result.error ?? "Investigation failed");
+      setInvestigationId(result.investigation_id); setFeed(result.events); requestAnimationFrame(() => feedRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+      let cursor = result.cursor; let lifecycle = result.lifecycle;
+      while (!["succeeded", "empty", "failed", "cancelled"].includes(lifecycle)) {
+        await new Promise((resolve) => window.setTimeout(resolve, 350));
+        const eventResponse = await fetch(`/api/investigations/${result.investigation_id}/events?cursor=${cursor}`, { cache: "no-store" });
+        const update = await eventResponse.json() as InvestigationSnapshot & { error?: string }; if (!eventResponse.ok) throw new Error(update.error ?? "Investigation stream failed");
+        if (update.events.length) setFeed((current) => [...current, ...update.events]);
+        cursor = update.cursor; lifecycle = update.lifecycle;
+      }
+      await refresh(); requestAnimationFrame(() => feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: "smooth" }));
+    } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); } finally { setActive(false); setInvestigationId(null); }
+  }
+
+  async function cancelInvestigation() {
+    if (!investigationId) return;
+    const response = await fetch(`/api/investigations/${investigationId}/cancel`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    if (!response.ok) setError("Cancellation could not be acknowledged");
   }
 
   function go(id: typeof paneIds[number]) { document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" }); }
@@ -94,20 +112,20 @@ export default function Cockpit() {
 
     <section className="voice-strip"><b>{state?.character?.replaceAll("_", " ").toUpperCase() ?? "DEFAULT"}</b><span>{mode?.greeting || "Cockpit link established."}</span><i>{mode?.pursuit_title ?? "THE HUNT"}</i></section>
 
-    <section className="command-rail"><form onSubmit={investigate}><span className="prompt">glass://acquire</span><input value={target} onChange={(event) => setTarget(event.target.value)} placeholder="domain, IP, URL, email, or hash" aria-label="Investigation target"/><button disabled={active}>{active ? "TRACKING…" : "ACQUIRE"}</button></form>{error && <div className="error">⚠ FAULT · {error}</div>}</section>
+    <section className="command-rail"><form onSubmit={investigate}><span className="prompt">glass://acquire</span><input value={target} onChange={(event) => setTarget(event.target.value)} placeholder="domain, IP, URL, email, or hash" aria-label="Investigation target"/><button disabled={active}>{active ? `TRACKING ${elapsed}s` : "ACQUIRE"}</button>{active && <button type="button" className="cancel" onClick={cancelInvestigation}>CANCEL</button>}</form>{error && <div className="error">⚠ FAULT · {error}</div>}</section>
 
     <section className="telemetry-rack" id="systems">
-      <Meter label="REACTOR / LOCAL API" value={100} detail="100%" />
+      <Meter label="REACTOR / LOCAL API" value={state?.instruments.local_api.available ? 100 : 0} detail={state?.instruments.local_api.available ? "AVAILABLE" : "UNAVAILABLE"} />
       <Meter label="DOSSIER CELLS" value={(dossierProgress / 9) * 100} detail={`${dossier} FILLED`} warning={dossier >= 8} />
-      <Meter label="PROBE BAY" value={Math.min(100, availableSources * 7)} detail={`${availableSources} SOURCES`} />
-      <Meter label="TOKEN CORE" value={active ? 35 : 0} detail={active ? "ENGAGED" : "STANDBY"} />
-      <div className="damage"><span>HULL / WEAR</span><b className={error ? "danger" : "ok-text"}>{error ? "ALERT" : "NOMINAL"}</b><small>{error ? "RECOVERY CARD ACTIVE" : "NO STRUCTURAL FAULTS"}</small></div>
+      <Meter label="PROBE BAY" value={null} detail={`${configuredSources} CONFIGURED`} />
+      <Meter label="TOKEN CORE" value={state?.instruments.model_tokens.available ? 100 : null} detail={state?.instruments.model_tokens.available ? `${state.instruments.model_tokens.used ?? 0} USED` : "NOT ENGAGED"} />
+      <div className="damage"><span>INVESTIGATION STATE</span><b className={error ? "danger" : active ? "caution" : "ok-text"}>{error ? "FAULT" : active ? "RUNNING" : "IDLE"}</b><small>{error ? "SEE MASTER CAUTION" : active ? `${elapsed}s ELAPSED · EVENT STREAM LIVE` : "NO ACTIVE INVESTIGATION"}</small></div>
     </section>
 
     <section className="cockpit-grid">
       <article className="panel feed-panel" id="intelligence"><div className="panel-title"><span>{mode?.cockpit.left_rail} {mode?.pursuit_title} // INTELLIGENCE</span><small>{feed.length} EVENTS · SCROLL ACTIVE</small></div><div className="feed" ref={feedRef} tabIndex={0} aria-label="Scrollable intelligence feed">
         {feed.length === 0 && <div className="standby"><div className="reticle"><i/><i/><i/></div><b>AWAITING TARGET LOCK</b><span>Evidence, retrieval briefings, and justified pivots will appear here.</span></div>}
-        {feed.map((item, index) => <section className={`event ${item.kind}`} key={`${item.tool}-${item.kind}-${index}`}><div className="event-head"><b>{item.kind.toUpperCase()}</b><span>{item.source}</span></div>{item.briefing && <><p><label>GATHER</label>{item.briefing.artifacts}</p><p><label>WHY</label>{item.briefing.purpose}</p><p><label>WATCH</label>{item.briefing.watch_for}</p><small>Retrieval goal—not an observed finding.</small></>}{item.summary && <pre>{item.summary}</pre>}</section>)}
+        {feed.map((item) => <section className={`event ${item.content_class} state-${item.lifecycle}`} key={item.event_id}><div className="event-head"><b>{item.lifecycle.toUpperCase()}</b><span>{item.source ?? item.event_class}</span></div>{item.tool && <small>{item.tool} · event {item.sequence}</small>}{item.briefing && <><p><label>GATHER</label>{item.briefing.artifacts}</p><p><label>WHY</label>{item.briefing.purpose}</p><p><label>WATCH</label>{item.briefing.watch_for}</p><small>Retrieval goal—not an observed finding.</small></>}{item.summary && <pre>{item.summary}</pre>}{item.reason && <p><label>STATE</label>{item.reason}</p>}</section>)}
       </div></article>
 
       <aside className="right-stack">

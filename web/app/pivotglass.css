@@ -43,11 +43,12 @@ to{top:100vh}
 .voice-strip span{color:var(--ink)}
 .command-rail,.panel,.telemetry-rack{border:1px solid color-mix(in srgb,var(--line) 55%,transparent);background:rgba(3,9,13,.9);box-shadow:inset 0 0 30px #0008,0 12px 40px #0008}
 .command-rail{padding:9px 13px}
-.command-rail form{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px}
+.command-rail form{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:14px}
 .prompt{color:var(--accent);font-size:11px}
 .command-rail input{width:100%;border:0;outline:0;background:transparent;color:#fff;font-size:14px}
 .command-rail button{border:1px solid var(--line);background:color-mix(in srgb,var(--line) 16%,#020508);color:var(--heading);padding:8px 18px;letter-spacing:.12em;cursor:pointer}
 .command-rail button:disabled{opacity:.5}
+.command-rail button.cancel{color:#ffbf3f;border-color:#ffbf3f}
 .error{color:#ff6077;padding-top:7px;font-size:11px}
 .telemetry-rack{display:grid;grid-template-columns:repeat(4,1fr) 1.1fr;gap:1px;padding:5px;background:color-mix(in srgb,var(--line) 12%,#020508)}
 .meter,.damage{padding:7px 10px;background:#03090d}
@@ -57,10 +58,13 @@ to{top:100vh}
 .meter-track{height:5px;margin-top:7px;background:#101a1e;border:1px solid color-mix(in srgb,var(--line) 30%,transparent)}
 .meter-track i{display:block;height:100%;background:var(--accent);box-shadow:0 0 8px var(--accent);transition:width .4s}
 .meter.warning .meter-track i{background:#ffbf3f}
+.meter.unavailable .meter-track{border-style:dashed}
+.meter.unavailable b{color:var(--dim)}
 .damage{display:grid;grid-template-columns:1fr auto;gap:4px;font-size:9px}
 .damage small{grid-column:1/-1;color:var(--dim)}
 .ok-text{color:var(--accent)}
 .danger{color:#ff6077}
+.caution{color:#ffbf3f}
 .cockpit-grid{flex:1;min-height:560px;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(350px,.75fr);gap:10px}
 .panel{position:relative;min-height:0}
 .panel::before,.panel::after{content:"";position:absolute;z-index:2;width:28px;height:8px;top:-1px;border-top:2px solid var(--heading)}
@@ -123,7 +127,7 @@ footer{color:var(--dim);font-size:9px;letter-spacing:.12em;padding:0 2px}
 @media(max-width:650px){.masthead{align-items:flex-start}
 .brand h1{font-size:21px}
 .brand .eyebrow,.brand small,.help-button{display:none}
-.command-rail form{grid-template-columns:1fr auto}
+.command-rail form{grid-template-columns:1fr auto auto}
 .prompt{grid-column:1/-1}
 .voice-strip i{display:none}
 .telemetry-rack{grid-template-columns:1fr}

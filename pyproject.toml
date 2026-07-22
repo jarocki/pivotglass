@@ -1,6 +1,6 @@
 [project]
 name = "adversary-pursuit"
-version = "0.4.1"
+version = "0.4.2"
 requires-python = ">=3.12"
 description = "Gamified framework for hunting, pivoting, and discovery of adversary infrastructure, indicators, and TTPs"
 readme = "README.md"

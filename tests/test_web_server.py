@@ -1,5 +1,6 @@
 """Tests for the loopback Pivotglass API adapter."""
 
+import time
 from unittest.mock import patch
 
 import pytest
@@ -73,3 +74,46 @@ def test_plan_payload_teaches_only_applicable_services(tmp_path):
 
     assert [event["tool"] for event in plan["events"]] == ["passivetotal_lookup"]
     assert "without querying DNS" in plan["events"][0]["briefing"]["purpose"]
+
+
+def test_async_investigation_streams_lifecycle_events(tmp_path):
+    service = _service(tmp_path)
+    battery = type("Battery", (), {"tools": ("virustotal_lookup",)})()
+    with (
+        patch("adversary_pursuit.web.server.dispatch_batteries", return_value=[battery]),
+        patch(
+            "adversary_pursuit.web.server.execute_tool",
+            return_value=("No new service artifacts", None, [], []),
+        ),
+    ):
+        started = service.start_investigation("198.51.100.10")
+        cursor = 0
+        observed = []
+        snapshot = started
+        for _ in range(100):
+            snapshot = service.investigation_events(started["investigation_id"], cursor)
+            cursor = snapshot["cursor"]
+            observed.extend(snapshot["events"])
+            if snapshot["lifecycle"] in {"succeeded", "empty", "failed", "cancelled"}:
+                break
+            time.sleep(0.01)
+
+    assert snapshot["lifecycle"] == "empty"
+    assert {event["lifecycle"] for event in observed} >= {
+        "planned",
+        "queued",
+        "running",
+        "empty",
+    }
+    assert observed[-1]["reason"] == "no new artifacts stored"
+
+
+def test_state_labels_instrument_authorities_truthfully(tmp_path):
+    instruments = _service(tmp_path).state()["instruments"]
+
+    assert instruments["local_api"]["available"] is True
+    assert instruments["sources"]["configured"] > 0
+    assert instruments["model_tokens"] == {
+        "available": False,
+        "reason": "no synthesis requested",
+    }
