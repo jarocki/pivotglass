@@ -23,6 +23,31 @@ type AlertState = { alerts: AlertEvent[]; unread_count: number; highest_unread: 
 
 const paneIds = ["intelligence", "dossier", "artifact-field", "systems"] as const;
 
+const musicPalettes: Record<string, { notes: number[]; wave: OscillatorType; tempo: number }> = {
+  default: { notes: [110, 164.81, 220], wave: "sine", tempo: 1600 },
+  ninja: { notes: [73.42, 110, 146.83], wave: "sine", tempo: 2400 },
+  full_troll: { notes: [110, 220, 329.63], wave: "square", tempo: 520 },
+  bureaucrat: { notes: [98, 123.47, 146.83], wave: "triangle", tempo: 1800 },
+  strategist: { notes: [82.41, 123.47, 164.81], wave: "triangle", tempo: 2100 },
+  sensei: { notes: [110, 146.83, 196], wave: "triangle", tempo: 1200 },
+  detective: { notes: [73.42, 92.5, 110], wave: "sine", tempo: 1900 },
+  the_computer: { notes: [65.41, 130.81, 261.63], wave: "sine", tempo: 2000 },
+  the_sprawl: { notes: [55, 82.41, 123.47], wave: "sawtooth", tempo: 1350 },
+  m4tr1x: { notes: [73.42, 146.83, 220], wave: "sine", tempo: 900 },
+};
+
+function AmbientEnvironment({ character }: { character: string }) {
+  return <div className="ambient-environment" aria-hidden="true">
+    <div className="code-rain">{Array.from({ length: 16 }, (_, index) => <i key={index}>{`${(index * 1103515245 + 12345).toString(2)} ﾊﾝﾄ 01`}</i>)}</div>
+    <div className="white-rabbit">◢◤</div>
+    <div className="sprawl-grid" />
+    <div className="pixel-arena"><i className="fighter fighter-a">▟</i><i className="fighter fighter-b">▙</i></div>
+    <div className="detective-rain" />
+    <div className="computer-lens"><i /></div>
+    <div className="theme-sigil">{character.replaceAll("_", " ")}</div>
+  </div>;
+}
+
 function Meter({ label, value, detail, warning = false }: { label: string; value: number | null; detail: string; warning?: boolean }) {
   return <div className={`meter ${warning ? "warning" : ""} ${value === null ? "unavailable" : ""}`}><div><span>{label}</span><b>{detail}</b></div><div className="meter-track"><i style={{ width: value === null ? "0%" : `${Math.max(0, Math.min(100, value))}%` }} /></div></div>;
 }
@@ -65,6 +90,9 @@ export default function Cockpit() {
   const [paletteQuery, setPaletteQuery] = useState("");
   const [effects, setEffects] = useState<"full" | "reduced" | "off">("full");
   const [narration, setNarration] = useState<"full" | "brief" | "off">("full");
+  const [music, setMusic] = useState(false);
+  const [musicVolume, setMusicVolume] = useState(18);
+  const audioRef = useRef<{ context: AudioContext; gain: GainNode; timer: number; step: number } | null>(null);
   const detailOrigin = useRef<HTMLElement | null>(null);
   const dialogRef = useRef<HTMLElement | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
@@ -72,7 +100,9 @@ export default function Cockpit() {
   const refresh = async () => { const response = await fetch("/api/state", { cache: "no-store" }); setState(await response.json()); };
   const refreshAlerts = async () => { const response = await fetch("/api/alerts", { cache: "no-store" }); if (response.ok) setAlerts(await response.json()); };
   useEffect(() => { Promise.all([refresh(), refreshAlerts()]).catch((reason) => setError(String(reason))); }, []);
-  useEffect(() => { const storedEffects = window.localStorage.getItem("pivotglass.effects"); const storedNarration = window.localStorage.getItem("pivotglass.narration"); if (storedEffects === "full" || storedEffects === "reduced" || storedEffects === "off") setEffects(storedEffects); if (storedNarration === "full" || storedNarration === "brief" || storedNarration === "off") setNarration(storedNarration); }, []);
+  useEffect(() => { const storedEffects = window.localStorage.getItem("pivotglass.effects"); const storedNarration = window.localStorage.getItem("pivotglass.narration"); const storedMusicVolume = window.localStorage.getItem("pivotglass.music.volume"); const storedVolume = Number(storedMusicVolume); if (storedEffects === "full" || storedEffects === "reduced" || storedEffects === "off") setEffects(storedEffects); if (storedNarration === "full" || storedNarration === "brief" || storedNarration === "off") setNarration(storedNarration); if (storedMusicVolume !== null && Number.isFinite(storedVolume) && storedVolume >= 0 && storedVolume <= 100) setMusicVolume(storedVolume); }, []);
+  useEffect(() => { if (audioRef.current) audioRef.current.gain.gain.setTargetAtTime(musicVolume / 1000, audioRef.current.context.currentTime, 0.08); window.localStorage.setItem("pivotglass.music.volume", String(musicVolume)); }, [musicVolume]);
+  useEffect(() => () => stopMusic(), []);
   useEffect(() => { if (!active) return; const started = Date.now(); const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000); return () => window.clearInterval(timer); }, [active]);
   useEffect(() => { const key = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setPalette(true); } else if (event.key === "/" && !(event.target instanceof HTMLInputElement)) { event.preventDefault(); setPalette(true); } else if (event.key === "?") setHelp((value) => !value); if (event.key === "Escape") { if (detail) closeDetail(); setPalette(false); setHelp(false); setMenu(false); setAlertsOpen(false); } }; window.addEventListener("keydown", key); return () => window.removeEventListener("keydown", key); });
   useEffect(() => { const restore = () => { if (!window.location.hash.startsWith("#evidence=")) { setDetail(null); requestAnimationFrame(() => detailOrigin.current?.focus()); } const pane = new URL(window.location.href).searchParams.get("pane"); if (pane && paneIds.includes(pane as typeof paneIds[number])) document.getElementById(pane)?.scrollIntoView({ behavior: "auto", block: "center" }); }; restore(); window.addEventListener("popstate", restore); return () => window.removeEventListener("popstate", restore); }, []);
@@ -86,6 +116,7 @@ export default function Cockpit() {
   const configuredSources = state?.instruments.sources.configured ?? 0;
 
   async function switchMode(name: string) {
+    if (music) stopMusic();
     const response = await fetch("/api/mode", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
     const result = await response.json();
     if (!response.ok) { setError(result.error ?? "Mode switch failed"); return; }
@@ -146,6 +177,39 @@ export default function Cockpit() {
   function setEffectsPreference(value: "full" | "reduced" | "off") { setEffects(value); window.localStorage.setItem("pivotglass.effects", value); }
   function setNarrationPreference(value: "full" | "brief" | "off") { setNarration(value); window.localStorage.setItem("pivotglass.narration", value); }
 
+  function stopMusic() {
+    const engine = audioRef.current;
+    if (!engine) return;
+    window.clearInterval(engine.timer);
+    engine.gain.gain.setTargetAtTime(0, engine.context.currentTime, 0.03);
+    window.setTimeout(() => void engine.context.close(), 120);
+    audioRef.current = null;
+    setMusic(false);
+  }
+
+  function startMusic() {
+    if (audioRef.current) return;
+    const context = new AudioContext();
+    const gain = context.createGain();
+    gain.gain.value = musicVolume / 1000;
+    gain.connect(context.destination);
+    const palette = musicPalettes[state?.character ?? "default"] ?? musicPalettes.default;
+    const engine = { context, gain, timer: 0, step: 0 };
+    const pulse = () => {
+      const oscillator = context.createOscillator();
+      const envelope = context.createGain();
+      oscillator.type = palette.wave;
+      oscillator.frequency.value = palette.notes[engine.step++ % palette.notes.length];
+      envelope.gain.setValueAtTime(0, context.currentTime);
+      envelope.gain.linearRampToValueAtTime(0.32, context.currentTime + 0.08);
+      envelope.gain.exponentialRampToValueAtTime(0.001, context.currentTime + Math.min(1.8, palette.tempo / 700));
+      oscillator.connect(envelope); envelope.connect(gain); oscillator.start(); oscillator.stop(context.currentTime + 2);
+    };
+    pulse(); engine.timer = window.setInterval(pulse, palette.tempo); audioRef.current = engine; setMusic(true);
+  }
+
+  function toggleMusic() { if (music) stopMusic(); else startMusic(); }
+
   const paletteCommands = [
     ...paneIds.map((id) => ({ label: `Go to ${id.replace("-", " ")}`, run: () => go(id) })),
     { label: "Open operator help", run: () => setHelp(true) },
@@ -153,15 +217,17 @@ export default function Cockpit() {
     { label: "Mute visual effects", run: () => setEffectsPreference("off") },
     { label: "Reduce visual effects", run: () => setEffectsPreference("reduced") },
     { label: "Enable full visual effects", run: () => setEffectsPreference("full") },
+    { label: music ? "Mute generative music" : "Enable generative music", run: toggleMusic },
   ].filter((command) => command.label.toLowerCase().includes(paletteQuery.toLowerCase()));
 
   return <main style={style} className={`mode-${state?.character ?? "default"} effects-${effects} narration-${narration}`}>
+    <AmbientEnvironment character={state?.character ?? "default"} />
     <div className="scanline" />
     <header className="masthead">
       <button className="menu-button" onClick={() => setMenu(!menu)} aria-expanded={menu}>☰ <span>DECK</span></button>
       <div className="brand"><span className="eyebrow">{mode?.cockpit.deck_name ?? "HUNT CONTROL"} // LOCAL INTELLIGENCE SYSTEM</span><h1>PIVOTGLASS</h1><small>{mode?.cockpit.vehicle ?? "AP-01 PURSUIT DECK"}</small></div>
       <div className="status-cluster"><span className="lamp ok" /><span className={`lamp ${active ? "hot" : ""}`} /><span className={active ? "system-state pulse" : "system-state"}>{active ? "HUNT ACTIVE" : "SYSTEM READY"}</span>{reviewingHistory && alerts.unread_count > 0 && <button className="unread-badge" onClick={() => setAlertsOpen(true)}>{alerts.highest_unread.toUpperCase()} · {alerts.unread_count} UNREAD</button>}<button className="help-button" onClick={() => setHelp(true)}>HELP ?</button></div>
-      {menu && <nav className="deck-menu" aria-label="Cockpit navigation">{paneIds.map((id) => <button key={id} onClick={() => { go(id); setMenu(false); }}>{id.replace("-", " ")}</button>)}<hr/><label>VISUAL EFFECTS</label><div className="segmented">{(["full", "reduced", "off"] as const).map((value) => <button className={effects === value ? "selected" : ""} key={value} onClick={() => setEffectsPreference(value)}>{value}</button>)}</div><label>NARRATION</label><div className="segmented">{(["full", "brief", "off"] as const).map((value) => <button className={narration === value ? "selected" : ""} key={value} onClick={() => setNarrationPreference(value)}>{value}</button>)}</div><hr/><label>CHARACTER VOICE</label>{state?.modes.map((item) => <button className={item.name === state.character ? "selected" : ""} key={item.name} onClick={() => switchMode(item.name)}><b>{item.name.replaceAll("_", " ")}</b><small>{item.personality}</small></button>)}</nav>}
+      {menu && <nav className="deck-menu" aria-label="Cockpit navigation">{paneIds.map((id) => <button key={id} onClick={() => { go(id); setMenu(false); }}>{id.replace("-", " ")}</button>)}<hr/><label>VISUAL EFFECTS</label><div className="segmented">{(["full", "reduced", "off"] as const).map((value) => <button className={effects === value ? "selected" : ""} key={value} onClick={() => setEffectsPreference(value)}>{value}</button>)}</div><label>NARRATION</label><div className="segmented">{(["full", "brief", "off"] as const).map((value) => <button className={narration === value ? "selected" : ""} key={value} onClick={() => setNarrationPreference(value)}>{value}</button>)}</div><label>GENERATIVE MUSIC · OFF BY DEFAULT</label><button className={music ? "selected" : ""} onClick={toggleMusic}>{music ? "MUTE MUSIC" : "ENABLE MUSIC"}</button><input type="range" min="0" max="100" value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))} aria-label="Music volume"/><hr/><label>CHARACTER VOICE</label>{state?.modes.map((item) => <button className={item.name === state.character ? "selected" : ""} key={item.name} onClick={() => switchMode(item.name)}><b>{item.name.replaceAll("_", " ")}</b><small>{item.personality}</small></button>)}</nav>}
     </header>
 
     <nav className="pane-switcher" aria-label="Primary cockpit panes">{paneIds.map((id) => <button key={id} onClick={() => go(id)}>{id.replace("-", " ")}</button>)}<button onClick={() => setPalette(true)}>COMMANDS ⌘K</button></nav>

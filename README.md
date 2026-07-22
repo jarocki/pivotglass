@@ -53,6 +53,11 @@ session remains interactive until an explicit `clear`; use `find <text>` to
 locate a transcript entry, `open <ev-id>` to inspect stored evidence, and
 `back` to return to the exact previous reading position.
 
+Both interfaces provide opt-in local generative atmosphere with visible mute
+state and volume control. Pivotglass exposes it in DECK; the TUI uses Alt-M as
+an immediate mute toggle. Sound begins muted, carries no analytical meaning,
+and requires no stream, account, downloaded recording, or network request.
+
 Each mode selects a cockpit, not only a palette: The Computer operates a logic
 core, Detective works a rain-soaked caseboard, The Sprawl uses a perspective
 grid, M4TR1X runs an operator construct, and the other archetypes have equally
@@ -82,10 +87,10 @@ cd web && npm ci && npm run build && cd ..
 uv run ap
 ```
 
-To install the v0.4.7 wheel directly:
+To install the v0.4.8 wheel directly:
 
 ```bash
-python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.4.7/adversary_pursuit-0.4.7-py3-none-any.whl"
+python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.4.8/adversary_pursuit-0.4.8-py3-none-any.whl"
 ap
 ```
 

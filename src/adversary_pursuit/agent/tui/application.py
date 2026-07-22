@@ -65,6 +65,7 @@ from adversary_pursuit.agent.tui.themes import (  # character theme dispatch
     theme_for,
 )
 from adversary_pursuit.core.evidence_detail import evidence_ref, project_evidence
+from adversary_pursuit.core.music import ProceduralMusicController
 
 
 class NotATTYError(RuntimeError):
@@ -126,6 +127,7 @@ DECK
   open <ev-id>     Inspect stored evidence details
   back             Return to the prior transcript position
   find <text>      Search the complete session transcript
+  Alt-M            Toggle local generative atmosphere
 
 KEYS
 
@@ -218,6 +220,7 @@ class TuiApplication:
 
         # Live pane — subscribes to all event types on construction
         mode_name = mode_mgr.active.name if mode_mgr is not None else "default"
+        self._music = ProceduralMusicController(Path.home() / ".ap" / "audio", mode_name)
         model_display = self._resolve_model_display()
         self._live_pane = LivePane(
             bus=event_bus,
@@ -364,6 +367,17 @@ class TuiApplication:
         def _newest(event) -> None:  # type: ignore[no-untyped-def]
             self._scroll_offset = 0
             self._unread_attention = 0
+            event.app.invalidate()
+
+        @kb.add("escape", "m")
+        def _toggle_music(event) -> None:  # type: ignore[no-untyped-def]
+            mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
+            self._music.set_mode(mode_name)
+            status = self._music.toggle_mute()
+            if not status.available:
+                self.emit_scrollback(f"MUSIC UNAVAILABLE · {status.reason}")
+            else:
+                self.emit_scrollback("MUSIC LIVE · Alt-M to mute" if status.enabled else "MUSIC MUTED")
             event.app.invalidate()
 
         help_closed = Condition(lambda: not self._help_visible)
@@ -557,13 +571,14 @@ class TuiApplication:
         if self._unread_attention:
             feed_state += f" !{self._unread_attention}"
         active = "ACTIVE" if state["active"] else "STANDBY"
+        music_state = "♪ LIVE" if self._music.status.enabled else "♪ MUTED"
         rows = [
             f"{profile.left_rail} {profile.hud_title} {profile.right_rail}",
             f"LOCK   {str(state['target'])[:23]}",
             f"CLASS  {str(state['target_type'])[:23]}",
             f"PROBE  {str(state['activity'])[:17]}  q:{state['queued']}",
             f"DOSSIER {state['slots']}/9   FEED {feed_state}",
-            f"{active}   [ older · ] newer",
+            f"{active}  {music_state}  [ older · ] newer",
         ]
         parts: list[tuple[str, str]] = []
         for index, row in enumerate(rows):
@@ -1081,6 +1096,7 @@ class TuiApplication:
             self._app.run()
         finally:
             self._stop_refresh.set()
+            self._music.stop()
             self._executor.shutdown(wait=False, cancel_futures=True)
             from adversary_pursuit.dossier.state import wire_slot_transition_bus
 

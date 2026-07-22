@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.8] — 2026-07-21
+
+### Added
+
+- Signature, code-native cockpit environments for M4TR1X, The Sprawl, Sensei,
+  Detective, and The Computer, plus quieter geometry treatments for the rest
+  of the canonical roster.
+- Local procedural atmospheric music with distinct archetype palettes,
+  explicit opt-in, volume control, visible mute state, and no network or
+  copyrighted recording dependency.
+- TUI Alt-M emergency mute and an honest unavailable state when no supported
+  local audio player exists.
+
+### Changed
+
+- Character changes now affect geometry, motion, instruments, feedback, and
+  voice rather than color alone.
+- Reduced and off effects also govern signature ambient layers; all operational
+  meaning remains available without motion or sound.
+
+### Verified
+
+- Exercised M4TR1X and The Sprawl signature layers, music enable/mute, effects
+  off, menu stacking, and a 320-pixel viewport in the production browser build.
+
 ## [0.4.7] — 2026-07-21
 
 ### Added
@@ -305,7 +330,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.7...HEAD
+[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.8...HEAD
+[0.4.8]: https://github.com/jarocki/ap/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/jarocki/ap/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/jarocki/ap/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/jarocki/ap/compare/v0.4.4...v0.4.5

@@ -4,7 +4,8 @@ html{scroll-behavior:smooth}
 body{margin:0;min-height:100vh;background:#020508}
 button,input{font:inherit}
 button:focus-visible,input:focus-visible,.feed:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-main{--line:#00d7d7;--accent:#00d700;--heading:#00d7d7;--ink:#fff;--dim:#5f5f5f;min-height:100vh;color:var(--ink);padding:16px 22px 10px;display:flex;flex-direction:column;gap:10px;background:radial-gradient(circle at 60% -10%,color-mix(in srgb,var(--line) 24%,transparent),transparent 40%),linear-gradient(135deg,#010305,#071015 55%,#010305)}
+main{--line:#00d7d7;--accent:#00d700;--heading:#00d7d7;--ink:#fff;--dim:#5f5f5f;position:relative;isolation:isolate;min-height:100vh;color:var(--ink);padding:16px 22px 10px;display:flex;flex-direction:column;gap:10px;background:radial-gradient(circle at 60% -10%,color-mix(in srgb,var(--line) 24%,transparent),transparent 40%),linear-gradient(135deg,#010305,#071015 55%,#010305)}
+main>*:not(.ambient-environment):not(.scanline){position:relative;z-index:1}
 main::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.12;background:repeating-linear-gradient(90deg,transparent 0 80px,color-mix(in srgb,var(--line) 15%,transparent) 81px),repeating-linear-gradient(0deg,transparent 0 80px,color-mix(in srgb,var(--line) 12%,transparent) 81px)}
 .scanline{position:fixed;z-index:20;left:0;right:0;height:2px;pointer-events:none;background:var(--line);opacity:.08;animation:sweep 8s linear infinite}
 @keyframes sweep{from{top:0}
@@ -12,6 +13,7 @@ to{top:100vh}
 }
 .masthead,.panel-title,footer,.voice-strip{display:flex;align-items:center;justify-content:space-between}
 .masthead{position:relative;min-height:74px;border:1px solid color-mix(in srgb,var(--line) 52%,transparent);border-width:0 0 1px;padding:0 4px 10px}
+.masthead{z-index:40!important}
 .brand{text-align:center}
 .eyebrow{color:var(--dim);letter-spacing:.24em;font-size:9px}
 .brand h1{margin:3px 0 0;font-size:29px;letter-spacing:.25em;color:var(--heading);text-shadow:0 0 24px color-mix(in srgb,var(--heading) 45%,transparent)}
@@ -41,6 +43,7 @@ to{top:100vh}
 .segmented{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px 7px 8px}
 .segmented button{border:1px solid color-mix(in srgb,var(--line) 45%,transparent);background:#02080b;color:var(--dim);padding:5px;font-size:9px;text-transform:uppercase;cursor:pointer}
 .segmented button.selected{color:var(--heading);border-color:var(--heading);background:color-mix(in srgb,var(--line) 16%,#02080b)}
+.deck-menu input[type="range"]{width:calc(100% - 14px);margin:2px 7px 10px;accent-color:var(--accent)}
 .voice-strip{border:1px solid color-mix(in srgb,var(--line) 46%,transparent);padding:7px 11px;font-size:10px;letter-spacing:.08em;background:color-mix(in srgb,var(--line) 6%,#020508)}
 .pane-switcher{display:flex;gap:5px;overflow:auto}
 .pane-switcher button{white-space:nowrap;border:1px solid color-mix(in srgb,var(--line) 45%,transparent);background:#02080b;color:var(--heading);padding:6px 9px;font-size:9px;text-transform:uppercase;cursor:pointer}
@@ -154,8 +157,32 @@ dd{margin:0;color:var(--heading);font-size:11px}
 .command-palette input{width:100%;border:1px solid var(--line);background:#020508;color:var(--ink);padding:12px;margin-bottom:7px}
 .command-palette button{display:block;width:100%;border:0;border-bottom:1px solid color-mix(in srgb,var(--line) 25%,transparent);background:transparent;color:var(--ink);padding:10px;text-align:left;cursor:pointer}
 .command-palette button:hover,.command-palette button:focus{background:color-mix(in srgb,var(--line) 17%,transparent);color:var(--heading)}
+.ambient-environment{position:fixed;z-index:0;inset:0;overflow:hidden;pointer-events:none;color:var(--line);opacity:.34}
+.code-rain,.white-rabbit,.sprawl-grid,.pixel-arena,.detective-rain,.computer-lens,.theme-sigil{display:none}
+.theme-sigil{position:absolute;right:3vw;bottom:4vh;text-transform:uppercase;letter-spacing:.45em;font-size:clamp(28px,6vw,92px);font-weight:900;opacity:.06;writing-mode:vertical-rl}
+.mode-m4tr1x .code-rain{display:flex;position:absolute;inset:-30vh 0 0;justify-content:space-around;perspective:600px;transform:rotateX(12deg)}
+.code-rain i{width:1ch;overflow-wrap:anywhere;color:#00ff5f;font:11px/1.35 monospace;opacity:.25;animation:rain 7s linear infinite}
+.code-rain i:nth-child(3n){animation-duration:11s;opacity:.14}.code-rain i:nth-child(4n){animation-delay:-5s;animation-duration:8s}
+@keyframes rain{from{transform:translateY(-45vh)}to{transform:translateY(65vh)}}
+.mode-m4tr1x .white-rabbit{display:block;position:absolute;right:8vw;bottom:12vh;color:#fff;font-size:18px;filter:drop-shadow(0 0 8px #fff);animation:rabbit 19s steps(1,end) infinite}
+@keyframes rabbit{0%,35%,100%{opacity:0;transform:translate(0,0)}36%,43%{opacity:.75;transform:translate(-8vw,-4vh)}44%,78%{opacity:0}79%,84%{opacity:.55;transform:translate(-35vw,-13vh)}}
+.mode-the_sprawl .sprawl-grid{display:block;position:absolute;left:-20vw;right:-20vw;bottom:-28vh;height:72vh;background:linear-gradient(90deg,color-mix(in srgb,var(--line) 45%,transparent) 1px,transparent 1px),linear-gradient(color-mix(in srgb,var(--line) 45%,transparent) 1px,transparent 1px);background-size:54px 34px;transform:perspective(420px) rotateX(64deg);transform-origin:center bottom;animation:grid-drive 7s linear infinite}
+@keyframes grid-drive{to{background-position:0 68px}}
+.mode-sensei .pixel-arena{display:block;position:absolute;inset:auto 0 0;height:28vh;border-top:2px solid color-mix(in srgb,var(--line) 35%,transparent);background:repeating-linear-gradient(90deg,transparent 0 31px,color-mix(in srgb,var(--line) 8%,transparent) 32px)}
+.fighter{position:absolute;bottom:18px;font-style:normal;font-size:34px;text-shadow:0 0 10px currentColor}.fighter-a{left:12%;animation:fighter-a 5s steps(5,end) infinite}.fighter-b{right:12%;color:var(--accent);transform:scaleX(-1);animation:fighter-b 5s steps(5,end) infinite}
+@keyframes fighter-a{50%{transform:translateX(6vw) rotate(-8deg)}}@keyframes fighter-b{50%{transform:translateX(-6vw) scaleX(-1) rotate(-8deg)}}
+.mode-detective .detective-rain{display:block;position:absolute;inset:-30% 0;background:repeating-linear-gradient(103deg,transparent 0 15px,color-mix(in srgb,var(--line) 12%,transparent) 16px,transparent 17px 29px);animation:noir-rain .8s linear infinite}
+@keyframes noir-rain{to{transform:translate(-20px,45px)}}
+.mode-the_computer .computer-lens{display:grid;place-items:center;position:absolute;right:5vw;top:12vh;width:34vw;height:34vw;max-width:520px;max-height:520px;border:1px solid color-mix(in srgb,var(--line) 26%,transparent);border-radius:50%;box-shadow:inset 0 0 80px color-mix(in srgb,var(--line) 22%,transparent),0 0 70px color-mix(in srgb,var(--line) 12%,transparent)}
+.computer-lens i{width:22%;height:22%;border-radius:50%;background:var(--line);box-shadow:0 0 30px var(--line),0 0 90px var(--line);animation:lens 4s ease-in-out infinite}@keyframes lens{50%{opacity:.38;transform:scale(.88)}}
+.mode-ninja .theme-sigil,.mode-full_troll .theme-sigil,.mode-bureaucrat .theme-sigil,.mode-strategist .theme-sigil,.mode-default .theme-sigil{display:block}
+.mode-m4tr1x .panel,.mode-the_sprawl .panel,.mode-detective .panel,.mode-sensei .panel,.mode-the_computer .panel{background:color-mix(in srgb,#03090d 78%,transparent);backdrop-filter:blur(.5px)}
+.mode-m4tr1x .feed-panel{box-shadow:inset 0 0 55px #001b08aa,0 12px 40px #0008}.mode-the_sprawl .feed-panel{box-shadow:inset 0 -90px 100px color-mix(in srgb,var(--line) 10%,transparent)}
+.mode-full_troll .panel{transform:skewX(-.25deg)}.mode-bureaucrat .panel{border-radius:0;box-shadow:none}.mode-strategist .cockpit-grid{perspective:1200px}.mode-strategist .feed-panel{transform:rotateY(1deg)}
 .effects-reduced .scanline,.effects-off .scanline,.effects-off .reticle{animation:none}
 .effects-off .scanline{display:none}
+.effects-off .ambient-environment{display:none}
+.effects-reduced .ambient-environment *{animation:none!important}
 .effects-off .lamp,.effects-reduced .lamp{animation:none}
 .narration-off .voice-strip span{display:none}
 .narration-brief .voice-strip span{max-width:42ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
