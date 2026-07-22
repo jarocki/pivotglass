@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-21
+
+### Added
+
+- Quality-assured Pivotglass investigation lifecycle with resumable event
+  history, stable evidence drill-down, persistent Master Caution, complete TUI
+  transcript navigation, accessible responsive cockpit navigation, canonical
+  character contracts, signature environments, and opt-in generative music.
+
+### Changed
+
+- The approved eight-package QA/UX plan now forms one consolidated release:
+  v0.4.2 through v0.4.9 remain tagged recovery points; v0.5.0 is the supported
+  quality-assured implementation.
+- Original archetypes replace direct pop-culture character names while approved
+  influences survive in restrained voice, geometry, and atmosphere.
+
+### Security
+
+- Exact local web dependencies are locked, advisory-clean, signature-verified,
+  and served without CDN code, remote fonts, analytics, or telemetry.
+
+### Verified
+
+- Full Python test and lint suites, optimized TypeScript/Next.js build, Python
+  source and wheel packaging, isolated wheel smoke install, compact and desktop
+  browser checks, npm advisories, registry signatures, and attestations.
+
 ## [0.4.9] — 2026-07-21
 
 ### Security
@@ -356,7 +384,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.9...HEAD
+[Unreleased]: https://github.com/jarocki/ap/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/jarocki/ap/compare/v0.4.9...v0.5.0
 [0.4.9]: https://github.com/jarocki/ap/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/jarocki/ap/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/jarocki/ap/compare/v0.4.6...v0.4.7

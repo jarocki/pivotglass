@@ -3,7 +3,7 @@
 
 def test_version():
     from adversary_pursuit import __version__
-    assert __version__ == "0.4.9"
+    assert __version__ == "0.5.0"
 
 
 def test_main_entry_point():
