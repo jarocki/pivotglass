@@ -390,6 +390,31 @@ def test_interesting_snippet_is_bounded_and_keeps_observed_lines():
     assert all(len(line) <= 12 for line in snippet.splitlines())
 
 
+def test_open_evidence_renders_stored_detail_without_runner_call():
+    app = _make_app()
+    app._runner.handle_input = MagicMock()
+    app._evidence_details["ev-12345678"] = {
+        "reference": "ev-12345678",
+        "stix_id": "domain-name--1234",
+        "type": "domain-name",
+        "value": "suspect.test",
+        "source_module": "osint/test",
+        "provenance": {
+            "retrieved_at": "2026-07-21T10:00:00+00:00",
+            "source_url": "https://source.test",
+            "response_sha256": "abc123",
+        },
+        "normalized": {"type": "domain-name", "value": "suspect.test"},
+    }
+
+    app._open_evidence("ev-12345678")
+
+    feed = "\n".join(app._scrollback.get_lines())
+    assert "EVIDENCE DETAIL · ev-12345678" in feed
+    assert "suspect.test" in feed
+    app._runner.handle_input.assert_not_called()
+
+
 def test_llm_selected_tool_trace_is_visible_and_provenanced():
     app = _make_app()
 

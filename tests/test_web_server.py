@@ -117,3 +117,20 @@ def test_state_labels_instrument_authorities_truthfully(tmp_path):
         "available": False,
         "reason": "no synthesis requested",
     }
+
+
+def test_evidence_detail_uses_stored_projection_and_redacts_secrets(tmp_path):
+    service = _service(tmp_path)
+    service.ctx.workspace_mgr.store_stix_objects(
+        [{"type": "domain-name", "value": "suspect.test", "api_token": "secret"}],
+        module_name="osint/test",
+        target="suspect.test",
+        source_url="https://source.test/suspect.test",
+    )
+    reference = service.state()["objects"][0]["reference"]
+
+    detail = service.evidence_detail(reference)
+
+    assert detail["value"] == "suspect.test"
+    assert detail["provenance"]["source_url"] == "https://source.test/suspect.test"
+    assert detail["raw"]["api_token"] == "[REDACTED]"

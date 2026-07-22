@@ -64,6 +64,7 @@ from adversary_pursuit.agent.tui.themes import (  # character theme dispatch
     resolved_border_color,
     theme_for,
 )
+from adversary_pursuit.core.evidence_detail import evidence_ref, project_evidence
 
 
 class NotATTYError(RuntimeError):
@@ -205,6 +206,7 @@ class TuiApplication:
         self._scrollback_window: Window | None = None
         self._help_visible = False
         self._prompt_phase = False
+        self._evidence_details: dict[str, dict] = {}
 
         # Shared scrollback buffer written by all session output paths
         self._scrollback = ScrollbackBuffer()
@@ -734,6 +736,9 @@ class TuiApplication:
         from adversary_pursuit.agent.yield_commands import parse_yield
 
         try:
+            if text.lower().startswith("open "):
+                self._open_evidence(text.split(maxsplit=1)[1].strip())
+                return
             verb = parse_repl_verb(text)
             yield_command = parse_yield(text)
             if yield_command is not None:
@@ -816,14 +821,36 @@ class TuiApplication:
                 render_briefing(tool_name, value),
             )
             self._app.invalidate()
+            workspace_mgr = getattr(self._runner.ctx, "workspace_mgr", None)
+            before_ids = {
+                str(item.get("id"))
+                for item in (workspace_mgr.get_stix_objects() if workspace_mgr is not None else [])
+                if item.get("id")
+            }
             summary, celebration, _badges, _challenges = execute_tool(
                 self._runner.ctx, tool_name, {argument_name: value}
             )
             evidence.append(f"[{tool_name}]\n{summary}")
             snippet = self._interesting_snippet(summary)
+            references: list[str] = []
+            if workspace_mgr is not None:
+                objects = workspace_mgr.get_stix_objects()
+                for item in objects:
+                    stix_id = str(item.get("id", ""))
+                    if not stix_id or stix_id in before_ids:
+                        continue
+                    reference = evidence_ref(stix_id)
+                    self._evidence_details[reference] = project_evidence(objects, stix_id)
+                    references.append(reference)
+            detail_hint = (
+                "\nDETAILS     " + " · ".join(f"open {ref}" for ref in references)
+                if references
+                else "\nDETAILS     no new stored artifact reference"
+            )
             self._append_panel(
                 f"EVIDENCE · {tool_name.upper().replace('_', ' ')}",
-                f"OBSERVED\n{snippet}\n\nPROVENANCE  {tool_name} · stored in workspace",
+                f"OBSERVED\n{snippet}\n\nPROVENANCE  {tool_name} · stored in workspace"
+                f"{detail_hint}",
             )
             if celebration:
                 self.emit_scrollback(celebration)
@@ -893,6 +920,43 @@ class TuiApplication:
             f"REF   {interp.diagnostic_id} (details retained automatically)"
         )
         self._append_panel(f"{interp.category.upper()} · RECOVERY", body)
+        self._app.invalidate()
+
+    def _open_evidence(self, identifier: str) -> None:
+        """Render stored evidence detail locally without a network or model call."""
+        detail = self._evidence_details.get(identifier)
+        if detail is None:
+            workspace_mgr = getattr(self._runner.ctx, "workspace_mgr", None)
+            if workspace_mgr is not None:
+                try:
+                    detail = project_evidence(workspace_mgr.get_stix_objects(), identifier)
+                except ValueError:
+                    detail = None
+        if detail is None:
+            self._append_panel(
+                "EVIDENCE DETAIL · UNAVAILABLE",
+                f"Unknown evidence reference: {identifier}\n"
+                "Use an `open ev-…` reference shown on an evidence card.",
+            )
+            self._app.invalidate()
+            return
+        provenance = detail["provenance"]
+        normalized = detail["normalized"]
+        normalized_lines = "\n".join(
+            f"{key}: {value}" for key, value in normalized.items()
+        )
+        body = (
+            f"STIX ID      {detail['stix_id']}\n"
+            f"TYPE         {detail['type']}\n"
+            f"VALUE        {detail['value']}\n"
+            f"SOURCE       {detail['source_module']}\n"
+            f"RETRIEVED    {provenance['retrieved_at']}\n"
+            f"SOURCE URL   {provenance['source_url']}\n"
+            f"DIGEST       {provenance['response_sha256']}\n\n"
+            f"NORMALIZED\n{normalized_lines}\n\n"
+            "DETAIL SOURCE stored workspace · no network or model call"
+        )
+        self._append_panel(f"EVIDENCE DETAIL · {detail['reference']}", body)
         self._app.invalidate()
 
     # ------------------------------------------------------------------

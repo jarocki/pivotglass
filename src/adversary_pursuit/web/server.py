@@ -27,6 +27,7 @@ from adversary_pursuit.agent.tui.themes import (
     DEFAULT_THEMES,
     PURSUIT_TITLES,
 )
+from adversary_pursuit.core.evidence_detail import list_evidence, project_evidence
 from adversary_pursuit.core.investigation import (
     ContentClass,
     EventClass,
@@ -100,7 +101,7 @@ class WebCockpitService:
         return {
             "workspace": "default",
             "stats": self.ctx.workspace_mgr.get_workspace_stats(),
-            "objects": objects,
+            "objects": list_evidence(objects),
             "briefings": {name: asdict(value) for name, value in BRIEFINGS.items()},
             "character": self.mode_mgr.active.name,
             "modes": modes,
@@ -120,6 +121,10 @@ class WebCockpitService:
         """Switch the web cockpit using the canonical character authority."""
         self.mode_mgr.switch(name)
         return self.state()
+
+    def evidence_detail(self, identifier: str) -> dict[str, Any]:
+        """Return a deterministic detail projection for stored evidence."""
+        return project_evidence(self.ctx.workspace_mgr.get_stix_objects(), identifier)
 
     def investigate(self, target: str) -> dict[str, Any]:
         """Run deterministic applicable batteries and return grounded events."""
@@ -423,6 +428,15 @@ def _handler(service: WebCockpitService, web_root: Path):
                     self._json(service.investigation_events(investigation_id, int(raw_cursor)))
                 except (ValueError, IndexError) as exc:
                     self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+                return
+            if parsed.path.startswith("/api/evidence/"):
+                try:
+                    identifier = parsed.path.removeprefix("/api/evidence/").strip()
+                    if not identifier:
+                        raise ValueError("evidence reference is required")
+                    self._json(service.evidence_detail(identifier))
+                except ValueError as exc:
+                    self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
                 return
             super().do_GET()
 

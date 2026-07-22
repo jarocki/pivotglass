@@ -8,13 +8,15 @@ Chart.register(...registerables);
 
 type Briefing = { source: string; artifacts: string; purpose: string; watch_for: string };
 type Lifecycle = "planned" | "queued" | "running" | "succeeded" | "empty" | "failed" | "skipped" | "cancelled";
-type FeedEvent = { event_id: string; sequence: number; event_class: string; severity: string; lifecycle: Lifecycle; content_class: "evidence" | "narration" | "system"; tool?: string; source?: string; briefing?: Briefing; summary?: string; reason?: string; result_count?: number; actions?: string[] };
+type FeedEvent = { event_id: string; sequence: number; event_class: string; severity: string; lifecycle: Lifecycle; content_class: "evidence" | "narration" | "system"; tool?: string; source?: string; briefing?: Briefing; summary?: string; reason?: string; result_count?: number; artifact_ids?: string[]; actions?: string[] };
 type Theme = { border_color: string; accent_color: string; heading_color: string; text_color: string; dim_color: string };
 type Cockpit = { deck_name: string; vehicle: string; hud_title: string; left_rail: string; right_rail: string };
 type Mode = { name: string; personality: string; greeting: string; pursuit_title: string; theme: Theme; cockpit: Cockpit };
 type DossierSlot = { name: string; status: "empty" | "partial" | "filled" | "deferred"; evidence_count: number };
 type Instruments = { local_api: { available: boolean; checked_at: string }; sources: { configured: number; queued: number }; model_tokens: { available: boolean; reason: string; used?: number }; active_investigations: number };
-type State = { workspace: string; stats: Record<string, number>; objects: Array<{ type?: string; value?: string }>; briefings: Record<string, Briefing>; character: string; modes: Mode[]; dossier_slots: DossierSlot[]; instruments: Instruments };
+type EvidenceCard = { reference: string; stix_id: string; type?: string; value?: string; retrieved_at?: string };
+type EvidenceDetail = { reference: string; stix_id: string; type: string; value: string; source_module: string; original_query: string; provenance: Record<string, unknown>; normalized: Record<string, unknown>; raw: Record<string, unknown>; relationships: unknown[]; dossier_contributions: unknown[]; supporting_observations: unknown[]; conflicting_observations: unknown[]; next_pivots: unknown[] };
+type State = { workspace: string; stats: Record<string, number>; objects: EvidenceCard[]; briefings: Record<string, Briefing>; character: string; modes: Mode[]; dossier_slots: DossierSlot[]; instruments: Instruments };
 type InvestigationSnapshot = { investigation_id: string; lifecycle: Lifecycle; cursor: number; events: FeedEvent[] };
 
 const paneIds = ["intelligence", "dossier", "artifact-field", "systems"] as const;
@@ -53,12 +55,15 @@ export default function Cockpit() {
   const [menu, setMenu] = useState(false);
   const [investigationId, setInvestigationId] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [detail, setDetail] = useState<EvidenceDetail | null>(null);
+  const detailOrigin = useRef<HTMLElement | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
 
   const refresh = async () => { const response = await fetch("/api/state", { cache: "no-store" }); setState(await response.json()); };
   useEffect(() => { refresh().catch((reason) => setError(String(reason))); }, []);
   useEffect(() => { if (!active) return; const started = Date.now(); const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000); return () => window.clearInterval(timer); }, [active]);
-  useEffect(() => { const key = (event: KeyboardEvent) => { if (event.key === "?") setHelp((value) => !value); if (event.key === "Escape") { setHelp(false); setMenu(false); } }; window.addEventListener("keydown", key); return () => window.removeEventListener("keydown", key); }, []);
+  useEffect(() => { const key = (event: KeyboardEvent) => { if (event.key === "?") setHelp((value) => !value); if (event.key === "Escape") { if (detail) closeDetail(); setHelp(false); setMenu(false); } }; window.addEventListener("keydown", key); return () => window.removeEventListener("keydown", key); });
+  useEffect(() => { const pop = () => { if (!window.location.hash.startsWith("#evidence=")) { setDetail(null); requestAnimationFrame(() => detailOrigin.current?.focus()); } }; window.addEventListener("popstate", pop); return () => window.removeEventListener("popstate", pop); }, []);
 
   const mode = state?.modes.find((item) => item.name === state.character) ?? state?.modes[0];
   const theme = mode?.theme ?? { border_color: "#00d7d7", accent_color: "#00d700", heading_color: "#00d7d7", text_color: "#ffffff", dim_color: "#5f5f5f" };
@@ -99,6 +104,20 @@ export default function Cockpit() {
     if (!response.ok) setError("Cancellation could not be acknowledged");
   }
 
+  async function openDetail(identifier: string, origin: HTMLElement) {
+    detailOrigin.current = origin;
+    const response = await fetch(`/api/evidence/${encodeURIComponent(identifier)}`, { cache: "no-store" });
+    const result = await response.json() as EvidenceDetail & { error?: string };
+    if (!response.ok) { setError(result.error ?? "Evidence detail unavailable"); return; }
+    setDetail(result); window.history.pushState({ evidence: result.reference }, "", `#evidence=${result.reference}`);
+  }
+
+  function closeDetail() {
+    setDetail(null);
+    if (window.location.hash.startsWith("#evidence=")) window.history.back();
+    else requestAnimationFrame(() => detailOrigin.current?.focus());
+  }
+
   function go(id: typeof paneIds[number]) { document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" }); }
 
   return <main style={style} className={`mode-${state?.character ?? "default"}`}>
@@ -125,17 +144,18 @@ export default function Cockpit() {
     <section className="cockpit-grid">
       <article className="panel feed-panel" id="intelligence"><div className="panel-title"><span>{mode?.cockpit.left_rail} {mode?.pursuit_title} // INTELLIGENCE</span><small>{feed.length} EVENTS · SCROLL ACTIVE</small></div><div className="feed" ref={feedRef} tabIndex={0} aria-label="Scrollable intelligence feed">
         {feed.length === 0 && <div className="standby"><div className="reticle"><i/><i/><i/></div><b>AWAITING TARGET LOCK</b><span>Evidence, retrieval briefings, and justified pivots will appear here.</span></div>}
-        {feed.map((item) => <section className={`event ${item.content_class} state-${item.lifecycle}`} key={item.event_id}><div className="event-head"><b>{item.lifecycle.toUpperCase()}</b><span>{item.source ?? item.event_class}</span></div>{item.tool && <small>{item.tool} · event {item.sequence}</small>}{item.briefing && <><p><label>GATHER</label>{item.briefing.artifacts}</p><p><label>WHY</label>{item.briefing.purpose}</p><p><label>WATCH</label>{item.briefing.watch_for}</p><small>Retrieval goal—not an observed finding.</small></>}{item.summary && <pre>{item.summary}</pre>}{item.reason && <p><label>STATE</label>{item.reason}</p>}</section>)}
+        {feed.map((item) => <section className={`event ${item.content_class} state-${item.lifecycle}`} key={item.event_id}><div className="event-head"><b>{item.lifecycle.toUpperCase()}</b><span>{item.source ?? item.event_class}</span></div>{item.tool && <small>{item.tool} · event {item.sequence}</small>}{item.briefing && <><p><label>GATHER</label>{item.briefing.artifacts}</p><p><label>WHY</label>{item.briefing.purpose}</p><p><label>WATCH</label>{item.briefing.watch_for}</p><small>Retrieval goal—not an observed finding.</small></>}{item.summary && <pre>{item.summary}</pre>}{item.reason && <p><label>STATE</label>{item.reason}</p>}{item.artifact_ids?.map((id) => <button className="evidence-link" key={id} onClick={(event) => openDetail(id, event.currentTarget)}>OPEN EVIDENCE</button>)}</section>)}
       </div></article>
 
       <aside className="right-stack">
         <article className="panel instruments" id="dossier"><div className="panel-title"><span>{mode?.cockpit.hud_title ?? "TACTICAL HUD"}</span><small>LIVE</small></div><dl><div><dt>WORKSPACE</dt><dd>{state?.workspace ?? "—"}</dd></div><div><dt>CHARACTER</dt><dd>{state?.character ?? "—"}</dd></div><div><dt>ARTIFACTS</dt><dd>{state?.objects.length ?? 0}</dd></div><div><dt>DOSSIER</dt><dd>{dossier}/9 FILLED</dd></div><div><dt>TRANSPORT</dt><dd>LOOPBACK / VERIFIED</dd></div></dl><div className="dossier-grid" aria-label={`${dossier} of 9 dossier cells filled`}>{(state?.dossier_slots ?? Array.from({length: 9}, (_, index) => ({name: `slot ${index + 1}`, status: "empty" as const, evidence_count: 0}))).map((slot, index) => <i className={slot.status} key={slot.name} title={`${slot.name}: ${slot.status} (${slot.evidence_count} evidence)`}>{index + 1}</i>)}</div></article>
-        <article className="panel chart-panel" id="artifact-field"><div className="panel-title"><span>ARTIFACT FIELD</span><small>MICROSOFT FLINT / CHART.JS</small></div><DistributionChart objects={state?.objects ?? []} theme={theme}/></article>
+        <article className="panel chart-panel" id="artifact-field"><div className="panel-title"><span>ARTIFACT FIELD</span><small>MICROSOFT FLINT / CHART.JS</small></div><DistributionChart objects={state?.objects ?? []} theme={theme}/><div className="artifact-list">{state?.objects.slice(-5).map((item) => <button key={item.reference} onClick={(event) => openDetail(item.reference, event.currentTarget)}><b>{item.reference}</b><span>{item.type} · {item.value}</span></button>)}</div></article>
         <article className="panel alert-panel"><div className="panel-title"><span>MASTER CAUTION</span><small>{error ? "1 ALERT" : "CLEAR"}</small></div><p>{error ? error : active ? "Probe activity underway. Retrieval briefings are prospective until evidence arrives." : "All local systems nominal. Token core remains offline until synthesis is requested."}</p></article>
       </aside>
     </section>
 
     <footer><span>EVIDENCE ≠ INFERENCE</span><span>LOCALHOST · NO TELEMETRY · OPERATOR CONTROLLED</span><span>?</span></footer>
     {help && <div className="modal-backdrop" onMouseDown={() => setHelp(false)}><section className="help-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Operator help"><button className="close" onClick={() => setHelp(false)}>×</button><span className="eyebrow">PIVOTGLASS FIELD MANUAL</span><h2>OPERATOR HELP</h2><div className="help-grid"><div><b>ACQUIRE</b><p>Enter a supported indicator. Pivotglass plans deterministic API probes before gathering evidence.</p></div><div><b>NAVIGATE</b><p>Open DECK to jump between intelligence, dossier, visualization, and system panes.</p></div><div><b>CHARACTER</b><p>Select a voice in DECK. The web cockpit uses the same canonical themes and identities as the TUI.</p></div><div><b>GROUND TRUTH</b><p>PROBE cards teach retrieval intent. EVIDENCE cards report observed tool output. Neither is silently promoted to inference.</p></div></div><small>Press ? to toggle help · Esc to close · Tab to navigate controls</small></section></div>}
+    {detail && <div className="detail-backdrop" onMouseDown={closeDetail}><aside className="detail-drawer" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Evidence ${detail.reference}`}><button className="close" onClick={closeDetail}>×</button><span className="eyebrow">EVIDENCE DETAIL · STORED LOCAL DATA</span><h2>{detail.reference}</h2><dl><div><dt>STIX ID</dt><dd>{detail.stix_id}</dd></div><div><dt>TYPE</dt><dd>{detail.type}</dd></div><div><dt>VALUE</dt><dd>{detail.value}</dd></div><div><dt>SOURCE MODULE</dt><dd>{detail.source_module}</dd></div><div><dt>ORIGINAL QUERY</dt><dd>{detail.original_query}</dd></div></dl><h3>PROVENANCE</h3><pre>{JSON.stringify(detail.provenance, null, 2)}</pre><h3>NORMALIZED FIELDS</h3><pre>{JSON.stringify(detail.normalized, null, 2)}</pre><h3>DOSSIER CONTRIBUTIONS</h3><pre>{detail.dossier_contributions.length ? JSON.stringify(detail.dossier_contributions, null, 2) : "unavailable"}</pre><h3>SAFE RAW RECORD</h3><pre>{JSON.stringify(detail.raw, null, 2)}</pre><small>Opened from stored evidence. No network service or model was invoked.</small></aside></div>}
   </main>;
 }
