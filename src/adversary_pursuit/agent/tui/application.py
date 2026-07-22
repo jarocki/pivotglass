@@ -203,6 +203,7 @@ class TuiApplication:
         self._executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ap-command")
         self._chat_lock = threading.Lock()
         self._scroll_offset = 0
+        self._unread_attention = 0
         self._scrollback_window: Window | None = None
         self._help_visible = False
         self._prompt_phase = False
@@ -545,6 +546,8 @@ class TuiApplication:
         profile = cockpit_for(mode_name)
         state = self._live_pane.hud_state()
         feed_state = "LIVE" if self._scroll_offset == 0 else f"-{self._scroll_offset} lines"
+        if self._unread_attention:
+            feed_state += f" !{self._unread_attention}"
         active = "ACTIVE" if state["active"] else "STANDBY"
         rows = [
             f"{profile.left_rail} {profile.hud_title} {profile.right_rail}",
@@ -630,6 +633,8 @@ class TuiApplication:
         maximum = max(0, render_info.content_height - render_info.window_height)
         desired_from_top = round(maximum * fraction)
         self._scroll_offset = maximum - desired_from_top
+        if self._scroll_offset == 0:
+            self._unread_attention = 0
         self._app.invalidate()
 
     def _get_live_pane_formatted(self) -> FormattedText:
@@ -685,6 +690,8 @@ class TuiApplication:
     def _scroll_newer(self, lines: int = 10) -> None:
         """Move the intelligence viewport toward live evidence."""
         self._scroll_offset = max(0, self._scroll_offset - max(1, lines))
+        if self._scroll_offset == 0:
+            self._unread_attention = 0
 
     def _on_input_accepted(self, buffer: Buffer) -> None:
         """Handle Enter key — route all input through handle_input priority chain.
@@ -988,6 +995,10 @@ class TuiApplication:
             self._scroll_offset += added
 
     def _append_panel(self, title: str, body: str) -> None:
+        if self._scroll_offset > 0 and title.startswith(
+            ("EVIDENCE", "EPIPHANY", "CONTRADICTION", "RECOVERY")
+        ):
+            self._unread_attention += 1
         self._append_feed(lambda: self._scrollback.emit_panel(title, body))
 
     def _append_rule(self, title: str = "") -> None:

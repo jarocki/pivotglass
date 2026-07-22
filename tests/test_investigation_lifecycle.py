@@ -62,3 +62,23 @@ def test_cancellation_is_acknowledged_only_while_active():
 
     store.transition(record.investigation_id, LifecycleState.CANCELLED)
     assert store.request_cancel(record.investigation_id) is False
+
+
+def test_alert_acknowledgement_preserves_attention_history():
+    store = InvestigationStore()
+    record = store.create("suspect.test", "domain-name")
+    alert = store.append(
+        record.investigation_id,
+        event_class=EventClass.SOURCE_FAULT,
+        severity="warning",
+        lifecycle=LifecycleState.FAILED,
+        content_class=ContentClass.SYSTEM,
+        reason="provider unavailable",
+    )
+
+    assert store.alerts()[0]["acknowledged"] is False
+    acknowledged = store.acknowledge_alert(alert.event_id)
+
+    assert acknowledged["acknowledged"] is True
+    assert len(store.alerts()) == 1
+    assert store.alerts()[0]["reason"] == "provider unavailable"

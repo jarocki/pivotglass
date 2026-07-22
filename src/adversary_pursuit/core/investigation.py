@@ -33,8 +33,12 @@ class LifecycleState(StrEnum):
 
 class EventClass(StrEnum):
     DISCOVERY = "discovery"
+    CORROBORATION = "corroboration"
+    CONTRADICTION = "contradiction"
+    DOSSIER_TRANSITION = "dossier_transition"
     SOURCE_FAULT = "source_fault"
     OPERATOR_ACTION = "operator_action"
+    INFERENCE = "inference"
     SYSTEM = "system"
 
 
@@ -115,6 +119,7 @@ class InvestigationStore:
     def __init__(self) -> None:
         self._lock = threading.RLock()
         self._records: dict[str, InvestigationRecord] = {}
+        self._acknowledged_alerts: set[str] = set()
 
     def create(self, target: str, target_type: str) -> InvestigationRecord:
         now = utc_now()
@@ -208,3 +213,36 @@ class InvestigationStore:
     def active_count(self) -> int:
         with self._lock:
             return sum(record.lifecycle not in TERMINAL_STATES for record in self._records.values())
+
+    def alerts(self) -> list[dict[str, Any]]:
+        """Return persistent attention records without deleting acknowledgements."""
+        attention_classes = {
+            EventClass.DISCOVERY,
+            EventClass.CORROBORATION,
+            EventClass.CONTRADICTION,
+            EventClass.DOSSIER_TRANSITION,
+            EventClass.SOURCE_FAULT,
+            EventClass.OPERATOR_ACTION,
+        }
+        with self._lock:
+            result = []
+            for record in self._records.values():
+                for event in record.events:
+                    if event.event_class not in attention_classes:
+                        continue
+                    item = event.to_dict()
+                    item["acknowledged"] = event.event_id in self._acknowledged_alerts
+                    result.append(item)
+            return result
+
+    def acknowledge_alert(self, event_id: str) -> dict[str, Any]:
+        """Acknowledge an attention record while preserving it in history."""
+        with self._lock:
+            for record in self._records.values():
+                for event in record.events:
+                    if event.event_id == event_id:
+                        self._acknowledged_alerts.add(event_id)
+                        item = event.to_dict()
+                        item["acknowledged"] = True
+                        return item
+        raise ValueError("unknown alert")

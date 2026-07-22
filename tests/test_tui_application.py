@@ -338,6 +338,20 @@ def test_new_output_preserves_historical_reading_position():
     assert app._scroll_offset == 3
 
 
+def test_important_panel_sets_unread_attention_while_reviewing_history():
+    app = _make_app()
+    app._scrollback.emit_line("old evidence")
+    app._scroll_offset = 1
+
+    app._append_panel("EVIDENCE · TEST", "new finding")
+
+    assert app._unread_attention == 1
+    assert "!1" in "".join(fragment[1] for fragment in app._get_hud_formatted())
+
+    app._scroll_newer(lines=100)
+    assert app._unread_attention == 0
+
+
 def test_new_output_keeps_following_when_feed_is_live():
     app = _make_app()
     app._scroll_offset = 0

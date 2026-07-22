@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] — 2026-07-21
+
+### Added
+
+- Persistent attention records for discoveries, corroboration, contradictions,
+  dossier transitions, source faults, and operator actions.
+- Master Caution queue with unread count, highest severity, origin navigation,
+  evidence detail actions, and non-destructive acknowledgement.
+- TUI unread-attention telemetry while an analyst reviews older history.
+
+### Changed
+
+- Source faults and contradictions now receive theme-independent semantic
+  styling rather than relying on character color alone.
+- Returning the terminal feed to live position clears its unread indicator
+  without removing any historical event.
+
 ## [0.4.3] — 2026-07-21
 
 ### Added
@@ -220,7 +237,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.4...HEAD
+[0.4.4]: https://github.com/jarocki/ap/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/jarocki/ap/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/jarocki/ap/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/jarocki/ap/compare/v0.4.0...v0.4.1

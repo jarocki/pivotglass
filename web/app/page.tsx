@@ -18,6 +18,8 @@ type EvidenceCard = { reference: string; stix_id: string; type?: string; value?:
 type EvidenceDetail = { reference: string; stix_id: string; type: string; value: string; source_module: string; original_query: string; provenance: Record<string, unknown>; normalized: Record<string, unknown>; raw: Record<string, unknown>; relationships: unknown[]; dossier_contributions: unknown[]; supporting_observations: unknown[]; conflicting_observations: unknown[]; next_pivots: unknown[] };
 type State = { workspace: string; stats: Record<string, number>; objects: EvidenceCard[]; briefings: Record<string, Briefing>; character: string; modes: Mode[]; dossier_slots: DossierSlot[]; instruments: Instruments };
 type InvestigationSnapshot = { investigation_id: string; lifecycle: Lifecycle; cursor: number; events: FeedEvent[] };
+type AlertEvent = FeedEvent & { acknowledged: boolean; investigation_id: string };
+type AlertState = { alerts: AlertEvent[]; unread_count: number; highest_unread: string };
 
 const paneIds = ["intelligence", "dossier", "artifact-field", "systems"] as const;
 
@@ -56,11 +58,15 @@ export default function Cockpit() {
   const [investigationId, setInvestigationId] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [detail, setDetail] = useState<EvidenceDetail | null>(null);
+  const [alerts, setAlerts] = useState<AlertState>({ alerts: [], unread_count: 0, highest_unread: "clear" });
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [reviewingHistory, setReviewingHistory] = useState(false);
   const detailOrigin = useRef<HTMLElement | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
 
   const refresh = async () => { const response = await fetch("/api/state", { cache: "no-store" }); setState(await response.json()); };
-  useEffect(() => { refresh().catch((reason) => setError(String(reason))); }, []);
+  const refreshAlerts = async () => { const response = await fetch("/api/alerts", { cache: "no-store" }); if (response.ok) setAlerts(await response.json()); };
+  useEffect(() => { Promise.all([refresh(), refreshAlerts()]).catch((reason) => setError(String(reason))); }, []);
   useEffect(() => { if (!active) return; const started = Date.now(); const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000); return () => window.clearInterval(timer); }, [active]);
   useEffect(() => { const key = (event: KeyboardEvent) => { if (event.key === "?") setHelp((value) => !value); if (event.key === "Escape") { if (detail) closeDetail(); setHelp(false); setMenu(false); } }; window.addEventListener("keydown", key); return () => window.removeEventListener("keydown", key); });
   useEffect(() => { const pop = () => { if (!window.location.hash.startsWith("#evidence=")) { setDetail(null); requestAnimationFrame(() => detailOrigin.current?.focus()); } }; window.addEventListener("popstate", pop); return () => window.removeEventListener("popstate", pop); }, []);
@@ -91,10 +97,10 @@ export default function Cockpit() {
         await new Promise((resolve) => window.setTimeout(resolve, 350));
         const eventResponse = await fetch(`/api/investigations/${result.investigation_id}/events?cursor=${cursor}`, { cache: "no-store" });
         const update = await eventResponse.json() as InvestigationSnapshot & { error?: string }; if (!eventResponse.ok) throw new Error(update.error ?? "Investigation stream failed");
-        if (update.events.length) setFeed((current) => [...current, ...update.events]);
+        if (update.events.length) { setFeed((current) => [...current, ...update.events]); await refreshAlerts(); }
         cursor = update.cursor; lifecycle = update.lifecycle;
       }
-      await refresh(); requestAnimationFrame(() => feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: "smooth" }));
+      await Promise.all([refresh(), refreshAlerts()]); requestAnimationFrame(() => feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: "smooth" }));
     } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); } finally { setActive(false); setInvestigationId(null); }
   }
 
@@ -118,6 +124,16 @@ export default function Cockpit() {
     else requestAnimationFrame(() => detailOrigin.current?.focus());
   }
 
+  async function acknowledge(eventId: string) {
+    const response = await fetch(`/api/alerts/${encodeURIComponent(eventId)}/acknowledge`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    if (response.ok) await refreshAlerts();
+  }
+
+  function jumpToAlert(alert: AlertEvent) {
+    setAlertsOpen(false);
+    document.getElementById(`event-${alert.event_id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
   function go(id: typeof paneIds[number]) { document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "center" }); }
 
   return <main style={style} className={`mode-${state?.character ?? "default"}`}>
@@ -125,7 +141,7 @@ export default function Cockpit() {
     <header className="masthead">
       <button className="menu-button" onClick={() => setMenu(!menu)} aria-expanded={menu}>☰ <span>DECK</span></button>
       <div className="brand"><span className="eyebrow">{mode?.cockpit.deck_name ?? "HUNT CONTROL"} // LOCAL INTELLIGENCE SYSTEM</span><h1>PIVOTGLASS</h1><small>{mode?.cockpit.vehicle ?? "AP-01 PURSUIT DECK"}</small></div>
-      <div className="status-cluster"><span className="lamp ok" /><span className={`lamp ${active ? "hot" : ""}`} /><span className={active ? "system-state pulse" : "system-state"}>{active ? "HUNT ACTIVE" : "SYSTEM READY"}</span><button className="help-button" onClick={() => setHelp(true)}>HELP ?</button></div>
+      <div className="status-cluster"><span className="lamp ok" /><span className={`lamp ${active ? "hot" : ""}`} /><span className={active ? "system-state pulse" : "system-state"}>{active ? "HUNT ACTIVE" : "SYSTEM READY"}</span>{reviewingHistory && alerts.unread_count > 0 && <button className="unread-badge" onClick={() => setAlertsOpen(true)}>{alerts.highest_unread.toUpperCase()} · {alerts.unread_count} UNREAD</button>}<button className="help-button" onClick={() => setHelp(true)}>HELP ?</button></div>
       {menu && <nav className="deck-menu" aria-label="Cockpit navigation">{paneIds.map((id) => <button key={id} onClick={() => { go(id); setMenu(false); }}>{id.replace("-", " ")}</button>)}<hr/><label>CHARACTER VOICE</label>{state?.modes.map((item) => <button className={item.name === state.character ? "selected" : ""} key={item.name} onClick={() => switchMode(item.name)}><b>{item.name.replaceAll("_", " ")}</b><small>{item.personality}</small></button>)}</nav>}
     </header>
 
@@ -142,20 +158,21 @@ export default function Cockpit() {
     </section>
 
     <section className="cockpit-grid">
-      <article className="panel feed-panel" id="intelligence"><div className="panel-title"><span>{mode?.cockpit.left_rail} {mode?.pursuit_title} // INTELLIGENCE</span><small>{feed.length} EVENTS · SCROLL ACTIVE</small></div><div className="feed" ref={feedRef} tabIndex={0} aria-label="Scrollable intelligence feed">
+      <article className="panel feed-panel" id="intelligence"><div className="panel-title"><span>{mode?.cockpit.left_rail} {mode?.pursuit_title} // INTELLIGENCE</span><small>{feed.length} EVENTS · SCROLL ACTIVE</small></div><div className="feed" ref={feedRef} tabIndex={0} aria-label="Scrollable intelligence feed" onScroll={(event) => { const node = event.currentTarget; setReviewingHistory(node.scrollHeight - node.scrollTop - node.clientHeight > 32); }}>
         {feed.length === 0 && <div className="standby"><div className="reticle"><i/><i/><i/></div><b>AWAITING TARGET LOCK</b><span>Evidence, retrieval briefings, and justified pivots will appear here.</span></div>}
-        {feed.map((item) => <section className={`event ${item.content_class} state-${item.lifecycle}`} key={item.event_id}><div className="event-head"><b>{item.lifecycle.toUpperCase()}</b><span>{item.source ?? item.event_class}</span></div>{item.tool && <small>{item.tool} · event {item.sequence}</small>}{item.briefing && <><p><label>GATHER</label>{item.briefing.artifacts}</p><p><label>WHY</label>{item.briefing.purpose}</p><p><label>WATCH</label>{item.briefing.watch_for}</p><small>Retrieval goal—not an observed finding.</small></>}{item.summary && <pre>{item.summary}</pre>}{item.reason && <p><label>STATE</label>{item.reason}</p>}{item.artifact_ids?.map((id) => <button className="evidence-link" key={id} onClick={(event) => openDetail(id, event.currentTarget)}>OPEN EVIDENCE</button>)}</section>)}
+        {feed.map((item) => <section id={`event-${item.event_id}`} className={`event ${item.content_class} state-${item.lifecycle} class-${item.event_class}`} key={item.event_id}><div className="event-head"><b>{item.lifecycle.toUpperCase()}</b><span>{item.source ?? item.event_class}</span></div>{item.tool && <small>{item.tool} · event {item.sequence}</small>}{item.briefing && <><p><label>GATHER</label>{item.briefing.artifacts}</p><p><label>WHY</label>{item.briefing.purpose}</p><p><label>WATCH</label>{item.briefing.watch_for}</p><small>Retrieval goal—not an observed finding.</small></>}{item.summary && <pre>{item.summary}</pre>}{item.reason && <p><label>STATE</label>{item.reason}</p>}{item.artifact_ids?.map((id) => <button className="evidence-link" key={id} onClick={(event) => openDetail(id, event.currentTarget)}>OPEN EVIDENCE</button>)}</section>)}
       </div></article>
 
       <aside className="right-stack">
         <article className="panel instruments" id="dossier"><div className="panel-title"><span>{mode?.cockpit.hud_title ?? "TACTICAL HUD"}</span><small>LIVE</small></div><dl><div><dt>WORKSPACE</dt><dd>{state?.workspace ?? "—"}</dd></div><div><dt>CHARACTER</dt><dd>{state?.character ?? "—"}</dd></div><div><dt>ARTIFACTS</dt><dd>{state?.objects.length ?? 0}</dd></div><div><dt>DOSSIER</dt><dd>{dossier}/9 FILLED</dd></div><div><dt>TRANSPORT</dt><dd>LOOPBACK / VERIFIED</dd></div></dl><div className="dossier-grid" aria-label={`${dossier} of 9 dossier cells filled`}>{(state?.dossier_slots ?? Array.from({length: 9}, (_, index) => ({name: `slot ${index + 1}`, status: "empty" as const, evidence_count: 0}))).map((slot, index) => <i className={slot.status} key={slot.name} title={`${slot.name}: ${slot.status} (${slot.evidence_count} evidence)`}>{index + 1}</i>)}</div></article>
         <article className="panel chart-panel" id="artifact-field"><div className="panel-title"><span>ARTIFACT FIELD</span><small>MICROSOFT FLINT / CHART.JS</small></div><DistributionChart objects={state?.objects ?? []} theme={theme}/><div className="artifact-list">{state?.objects.slice(-5).map((item) => <button key={item.reference} onClick={(event) => openDetail(item.reference, event.currentTarget)}><b>{item.reference}</b><span>{item.type} · {item.value}</span></button>)}</div></article>
-        <article className="panel alert-panel"><div className="panel-title"><span>MASTER CAUTION</span><small>{error ? "1 ALERT" : "CLEAR"}</small></div><p>{error ? error : active ? "Probe activity underway. Retrieval briefings are prospective until evidence arrives." : "All local systems nominal. Token core remains offline until synthesis is requested."}</p></article>
+        <article className="panel alert-panel"><div className="panel-title"><button onClick={() => setAlertsOpen(true)}>MASTER CAUTION</button><small>{error ? "FAULT" : alerts.unread_count ? `${alerts.unread_count} UNREAD · ${alerts.highest_unread.toUpperCase()}` : "CLEAR"}</small></div><p>{error ? error : alerts.unread_count ? "Attention records are waiting. Open Master Caution to inspect and acknowledge them." : active ? "Probe activity underway. Retrieval briefings are prospective until evidence arrives." : "No unacknowledged attention records."}</p></article>
       </aside>
     </section>
 
     <footer><span>EVIDENCE ≠ INFERENCE</span><span>LOCALHOST · NO TELEMETRY · OPERATOR CONTROLLED</span><span>?</span></footer>
     {help && <div className="modal-backdrop" onMouseDown={() => setHelp(false)}><section className="help-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Operator help"><button className="close" onClick={() => setHelp(false)}>×</button><span className="eyebrow">PIVOTGLASS FIELD MANUAL</span><h2>OPERATOR HELP</h2><div className="help-grid"><div><b>ACQUIRE</b><p>Enter a supported indicator. Pivotglass plans deterministic API probes before gathering evidence.</p></div><div><b>NAVIGATE</b><p>Open DECK to jump between intelligence, dossier, visualization, and system panes.</p></div><div><b>CHARACTER</b><p>Select a voice in DECK. The web cockpit uses the same canonical themes and identities as the TUI.</p></div><div><b>GROUND TRUTH</b><p>PROBE cards teach retrieval intent. EVIDENCE cards report observed tool output. Neither is silently promoted to inference.</p></div></div><small>Press ? to toggle help · Esc to close · Tab to navigate controls</small></section></div>}
     {detail && <div className="detail-backdrop" onMouseDown={closeDetail}><aside className="detail-drawer" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Evidence ${detail.reference}`}><button className="close" onClick={closeDetail}>×</button><span className="eyebrow">EVIDENCE DETAIL · STORED LOCAL DATA</span><h2>{detail.reference}</h2><dl><div><dt>STIX ID</dt><dd>{detail.stix_id}</dd></div><div><dt>TYPE</dt><dd>{detail.type}</dd></div><div><dt>VALUE</dt><dd>{detail.value}</dd></div><div><dt>SOURCE MODULE</dt><dd>{detail.source_module}</dd></div><div><dt>ORIGINAL QUERY</dt><dd>{detail.original_query}</dd></div></dl><h3>PROVENANCE</h3><pre>{JSON.stringify(detail.provenance, null, 2)}</pre><h3>NORMALIZED FIELDS</h3><pre>{JSON.stringify(detail.normalized, null, 2)}</pre><h3>DOSSIER CONTRIBUTIONS</h3><pre>{detail.dossier_contributions.length ? JSON.stringify(detail.dossier_contributions, null, 2) : "unavailable"}</pre><h3>SAFE RAW RECORD</h3><pre>{JSON.stringify(detail.raw, null, 2)}</pre><small>Opened from stored evidence. No network service or model was invoked.</small></aside></div>}
+    {alertsOpen && <div className="modal-backdrop" onMouseDown={() => setAlertsOpen(false)}><section className="alert-queue" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Master caution alerts"><button className="close" onClick={() => setAlertsOpen(false)}>×</button><span className="eyebrow">PERSISTENT ATTENTION RECORD</span><h2>MASTER CAUTION</h2>{alerts.alerts.length === 0 && <p>No attention records.</p>}{alerts.alerts.map((alert) => <article className={alert.acknowledged ? "acknowledged" : ""} key={alert.event_id}><header><b>{alert.event_class.replaceAll("_", " ").toUpperCase()}</b><span>{alert.severity.toUpperCase()} · {alert.acknowledged ? "ACKNOWLEDGED" : "UNREAD"}</span></header><p>{alert.summary ?? alert.reason ?? alert.source}</p><div><button onClick={() => jumpToAlert(alert)}>ORIGIN</button>{!alert.acknowledged && <button onClick={() => acknowledge(alert.event_id)}>ACKNOWLEDGE</button>}{alert.artifact_ids?.map((id) => <button key={id} onClick={(event) => openDetail(id, event.currentTarget)}>DETAILS</button>)}</div></article>)}</section></div>}
   </main>;
 }

@@ -77,10 +77,10 @@ cd web && npm ci && npm run build && cd ..
 uv run ap
 ```
 
-To install the v0.4.3 wheel directly:
+To install the v0.4.4 wheel directly:
 
 ```bash
-python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.4.3/adversary_pursuit-0.4.3-py3-none-any.whl"
+python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.4.4/adversary_pursuit-0.4.4-py3-none-any.whl"
 ap
 ```
 

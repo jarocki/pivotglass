@@ -6,6 +6,11 @@ from unittest.mock import patch
 import pytest
 
 from adversary_pursuit.agent.tools import ToolContext
+from adversary_pursuit.core.investigation import (
+    ContentClass,
+    EventClass,
+    LifecycleState,
+)
 from adversary_pursuit.web.server import WebCockpitService
 
 
@@ -134,3 +139,24 @@ def test_evidence_detail_uses_stored_projection_and_redacts_secrets(tmp_path):
     assert detail["value"] == "suspect.test"
     assert detail["provenance"]["source_url"] == "https://source.test/suspect.test"
     assert detail["raw"]["api_token"] == "[REDACTED]"
+
+
+def test_attention_records_can_be_acknowledged_without_deletion(tmp_path):
+    service = _service(tmp_path)
+    record = service.investigations.create("suspect.test", "domain-name")
+    event = service.investigations.append(
+        record.investigation_id,
+        event_class=EventClass.SOURCE_FAULT,
+        severity="warning",
+        lifecycle=LifecycleState.FAILED,
+        content_class=ContentClass.SYSTEM,
+        reason="source timed out",
+    )
+
+    assert service.alerts()["unread_count"] == 1
+    service.acknowledge_alert(event.event_id)
+    alerts = service.alerts()
+
+    assert alerts["unread_count"] == 0
+    assert len(alerts["alerts"]) == 1
+    assert alerts["alerts"][0]["acknowledged"] is True

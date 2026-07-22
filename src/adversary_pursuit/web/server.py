@@ -191,6 +191,22 @@ class WebCockpitService:
             )
         return self.investigations.snapshot(investigation_id)
 
+    def alerts(self) -> dict[str, Any]:
+        """Return all attention records plus unread summary."""
+        alerts = self.investigations.alerts()
+        unread = [item for item in alerts if not item["acknowledged"]]
+        severity_rank = {"critical": 4, "error": 3, "warning": 2, "caution": 1, "info": 0}
+        highest = max(
+            (str(item["severity"]) for item in unread),
+            key=lambda value: severity_rank.get(value, 0),
+            default="clear",
+        )
+        return {"alerts": alerts, "unread_count": len(unread), "highest_unread": highest}
+
+    def acknowledge_alert(self, event_id: str) -> dict[str, Any]:
+        """Acknowledge one attention record without deleting it."""
+        return self.investigations.acknowledge_alert(event_id)
+
     def _run_investigation(
         self,
         investigation_id: str,
@@ -438,6 +454,9 @@ def _handler(service: WebCockpitService, web_root: Path):
                 except ValueError as exc:
                     self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
                 return
+            if parsed.path == "/api/alerts":
+                self._json(service.alerts())
+                return
             super().do_GET()
 
         def do_POST(self) -> None:  # noqa: N802
@@ -448,7 +467,14 @@ def _handler(service: WebCockpitService, web_root: Path):
             is_cancel = parsed.path.startswith("/api/investigations/") and parsed.path.endswith(
                 "/cancel"
             )
-            if parsed.path not in {"/api/investigate", "/api/mode"} and not is_cancel:
+            is_ack = parsed.path.startswith("/api/alerts/") and parsed.path.endswith(
+                "/acknowledge"
+            )
+            if (
+                parsed.path not in {"/api/investigate", "/api/mode"}
+                and not is_cancel
+                and not is_ack
+            ):
                 self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
                 return
             try:
@@ -465,6 +491,12 @@ def _handler(service: WebCockpitService, web_root: Path):
                 if is_cancel:
                     investigation_id = parsed.path.split("/")[3]
                     self._json(service.cancel_investigation(investigation_id))
+                    return
+                if is_ack:
+                    event_id = parsed.path.removeprefix("/api/alerts/").removesuffix(
+                        "/acknowledge"
+                    )
+                    self._json(service.acknowledge_alert(event_id))
                     return
                 target = str(payload.get("target", "")).strip()
                 if not target:
