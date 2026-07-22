@@ -31,19 +31,17 @@ MINIFY option, and all error paths (401, 429, 404, missing key).
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
 from adversary_pursuit.modules.osint.shodan_ip import ShodanIP
-from adversary_pursuit.core.plugin_mgr import PluginManager
-
 
 # ---------------------------------------------------------------------------
 # Sample API responses

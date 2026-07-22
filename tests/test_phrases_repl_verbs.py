@@ -82,7 +82,7 @@ def test_target_set_acknowledged_has_target_placeholder(character: str):
     dispatch_repl_verb calls phrase.format(target=...) so every phrase in this
     category must be a valid format string with {target}.
     """
-    from adversary_pursuit.gamification.phrases import PHRASES, _weighted_choice
+    from adversary_pursuit.gamification.phrases import PHRASES
 
     # Check all phrases for this character (or default fallback)
     pool = PHRASES.get((character, "target_set:acknowledged")) or PHRASES.get(

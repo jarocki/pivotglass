@@ -29,14 +29,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
 from adversary_pursuit.modules.osint.hibp import HIBP
-from adversary_pursuit.core.plugin_mgr import PluginManager
-
 
 # ---------------------------------------------------------------------------
 # Sample API response data

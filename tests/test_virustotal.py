@@ -24,20 +24,17 @@ STIX field population, and error paths (401, 429, missing key).
 from __future__ import annotations
 
 import asyncio
-import hashlib
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
 from adversary_pursuit.modules.cti.virustotal import VirusTotal
-from adversary_pursuit.core.plugin_mgr import PluginManager
-
 
 # ---------------------------------------------------------------------------
 # Sample API responses (VirusTotal v3 /api/v3/{type}/{target})

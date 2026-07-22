@@ -9,7 +9,6 @@ from pathlib import Path
 from adversary_pursuit.agent.battery_registry import dispatch_batteries
 from adversary_pursuit.agent.tools import ToolContext, create_tools
 
-
 SOURCE_ROOT = Path(__file__).parents[1] / "src" / "adversary_pursuit"
 
 

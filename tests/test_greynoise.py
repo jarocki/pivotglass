@@ -23,19 +23,17 @@ paths (401, 404, 429, missing key) and SCO output structure.
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
 from adversary_pursuit.modules.osint.greynoise import GreyNoise
-from adversary_pursuit.core.plugin_mgr import PluginManager
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures and helpers

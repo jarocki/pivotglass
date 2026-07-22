@@ -1,8 +1,9 @@
 """Spike: verify cmd2 + Rich integration works."""
+import io
+
 import cmd2
 from rich.console import Console
 from rich.table import Table
-import io
 
 
 def test_rich_renders_inside_cmd2():

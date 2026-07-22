@@ -20,7 +20,6 @@ import inspect
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -86,7 +85,6 @@ class TestNoChatStyleFlag:
 
     def test_no_style_flag_in_chat_report_block(self):
         """The string '--style' does not appear in agent/chat.py."""
-        import ast
         from pathlib import Path
 
         chat_path = (

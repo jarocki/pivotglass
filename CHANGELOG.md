@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.9] — 2026-07-21
+
+### Security
+
+- Locked patched Sharp 0.35.3 across the Next.js dependency graph, clearing two
+  high-severity inherited libvips advisories.
+- Verified registry signatures for 31 locked npm packages and attestations for
+  17 packages.
+
+### Added
+
+- Cross-interface QA matrix gates for complete character presentation
+  contracts, structural first-wave differentiation, local opt-in audio, and
+  retired-mode exclusion.
+- A durable v0.4.9 QA record covering automation, browser checks, packaging,
+  accessibility, supply chain, and graceful degradation.
+
+### Changed
+
+- Cleared the repository-wide Python lint backlog without adding exclusions.
+
+### Verified
+
+- Built the Python source distribution and wheel from the declared backend.
+- Production npm advisory audit reports zero vulnerabilities.
+
 ## [0.4.8] — 2026-07-21
 
 ### Added
@@ -330,7 +356,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.8...HEAD
+[Unreleased]: https://github.com/jarocki/ap/compare/v0.4.9...HEAD
+[0.4.9]: https://github.com/jarocki/ap/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/jarocki/ap/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/jarocki/ap/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/jarocki/ap/compare/v0.4.5...v0.4.6

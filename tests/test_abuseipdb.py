@@ -24,20 +24,17 @@ plus error paths (401, 429, missing key) and optional domain SCO output.
 from __future__ import annotations
 
 import asyncio
-import json
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
 from adversary_pursuit.modules.osint.abuseipdb import AbuseIPDB
-from adversary_pursuit.core.plugin_mgr import PluginManager
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -83,7 +80,6 @@ def _make_mock_response(status_code: int, body: dict, headers: dict | None = Non
     mock_resp.headers = headers or {}
     mock_resp.json.return_value = body
     if status_code >= 400:
-        from httpx import HTTPStatusError, Request, Response
         # raise_for_status raises on 4xx/5xx
         mock_resp.raise_for_status.side_effect = None  # we handle 401/429 manually
     else:

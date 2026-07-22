@@ -37,14 +37,13 @@ from pathlib import Path
 import pytest
 import yaml
 
+from adversary_pursuit.core.console import APConsole
 from adversary_pursuit.gamification.challenges import (
     Challenge,
     ChallengeManager,
     ChallengeStatus,
     ChallengeType,
 )
-from adversary_pursuit.core.console import APConsole
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -30,7 +30,7 @@ Adversary Pursuit (AP) is a gamified framework for hunting, pivoting, and discov
 
 **Solution (v1, revised 2026-07-19):** A multi-platform Python analysis engine whose **primary user-facing interface is the locally hosted Pivotglass web cockpit** (`ap`; React/Next.js presentation over the existing deterministic authorities). The terminal AI cyberdeck remains at `ap chat` / `ap tui`, and the Metasploit-like cmd2 REPL remains at `ap basic` / `ap repl`. All surfaces share the module, workspace, evidence, scoring, and policy authorities.
 
-**Current implementation checkpoint (2026-07-21):** v0.4.8 is released. The
+**Current implementation checkpoint (2026-07-21):** v0.4.9 is released. The
 locally hosted Pivotglass web cockpit is the bare `ap` command; the terminal AI
 cyberdeck is `ap chat` / `ap tui`, and the classic console is `ap basic` / `ap repl`. The shipped
 catalog contains 14 CTI/OSINT modules, 29 LLM tools, and 14 character modes.
