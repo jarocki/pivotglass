@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Rebuilt the terminal soundtrack around declarative character scores,
+  phrase-level motif transformation, harmonic direction, counterpoint,
+  expressive synthesis, and intentional loop form while preserving local,
+  deterministic, opt-in, presentation-only playback.
+- Refined M4TR1X with an original sample-informed electronic motor, sub-bass
+  foundation, bright machine spectrum, and steady eighth-note pressure without
+  bundling or reproducing the reference recording.
+- Refined Sensei with an original spacious drone form, slow harmonic breathing,
+  bowl-like partials, grounded bass, and isolated swells derived from the
+  reference's broad emotional and spectral arc.
+- Refined The Sprawl with an original descending spectral grid, irregular
+  machine signals, obscured tonal center, and late-form noise bloom derived
+  from the reference's broad structural and timbral behavior.
+- Refined Ninja with an original 140 BPM stealth-to-impact form, clipped motif
+  cells, shadow bass, measured footstep pulse, and steep dynamic reveal derived
+  from the Apple Music reference's broad pacing and production behavior.
+- Refined The Detective with an original crooked three-beat investigation
+  pulse, dry clue cells, uneven knocks, rain atmosphere, and abrupt second-act
+  reveal derived from the reference's broad dramatic and rhythmic behavior.
+- Refined The Computer with an original dreamy cyberspace current, suspended
+  luminous harmony, star-like motif points, steady 128 BPM orbit, and restrained
+  dynamic arc derived from the reference's broad atmospheric behavior.
+- Refined Strategist with an original four-stage long-range build, measured
+  pulse, foundation bass, restrained plan motif, widening horizon harmony, and
+  final-act arrival derived from the reference's broad structural behavior.
+- Refined Default with an original open field-and-sky form, gentle 64 BPM
+  stride, seed-like motif, consonant spacing, and gradual hopeful lift derived
+  from the reference's broad emotional and registral behavior.
+- Made terminal soundtrack volume linear and peak-normalized with useful
+  headroom at maximum, and preserved the enabled/muted choice while switching
+  character themes.
+
 ## [0.5.1] — 2026-07-21
 
 ### Added

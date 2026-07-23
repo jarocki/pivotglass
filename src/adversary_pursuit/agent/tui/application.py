@@ -799,6 +799,10 @@ class TuiApplication:
                     result = self._runner.handle_input(text, status_bar=self._live_pane)
             if result:
                 self.emit_scrollback(result)
+            # A character change updates the soundtrack without changing the
+            # operator's enabled/muted choice. No-op for ordinary commands.
+            mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
+            self._music.set_mode(mode_name)
             if verb is not None and verb.name == "clear":
                 self._scroll_offset = 0
             if verb is not None and verb.name == "use":
