@@ -70,6 +70,7 @@ except ImportError:
 
 from adversary_pursuit.agent.tools import ToolContext, create_tools, execute_tool  # noqa: E402
 from adversary_pursuit.gamification.modes import CharacterMode  # noqa: E402
+from adversary_pursuit.gamification.phrases import voice_prompt_fragment  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # StatusHook protocol and NullStatusHook default
@@ -844,13 +845,16 @@ class AgentRunner:
                 f"Investigation-context hooks: {ctx_hooks}\n"
                 f"Tool voice affinity (flavor only — never selection bias): {tool_prefs}\n"
                 f"Forbidden voice patterns: {forbidden}\n\n"
+                f"{voice_prompt_fragment(mode.name, 'analytical conversation')}\n\n"
             )
             self.system_prompt = profile_fragment + self._default_system_prompt()
         else:
-            # v1 path: F62 composition verbatim — preserved byte-identical for all
-            # modes with llm_profile=None (default, ninja, and 7 not-yet-upgraded modes).
+            # Compatibility path for modes without a structured profile. The
+            # reviewed line-bank contract is still appended so every selectable
+            # character rotates flavor instead of repeating one canned line.
             self.system_prompt = (
                 f"Character mode: {mode.name}\n{mode.personality}\n\n"
+                f"{voice_prompt_fragment(mode.name, 'analytical conversation')}\n\n"
                 + self._default_system_prompt()
             )
         self.conversation[0] = {"role": "system", "content": self.system_prompt}

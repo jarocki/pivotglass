@@ -36,6 +36,8 @@ import pytest
 from adversary_pursuit.core.console import APConsole
 from adversary_pursuit.gamification.modes import (
     DEFAULT_MODES,
+    MODE_DISPLAY_NAMES,
+    PUBLIC_MODE_ORDER,
     CharacterMode,
     ModeManager,
 )
@@ -106,6 +108,42 @@ class TestDefaultModes:
         """Only reviewed canonical names are selectable."""
         assert set(DEFAULT_MODES.keys()) == self.EXPECTED_NAMES
 
+    def test_public_chuck_and_sherlock_have_authentic_voice_contracts(self):
+        chuck = DEFAULT_MODES["sensei"]
+        sherlock = DEFAULT_MODES["detective"]
+
+        assert "Chuck Norris" in chuck.personality
+        assert chuck.llm_profile is not None
+        assert "Chuck Norris" in chuck.llm_profile.voice_summary
+        assert "Sherlock Holmes" in sherlock.personality
+        assert sherlock.llm_profile is not None
+        assert "Consulting detective" in sherlock.llm_profile.voice_summary
+
+    def test_public_persona_contracts_keep_evidence_discipline_explicit(self):
+        for name in ("sensei", "detective"):
+            profile = DEFAULT_MODES[name].llm_profile
+            assert profile is not None
+            guardrails = " ".join(profile.forbidden_voice).lower()
+            assert "point totals" in guardrails
+            assert "certain" in guardrails or "tool choice" in guardrails
+
+    def test_public_chuck_and_sherlock_phrase_banks_do_not_mix_retired_voices(self):
+        from adversary_pursuit.gamification.phrases import PHRASES
+
+        forbidden = {
+            "sensei": ("bruce lee", "be water"),
+            "detective": ("columbo", "deckard", "my wife", "one more thing"),
+        }
+        for character, fragments in forbidden.items():
+            bank = " ".join(
+                phrase.text
+                for (owner, _category), phrases in PHRASES.items()
+                if owner == character
+                for phrase in phrases
+            ).lower()
+            assert bank
+            assert not any(fragment in bank for fragment in fragments)
+
     def test_default_mode_exists(self):
         assert "default" in DEFAULT_MODES
 
@@ -130,6 +168,30 @@ class TestDefaultModes:
         assert mode.prompt_prefix == "🐇"
         assert mode.llm_profile is not None
         assert "operator" in mode.personality
+
+    def test_public_catalogue_is_the_reviewed_seven_mode_system(self):
+        assert [MODE_DISPLAY_NAMES[name] for name in PUBLIC_MODE_ORDER] == [
+            "Default (Analyst)",
+            "Chuck Norris",
+            "HAL9000",
+            "Troll",
+            "Sherlock Holmes",
+            "Neuromancer",
+            "The Matrix",
+        ]
+
+    def test_public_names_switch_to_stable_internal_identifiers(self, mgr):
+        expected = {
+            "Default (Analyst)": "default",
+            "Chuck Norris": "sensei",
+            "HAL9000": "the_computer",
+            "Troll": "full_troll",
+            "Sherlock Holmes": "detective",
+            "Neuromancer": "the_sprawl",
+            "The Matrix": "m4tr1x",
+        }
+        for public_name, internal_name in expected.items():
+            assert mgr.switch(public_name).name == internal_name
 
 
 # ---------------------------------------------------------------------------
@@ -463,12 +525,18 @@ class TestConsoleModeScoreCelebration:
     """Verify score display uses active mode's score_celebration template."""
 
     def test_default_mode_score_celebration(self, console: APConsole):
-        """In default mode, score celebration shows '+{points} points!'."""
+        """In default mode, score celebration comes from the reviewed phrase bank."""
         run_cmd(console, "use osint/whois_lookup")
         run_cmd(console, "set TARGET example.com")
         out = run_cmd(console, "run")
-        # default: "+{points} points!" — should contain "points"
-        assert "points" in out.lower()
+        from adversary_pursuit.gamification.phrases import PHRASES
+
+        templates = PHRASES[("default", "score_celebration")]
+        assert any(
+            phrase.text.split("{points}", maxsplit=1)[0] in out
+            and phrase.text.split("{points}", maxsplit=1)[1] in out
+            for phrase in templates
+        )
 
     def test_ninja_mode_score_celebration(self, console: APConsole):
         """In ninja mode, score celebration uses ninja's minimal template."""

@@ -355,6 +355,8 @@ def _build_results(
     page = result_data.get("page", {})
     task = result_data.get("task", {})
     lists = result_data.get("lists", {})
+    stats = result_data.get("stats", {})
+    verdicts = result_data.get("verdicts", {})
 
     page_domain = page.get("domain", "")
     page_ip = page.get("ip", "")
@@ -369,6 +371,22 @@ def _build_results(
         "x_page_status": page.get("status", 0),
         "x_server": page.get("server", ""),
         "x_screenshot_url": task.get("screenshotURL", ""),
+        "x_result_url": task.get("reportURL") or f"https://urlscan.io/result/{scan_uuid}/",
+        "x_dom_url": task.get("domURL", ""),
+        "x_scan_time": task.get("time", ""),
+        "x_page_domain": page_domain,
+        "x_page_ip": page_ip,
+        "x_page_asn": page.get("asn", ""),
+        "x_page_country": page.get("country", ""),
+        "x_page_mime_type": page.get("mimeType", ""),
+        "x_page_redirected": page.get("redirected", ""),
+        "x_contacted_counts": {
+            "ips": stats.get("uniqIPs", len(lists.get("ips", []))),
+            "domains": stats.get("uniqDomains", len(lists.get("domains", []))),
+            "urls": len(lists.get("urls", [])),
+        },
+        "x_contacted_urls": lists.get("urls", [])[:_LIST_CAP],
+        "x_verdict_summary": _verdict_summary(verdicts),
     }
 
     results: list[dict[str, Any]] = [url_sco]
@@ -404,3 +422,19 @@ def _build_results(
             results.append({"type": "domain-name", "value": entry})
 
     return results
+
+
+def _verdict_summary(verdicts: dict[str, Any]) -> dict[str, Any]:
+    """Keep the useful urlscan verdict fields without copying its full payload."""
+    summary: dict[str, Any] = {}
+    for scope in ("overall", "urlscan", "engines", "community"):
+        value = verdicts.get(scope)
+        if isinstance(value, dict):
+            selected = {
+                key: value[key]
+                for key in ("malicious", "score", "categories", "brands", "tags")
+                if key in value
+            }
+            if selected:
+                summary[scope] = selected
+    return summary

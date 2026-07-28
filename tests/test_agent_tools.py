@@ -563,6 +563,26 @@ class TestWorkspaceTools:
         )
         assert "1.2.3.4" in summary or "Found 1" in summary
 
+    def test_search_workspace_matches_values_and_structured_source_filter(self, tmp_ctx):
+        tmp_ctx.workspace_mgr.store_stix_objects(
+            [{"type": "domain-name", "value": "suspect.example"}],
+            "cti/virustotal",
+            "seed.example",
+        )
+
+        value_result, *_ = execute_tool(
+            tmp_ctx, "search_workspace", {"type_filter": "suspect.example"}
+        )
+        source_result, *_ = execute_tool(
+            tmp_ctx,
+            "search_workspace",
+            {"type_filter": "type:domain-name source:virustotal suspect"},
+        )
+
+        assert "suspect.example" in value_result
+        assert "suspect.example" in source_result
+        assert "cti/virustotal" in source_result
+
 
 # ---------------------------------------------------------------------------
 # run_module — stores results and triggers scoring
@@ -1658,17 +1678,19 @@ class TestModeWiring:
     # --- (5) celebration uses active mode template ---
 
     def test_celebration_uses_default_mode_template(self, tmp_ctx):
-        """run_module celebration contains default mode score_celebration text."""
+        """run_module celebration rotates through the default phrase bank."""
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
 
         assert result["total_points"] > 0
-        # Default mode template: "+{points} points!" — formatted result must appear
-        expected_text = f"+{result['total_points']} points!"
-        assert expected_text in result["celebration"], (
-            f"Expected '{expected_text}' in celebration: {result['celebration']!r}"
-        )
+        from adversary_pursuit.gamification.phrases import PHRASES
+
+        expected_lines = {
+            phrase.text.format(points=result["total_points"])
+            for phrase in PHRASES[("default", "score_celebration")]
+        }
+        assert any(line in result["celebration"] for line in expected_lines)
 
     def test_celebration_uses_ninja_mode_template_after_switch(self, tmp_ctx):
         """run_module celebration uses ninja mode template after mode switch."""
@@ -1679,14 +1701,16 @@ class TestModeWiring:
             result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
 
         assert result["total_points"] > 0
-        # Ninja mode template: "[dim]+{points}[/dim]" — the formatted points must appear
-        expected_text = f"+{result['total_points']}"
-        assert expected_text in result["celebration"], (
-            f"Expected '{expected_text}' in celebration: {result['celebration']!r}"
-        )
+        from adversary_pursuit.gamification.phrases import PHRASES
+
+        expected_lines = {
+            phrase.text.format(points=result["total_points"])
+            for phrase in PHRASES[("ninja", "score_celebration")]
+        }
+        assert any(line in result["celebration"] for line in expected_lines)
 
     def test_celebration_uses_strategist_template_after_switch(self, tmp_ctx):
-        """run_module celebration uses strategist mode template after switch."""
+        """run_module celebration uses the strategist phrase bank after switch."""
         tmp_ctx.mode_mgr.switch("strategist")
 
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
@@ -1694,11 +1718,13 @@ class TestModeWiring:
             result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
 
         assert result["total_points"] > 0
-        # strategist template: '"Supreme excellence." +{points} points earned.'
-        expected_text = f"+{result['total_points']} points earned."
-        assert expected_text in result["celebration"], (
-            f"Expected strategist template text '{expected_text}' in: {result['celebration']!r}"
-        )
+        from adversary_pursuit.gamification.phrases import PHRASES
+
+        expected_lines = {
+            phrase.text.format(points=result["total_points"])
+            for phrase in PHRASES[("strategist", "score_celebration")]
+        }
+        assert any(line in result["celebration"] for line in expected_lines)
 
     # --- (9) Compound: switch mode -> run tool -> celebration uses new mode template ---
 
@@ -1741,13 +1767,14 @@ class TestModeWiring:
 
         assert result["total_points"] > 0
 
-        # 5. Celebration must contain strategist's score_celebration template text.
-        # score_celebration is a static voice field — unchanged by the C-3 upgrade.
-        # strategist template: '"Supreme excellence." +{points} points earned.'
-        expected_text = f"+{result['total_points']} points earned."
-        assert expected_text in result["celebration"], (
-            f"Expected strategist template text '{expected_text}' in: {result['celebration']!r}"
-        )
+        # 5. Celebration must contain one reviewed strategist phrase.
+        from adversary_pursuit.gamification.phrases import PHRASES
+
+        expected_lines = {
+            phrase.text.format(points=result["total_points"])
+            for phrase in PHRASES[("strategist", "score_celebration")]
+        }
+        assert any(line in result["celebration"] for line in expected_lines)
 
 
 # ---------------------------------------------------------------------------
@@ -2366,9 +2393,14 @@ class TestAutopivotWiring:
         # (d) Cascade surfaced in summary
         assert "Auto-pivoted" in result["summary"]
 
-        # Ninja mode celebration template used
-        expected_points_text = f"+{result['total_points']}"
-        assert expected_points_text in result["celebration"]
+        # Ninja mode celebration phrase bank used
+        from adversary_pursuit.gamification.phrases import PHRASES
+
+        expected_lines = {
+            phrase.text.format(points=result["total_points"])
+            for phrase in PHRASES[("ninja", "score_celebration")]
+        }
+        assert any(line in result["celebration"] for line in expected_lines)
 
 
 # ---------------------------------------------------------------------------
@@ -2739,9 +2771,20 @@ class TestGraphExportWiring:
             tmp_ctx,
             [{"type": "ipv4-addr", "value": "1.2.3.4"}],
         )
-        summary, _, _, _ = execute_tool(tmp_ctx, "export_workspace", {"format": "csv"})
+        summary, _, _, _ = execute_tool(tmp_ctx, "export_workspace", {"format": "yaml"})
         lower = summary.lower()
         assert "unknown" in lower or "unsupported" in lower or "supported" in lower
+
+    @pytest.mark.parametrize("fmt", ["json", "csv"])
+    def test_export_workspace_plain_formats(self, tmp_ctx, fmt):
+        self._populate_workspace(
+            tmp_ctx,
+            [{"type": "domain-name", "value": "export.example"}],
+        )
+
+        summary, _, _, _ = execute_tool(tmp_ctx, "export_workspace", {"format": fmt})
+
+        assert "export.example" in summary
 
     # ------------------------------------------------------------------
     # Tool registration

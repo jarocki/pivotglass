@@ -41,7 +41,7 @@ from adversary_pursuit.agent.repl_verbs import (
     dispatch_repl_verb,
     parse_repl_verb,
 )
-from adversary_pursuit.gamification.modes import DEFAULT_MODES
+from adversary_pursuit.gamification.modes import DEFAULT_MODES, display_mode_name
 
 # ---------------------------------------------------------------------------
 # P-1: zero-argument verbs
@@ -253,12 +253,12 @@ class TestDispatchClear:
 
 
 # ---------------------------------------------------------------------------
-# D-3: dispatch use → publishes TargetChanged, calls record_pivot
+# D-3: dispatch use → publishes TargetChanged without changing workspace
 # ---------------------------------------------------------------------------
 
 
 class TestDispatchUse:
-    """'use <ioc>' publishes TargetChanged and calls workspace_mgr.record_pivot."""
+    """'use <ioc>' publishes TargetChanged inside the active workspace."""
 
     def _make_workspace_mgr(self):
         """Minimal workspace_mgr duck-type stub."""
@@ -286,7 +286,7 @@ class TestDispatchUse:
         assert published_event.target == "8.8.8.8"
         assert published_event.target_type == "ipv4-addr"
 
-    def test_dispatch_use_calls_record_pivot(self):
+    def test_dispatch_use_does_not_switch_or_create_workspace(self):
         verb = ReplVerb(name="use", args=("evil.example.com",))
         workspace_mgr = self._make_workspace_mgr()
 
@@ -297,7 +297,9 @@ class TestDispatchUse:
             workspace_mgr=workspace_mgr,
         )
 
-        workspace_mgr.record_pivot.assert_called_once_with("evil.example.com")
+        workspace_mgr.record_pivot.assert_not_called()
+        workspace_mgr.switch.assert_not_called()
+        workspace_mgr.create.assert_not_called()
 
     def test_dispatch_use_returns_non_empty_string(self):
         verb = ReplVerb(name="use", args=("evil.example.com",))
@@ -328,6 +330,135 @@ class TestDispatchUse:
         assert isinstance(result, str)
 
 
+def test_public_multiword_mode_name_parses_and_switches():
+    from adversary_pursuit.gamification.modes import ModeManager
+
+    verb = parse_repl_verb("mode Sherlock Holmes")
+    manager = ModeManager()
+
+    assert verb == ReplVerb(name="mode", args=("Sherlock Holmes",))
+    result = dispatch_repl_verb(
+        verb,
+        ctx=None,
+        mode_mgr=manager,
+        workspace_mgr=None,
+    )
+    assert manager.active.name == "detective"
+    assert result.startswith("Mode switched: Sherlock Holmes")
+
+
+class TestWorkspaceCommandParity:
+    """TUI workspace administration matches the non-visual web command contract."""
+
+    def test_export_merge_and_confirmed_delete(self, tmp_path):
+        from adversary_pursuit.core.workspace import WorkspaceManager
+
+        manager = WorkspaceManager(tmp_path / "workspaces")
+        manager.create("source")
+        manager.switch("source")
+        manager.store_stix_objects(
+            [{"type": "domain-name", "value": "merge.test"}],
+            module_name="osint/test",
+            target="merge.test",
+        )
+        manager.create("destination")
+        manager.switch("destination")
+
+        merged = dispatch_repl_verb(
+            ReplVerb(name="workspace", args=("merge", "source", "destination")),
+            ctx=None,
+            mode_mgr=None,
+            workspace_mgr=manager,
+        )
+        exported = dispatch_repl_verb(
+            ReplVerb(name="workspace", args=("export", "destination")),
+            ctx=None,
+            mode_mgr=None,
+            workspace_mgr=manager,
+        )
+        manager.switch("destination")
+        deleted = dispatch_repl_verb(
+            ReplVerb(
+                name="workspace",
+                args=("delete", "source", "--confirm", "source"),
+            ),
+            ctx=None,
+            mode_mgr=None,
+            workspace_mgr=manager,
+        )
+
+        assert '"stix_objects": 1' in merged
+        assert "merge.test" in exported
+        assert deleted == "Workspace deleted: source"
+        assert "source" not in manager.list_workspaces()
+
+    def test_delete_requires_exact_confirmation_and_rejects_active(self, tmp_path):
+        from adversary_pursuit.core.workspace import WorkspaceManager
+
+        manager = WorkspaceManager(tmp_path / "workspaces")
+        manager.create("case")
+        manager.switch("case")
+
+        usage = dispatch_repl_verb(
+            ReplVerb(name="workspace", args=("delete", "case")),
+            ctx=None,
+            mode_mgr=None,
+            workspace_mgr=manager,
+        )
+        active = dispatch_repl_verb(
+            ReplVerb(name="workspace", args=("delete", "case", "--confirm", "case")),
+            ctx=None,
+            mode_mgr=None,
+            workspace_mgr=manager,
+        )
+
+        assert usage.startswith("Usage: workspace")
+        assert active == "Cannot delete the active workspace; switch first."
+        assert manager.list_workspaces() == ["case"]
+
+
+class TestThemeCommand:
+    @pytest.mark.parametrize(
+        ("choice", "scheme", "contrast", "label"),
+        [
+            ("light", "light", None, "Display theme: Light"),
+            ("dark", "dark", None, "Display theme: Dark"),
+            ("high", "dark", "1", "Display theme: High contrast"),
+        ],
+    )
+    def test_theme_updates_in_session_environment(
+        self, choice, scheme, contrast, label
+    ):
+        import os
+
+        sentinel = object()
+        old_scheme = os.environ.get("AP_TUI_COLOR_SCHEME", sentinel)
+        old_contrast = os.environ.get("AP_TUI_HIGH_CONTRAST", sentinel)
+        os.environ.pop("AP_TUI_COLOR_SCHEME", None)
+        os.environ.pop("AP_TUI_HIGH_CONTRAST", None)
+
+        try:
+            result = dispatch_repl_verb(
+                ReplVerb(name="theme", args=(choice,)),
+                ctx=None,
+                mode_mgr=None,
+                workspace_mgr=None,
+            )
+
+            assert result == label
+            assert os.environ["AP_TUI_COLOR_SCHEME"] == scheme
+            assert os.environ.get("AP_TUI_HIGH_CONTRAST") == contrast
+        finally:
+            if old_scheme is sentinel:
+                os.environ.pop("AP_TUI_COLOR_SCHEME", None)
+            else:
+                os.environ["AP_TUI_COLOR_SCHEME"] = old_scheme
+            if old_contrast is sentinel:
+                os.environ.pop("AP_TUI_HIGH_CONTRAST", None)
+            else:
+                os.environ["AP_TUI_HIGH_CONTRAST"] = old_contrast
+
+
 # ---------------------------------------------------------------------------
 # D-4: dispatch mode → switches active mode
 # ---------------------------------------------------------------------------
@@ -353,7 +484,7 @@ class TestDispatchMode:
         assert mgr.active.name == "ninja"
         assert isinstance(result, str)
         assert len(result) > 0
-        assert result.startswith("Mode switched: ninja\n")
+        assert result.startswith("Mode switched: Ninja\n")
 
     @pytest.mark.parametrize("mode_name", sorted(DEFAULT_MODES))
     def test_dispatch_mode_acknowledges_exact_selected_mode(self, mode_name: str):
@@ -364,7 +495,7 @@ class TestDispatchMode:
             mode_mgr=mgr,
             workspace_mgr=None,
         )
-        assert result.splitlines()[0] == f"Mode switched: {mode_name}"
+        assert result.splitlines()[0] == f"Mode switched: {display_mode_name(mode_name)}"
         assert mgr.active.name == mode_name
 
     def test_dispatch_mode_list_is_stable_and_marks_active(self):
@@ -374,7 +505,7 @@ class TestDispatchMode:
         second = dispatch_repl_verb(verb, ctx=None, mode_mgr=mgr, workspace_mgr=None)
         assert first == second
         assert first.startswith("Character modes (* active)\n")
-        assert "* m4tr1x" in first
+        assert "* The Matrix" in first
 
     def test_dispatch_unknown_mode_returns_voiced_error(self):
         mgr = self._make_mode_mgr("default")
@@ -455,7 +586,7 @@ class TestDispatchUsesPickForOutput:
         with patch("adversary_pursuit.agent.repl_verbs.pick") as mock_pick:
             result = dispatch_repl_verb(verb, ctx=None, mode_mgr=mgr, workspace_mgr=None)
         mock_pick.assert_not_called()
-        assert result.startswith("Mode switched: ninja\n")
+        assert result.startswith("Mode switched: Ninja\n")
 
     def test_dispatch_unknown_mode_is_deterministic_not_random_phrase(self):
         verb = ReplVerb(name="mode", args=("xyzzy",))

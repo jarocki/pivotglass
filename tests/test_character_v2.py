@@ -1395,9 +1395,7 @@ class TestSunTzuF64PanelSeparation:
 
 
 class TestBruceLeeProfileContent:
-    """sensei must carry the LLMPersonaProfile specified in DEC-C3-PHILOSOPHY-002
-    (character-c3-philosophy-bureaucrat.md §3.2). Mirrors TestNinjaProfileContent.
-    """
+    """The canonical sensei slot now carries the reviewed Chuck Norris contract."""
 
     @pytest.fixture
     def profile(self) -> LLMPersonaProfile:
@@ -1414,14 +1412,10 @@ class TestBruceLeeProfileContent:
         assert mode.llm_profile is not None
 
     def test_sensei_profile_voice_summary_content(self, profile: LLMPersonaProfile):
-        """voice_summary must capture flow-state / water / zen-philosopher register."""
+        """voice_summary identifies Chuck and preserves evidence discipline."""
         vs = profile.voice_summary.lower()
-        assert any(
-            word in vs for word in ("flow", "water", "zen", "philosopher", "adapt", "movement")
-        ), (
-            f"voice_summary '{profile.voice_summary}' missing expected zen-flow descriptor. "
-            "Must contain at least one of: flow, water, zen, philosopher, adapt, movement"
-        )
+        assert "chuck norris" in vs
+        assert "evidence" in vs
 
     def test_sensei_profile_tone_registers_content(self, profile: LLMPersonaProfile):
         """tone_registers must be a tuple with ≥ 2 entries including anchor registers."""
@@ -1430,54 +1424,43 @@ class TestBruceLeeProfileContent:
             "tone_registers must have 2-4 register words per schema"
         )
         registers_lower = {r.lower() for r in profile.tone_registers}
-        expected = {"zen", "flowing"}
+        expected = {"deadpan", "unstoppable"}
         assert expected.issubset(registers_lower), (
             f"tone_registers {profile.tone_registers} missing anchor registers: "
             f"{expected - registers_lower}"
         )
 
     def test_sensei_profile_signature_phrases_content(self, profile: LLMPersonaProfile):
-        """signature_phrases must include at least one canonical Bruce Lee phrase."""
+        """signature phrases use the reviewed Chuck Norris voice."""
         assert isinstance(profile.signature_phrases, tuple)
         assert len(profile.signature_phrases) >= 2, (
             "signature_phrases must have 2-5 catch-phrases per schema"
         )
         phrases_lower = [p.lower() for p in profile.signature_phrases]
-        canonical = ("be water", "don't fear failure", "useful", "10,000 kicks", "formless")
+        canonical = ("chuck norris", "indicator surrendered", "false positive")
         assert any(any(c in p for c in canonical) for p in phrases_lower), (
             f"signature_phrases {profile.signature_phrases} must include at least one of "
-            f"{canonical} (DEC-C3-PHILOSOPHY-002 voice anchors)"
+            f"{canonical} (reviewed public voice anchors)"
         )
 
     def test_sensei_profile_fourth_wall_stance(self, profile: LLMPersonaProfile):
-        """fourth_wall_stance must be 'opaque' for sensei (DEC-C3-PHILOSOPHY-006)."""
-        assert profile.fourth_wall_stance == "opaque", (
-            f"fourth_wall_stance must be 'opaque', got {profile.fourth_wall_stance!r}"
-        )
+        """Chuck stays explicitly in character without affecting tool policy."""
+        assert profile.fourth_wall_stance == "in_character"
 
     def test_sensei_profile_dialect_cadence_content(self, profile: LLMPersonaProfile):
-        """dialect_cadence must describe nature-metaphor / short-declarative cadence."""
+        """Cadence is a compact joke followed by direct analysis."""
         dc = profile.dialect_cadence.lower()
-        assert any(
-            word in dc for word in ("nature", "metaphor", "short", "declarative", "second-person")
-        ), (
-            f"dialect_cadence '{profile.dialect_cadence}' doesn't capture the "
-            "nature-metaphor / short-declarative rhythm expected for sensei"
-        )
+        assert "compact" in dc and "analytical" in dc
 
     def test_sensei_profile_context_hooks_empty(self, profile: LLMPersonaProfile):
-        """context_hooks must be empty tuple for sensei (DEC-C3-PHILOSOPHY-005)."""
-        assert profile.context_hooks == (), (
-            f"context_hooks must be () for sensei in C-3 (deferred to C-4), "
-            f"got {profile.context_hooks!r}"
-        )
+        """Hooks keep confidence jokes subordinate to evidence."""
+        assert profile.context_hooks
+        assert "evidence" in " ".join(profile.context_hooks).lower()
 
     def test_sensei_profile_tool_preferences_content(self, profile: LLMPersonaProfile):
         """tool_preferences must be voice-affinity ONLY (NOT selection instructions)."""
         assert isinstance(profile.tool_preferences, tuple)
-        assert len(profile.tool_preferences) >= 1, (
-            "tool_preferences should have 1-3 voice-affinity hints per schema"
-        )
+        assert profile.tool_preferences == ()
         for pref in profile.tool_preferences:
             pref_lower = pref.lower()
             assert not pref_lower.startswith("prefer "), (
@@ -1487,10 +1470,6 @@ class TestBruceLeeProfileContent:
             assert "must use" not in pref_lower, (
                 f"tool_preferences entry contains 'must use': {pref!r}"
             )
-        all_prefs = " ".join(profile.tool_preferences).lower()
-        assert any(
-            tool in all_prefs for tool in ("crt.sh", "crt", "dns", "virustotal", "shodan")
-        ), f"tool_preferences doesn't reference any known CTI tools: {profile.tool_preferences}"
 
     def test_sensei_profile_forbidden_voice_content(self, profile: LLMPersonaProfile):
         """forbidden_voice must include F64 point-narration guard AND voice-register guard."""
@@ -1502,11 +1481,7 @@ class TestBruceLeeProfileContent:
         assert any(word in all_fv for word in ("point", "pts", "score")), (
             f"forbidden_voice must include F64 point-narration guard: {profile.forbidden_voice}"
         )
-        assert any(
-            word in all_fv for word in ("sarcasm", "snark", "exclaim", "exclamation", "hype")
-        ), (
-            f"forbidden_voice must include sarcasm/snark/exclamation guard: {profile.forbidden_voice}"
-        )
+        assert "certainty" in all_fv and "tool choice" in all_fv
 
     def test_sensei_profile_token_budget(self, profile: LLMPersonaProfile):
         """sensei profile must not exceed 165 tokens (DEC-30-CHARACTER-V2-003)."""
@@ -1991,9 +1966,7 @@ class TestBureaucratF64PanelSeparation:
 
 
 class TestColumboProfileContent:
-    """detective must carry the LLMPersonaProfile specified in DEC-C4-COLUMBO-001
-    (character-c4-detective.md §3.1 / Phase 17M). Mirrors TestNinjaProfileContent
-    with the critical inversion: context_hooks is NON-EMPTY (first in the v2 catalog).
+    """The detective slot carries the reviewed Sherlock Holmes contract.
 
     Compound-interaction coverage: detective profile flows through
     AgentRunner.set_character -> context_hooks joined with "; " at runner.py:379 ->
@@ -2027,52 +2000,36 @@ class TestColumboProfileContent:
         )
 
     def test_detective_profile_tone_registers_content(self, profile: LLMPersonaProfile):
-        """tone_registers must be a tuple with >= 2 entries including anchor registers."""
+        """tone registers include the reviewed consulting-detective anchors."""
         assert isinstance(profile.tone_registers, tuple)
         assert len(profile.tone_registers) >= 2, (
             "tone_registers must have 2-4 register words per schema"
         )
         registers_lower = {r.lower() for r in profile.tone_registers}
-        expected = {"rumpled", "disarming"}
+        expected = {"incisive", "methodical"}
         assert expected.issubset(registers_lower), (
             f"tone_registers {profile.tone_registers} missing anchor registers: "
             f"{expected - registers_lower}"
         )
 
     def test_detective_profile_signature_phrases_content(self, profile: LLMPersonaProfile):
-        """signature_phrases must include canonical detective voice anchors."""
+        """signature phrases enforce observation before deduction."""
         assert isinstance(profile.signature_phrases, tuple)
         assert len(profile.signature_phrases) >= 2, (
             "signature_phrases must have 2-5 catch-phrases per schema"
         )
         phrases_lower = [p.lower() for p in profile.signature_phrases]
-        # "just one more thing" and "my wife always says" are the F62 voice anchors
-        assert any("just one more thing" in p for p in phrases_lower), (
-            f"signature_phrases missing 'just one more thing': {profile.signature_phrases}"
-        )
-        assert any("my wife always says" in p for p in phrases_lower), (
-            f"signature_phrases missing 'my wife always says': {profile.signature_phrases}"
-        )
+        assert any("observe" in p for p in phrases_lower)
+        assert any("absence is data" in p for p in phrases_lower)
 
     def test_detective_profile_fourth_wall_stance(self, profile: LLMPersonaProfile):
-        """fourth_wall_stance must be 'opaque' for detective (DEC-C4-COLUMBO-006).
-
-        detective IS the detective — no meta-awareness of being an LLM or tool.
-        Mirrors DEC-C2-NINJA-001 / DEC-C3-PHILOSOPHY-006 stance choice.
-        """
-        assert profile.fourth_wall_stance == "opaque", (
-            f"fourth_wall_stance must be 'opaque', got {profile.fourth_wall_stance!r}"
-        )
+        """Sherlock remains explicitly in character."""
+        assert profile.fourth_wall_stance == "in_character"
 
     def test_detective_profile_dialect_cadence_content(self, profile: LLMPersonaProfile):
-        """dialect_cadence must describe trailing-off / mid-thought / 'just one more thing' cadence."""
+        """Cadence separates observation, implication, alternatives, and tests."""
         dc = profile.dialect_cadence.lower()
-        assert any(
-            word in dc for word in ("trailing", "mid-thought", "pivot", "interruption", "one more")
-        ), (
-            f"dialect_cadence '{profile.dialect_cadence}' doesn't capture the "
-            "trailing-off / mid-thought-pivot / 'just one more thing' rhythm expected for detective"
-        )
+        assert "observation" in dc and "alternative" in dc and "test" in dc
 
     def test_detective_profile_context_hooks_not_empty(self, profile: LLMPersonaProfile):
         """context_hooks MUST be non-empty for detective (DEC-C4-COLUMBO-001/103).
@@ -2129,7 +2086,7 @@ class TestColumboProfileContent:
             f"forbidden_voice must include F64 point-narration guard: {profile.forbidden_voice}"
         )
         # Humility-register guard: must mention confidence/confident or humility
-        assert any(word in all_fv for word in ("confident", "humility", "humble")), (
+        assert any(word in all_fv for word in ("confidence", "confident", "humility", "humble")), (
             f"forbidden_voice must include humility-register guard "
             f"(humility-as-disarmament is detective's register): {profile.forbidden_voice}"
         )

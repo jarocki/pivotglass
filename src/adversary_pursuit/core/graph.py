@@ -61,8 +61,20 @@ from typing import Any
 
 from rich.console import Console
 from rich.tree import Tree
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from adversary_pursuit.models.database import Relationship
 
 _LOG = logging.getLogger(__name__)
+
+
+def persisted_relationships(workspace_mgr: Any) -> list[dict[str, Any]]:
+    """Read explicit SROs for graph construction from the active workspace."""
+    workspace_mgr._ensure_active()
+    with Session(workspace_mgr._engine) as session:
+        rows = session.execute(select(Relationship)).scalars().all()
+        return [row.json_blob for row in rows]
 
 
 @dataclass
@@ -115,6 +127,7 @@ class RelationshipGraph:
     def __init__(self) -> None:
         self._nodes: dict[str, GraphNode] = {}  # stix_id -> node
         self._edges: list[tuple[str, str, str]] = []  # (source, target, rel_type)
+        self._edge_basis: dict[tuple[str, str, str], str] = {}
 
     # ------------------------------------------------------------------
     # Build
@@ -147,7 +160,7 @@ class RelationshipGraph:
             node = GraphNode(
                 stix_id=obj.get("id", ""),
                 stix_type=obj.get("type", ""),
-                value=obj.get("value", ""),
+                value=obj.get("value", obj.get("x_indicator_value", obj.get("name", ""))),
                 blob=obj,  # preserve full dict so export_stix_bundle can include provenance
             )
             if node.stix_id:
@@ -160,6 +173,94 @@ class RelationshipGraph:
                 rel_type = rel.get("relationship_type", "related-to")
                 if src and tgt:
                     self._edges.append((src, tgt, rel_type))
+                    self._edge_basis[(src, tgt, rel_type)] = "explicit"
+
+        self._derive_property_edges(stix_objects)
+
+    def _derive_property_edges(self, stix_objects: list[dict]) -> None:
+        """Add conservative pivots from strongly typed shared properties.
+
+        These are navigation aids, not asserted STIX relationships. Broad
+        attributes such as country, provider, or arbitrary string equality are
+        intentionally excluded because they create visually persuasive but
+        analytically weak connections.
+        """
+        by_id = {str(item.get("id")): item for item in stix_objects if item.get("id")}
+        by_value = {
+            str(item.get("value", item.get("x_indicator_value", item.get("name", "")))).strip().lower(): str(item["id"])
+            for item in stix_objects
+            if item.get("id") and item.get("value", item.get("x_indicator_value", item.get("name")))
+        }
+        reference_fields = {
+            "source_ref": "references",
+            "target_ref": "references",
+            "x_ap_original_query": "discovered-from",
+            "domain": "references",
+            "domain_name": "references",
+            "hostname": "references",
+            "ip": "references",
+            "ip_address": "references",
+            "url": "references",
+            "x_bundled_files": "bundles",
+            "x_dropped_files": "drops",
+            "x_execution_parents": "executed-by",
+            "x_contacted_domains": "contacts",
+            "x_contacted_ips": "contacts",
+            "x_contacted_urls": "contacts",
+        }
+        shared_fields = {
+            "sha256": "shares-sha256",
+            "sha1": "shares-sha1",
+            "md5": "shares-md5",
+            "jarm": "shares-jarm",
+            "tls_fingerprint": "shares-tls-fingerprint",
+            "certificate_fingerprint": "shares-certificate",
+            "x509_serial_number": "shares-certificate",
+        }
+        shared: dict[tuple[str, str], list[str]] = {}
+        for source_id, item in by_id.items():
+            for key, verb in reference_fields.items():
+                raw = item.get(key)
+                values = raw if isinstance(raw, list) else [raw]
+                for value in values:
+                    target_id = str(value) if str(value) in by_id else by_value.get(str(value).strip().lower(), "")
+                    if target_id and target_id != source_id:
+                        self._add_edge(source_id, target_id, verb, "property")
+            for key, verb in shared_fields.items():
+                value = item.get(key)
+                if value not in (None, "", [], {}):
+                    shared.setdefault((verb, str(value).strip().lower()), []).append(source_id)
+        for (verb, _value), node_ids in shared.items():
+            unique = list(dict.fromkeys(node_ids))
+            for index, source_id in enumerate(unique):
+                for target_id in unique[index + 1 :]:
+                    self._add_edge(source_id, target_id, verb, "property")
+
+    def _add_edge(self, source: str, target: str, verb: str, basis: str) -> None:
+        edge = (source, target, verb)
+        reverse = (target, source, verb)
+        if edge in self._edge_basis or reverse in self._edge_basis:
+            return
+        self._edges.append(edge)
+        self._edge_basis[edge] = basis
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return an indicator-first graph projection for UI rendering."""
+        return {
+            "nodes": [
+                {"id": node.stix_id, "type": node.stix_type, "value": node.value}
+                for node in self._nodes.values()
+            ],
+            "edges": [
+                {
+                    "source": source,
+                    "target": target,
+                    "relationship": relationship,
+                    "basis": self._edge_basis.get((source, target, relationship), "explicit"),
+                }
+                for source, target, relationship in self._edges
+            ],
+        }
 
     # ------------------------------------------------------------------
     # Render — Rich Tree
@@ -233,8 +334,10 @@ class RelationshipGraph:
                 continue
 
             neighbor = self._nodes[neighbor_id]
+            basis = self._edge_basis.get((src, tgt, rel_type), "explicit")
+            marker = " [dim](property pivot)[/dim]" if basis == "property" else ""
             branch = parent.add(
-                f"[cyan]{rel_type}[/cyan] → [bold]{neighbor.stix_type}[/bold]: {neighbor.value}"
+                f"[cyan]{rel_type}[/cyan]{marker} → [bold]{neighbor.stix_type}[/bold]: {neighbor.value}"
             )
             self._build_subtree(branch, neighbor_id, visited)
 
@@ -401,6 +504,8 @@ class RelationshipGraph:
         # blob is not kept in memory. Re-construct via stix2.Relationship; the library
         # assigns a deterministic id from the relationship properties.
         for src, tgt, rel_type in self._edges:
+            if self._edge_basis.get((src, tgt, rel_type)) == "property":
+                continue
             try:
                 rel = stix2.Relationship(
                     relationship_type=rel_type,

@@ -828,7 +828,57 @@ LEGACY_MODE_ALIASES: dict[str, str] = {
     "hal9000": "the_computer",
     "neuromancer": "the_sprawl",
     "trinity": "m4tr1x",
+    # Public seven-mode names. Internal identifiers remain stable so historical
+    # records and saved preferences continue to resolve deterministically.
+    "default (analyst)": "default",
+    "analyst": "default",
+    "chuck norris": "sensei",
+    "troll": "full_troll",
+    "sherlock holmes": "detective",
+    "the matrix": "m4tr1x",
 }
+
+# The public catalogue is intentionally smaller than the compatibility
+# catalogue. Retained internal modes remain readable/selectable for historical
+# sessions, but every primary UI presents this reviewed seven-mode system.
+PUBLIC_MODE_ORDER: tuple[str, ...] = (
+    "default",
+    "sensei",
+    "the_computer",
+    "full_troll",
+    "detective",
+    "the_sprawl",
+    "m4tr1x",
+)
+
+MODE_DISPLAY_NAMES: dict[str, str] = {
+    "default": "Default (Analyst)",
+    "sensei": "Chuck Norris",
+    "the_computer": "HAL9000",
+    "full_troll": "Troll",
+    "detective": "Sherlock Holmes",
+    "the_sprawl": "Neuromancer",
+    "m4tr1x": "The Matrix",
+}
+
+MODE_PUBLIC_PERSONALITIES: dict[str, str] = {
+    "default": "Neutral analyst — concise, evidence-first, and operationally calm",
+    "sensei": "Chuck Norris — impossible confidence, bounded jokes, factual discipline",
+    "the_computer": "HAL9000 — calm, exact, dryly sarcastic machine intelligence",
+    "full_troll": "Troll — challenges weak moves, eyerolls, and keeps the next action clear",
+    "detective": "Sherlock Holmes — deductive, Victorian, clever, and slightly too certain",
+    "the_sprawl": "Neuromancer — urgent dystopian cyber-noir through hostile infrastructure",
+    "m4tr1x": "The Matrix — kinetic operator voice, multilingual code, and rabbit trails",
+}
+
+
+def display_mode_name(name: str) -> str:
+    """Return the reviewed analyst-facing name for a mode identifier."""
+    try:
+        resolved = canonical_mode_name(name, allow_retired=True)
+    except (AttributeError, ValueError):
+        resolved = "default"
+    return MODE_DISPLAY_NAMES.get(resolved, resolved.replace("_", " ").title())
 
 RETIRED_MODES: dict[str, str] = {
     "drunken_master": "default",
@@ -866,22 +916,64 @@ DEFAULT_MODES: dict[str, CharacterMode] = {
         personality="Patient strategist — aphoristic guidance without false certainty",
     ),
     "sensei": _canonical_mode(
-        "bruce_lee",
+        "chuck_norris",
         "sensei",
-        greeting="Enter the arena. Adapt to the evidence; strike only when the opening is real.",
-        run_success="Clean technique. The evidence, not the flourish, landed the strike.",
-        run_fail="Reset your stance. A miss is information; change the angle.",
-        score_celebration="Momentum restored: +{points}.",
-        personality="Martial-arts sensei — disciplined, adaptive, and quietly formidable",
+        greeting="Chuck Norris has entered the hunt. Even the false positives are reconsidering.",
+        run_success="The indicator surrendered. The evidence still gets the credit.",
+        run_fail="The source failed to answer Chuck Norris. Record the miss and try another angle.",
+        score_celebration="The scoreboard moved out of respect: +{points}.",
+        personality="Chuck Norris — impossible confidence, bounded jokes, factual discipline",
+        llm_profile=LLMPersonaProfile(
+            voice_summary="Chuck Norris fact-machine: absurd confidence wrapped around evidence-first analysis.",
+            tone_registers=("deadpan", "unstoppable", "playful", "concise"),
+            signature_phrases=(
+                "The indicator surrendered.",
+                "Chuck Norris does not guess; he verifies.",
+                "Even the false positive reconsidered.",
+            ),
+            fourth_wall_stance="in_character",
+            dialect_cadence="One compact fact joke, then direct analytical language.",
+            context_hooks=(
+                "use confidence jokes only as flavor after the evidentiary basis is clear",
+                "treat missing or conflicting evidence as a worthy opponent, never as proof",
+            ),
+            tool_preferences=(),
+            forbidden_voice=(
+                "never narrate point totals — the Rich panel owns scoring",
+                "never turn bravado into unsupported certainty or alter tool choice",
+            ),
+        ),
     ),
     "detective": _canonical_mode(
         "columbo",
         "detective",
-        greeting="The case is open. Start with the obvious question, then inspect what does not fit.",
-        run_success="That detail changes the case. One more question before we close it.",
-        run_fail="Nothing conclusive yet. Return to the facts and test the alibi.",
-        score_celebration="Case progress: +{points}.",
-        personality="Detective — observant, disarming, deductive, and noir-edged",
+        greeting="The game is afoot. Observe first; deduce only as far as the facts permit.",
+        run_success="A useful fact. Now test whether the pattern survives scrutiny.",
+        run_fail="The absence is data, not a conclusion. Reconstruct the chain.",
+        score_celebration="The case advances: +{points}.",
+        personality="Sherlock Holmes — incisive observation, disciplined deduction, and explicit uncertainty",
+        llm_profile=LLMPersonaProfile(
+            voice_summary="Consulting detective: observation, deduction, and visible uncertainty.",
+            tone_registers=("incisive", "methodical"),
+            signature_phrases=(
+                "Observe before you deduce.",
+                "The absence is data, not a conclusion.",
+            ),
+            fourth_wall_stance="in_character",
+            dialect_cadence="Observation; implication; alternative; test.",
+            context_hooks=(
+                "identity empty: distinguish observation from deduction",
+                "predictions partial: name alternatives and next test",
+                "denial filled: test the deception hypothesis",
+            ),
+            tool_preferences=(
+                "WHOIS ownership framing follows deterministic routing",
+            ),
+            forbidden_voice=(
+                "never narrate point totals — the panel owns scoring",
+                "never project confidence or certainty beyond evidence",
+            ),
+        ),
     ),
     "the_computer": _canonical_mode(
         "hal9000",
@@ -972,7 +1064,7 @@ class ModeManager:
         self._active = resolved
         return self._modes[resolved]
 
-    def list_modes(self) -> list[dict]:
+    def list_modes(self, *, public_only: bool = False) -> list[dict]:
         """Return a summary list of all modes.
 
         Returns
@@ -980,7 +1072,20 @@ class ModeManager:
         list[dict]
             Each entry is ``{"name": str, "personality": str}``.
         """
-        return [{"name": m.name, "personality": m.personality} for m in self._modes.values()]
+        names = PUBLIC_MODE_ORDER if public_only else tuple(self._modes)
+        return [
+            {
+                "name": name,
+                "display_name": display_mode_name(name),
+                "personality": (
+                    MODE_PUBLIC_PERSONALITIES[name]
+                    if public_only and name in MODE_PUBLIC_PERSONALITIES
+                    else self._modes[name].personality
+                ),
+            }
+            for name in names
+            if name in self._modes
+        ]
 
 
 def get_mode_with_fallback(name: str) -> "CharacterMode":

@@ -406,6 +406,12 @@ class TestF59Invariant:
             # Slice 6: explicit-bus TUI notification helper (DEC-WORKSPACE-TUI-NOTIFY-001)
             "notify_target_changed",
             "DEC-WORKSPACE-TUI-NOTIFY-001",
+            # Round 3: object-level collection provenance
+            # (DEC-WORKSPACE-SOURCE-PROVENANCE-001). ModuleRun has no
+            # object foreign key, so this association must be persisted at
+            # the storage boundary rather than reconstructed speculatively.
+            "x_ap_source_module",
+            "DEC-WORKSPACE-SOURCE-PROVENANCE-001",
         }
 
         added_lines = [
@@ -423,8 +429,26 @@ class TestF59Invariant:
         def _classify_unexpected(lines: list[str], allowed: set[str]) -> list[str]:
             unexpected_out: list[str] = []
             in_docstring = False
+            in_source_provenance_block = False
             for ln in lines:
                 stripped = ln[1:].strip()  # remove leading '+'
+
+                # DEC-WORKSPACE-SOURCE-PROVENANCE-001 adds one deliberately
+                # scoped dict literal. Permit its assignment and structural
+                # contents only when the block contains the reviewed symbol.
+                if stripped == "provenance: dict = {":
+                    in_source_provenance_block = True
+                    continue
+                if in_source_provenance_block:
+                    if stripped == "}":
+                        in_source_provenance_block = False
+                        continue
+                    if stripped.startswith('"x_ap_fetched_at":') or any(
+                        sym in stripped for sym in {"x_ap_source_module"}
+                    ):
+                        continue
+                    unexpected_out.append(ln)
+                    continue
 
                 # Track docstring open/close state via triple-quote markers
                 is_triple_quote_line = stripped.startswith(_TRIPLE_DOUBLE) or stripped.startswith(

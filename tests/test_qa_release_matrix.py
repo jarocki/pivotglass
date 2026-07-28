@@ -46,6 +46,28 @@ def test_web_music_is_local_opt_in_and_effects_have_off_path():
     assert ".effects-off .ambient-environment{display:none}" in css
 
 
+def test_public_characters_have_distinct_interactive_diversions():
+    page = Path("web/app/page.tsx").read_text()
+    for component, title in {
+        "SherlockChessGame": "CHESS · THE FORCED CONCLUSION",
+        "HalShutdownGame": "DISABLE THE COMPUTER",
+        "NeuromancerJackInGame": "JACK IN",
+        "MatrixPowerGridGame": "HACK THE POWER GRID",
+    }.items():
+        assert f"function {component}" in page
+        assert title in page
+    assert "OPTIONAL DIVERSION · NO ANALYTICAL MEANING" in page
+
+
+def test_character_palettes_encode_identity_without_old_chuck_pink():
+    page = Path("web/app/page.tsx").read_text()
+    night_chuck = page.split("chuck_norris:", 1)[1].splitlines()[0]
+    assert "#c86b32" in night_chuck
+    assert "#e7b54a" in night_chuck
+    assert "#ff5fff" not in night_chuck
+    assert 'neuromancer: { border_color: "#7a86a8"' in page
+
+
 def test_retired_characters_never_reenter_selectable_catalogue():
     assert "drunken_master" not in DEFAULT_MODES
     assert "bobby_hill" not in DEFAULT_MODES

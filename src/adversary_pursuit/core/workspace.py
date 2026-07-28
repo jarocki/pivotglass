@@ -449,7 +449,14 @@ class WorkspaceManager:
         # Build provenance overlay — only x_ap_fetched_at is always non-null;
         # the other three are omitted from the overlay when None so that the
         # json_blob contains null (absent) rather than the key with a null value.
-        provenance: dict = {"x_ap_fetched_at": effective_fetched_at}
+        # DEC-WORKSPACE-SOURCE-PROVENANCE-001: persist the collecting module
+        # at the evidence boundary. ModuleRun
+        # records have no object-level foreign key, so reconstructing this
+        # association later would be inference rather than provenance.
+        provenance: dict = {
+            "x_ap_fetched_at": effective_fetched_at,
+            "x_ap_source_module": module_name,
+        }
         if source_url is not None:
             provenance["x_ap_source_url"] = source_url
         if api_version is not None:

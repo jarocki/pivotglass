@@ -300,7 +300,7 @@ def test_pursuit_title_tracks_active_mode():
 
     rendered = app._get_pursuit_title_formatted()
 
-    assert any("THE M4TR1X" in text for _style, text in rendered)
+    assert any("THE MATRIX" in text for _style, text in rendered)
     assert all("INTELLIGENCE FEED" not in text for _style, text in rendered)
 
 

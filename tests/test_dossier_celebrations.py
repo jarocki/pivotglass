@@ -217,6 +217,17 @@ class TestBuildNarrationPrompt:
         assert isinstance(prompt, str)
         assert len(prompt) > 5
 
+    def test_prompt_includes_character_bank_and_truth_boundary(self) -> None:
+        event = _slot_filled_event("identity", points=200)
+        prompt = dc.build_narration_prompt(
+            event,
+            dossier_state=None,
+            character="the_computer",
+        )
+        assert "Character line bank:" in prompt
+        assert "Dave" in prompt
+        assert "never evidence" in prompt
+
 
 # ---------------------------------------------------------------------------
 # Stage A: narrate_celebration — success and failure paths

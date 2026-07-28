@@ -7,8 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] — 2026-07-28
+
+### Added
+
+- Added reviewed signature-line banks for every public character. Deterministic
+  surfaces rotate local lines, while the existing bounded dossier-narration
+  path occasionally asks the configured model for one original line under an
+  explicit rule that flavor is never evidence.
+- Added workspace create, list, switch, delete, export, and merge services;
+  shared TUI/Pivotglass command completion; relationship-aware evidence detail;
+  and additive VirusTotal, AbuseIPDB, and URLScan metadata.
+- Added release demonstrations of the real TUI and Pivotglass interfaces to the
+  README and user guide.
+
 ### Changed
 
+- Consolidated the public character deck into seven strongly differentiated
+  identities: Default (Analyst), Chuck Norris, HAL9000, Troll, Sherlock Holmes,
+  Neuromancer, and The Matrix, while retaining compatibility with stored legacy
+  mode identifiers.
+- Added themed Day/Night palettes, a reliable high-contrast override, visible
+  keyboard focus, reduced-motion initialization, and matching terminal
+  accessibility palette controls.
+- Added a browser-persistent, operator-controlled investigation queue with
+  reordering, Run Next/Run All, retry, removal, and explicit lifecycle states.
+- Reworked every public mode's procedural score around an original motif,
+  harmonic arc, meter, form, orchestration, phrase-level variation, and smooth
+  web transitions so the identities remain cinematic without repeating a
+  fixed recording or closely imitating a referenced work.
+- Replaced synthetic computer-like voices with modeled piano, strings, winds,
+  brass, choir, acoustic percussion, expressive envelopes, and room ambience;
+  added character-specific cinematic ensembles shared by web and terminal.
+- Expanded Pivotglass from an indicator-only launcher into a local-first analyst
+  command surface supporting workspace search, graph, dossier gaps, timeline,
+  linked notes, reports, exports, pivots, and grounded model questions.
+- Restored deterministic terminal routing for previously advertised workspace,
+  search, graph, dossier, report, timeline, note, hint, challenge, export, and
+  auto-pivot commands.
+- Corrected relationship graph/export construction to include persisted STIX
+  relationships, and added browser JSON and CSV export.
+- Reworked cockpit interaction density with viewport-centered Help, temporary
+  full-screen panes, literal 3×3-pixel task LEDs, source-backed geo/malware
+  context, one-click indicator queues, conditional maps, and linked annotations.
+- Rebuilt Flow Dojo as a functional 8-bit miniscroller and expanded character
+  environments with Unicode rain, visible white-rabbit sightings, animated
+  cameos, climbing Ninja, and Computer glitch events.
+- Added character-specific diversions: a chess conclusion for Sherlock Holmes,
+  a safe shutdown sequence for HAL9000, an ICE-routing jack-in for Neuromancer,
+  and a power-grid breaker puzzle for The Matrix; realigned Chuck Norris to
+  leather, brass, and gold and Neuromancer to dead-channel blue-grey.
 - Rebuilt the terminal soundtrack around declarative character scores,
   phrase-level motif transformation, harmonic direction, counterpoint,
   expressive synthesis, and intentional loop form while preserving local,
@@ -40,6 +88,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Made terminal soundtrack volume linear and peak-normalized with useful
   headroom at maximum, and preserved the enabled/muted choice while switching
   character themes.
+
+### Fixed
+
+- Kept Pivotglass keyboard focus visible and recoverable, restored command
+  completion parity with the TUI, and ensured viewport overlays and artifact
+  hover details are not clipped by their source panes.
+- Made soundtrack start, stop, and character changes cross-fade without
+  disruptive transients while preserving the operator's enabled state.
+- Preserved human-readable indicator values throughout the graph, queue, and
+  evidence surfaces instead of exposing backend STIX identifiers.
+
+### Verified
+
+- Release verification is recorded in
+  [`docs/QA_V0.5.2.md`](docs/QA_V0.5.2.md).
 
 ## [0.5.1] — 2026-07-21
 
@@ -446,7 +509,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/ap/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/jarocki/ap/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/jarocki/ap/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/jarocki/ap/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/jarocki/ap/compare/v0.4.9...v0.5.0
 [0.4.9]: https://github.com/jarocki/ap/compare/v0.4.8...v0.4.9

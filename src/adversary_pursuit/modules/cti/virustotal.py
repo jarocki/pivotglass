@@ -47,7 +47,15 @@ from adversary_pursuit.modules.base import (
 logger = logging.getLogger(__name__)
 
 # Regex for SHA-256, SHA-1, MD5 hashes
-_HASH_RE = re.compile(r"^[0-9a-fA-F]{32,64}$")
+_HASH_RE = re.compile(r"^(?:[0-9a-fA-F]{32}|[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$")
+_FILE_RELATIONSHIPS = (
+    "bundled_files",
+    "dropped_files",
+    "execution_parents",
+    "contacted_domains",
+    "contacted_ips",
+    "contacted_urls",
+)
 
 
 class VirusTotal(BaseModule):
@@ -87,10 +95,14 @@ class VirusTotal(BaseModule):
         url = self._build_url(target, target_type)
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.get(
-                url,
-                headers={"x-apikey": api_key, "Accept": "application/json"},
-            )
+            request_kwargs: dict[str, Any] = {
+                "headers": {"x-apikey": api_key, "Accept": "application/json"}
+            }
+            if target_type == "hash":
+                request_kwargs["params"] = {
+                    "relationships": ",".join(_FILE_RELATIONSHIPS)
+                }
+            resp = await client.get(url, **request_kwargs)
 
             if resp.status_code == 401:
                 raise AuthenticationError("VirusTotal API key is invalid.")
@@ -138,7 +150,8 @@ class VirusTotal(BaseModule):
 
     def _build_results(self, target: str, target_type: str, data: dict) -> list[dict]:
         """Convert VT API response to STIX-like dicts."""
-        attrs = data.get("data", {}).get("attributes", {})
+        object_data = data.get("data", {})
+        attrs = object_data.get("attributes", {})
         stats = attrs.get("last_analysis_stats", {})
 
         stix_type_map = {
@@ -165,4 +178,96 @@ class VirusTotal(BaseModule):
             result["x_as_owner"] = attrs.get("as_owner", "")
             result["x_country"] = attrs.get("country", "")
 
-        return [result]
+        results = [result]
+        if target_type == "hash":
+            result.update(
+                {
+                    "x_meaningful_name": attrs.get("meaningful_name", ""),
+                    "x_file_names": attrs.get("names", [])[:20],
+                    "x_type_description": attrs.get("type_description", ""),
+                    "x_magic": attrs.get("magic", ""),
+                    "x_size": attrs.get("size", 0),
+                    "x_tags": attrs.get("tags", [])[:30],
+                    "x_md5": attrs.get("md5", ""),
+                    "x_sha1": attrs.get("sha1", ""),
+                    "x_sha256": attrs.get("sha256", ""),
+                    "x_creation_date": attrs.get("creation_date", 0),
+                    "x_first_submission_date": attrs.get("first_submission_date", 0),
+                    "x_last_submission_date": attrs.get("last_submission_date", 0),
+                    "x_times_submitted": attrs.get("times_submitted", 0),
+                    "x_exiftool": attrs.get("exiftool", {}),
+                    "x_signature_info": attrs.get("signature_info", {}),
+                    "x_trid": attrs.get("trid", [])[:12],
+                }
+            )
+            related, related_results, related_links = _related_file_objects(
+                object_data.get("relationships", {})
+            )
+            result["x_related_objects"] = related
+            result["x_related_links"] = related_links
+            for relationship in _FILE_RELATIONSHIPS:
+                result[f"x_{relationship}"] = [
+                    entry["value"]
+                    for entry in related
+                    if entry["relationship"] == relationship and entry.get("value")
+                ]
+            results.extend(related_results)
+
+        return results
+
+
+def _related_file_objects(
+    relationships: dict[str, Any],
+) -> tuple[list[dict[str, str]], list[dict[str, Any]], list[str]]:
+    """Normalize relationship expansions included in a VT file response."""
+    related: list[dict[str, str]] = []
+    results: list[dict[str, Any]] = []
+    links: list[str] = []
+    seen: set[tuple[str, str]] = set()
+    type_map = {
+        "file": "file",
+        "domain": "domain-name",
+        "ip_address": "ipv4-addr",
+        "url": "url",
+    }
+    for relationship in _FILE_RELATIONSHIPS:
+        envelope = relationships.get(relationship, {})
+        if not isinstance(envelope, dict):
+            continue
+        relation_links = envelope.get("links", {})
+        if isinstance(relation_links, dict):
+            links.extend(
+                value
+                for value in relation_links.values()
+                if isinstance(value, str) and value.startswith(("https://", "http://"))
+            )
+        entries = envelope.get("data", [])
+        if isinstance(entries, dict):
+            entries = [entries]
+        for entry in entries[:20] if isinstance(entries, list) else []:
+            if not isinstance(entry, dict):
+                continue
+            vendor_type = str(entry.get("type", ""))
+            attrs = entry.get("attributes", {})
+            attrs = attrs if isinstance(attrs, dict) else {}
+            stix_type = type_map.get(vendor_type)
+            if vendor_type == "url":
+                value = str(attrs.get("url", ""))
+            else:
+                value = str(
+                    attrs.get("value")
+                    or attrs.get("sha256")
+                    or entry.get("id", "")
+                )
+            if not value or stix_type is None or (stix_type, value) in seen:
+                continue
+            seen.add((stix_type, value))
+            related.append(
+                {
+                    "relationship": relationship,
+                    "type": stix_type,
+                    "value": value,
+                }
+            )
+            results.append({"type": stix_type, "value": value})
+    return related, results, list(dict.fromkeys(links))[:12]

@@ -79,13 +79,13 @@ class TestThemeFor:
     """theme_for() API contract."""
 
     def test_theme_for_the_sprawl(self) -> None:
-        """the_sprawl theme has #ff5fff border (bright_magenta hex, cyberpunk storyboard palette).
+        """Neuromancer uses a dead-channel blue-grey border.
 
         Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
         (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
         theme = theme_for("the_sprawl")
-        assert theme.border_color == "#ff5fff"
+        assert theme.border_color == "#8787af"
 
     def test_theme_for_the_computer(self) -> None:
         """the_computer theme has #ff5555 border (bright_red hex, storyboard red palette).
@@ -97,13 +97,13 @@ class TestThemeFor:
         assert theme.border_color == "#ff5555"
 
     def test_theme_for_sensei(self) -> None:
-        """sensei theme has #ff5fff border (bright_magenta hex, storyboard neon palette).
+        """Chuck Norris uses a burnished leather/orange border.
 
         Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
         (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
         theme = theme_for("sensei")
-        assert theme.border_color == "#5f5fff"
+        assert theme.border_color == "#d78700"
 
     def test_theme_for_default(self) -> None:
         """default theme has #00d7d7 border (cyan hex).
@@ -124,20 +124,20 @@ class TestThemeFor:
         assert isinstance(theme_for("ninja"), CharacterTheme)
 
     def test_the_sprawl_accent_bright_cyan(self) -> None:
-        """the_sprawl accent color is #5fffff (bright_cyan hex, cyberpunk palette).
+        """Neuromancer retains a cold deck-cyan accent.
 
         Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
         (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
-        assert theme_for("the_sprawl").accent_color == "#5fffff"
+        assert theme_for("the_sprawl").accent_color == "#5fd7d7"
 
     def test_the_sprawl_text_yellow(self) -> None:
-        """the_sprawl text color is #d7d700 (yellow hex, storyboard yellow-on-purple content).
+        """Neuromancer text uses dead-channel grey for sustained readability.
 
         Updated in Slice 7Ah2: hex code replaces Rich color name for PTK compatibility
         (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
-        assert theme_for("the_sprawl").text_color == "#d7d700"
+        assert theme_for("the_sprawl").text_color == "#e4e4e4"
 
 
 class TestHighContrastMode:

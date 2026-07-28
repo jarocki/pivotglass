@@ -6,6 +6,8 @@ reimplementing tools or workspace behavior in JavaScript.
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import logging
 import threading
@@ -27,7 +29,9 @@ from adversary_pursuit.agent.tui.themes import (
     DEFAULT_THEMES,
     PURSUIT_TITLES,
 )
-from adversary_pursuit.core.evidence_detail import list_evidence, project_evidence
+from adversary_pursuit.core.command_completion import command_completions
+from adversary_pursuit.core.evidence_detail import evidence_ref, list_evidence, project_evidence
+from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
 from adversary_pursuit.core.investigation import (
     ContentClass,
     EventClass,
@@ -36,9 +40,14 @@ from adversary_pursuit.core.investigation import (
     utc_now,
 )
 from adversary_pursuit.core.ioc_types import detect_ioc_type
+from adversary_pursuit.core.workspace_admin import (
+    export_workspace,
+    merge_workspaces,
+)
+from adversary_pursuit.dossier.slot_inference import infer_dossier_state
 from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
 from adversary_pursuit.dossier.state import load_dossier_state
-from adversary_pursuit.gamification.modes import DEFAULT_MODES, ModeManager
+from adversary_pursuit.gamification.modes import DEFAULT_MODES, display_mode_name
 
 _LOG = logging.getLogger(__name__)
 _SOURCE_WEB_ROOT = Path(__file__).parents[3] / "web" / "out"
@@ -63,7 +72,9 @@ class WebCockpitService:
         self.ctx = ctx or ToolContext()
         self._investigation_lock = threading.Lock()
         self.investigations = InvestigationStore()
-        self.mode_mgr = ModeManager()
+        self.mode_mgr = self.ctx.mode_mgr
+        self._command_lock = threading.RLock()
+        self._runner: Any | None = None
         workspaces = self.ctx.workspace_mgr.list_workspaces()
         if "default" not in workspaces:
             self.ctx.workspace_mgr.create("default")
@@ -76,6 +87,32 @@ class WebCockpitService:
         """Return the current workspace snapshot for the cockpit."""
         objects = self.ctx.workspace_mgr.get_stix_objects()
         dossier_state = load_dossier_state(self.ctx.workspace_mgr)
+        slot_evidence: dict[DossierSlotName, list[dict[str, str]]] = {
+            slot_name: [] for slot_name in DossierSlotName
+        }
+        for item in objects:
+            stix_id = str(item.get("id", ""))
+            if not stix_id:
+                continue
+            try:
+                contribution = infer_dossier_state([item])
+            except (AttributeError, KeyError, TypeError, ValueError):
+                continue
+            value = str(
+                item.get(
+                    "value",
+                    item.get("x_indicator_value", item.get("name", "unavailable")),
+                )
+            )
+            for slot_name, slot in contribution.slots.items():
+                if slot.evidence_count:
+                    slot_evidence[slot_name].append(
+                        {
+                            "reference": evidence_ref(stix_id),
+                            "value": value,
+                            "type": str(item.get("type", "unknown")),
+                        }
+                    )
         dossier_slots = []
         for slot_name in DossierSlotName:
             slot = dossier_state.slots.get(slot_name) if dossier_state is not None else None
@@ -84,14 +121,16 @@ class WebCockpitService:
                     "name": slot_name.value,
                     "status": slot.status.value if slot is not None else SlotStatus.EMPTY.value,
                     "evidence_count": slot.evidence_count if slot is not None else 0,
+                    "evidence": slot_evidence[slot_name][:8],
                 }
             )
         modes = []
-        for entry in self.mode_mgr.list_modes():
+        for entry in self.mode_mgr.list_modes(public_only=True):
             name = entry["name"]
             modes.append(
                 {
                     **entry,
+                    "display_name": display_mode_name(name),
                     "greeting": Text.from_markup(DEFAULT_MODES[name].greeting).plain,
                     "theme": asdict(DEFAULT_THEMES[name]),
                     "cockpit": asdict(COCKPIT_PROFILES[name]),
@@ -99,13 +138,20 @@ class WebCockpitService:
                 }
             )
         return {
-            "workspace": "default",
+            "workspace": self.ctx.workspace_mgr.active,
             "stats": self.ctx.workspace_mgr.get_workspace_stats(),
             "objects": list_evidence(objects),
             "briefings": {name: asdict(value) for name, value in BRIEFINGS.items()},
             "character": self.mode_mgr.active.name,
             "modes": modes,
             "dossier_slots": dossier_slots,
+            "processed_targets": sorted(
+                {
+                    str(run["target"])
+                    for run in self.ctx.workspace_mgr.get_module_runs()
+                    if run.get("target")
+                }
+            ),
             "instruments": {
                 "local_api": {"available": True, "checked_at": utc_now()},
                 "sources": {
@@ -119,12 +165,180 @@ class WebCockpitService:
 
     def switch_mode(self, name: str) -> dict[str, Any]:
         """Switch the web cockpit using the canonical character authority."""
-        self.mode_mgr.switch(name)
+        mode = self.mode_mgr.switch(name)
+        if self._runner is not None:
+            self._runner.set_character(mode)
         return self.state()
+
+    def command_catalog(self) -> list[dict[str, str]]:
+        """Return the shared analyst command surface exposed by Pivotglass."""
+        return [
+            {"command": "use <indicator>", "purpose": "Investigate and pivot to an indicator"},
+            {"command": "search [STIX type]", "purpose": "Search evidence already in this workspace"},
+            {"command": "status", "purpose": "Show workspace and model status"},
+            {"command": "mode [name]", "purpose": "List or switch character mode"},
+            {"command": "workspace list", "purpose": "List investigation workspaces"},
+            {"command": "workspace create <name>", "purpose": "Create and switch to an isolated workspace"},
+            {"command": "workspace switch <name>", "purpose": "Switch the active workspace"},
+            {"command": "workspace export <name>", "purpose": "Download a portable workspace archive"},
+            {"command": "workspace merge <source> <destination>", "purpose": "Merge evidence transactionally without changing the source"},
+            {"command": "workspace delete <name> --confirm <name>", "purpose": "Delete an inactive workspace after explicit confirmation"},
+            {"command": "graph", "purpose": "Render the relationship graph"},
+            {"command": "dossier", "purpose": "Show dossier details and intelligence gaps"},
+            {"command": "timeline", "purpose": "Show the ordered collection timeline"},
+            {"command": "note <text>", "purpose": "Save an analyst annotation"},
+            {"command": "report", "purpose": "Generate the evidence-grounded Markdown report"},
+            {"command": "export <json|csv|stix|gexf>", "purpose": "Download workspace data"},
+            {"command": "help", "purpose": "Show this command reference"},
+            {"command": "<natural-language question>", "purpose": "Ask AP; local tools run first and the configured model synthesizes only when needed"},
+        ]
+
+    def completions(self, text: str) -> list[str]:
+        """Return the same contextual command completions used by the TUI."""
+        mode_names = [
+            str(entry["display_name"])
+            for entry in self.mode_mgr.list_modes(public_only=True)
+        ]
+        return command_completions(
+            text,
+            mode_names=mode_names,
+            workspace_names=self.ctx.workspace_mgr.list_workspaces(),
+        )
+
+    def execute_command(self, text: str) -> dict[str, Any]:
+        """Route Pivotglass input local-first, then to the configured model."""
+        stripped = text.strip()
+        if not stripped:
+            raise ValueError("command is required")
+        detected = detect_ioc_type(stripped)
+        if detected:
+            return {"kind": "investigation", "snapshot": self.start_investigation(stripped)}
+
+        tokens = stripped.split()
+        command = tokens[0].lower()
+        rest = stripped[len(tokens[0]) :].strip()
+        if command in {"use", "hunt"} and rest and detect_ioc_type(rest):
+            return {"kind": "investigation", "snapshot": self.start_investigation(rest)}
+        if command in {"help", "?"}:
+            return {"kind": "commands", "commands": self.command_catalog()}
+        if command == "mode":
+            if rest and rest != "list":
+                return {"kind": "state", "text": f"Mode switched to {rest}.", "state": self.switch_mode(rest)}
+            lines = [
+                f"{'*' if item['name'] == self.mode_mgr.active.name else ' '} "
+                f"{item['display_name']}: {item['personality']}"
+                for item in self.mode_mgr.list_modes(public_only=True)
+            ]
+            return {"kind": "text", "title": "Character modes", "text": "\n".join(lines)}
+        if command == "workspace":
+            parts = rest.split()
+            sub = parts[0].lower() if parts else "list"
+            if sub == "list":
+                active = self.ctx.workspace_mgr.active
+                lines = [f"{'*' if name == active else ' '} {name}" for name in self.ctx.workspace_mgr.list_workspaces()]
+                return {"kind": "text", "title": "Workspaces", "text": "\n".join(lines)}
+            if sub in {"create", "switch"} and len(parts) == 2:
+                if self.investigations.active_count():
+                    raise ValueError(
+                        "cannot change workspace while an investigation is active"
+                    )
+                if sub == "create":
+                    self.ctx.workspace_mgr.create(parts[1])
+                self.ctx.workspace_mgr.switch(parts[1])
+                return {"kind": "state", "text": f"Workspace active: {parts[1]}", "state": self.state()}
+            if sub == "export" and len(parts) == 2:
+                content = json.dumps(export_workspace(self.ctx.workspace_mgr, parts[1]), indent=2, default=str)
+                return {"kind": "download", "filename": f"{parts[1]}-workspace.ap.json", "mime": "application/json", "content": content}
+            if sub == "merge" and len(parts) == 3:
+                counts = merge_workspaces(self.ctx.workspace_mgr, parts[1], parts[2])
+                if parts[2] == self.ctx.workspace_mgr.active:
+                    self.ctx.workspace_mgr.switch(parts[2])
+                return {"kind": "json", "title": "Workspace merge complete", "data": {"source": parts[1], "destination": parts[2], "inserted": counts}}
+            if sub == "delete" and len(parts) == 4 and parts[2] == "--confirm" and parts[1] == parts[3]:
+                if parts[1] == self.ctx.workspace_mgr.active:
+                    raise ValueError("cannot delete the active workspace; switch first")
+                self.ctx.workspace_mgr.delete(parts[1])
+                return {"kind": "text", "title": "Workspace deleted", "text": parts[1]}
+            raise ValueError("usage: workspace list|create <name>|switch <name>|export <name>|merge <source> <destination>|delete <name> --confirm <name>")
+        if command in {"status", "show"} and (command == "status" or rest in {"", "status"}):
+            summary, *_ = execute_tool(self.ctx, "get_workspace_summary", {})
+            return {"kind": "text", "title": "Workspace status", "text": str(summary)}
+        if command == "search":
+            summary, *_ = execute_tool(self.ctx, "search_workspace", {"type_filter": rest or None})
+            return {"kind": "text", "title": "Workspace search", "text": str(summary)}
+        if command == "graph":
+            graph = RelationshipGraph()
+            graph.build_from_workspace(
+                self.ctx.workspace_mgr.get_stix_objects(),
+                persisted_relationships(self.ctx.workspace_mgr),
+            )
+            return {"kind": "graph", "title": "Threat graph", "data": graph.to_dict()}
+        if command in {"dossier", "gaps"}:
+            summary, *_ = execute_tool(self.ctx, "get_dossier_state", {})
+            return {"kind": "json", "title": "Dossier and intelligence gaps", "data": summary}
+        if command == "timeline":
+            return {"kind": "json", "title": "Collection timeline", "data": self.ctx.workspace_mgr.get_module_runs()}
+        if command == "note":
+            if not rest:
+                raise ValueError("usage: note <text>")
+            self.ctx.workspace_mgr.add_note(rest)
+            return {"kind": "text", "title": "Annotation saved", "text": rest}
+        if command == "report":
+            summary, *_ = execute_tool(self.ctx, "generate_dossier_report", {})
+            return {"kind": "text", "title": "Dossier report", "text": str(summary), "printable": True}
+        if command == "export":
+            return self.export_payload(rest or "stix")
+        if command in {"clear", "quit", "exit", "q"}:
+            return {"kind": "client", "action": command}
+
+        # Questions and creative analyst hypotheses use the same AgentRunner
+        # authority as the TUI. Its router intercepts local verbs and tools
+        # before asking the configured LLM to synthesize.
+        with self._command_lock:
+            if self._runner is None:
+                from adversary_pursuit.agent.runner import AgentRunner
+                from adversary_pursuit.core.config import ConfigManager
+
+                self._runner = AgentRunner(tool_context=self.ctx, config_mgr=ConfigManager())
+            response = self._runner.handle_input(stripped)
+        return {"kind": "text", "title": "AP analysis", "text": response, "synthesized": True}
+
+    def export_payload(self, format_name: str) -> dict[str, Any]:
+        """Return a browser-downloadable export without writing outside the workspace."""
+        fmt = format_name.lower().removeprefix("--format").strip() or "stix"
+        objects = self.ctx.workspace_mgr.get_stix_objects()
+        workspace = self.ctx.workspace_mgr.active
+        if fmt == "json":
+            content = json.dumps(objects, indent=2, default=str)
+            mime, suffix = "application/json", "json"
+        elif fmt == "csv":
+            fields = sorted({str(key) for item in objects for key in item if not isinstance(item.get(key), (dict, list))})
+            stream = io.StringIO()
+            writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(objects)
+            content, mime, suffix = stream.getvalue(), "text/csv", "csv"
+        elif fmt in {"stix", "gexf"}:
+            summary, *_ = execute_tool(self.ctx, "export_workspace", {"format": fmt})
+            content = summary if isinstance(summary, str) else json.dumps(summary, indent=2, default=str)
+            mime, suffix = ("application/xml", "gexf") if fmt == "gexf" else ("application/json", "stix.json")
+        else:
+            raise ValueError("supported export formats: json, csv, stix, gexf")
+        return {
+            "kind": "download",
+            "filename": f"{workspace}-pivotglass.{suffix}",
+            "mime": mime,
+            "content": content,
+        }
 
     def evidence_detail(self, identifier: str) -> dict[str, Any]:
         """Return a deterministic detail projection for stored evidence."""
-        return project_evidence(self.ctx.workspace_mgr.get_stix_objects(), identifier)
+        return project_evidence(
+            self.ctx.workspace_mgr.get_stix_objects(),
+            identifier,
+            persisted_relationships(self.ctx.workspace_mgr),
+            self.ctx.workspace_mgr.get_module_runs(),
+        )
 
     def investigate(self, target: str) -> dict[str, Any]:
         """Run deterministic applicable batteries and return grounded events."""
@@ -426,6 +640,10 @@ def _handler(service: WebCockpitService, web_root: Path):
             if parsed.path == "/api/state":
                 self._json(service.state())
                 return
+            if parsed.path == "/api/completions":
+                text = parse_qs(parsed.query).get("text", [""])[0]
+                self._json({"completions": service.completions(text)})
+                return
             if parsed.path == "/api/plan":
                 try:
                     target = parse_qs(parsed.query).get("target", [""])[0].strip()
@@ -471,7 +689,7 @@ def _handler(service: WebCockpitService, web_root: Path):
                 "/acknowledge"
             )
             if (
-                parsed.path not in {"/api/investigate", "/api/mode"}
+                parsed.path not in {"/api/investigate", "/api/mode", "/api/command", "/api/annotate"}
                 and not is_cancel
                 and not is_ack
             ):
@@ -487,6 +705,29 @@ def _handler(service: WebCockpitService, web_root: Path):
                     if not name:
                         raise ValueError("mode name is required")
                     self._json(service.switch_mode(name))
+                    return
+                if parsed.path == "/api/command":
+                    command = str(payload.get("command", "")).strip()
+                    expected_workspace = str(payload.get("workspace", "")).strip()
+                    with service._command_lock:
+                        if (
+                            expected_workspace
+                            and expected_workspace != service.ctx.workspace_mgr.active
+                        ):
+                            raise ValueError(
+                                "workspace changed; queue item was not executed"
+                            )
+                        self._json(
+                            service.execute_command(command), HTTPStatus.ACCEPTED
+                        )
+                    return
+                if parsed.path == "/api/annotate":
+                    text = str(payload.get("text", "")).strip()
+                    stix_id = str(payload.get("stix_id", "")).strip() or None
+                    if not text:
+                        raise ValueError("annotation text is required")
+                    service.ctx.workspace_mgr.add_note(text, stix_id)
+                    self._json({"saved": True})
                     return
                 if is_cancel:
                     investigation_id = parsed.path.split("/")[3]

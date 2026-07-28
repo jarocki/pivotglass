@@ -59,6 +59,7 @@ from adversary_pursuit.agent.tui.events import (
 )
 from adversary_pursuit.agent.tui.themes import pursuit_title_for, theme_for  # noqa: E402
 from adversary_pursuit.dossier.slot_glyphs import SLOT_ORDER, render_slot_strip
+from adversary_pursuit.gamification.modes import display_mode_name
 
 # ---------------------------------------------------------------------------
 # Character refresh cadence table (DEC-TUI-LIVE-PANE-001)
@@ -416,7 +417,7 @@ class LivePane:
         elapsed = int(now - self._session_start)
         elapsed_str = f"{elapsed // 60:02d}:{elapsed % 60:02d}"
         right_segment = f"{model} │ ws {elapsed_str}" if model else f"ws {elapsed_str}"
-        left_segment = f"{mode.upper()} // {pursuit_title_for(mode)}"
+        left_segment = f"{display_mode_name(mode).upper()} // {pursuit_title_for(mode)}"
         # Pad to ~72 chars
         pad = max(1, 72 - len(left_segment) - len(right_segment))
         row1 = left_segment + " " * pad + right_segment

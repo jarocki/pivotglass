@@ -34,7 +34,7 @@ from adversary_pursuit.modules.base import (
     PursuitModule,
     RateLimitError,
 )
-from adversary_pursuit.modules.osint.abuseipdb import AbuseIPDB
+from adversary_pursuit.modules.osint.abuseipdb import AbuseIPDB, _build_results
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -198,7 +198,7 @@ class TestAbuseIPDBMetadata:
         mod = AbuseIPDB()
         assert "VERBOSE" in mod.options
         assert mod.options["VERBOSE"]["required"] is False
-        assert mod.options["VERBOSE"]["default"] == "false"
+        assert mod.options["VERBOSE"]["default"] == "true"
 
 
 # ---------------------------------------------------------------------------
@@ -310,6 +310,21 @@ class TestAbuseIPDBHuntResults:
         results = asyncio.run(mod.hunt("1.2.3.4", {}))
         assert results[0]["x_total_reports"] == 42
 
+    def test_recent_reports_are_normalized_and_capped(self):
+        reports = [
+            {
+                "reportedAt": f"2026-07-{index + 1:02d}T10:00:00Z",
+                "comment": f"report {index}",
+                "categories": [14],
+                "reporterCountryCode": "US",
+            }
+            for index in range(12)
+        ]
+        result = _build_results("1.2.3.4", {"reports": reports})[0]
+
+        assert len(result["x_recent_reports"]) == 10
+        assert result["x_recent_reports"][0]["comment"] == "report 0"
+
     def test_hunt_country_code_present(self, mock_success):
         """x_country_code custom property is present."""
         mod = AbuseIPDB()
@@ -390,13 +405,13 @@ class TestAbuseIPDBHuntResults:
         params = mock_success.get.call_args.kwargs.get("params", {})
         assert params.get("maxAgeInDays") == 30
 
-    def test_hunt_verbose_false_by_default(self, mock_success):
-        """verbose param defaults to 'no' when VERBOSE option is not set."""
+    def test_hunt_verbose_true_by_default(self, mock_success):
+        """Recent report details are requested for the evidence drawer."""
         mod = AbuseIPDB()
         mod.initialize({"api_key": "test-key"})
         asyncio.run(mod.hunt("1.2.3.4", {}))
         params = mock_success.get.call_args.kwargs.get("params", {})
-        assert params.get("verbose") == "no"
+        assert params.get("verbose") == "yes"
 
     def test_hunt_verbose_enabled(self, mock_success):
         """VERBOSE=true sets verbose param to 'yes'."""

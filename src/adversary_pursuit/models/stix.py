@@ -28,6 +28,7 @@ from stix2 import (
     Bundle,
     DomainName,
     EmailAddress,
+    File,
     IPv4Address,
     IPv6Address,
     Relationship,
@@ -104,6 +105,18 @@ def create_email(value: str, **kwargs) -> EmailAddress:
     return EmailAddress(value=value, **kwargs)
 
 
+def create_file(value: str, **kwargs) -> File:
+    """Create a file SCO while retaining the analyst-facing hash value."""
+    length_to_algorithm = {32: "MD5", 40: "SHA-1", 64: "SHA-256"}
+    algorithm = length_to_algorithm.get(len(value), "SHA-256")
+    return File(
+        hashes={algorithm: value},
+        x_indicator_value=value,
+        allow_custom=True,
+        **kwargs,
+    )
+
+
 def create_relationship(
     source_ref: str,
     target_ref: str,
@@ -155,6 +168,7 @@ _SCO_CREATORS: dict[str, object] = {
     "domain-name": create_domain,
     "url": create_url,
     "email-addr": create_email,
+    "file": create_file,
 }
 
 
@@ -189,4 +203,6 @@ def dict_to_stix(d: dict):
     # allow_custom=True permits x_ prefixed extension fields (e.g. x_creation_date,
     # x_org) returned by whois_lookup and similar modules without raising
     # ExtraPropertiesError from python-stix2.
+    if stix_type == "file":
+        return creator(value, **extra)
     return creator(value, allow_custom=True, **extra)

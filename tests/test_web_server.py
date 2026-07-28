@@ -1,7 +1,7 @@
 """Tests for the loopback Pivotglass API adapter."""
 
 import time
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -31,10 +31,19 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
     assert state["character"] == "default"
     assert len(state["dossier_slots"]) == 9
     assert {slot["status"] for slot in state["dossier_slots"]} == {"empty"}
-    assert len(state["modes"]) == 10
+    assert len(state["modes"]) == 7
+    assert {mode["display_name"] for mode in state["modes"]} == {
+        "Default (Analyst)",
+        "Chuck Norris",
+        "HAL9000",
+        "Troll",
+        "Sherlock Holmes",
+        "Neuromancer",
+        "The Matrix",
+    }
     m4tr1x = next(mode for mode in state["modes"] if mode["name"] == "m4tr1x")
     assert m4tr1x["theme"]["heading_color"] == "#00ff5f"
-    assert m4tr1x["cockpit"]["vehicle"] == "OPERATOR DECK"
+    assert m4tr1x["cockpit"]["vehicle"] == "NEBUCHADNEZZAR"
 
 
 def test_switch_mode_reuses_canonical_character_and_cockpit_authorities(tmp_path):
@@ -45,7 +54,26 @@ def test_switch_mode_reuses_canonical_character_and_cockpit_authorities(tmp_path
     assert state["character"] == "the_computer"
     active = next(mode for mode in state["modes"] if mode["name"] == "the_computer")
     assert active["theme"]["heading_color"] == "#ff5555"
-    assert active["cockpit"]["hud_title"] == "LOGIC MONITOR"
+    assert active["cockpit"]["hud_title"] == "HAL OPTICS"
+
+
+def test_completions_match_public_modes_and_workspace_context(tmp_path):
+    service = _service(tmp_path)
+    service.ctx.workspace_mgr.create("case-red")
+
+    assert service.completions("mode neuro") == ["mode Neuromancer"]
+    assert "workspace switch case-red" in service.completions("workspace switch c")
+
+
+def test_switch_mode_synchronizes_existing_agent_runner_persona(tmp_path):
+    service = _service(tmp_path)
+    service._runner = MagicMock()
+
+    state = service.switch_mode("hal9000")
+
+    mode = service.mode_mgr.active
+    service._runner.set_character.assert_called_once_with(mode)
+    assert state["character"] == "the_computer"
 
 
 def test_investigate_rejects_non_indicator(tmp_path):
@@ -160,3 +188,70 @@ def test_attention_records_can_be_acknowledged_without_deletion(tmp_path):
     assert alerts["unread_count"] == 0
     assert len(alerts["alerts"]) == 1
     assert alerts["alerts"][0]["acknowledged"] is True
+
+
+def test_web_command_router_accepts_iocs_commands_and_workspace_queries(tmp_path):
+    service = _service(tmp_path)
+    battery = type("Battery", (), {"tools": ()})()
+    with patch("adversary_pursuit.web.server.dispatch_batteries", return_value=[battery]):
+        investigation = service.execute_command("198.51.100.10")
+
+    assert investigation["kind"] == "investigation"
+    assert investigation["snapshot"]["target"] == "198.51.100.10"
+    help_result = service.execute_command("help")
+    assert help_result["kind"] == "commands"
+    assert {item["command"] for item in help_result["commands"]} >= {
+        "use <indicator>",
+        "graph",
+        "dossier",
+        "timeline",
+        "export <json|csv|stix|gexf>",
+    }
+
+
+def test_web_command_router_saves_linkable_notes_and_exports_csv(tmp_path):
+    service = _service(tmp_path)
+    service.ctx.workspace_mgr.store_stix_objects(
+        [{"type": "domain-name", "value": "suspect.test"}],
+        module_name="osint/test",
+        target="suspect.test",
+    )
+
+    note = service.execute_command("note review this pivot")
+    exported = service.execute_command("export csv")
+
+    assert note["kind"] == "text"
+    assert exported["kind"] == "download"
+    assert exported["mime"] == "text/csv"
+    assert "suspect.test" in exported["content"]
+
+
+def test_workspace_commands_create_export_merge_and_confirm_delete(tmp_path):
+    service = _service(tmp_path)
+    service.execute_command("workspace create source")
+    service.ctx.workspace_mgr.store_stix_objects(
+        [{"type": "domain-name", "value": "merge.test"}],
+        module_name="osint/test",
+        target="merge.test",
+    )
+    service.execute_command("workspace create destination")
+
+    merged = service.execute_command("workspace merge source destination")
+    exported = service.execute_command("workspace export destination")
+    service.execute_command("workspace switch default")
+    deleted = service.execute_command("workspace delete source --confirm source")
+
+    assert merged["data"]["inserted"]["stix_objects"] == 1
+    assert "merge.test" in exported["content"]
+    assert deleted["title"] == "Workspace deleted"
+
+
+def test_workspace_switch_is_blocked_while_investigation_is_active(tmp_path):
+    service = _service(tmp_path)
+    service.ctx.workspace_mgr.create("other")
+    service.investigations.create("198.51.100.8", "ipv4-addr")
+
+    with pytest.raises(ValueError, match="investigation is active"):
+        service.execute_command("workspace switch other")
+
+    assert service.ctx.workspace_mgr.active == "default"

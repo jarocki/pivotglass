@@ -1,11 +1,18 @@
 """Procedural music remains local, optional, and independent of analysis."""
 
 import struct
+import threading
+import time
 import wave
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from adversary_pursuit.core.music import ProceduralMusicController
+from adversary_pursuit.core.music import (
+    _PERFORMED_CONTRACTS,
+    _THEMES,
+    ProceduralMusicController,
+    _score_id,
+)
 
 
 def test_music_starts_muted_and_reports_unavailable_honestly(tmp_path: Path):
@@ -18,6 +25,53 @@ def test_music_starts_muted_and_reports_unavailable_honestly(tmp_path: Path):
     assert not tmp_path.exists() or list(tmp_path.iterdir()) == []
 
 
+def test_start_returns_before_initial_render_finishes(tmp_path: Path):
+    controller = ProceduralMusicController(tmp_path)
+    controller._player = ("fake-player",)
+    entered = threading.Event()
+    release = threading.Event()
+
+    def slow_render(*args, **kwargs):
+        entered.set()
+        release.wait(timeout=2)
+        return False
+
+    controller._render = slow_render  # type: ignore[method-assign]
+    started = time.monotonic()
+    assert controller.start() is True
+    assert time.monotonic() - started < 0.2
+    assert entered.wait(timeout=1)
+    release.set()
+    assert controller._thread is not None
+    controller._thread.join(timeout=1)
+
+
+def test_next_tui_cycle_is_prerendered_while_current_cycle_plays(tmp_path: Path):
+    controller = ProceduralMusicController(tmp_path)
+    controller._player = ("fake-player",)
+    rendered_cycles: list[int] = []
+    next_ready = threading.Event()
+
+    def render(*args, cycle=None, **kwargs):
+        rendered_cycles.append(cycle)
+        if cycle == 1:
+            next_ready.set()
+        return True
+
+    class FakeProcess:
+        def wait(self):
+            assert next_ready.wait(timeout=1)
+            controller._stop.set()
+
+        def poll(self):
+            return 0
+
+    controller._render = render  # type: ignore[method-assign]
+    with patch("adversary_pursuit.core.music.subprocess.Popen", return_value=FakeProcess()):
+        controller._play_loop()
+    assert rendered_cycles == [0, 1]
+
+
 def test_renderer_writes_owned_local_layered_wave(tmp_path: Path):
     controller = ProceduralMusicController(tmp_path, mode="sensei", volume=20)
     output = tmp_path / "sensei.wav"
@@ -26,7 +80,7 @@ def test_renderer_writes_owned_local_layered_wave(tmp_path: Path):
     with wave.open(str(output), "rb") as rendered:
         assert rendered.getframerate() == 22_050
         assert rendered.getnchannels() == 1
-        assert 31 <= rendered.getnframes() / rendered.getframerate() <= 33
+        assert 25 <= rendered.getnframes() / rendered.getframerate() <= 38
         frames = rendered.readframes(rendered.getnframes())
     assert len(set(frames[index : index + 2] for index in range(0, len(frames), 2))) > 1_000
 
@@ -60,103 +114,104 @@ def test_character_identity_lives_in_score_not_only_rendering(tmp_path: Path):
 
 
 def test_score_has_form_memory_and_transformation(tmp_path: Path):
-    score = ProceduralMusicController(tmp_path, mode="sensei")._score()
-    lead = [event for event in score if event.voice == "bowl"]
+    score = ProceduralMusicController(tmp_path, mode="sherlock_holmes")._score()
+    lead = [event for event in score if event.voice == _THEMES["sherlock_holmes"].lead_voice]
     answers = [event for event in score if event.voice == "answer"]
+    section = 60 / _THEMES["sherlock_holmes"].tempo * 6 * 2
 
-    assert any(event.start < 8 for event in lead)
-    assert any(8 <= event.start < 16 for event in lead)
-    assert any(16 <= event.start < 24 for event in lead)
-    assert any(24 <= event.start < 32 for event in lead)
+    assert any(event.start < section for event in lead)
+    assert any(section <= event.start < section * 2 for event in lead)
+    assert any(section * 2 <= event.start < section * 3 for event in lead)
+    assert any(section * 3 <= event.start < section * 4 for event in lead)
     assert answers
 
 
-def test_m4tr1x_has_sample_informed_machine_pulse(tmp_path: Path):
-    score = ProceduralMusicController(tmp_path, mode="m4tr1x")._score()
-    pulses = [event for event in score if event.voice == "pulse" and event.start < 8]
-    pulse_gaps = [round(right.start - left.start, 3) for left, right in zip(pulses, pulses[1:])]
-
-    assert {event.voice for event in score} >= {"machine", "sub", "neon", "pulse"}
-    assert pulse_gaps
-    assert all(0.26 <= gap <= 0.27 for gap in pulse_gaps)
-
-
-def test_sensei_has_sample_informed_breathing_form(tmp_path: Path):
-    sensei = ProceduralMusicController(tmp_path, mode="sensei")._score()
-    m4tr1x = ProceduralMusicController(tmp_path, mode="m4tr1x")._score()
-    gongs = [event for event in sensei if event.voice == "gong"]
-
-    assert {event.voice for event in sensei} >= {"bowl", "earth", "breath", "gong"}
-    assert len(sensei) < len(m4tr1x)
-    assert len(gongs) == 4
-    assert [event.start for event in gongs] == [0, 8, 16, 24]
-
-
-def test_sprawl_has_sample_informed_falling_grid_and_late_bloom(tmp_path: Path):
-    score = ProceduralMusicController(tmp_path, mode="the_sprawl")._score()
-    cascades = [event for event in score if event.voice == "cascade" and event.start < 8]
-    fog_drones = [event for event in score if event.voice == "fog" and event.duration > 8]
-
-    assert {event.voice for event in score} >= {"cascade", "grid", "fog", "signal"}
-    assert [event.frequency for event in cascades[:3]] == sorted(
-        (event.frequency for event in cascades[:3]), reverse=True
+def test_public_score_bibles_have_distinct_compositional_grammar():
+    names = (
+        "default", "chuck_norris", "full_troll", "hal9000",
+        "sherlock_holmes", "neuromancer", "the_matrix",
     )
-    assert fog_drones[-1].amplitude > fog_drones[0].amplitude * 2
+    specs = [_THEMES[name] for name in names]
+    signatures = {
+        (
+            spec.tempo, spec.meter, spec.phrase_bars, spec.scale, spec.motif,
+            spec.rhythm, spec.cadence, spec.form, spec.lead_voice,
+            spec.bass_voice, spec.pad_voice, spec.pulse,
+        )
+        for spec in specs
+    }
+    assert len(signatures) == len(names)
+    assert {spec.public_identity for spec in specs} == {
+        "Default (Analyst)", "Chuck Norris", "Troll", "HAL9000",
+        "Sherlock Holmes", "Neuromancer", "The Matrix",
+    }
+    synthetic_tokens = {"machine", "code", "packet", "signal", "pulse", "square"}
+    for spec in specs:
+        assert not synthetic_tokens.intersection(
+            {spec.lead_voice, spec.bass_voice, spec.pad_voice, spec.pulse_voice}
+        )
 
 
-def test_ninja_has_reference_informed_stealth_to_impact_reveal(tmp_path: Path):
-    score = ProceduralMusicController(tmp_path, mode="ninja")._score()
-    steps = [event for event in score if event.voice == "step" and event.start < 8]
-    veils = [event for event in score if event.voice == "veil" and event.duration > 8]
-    step_gaps = [round(right.start - left.start, 3) for left, right in zip(steps, steps[1:])]
-
-    assert {event.voice for event in score} >= {"blade", "shadow", "veil", "step"}
-    assert step_gaps and all(0.428 <= gap <= 0.429 for gap in step_gaps)
-    assert veils[-1].amplitude > veils[0].amplitude * 5
+def test_preserved_internal_ids_resolve_to_requested_public_scores():
+    assert _score_id("sensei") == "chuck_norris"
+    assert _score_id("the_computer") == "hal9000"
+    assert _score_id("detective") == "sherlock_holmes"
+    assert _score_id("the_sprawl") == "neuromancer"
+    assert _score_id("m4tr1x") == "the_matrix"
 
 
-def test_detective_has_reference_informed_crooked_investigation_pulse(tmp_path: Path):
-    score = ProceduralMusicController(tmp_path, mode="detective")._score()
-    knocks = [event for event in score if event.voice == "knock" and event.start < 8]
-    rain = [event for event in score if event.voice == "rain" and event.duration > 8]
-    knock_gaps = {round(right.start - left.start, 3) for left, right in zip(knocks, knocks[1:])}
-
-    assert {event.voice for event in score} >= {"clue", "footfall", "rain", "knock"}
-    assert knock_gaps == {0.833, 1.667}
-    assert rain[1].amplitude > rain[0].amplitude * 5
-
-
-def test_computer_has_reference_informed_dreamy_cyberspace_orbit(tmp_path: Path):
-    score = ProceduralMusicController(tmp_path, mode="the_computer")._score()
-    orbits = [event for event in score if event.voice == "orbit" and event.start < 8]
-    clouds = [event for event in score if event.voice == "cloud" and event.duration > 8]
-    orbit_gaps = [round(right.start - left.start, 3) for left, right in zip(orbits, orbits[1:])]
-
-    assert {event.voice for event in score} >= {"star", "current", "cloud", "orbit"}
-    assert orbit_gaps and all(gap == 0.469 for gap in orbit_gaps)
-    assert max(event.amplitude for event in clouds) < min(event.amplitude for event in clouds) * 1.12
+def test_all_public_scores_render_pairwise_distinct_event_timelines(tmp_path: Path):
+    names = (
+        "default", "chuck_norris", "full_troll", "hal9000",
+        "sherlock_holmes", "neuromancer", "the_matrix",
+    )
+    signatures = set()
+    for name in names:
+        score = ProceduralMusicController(tmp_path, mode=name)._score()
+        signatures.add(
+            tuple(
+                (round(event.start, 3), round(event.duration, 3), round(event.frequency, 2), event.voice)
+                for event in score
+            )
+        )
+        assert len({event.voice for event in score}) >= 4
+    assert len(signatures) == len(names)
 
 
-def test_strategist_has_reference_informed_long_range_build(tmp_path: Path):
-    score = ProceduralMusicController(tmp_path, mode="strategist")._score()
-    measures = [event for event in score if event.voice == "measure"]
-    horizons = [event for event in score if event.voice == "horizon" and event.duration > 8]
-    measure_gaps = {round(right.start - left.start, 3) for left, right in zip(measures, measures[1:])}
+def test_macro_cycles_are_reproducible_varied_and_protect_return(tmp_path: Path):
+    controller = ProceduralMusicController(tmp_path, mode="neuromancer")
+    first = controller._score(cycle=1)
+    repeat = controller._score(cycle=1)
+    next_cycle = controller._score(cycle=2)
+    assert first == repeat
+    assert first != next_cycle
+    theme = _THEMES["neuromancer"]
+    return_start = 3 * (60 / theme.tempo * theme.meter * theme.phrase_bars)
+    first_return = [event.frequency for event in first if event.voice == theme.lead_voice and event.start >= return_start]
+    next_return = [event.frequency for event in next_cycle if event.voice == theme.lead_voice and event.start >= return_start]
+    assert first_return[-2:] == next_return[-2:]
 
-    assert {event.voice for event in score} >= {"plan", "foundation", "horizon", "measure"}
-    assert measure_gaps == {4.0}
-    assert horizons[-1].amplitude > horizons[0].amplitude * 3.5
 
-
-def test_default_has_reference_informed_open_forward_motion(tmp_path: Path):
-    score = ProceduralMusicController(tmp_path, mode="default")._score()
-    strides = [event for event in score if event.voice == "stride" and event.start < 8]
-    skies = [event for event in score if event.voice == "sky" and event.duration > 8]
-    stride_gaps = {round(right.start - left.start, 3) for left, right in zip(strides, strides[1:])}
-
-    assert {event.voice for event in score} >= {"seed", "field", "sky", "stride"}
-    assert stride_gaps == {0.938}
-    assert skies[-1].amplitude > skies[0].amplitude * 1.6
+def test_tui_identity_fields_match_web_score_authority_contract():
+    expected = {
+        "default": (45, 108, 4, 4, (0, 2, 4, 5, 7, 9, 10), (0, 1, 3, 2, 4)),
+        "chuck_norris": (38, 132, 4, 4, (0, 2, 4, 5, 7, 9, 10), (0, 4, 3, 5, 2)),
+        "full_troll": (43, 118, 7, 2, (0, 2, 4, 6, 7, 9, 10), (0, 3, 1, 4, 2, 1)),
+        "hal9000": (36, 76, 5, 2, (0, 2, 4, 6, 8, 10), (0, 3, 2, 4, 1)),
+        "sherlock_holmes": (38, 96, 6, 2, (0, 2, 3, 5, 7, 8, 11), (0, 5, 4, 2, 3, 1)),
+        "neuromancer": (31, 132, 4, 4, (0, 2, 3, 5, 7, 8, 10), (0, 0, 4, 3, 6, 5, 3, 2)),
+        "the_matrix": (36, 126, 4, 4, (0, 1, 3, 5, 7, 8, 10), (0, 0, 4, 2, 0, 5, 4, 2)),
+    }
+    for name, identity in expected.items():
+        theme = _THEMES[name]
+        assert (theme.root_midi, theme.tempo, theme.meter, theme.phrase_bars, theme.scale, theme.motif) == identity
+        contract = _PERFORMED_CONTRACTS[name]
+        assert theme.rhythm == contract["rhythm"]
+        assert theme.pulse == contract["pulse"]
+        assert theme.chords == contract["chords"]
+        assert theme.progression == contract["progression"]
+        assert theme.orchestration == contract["orchestration"]
+        assert theme.pulse_rate == 0.5
 
 
 def test_renderer_has_headroom_and_faded_loop_edges(tmp_path: Path):

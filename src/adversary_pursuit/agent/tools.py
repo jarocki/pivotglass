@@ -620,7 +620,11 @@ class ToolContext:
         # _hunt_succeeded (at least one non-bare domain-name result).
         if total > 0 and _hunt_succeeded:
             art = self.celebration.celebrate(total)
-            mode_points_line = self.mode_mgr.active.score_celebration.format(points=total)
+            from adversary_pursuit.gamification.phrases import pick
+
+            mode_points_line = pick(
+                self.mode_mgr.active.name, "score_celebration"
+            ).format(points=total)
             celebration = art + "\n" + mode_points_line
             # Milestone catch-up check (DEC-63-MILESTONE-CATCHUP-001).
             # Quiet-start migration: seed last_id from pre_total (score BEFORE this
@@ -1340,14 +1344,20 @@ def create_tools(ctx: ToolContext) -> list[dict]:
             "type": "function",
             "function": {
                 "name": "search_workspace",
-                "description": ("Search the current workspace for STIX objects by type or value."),
+                "description": (
+                    "Search the current workspace across observable values, provenance, "
+                    "original queries, and normalized fields. Plain text searches every "
+                    "stored field; structured filters include type:<stix-type> and "
+                    "source:<module>."
+                ),
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "type_filter": {
                             "type": "string",
                             "description": (
-                                "STIX type to filter by (ipv4-addr, domain-name, url, email-addr)"
+                                "Search expression, such as 'evil.example', "
+                                "'type:domain-name', or 'source:virustotal malware'"
                             ),
                         },
                     },
@@ -1478,8 +1488,8 @@ def create_tools(ctx: ToolContext) -> list[dict]:
             "function": {
                 "name": "export_workspace",
                 "description": (
-                    "Export the current workspace as GEXF XML (for Gephi visualization) "
-                    "or as a STIX 2.1 bundle JSON string. "
+                    "Export the current workspace as JSON, CSV, GEXF XML "
+                    "(for Gephi visualization), or a STIX 2.1 bundle JSON string. "
                     "Use format='gexf' to get GEXF 1.2 XML importable into Gephi. "
                     "Use format='stix' (default) to get a STIX 2.1 bundle dict as JSON."
                 ),
@@ -1489,8 +1499,7 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                         "format": {
                             "type": "string",
                             "description": (
-                                "Export format: 'gexf' for GEXF 1.2 XML (Gephi), "
-                                "'stix' for STIX 2.1 bundle JSON. Default: 'stix'."
+                                "Export format: json, csv, gexf, or stix. Default: stix."
                             ),
                             "default": "stix",
                         },
@@ -2126,14 +2135,16 @@ def _workspace_summary(ctx: ToolContext) -> str:
 
 
 def _search_workspace(ctx: ToolContext, type_filter: str | None = None) -> str:
-    """Search workspace STIX objects and return a formatted string.
+    """Search workspace objects by type, source, value, or arbitrary stored text.
 
     Parameters
     ----------
     ctx:
         The shared ToolContext.
     type_filter:
-        Optional STIX type to filter by (e.g. "ipv4-addr").
+        Backward-compatible search expression. A bare known STIX type filters
+        by type. Otherwise terms search all stored fields. Structured
+        ``type:`` and ``source:`` filters may be combined with plain terms.
 
     Returns
     -------
@@ -2141,13 +2152,54 @@ def _search_workspace(ctx: ToolContext, type_filter: str | None = None) -> str:
         Formatted list of matching objects, or a 'no results' message.
     """
     try:
-        objects = ctx.workspace_mgr.get_stix_objects(type_filter=type_filter)
+        import json as _json
+        import shlex
+
+        expression = (type_filter or "").strip()
+        known_types = {
+            "ipv4-addr", "ipv6-addr", "domain-name", "url", "email-addr",
+            "file", "x509-certificate", "autonomous-system",
+        }
+        requested_type: str | None = expression if expression.lower() in known_types else None
+        requested_source: str | None = None
+        terms: list[str] = []
+        if expression and requested_type is None:
+            for token in shlex.split(expression):
+                lowered = token.lower()
+                if lowered.startswith("type:"):
+                    requested_type = token.split(":", 1)[1]
+                elif lowered.startswith("source:"):
+                    requested_source = token.split(":", 1)[1].lower()
+                else:
+                    terms.append(lowered)
+
+        objects = ctx.workspace_mgr.get_stix_objects(type_filter=requested_type)
+        matches = []
+        for obj in objects:
+            haystack = _json.dumps(obj, sort_keys=True, default=str).lower()
+            source_module = str(obj.get("x_ap_source_module", "")).lower()
+            source_url = str(obj.get("x_ap_source_url", "")).lower()
+            if requested_source and not any(
+                requested_source in source
+                for source in (source_module, source_url)
+                if source
+            ):
+                continue
+            if terms and not all(term in haystack for term in terms):
+                continue
+            matches.append(obj)
+        objects = matches
         if not objects:
-            label = type_filter or "objects"
-            return f"No {label} found in workspace."
-        lines = [f"Found {len(objects)} {type_filter or 'objects'}:"]
+            label = expression or "objects"
+            return f"No matches for {label!r} in workspace."
+        lines = [f"Found {len(objects)} match(es) for {expression or 'all objects'}:"]
         for obj in objects[:20]:
-            lines.append(f"  {obj.get('type', '?')}: {obj.get('value', '?')}")
+            source = (
+                obj.get("x_ap_source_module")
+                or obj.get("x_ap_source_url")
+                or "source unavailable (legacy record)"
+            )
+            lines.append(f"  {obj.get('type', '?')}: {obj.get('value', '?')} · {source}")
         if len(objects) > 20:
             lines.append(f"  ... and {len(objects) - 20} more")
         return "\n".join(lines)
@@ -2374,7 +2426,9 @@ def _execute_render_graph(ctx: ToolContext) -> str:
         return f"Error reading workspace: {e}"
 
     g = RelationshipGraph()
-    g.build_from_workspace(raw_objects)
+    from adversary_pursuit.core.graph import persisted_relationships
+
+    g.build_from_workspace(raw_objects, persisted_relationships(ctx.workspace_mgr))
 
     if g.node_count == 0:
         return "No objects in workspace. Run a module first to populate the graph."
@@ -2385,7 +2439,7 @@ def _execute_render_graph(ctx: ToolContext) -> str:
 
 
 def _execute_export_workspace(ctx: ToolContext, fmt: str) -> str:
-    """Export the workspace as GEXF XML or a STIX bundle JSON string.
+    """Export the workspace as JSON, CSV, GEXF, or a STIX bundle.
 
     Builds a RelationshipGraph from all STIX objects in the active workspace
     and calls export_gexf() or export_stix_bundle() depending on *fmt*.
@@ -2407,14 +2461,15 @@ def _execute_export_workspace(ctx: ToolContext, fmt: str) -> str:
     str
         GEXF XML string, JSON-serialized STIX bundle, or an error message.
     """
+    import csv as _csv
+    import io as _io
     import json as _json
 
     fmt = (fmt or "stix").strip().lower()
-    if fmt not in ("gexf", "stix"):
+    if fmt not in ("json", "csv", "gexf", "stix"):
         return (
             f"Unknown export format '{fmt}'. "
-            "Supported formats: 'gexf' (GEXF 1.2 XML for Gephi), "
-            "'stix' (STIX 2.1 bundle JSON)."
+            "Supported formats: json, csv, gexf, stix."
         )
 
     try:
@@ -2426,8 +2481,27 @@ def _execute_export_workspace(ctx: ToolContext, fmt: str) -> str:
     if not raw_objects:
         return "No objects in workspace to export. Run a module first."
 
+    if fmt == "json":
+        return _json.dumps(raw_objects, indent=2, default=str)
+    if fmt == "csv":
+        fields = sorted(
+            {
+                str(key)
+                for item in raw_objects
+                for key, value in item.items()
+                if not isinstance(value, (dict, list))
+            }
+        )
+        stream = _io.StringIO()
+        writer = _csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(raw_objects)
+        return stream.getvalue()
+
     g = RelationshipGraph()
-    g.build_from_workspace(raw_objects)
+    from adversary_pursuit.core.graph import persisted_relationships
+
+    g.build_from_workspace(raw_objects, persisted_relationships(ctx.workspace_mgr))
 
     if fmt == "gexf":
         return g.export_gexf()

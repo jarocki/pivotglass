@@ -74,7 +74,7 @@ class _FakeRunner:
 def test_every_mode_has_a_distinct_cockpit_identity() -> None:
     assert len(COCKPIT_PROFILES) == 10
     assert len({profile.vehicle for profile in COCKPIT_PROFILES.values()}) == 10
-    assert cockpit_for("the_computer").vehicle == "GAME GRID"
+    assert cockpit_for("the_computer").vehicle == "DISCOVERY ONE"
     assert cockpit_for("the_sprawl").vehicle == "ONO-SENDAI VII"
 
 
@@ -212,6 +212,22 @@ class TestLivePaneFormattedTextHasThemeColor:
             f"Expected 6 content rows in live pane FormattedText, got {len(content_rows)}"
         )
 
+    def test_mode_command_synchronizes_live_instruments(self, monkeypatch) -> None:
+        """A completed mode command updates both the frame and live instruments."""
+        app = _make_app("default")
+
+        def handle_input(_text: str, status_bar=None) -> str:
+            app._mode_mgr.switch("the_sprawl")
+            return "Neuromancer online."
+
+        app._runner.handle_input = handle_input
+        monkeypatch.setattr(app._music, "set_mode", lambda _mode: None)
+
+        app._process_input("mode neuromancer")
+
+        assert app.live_pane._mode_name == "the_sprawl"
+        assert "NEUROMANCER" in app.live_pane.render()[0]
+
     def test_live_pane_row1_uses_bold_heading_color(self, monkeypatch) -> None:
         """Row 1 of live pane (character identity) must use 'bold fg:<heading_color>'.
 
@@ -333,7 +349,7 @@ class TestHighContrastEnvSwapsStyleTokens:
         )
 
     def test_normal_mode_without_high_contrast_uses_character_color(self, monkeypatch) -> None:
-        """Without AP_TUI_HIGH_CONTRAST, the_sprawl gets #ff5fff (bright_magenta hex), not #ffffff.
+        """Without high contrast, Neuromancer gets dead-channel blue-grey, not white.
 
         Updated in Slice 7Ah2: hex codes replace Rich color names
         (DEC-TUI-PTK-COLOR-COMPAT-001).
@@ -344,8 +360,8 @@ class TestHighContrastEnvSwapsStyleTokens:
         ft = app._get_header_formatted()
         style_tokens = [style for style, text in ft if text.strip()]
 
-        assert any("#ff5fff" in tok for tok in style_tokens), (
-            f"Expected '#ff5fff' in header tokens without high-contrast. Got: {style_tokens}"
+        assert any("#8787af" in tok for tok in style_tokens), (
+            f"Expected '#8787af' in header tokens without high-contrast. Got: {style_tokens}"
         )
         assert not any(tok == "fg:#ffffff" for tok in style_tokens), (
             f"Did not expect 'fg:#ffffff' without high-contrast. Got: {style_tokens}"

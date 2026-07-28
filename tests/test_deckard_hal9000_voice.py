@@ -29,7 +29,7 @@ from adversary_pursuit.gamification.phrases import PHRASES, Phrase
 
 
 class TestDeckardPhraseContent:
-    """detective phrases have the expected content and rarity design."""
+    """The public detective bank is reviewed Sherlock Holmes, not Deckard."""
 
     def test_detective_greeting_count(self):
         """detective has exactly 3 greeting phrases."""
@@ -51,23 +51,20 @@ class TestDeckardPhraseContent:
         pool = PHRASES.get(("detective", "score_celebration"), ())
         assert len(pool) >= 3, f"Expected ≥3 detective score_celebration phrases, got {len(pool)}"
 
-    def test_detective_famous_quote_has_low_weight(self):
-        """The 'Enhance. There's your ghost.' phrase has weight < 1.0 (rarity design)."""
-        pool = PHRASES.get(("detective", "run_success"), ())
-        enhance_phrases = [p for p in pool if "Enhance" in p.text]
-        assert len(enhance_phrases) >= 1, "detective run_success pool missing the 'Enhance' phrase"
-        for phrase in enhance_phrases:
-            assert phrase.weight < 1.0, (
-                f"'Enhance' phrase should have weight < 1.0 to reduce Blade Runner "
-                f"quote frequency, got weight={phrase.weight}"
-            )
+    def test_detective_bank_has_no_retired_screen_detective_language(self):
+        bank = " ".join(
+            phrase.text
+            for (owner, _category), phrases in PHRASES.items()
+            if owner == "detective"
+            for phrase in phrases
+        ).lower()
+        for retired in ("deckard", "columbo", "enhance", "my wife", "one more thing"):
+            assert retired not in bank
 
     def test_detective_run_success_normal_phrases_have_default_weight(self):
-        """Non-rare detective run_success phrases have weight 1.0."""
+        """Reviewed Sherlock run-success phrases use normal deterministic weight."""
         pool = PHRASES.get(("detective", "run_success"), ())
-        normal_phrases = [p for p in pool if "Enhance" not in p.text]
-        assert len(normal_phrases) >= 2, "Expected ≥2 non-rare detective run_success phrases"
-        for phrase in normal_phrases:
+        for phrase in pool:
             assert phrase.weight == 1.0, (
                 f"Normal phrase should have weight=1.0, got {phrase.weight}: {phrase.text!r}"
             )
@@ -76,17 +73,13 @@ class TestDeckardPhraseContent:
         """detective greeting pool contains the canonical opener."""
         pool = PHRASES.get(("detective", "greeting"), ())
         texts = {p.text for p in pool}
-        assert any("Another night" in t for t in texts), (
-            "detective greeting pool missing 'Another night, another hunt' phrase"
-        )
+        assert any("game is afoot" in t.lower() for t in texts)
 
-    def test_detective_run_fail_contains_static_text(self):
-        """detective run_fail pool contains 'Nothing but static.'."""
+    def test_detective_run_fail_preserves_epistemic_limit(self):
+        """Failure language does not turn missing results into a conclusion."""
         pool = PHRASES.get(("detective", "run_fail"), ())
         texts = {p.text for p in pool}
-        assert any("static" in t.lower() for t in texts), (
-            "detective run_fail pool missing 'Nothing but static.' phrase"
-        )
+        assert any("not a conclusion" in t.lower() for t in texts)
 
     def test_detective_activity_thinking_count(self):
         """detective has at least 3 activity:thinking phrases."""

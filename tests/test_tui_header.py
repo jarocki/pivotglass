@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import pytest
 
+from adversary_pursuit import __version__
 from adversary_pursuit.agent.tui.events import EventBus, TargetChanged
 from adversary_pursuit.agent.tui.header import HeaderPane, HeaderState, render_header
 from adversary_pursuit.agent.tui.themes import theme_for
@@ -69,6 +70,11 @@ class TestRenderHeaderContent:
         theme = theme_for("default")
         rows = render_header(state, theme)
         assert "v0.4" in rows[0], f"Version not in row1: {rows[0]}"
+
+    def test_default_version_tracks_package_release(self) -> None:
+        """The live header must not drift from the package version."""
+        state = HeaderState()
+        assert state.version == f"v{__version__}"
 
     def test_row1_contains_adversary_pursuit(self) -> None:
         state = HeaderState()
