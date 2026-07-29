@@ -38,6 +38,16 @@ from prompt_toolkit.document import Document
 from prompt_toolkit.enums import EditingMode
 from prompt_toolkit.history import FileHistory, InMemoryHistory
 
+from adversary_pursuit.core.command_completion import (
+    MODULE_NAMES,
+    TOP_LEVEL_COMMANDS,
+    command_completions,
+)
+from adversary_pursuit.gamification.modes import (
+    MODE_DISPLAY_NAMES,
+    PUBLIC_MODE_ORDER,
+)
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -46,69 +56,18 @@ from prompt_toolkit.history import FileHistory, InMemoryHistory
 HISTORY_PATH: Path = Path.home() / ".ap" / "chat_history"
 
 #: All top-level meta-commands recognised by the AP chat REPL.
-_TOP_LEVEL_COMMANDS: list[str] = [
-    "workspace",
-    "mode",
-    "hint",
-    "autopivot",
-    "challenges",
-    "graph",
-    "export",
-    "report",
-    "help",
-    "model",
-    "status",
-    "clear",
-    "use",
-    "stop",
-    "focus",
-    "add",
-    "skip",
-    "quit",
-    "exit",
-    "?",
-]
+_TOP_LEVEL_COMMANDS: list[str] = list(TOP_LEVEL_COMMANDS)
 
-#: Character mode names (mirrors gamification.modes.DEFAULT_MODES keys).
-#: Hardcoded constant so we don't import from gamification (forbidden in chat).
-#: Deprecated modes remain discoverable so deprecation never destroys user choice.
-_MODE_NAMES: list[str] = [
-    "default",
-    "ninja",
-    "full_troll",
-    "drunken_master",
-    "sun_tzu",
-    "chuck_norris",
-    "bureaucrat",
-    "bobby_hill",
-    "bruce_lee",
-    "columbo",
-    "deckard",
-    "hal9000",
-    "neuromancer",
-    "trinity",
-]
+#: Public character names come from the same authority as ``mode list``.
+#: Historical identifiers remain accepted by ModeManager but no longer crowd
+#: the primary completion surface.
+_MODE_NAMES: list[str] = [MODE_DISPLAY_NAMES[name] for name in PUBLIC_MODE_ORDER]
 
 #: CTI module names for hint completion.
-_MODULE_NAMES: list[str] = [
-    "shodan",
-    "abuseipdb",
-    "virustotal",
-    "censys",
-    "urlscan",
-    "hibp",
-    "otx",
-    "passivetotal",
-    "greynoise",
-    # F61 keyless hunters (DEC-61-SCOPING-001)
-    "urlhaus",
-    "threatfox",
-    "malwarebazaar",
-    "crtsh",
-]
+_MODULE_NAMES: list[str] = list(MODULE_NAMES)
 
 #: Export format choices.
-_EXPORT_FORMATS: list[str] = ["gexf", "stix"]
+_EXPORT_FORMATS: list[str] = ["json", "csv", "gexf", "stix"]
 
 #: Model sub-commands.
 _MODEL_SUBCMDS: list[str] = ["show", "select"]
@@ -143,43 +102,13 @@ class APCompleter(Completer):
         self, document: Document, complete_event: CompleteEvent
     ) -> Iterable[Completion]:
         text = document.text_before_cursor
-        stripped = text.lstrip()
-
-        # Determine which word we're completing
-        parts = stripped.split()
-        # If the text ends with whitespace, user has finished the previous word
-        # and is starting a new one — parts gives us completed tokens.
-        ends_with_space = text.endswith(" ")
-
-        if not parts or (len(parts) == 1 and not ends_with_space):
-            # Completing the first (command) word
-            word = parts[0] if parts else ""
-            yield from _match(word, _TOP_LEVEL_COMMANDS)
-            return
-
-        cmd = parts[0].lower()
-
-        if len(parts) == 1 and ends_with_space:
-            # First word complete, typing second
-            arg_word = ""
-        elif len(parts) == 2 and not ends_with_space:
-            arg_word = parts[1]
-        else:
-            # 3+ tokens or (2 tokens + trailing space) — no completions for now
-            return
-
-        if cmd == "mode":
-            yield from _match(arg_word, ["list", *_MODE_NAMES])
-        elif cmd == "hint":
-            yield from _match(arg_word, _MODULE_NAMES + ["buy"])
-        elif cmd == "export":
-            yield from _match(arg_word, _EXPORT_FORMATS)
-        elif cmd == "model":
-            yield from _match(arg_word, _MODEL_SUBCMDS)
-        elif cmd == "report":
-            yield from _match(arg_word, _REPORT_SUBCMDS)
-        elif cmd == "autopivot":
-            yield from _match(arg_word, _AUTOPIVOT_SUBCMDS)
+        for candidate in command_completions(text, mode_names=_MODE_NAMES):
+            if " " in text:
+                _command, remainder = text.lstrip().split(" ", 1)
+                replacement = candidate.split(" ", 1)[1]
+                yield Completion(replacement, start_position=-len(remainder))
+            else:
+                yield Completion(candidate, start_position=-len(text))
 
 
 def _match(prefix: str, candidates: list[str]) -> Iterable[Completion]:

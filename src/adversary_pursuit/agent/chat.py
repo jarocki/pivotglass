@@ -402,11 +402,15 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
             table.add_column("", style="bold green", width=2)
             table.add_column("Mode", style="cyan")
             table.add_column("Personality")
-            for entry in mode_mgr.list_modes():
+            for entry in mode_mgr.list_modes(public_only=True):
                 marker = "*" if entry["name"] == current.name else ""
-                table.add_row(marker, entry["name"], entry["personality"])
+                table.add_row(marker, entry["display_name"], entry["personality"])
             console.print(table)
-            console.print(f"\n[dim]Active: [bold]{current.name}[/bold][/dim]")
+            from adversary_pursuit.gamification.modes import display_mode_name
+
+            console.print(
+                f"\n[dim]Active: [bold]{display_mode_name(current.name)}[/bold][/dim]"
+            )
             continue
 
         if lower.startswith("mode "):
@@ -420,11 +424,15 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
                     continue
                 # Update the LLM system prompt with the new persona
                 runner.set_character(new_mode)
+                from adversary_pursuit.gamification.phrases import pick
+
+                public_name = display_mode_name(new_mode.name)
                 console.print(
                     Panel(
-                        f"[bold]{new_mode.name}[/bold]\n{new_mode.greeting}\n\n"
+                        f"[bold]{public_name}[/bold]\n"
+                        f"{pick(new_mode.name, 'mode_switched')}\n\n"
                         f"[dim]{new_mode.personality}[/dim]",
-                        title=f"[bold green]Mode switched: {new_mode.name}[/bold green]",
+                        title=f"[bold green]Mode switched: {public_name}[/bold green]",
                         style="green",
                     )
                 )

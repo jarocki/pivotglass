@@ -599,6 +599,50 @@ class TestVirusTotalHashResponse:
         results = asyncio.run(mod.hunt("d41d8cd98f00b204e9800998ecf8427e", {}))
         assert results[0]["x_reputation"] == -50
 
+    def test_file_metadata_is_preserved_for_evidence_detail(self, mock_hash_success):
+        mod = VirusTotal()
+        mod.initialize({"api_key": "test-key"})
+
+        result = asyncio.run(mod.hunt("d41d8cd98f00b204e9800998ecf8427e", {}))[0]
+
+        assert result["x_meaningful_name"] == "malware.exe"
+        assert result["x_type_description"] == "PE32 executable"
+        assert result["x_size"] == 102400
+
+    def test_file_request_expands_supported_relationships(self, mock_hash_success):
+        mod = VirusTotal()
+        mod.initialize({"api_key": "test-key"})
+
+        asyncio.run(mod.hunt("d41d8cd98f00b204e9800998ecf8427e", {}))
+
+        relationships = mock_hash_success.get.call_args.kwargs["params"]["relationships"]
+        assert "dropped_files" in relationships
+        assert "execution_parents" in relationships
+
+    def test_related_files_and_domains_become_additive_observables(self):
+        mod = VirusTotal()
+        data = {
+            **SAMPLE_HASH_RESPONSE,
+            "data": {
+                **SAMPLE_HASH_RESPONSE["data"],
+                "relationships": {
+                    "dropped_files": {
+                        "data": [{"type": "file", "id": "a" * 64}],
+                        "links": {"self": "https://www.virustotal.com/api/v3/files/root/dropped_files"},
+                    },
+                    "contacted_domains": {
+                        "data": [{"type": "domain", "id": "c2.example"}],
+                    },
+                },
+            },
+        }
+
+        results = mod._build_results("d41d8cd98f00b204e9800998ecf8427e", "hash", data)
+
+        assert {"type": "file", "value": "a" * 64} in results
+        assert {"type": "domain-name", "value": "c2.example"} in results
+        assert results[0]["x_dropped_files"] == ["a" * 64]
+
     def test_no_as_owner_for_file(self, mock_hash_success):
         """File SCOs do not include x_as_owner (IP/domain-specific field)."""
         mod = VirusTotal()

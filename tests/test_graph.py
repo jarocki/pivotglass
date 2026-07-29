@@ -660,3 +660,23 @@ class TestExportStixBundleSpecCompliance:
         result3 = g3.export_stix_bundle()
         types = [o.get("type", "") for o in result3["objects"]]
         assert "relationship" in types
+
+
+def test_property_pivots_are_conservative_and_labeled():
+    objects = [
+        {"id": "domain-name--a", "type": "domain-name", "value": "seed.test", "x_ap_original_query": "1.2.3.4", "country": "US"},
+        {"id": "ipv4-addr--b", "type": "ipv4-addr", "value": "1.2.3.4", "country": "US"},
+        {"id": "ipv4-addr--c", "type": "ipv4-addr", "value": "5.6.7.8", "country": "US"},
+    ]
+    graph = RelationshipGraph()
+    graph.build_from_workspace(objects)
+    projection = graph.to_dict()
+
+    assert projection["edges"] == [
+        {
+            "source": "domain-name--a",
+            "target": "ipv4-addr--b",
+            "relationship": "discovered-from",
+            "basis": "property",
+        }
+    ]

@@ -28,6 +28,7 @@ None to yield_commands → LLM without ambiguity.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Callable
 
@@ -35,7 +36,9 @@ from adversary_pursuit.core.ioc_types import detect_ioc_type
 from adversary_pursuit.gamification.modes import (
     DEFAULT_MODES,
     LEGACY_MODE_ALIASES,
+    PUBLIC_MODE_ORDER,
     RETIRED_MODES,
+    display_mode_name,
 )
 from adversary_pursuit.gamification.phrases import pick
 
@@ -48,8 +51,26 @@ _NO_ARG_VERBS: frozenset[str] = frozenset({"help", "?", "status", "clear", "quit
 
 # One-argument verbs
 _ONE_ARG_VERBS: frozenset[str] = frozenset({"mode", "use"})
+_FREE_ARG_VERBS: frozenset[str] = frozenset(
+    {
+        "workspace",
+        "search",
+        "graph",
+        "export",
+        "report",
+        "dossier",
+        "gaps",
+        "timeline",
+        "note",
+        "hint",
+        "challenges",
+        "autopivot",
+        "model",
+        "theme",
+    }
+)
 
-_ALL_VERBS: frozenset[str] = _NO_ARG_VERBS | _ONE_ARG_VERBS
+_ALL_VERBS: frozenset[str] = _NO_ARG_VERBS | _ONE_ARG_VERBS | _FREE_ARG_VERBS
 
 # Known mode names (from DEFAULT_MODES — single authority)
 _KNOWN_MODES: frozenset[str] = frozenset(DEFAULT_MODES.keys())
@@ -128,6 +149,9 @@ def parse_repl_verb(text: str) -> ReplVerb | None:
     if verb not in _ALL_VERBS:
         return None
 
+    if verb in _FREE_ARG_VERBS:
+        return ReplVerb(name=verb, args=tuple(tokens[1:]))
+
     # ``mode`` and ``mode list`` are deterministic local catalogue commands.
     if verb == "mode" and (len(tokens) == 1 or (len(tokens) == 2 and tokens[1].lower() == "list")):
         return ReplVerb(name="mode_list", args=())
@@ -150,12 +174,12 @@ def parse_repl_verb(text: str) -> ReplVerb | None:
         # "use" alone — no argument → route to LLM
         return None
 
-    if len(tokens) > 2:  # noqa: PLR2004
+    if len(tokens) > 2 and verb != "mode":  # noqa: PLR2004
         # Multiple tokens after the verb — route to LLM.
         # "use foo com bar" is probably a natural-language query.
         return None
 
-    arg = tokens[1]
+    arg = " ".join(tokens[1:]) if verb == "mode" else tokens[1]
 
     if verb == "use":
         # Only dispatch locally if the argument looks like an IOC.
@@ -168,6 +192,8 @@ def parse_repl_verb(text: str) -> ReplVerb | None:
         # Always recognise "mode <something>" as a local verb — even when the
         # mode name is unknown, we dispatch locally and return a character-voiced
         # "unknown mode: <name>" response (rather than sending it to the LLM).
+        if len(tokens) > 2 and arg.lower() not in _ACCEPTED_MODE_NAMES:
+            return None
         return ReplVerb(name="mode", args=(arg,))
 
     return None  # unreachable; defensive
@@ -274,6 +300,131 @@ def dispatch_repl_verb(
                 pass
         return ""
 
+    # --- restored deterministic analyst commands ---
+    if name in {"search", "graph", "dossier", "gaps", "report", "hint", "challenges"}:
+        if ctx is None:
+            return "Command context unavailable."
+        from adversary_pursuit.agent.tools import execute_tool
+
+        tool_and_args = {
+            "search": ("search_workspace", {"type_filter": verb.args[0] if verb.args else None}),
+            "graph": ("render_graph", {}),
+            "dossier": ("get_dossier_state", {}),
+            "gaps": ("get_dossier_state", {}),
+            "report": ("generate_dossier_report", {}),
+            "hint": ("get_next_hint", {"module": verb.args[0] if verb.args else None}),
+            "challenges": ("list_challenges", {}),
+        }
+        tool, arguments = tool_and_args[name]
+        summary, *_ = execute_tool(ctx, tool, arguments)
+        return str(summary)
+
+    if name == "timeline":
+        if _workspace_mgr is None:
+            return "Workspace unavailable."
+        runs = _workspace_mgr.get_module_runs()
+        if not runs:
+            return "No collection events in the active workspace."
+        return "\n".join(
+            f"{run['timestamp']} · {run['module_name']} · {run['target']} · "
+            f"{run['result_count']} results"
+            for run in runs
+        )
+
+    if name == "note":
+        if _workspace_mgr is None or not verb.args:
+            return "Usage: note <text>"
+        text = " ".join(verb.args)
+        _workspace_mgr.add_note(text)
+        return "Analyst note saved."
+
+    if name == "export":
+        if ctx is None:
+            return "Command context unavailable."
+        from adversary_pursuit.agent.tools import execute_tool
+
+        fmt = verb.args[0].lower() if verb.args else "stix"
+        if fmt not in {"json", "csv", "stix", "gexf"}:
+            return "Export formats: json, csv, stix, gexf."
+        summary, *_ = execute_tool(ctx, "export_workspace", {"format": fmt})
+        return str(summary)
+
+    if name == "theme":
+        import os
+
+        choice = verb.args[0].lower() if len(verb.args) == 1 else ""
+        if choice not in {"light", "dark", "high"}:
+            return "Usage: theme light|dark|high"
+        if choice == "high":
+            os.environ["AP_TUI_COLOR_SCHEME"] = "dark"
+            os.environ["AP_TUI_HIGH_CONTRAST"] = "1"
+            label = "High contrast"
+        else:
+            os.environ["AP_TUI_COLOR_SCHEME"] = choice
+            os.environ.pop("AP_TUI_HIGH_CONTRAST", None)
+            label = choice.title()
+        invalidate = getattr(status_bar, "invalidate", None)
+        if callable(invalidate):
+            invalidate()
+        return f"Display theme: {label}"
+
+    if name == "workspace":
+        if _workspace_mgr is None:
+            return "Workspace unavailable."
+        sub = verb.args[0].lower() if verb.args else "list"
+        if sub == "list":
+            return "\n".join(_workspace_mgr.list_workspaces())
+        if sub in {"create", "switch"} and len(verb.args) == 2:
+            if sub == "create":
+                _workspace_mgr.create(verb.args[1])
+            _workspace_mgr.switch(verb.args[1])
+            return f"Workspace active: {verb.args[1]}"
+        if sub == "export" and len(verb.args) == 2:
+            from adversary_pursuit.core.workspace_admin import export_workspace
+
+            return json.dumps(
+                export_workspace(_workspace_mgr, verb.args[1]),
+                indent=2,
+                default=str,
+            )
+        if sub == "merge" and len(verb.args) == 3:
+            from adversary_pursuit.core.workspace_admin import merge_workspaces
+
+            counts = merge_workspaces(_workspace_mgr, verb.args[1], verb.args[2])
+            return json.dumps(
+                {
+                    "source": verb.args[1],
+                    "destination": verb.args[2],
+                    "inserted": counts,
+                },
+                indent=2,
+            )
+        if (
+            sub == "delete"
+            and len(verb.args) == 4
+            and verb.args[2] == "--confirm"
+            and verb.args[1] == verb.args[3]
+        ):
+            if verb.args[1] == _workspace_mgr.active:
+                return "Cannot delete the active workspace; switch first."
+            _workspace_mgr.delete(verb.args[1])
+            return f"Workspace deleted: {verb.args[1]}"
+        return (
+            "Usage: workspace list|create <name>|switch <name>|export <name>|"
+            "merge <source> <destination>|delete <name> --confirm <name>"
+        )
+
+    if name == "autopivot":
+        if ctx is None or not verb.args or verb.args[0].lower() not in {"on", "off"}:
+            return "Usage: autopivot on|off"
+        enabled = verb.args[0].lower() == "on"
+        ctx.set_autopivot(enabled)
+        return f"Auto-pivot {'enabled' if enabled else 'disabled'}."
+
+    if name == "model":
+        runner_model = getattr(ctx, "model", None) if ctx is not None else None
+        return f"Configured model: {runner_model or 'managed by AgentRunner/configuration'}"
+
     # --- quit / exit / q ---
     if name in ("quit", "exit", "q"):
         farewell = pick(character, "farewell")
@@ -283,18 +434,10 @@ def dispatch_repl_verb(
     # --- use <target> ---
     if name == "use":
         target = verb.args[0]
-        # Record the pivot in workspace_mgr (best-effort — don't crash if unavailable)
-        if _workspace_mgr is not None:
-            try:
-                _workspace_mgr.record_pivot(target)
-                _workspace_mgr.switch(target)
-            except Exception:  # noqa: BLE001
-                # Workspace may not exist; try to create it first
-                try:
-                    _workspace_mgr.create(target)
-                    _workspace_mgr.switch(target)
-                except Exception:  # noqa: BLE001
-                    pass
+        # A target pivot remains inside the active investigation workspace.
+        # Workspace lifecycle is controlled only by the explicit ``workspace``
+        # command; treating an IOC as a workspace name fragments one case graph
+        # and makes ``use`` disagree with Pivotglass.
         # Publish TargetChanged event (best-effort)
         if event_bus is not None:
             try:
@@ -315,20 +458,20 @@ def dispatch_repl_verb(
         if _mode_mgr is not None and mode_name in _ACCEPTED_MODE_NAMES:
             try:
                 new_mode = _mode_mgr.switch(mode_name)
-                return f"Mode switched: {new_mode.name}\n{new_mode.greeting}"
+                return f"Mode switched: {display_mode_name(new_mode.name)}\n{new_mode.greeting}"
             except ValueError as exc:
                 return str(exc)
-        available = ", ".join(sorted(_KNOWN_MODES))
+        available = ", ".join(display_mode_name(item) for item in PUBLIC_MODE_ORDER)
         return f"Unknown mode: {mode_name}\nAvailable modes: {available}"
 
     # --- mode / mode list ---
     if name == "mode_list":
         active_name = character
-        entries = _mode_mgr.list_modes() if _mode_mgr is not None else []
+        entries = _mode_mgr.list_modes(public_only=True) if _mode_mgr is not None else []
         lines = ["Character modes (* active)"]
         for entry in entries:
             marker = "*" if entry["name"] == active_name else " "
-            lines.append(f"{marker} {entry['name']}")
+            lines.append(f"{marker} {entry['display_name']}")
         return "\n".join(lines)
 
     # Unreachable — all verb names handled above

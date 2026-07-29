@@ -128,6 +128,8 @@ DECK
   back             Return to the prior transcript position
   find <text>      Search the complete session transcript
   Alt-M            Toggle local generative atmosphere
+  AP_TUI_COLOR_SCHEME=light  Use the complete accessible light palette
+  AP_TUI_HIGH_CONTRAST=1     Strengthen all semantic colors
 
 KEYS
 
@@ -799,6 +801,13 @@ class TuiApplication:
                     result = self._runner.handle_input(text, status_bar=self._live_pane)
             if result:
                 self.emit_scrollback(result)
+            # A character change updates the soundtrack without changing the
+            # operator's enabled/muted choice and keeps the live instrument
+            # pane aligned with the rest of the cockpit. Both are no-ops for
+            # ordinary commands.
+            mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
+            self._live_pane.set_character(mode_name)
+            self._music.set_mode(mode_name)
             if verb is not None and verb.name == "clear":
                 self._scroll_offset = 0
             if verb is not None and verb.name == "use":

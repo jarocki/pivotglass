@@ -349,6 +349,13 @@ class TestURLScanHuntResults:
         expected = f"https://urlscan.io/screenshots/{SCAN_UUID}.png"
         assert results[0].get("x_screenshot_url") == expected
 
+    def test_hunt_url_sco_has_result_link_and_contact_summary(self):
+        result = self._run_successful_hunt()[0]
+
+        assert result["x_result_url"] == f"https://urlscan.io/result/{SCAN_UUID}/"
+        assert result["x_contacted_counts"] == {"ips": 3, "domains": 3, "urls": 1}
+        assert result["x_contacted_urls"] == [TARGET_URL]
+
     def test_hunt_url_sco_has_page_status(self):
         """url SCO contains x_page_status from result page data."""
         results = self._run_successful_hunt()

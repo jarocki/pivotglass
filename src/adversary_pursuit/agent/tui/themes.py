@@ -7,10 +7,10 @@ every character's border color to ``high_contrast_border`` for accessibility.
 @decision DEC-TUI-THEME-001
 @title Character-driven theme dispatch for TUI rendering
 @status accepted
-@rationale Storyboard mockups (storyboard/AP-TUI-Chuck-mockup.png,
-           AP-TUI-HAL-mockup.png, AP-TUI-neuromancer-mockup.png) established
-           that each character has a distinct color palette: Chuck=magenta neon,
-           HAL=red, Neuromancer=purple/pink cyberpunk. Rendering via hex color
+@rationale Storyboard mockups established that each character needs a distinct
+           palette. Subsequent operator review refined those identities:
+           Chuck=leather/burnished gold, HAL=red, Neuromancer=dead-channel
+           blue-grey/cyan. Rendering via hex color
            strings is the cheapest terminal-native mechanism accepted by both
            Rich and prompt_toolkit — no Textual dep, no external CSS.
            DEFAULT_THEMES is the SINGLE AUTHORITY for all character color
@@ -180,13 +180,13 @@ _LEGACY_THEMES: dict[str, CharacterTheme] = {
         high_contrast_border="#ffffff",
     ),
     "chuck_norris": CharacterTheme(
-        # Storyboard: magenta neon palette (AP-TUI-Chuck-mockup.png)
+        # Burnished leather, dust, brass, and arena light.
         name="chuck_norris",
-        border_color="#ff5fff",  # bright_magenta
-        accent_color="#00d7d7",  # cyan
-        heading_color="#ff5fff",  # bright_magenta — bold prepended at PTK injection site
-        text_color="#5fff5f",  # bright_green
-        dim_color="#6b006b",  # dim magenta (dark magenta)
+        border_color="#d78700",
+        accent_color="#ffd75f",
+        heading_color="#ffaf5f",
+        text_color="#fff4d7",
+        dim_color="#875f3f",
         high_contrast_border="#ffffff",
     ),
     "bureaucrat": CharacterTheme(
@@ -245,13 +245,13 @@ _LEGACY_THEMES: dict[str, CharacterTheme] = {
         high_contrast_border="#ffffff",
     ),
     "neuromancer": CharacterTheme(
-        # Storyboard: purple/pink cyberpunk palette (AP-TUI-neuromancer-mockup.png)
+        # Dead-channel blue-grey with cold deck cyan.
         name="neuromancer",
-        border_color="#ff5fff",  # bright_magenta
-        accent_color="#5fffff",  # bright_cyan
-        heading_color="#ff5fff",  # bright_magenta — bold prepended at PTK injection site
-        text_color="#d7d700",  # yellow
-        dim_color="#6b006b",  # dim magenta (dark magenta)
+        border_color="#8787af",
+        accent_color="#5fd7d7",
+        heading_color="#afbfff",
+        text_color="#e4e4e4",
+        dim_color="#5f5f87",
         high_contrast_border="#ffffff",
     ),
     "trinity": CharacterTheme(
@@ -271,11 +271,29 @@ DEFAULT_THEMES: dict[str, CharacterTheme] = {
     "full_troll": _LEGACY_THEMES["full_troll"],
     "bureaucrat": _LEGACY_THEMES["bureaucrat"],
     "strategist": replace(_LEGACY_THEMES["sun_tzu"], name="strategist"),
-    "sensei": replace(_LEGACY_THEMES["bruce_lee"], name="sensei"),
-    "detective": replace(_LEGACY_THEMES["deckard"], name="detective"),
+    "sensei": replace(_LEGACY_THEMES["chuck_norris"], name="sensei"),
+    "detective": CharacterTheme(
+        name="detective",
+        border_color="#b8860b",
+        accent_color="#d2b48c",
+        heading_color="#f0d9b5",
+        text_color="#f5eee3",
+        dim_color="#a88f73",
+        high_contrast_border="#ffffff",
+    ),
     "the_computer": replace(_LEGACY_THEMES["hal9000"], name="the_computer"),
     "the_sprawl": replace(_LEGACY_THEMES["neuromancer"], name="the_sprawl"),
     "m4tr1x": replace(_LEGACY_THEMES["trinity"], name="m4tr1x"),
+}
+
+_LIGHT_THEMES: dict[str, CharacterTheme] = {
+    "default": CharacterTheme("default", "#0b6572", "#17643c", "#064f5b", "#111820", "#45545c", "#000000"),
+    "sensei": CharacterTheme("sensei", "#8a3f12", "#765500", "#6f2e0b", "#211a12", "#5d5041", "#000000"),
+    "the_computer": CharacterTheme("the_computer", "#a51d29", "#745900", "#86131e", "#201617", "#624b4d", "#000000"),
+    "full_troll": CharacterTheme("full_troll", "#526600", "#7b2684", "#425300", "#1c171f", "#594d5d", "#000000"),
+    "detective": CharacterTheme("detective", "#754414", "#28604f", "#60340c", "#211b15", "#5c5145", "#000000"),
+    "the_sprawl": CharacterTheme("the_sprawl", "#46536f", "#006a68", "#34415c", "#161a22", "#515a6d", "#000000"),
+    "m4tr1x": CharacterTheme("m4tr1x", "#116329", "#104e2b", "#0a5220", "#101b13", "#43594a", "#000000"),
 }
 
 
@@ -305,11 +323,11 @@ PURSUIT_TITLES: dict[str, str] = {
     "full_troll": "THE THUNDERDOME",
     "bureaucrat": "THE CASE FILE",
     "strategist": "THE WAR ROOM",
-    "sensei": "THE DOJO",
-    "detective": "THE CASEBOARD",
-    "the_computer": "THE COMPUTER",
+    "sensei": "THE ROUNDHOUSE",
+    "detective": "THE DEDUCTION",
+    "the_computer": "THE LOGIC CORE",
     "the_sprawl": "THE SPRAWL",
-    "m4tr1x": "THE M4TR1X",
+    "m4tr1x": "THE MATRIX",
 }
 
 
@@ -336,11 +354,11 @@ COCKPIT_PROFILES: dict[str, CockpitProfile] = {
     "full_troll": _LEGACY_COCKPIT_PROFILES["full_troll"],
     "bureaucrat": _LEGACY_COCKPIT_PROFILES["bureaucrat"],
     "strategist": _LEGACY_COCKPIT_PROFILES["sun_tzu"],
-    "sensei": CockpitProfile("THE DOJO", "INTERCEPTOR WATER", "COMBAT FLOW", "〈", "〉"),
-    "detective": CockpitProfile("CASEBOARD", "NIGHT SHIFT", "DEDUCTION SCOPE", "⌜", "⌝"),
-    "the_computer": CockpitProfile("SYSTEM CORE", "GAME GRID", "LOGIC MONITOR", "◉", "◉"),
+    "sensei": _LEGACY_COCKPIT_PROFILES["chuck_norris"],
+    "detective": CockpitProfile("BAKER STREET", "VICTORIAN CASEBOOK", "DEDUCTION ENGINE", "⌜", "⌝"),
+    "the_computer": _LEGACY_COCKPIT_PROFILES["hal9000"],
     "the_sprawl": _LEGACY_COCKPIT_PROFILES["neuromancer"],
-    "m4tr1x": CockpitProfile("THE M4TR1X", "OPERATOR DECK", "SIGNAL LINK", "⧹", "⧸"),
+    "m4tr1x": _LEGACY_COCKPIT_PROFILES["trinity"],
 }
 
 
@@ -350,11 +368,11 @@ PRESENTATION_CONTRACTS: dict[str, CharacterPresentation] = {
     "full_troll": CharacterPresentation("arcade_rig", "glitch", "punchy", ("hype", "combo", "loot"), "screen_shake", "sarcastic sidekick; evidence stays explicit", 3, "chaos_arcade"),
     "bureaucrat": CharacterPresentation("form_terminal", "paper", "procedural", ("forms", "queue", "compliance"), "stamp", "dry procedural deadpan", 2, "office_machine"),
     "strategist": CharacterPresentation("war_table", "ink_map", "deliberate", ("terrain", "initiative", "reserve"), "standard_unfurls", "patient strategic guidance", 2, "war_room"),
-    "sensei": CharacterPresentation("pixel_arena", "dojo", "responsive", ("stance", "focus", "momentum"), "clean_strike", "disciplined martial mentor", 2, "dojo_pulse"),
-    "detective": CharacterPresentation("caseboard", "rain", "investigative", ("clues", "alibis", "threads"), "clue_pin", "observant and disarming", 3, "noir_case"),
-    "the_computer": CharacterPresentation("system_core", "lens", "precise", ("logic", "resources", "confidence"), "diagnostic", "calm strategic machine", 2, "mainframe"),
+    "sensei": CharacterPresentation("action_arena", "impact", "punchy", ("threat", "roundhouse", "proof"), "impact_stamp", "impossible confidence; bounded jokes", 3, "action_brass"),
+    "detective": CharacterPresentation("victorian_casebook", "gaslight", "deductive", ("observations", "inferences", "threads"), "deduction_pin", "clever, deductive, slightly too assured", 3, "chamber_mystery"),
+    "the_computer": CharacterPresentation("system_core", "lens", "precise", ("logic", "resources", "confidence"), "diagnostic", "calm, exact, dryly sarcastic", 2, "mainframe"),
     "the_sprawl": CharacterPresentation("perspective_grid", "city_noise", "urgent", ("ice", "signal", "deck"), "grid_ripple", "noir-tech second person", 3, "sprawl_night"),
-    "m4tr1x": CharacterPresentation("construct", "code_rain", "kinetic", ("signal", "trace", "operator"), "white_rabbit", "ensemble operator; signal first", 2, "construct_rain"),
+    "m4tr1x": CharacterPresentation("construct", "code_rain", "kinetic", ("signal", "trace", "operator"), "white_rabbit", "kinetic operator; signal first", 2, "construct_rain"),
 }
 
 
@@ -380,7 +398,21 @@ def theme_for(character_name: str) -> CharacterTheme:
         The theme for the requested character, or the default theme.
     """
     resolved = canonical_mode_name(character_name, allow_retired=True)
-    return DEFAULT_THEMES.get(resolved, DEFAULT_THEMES["default"])
+    if os.environ.get("AP_TUI_COLOR_SCHEME", "dark").lower() == "light":
+        theme = _LIGHT_THEMES.get(resolved, _LIGHT_THEMES["default"])
+    else:
+        theme = DEFAULT_THEMES.get(resolved, DEFAULT_THEMES["default"])
+    if is_high_contrast_mode():
+        light = os.environ.get("AP_TUI_COLOR_SCHEME", "dark").lower() == "light"
+        return replace(
+            theme,
+            border_color="#000000" if light else "#ffffff",
+            accent_color="#004f59" if light else "#ffff5f",
+            heading_color="#000000" if light else "#ffffff",
+            text_color="#000000" if light else "#ffffff",
+            dim_color="#303030" if light else "#d9d9d9",
+        )
+    return theme
 
 
 def pursuit_title_for(character_name: str) -> str:

@@ -204,7 +204,11 @@ def is_high_weight_event(event: dict) -> bool:
     return weight >= HIGH_WEIGHT_NARRATION_THRESHOLD
 
 
-def build_narration_prompt(event: dict, dossier_state: object | None) -> str:
+def build_narration_prompt(
+    event: dict,
+    dossier_state: object | None,
+    character: str = "default",
+) -> str:
     """Build the LLM narration prompt for a high-weight dossier event.
 
     The prompt is fed as the ``user`` message to ``AgentRunner.narrate()``.
@@ -225,6 +229,8 @@ def build_narration_prompt(event: dict, dossier_state: object | None) -> str:
         User prompt for the narration LLM call (max ~50 tokens — the model
         response is what's capped at PER_NARRATION_TOKEN_CAP).
     """
+    from adversary_pursuit.gamification.phrases import voice_prompt_fragment
+
     action = event.get("action", "")
     indicator = event.get("indicator", "")
     points = event.get("points", 0)
@@ -257,7 +263,8 @@ def build_narration_prompt(event: dict, dossier_state: object | None) -> str:
             f"In 1 short sentence, celebrate this in character."
         )
 
-    return prompt
+    occasion = f"{action}:{indicator}:{rule_desc}"
+    return prompt + "\n\n" + voice_prompt_fragment(character, occasion)
 
 
 def narrate_celebration(
@@ -298,7 +305,8 @@ def narrate_celebration(
     if budget.exhausted:
         return None
 
-    prompt = build_narration_prompt(event, dossier_state)
+    character = str(getattr(runner, "_character", "default"))
+    prompt = build_narration_prompt(event, dossier_state, character)
 
     try:
         raw = runner.narrate(prompt, max_tokens=PER_NARRATION_TOKEN_CAP)

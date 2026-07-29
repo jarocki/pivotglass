@@ -837,7 +837,7 @@ class TestProvenanceAugmentation:
     - Evaluation Contract test 6: test_workspace_rejects_caller_supplied_x_ap_fields
     - Provenance kwargs persist into json_blob
     - x_ap_fetched_at always populated (even without kwargs)
-    - Legacy call (no kwargs) produces x_ap_fetched_at only
+    - Calls without optional vendor kwargs still record collection module and time
     - Caller-supplied x_ap_* keys stripped with a warning (DEC-59-STIX-PROVENANCE-001)
     """
 
@@ -884,8 +884,8 @@ class TestProvenanceAugmentation:
         ts = objects[0]["x_ap_fetched_at"]
         assert isinstance(ts, str) and ts.endswith("Z")
 
-    def test_legacy_call_produces_fetched_at_only(self, tmp_path):
-        """Legacy call (no provenance kwargs) only adds x_ap_fetched_at."""
+    def test_legacy_call_records_minimum_workspace_provenance(self, tmp_path):
+        """Calls without vendor metadata still preserve module and collection time."""
         wm = self._make_wm(tmp_path)
         wm.store_stix_objects(
             [{"type": "ipv4-addr", "value": "5.6.7.8"}],
@@ -895,6 +895,7 @@ class TestProvenanceAugmentation:
         obj = wm.get_stix_objects()[0]
         # fetched_at is always present
         assert "x_ap_fetched_at" in obj
+        assert obj["x_ap_source_module"] == "test/legacy"
         # The other three must be absent (not null — absent from dict entirely)
         assert "x_ap_source_url" not in obj
         assert "x_ap_api_version" not in obj

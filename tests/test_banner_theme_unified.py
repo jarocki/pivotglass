@@ -106,15 +106,15 @@ class TestBannerModeColorReadsFromTheme:
                 f"(DEC-BANNER-MODE-COLOR-UNIFIED-001)."
             )
 
-    def test_get_mode_color_the_sprawl_is_bright_magenta_hex(self) -> None:
-        """the_sprawl heading_color is '#ff5fff' (bright_magenta hex, PTK-compatible).
+    def test_get_mode_color_the_sprawl_is_dead_channel_blue_hex(self) -> None:
+        """Neuromancer heading color is cold dead-channel blue.
 
         Updated in Slice 7Ah2: bold modifier removed from stored value; hex replaces
         Rich color name (DEC-TUI-PTK-COLOR-COMPAT-001). get_mode_color() callers
         (e.g. chat.py _mode_prompt) apply bold in their own markup wrappers.
         """
         result = get_mode_color("the_sprawl")
-        assert result == "#ff5fff", f"the_sprawl mode color should be '#ff5fff', got '{result}'"
+        assert result == "#afbfff", f"Neuromancer mode color should be '#afbfff', got '{result}'"
 
     def test_get_mode_color_the_computer_is_bright_red_hex(self) -> None:
         """the_computer heading_color is '#ff5555' (bright_red hex, PTK-compatible).
@@ -125,14 +125,14 @@ class TestBannerModeColorReadsFromTheme:
         result = get_mode_color("the_computer")
         assert result == "#ff5555", f"the_computer mode color should be '#ff5555', got '{result}'"
 
-    def test_get_mode_color_sensei_is_bright_magenta_hex(self) -> None:
-        """sensei heading_color is '#ff5fff' (bright_magenta hex, neon storyboard palette).
+    def test_get_mode_color_sensei_is_burnished_orange_hex(self) -> None:
+        """Chuck Norris heading color is warm burnished orange.
 
         Updated in Slice 7Ah2: bold modifier removed from stored value; hex replaces
         Rich color name (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
         result = get_mode_color("sensei")
-        assert result == "#5f5fff", f"sensei mode color should be '#5f5fff', got '{result}'"
+        assert result == "#ffaf5f", f"Chuck Norris presentation color should be '#ffaf5f', got '{result}'"
 
     def test_get_mode_color_default_contains_cyan_hex(self) -> None:
         """default heading_color is '#00d7d7' (cyan hex, PTK-compatible).
@@ -197,3 +197,18 @@ class TestStatusBarUsesThemeColor:
                 f"Prompt prefix color for '{mode_name}' diverged from theme authority. "
                 f"get_mode_color='{color}', theme.heading_color='{theme_for(mode_name).heading_color}'"
             )
+def test_tui_light_and_high_contrast_resolve_complete_semantic_palettes(monkeypatch):
+    from adversary_pursuit.agent.tui.themes import theme_for
+
+    monkeypatch.setenv("AP_TUI_COLOR_SCHEME", "light")
+    light = theme_for("m4tr1x")
+    assert light.text_color == "#101b13"
+    assert light.dim_color == "#43594a"
+    assert light.border_color == "#116329"
+
+    monkeypatch.setenv("AP_TUI_HIGH_CONTRAST", "1")
+    high = theme_for("m4tr1x")
+    assert high.text_color == "#000000"
+    assert high.heading_color == "#000000"
+    assert high.dim_color == "#303030"
+    assert high.border_color == "#000000"

@@ -81,7 +81,7 @@ class AbuseIPDB(BaseModule):
             "VERBOSE": {
                 "required": False,
                 "description": "Include recent report details (true/false)",
-                "default": "false",
+                "default": "true",
             },
         }
 
@@ -203,6 +203,16 @@ def _build_results(target: str, data: dict[str, Any]) -> list[dict]:
         "x_total_reports": data.get("totalReports", 0),
         "x_is_whitelisted": data.get("isWhitelisted", False),
         "x_last_reported_at": data.get("lastReportedAt", ""),
+        "x_recent_reports": [
+            {
+                "reported_at": report.get("reportedAt", ""),
+                "comment": report.get("comment", ""),
+                "categories": report.get("categories", []),
+                "reporter_country": report.get("reporterCountryCode", ""),
+            }
+            for report in data.get("reports", [])[:10]
+            if isinstance(report, dict)
+        ],
     }
 
     results: list[dict] = [ip_sco]

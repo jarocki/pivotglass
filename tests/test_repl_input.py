@@ -122,10 +122,10 @@ class TestAPCompleterTopLevel:
 
 class TestAPCompleterModeSubcommand:
     def test_neuromancer_mode_is_discoverable(self):
-        assert "neuromancer" in _completions("mode neuro")
+        assert "Neuromancer" in _completions("mode neuro")
 
-    def test_trinity_mode_is_discoverable(self):
-        assert "trinity" in _completions("mode tri")
+    def test_matrix_public_name_is_discoverable(self):
+        assert "The Matrix" in _completions("mode the")
 
     def test_mode_space_suggests_all_modes(self):
         results = _completions("mode ")
@@ -133,14 +133,14 @@ class TestAPCompleterModeSubcommand:
         for mode in _MODE_NAMES:
             assert mode in results
 
-    def test_mode_ninja_partial_suggests_ninja(self):
-        results = _completions("mode nin")
-        assert "ninja" in results
-        assert "default" not in results
+    def test_mode_chuck_partial_suggests_public_name(self):
+        results = _completions("mode chu")
+        assert "Chuck Norris" in results
+        assert "Default (Analyst)" not in results
 
-    def test_mode_full_partial_suggests_full_troll(self):
-        results = _completions("mode full")
-        assert "full_troll" in results
+    def test_mode_troll_partial_suggests_public_name(self):
+        results = _completions("mode tro")
+        assert "Troll" in results
 
     def test_mode_space_does_not_suggest_top_level(self):
         results = _completions("mode ")
@@ -154,15 +154,17 @@ class TestAPCompleterModeSubcommand:
 
 
 class TestAPCompleterExportSubcommand:
-    def test_export_space_suggests_gexf_and_stix(self):
+    def test_export_space_suggests_all_shared_formats(self):
         results = _completions("export ")
-        assert "gexf" in results
-        assert "stix" in results
+        assert {"json", "csv", "gexf", "stix"} <= set(results)
 
     def test_export_g_suggests_gexf(self):
         results = _completions("export g")
         assert "gexf" in results
         assert "stix" not in results
+
+    def test_theme_space_suggests_display_schemes(self):
+        assert {"light", "dark", "high"} <= set(_completions("theme "))
 
 
 # ---------------------------------------------------------------------------

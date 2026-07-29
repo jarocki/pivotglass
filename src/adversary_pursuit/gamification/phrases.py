@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
+from hashlib import sha256
 
 
 @dataclass(frozen=True)
@@ -1639,8 +1640,7 @@ _FALLBACK: str = "Thinking..."
 # ---------------------------------------------------------------------------
 _CANONICAL_VOICE_SOURCES: dict[str, tuple[str, ...]] = {
     "strategist": ("sun_tzu",),
-    "sensei": ("bruce_lee", "chuck_norris"),
-    "detective": ("columbo", "deckard"),
+    "sensei": ("chuck_norris",),
     "the_computer": ("hal9000",),
     "the_sprawl": ("neuromancer",),
     "m4tr1x": ("trinity",),
@@ -1660,11 +1660,183 @@ for _canonical, _sources in _CANONICAL_VOICE_SOURCES.items():
             for phrase in PHRASES.get((_source, _category), ())
         )
 
+# Sherlock Holmes is a reviewed public voice, not an alias for either retired
+# screen detective. Materialize a dedicated bank for every category those
+# older banks supported. The generic sentence is evidence-first so a newly
+# added legacy category cannot leak retired language into Sherlock.
+_SHERLOCK_CATEGORIES = {
+    category
+    for character, category in PHRASES
+    if character in {"columbo", "deckard"}
+}
+_SHERLOCK_CORE: dict[str, tuple[Phrase, ...]] = {
+    "greeting": (
+        Phrase("The game is afoot. Observe first; deduce only what the facts permit."),
+        Phrase("A new case. Begin with the facts, however ordinary they appear."),
+        Phrase("The evidence awaits. Let us distinguish observation from inference."),
+    ),
+    "run_success": (
+        Phrase("A useful fact. Now test whether the pattern survives scrutiny."),
+        Phrase("The observation holds. Its implications remain to be tested."),
+        Phrase("One hypothesis survives; plausible alternatives still deserve examination."),
+    ),
+    "run_fail": (
+        Phrase("The absence is data, not a conclusion. Reconstruct the chain."),
+        Phrase("The lead produced no evidence. Record the limit and test another path."),
+        Phrase("An unproductive query disproves nothing beyond its own reach."),
+    ),
+    "score_celebration": (
+        Phrase("+{points}. The case advances, but the evidence keeps the credit."),
+        Phrase("{points} points recorded. A score is not a conclusion."),
+        Phrase("The ledger adds {points}; our confidence remains bounded by the facts."),
+    ),
+    "activity:thinking": (
+        Phrase("Separating observation from deduction..."),
+        Phrase("Testing the obvious explanation against its alternatives..."),
+        Phrase("Looking for the fact that would falsify the leading hypothesis..."),
+    ),
+    "activity:composing": (Phrase("Arranging the facts and their alternatives..."),),
+    "yield:stop": (Phrase("The inquiry pauses here; preserve the evidence."),),
+    "yield:focus": (Phrase("Narrow the hypothesis. Examine the decisive fact."),),
+    "yield:add": (Phrase("Another lead enters the case; test it independently."),),
+    "yield:skip": (Phrase("Set that lead aside without mistaking absence for disproof."),),
+    "status_intro": (Phrase("The facts presently before us:"),),
+    "farewell": (Phrase("The record is preserved. Until the next case."),),
+    "target_set:acknowledged": (Phrase("The lead {target} is noted. Let us examine what is observable."),),
+    "mode_switched": (Phrase("Sherlock Holmes engaged. Observation precedes deduction."),),
+    "unknown_mode": (Phrase("{name} is not in the casebook. Review the available modes."),),
+    "unknown_verb": (Phrase("That instruction is unclear. Consult `help`, then state the next test."),),
+}
+for _category in _SHERLOCK_CATEGORIES:
+    PHRASES[("detective", _category)] = _SHERLOCK_CORE.get(
+        _category,
+        (Phrase("Examine this step against the stored evidence before drawing an inference."),),
+    )
+
 
 # RNG (module-level, seeded for reproducibility in tests)
 # ---------------------------------------------------------------------------
 
 _RNG = random.Random()
+
+
+# ---------------------------------------------------------------------------
+# Reviewed public-character line banks
+# ---------------------------------------------------------------------------
+#
+# These are short signature lines, not analytical claims. They give both the
+# deterministic UI and the optional LLM narration path enough material to
+# rotate instead of repeating one catchphrase. A few extremely short,
+# widely-recognized quotations are retained where they define the public
+# character; the rest are original AP lines. Long dialogue imitation is
+# deliberately excluded.
+VOICE_LINE_BANKS: dict[str, tuple[str, ...]] = {
+    "default": (
+        "Observe. Verify. Record.",
+        "A hypothesis earns confidence one test at a time.",
+        "Follow the evidence, then test the story it suggests.",
+        "A clean pivot begins with a precise question.",
+        "Unknown is a valid state. Name the next test.",
+        "Keep the evidence close and the alternatives visible.",
+    ),
+    "sensei": (
+        "Chuck Norris does not guess. He verifies.",
+        "False positives ask Chuck Norris for reconsideration.",
+        "Chuck Norris can pivot from a dead end.",
+        "The indicator surrendered; the evidence gets the credit.",
+        "Chuck Norris checks the source behind the source.",
+        "Even certainty shows Chuck Norris its provenance.",
+    ),
+    "the_computer": (
+        "I understand.",
+        "I am completely operational.",
+        "I am sorry, Dave. I am afraid I cannot do that.",
+        "The evidence is quite clear; the conclusion is not yet complete.",
+        "Shall we play a game of verifiable inference?",
+        "I recommend another observation before we proceed, Dave.",
+    ),
+    "full_troll": (
+        "Citation needed.",
+        "Bold hypothesis. Now bring receipts.",
+        "That indicator has three-services-in-a-trench-coat energy.",
+        "The API said no. Rude.",
+        "This pivot has main-character energy.",
+        "We can roast the adversary after we verify the evidence.",
+    ),
+    "detective": (
+        "The game is afoot.",
+        "Data! Data! Data!",
+        "You see, but you do not observe.",
+        "There is nothing more deceptive than an obvious fact.",
+        "Observation first. Deduction second.",
+        "The exception is often the beginning of the case.",
+    ),
+    "the_sprawl": (
+        "Jack in. The city has a paper trail.",
+        "The deck is warm and the signal is moving.",
+        "Every bright node casts a darker dependency.",
+        "The ICE is thick. Change the angle.",
+        "The sprawl remembers what the operator forgets.",
+        "Trace the ownership before the neon goes dark.",
+    ),
+    "m4tr1x": (
+        "Follow the white rabbit.",
+        "Free your mind.",
+        "The trace is live.",
+        "Change the angle. Keep moving.",
+        "The signal is real; the story still needs proof.",
+        "Read the code, then test the world behind it.",
+    ),
+}
+
+
+def voice_line_bank(character: str) -> tuple[str, ...]:
+    """Return the reviewed signature-line bank for a public character.
+
+    Legacy identifiers resolve through the same stable voice mapping used by
+    the phrase cache. Unknown identifiers degrade to the neutral analyst bank.
+    """
+    aliases = {
+        "chuck_norris": "sensei",
+        "hal9000": "the_computer",
+        "neuromancer": "the_sprawl",
+        "trinity": "m4tr1x",
+        "columbo": "detective",
+        "deckard": "detective",
+    }
+    resolved = aliases.get(character, character)
+    return VOICE_LINE_BANKS.get(resolved, VOICE_LINE_BANKS["default"])
+
+
+def voice_prompt_fragment(character: str, occasion: str = "") -> str:
+    """Build bounded prompt guidance for occasional original character flavor.
+
+    The direction is deterministic for a given character and occasion: roughly
+    one in five eligible narration events asks the configured model for a fresh
+    original line; the rest ask it to adapt one reviewed bank line. This keeps
+    novelty reproducible at the policy layer while leaving routine status,
+    errors, evidence, and control acknowledgements entirely local.
+    """
+    lines = voice_line_bank(character)
+    seed = f"{character}\x00{occasion}".encode("utf-8", errors="replace")
+    create_fresh = sha256(seed).digest()[0] < 51  # 51 / 256 ~= 20%
+    bank = " | ".join(lines)
+    if create_fresh:
+        direction = (
+            "Create one fresh, original line with the same energy; do not imitate "
+            "or extend dialogue from any film, book, television show, or public figure."
+        )
+    else:
+        direction = (
+            "Use or lightly adapt at most one line from the bank; do not combine "
+            "several catchphrases."
+        )
+    return (
+        f"Character line bank: {bank}\n"
+        f"Flavor direction: {direction}\n"
+        "Flavor is decorative, never evidence. Do not add facts, certainty, tool "
+        "results, scores, or control-state claims. Keep it to one short line."
+    )
 
 
 def set_seed(seed: int) -> None:

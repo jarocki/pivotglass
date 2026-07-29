@@ -26,7 +26,14 @@ from __future__ import annotations
 import pytest
 
 from adversary_pursuit.gamification.modes import DEFAULT_MODES
-from adversary_pursuit.gamification.phrases import PHRASES, has_phrases, pick
+from adversary_pursuit.gamification.phrases import (
+    PHRASES,
+    VOICE_LINE_BANKS,
+    has_phrases,
+    pick,
+    voice_line_bank,
+    voice_prompt_fragment,
+)
 
 # Core categories every active character must cover
 CORE_CATEGORIES = ("greeting", "run_success", "run_fail", "score_celebration")
@@ -138,6 +145,41 @@ class TestPickAPI:
                     f"Character '{char_name}' score_celebration phrase missing "
                     f"{{points}} placeholder: {phrase.text!r}"
                 )
+
+
+class TestPublicVoiceLineBanks:
+    """Public characters rotate reviewed lines and bound AI-created flavor."""
+
+    @pytest.mark.parametrize(
+        "character",
+        (
+            "default",
+            "sensei",
+            "the_computer",
+            "full_troll",
+            "detective",
+            "the_sprawl",
+            "m4tr1x",
+        ),
+    )
+    def test_public_character_has_substantial_line_bank(self, character: str):
+        assert len(VOICE_LINE_BANKS[character]) >= 6
+        assert len(set(VOICE_LINE_BANKS[character])) == len(VOICE_LINE_BANKS[character])
+
+    def test_legacy_character_resolves_to_public_bank(self):
+        assert voice_line_bank("hal9000") == VOICE_LINE_BANKS["the_computer"]
+        assert voice_line_bank("neuromancer") == VOICE_LINE_BANKS["the_sprawl"]
+
+    def test_unknown_character_uses_neutral_bank(self):
+        assert voice_line_bank("not-a-mode") == VOICE_LINE_BANKS["default"]
+
+    def test_voice_prompt_is_deterministic_and_truth_bounded(self):
+        first = voice_prompt_fragment("m4tr1x", "same occasion")
+        second = voice_prompt_fragment("m4tr1x", "same occasion")
+        assert first == second
+        assert "Character line bank:" in first
+        assert "never evidence" in first
+        assert "Do not add facts" in first
 
 
 # ---------------------------------------------------------------------------

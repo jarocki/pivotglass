@@ -21,23 +21,40 @@ Metasploit-like console remains `ap basic` / `ap repl` for direct
 > inference, uncertainty should remain visible, and the operator retains
 > authority over consequential actions.
 
+| Pivotglass | Terminal cyberdeck |
+| --- | --- |
+| ![Pivotglass investigation flow](docs/media/pivotglass-v0.5.2.gif) | ![Terminal cyberdeck investigation flow](docs/media/tui-v0.5.2.gif) |
+
+See the [user guide](docs/USER_GUIDE.md) for a complete investigation
+walkthrough and shared command reference.
+
 ## The Pivotglass cockpit
 
 The primary locally hosted web interface is organized around the investigation
 rather than the chat transcript:
 
-- **Intelligence stream** — scrollable retrieval briefings and returned evidence
-- **Command rail** — rapid indicator acquisition without terminal paging limits
-- **Character deck** — the same 10 canonical voices, palettes, vehicle names,
-  greetings, and HUD vocabulary as the terminal cyberdeck
+- **Task constellation** — one accessible 3×3-pixel RGB LED per deterministic probe;
+  hover or focus previews its state, and activation opens its complete ordered
+  transition and evidence history without flooding the cockpit with cards
+- **Command rail** — one local-first surface for indicators and pivots, workspace
+  search, TUI-compatible commands, deterministic analyst tools, and grounded
+  natural-language questions through the configured model
+- **Character deck** — seven distinct public identities shared with the terminal:
+  Default (Analyst), Chuck Norris, HAL9000, Troll, Sherlock Holmes,
+  Neuromancer, and The Matrix
 - **Hunt instruments** — live link power, token-channel state, probe inventory,
   dossier occupancy, workspace, artifact, transport, and fault telemetry
 - **Artifact field** — Microsoft Flint compiles semantic evidence charts to a
-  locally bundled Chart.js renderer
-- **Navigation and field manual** — a persistent pane switcher and searchable
+  locally bundled Chart.js renderer; source-backed flags, malware marks,
+  conditional geographic maps, hover context, and one-click investigation
+  reduce avoidable drill-down
+- **Analyst workbench** — dossier gaps, relationship graph, timeline, linked
+  annotations, printable Markdown reports, and JSON/CSV/STIX/GEXF downloads are
+  available from the command rail and command palette
+- **Navigation and field manual** — persistent collapsible panes, a searchable
   Command/Control-K palette navigate the cockpit; DECK switches characters and
   controls full, reduced, or disabled effects plus narration intensity; `?`
-  opens contextual help
+  opens contextual, task-oriented help with controls that perform each route
 
 The web cockpit is statically built, served by AP on `127.0.0.1`, and loads no
 CDN code, remote fonts, analytics, or telemetry. Exact npm versions and SHA-512
@@ -54,14 +71,28 @@ locate a transcript entry, `open <ev-id>` to inspect stored evidence, and
 `back` to return to the exact previous reading position.
 
 Both interfaces provide opt-in local generative atmosphere with visible mute
-state and volume control. Pivotglass exposes it in DECK; the TUI uses Alt-M as
-an immediate mute toggle. Sound begins muted, carries no analytical meaning,
-and requires no stream, account, downloaded recording, or network request.
+state and volume control. The soundtrack uses acoustic-instrument models,
+algorithmic room ambience, and layered, character-specific movements with
+recurring motifs, changing harmony, counterlines, percussion, and intentional
+releases. It develops continuously instead of repeating a short recording.
+Pivotglass exposes it in DECK; the TUI uses Alt-M as an immediate mute toggle.
+Sound begins muted, carries no analytical meaning, and requires no stream,
+account, recording, or network request.
 
-Each mode selects a cockpit, not only a palette: The Computer operates a logic
-core, Detective works a rain-soaked caseboard, The Sprawl uses a perspective
-grid, M4TR1X runs an operator construct, and the other archetypes have equally
-distinct geometry and instrument vocabulary.
+Pivotglass provides themed Day/Night and high-contrast controls. Terminal users
+can request equivalent accessibility palettes with
+`AP_TUI_COLOR_SCHEME=light` and `AP_TUI_HIGH_CONTRAST=1`.
+
+Each character includes an optional keyboard-and-touch diversion: Sherlock
+Holmes solves a chess conclusion, HAL9000 can be shut down in sequence,
+Neuromancer routes through ICE to jack in, and The Matrix manipulates a power
+grid. Scores and outcomes are explicitly presentation-only and never affect
+evidence, confidence, alerts, or dossier state.
+
+Each mode selects a cockpit, not only a palette: HAL9000 operates a logic core,
+Sherlock Holmes works a rain-soaked caseboard, Neuromancer uses a perspective
+grid, The Matrix runs an operator construct, and the other characters have
+equally distinct geometry and instrument vocabulary.
 HUD values are live controls and state—not decorative gauges.
 
 The visual language continues to draw from the hierarchy established by the
@@ -73,6 +104,10 @@ protected design studies in [`storyboard/`](storyboard/):
 
 These are historical design targets, not screenshots of the web runtime.
 Pivotglass keeps decorative persona voice subordinate to analytical accuracy.
+Reviewed line banks prevent one catchphrase from repeating indefinitely. The
+bounded model narration used for important dossier breakthroughs may
+occasionally create one original line, but its prompt forbids adding evidence,
+certainty, tool results, score, or control state.
 
 ## Quick start
 
@@ -87,10 +122,10 @@ cd web && npm ci && npm run build && cd ..
 uv run ap
 ```
 
-To install the v0.5.0 wheel directly:
+To install the v0.5.2 wheel directly:
 
 ```bash
-python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.5.0/adversary_pursuit-0.5.0-py3-none-any.whl"
+python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.5.2/adversary_pursuit-0.5.2-py3-none-any.whl"
 ap
 ```
 
@@ -128,7 +163,7 @@ or other work AP can perform deterministically.
 The cyberdeck accepts natural-language investigations and handles operational
 commands locally. Current command families include:
 
-- `workspace` — list, create, switch, delete, or clear investigations
+- `workspace` — list, create, switch, delete, clear, export, or merge investigations
 - `mode` — inspect or select a character mode
 - `model` — inspect or reconfigure the LLM provider and model
 - `hunt <indicator>` — run the matching deterministic module fleet
@@ -204,13 +239,13 @@ badges there. Dossiers make analytical coverage explicit across identity,
 infrastructure, TTPs, deception, and other investigation dimensions; missing or
 inferred information is not presented as observed fact.
 
-Ten durable character archetypes alter voice, prompts, and visual accents:
-Default, Ninja, Full Troll, Bureaucrat, Strategist, Sensei, Detective, The
-Computer, The Sprawl, and M4TR1X. Historical identifiers migrate locally to
-their approved archetype for one compatibility window. Drunken Master and
-Bobby Hill are retired from selection with explicit guidance; their historical
-records remain readable. Personas are presentation and reasoning aids—not
-separate truth systems.
+Seven public characters alter voice, prompts, palette, motion, music, and
+optional diversions: Default (Analyst), Chuck Norris, HAL9000, Troll, Sherlock
+Holmes, Neuromancer, and The Matrix. Ninja, Bureaucrat, and Strategist remain
+readable compatibility modes for historical sessions but are not presented in
+the public deck. Other historical identifiers migrate locally to an approved
+successor; retired records are preserved. Personas are presentation and
+reasoning aids—not separate truth systems.
 
 ## Architecture
 
@@ -251,6 +286,8 @@ classic console.
 - [`MASTER_PLAN.md`](MASTER_PLAN.md) — decisions, roadmap, and historical record
 - [`DECISIONS.md`](DECISIONS.md) — generated decision index
 - [`CHANGELOG.md`](CHANGELOG.md) — user-visible release history
+- [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) — operator workflow and command guide
+- [`docs/plans/V0.6.0_PLAN.md`](docs/plans/V0.6.0_PLAN.md) — next-release implementation plan
 - [`reckonings/`](reckonings/) — periodic project assessments
 - [`storyboard/`](storyboard/) — protected visual design context
 

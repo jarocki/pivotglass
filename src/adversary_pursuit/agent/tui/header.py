@@ -6,7 +6,7 @@ application version, current target, workspace name, and a PRIOR breadcrumb
 
 Layout (80-column example):
 
-    ╭─ ADVERSARY PURSUIT v0.4 ─── CURRENT: evil.com ─── WORKSPACE: default ─╮
+    ╭─ ADVERSARY PURSUIT v0.5.2 ── CURRENT: evil.com ── WORKSPACE: default ─╮
     │ PRIOR: prev.example.com                                                  │
     ╰──────────────────────────────────────────────────────────────────────────╯
 
@@ -37,7 +37,10 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass
 
+from adversary_pursuit import __version__
 from adversary_pursuit.agent.tui.themes import CharacterTheme
+
+_CURRENT_VERSION = f"v{__version__}"
 
 # ---------------------------------------------------------------------------
 # Data types
@@ -51,7 +54,7 @@ class HeaderState:
     Parameters
     ----------
     version:
-        Application version string shown in the title bar (e.g. ``"v0.4"``).
+        Application version string shown in the title bar (e.g. ``"v0.5.2"``).
     current_target:
         Current investigation target, or ``"—"`` when unset.
     workspace_name:
@@ -60,7 +63,7 @@ class HeaderState:
         Previous investigation target before the last pivot, or ``"—"``.
     """
 
-    version: str = "v0.4"
+    version: str = _CURRENT_VERSION
     current_target: str = "—"
     workspace_name: str = "default"
     prior_target: str = "—"
@@ -102,7 +105,7 @@ def render_header(state: HeaderState, theme: CharacterTheme, width: int = 80) ->
     (DEC-TUI-APP-THEME-INJECT-001). Keeping the strings markup-free lets callers
     measure rendered width without stripping escape codes.
     """
-    # Build the title bar content: "ADVERSARY PURSUIT v0.4 ─── CURRENT: X ─── WORKSPACE: Y"
+    # Build the title bar content: "ADVERSARY PURSUIT vX.Y.Z ...".
     title_parts = [
         f"ADVERSARY PURSUIT {state.version}",
         f"CURRENT: {state.current_target}",
@@ -156,14 +159,14 @@ class HeaderPane:
         Initial workspace name (e.g. ``"default"``). May be updated via
         ``set_workspace_name()``.
     version:
-        Application version string (e.g. ``"v0.4"``).
+        Application version string (e.g. ``"v0.5.2"``).
     """
 
     def __init__(
         self,
         bus,
         workspace_name: str = "default",
-        version: str = "v0.4",
+        version: str = _CURRENT_VERSION,
     ) -> None:
         self._lock = threading.Lock()
         self._version = version
@@ -210,7 +213,7 @@ class HeaderPane:
         Parameters
         ----------
         version:
-            Version string (e.g. ``"v0.4"``).
+            Version string (e.g. ``"v0.5.2"``).
         """
         with self._lock:
             self._version = version

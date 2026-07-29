@@ -743,7 +743,11 @@ class APConsole(cmd2.Cmd):
             if scoring_events:
                 total_gained = self.scoring_engine.total_score(scoring_events)
                 self.workspace_mgr.store_score_events(scoring_events)
-                celebration = self.mode_mgr.active.score_celebration.format(points=total_gained)
+                from adversary_pursuit.gamification.phrases import pick
+
+                celebration = pick(
+                    self.mode_mgr.active.name, "score_celebration"
+                ).format(points=total_gained)
                 self.rich_console.print(celebration)
                 for event in scoring_events:
                     self.rich_console.print(
@@ -1477,11 +1481,17 @@ class APConsole(cmd2.Cmd):
         if not name:
             # No argument — show current mode and list all
             current = self.mode_mgr.active
-            self.poutput(f"Current mode: {current.name} — {current.personality}")
+            from adversary_pursuit.gamification.modes import display_mode_name
+
+            self.poutput(
+                f"Current mode: {display_mode_name(current.name)} — {current.personality}"
+            )
             self.poutput("Available modes:")
-            for entry in self.mode_mgr.list_modes():
+            for entry in self.mode_mgr.list_modes(public_only=True):
                 marker = "* " if entry["name"] == current.name else "  "
-                self.poutput(f"  {marker}{entry['name']}: {entry['personality']}")
+                self.poutput(
+                    f"  {marker}{entry['display_name']}: {entry['personality']}"
+                )
             return
 
         try:
@@ -1554,7 +1564,9 @@ class APConsole(cmd2.Cmd):
     def _export_gexf(self, raw_objects: list[dict]) -> None:
         """Build a RelationshipGraph from workspace objects and export as GEXF XML."""
         g = RelationshipGraph()
-        g.build_from_workspace(raw_objects)
+        from adversary_pursuit.core.graph import persisted_relationships
+
+        g.build_from_workspace(raw_objects, persisted_relationships(self.workspace_mgr))
         self.poutput(g.export_gexf())
 
     # ------------------------------------------------------------------
@@ -1592,7 +1604,9 @@ class APConsole(cmd2.Cmd):
 
         # Build graph
         g = RelationshipGraph()
-        g.build_from_workspace(raw_objects)
+        from adversary_pursuit.core.graph import persisted_relationships
+
+        g.build_from_workspace(raw_objects, persisted_relationships(self.workspace_mgr))
 
         if stats_only:
             self._graph_show_stats(g)
