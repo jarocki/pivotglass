@@ -38,10 +38,10 @@ Direct DNS resolution from the operator host was prohibited on 2026-07-19;
 domain metadata must be obtained from explicit intelligence-service APIs. The
 web cockpit is a static Next.js export served on loopback by the Python process;
 Microsoft Flint 0.3.0 compiles semantic evidence charts for local rendering.
-Phase 17O through Phase 18 Slice 7A have landed. The storyboard-aligned deck
+Phase 17O through Phase 18 Slice 7A have landed. The design-study-aligned deck
 hierarchy and responsive operator controls are implemented; the studies in
-`storyboard/` remain design targets rather than claims of pixel-identical runtime
-output. Older “active,” “next,” and
+private local project context remain design targets rather than claims of
+pixel-identical runtime output. Older “active,” “next,” and
 “implementer-complete” language below is preserved only inside historical phase
 records and must not be interpreted as current repository state.
 
@@ -103,10 +103,10 @@ These are explicitly out of scope for v1. They may appear in future versions but
 
 > **Stable public release: `v0.1.0` (no rc suffix), cut and verified. Pre-release flag: false.**
 >
-> - **Release page:** https://github.com/jarocki/ap/releases/tag/v0.1.0
+> - **Release page:** https://github.com/jarocki/pivotglass/releases/tag/v0.1.0
 > - **Annotated tag object SHA:** `e669b5df5c6bb7c98e38a84144f9bc9ab6dcc72f` (points at commit `e8e9b137e116d7a70040c6b3ab9931c08ec73fc4`)
 > - **Tagged commit:** `e8e9b137e116d7a70040c6b3ab9931c08ec73fc4` (`chore(release): promote to v0.1.0 stable`)
-> - **GitHub Actions workflow run:** https://github.com/jarocki/ap/actions/runs/26104027477 (status: success)
+> - **Legacy workflow run:** `26104027477` (status: success; run metadata was not migrated)
 > - **Artifacts attached:** `adversary_pursuit-0.1.0-py3-none-any.whl` (176 KB) + `adversary_pursuit-0.1.0.tar.gz` (493 KB), produced by `.github/workflows/release.yml`.
 > - **rc1 preserved:** `v0.1.0rc1` (tag SHA `d392debca0fed01317b0db335ee7a27f8cea9858`, commit `1af235f`) remains intact as the verification record.
 > - **Stale v0.1.0 replaced:** A stale published v0.1.0 release (2026-05-02, pointing at pre-rc1 commit `1debf76`) was discovered by Guardian during tag-push and replaced with the rc1-verified stable release (DEC-V1-FINAL-SHIP-004; user-authorized destructive operation).
@@ -124,7 +124,7 @@ These are explicitly out of scope for v1. They may appear in future versions but
 | Phase 2 — Gamification (was Phase 3) (#14-#18) | completed | Scoring, Challenges, Modes, Badges, Hints all landed. Fully wired into both the cmd2 console and the agent path (all 9 W-AGENT-* slices complete). |
 | Phase 3 — Auto-Pivot & Graph (was Phase 4) (#19-#20) | completed | Event bus opt-in (DEC-EVENTBUS-002); graph + GEXF + STIX bundle export. Wired into both cmd2 console and agent path (W-AGENT-AUTOPIVOT `8e48256`, W-AGENT-GRAPH-EXPORT `0b83eb2`). |
 | Phase 4 — Agentic Chat Interface (#25 + W-AGENT-*) | completed | All 9 W-AGENT-* slices landed. 21 LLM tools covering all 10 modules + celebrations + badges + hints + modes + autopivot + challenges + graph/export + reports. Full gamification parity with cmd2 console achieved. |
-| Phase 5 — Polish & Release (#21-#24) | completed (2026-05-18) | #21, #22, #23 done; #24 CI/CD landed. **Distribution strategy pivoted PyPI → GitHub Releases (`02fed4d`, 2026-05-03).** `W-V1-PYPI-VERIFY` retired; replaced by `W-V1-RELEASE-VERIFY` which landed at merge `cd3709a` (2026-05-18) — `v0.1.0rc1` pre-release published at https://github.com/jarocki/ap/releases/tag/v0.1.0rc1 (tag SHA `d392deb`), wheel+sdist attached, fresh-venv install with `[agent]` extras verified end-to-end. See "Phase 5 closeout" section below. |
+| Phase 5 — Polish & Release (#21-#24) | completed (2026-05-18) | #21, #22, #23 done; #24 CI/CD landed. **Distribution strategy pivoted PyPI → GitHub Releases (`02fed4d`, 2026-05-03).** `W-V1-PYPI-VERIFY` retired; replaced by `W-V1-RELEASE-VERIFY` which landed at merge `cd3709a` (2026-05-18) — `v0.1.0rc1` pre-release published at https://github.com/jarocki/pivotglass/releases/tag/v0.1.0rc1 (tag SHA `d392deb`), wheel+sdist attached, fresh-venv install with `[agent]` extras verified end-to-end. See "Phase 5 closeout" section below. |
 | Phase 6 — Agent Docs (W-AGENT-DOCS) | completed | README rewritten for agent-first v1: `ap chat` primary interface documented, all 21 LLM tools, 8 meta-commands, 10 modes, and persona-prompt protocol. MASTER_PLAN Phase 4 status and W-AGENT-* table updated with all merge SHAs. |
 | Phase 7 — Post-Phase-6 CTI Pipeline & TUI Polish (unscheduled, landed organically 2026-05-03..2026-05-15) | completed | ~12 user-driven commits hardening CTI reliability, setup UX, and TUI polish: setup wizard `b44968c` (#45), 3-layer key resolution `a4cc341`, Censys Platform API v3 `fef6bfd` (#43), CTI pipeline repairs `9e6daa0`, URLScan submit/poll fixes `26c5b54` + `5cc2be6`, smoke SKIP classification `137fb45` (#48), smoke ConfigManager fix `823d54e`, TUI polish `db576b9`, provider/model wizard `4e11dde`, help meta-commands `70ede27`, `AP_MODEL` env override `9129c1b`, wizard dotfile export `4b9d030`. |
 | Phase 8 — Smoke Test Reliability | completed (W-OTX-TIMEOUT landed `b877574`, impl `72fd3eb`) | `W-OTX-TIMEOUT` added `TIMEOUT` option to `cti/otx` + classified `httpx.ReadTimeout` as a timeout-stub SCO, mirroring the URLScan transient-failure pattern (`5cc2be6`). No other smoke regressions open at v1 ship; future live-smoke regressions will be filed as discrete slices through the canonical planner chain. |
@@ -194,7 +194,7 @@ These are explicitly out of scope for v1. They may appear in future versions but
 Set up the Python project structure using modern packaging standards.
 
 ```
-ap/
+pivotglass/
   pyproject.toml              # Build system, deps, entry points
   src/
     adversary_pursuit/
@@ -543,7 +543,7 @@ Configurable per-workspace: `auto_pivot = true/false`, depth limit, module white
 | #21 Report Generation | done | `9e55bca` | DEC-REPORT-001 (interview-first structure), DEC-REPORT-002 (Markdown over PDF/HTML for v1), DEC-REPORT-003 (in-memory interview state, no DB persistence). Console exposes `do_report`. |
 | #22 Celebrations | done | `f175a70` | DEC-CELEBRATION-001 (4-level ASCII art keyed on points), DEC-CELEBRATION-002 (milestone messages fire at exact thresholds). |
 | #23 Documentation | done | `167df88` (consolidated `8710aa0`) | README rewrite: usage, modules, plugin guide, architecture. |
-| #24 Release Distribution | **completed** | `18a64b4` (CI/CD) → `02fed4d` (PyPI → GitHub Releases pivot, 2026-05-03) → **`cd3709a` (W-V1-RELEASE-VERIFY closeout, 2026-05-18)** | `.github/workflows/{ci,release}.yml` shipped. v1 distributes via **GitHub Releases** (tagged artifact downloads + `pip install` from release URL) rather than PyPI. Rationale: reduces credential/trusted-publisher surface for a solo-maintainer pre-1.0 project; release tags remain the trigger. The earlier `[project.urls]` regressions (`c46903f`, `5895560`) were corrections during the pivot. **Verification closed:** `v0.1.0rc1` cut, `release.yml` produced wheel+sdist, public release at https://github.com/jarocki/ap/releases/tag/v0.1.0rc1, fresh-venv install + 11 entry-points + `ap chat` import all green. |
+| #24 Release Distribution | **completed** | `18a64b4` (CI/CD) → `02fed4d` (PyPI → GitHub Releases pivot, 2026-05-03) → **`cd3709a` (W-V1-RELEASE-VERIFY closeout, 2026-05-18)** | `.github/workflows/{ci,release}.yml` shipped. v1 distributes via **GitHub Releases** (tagged artifact downloads + `pip install` from release URL) rather than PyPI. Rationale: reduces credential/trusted-publisher surface for a solo-maintainer pre-1.0 project; release tags remain the trigger. The earlier `[project.urls]` regressions (`c46903f`, `5895560`) were corrections during the pivot. **Verification closed:** `v0.1.0rc1` cut, `release.yml` produced wheel+sdist, public release at https://github.com/jarocki/pivotglass/releases/tag/v0.1.0rc1, fresh-venv install + 11 entry-points + `ap chat` import all green. |
 
 ### Phase 5 Closeout — W-V1-RELEASE-VERIFY (2026-05-18)
 
@@ -551,7 +551,7 @@ Configurable per-workspace: `auto_pivot = true/false`, depth limit, module white
 
 - **Tag:** `v0.1.0rc1` (annotated, SHA `d392debca0fed01317b0db335ee7a27f8cea9858`, points at commit `1af235f` — `chore(release): bump to 0.1.0rc1 + rewrite README install for GitHub Releases`).
 - **Pre-release flag:** correctly set by `release.yml`'s `prerelease` substring detection (`rc` in the tag name).
-- **Release URL:** https://github.com/jarocki/ap/releases/tag/v0.1.0rc1
+- **Release URL:** https://github.com/jarocki/pivotglass/releases/tag/v0.1.0rc1
 - **Artifacts attached:** `adversary_pursuit-0.1.0rc1-py3-none-any.whl` (176 KB) and `adversary_pursuit-0.1.0rc1.tar.gz` (489 KB), both produced by `uv build` inside `release.yml` and uploaded via `softprops/action-gh-release@v2`.
 - **Closeout merge SHA on `main`:** `cd3709a11a9bd7b0bd79ea0b0163916207b16173` — `docs(release): fill v0.1.0rc1 placeholders in README install instructions`. This is the final commit on main that fills the README install block with the verified release URL after the tag cut and CI run completed.
 
@@ -584,8 +584,8 @@ Configurable per-workspace: `auto_pivot = true/false`, depth limit, module white
 
 - **Tag:** `v0.1.0` (annotated, tag object SHA `e669b5df5c6bb7c98e38a84144f9bc9ab6dcc72f`, points at commit `e8e9b137e116d7a70040c6b3ab9931c08ec73fc4` — `chore(release): promote to v0.1.0 stable`).
 - **Pre-release flag:** false (confirmed via `gh release view v0.1.0 --json isPrerelease`).
-- **Release URL:** https://github.com/jarocki/ap/releases/tag/v0.1.0
-- **Workflow run:** https://github.com/jarocki/ap/actions/runs/26104027477 (status: success)
+- **Release URL:** https://github.com/jarocki/pivotglass/releases/tag/v0.1.0
+- **Legacy workflow run:** `26104027477` (status: success; run metadata was not migrated)
 - **Artifacts attached:** `adversary_pursuit-0.1.0-py3-none-any.whl` (176 KB) and `adversary_pursuit-0.1.0.tar.gz` (493 KB), produced by `uv build` inside `release.yml` and uploaded via `softprops/action-gh-release@v2`.
 - **Stale release replaced:** A published v0.1.0 GitHub Release from 2026-05-02 (pointing at pre-rc1 commit `1debf76`) was discovered by Guardian during tag-push audit. It predated the GitHub Releases pivot (`02fed4d`), the URLScan poll auth fix (`5cc2be6`), OTX TIMEOUT (`b877574`), GreyNoise (`6884317`), and all Phase 5 reconciliation work. User authorized destructive replacement ("B"). `gh release delete v0.1.0 --cleanup-tag` atomically removed the stale release page and remote ref; the new `v0.1.0` was cut at `e8e9b13` and re-published via the same `release.yml` workflow.
 - **rc1 preserved:** `v0.1.0rc1` (tag SHA `d392debca0fed01317b0db335ee7a27f8cea9858`, commit `1af235f`) remains intact as the verification record.
@@ -902,7 +902,7 @@ Persisted in runtime via `cc-policy workflow scope-sync` (work item + workflow r
 **Status:** completed (landed 2026-05-25, merge `a797831 Merge feature/59-stix-provenance (#59)`, work commit `f4a71a3 feat(stix): STIX 2.1 spec compliance + per-SCO provenance (#59)`)
 **Workflow id:** `w-59-stix-provenance` · **Goal id:** `g-59-stix-provenance` · **Work item id:** `wi-59-impl`
 **Branch:** `feature/59-stix-provenance` · **Worktree:** `.worktrees/feature-59-stix-provenance` · **Base:** `main` @ `1ccf13b`
-**Closes:** [GitHub issue #59](https://github.com/jarocki/ap/issues/59)
+**Closes:** legacy GitHub issue #59 (issue metadata was not migrated)
 
 ### User directive (verbatim, via Threat Hunter expert assessment 2026-05-22)
 
@@ -1060,7 +1060,7 @@ To be persisted in runtime via `cc-policy workflow scope-sync w-59-stix-provenan
 **Status:** completed (landed 2026-05-25, merge `8035add Merge feature/60-auto-pivot-policy (#60)`, work commit `60eab19 feat(pivot-policy): auto-pivot policy engine with 3-gate rate limiting (closes #60)`)
 **Workflow id:** `w-60-auto-pivot-policy` · **Goal id:** `g-60-auto-pivot-policy` · **Work item id:** `wi-60-impl-01`
 **Branch:** `feature/60-auto-pivot-policy` · **Worktree:** `.worktrees/feature-60-auto-pivot-policy` · **Base:** `main` @ `a797831`
-**Closes:** [GitHub issue #60](https://github.com/jarocki/ap/issues/60)
+**Closes:** legacy GitHub issue #60 (issue metadata was not migrated)
 
 ### User directive (verbatim, via Threat Hunter P0 verdict 2026-05-23)
 
@@ -1202,7 +1202,7 @@ Persisted in runtime via `cc-policy workflow scope-sync w-60-auto-pivot-policy -
 **Status:** completed (landed 2026-05-26, merge `e3cf5ca Merge feature/62-streak-and-honest-modes (#62)`, work commit `1d424ae feat(F62): kill dead-code lies + ship streak mechanic + mode-flavored failures` + reviewer-fixup `8b0faa2 fix(F62): wire run_fail + first_blood_message in agent surface (reviewer findings)`)
 **Workflow id:** `w-62-streak-and-honest-modes` · **Goal id:** `g-62-streak-and-honest-modes` · **Work item id:** `wi-62-impl-01`
 **Branch:** `feature/62-streak-and-honest-modes` · **Worktree:** `.worktrees/feature-62-streak-and-honest-modes` · **Base:** `main` @ `8035add`
-**Closes:** [GitHub issue #62](https://github.com/jarocki/ap/issues/62)
+**Closes:** legacy GitHub issue #62 (issue metadata was not migrated)
 **Numbering note:** This phase landed chronologically between Phase 12 (F60, 2026-05-25) and Phase 13 (F64, 2026-05-26). Both F62 and F64 planners independently numbered themselves "Phase 13" in their plan amendments; F62's MASTER_PLAN edit was never committed by its implementer, leaving F64 in the Phase 13 slot. This section is appended retroactively as Phase 12B per the 2026-05-26 Project Reckoning closeout.
 
 ### User directive (verbatim, via Gamification expert assessment, Jeff Atwood lens, 2026-05-22)
@@ -1266,7 +1266,7 @@ Persisted in runtime via `cc-policy workflow scope-sync w-60-auto-pivot-policy -
 **Status:** planned (not yet implemented)
 **Workflow id:** `w-63-milestone-catchup` · **Goal id:** `g-63-milestone-catchup` · **Planner work item:** `wi-63-planner-01` (in_progress) · **Implementer work item:** `wi-63-impl-01` (pending)
 **Branch:** `feature/63-milestone-catchup` · **Worktree:** `.worktrees/feature-63-milestone-catchup` · **Base:** `main` @ `ba110a5`
-**Closes:** [GitHub issue #63](https://github.com/jarocki/ap/issues/63)
+**Closes:** legacy GitHub issue #63 (issue metadata was not migrated)
 **Numbering note:** This phase is appended as `12C` to keep the gamification-feedback-loop neighborhood (12B = F62 streak mechanic, 12C = F63 milestone catch-up + streak score event) contiguous, parallel to how Phase 12 / 12B were positioned in the 2026-05-26 closeout. Existing Phases 13 (F64) and 14 (F61) retain their chronological slots.
 
 ### User directive (verbatim, via Gamification expert assessment, Jeff Atwood lens, 2026-05-22)
@@ -1708,7 +1708,7 @@ Runtime authority: stored on `wi-61-impl-01.evaluation_json` (11247 bytes; loade
 
 **Status:** completed (strategic scoping landed 2026-05-27, merge `b2b846a`, impl `36b7f30`; binding decisions and M-1..M-9 decomposition closed; no source code touched by this slice). M-1 implementer slice landed at Phase 17B (merge `486a5ad`, 2026-05-28). M-2 implementer slice landed at Phase 17D (merge `11b3fd3`, 2026-05-29). M-3 is the next slice (W-68-M3-DOSSIER-SCORING per `.claude/plans/dossier-reframe-v2-roadmap.md` §M-3).
 
-**Source directive:** Issue [#68](https://github.com/jarocki/ap/issues/68) (filed 2026-05-23) reframes AP from indicator-graph traversal to **Threat Actor Dossier completion**. The 2026-05-26 Project Reckoning (Section VIII, item 3) elevated this to "the most important unmade decision in the project — every day it sits unscoped is a day the project's v2 center of gravity is unset."
+**Source directive:** Legacy GitHub issue #68 (filed 2026-05-23; issue metadata was not migrated) reframes AP from indicator-graph traversal to **Threat Actor Dossier completion**. The 2026-05-26 Project Reckoning (Section VIII, item 3) elevated this to "the most important unmade decision in the project — every day it sits unscoped is a day the project's v2 center of gravity is unset."
 
 **Verbatim user directive (issue #68 body, key passages):**
 
@@ -1824,7 +1824,7 @@ After this planning slice lands, the recommended next workflow is `M-1` (Dossier
 
 **Status:** completed (strategic scoping landed 2026-05-27, merge `fe4c0b1`, impl `5726819`; binding decisions and C-1..C-4 decomposition closed; no source code touched by this slice). C-1 implementer slice landed at Phase 17C (merge `e49e70b`, 2026-05-28). C-2 implementer slice landed at Phase 17E (merge `f8bded8`, 2026-05-29; ninja disposition flipped KEEP_STATIC → UPGRADE per DEC-C2-NINJA-001 supersession). C-3 (Philosophy + Bureaucratese modes — `sun_tzu`, `bruce_lee`, `bureaucrat`) is the next character-v2 slice.
 
-**Source directive:** Issue [#30](https://github.com/jarocki/ap/issues/30) — "Upgrade character modes from static templates to LLM personality profiles." Ratified as **orthogonal** to the dossier reframe by DEC-68-DOSSIER-REFRAME-004 (player persona ≠ target persona).
+**Source directive:** Legacy GitHub issue #30 (issue metadata was not migrated) — "Upgrade character modes from static templates to LLM personality profiles." Ratified as **orthogonal** to the dossier reframe by DEC-68-DOSSIER-REFRAME-004 (player persona ≠ target persona).
 
 **Verbatim user directive (issue #30 body, key passages):**
 
@@ -1952,7 +1952,7 @@ C-1 may be sequenced in parallel with W-68-M1-DOSSIER-PANEL (DEC-30-CHARACTER-V2
 **Status:** completed
 **Merge SHA:** `486a5ad` (Merge #68: feat(dossier): M-1 Dossier Visualization Panel MVP)
 **Implementer commit:** `11aaf83` (feat(dossier): M-1 Dossier Visualization Panel MVP — read-only slot inference + Rich panel)
-**Worktree (now disposable):** `/Users/jarocki/src/ap/.worktrees/feature-68-m1-dossier-panel` (branch `feature/68-m1-dossier-panel`, base AP main `fe4c0b1`).
+**Worktree (now disposable):** `/Users/jarocki/src/pivotglass/.worktrees/feature-68-m1-dossier-panel` (branch `feature/68-m1-dossier-panel`, base AP main `fe4c0b1`).
 **Closeout note (2026-05-29):** This section is recovered from the M-1 worktree where it was planner-authored but never reached main because the implementer did not pick up the planner's staged MASTER_PLAN.md edit. AP #74 documents the bookkeeping gap; this closeout slice (`w-plan-drift-fix-2026-05-29`) harvests the content verbatim.
 
 **Source:** Phase 16 (W-68-DOSSIER-REFRAME-SCOPING) ratified the dossier-puzzle metaphor as v2's product center and decomposed the reframe into M-1..M-9 follow-on workflows. M-1 is the smallest valuable shipping unit per `.claude/plans/dossier-reframe-v2-roadmap.md` §5 / §7. M-1 shared the v0.2.0 wave with C-1 (Phase 17C / W-30-C1-FULL-TROLL-PROFILE) per DEC-30-CHARACTER-V2-007 — zero dependency between them.
@@ -2024,7 +2024,7 @@ C-1 may be sequenced in parallel with W-68-M1-DOSSIER-PANEL (DEC-30-CHARACTER-V2
 **Status:** completed
 **Merge SHA:** `e49e70b` (Merge branch 'feature/30-c1-full-troll-profile' — C-1 full_troll persona MVP)
 **Implementer commit:** `5417cec` (feat(character-v2): C-1 MVP — full_troll LLMPersonaProfile + set_character injection)
-**Worktree (now disposable):** `/Users/jarocki/src/ap/.worktrees/feature-30-c1-full-troll-profile` (branch `feature/30-c1-full-troll-profile`, base AP main `fe4c0b1`).
+**Worktree (now disposable):** `/Users/jarocki/src/pivotglass/.worktrees/feature-30-c1-full-troll-profile` (branch `feature/30-c1-full-troll-profile`, base AP main `fe4c0b1`).
 
 **Closeout / Renumber note (2026-05-29):** This section is recovered from the C-1 worktree where the C-1 planner originally numbered it `Phase 17B` (independently from M-1's planner who picked the same number). C-1 landed approximately 5 minutes after M-1 (M-1 merge `486a5ad` 2026-05-28 ~22:54 UTC; C-1 merge `e49e70b` 2026-05-28 ~22:59 UTC), so this closeout (`w-plan-drift-fix-2026-05-29`) renumbers the C-1 section to **17C** per chronological merge order; all other content is harvested verbatim. AP #74 documents the bookkeeping gap that produced two independent `Phase 17B` titles in parallel worktrees.
 
@@ -2161,7 +2161,7 @@ After M-2 lands, the recommended next workflow is **M-3 — Dossier Scoring + Sc
 **Closeout note (2026-05-29):** C-2 landed code-only — the per-slice plan was authored to `.claude/plans/c2-ninja-profile-plan.md` in the C-2 worktree and never reached main (parallel to the M-2 gap), and the source files were annotated with `DEC-C2-NINJA-001..003` references. This closeout slice harvests the binding decisions from the per-slice plan and the source annotations.
 
 **Workflow:** `w-30-c2-ninja-profile` / goal `g-30-c2-ninja-profile`.
-**Worktree (now disposable):** `/Users/jarocki/src/ap/.worktrees/feature-30-c2-ninja-profile` (branch `feature/30-c2-ninja-profile`, base AP main `e49e70b` — post C-1 merge).
+**Worktree (now disposable):** `/Users/jarocki/src/pivotglass/.worktrees/feature-30-c2-ninja-profile` (branch `feature/30-c2-ninja-profile`, base AP main `e49e70b` — post C-1 merge).
 
 **Bound by upstream:** DEC-30-CHARACTER-V2-001..007 (Phase 17) + DEC-C1-FULLTROLL-001..005 (Phase 17C; schema, runner injection, full_troll profile already live). C-2 is a single additive `LLMPersonaProfile` data entry plus mirrored hard-gate tests — schema, injection wiring, and authority decisions are all settled by C-1; the C-2 implementer copies the C-1 pattern for a different voice.
 
@@ -2227,7 +2227,7 @@ After C-2 lands, C-3 (Philosophy + Bureaucratese Modes — `sun_tzu`, `bruce_lee
 
 **Status:** completed (2026-06-01, merge `2809b13`, impl `974fa1a`). Phase Active pointer at landing was not flipped in the M-3 commit; the M-4 closeout (Phase 17G) re-points to W-68-M4-PERSISTENT-DOSSIER and corrects this status line in the same commit.
 **Workflow:** `w-68-m3-dossier-scoring` / goal `g-68-m3-dossier-scoring`.
-**Worktree:** `/Users/jarocki/src/ap/.worktrees/feature-68-m3-dossier-scoring` (branch `feature/68-m3-dossier-scoring`, base AP main `de08b4b`).
+**Worktree:** `/Users/jarocki/src/pivotglass/.worktrees/feature-68-m3-dossier-scoring` (branch `feature/68-m3-dossier-scoring`, base AP main `de08b4b`).
 **Per-slice plan (authoritative for content rationale):** `.claude/plans/dossier-m3-scoring.md` (landed in this worktree; implementer commits it together with source).
 
 **Source:** Phase 16 (W-68-DOSSIER-REFRAME-SCOPING) decomposed the reframe into M-1..M-9. M-1 (Phase 17B) shipped the dossier panel + 3-slot inference; M-2 (Phase 17D) added the per-module slot extractors + `get_dossier_state` LLM tool + scaffold dataclasses for the deferred slots. M-3 is the load-bearing v2 product-center change: it wires dossier slot transitions into the score economy per DEC-68-DOSSIER-REFRAME-002 (option c — layer `dossier/` aggregator over existing `ScoringEngine`).
@@ -2327,7 +2327,7 @@ After M-3 lands, the recommended next workflow is **M-4 — Persistent Dossier S
 
 **Status:** completed (2026-06-02, merge TBD-guardian-land, impl HEAD feature/68-m4-persistent-dossier).
 **Workflow:** `w-68-m4-persistent-dossier` / goal `g-68-m4-persistent-dossier`.
-**Worktree:** `/Users/jarocki/src/ap/.worktrees/feature-68-m4-persistent-dossier` (branch `feature/68-m4-persistent-dossier`, base AP main `2809b13`).
+**Worktree:** `/Users/jarocki/src/pivotglass/.worktrees/feature-68-m4-persistent-dossier` (branch `feature/68-m4-persistent-dossier`, base AP main `2809b13`).
 **Per-slice plan (authoritative for content rationale):** `.claude/plans/dossier-m4-persistent-state.md` (landed in this worktree; implementer commits it together with source).
 
 **Source:** Phase 16 (W-68-DOSSIER-REFRAME-SCOPING) decomposed the reframe into M-1..M-9. M-1 (Phase 17B) shipped the panel + 3-slot inference; M-2 (Phase 17D) added the per-module slot extractors + `get_dossier_state` LLM tool + scaffold dataclasses (PredictionRecord, DenialStrategyRecord); M-3 (Phase 17F) wired slot-fill events into the score economy + scaffolded `dossier_prediction_validated`. M-4 is the persistence + predictions slice: state survives `ap chat` restart and predictions become a first-class scored slot.
@@ -2423,7 +2423,7 @@ After M-4 lands, the recommended next workflow is **M-5 — Denial / Deception S
 
 **Status:** in-progress (planner-staged 2026-06-07; implementer slice `wi-68-m5-impl-01` to follow).
 **Workflow:** `w-68-m5-denial-strategies` / goal `g-68-m5-denial`.
-**Worktree:** `/Users/jarocki/src/ap/.worktrees/feature-68-m5-denial-strategies` (branch `feature/68-m5-denial-strategies`, base AP main `cfafd6a` — M-4 landed at merge `f928149`, impl `1b1a2b0`).
+**Worktree:** `/Users/jarocki/src/pivotglass/.worktrees/feature-68-m5-denial-strategies` (branch `feature/68-m5-denial-strategies`, base AP main `cfafd6a` — M-4 landed at merge `f928149`, impl `1b1a2b0`).
 **Per-slice plan (authoritative for content rationale):** `.claude/plans/dossier-m5-denial-strategies.md` (landed in this worktree; implementer commits it together with source).
 
 **Source:** Phase 16 (W-68-DOSSIER-REFRAME-SCOPING) decomposed the reframe into M-1..M-9. M-1 (Phase 17B) shipped the panel + 3-slot inference; M-2 (Phase 17D) added the per-module slot extractors + `get_dossier_state` LLM tool + scaffold dataclasses; M-3 (Phase 17F) wired slot-fill events into the score economy + scaffolded `dossier_prediction_validated`; M-4 (Phase 17G) shipped persistent DossierState + Predictions Log auto-validation (confirmation path). M-5 is the slice that (a) fills slot 9 with a real extractor, (b) introduces the user-note authoring surface as first-class dossier evidence, and (c) closes the predictions lifecycle with an active falsification engine (DEC-M4-PRED-005's deferred responsibility).
@@ -2523,7 +2523,7 @@ After M-5 lands, the recommended next workflow is **M-6 — Dossier-Aware Auto-P
 
 **Status:** in-progress (planner-staged 2026-06-08; implementer slice `wi-68-m6-impl-01` to follow).
 **Workflow:** `w-68-m6-dossier-pivot` / goal `g-68-m6-pivot`.
-**Worktree:** `/Users/jarocki/src/ap/.worktrees/feature-68-m6-dossier-pivot` (branch `feature/68-m6-dossier-pivot`, base AP main `e29e8b1` — M-5 landed at merge `e29e8b1`, impl `c5dd6bf`).
+**Worktree:** `/Users/jarocki/src/pivotglass/.worktrees/feature-68-m6-dossier-pivot` (branch `feature/68-m6-dossier-pivot`, base AP main `e29e8b1` — M-5 landed at merge `e29e8b1`, impl `c5dd6bf`).
 **Per-slice plan (authoritative for content rationale):** `.claude/plans/dossier-m6-dossier-aware-pivot.md` (landed in this worktree; implementer commits it together with source).
 
 **Source:** Phase 16 (W-68-DOSSIER-REFRAME-SCOPING) decomposed the reframe into M-1..M-9. M-1 (Phase 17B) shipped the panel + 3-slot inference; M-2 (Phase 17D) added the per-module slot extractors + scaffold dataclasses; M-3 (Phase 17F) wired slot-fill events into the score economy; M-4 (Phase 17G) shipped persistent DossierState + Predictions Log auto-validation; M-5 (Phase 17H) shipped slot 9 (Denial) inference + user-note authoring + active falsification engine. M-6 is the slice that closes the M-1 / M-3 deferral lines ("No pivot-policy slot input — deferred to M-6"; "No dossier-aware auto-pivot policy budget — M-6 owns") by adding a dossier-aware candidate-ordering layer ABOVE F60's 3-gate pivot policy. F60 stays byte-identical.
@@ -2615,7 +2615,7 @@ After M-6 lands, the recommended next workflow is **M-7 — Reports / Celebratio
 
 **Status:** in-progress (planner-staged 2026-06-08; implementer slice `wi-68-m7-impl-01` to follow once M-6 lands).
 **Workflow:** `w-68-m7-reports-celebrations` / goal `g-68-m7-reports`.
-**Worktree:** `/Users/jarocki/src/ap/.worktrees/feature-68-m7-reports-celebrations` (branch `feature/68-m7-reports-celebrations`, base AP main `1e5e09d` — M-6 merge head, impl `aa9cec8`; implementer rebases on whatever main HEAD contains after M-6 lands).
+**Worktree:** `/Users/jarocki/src/pivotglass/.worktrees/feature-68-m7-reports-celebrations` (branch `feature/68-m7-reports-celebrations`, base AP main `1e5e09d` — M-6 merge head, impl `aa9cec8`; implementer rebases on whatever main HEAD contains after M-6 lands).
 **Per-slice plan (authoritative for content rationale):** `.claude/plans/dossier-m7-reports-celebrations.md` (landed in this worktree; implementer commits source against it).
 
 **Source:** Phase 16 (W-68-DOSSIER-REFRAME-SCOPING) decomposed the reframe into M-1..M-9. M-1 (Phase 17B) shipped the panel + 3-slot inference; M-2 (Phase 17D) added per-module slot extractors + scaffold dataclasses; M-3 (Phase 17F) wired slot-fill events into the score economy; M-4 (Phase 17G) shipped persistent DossierState + Predictions Log auto-validation; M-5 (Phase 17H) shipped slot 9 (Denial) inference + user-note authoring + active falsification engine; M-6 (Phase 17I) shipped the dossier-aware auto-pivot ranker. M-7 is the slice that closes the dossier-aware-gamification deferrals from M-1 / M-3 ("LLM-narrated celebrations + actor-dossier reports + dossier-aware badges") and absorbs issue #32 per DEC-68-DOSSIER-REFRAME-006. M-7 is the last v0.2.x slice before M-8 closes the v0.3.x dossier roadmap.
@@ -2722,7 +2722,7 @@ After M-7 lands, the recommended next workflow is **M-8 — Cleanup, Closeout, a
 
 **Status:** in-progress (planner-staged 2026-06-09; implementer slice `wi-68-m8-impl-01` to follow).
 **Workflow:** `w-68-m8-cleanup-novelty` / goal `g-68-m8-cleanup`.
-**Worktree:** `/Users/jarocki/src/ap/.worktrees/feature-68-m8-cleanup-novelty` (branch `feature/68-m8-cleanup-novelty`, base AP main `55aa1fe` — M-7 merge head, impl `1127144`).
+**Worktree:** `/Users/jarocki/src/pivotglass/.worktrees/feature-68-m8-cleanup-novelty` (branch `feature/68-m8-cleanup-novelty`, base AP main `55aa1fe` — M-7 merge head, impl `1127144`).
 **Per-slice plan (authoritative for content rationale):** `.claude/plans/dossier-m8-cleanup-novelty.md` (planner-staged in this worktree; implementer commits source against it).
 
 **Source:** Phase 16 (W-68-DOSSIER-REFRAME-SCOPING) decomposed the reframe into M-1..M-9. M-1 through M-7 have all landed (Phase 17B / 17C parallel, then 17D, 17E, 17F, 17G, 17H, 17I, 17J). M-8 is the v0.3.x dossier roadmap closeout — the named removal point for DEC-68-DOSSIER-REFRAME-008's one-release deprecation runway for the classic-report shim, AND the named landing point for issue #68's bonus-space "novel method recognition" ask. M-8 closes the dossier roadmap; M-9 (Crowdsourced Dossier Comparison + Public Actor Library per DEC-68-DOSSIER-REFRAME-009) becomes v0.3.0+ work after M-8.
@@ -2823,7 +2823,7 @@ After M-8 lands, the v0.3.x dossier roadmap closes. The next scheduled roadmap s
 ## Phase 17L: Character v2 — C-3 — Philosophy + Bureaucratese (`sun_tzu`, `bruce_lee`, `bureaucrat`) (W-30-C3-PHILOSOPHY-BUREAUCRAT, post-v1, 2026-06-09)
 
 **Workflow:** `W-30-C3-PHILOSOPHY-BUREAUCRAT` (runtime workflow id `w-30-c3-philosophy-bureaucrat`).
-**Branch:** `feature/30-c3-philosophy-bureaucrat`. **Worktree:** `/Users/jarocki/src/ap/.worktrees/feature-30-c3-philosophy-bureaucrat`.
+**Branch:** `feature/30-c3-philosophy-bureaucrat`. **Worktree:** `/Users/jarocki/src/pivotglass/.worktrees/feature-30-c3-philosophy-bureaucrat`.
 **Base:** AP main at merge `16acaa3` (M-8 merge head; impl `6c87a53`). C-3 has zero dossier coupling — the M-8 merge is the base by convenience only.
 
 **Status:** in-progress (planner-staged 2026-06-09; implementer slice `wi-30-c3-impl-01` to follow). This section authored in the C-3 worktree by the C-3 planner; implementer commits per AP #74 orphan-prevention pattern in the same commit as source.
@@ -2900,7 +2900,7 @@ After C-3 lands, the v2 character roadmap has **one** remaining scheduled slice:
 ## Phase 17M: Character v2 — C-4 — `columbo` + Dossier-Aware context_hooks + Tier-1 KEEP_STATIC + mastery_level RETIRE (W-30-C4-COLUMBO, post-v1, 2026-06-09)
 
 **Workflow:** `W-30-C4-COLUMBO` (runtime workflow id `w-30-c4-columbo`).
-**Branch:** `feature/30-c4-columbo`. **Worktree:** `/Users/jarocki/src/ap/.worktrees/feature-30-c4-columbo`.
+**Branch:** `feature/30-c4-columbo`. **Worktree:** `/Users/jarocki/src/pivotglass/.worktrees/feature-30-c4-columbo`.
 **Base:** AP main at merge `3f33a5b` (C-3 merge head; impl `e4f7ffe`). C-4 inherits C-1..C-3 schema + composer + author-and-mirror pattern; M-4 dossier persistent-state API is the substrate for columbo's `context_hooks` content (slot/status vocabulary as STRING LITERALS — no dossier source touched).
 
 **Status:** in-progress (planner-staged 2026-06-09; implementer landed @ 0d1f227 on 2026-06-09; reviewer pending). This section authored in the C-4 worktree by the C-4 planner; implementer commits per AP #74 orphan-prevention pattern in the same commit as source.
@@ -3058,7 +3058,7 @@ These are the concrete follow-ups identified by the 2026-04-28 reckoning and upd
 >
 > **Plan-drift closeout (2026-05-29):** This commit (`w-plan-drift-fix-2026-05-29`) harvested 4 phases of orphaned planner content + landed-but-untracked DEC annotations into MASTER_PLAN.md per AP #74. Phase 17B (M-1) + Phase 17C (C-1, renumbered from C-1 worktree's Phase 17B per chronological order) recovered from disposable worktrees `.worktrees/feature-68-m1-dossier-panel` + `.worktrees/feature-30-c1-full-troll-profile`. Phase 17D (M-2) + Phase 17E (C-2) authored from `.claude/plans/dossier-m2-slot-extractors.md` + `.claude/plans/c2-ninja-profile-plan.md` + source `DEC-M2-*` / `DEC-C2-*` annotations. Phase 16 + Phase 17 body status flipped in-progress → completed. Header counter and active-phase tail-grep pointer re-aligned with actual landed state (21 phase sections; 21 of 21 completed; active pointer = M-3). Pure bookkeeping; no source touched.
 >
-> _Historical note (2026-05-19):_ v1 ship gate fully closed — `v0.1.0` (stable, no rc suffix) published at https://github.com/jarocki/ap/releases/tag/v0.1.0 with `isPrerelease: false`. All four v1 boundary work items landed (`W-V1-RELEASE-VERIFY`, `W-OTX-TIMEOUT`, `W-GREYNOISE`, `W-V1-FINAL-SHIP`).
+> _Historical note (2026-05-19):_ v1 ship gate fully closed — `v0.1.0` (stable, no rc suffix) published at https://github.com/jarocki/pivotglass/releases/tag/v0.1.0 with `isPrerelease: false`. All four v1 boundary work items landed (`W-V1-RELEASE-VERIFY`, `W-OTX-TIMEOUT`, `W-GREYNOISE`, `W-V1-FINAL-SHIP`).
 >
 > _Historical note (2026-05-28..2026-05-29):_ v0.2.0 wave landed — M-1 dossier panel + C-1 full_troll persona (2026-05-28, parallel) + M-2 slot extractors + C-2 ninja persona (2026-05-29). Five DEC families binding for v2: DEC-68-DOSSIER-REFRAME-*, DEC-30-CHARACTER-V2-*, DEC-M1-DOSSIER-*, DEC-C1-FULLTROLL-*, DEC-M2-DOSSIER-*, DEC-C2-NINJA-*.
 >
@@ -3073,7 +3073,7 @@ These are the concrete follow-ups identified by the 2026-04-28 reckoning and upd
 ## Phase 17N: Crowdsourced Dossier Comparison + Public Actor Library — M-9 (W-68-M9-CROWDSOURCED-DOSSIERS, post-v1, 2026-06-09)
 
 **Workflow:** `W-68-M9-CROWDSOURCED-DOSSIERS` (runtime workflow id `w-68-m9-crowdsourced-dossiers`).
-**Branch:** `feature/68-m9-crowdsourced-dossiers`. **Worktree:** `/Users/jarocki/src/ap/.worktrees/feature-68-m9-crowdsourced-dossiers`.
+**Branch:** `feature/68-m9-crowdsourced-dossiers`. **Worktree:** `/Users/jarocki/src/pivotglass/.worktrees/feature-68-m9-crowdsourced-dossiers`.
 **Base:** AP main at merge `9a6a550` (C-4 closure head; impl `0d1f227`). M-8 closed at `16acaa3`. Zero dossier coupling to the C-4 base beyond repo currency.
 
 **Status:** in-progress (planner-staged 2026-06-09; implementer landed @ `7cc801b` on 2026-06-09; reviewer + guardian pending). This section authored in the M-9 worktree by the M-9 planner; implementer commits per AP #74 orphan-prevention pattern in the same commit as source.
@@ -3525,7 +3525,7 @@ Prior pointer body (Phase 17W implementer-complete; superseded by Phase 17X):
 
 Prior pointer body (Phase 17U landed; superseded by Phase 17W):
 
-> **Phase Active (2026-06-24 — Phase 17U Fixture Path Hardcode Fix landed; W-AP84-FIXTURE-PATHS merged to main @ 99c53f720584930713369d354e06bc1ad4bc8433):** `W-AP84-FIXTURE-PATHS` (Phase 17U) closed AP #84 — four invariant tests in `TestF59Invariant` and `TestF64Invariants` passed `cwd=` to `subprocess.run()` pointing at `/Users/jarocki/src/ap/.worktrees/feature-68-m9-crowdsourced-dossiers`, the M-9 implementation worktree that was cleaned up after M-9 landed. Fix: replaced hardcoded `cwd=` with `_REPO_ROOT = Path(__file__).resolve().parents[1]` defined once per test file — makes the subprocess calls repo-root-relative regardless of which worktree pytest invokes from. Semantic intent preserved: `git diff main -- <path>` from main (HEAD==main post-M-9 landing) returns empty, confirming workspace.py, database.py, and dossier_actions code remain unchanged vs main. Tests-only change; `src/**` and `pyproject.toml` are FORBIDDEN. Full suite: 2735 passed, 0 failed, 1 skipped (was 2731 passed + 4 AP #84 failures). Next strategic direction remains release-discipline cut v0.4.x per 2026-06-09 reckoning decision — Phase 17U is a tactical test-hygiene insert that does not displace it. Canonical chain `planner → guardian (provision) → implementer → reviewer → guardian (land)`. This pointer line is positioned as the last `**Phase ...` boldline in the document so `~/.claude/hooks/context-lib.sh:88` `get_plan_status()` tail-grep on `^#.*phase|^**Phase` resolves to current work instead of the historical `**Phase 6 rationale (new):**` narrative line in the Implementation Order section.
+> **Phase Active (2026-06-24 — Phase 17U Fixture Path Hardcode Fix landed; W-AP84-FIXTURE-PATHS merged to main @ 99c53f720584930713369d354e06bc1ad4bc8433):** `W-AP84-FIXTURE-PATHS` (Phase 17U) closed AP #84 — four invariant tests in `TestF59Invariant` and `TestF64Invariants` passed `cwd=` to `subprocess.run()` pointing at `/Users/jarocki/src/pivotglass/.worktrees/feature-68-m9-crowdsourced-dossiers`, the M-9 implementation worktree that was cleaned up after M-9 landed. Fix: replaced hardcoded `cwd=` with `_REPO_ROOT = Path(__file__).resolve().parents[1]` defined once per test file — makes the subprocess calls repo-root-relative regardless of which worktree pytest invokes from. Semantic intent preserved: `git diff main -- <path>` from main (HEAD==main post-M-9 landing) returns empty, confirming workspace.py, database.py, and dossier_actions code remain unchanged vs main. Tests-only change; `src/**` and `pyproject.toml` are FORBIDDEN. Full suite: 2735 passed, 0 failed, 1 skipped (was 2731 passed + 4 AP #84 failures). Next strategic direction remains release-discipline cut v0.4.x per 2026-06-09 reckoning decision — Phase 17U is a tactical test-hygiene insert that does not displace it. Canonical chain `planner → guardian (provision) → implementer → reviewer → guardian (land)`. This pointer line is positioned as the last `**Phase ...` boldline in the document so `~/.claude/hooks/context-lib.sh:88` `get_plan_status()` tail-grep on `^#.*phase|^**Phase` resolves to current work instead of the historical `**Phase 6 rationale (new):**` narrative line in the Implementation Order section.
 
 ### Prior Active Phase Pointer (2026-06-24; preserved for traceability — Phase 17T Module Credential Resolver)
 

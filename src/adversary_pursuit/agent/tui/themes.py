@@ -7,8 +7,8 @@ every character's border color to ``high_contrast_border`` for accessibility.
 @decision DEC-TUI-THEME-001
 @title Character-driven theme dispatch for TUI rendering
 @status accepted
-@rationale Storyboard mockups established that each character needs a distinct
-           palette. Subsequent operator review refined those identities:
+@rationale Visual design studies established that each character needs a
+           distinct palette. Subsequent operator review refined those identities:
            Chuck=leather/burnished gold, HAL=red, Neuromancer=dead-channel
            blue-grey/cyan. Rendering via hex color
            strings is the cheapest terminal-native mechanism accepted by both

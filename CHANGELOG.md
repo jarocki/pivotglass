@@ -422,15 +422,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **AP #84**: 4 M-9 invariant tests referenced a removed worktree path; replaced with `Path(__file__).resolve().parents[1]` (Phase 17U).
 
 ### Added
-- **Protected visual design context**: added the three persona cyberdeck studies
-  under `storyboard/` and the UX-team assessment under `reckonings/` as durable,
-  repository-owned inputs to future interface work.
+- **Protected visual design context**: added persona cyberdeck studies and a
+  UX-team assessment as durable local inputs to future interface work. Those
+  private project artifacts are no longer published with the repository.
 - **Shared operating philosophy**: added `PHILOSOPHY.md` as AP's durable
   judgment framework for evidence, human–computational collaboration,
   optionality, stewardship, and long-horizon decisions. Project guidance now
   applies it through tool-neutral `AGENTS.md` repository governance where no
   more specific instruction or accepted decision controls.
-- **Reckoning operationalization** (Phase 17X): `DEC-PAUSE-001` declaring pauses out-of-scope, `.github/workflows/regen-decisions.yml` for auto-regen on push to main, and repository governance with `DEC-BACKLOG-DISCIPLINE-001` (schedule-or-close every issue at filing). The original Claude-specific file was superseded by tool-neutral `AGENTS.md` on 2026-07-18.
+- **Reckoning operationalization** (Phase 17X): `DEC-PAUSE-001` declaring
+  pauses out-of-scope, private automation for decision-index regeneration, and
+  repository governance with `DEC-BACKLOG-DISCIPLINE-001` (schedule-or-close
+  every issue at filing). The original Claude-specific file was superseded by
+  tool-neutral `AGENTS.md` on 2026-07-18.
 - **Phase 18 "Orchestrator Stability" roadmap** (umbrella issue #102): drain queue for 18 harness/runtime bugs.
 
 ### Harness (Claude Code side; not shipped with adversary-pursuit but affects the delivery chain)
