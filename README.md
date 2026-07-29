@@ -95,20 +95,6 @@ grid, The Matrix runs an operator construct, and the other characters have
 equally distinct geometry and instrument vocabulary.
 HUD values are live controls and state—not decorative gauges.
 
-The visual language continues to draw from the hierarchy established by the
-protected design studies in [`storyboard/`](storyboard/):
-
-| Neuromancer | HAL 9000 | Chuck Norris |
-|---|---|---|
-| ![Neuromancer cyberdeck mockup](storyboard/AP-TUI-neuromancer-mockup.png) | ![HAL 9000 cyberdeck mockup](storyboard/AP-TUI-HAL-mockup.png) | ![Chuck Norris cyberdeck mockup](storyboard/AP-TUI-Chuck-mockup.png) |
-
-These are historical design targets, not screenshots of the web runtime.
-Pivotglass keeps decorative persona voice subordinate to analytical accuracy.
-Reviewed line banks prevent one catchphrase from repeating indefinitely. The
-bounded model narration used for important dossier breakthroughs may
-occasionally create one original line, but its prompt forbids adding evidence,
-certainty, tool results, score, or control state.
-
 ## Quick start
 
 AP requires Python 3.12 or newer. For development, the repository uses
