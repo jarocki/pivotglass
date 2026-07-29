@@ -36,9 +36,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jarocki/ap"
-Repository = "https://github.com/jarocki/ap"
-"Bug Tracker" = "https://github.com/jarocki/ap/issues"
+Homepage = "https://github.com/jarocki/pivotglass"
+Repository = "https://github.com/jarocki/pivotglass"
+"Bug Tracker" = "https://github.com/jarocki/pivotglass/issues"
 
 [project.scripts]
 ap = "adversary_pursuit.__main__:main"

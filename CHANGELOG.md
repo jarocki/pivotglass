@@ -509,18 +509,18 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/ap/compare/v0.5.2...HEAD
-[0.5.2]: https://github.com/jarocki/ap/compare/v0.5.1...v0.5.2
-[0.5.1]: https://github.com/jarocki/ap/compare/v0.5.0...v0.5.1
-[0.5.0]: https://github.com/jarocki/ap/compare/v0.4.9...v0.5.0
-[0.4.9]: https://github.com/jarocki/ap/compare/v0.4.8...v0.4.9
-[0.4.8]: https://github.com/jarocki/ap/compare/v0.4.7...v0.4.8
-[0.4.7]: https://github.com/jarocki/ap/compare/v0.4.6...v0.4.7
-[0.4.6]: https://github.com/jarocki/ap/compare/v0.4.5...v0.4.6
-[0.4.5]: https://github.com/jarocki/ap/compare/v0.4.4...v0.4.5
-[0.4.4]: https://github.com/jarocki/ap/compare/v0.4.3...v0.4.4
-[0.4.3]: https://github.com/jarocki/ap/compare/v0.4.2...v0.4.3
-[0.4.2]: https://github.com/jarocki/ap/compare/v0.4.1...v0.4.2
-[0.4.1]: https://github.com/jarocki/ap/compare/v0.4.0...v0.4.1
-[0.4.0]: https://github.com/jarocki/ap/compare/v0.1.0...v0.4.0
-[0.1.0]: https://github.com/jarocki/ap/releases/tag/v0.1.0
+[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/jarocki/pivotglass/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/jarocki/pivotglass/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/jarocki/pivotglass/compare/v0.4.9...v0.5.0
+[0.4.9]: https://github.com/jarocki/pivotglass/compare/v0.4.8...v0.4.9
+[0.4.8]: https://github.com/jarocki/pivotglass/compare/v0.4.7...v0.4.8
+[0.4.7]: https://github.com/jarocki/pivotglass/compare/v0.4.6...v0.4.7
+[0.4.6]: https://github.com/jarocki/pivotglass/compare/v0.4.5...v0.4.6
+[0.4.5]: https://github.com/jarocki/pivotglass/compare/v0.4.4...v0.4.5
+[0.4.4]: https://github.com/jarocki/pivotglass/compare/v0.4.3...v0.4.4
+[0.4.3]: https://github.com/jarocki/pivotglass/compare/v0.4.2...v0.4.3
+[0.4.2]: https://github.com/jarocki/pivotglass/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/jarocki/pivotglass/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/jarocki/pivotglass/compare/v0.1.0...v0.4.0
+[0.1.0]: https://github.com/jarocki/pivotglass/releases/tag/v0.1.0

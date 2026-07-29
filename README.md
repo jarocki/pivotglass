@@ -115,8 +115,8 @@ AP requires Python 3.12 or newer. For development, the repository uses
 [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone https://github.com/jarocki/ap.git
-cd ap
+git clone https://github.com/jarocki/pivotglass.git
+cd pivotglass
 uv sync --extra agent
 cd web && npm ci && npm run build && cd ..
 uv run ap
@@ -125,7 +125,7 @@ uv run ap
 To install the v0.5.2 wheel directly:
 
 ```bash
-python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/ap/releases/download/v0.5.2/adversary_pursuit-0.5.2-py3-none-any.whl"
+python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/pivotglass/releases/download/v0.5.2/adversary_pursuit-0.5.2-py3-none-any.whl"
 ap
 ```
 
