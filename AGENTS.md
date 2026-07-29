@@ -70,10 +70,10 @@ replace them.
 - `storyboard/` and `reckonings/UX-team.md` are protected design context. Do not
   overwrite or remove them as cleanup.
 - `career-narrative/` is a completely separate project. It is read-only and
-  outside AP's modification, staging, and commit scope.
-- AP's owned copy of the shared principles is `PHILOSOPHY.md`. Future changes to
-  it should be deliberate, explained, and preserve a visible history of what
-  changed and why.
+  outside Pivotglass's modification, staging, and commit scope.
+- Pivotglass's owned copy of the shared principles is `PHILOSOPHY.md`. Future
+  changes to it should be deliberate, explained, and preserve a visible history
+  of what changed and why.
 
 ## Backlog discipline (DEC-BACKLOG-DISCIPLINE-001)
 

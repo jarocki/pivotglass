@@ -1,8 +1,7 @@
 """Dossier slot schema v1.0 — vocabulary, weights, status enum, and M-2 scaffold types.
 
 This module is the SOLE authority for the 9-slot vocabulary and per-slot
-importance weights defined in the Phase 16 strategic scoping
-(.claude/plans/dossier-reframe-v2-roadmap.md §3).
+importance weights defined in the Phase 16 strategic scoping record.
 
 @decision DEC-M1-DOSSIER-002
 @title 9-slot vocabulary unchanged; status enum widened to {empty, partial, filled, deferred}

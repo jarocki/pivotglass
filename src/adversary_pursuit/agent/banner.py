@@ -37,7 +37,7 @@ Design constraints
            fallback: when console.size.width < 60 the compact variant renders
            just the figlet 'small' wordmark with no reticle so the banner stays
            usable in narrow tmux panes.
-           Research dir: .claude/research/DeepResearch_AP_AdversaryPursuit_Logo_2026-06-17/
+           The private research record remains local and is not distributed.
 
 @decision DEC-AGENT-BANNER-002
 @title pyfiglet>=1.0 as the figlet rendering dependency

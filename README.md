@@ -95,15 +95,9 @@ grid, The Matrix runs an operator construct, and the other characters have
 equally distinct geometry and instrument vocabulary.
 HUD values are live controls and state—not decorative gauges.
 
-The visual language continues to draw from the hierarchy established by the
-protected design studies in [`storyboard/`](storyboard/):
-
-| Neuromancer | HAL 9000 | Chuck Norris |
-|---|---|---|
-| ![Neuromancer cyberdeck mockup](storyboard/AP-TUI-neuromancer-mockup.png) | ![HAL 9000 cyberdeck mockup](storyboard/AP-TUI-HAL-mockup.png) | ![Chuck Norris cyberdeck mockup](storyboard/AP-TUI-Chuck-mockup.png) |
-
-These are historical design targets, not screenshots of the web runtime.
-Pivotglass keeps decorative persona voice subordinate to analytical accuracy.
+Private design studies informed this hierarchy but are intentionally not part
+of the published repository. Pivotglass keeps decorative persona voice
+subordinate to analytical accuracy.
 Reviewed line banks prevent one catchphrase from repeating indefinitely. The
 bounded model narration used for important dossier breakthroughs may
 occasionally create one original line, but its prompt forbids adding evidence,
@@ -275,6 +269,11 @@ uv run ruff check src tests
 uv run ap --help
 ```
 
+The repository is named `pivotglass`. The installed command remains `ap`, user
+configuration remains under `~/.ap/`, and the Python distribution/import
+identifiers remain `adversary-pursuit` and `adversary_pursuit`. Those stable
+compatibility names are not repository paths.
+
 Focused tests should run before broad verification. Passing tests are evidence,
 not proof: presentation changes should also be exercised through the real TUI or
 classic console.
@@ -288,8 +287,6 @@ classic console.
 - [`CHANGELOG.md`](CHANGELOG.md) — user-visible release history
 - [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) — operator workflow and command guide
 - [`docs/plans/V0.6.0_PLAN.md`](docs/plans/V0.6.0_PLAN.md) — next-release implementation plan
-- [`reckonings/`](reckonings/) — periodic project assessments
-- [`storyboard/`](storyboard/) — protected visual design context
 
 When executable behavior, help output, and documentation disagree, treat that as
 a defect and reconcile all three in the same change.
