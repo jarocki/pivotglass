@@ -144,5 +144,12 @@ tmp/
 # Claude Code config file later, use `git add -f .claude/<file>`.
 .claude/
 
+# Private project operations and design material. These paths are intentionally
+# retained on local workstations but must never be published in this repository.
+.github/workflows/
+reckonings/
+storyboard/
+tm/
+
 # Separate nested project — never include its files in AP changes or commits.
 career-narrative/
