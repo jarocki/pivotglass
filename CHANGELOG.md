@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Updated Next.js from 16.2.10 to 16.2.12, rebuilt the packaged Pivotglass
+  static assets, and restored a zero-vulnerability `npm audit` result.
+
 ## [0.5.2] — 2026-07-28
 
 ### Added
