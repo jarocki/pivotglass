@@ -1,264 +1,228 @@
 # Pivotglass
 
-Pivotglass (formerly Adversary Pursuit / AP) is an AI-augmented cockpit for hunting, pivoting, and
-discovering adversary infrastructure, indicators, and TTPs. It combines
-deterministic OSINT/CTI collection, STIX 2.1 evidence, investigation workspaces,
-and gamification with an LLM used for tool selection, synthesis, and genuine
-analytical reasoning.
+Pivotglass is a local, AI-augmented workspace for cyber-threat investigation.
+Start with one clue. Pivotglass enriches it through intelligence services,
+preserves every result with provenance, connects only supported relationships,
+shows what remains unknown, and turns the investigation into a defensible
+report.
 
-The primary interface is simply:
+> An indicator is not the answer. It is the first node.
 
-```console
-$ ap
+The installed command remains `ap` for compatibility with earlier releases.
+The Python distribution is `adversary-pursuit`, and local configuration and
+workspaces remain under `~/.ap/`.
+
+Current release: **v0.7.0 early availability**.
+
+[![Watch the Pivotglass guided walkthrough](docs/media/pivotglass-guided-demo-poster.png)](docs/media/pivotglass-guided-demo-v0.7.0.mp4)
+
+**[Watch or download the two-minute guided walkthrough](docs/media/pivotglass-guided-demo-v0.7.0.mp4)** ·
+**[Read the transcript](docs/media/pivotglass-guided-demo-transcript.md)**
+
+The walkthrough uses synthetic indicators and a local mock model provider. It
+shows startup, safe credential setup, model discovery and selection,
+enrichment, the Investigation Constellation, graph pivots, reporting, and the
+Default Analyst, Sherlock Holmes, and Neuromancer modes.
+
+## The investigation model
+
+```text
+clue → enrichment → evidence → relationship → gap → pivot → report
 ```
 
-Bare `ap` starts a loopback-only local web server and opens the React/Next.js
-cockpit. `ap chat` and `ap tui` retain the terminal cyberdeck; the classic
-Metasploit-like console remains `ap basic` / `ap repl` for direct
-`use` / `set` / `run` workflows.
+1. Enter an IP address, domain, URL, email address, or file hash.
+2. Pivotglass schedules the applicable enrichment sources and records their
+   authoritative lifecycle state.
+3. Results are normalized into STIX 2.1 evidence with source and collection
+   context.
+4. The relationship graph shows actual indicators as nodes and justified
+   relationships as directed edges.
+5. The Dossier and Investigation Constellation make coverage and gaps visible.
+6. The analyst chooses the next pivot, adds notes, and produces a report or
+   structured export.
 
-> AP is an investigative aid, not an oracle. Evidence remains distinct from
-> inference, uncertainty should remain visible, and the operator retains
-> authority over consequential actions.
-
-| Pivotglass | Terminal cyberdeck |
-| --- | --- |
-| ![Pivotglass investigation flow](docs/media/pivotglass-v0.5.2.gif) | ![Terminal cyberdeck investigation flow](docs/media/tui-v0.5.2.gif) |
-
-See the [user guide](docs/USER_GUIDE.md) for a complete investigation
-walkthrough and shared command reference.
-
-## The Pivotglass cockpit
-
-The primary locally hosted web interface is organized around the investigation
-rather than the chat transcript:
-
-- **Task constellation** — one accessible 3×3-pixel RGB LED per deterministic probe;
-  hover or focus previews its state, and activation opens its complete ordered
-  transition and evidence history without flooding the cockpit with cards
-- **Command rail** — one local-first surface for indicators and pivots, workspace
-  search, TUI-compatible commands, deterministic analyst tools, and grounded
-  natural-language questions through the configured model
-- **Character deck** — seven distinct public identities shared with the terminal:
-  Default (Analyst), Chuck Norris, HAL9000, Troll, Sherlock Holmes,
-  Neuromancer, and The Matrix
-- **Hunt instruments** — live link power, token-channel state, probe inventory,
-  dossier occupancy, workspace, artifact, transport, and fault telemetry
-- **Artifact field** — Microsoft Flint compiles semantic evidence charts to a
-  locally bundled Chart.js renderer; source-backed flags, malware marks,
-  conditional geographic maps, hover context, and one-click investigation
-  reduce avoidable drill-down
-- **Analyst workbench** — dossier gaps, relationship graph, timeline, linked
-  annotations, printable Markdown reports, and JSON/CSV/STIX/GEXF downloads are
-  available from the command rail and command palette
-- **Navigation and field manual** — persistent collapsible panes, a searchable
-  Command/Control-K palette navigate the cockpit; DECK switches characters and
-  controls full, reduced, or disabled effects plus narration intensity; `?`
-  opens contextual, task-oriented help with controls that perform each route
-
-The web cockpit is statically built, served by AP on `127.0.0.1`, and loads no
-CDN code, remote fonts, analytics, or telemetry. Exact npm versions and SHA-512
-integrity hashes are committed in `web/package-lock.json`; release verification
-checks registry signatures, available SLSA provenance, and known vulnerabilities.
-See [`docs/WEB_SUPPLY_CHAIN.md`](docs/WEB_SUPPLY_CHAIN.md).
-
-The terminal cyberdeck remains supported while the web surface reaches feature
-parity. Its intelligence feed is a true scrolling viewport: drag the visible
-scrollbar, use the mouse wheel or trackpad over the feed, press PageUp/PageDown,
-or use `[` and `]` to browse older and newer intelligence. The complete current
-session remains interactive until an explicit `clear`; use `find <text>` to
-locate a transcript entry, `open <ev-id>` to inspect stored evidence, and
-`back` to return to the exact previous reading position.
-
-Both interfaces provide opt-in local generative atmosphere with visible mute
-state and volume control. The soundtrack uses acoustic-instrument models,
-algorithmic room ambience, and layered, character-specific movements with
-recurring motifs, changing harmony, counterlines, percussion, and intentional
-releases. It develops continuously instead of repeating a short recording.
-Pivotglass exposes it in DECK; the TUI uses Alt-M as an immediate mute toggle.
-Sound begins muted, carries no analytical meaning, and requires no stream,
-account, recording, or network request.
-
-Pivotglass provides themed Day/Night and high-contrast controls. Terminal users
-can request equivalent accessibility palettes with
-`AP_TUI_COLOR_SCHEME=light` and `AP_TUI_HIGH_CONTRAST=1`.
-
-Each character includes an optional keyboard-and-touch diversion: Sherlock
-Holmes solves a chess conclusion, HAL9000 can be shut down in sequence,
-Neuromancer routes through ICE to jack in, and The Matrix manipulates a power
-grid. Scores and outcomes are explicitly presentation-only and never affect
-evidence, confidence, alerts, or dossier state.
-
-Each mode selects a cockpit, not only a palette: HAL9000 operates a logic core,
-Sherlock Holmes works a rain-soaked caseboard, Neuromancer uses a perspective
-grid, The Matrix runs an operator construct, and the other characters have
-equally distinct geometry and instrument vocabulary.
-HUD values are live controls and state—not decorative gauges.
-
-Private design studies informed this hierarchy but are intentionally not part
-of the published repository. Pivotglass keeps decorative persona voice
-subordinate to analytical accuracy.
-Reviewed line banks prevent one catchphrase from repeating indefinitely. The
-bounded model narration used for important dossier breakthroughs may
-occasionally create one original line, but its prompt forbids adding evidence,
-certainty, tool results, score, or control state.
+A model may explain, synthesize, or propose. It does not own collection,
+storage, status, relationship admission, or successful-action claims. The
+model can explain the case; it cannot rewrite the evidence.
 
 ## Quick start
 
-AP requires Python 3.12 or newer. For development, the repository uses
+Pivotglass requires Python 3.12 or newer. The shortest source installation uses
 [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone https://github.com/jarocki/pivotglass.git
+git clone --branch v0.7.0 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent
-cd web && npm ci && npm run build && cd ..
+uv run ap --version
 uv run ap
 ```
 
-To install the v0.5.2 wheel directly:
+`uv run ap --version` should report `adversary-pursuit 0.7.0`. Pivotglass opens
+at `http://127.0.0.1:8765` and listens only on the local computer by default.
+The committed release already contains the built web interface; Node.js is
+required only when changing that interface.
 
-```bash
-python -m pip install "adversary-pursuit[agent] @ https://github.com/jarocki/pivotglass/releases/download/v0.5.2/adversary_pursuit-0.5.2-py3-none-any.whl"
-ap
-```
+For the complete first investigation, configuration, graph, and reporting
+walkthrough, follow the **[Pivotglass Quick Start](docs/QUICKSTART.md)**.
 
-The `agent` extra supplies LiteLLM and prompt-toolkit for terminal AI mode. The
-release wheel includes the prebuilt, integrity-verified web cockpit.
+### Interfaces
 
 ```text
-ap                 Local Pivotglass web cockpit (default)
-ap web             Local Pivotglass web cockpit
-ap chat            Terminal AI cyberdeck
-ap tui             Terminal AI cyberdeck
-ap basic           Classic direct-control console
-ap repl            Alias for the classic console
+ap                 Local Pivotglass browser interface (default)
+ap web             Same browser interface
+ap tui             Full-screen terminal interface
+ap chat            Alias for the terminal interface
+ap basic           Direct module-control console
+ap repl            Alias for the direct console
 ap --help          Interface summary
 ap --version       Installed version
 ```
 
-## How AP works
+The browser and terminal interfaces share the same workspaces, command grammar,
+evidence, and investigation policies. The direct console retains the explicit
+`use → set → run` workflow for individual modules.
 
-1. The operator describes an investigative goal or supplies an indicator.
-2. AP selects deterministic local logic and direct APIs that can answer it.
-3. Module results are normalized into evidence and stored in the active
-   workspace as STIX 2.1 objects and relationships.
-4. The LLM synthesizes the available evidence, identifies gaps, and proposes or
-   performs justified pivots.
-5. The operator can redirect supported automated work and inspect the durable
-   dossier, graph, notes, scoring events, and provenance.
+## What you can see and control
 
-The same underlying modules and workspace are shared by both interfaces. The
-LLM is not a substitute implementation for API calls, parsing, scoring, storage,
-or other work AP can perform deterministically.
+### Investigation Constellation
 
-## Investigation surfaces
+Every stored indicator is a row; the nine Dossier dimensions are columns. The
+newest indicators appear first. Sort or filter by value, indicator type,
+mapped completeness, first or last seen, and direct graph relationship. A cell
+can be filled, partial, empty, or deferred. That state is navigation help—not a
+confidence score or malware verdict.
 
-The cyberdeck accepts natural-language investigations and handles operational
-commands locally. Current command families include:
+![Investigation Constellation](docs/media/pivotglass-constellation-v0.7.0.png)
 
-- `workspace` — list, create, switch, delete, clear, export, or merge investigations
-- `mode` — inspect or select a character mode
-- `model` — inspect or reconfigure the LLM provider and model
-- `hunt <indicator>` — run the matching deterministic module fleet
-- `show` and `dossier` — inspect collected evidence and analytical coverage
-- `note` — add operator-authored evidence or context
-- `graph` and `export` — inspect relationships or export GEXF/STIX data
-- `autopivot` — inspect or control event-driven pivots
-- `hint` and `challenges` — use the gamification layer
-- `db_status` — inspect workspace storage and event counts
-- `help`, `quit`, and `exit` — orient or leave the session
+### Visual Analysis and relationship graph
 
-The classic console exposes the familiar direct workflow:
+Visual Analysis begins with an analyst question and chooses a view that fits
+the stored data. Current views include evidence composition, Dossier radar,
+UTC activity calendar, enrichment activity, the Constellation, and a
+force-directed relationship graph. Each view includes source scope, caveats,
+an accessible table, and export of the exact plotted data.
 
-```text
-ap> search shodan
-ap> use shodan_ip
-ap> set target 203.0.113.10
-ap> run
-```
+The graph labels nodes with actual indicator values. Every visible edge has a
+stored or explicitly labeled conservative basis. Dragging, filtering, and
+moving nodes change only the presentation. If no supported relationship
+exists, Pivotglass leaves the nodes unconnected.
 
-It also supports fuzzy module selection and `hunt <indicator>` fleet dispatch,
-but it deliberately omits the cyberdeck's persona-driven presentation.
+![Pivotglass relationship graph](docs/media/pivotglass-graph-v0.7.0.png)
 
-## Evidence sources
+### Configuration and models
 
-AP ships 14 modules and exposes them, together with workspace, dossier, graph,
-and gamification capabilities, through 29 agent tools.
+The Configuration dialog manages model synthesis and intelligence-service
+credentials without leaving the investigation. Secrets are entered through
+masked controls, sent only during an explicit save or test action, and are not
+returned by ordinary state polling or written to logs, exports, analytics, or
+model prompts. Environment-provided credentials remain read-only in the
+interface.
 
-| Category | Modules |
-|---|---|
+Provider checks are explicit. The model catalog reports account-visible models
+and local capability notes when available, while stating what a catalog cannot
+prove: quota, latency, quality, and suitability for a particular case.
+
+![Model catalog with strengths and limitations](docs/media/pivotglass-model-catalog-v0.7.0.png)
+
+### Reports and exports
+
+Reports are built from the active workspace rather than a model's memory. The
+same evidence can be exported as JSON, CSV, STIX, or GEXF. Visual Analysis can
+also export the exact rows, nodes, and edges behind the current view.
+
+![Source-grounded Dossier report](docs/media/pivotglass-report-v0.7.0.png)
+
+## Commands
+
+Pivotglass and the terminal interface complete and execute the same local
+command families:
+
+- `workspace` — list, create, switch, export, merge, or safely delete workspaces
+- `mode` — list or select a character
+- `model` — inspect, check, select, enable, disable, or repair model settings
+- `config` — inspect, test, enable, disable, or repair intelligence APIs
+- `use <indicator>` — set an investigation target
+- `search`, `graph`, `dossier`, `gaps`, and `timeline` — inspect stored work
+- `note` — add analyst-authored context
+- `report` and `export` — produce reports or portable data
+- `autopivot`, `hint`, and `challenges` — control optional assistance
+- `status`, `clear`, `help`, `quit`, and `exit` — control the session
+
+During an active investigation, `stop`, `focus`, `add`, and `skip` control the
+current enrichment queue where the interface supports those actions. See the
+[User Guide](docs/USER_GUIDE.md#command-reference) for exact syntax.
+
+## Intelligence sources
+
+Pivotglass ships 14 modules:
+
+| Purpose | Sources |
+| --- | --- |
 | Network and host intelligence | Shodan, Censys, GreyNoise, AbuseIPDB |
 | Threat intelligence | VirusTotal, AlienVault OTX, ThreatFox, URLhaus, MalwareBazaar |
 | Domain and URL intelligence | WHOIS, crt.sh, URLScan, PassiveTotal |
 | Identity exposure | Have I Been Pwned |
 
-WHOIS and crt.sh work without credentials. AP never sends direct DNS queries
-from the operator host; resolution and passive-DNS metadata must come from an
-explicit intelligence service such as DomainTools, DNSDB, URLScan, VirusTotal,
-PassiveTotal, or Censys. Services may require an API key or account and can have
-their own terms, quotas, and data-handling requirements.
+Most modules query provider-held intelligence rather than touching the
+indicator directly. Pivotglass does not issue direct DNS queries from the
+operator host. URLScan is different: it can submit a URL or domain to an
+external browser-scanning service. Review each provider's terms and handling
+before submitting sensitive or embargoed indicators.
 
-While those services respond, the intelligence feed doubles as an analyst
-briefing: it names the artifacts being requested, explains their analytical
-value, and suggests which relationships, timestamps, confidence signals, and
-caveats to inspect. These are retrieval goals—not findings. Returned results
-remain separately labeled as observed evidence.
+WHOIS and crt.sh work without credentials. Other services may require an
+account, API key, or paid access.
 
-## Configuration
+## Characters, accessibility, and sound
 
-On first launch, AP can guide you through selecting a supported LiteLLM provider
-and model. Configuration is stored in `~/.ap/config.toml` with restrictive file
-permissions. You can re-run provider setup from the cyberdeck with `model select`.
+The public character deck contains Default (Analyst), Chuck Norris, HAL9000,
+Troll, Sherlock Holmes, Neuromancer, and The Matrix. A character changes voice,
+palette, atmosphere, music, and an optional diversion. It never changes the
+meaning or order of evidence.
 
-Common non-interactive overrides are:
+Music starts off, runs locally, and persists its enabled state when the
+character changes. The procedural scores use original motifs, harmony,
+counterlines, percussion, modeled instruments, and room ambience. Music,
+narration, animation, scores, and mini-games are presentation only.
+
+Pivotglass includes Day, Night, high-contrast, reduced-motion, and effects-off
+controls. Terminal equivalents include:
 
 ```bash
-export AP_MODEL=anthropic/claude-sonnet-4-5
-export AP_ANTHROPIC_API_KEY=...
-export AP_SHODAN_API_KEY=...
-uv run ap
+AP_TUI_COLOR_SCHEME=light ap tui
+AP_TUI_HIGH_CONTRAST=1 ap tui
 ```
 
-For service credentials, AP checks its namespaced `AP_...` variables and common
-vendor variables such as `SHODAN_API_KEY`. The configuration wizard documents
-the exact key expected for each integration and validates supported credentials
-before saving them. Never commit credentials to this repository.
-
-## Workspaces, dossiers, and personas
-
-Each investigation uses an isolated SQLite workspace under `~/.ap/`. AP stores
-normalized STIX objects, relationships, module runs, notes, score events, and
-badges there. Dossiers make analytical coverage explicit across identity,
-infrastructure, TTPs, deception, and other investigation dimensions; missing or
-inferred information is not presented as observed fact.
-
-Seven public characters alter voice, prompts, palette, motion, music, and
-optional diversions: Default (Analyst), Chuck Norris, HAL9000, Troll, Sherlock
-Holmes, Neuromancer, and The Matrix. Ninja, Bureaucrat, and Strategist remain
-readable compatibility modes for historical sessions but are not presented in
-the public deck. Other historical identifiers migrate locally to an approved
-successor; retired records are preserved. Personas are presentation and
-reasoning aids—not separate truth systems.
-
-## Architecture
+## Architecture and trust boundary
 
 ```text
 operator
    │
-   ├── ap ───────────── AI cyberdeck / local command router
-   └── ap basic|repl ── classic cmd2 console
+   ├── ap / ap web ───────── local browser interface
+   ├── ap tui / ap chat ──── terminal interface
+   └── ap basic / ap repl ── direct module console
                 │
         shared application services
                 │
-   modules ─ workspace ─ STIX ─ dossier ─ graph ─ gamification
+   modules ─ workspace ─ STIX ─ Dossier ─ graph ─ reports
       │
- deterministic local logic and direct external APIs
+ deterministic local logic and explicitly enabled external APIs
 ```
 
-Each policy, state transition, and data contract should have one implementation
-authority. Both interfaces call shared services so presentation layers do not
-silently drift in behavior.
+The browser interface is a static build served by the Python process. It loads
+no CDN scripts, remote fonts, analytics, or hosted UI code. Exact web
+dependencies and integrity hashes are committed. See the
+[web supply-chain policy](docs/WEB_SUPPLY_CHAIN.md).
+
+## Documentation
+
+- [Quick Start](docs/QUICKSTART.md) — installation through first report
+- [User Guide](docs/USER_GUIDE.md) — complete task and command reference
+- [Documentation index](docs/README.md) — current guides, design notes, QA, and historical plans
+- [Procedural music](docs/PROCEDURAL_MUSIC.md) — composition and safety boundary
+- [Changelog](CHANGELOG.md) — user-visible release history
+- [Philosophy](PHILOSOPHY.md) — evidence, judgment, and collaboration principles
+- [Contributor governance](AGENTS.md) — repository standards and protected scope
 
 ## Development
 
@@ -266,34 +230,19 @@ silently drift in behavior.
 uv sync --extra agent
 uv run pytest -q
 uv run ruff check src tests
-uv run ap --help
+npm --prefix web ci
+npm --prefix web run lint
+npm --prefix web run build
 ```
 
-The repository is named `pivotglass`. The installed command remains `ap`, user
-configuration remains under `~/.ap/`, and the Python distribution/import
-identifiers remain `adversary-pursuit` and `adversary_pursuit`. Those stable
-compatibility names are not repository paths.
-
-Focused tests should run before broad verification. Passing tests are evidence,
-not proof: presentation changes should also be exercised through the real TUI or
-classic console.
-
-## Project guidance
-
-- [`PHILOSOPHY.md`](PHILOSOPHY.md) — highest-level judgment framework
-- [`AGENTS.md`](AGENTS.md) — contributor governance and preservation boundaries
-- [`MASTER_PLAN.md`](MASTER_PLAN.md) — decisions, roadmap, and historical record
-- [`DECISIONS.md`](DECISIONS.md) — generated decision index
-- [`CHANGELOG.md`](CHANGELOG.md) — user-visible release history
-- [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) — operator workflow and command guide
-- [`docs/plans/V0.6.0_PLAN.md`](docs/plans/V0.6.0_PLAN.md) — next-release implementation plan
-
-When executable behavior, help output, and documentation disagree, treat that as
-a defect and reconcile all three in the same change.
+The repository is `pivotglass`. The command `ap`, distribution
+`adversary-pursuit`, import package `adversary_pursuit`, and `~/.ap/` data path
+remain stable compatibility names.
 
 ## Status and license
 
-AP is alpha software. External intelligence can be incomplete, stale, biased, or
-incorrect; verify important findings at the source and use the tool lawfully.
+Pivotglass is early-availability software. External intelligence can be
+incomplete, stale, biased, or incorrect. Verify consequential findings at the
+source, respect provider terms, and use the tool lawfully.
 
 Licensed under the [MIT License](LICENSE).

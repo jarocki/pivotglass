@@ -16,7 +16,8 @@ synthesizes those events with role-specific spectra and envelopes.
 This boundary matters: future changes can test composition independently from
 audio encoding and playback. Character differentiation must remain audible in
 the event timeline, not depend on color-like timbre swaps or hidden randomness.
-The same mode, duration, volume, and engine version remain byte-deterministic.
+The same mode, duration, volume, cycle/seed, and engine version remain
+byte-deterministic.
 
 The music remains presentation, never evidence. It consumes no investigation
 events, starts muted, is generated locally, carries no operational meaning, and

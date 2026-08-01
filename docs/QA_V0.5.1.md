@@ -1,5 +1,8 @@
 # Pivotglass v0.5.1 QA record
 
+> Historical checkpoint. Later release records contain the final broad-suite
+> verification for the work that followed this focused pass.
+
 Date: 2026-07-21
 
 ## Scope
@@ -11,7 +14,7 @@ easter eggs, and both audio renderers before implementation.
 
 ## Interaction contracts
 
-- One probe tool produces one task tile regardless of lifecycle-transition
+- One enrichment source produces one task tile regardless of lifecycle-transition
   count. Its ordered source events remain available in the expanded detail.
 - Tile lifecycle is exposed by accessible text and a visible glyph, never RGB
   or motion alone. Twinkle is limited to discovery, contradiction, and source

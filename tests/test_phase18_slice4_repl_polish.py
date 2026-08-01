@@ -520,8 +520,11 @@ class TestBug7HuntSuccessGate:
         # a bare domain-name dict without real network calls.
         bare_dns_result = [{"type": "domain-name", "value": "evil.example.com"}]
 
+        module = ctx.plugin_mgr.get_module("osint/whois_lookup")
+        assert module is not None
+
         with patch.object(
-            ctx.plugin_mgr.get_module("osint/whois_lookup"),
+            type(module),
             "hunt",
             new=AsyncMock(return_value=bare_dns_result),
         ):
@@ -547,8 +550,11 @@ class TestBug7HuntSuccessGate:
             {"type": "ipv4-addr", "value": "1.2.3.4"},
         ]
 
+        module = ctx.plugin_mgr.get_module("osint/whois_lookup")
+        assert module is not None
+
         with patch.object(
-            ctx.plugin_mgr.get_module("osint/whois_lookup"),
+            type(module),
             "hunt",
             new=AsyncMock(return_value=real_results),
         ):

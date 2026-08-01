@@ -312,7 +312,7 @@ def test_cockpit_hud_reports_live_functional_state():
     text = "".join(fragment for _style, fragment in app._get_hud_formatted())
 
     assert "TACTICAL HUD" in text
-    assert "PROBE  virustotal" in text
+    assert "ENRICH  virustotal" in text
     assert "FEED -20 lines" in text
     assert "ACTIVE" in text
     assert "[ older · ] newer" in text
@@ -435,7 +435,7 @@ def test_target_hunt_uses_tools_then_one_synthesis_call():
     assert "ANALYST INTUITION" in prompt
     assert "EVIDENCE, INFERENCE" in prompt
     feed = "\n".join(app._scrollback.get_lines())
-    assert "PROBE · WHOIS LOOKUP" in feed
+    assert "ENRICHMENT · WHOIS LOOKUP" in feed
     assert "EVIDENCE · WHOIS LOOKUP" in feed
     assert "EPIPHANY · DEFAULT · INFERENCE" in feed
 
@@ -481,7 +481,7 @@ def test_llm_selected_tool_trace_is_visible_and_provenanced():
     app._live_pane.show_tool_result("virustotal_lookup", "malicious: 4\nharmless: 61")
 
     feed = "\n".join(app._scrollback.get_lines())
-    assert "PROBE · VIRUSTOTAL LOOKUP" in feed
+    assert "ENRICHMENT · VIRUSTOTAL LOOKUP" in feed
     assert "EVIDENCE · VIRUSTOTAL LOOKUP" in feed
     assert "malicious: 4" in feed
     assert "PROVENANCE  virustotal_lookup" in feed

@@ -20,6 +20,7 @@ TOP_LEVEL_COMMANDS: tuple[str, ...] = (
     "report",
     "help",
     "model",
+    "config",
     "theme",
     "status",
     "clear",
@@ -81,7 +82,28 @@ def command_completions(
     elif command == "export":
         choices = ["json", "csv", "gexf", "stix"]
     elif command == "model":
-        choices = ["show", "select"]
+        choices = [
+            "show",
+            "providers",
+            "list",
+            "check",
+            "select",
+            "enable",
+            "disable",
+            "repair",
+            "configure",
+            "advisor on",
+            "advisor off",
+        ]
+    elif command == "config":
+        choices = [
+            "show",
+            "check ",
+            "enable ",
+            "disable ",
+            "repair",
+            "configure",
+        ]
     elif command == "theme":
         choices = ["light", "dark", "high"]
     elif command == "report":

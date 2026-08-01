@@ -235,6 +235,9 @@ class GeneralConfig(BaseModel):
     # None means "not configured"; wizard will prompt on first chat launch.
     agent_provider: str | None = None
     agent_model: str | None = None
+    agent_enabled: bool = True
+    configuration_advisor_enabled: bool = True
+    disabled_services: list[str] = Field(default_factory=list)
     # REPL editing mode for prompt_toolkit — "vi" or "emacs".
     # None means "not configured"; defaults to "vi" at runtime.
     editing_mode: str | None = None
@@ -529,6 +532,92 @@ class ConfigManager:
         cfg = self._cache if self._cache is not None else self.load()
         cfg.general.agent_provider = provider
         cfg.general.agent_model = model
+        self.save(cfg)
+
+    def is_agent_enabled(self) -> bool:
+        """Return whether model-backed synthesis is enabled."""
+        cfg = self._cache if self._cache is not None else self.load()
+        return bool(cfg.general.agent_enabled)
+
+    def set_agent_enabled(self, enabled: bool) -> None:
+        """Enable or disable model-backed synthesis without deleting credentials."""
+        cfg = self._cache if self._cache is not None else self.load()
+        cfg.general.agent_enabled = bool(enabled)
+        self.save(cfg)
+
+    def is_configuration_advisor_enabled(self) -> bool:
+        """Return whether periodic local configuration guidance is enabled."""
+        cfg = self._cache if self._cache is not None else self.load()
+        return bool(cfg.general.configuration_advisor_enabled)
+
+    def set_configuration_advisor_enabled(self, enabled: bool) -> None:
+        """Persist the operator's configuration-advisor preference."""
+        cfg = self._cache if self._cache is not None else self.load()
+        cfg.general.configuration_advisor_enabled = bool(enabled)
+        self.save(cfg)
+
+    def is_service_enabled(self, service: str) -> bool:
+        """Return whether an intelligence service is enabled."""
+        cfg = self._cache if self._cache is not None else self.load()
+        return service.lower() not in {
+            item.lower() for item in cfg.general.disabled_services
+        }
+
+    def set_service_enabled(self, service: str, enabled: bool) -> None:
+        """Enable or disable an intelligence service without deleting its key."""
+        cfg = self._cache if self._cache is not None else self.load()
+        normalized = service.strip().lower()
+        disabled = {
+            item.strip().lower()
+            for item in cfg.general.disabled_services
+            if item.strip()
+        }
+        if enabled:
+            disabled.discard(normalized)
+        else:
+            disabled.add(normalized)
+        cfg.general.disabled_services = sorted(disabled)
+        self.save(cfg)
+
+    def get_api_key_source(self, service: str) -> str:
+        """Return ``config``, ``environment``, or ``missing`` without exposing a key."""
+        cfg = self._cache if self._cache is not None else self.load()
+        if getattr(cfg.api_keys, service, None):
+            return "config"
+        env_names = [
+            _AP_ENV_VAR_MAP.get(service),
+            *_LEGACY_AP_ENV_VAR_MAP.get(service, []),
+            _VENDOR_ENV_VAR_MAP.get(service),
+        ]
+        if any(name and os.environ.get(name) for name in env_names):
+            return "environment"
+        return "missing"
+
+    def get_provider_api_key_source(self, provider_id: str) -> str:
+        """Return the selected provider credential source without exposing it."""
+        if provider_id == "ollama":
+            return "not-required"
+        field = self._PROVIDER_KEY_FIELD.get(provider_id)
+        if field is None:
+            return "missing"
+        return self.get_api_key_source(field)
+
+    def remove_provider_api_key(self, provider_id: str) -> None:
+        """Remove a stored provider key; environment-owned keys are unchanged."""
+        field = self._PROVIDER_KEY_FIELD.get(provider_id)
+        if field is None:
+            raise ValueError(f"Unknown provider id: {provider_id!r}")
+        cfg = self._cache if self._cache is not None else self.load()
+        setattr(cfg.api_keys, field, None)
+        self.save(cfg)
+
+    def remove_api_key(self, service: str) -> None:
+        """Remove one stored intelligence-service credential field."""
+        cfg = self._cache if self._cache is not None else self.load()
+        if not hasattr(cfg.api_keys, service):
+            raise ValueError(f"Unknown API credential field: {service!r}")
+        current = getattr(cfg.api_keys, service)
+        setattr(cfg.api_keys, service, None if current is None else "")
         self.save(cfg)
 
     def get_editing_mode(self) -> str:

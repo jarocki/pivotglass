@@ -91,6 +91,15 @@ CREDENTIAL_BUILDERS: dict[str, Any] = {
     },
 }
 
+MODULE_SERVICE_IDS: dict[str, str] = {
+    "osint/censys_host": "censys_pat",
+    "cti/passivetotal": "passivetotal",
+}
+
+
+class ServiceDisabledError(RuntimeError):
+    """Raised when an operator-disabled intelligence service is invoked."""
+
 
 def resolve_module_credentials(module_path: str, config_mgr: Any) -> dict:
     """Return the init_config dict for *module_path* using the canonical precedence.
@@ -120,6 +129,17 @@ def resolve_module_credentials(module_path: str, config_mgr: Any) -> dict:
         for key-free modules; ``{"api_key": ...}`` for standard single-key
         modules; multi-field dict for Censys/PassiveTotal.
     """
+    service_id = MODULE_SERVICE_IDS.get(
+        module_path,
+        SERVICE_NAMES.get(module_path, module_path.split("/")[-1]),
+    )
+    enabled_check = getattr(config_mgr, "is_service_enabled", None)
+    if service_id is not None and callable(enabled_check) and not enabled_check(service_id):
+        raise ServiceDisabledError(
+            f"{service_id} is disabled. Run 'config enable {service_id}' "
+            "or use Configuration in Pivotglass."
+        )
+
     credential_builder = CREDENTIAL_BUILDERS.get(module_path)
     if credential_builder is not None:
         return credential_builder(config_mgr)

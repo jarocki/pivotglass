@@ -31,6 +31,15 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
     assert state["character"] == "default"
     assert len(state["dossier_slots"]) == 9
     assert {slot["status"] for slot in state["dossier_slots"]} == {"empty"}
+    assert {intent["question"] for intent in state["visualizations"]} == {
+        "when_was_activity_concentrated",
+        "how_complete_is_this_dossier",
+        "how_complete_are_indicator_investigations",
+        "which_evidence_types_are_stored",
+        "which_entities_relate",
+        "which_indicator_enrichment_work_is_pending",
+    }
+    assert all(intent["schema_version"] == "1.0" for intent in state["visualizations"])
     assert len(state["modes"]) == 7
     assert {mode["display_name"] for mode in state["modes"]} == {
         "Default (Analyst)",
@@ -63,6 +72,83 @@ def test_completions_match_public_modes_and_workspace_context(tmp_path):
 
     assert service.completions("mode neuro") == ["mode Neuromancer"]
     assert "workspace switch case-red" in service.completions("workspace switch c")
+    assert "model check" in service.completions("model ch")
+    assert "config disable " in service.completions("config dis")
+
+
+def test_model_show_and_config_show_are_deterministic_local_commands(tmp_path):
+    service = _service(tmp_path)
+
+    model = service.execute_command("model show")
+    configuration = service.execute_command("config show")
+
+    assert model["title"] == "Model configuration"
+    assert "MODEL CONFIGURATION" in model["text"]
+    assert configuration["kind"] == "configuration"
+    assert "INTELLIGENCE API CONFIGURATION" in configuration["text"]
+    assert service._runner is None
+
+
+def test_configuration_payload_is_masked(tmp_path):
+    service = _service(tmp_path)
+    service.config_mgr.set_provider_api_key("openai", "never-return-this")
+    service.config_mgr.set("api_keys.virustotal", "also-never-return-this")
+
+    payload = service.configuration()
+
+    assert "never-return-this" not in repr(payload)
+    assert "also-never-return-this" not in repr(payload)
+    assert next(
+        item for item in payload["providers"] if item["id"] == "openai"
+    )["credential_source"] == "config"
+    assert next(
+        item for item in payload["services"] if item["id"] == "virustotal"
+    )["credential_source"] == "config"
+
+
+def test_configuration_update_enables_and_disables_without_deleting_key(tmp_path):
+    service = _service(tmp_path)
+    service.config_mgr.set("api_keys.virustotal", "stored-key")
+
+    result = service.update_configuration(
+        {"action": "service-enabled", "id": "virustotal", "enabled": False}
+    )
+
+    assert result["saved"] is True
+    assert service.config_mgr.is_service_enabled("virustotal") is False
+    assert service.config_mgr.get_api_key("virustotal") == "stored-key"
+
+
+def test_model_catalog_returns_live_models_with_capability_caveats(
+    tmp_path, monkeypatch
+):
+    service = _service(tmp_path)
+    monkeypatch.setattr(
+        "adversary_pursuit.agent.model_control.list_models",
+        lambda provider, key: ["local-test:8b"],
+    )
+    monkeypatch.setattr(
+        "adversary_pursuit.agent.model_control._capability_info",
+        lambda model: {},
+    )
+
+    catalog = service.model_catalog("ollama")
+
+    assert catalog["models"][0]["model_id"] == "local-test:8b"
+    assert "does not prove" in catalog["models"][0]["limitations"][0]
+    assert "not quality rankings" in catalog["notice"]
+
+
+def test_configuration_advisor_is_character_voice_not_evidence(tmp_path):
+    service = _service(tmp_path)
+    service.switch_mode("hal9000")
+
+    advisory = service.configuration_advisory()
+
+    assert advisory is not None
+    assert advisory["character"] == "the_computer"
+    assert advisory["content_class"] == "narration"
+    assert advisory["evidence"] is False
 
 
 def test_switch_mode_synchronizes_existing_agent_runner_persona(tmp_path):
@@ -93,7 +179,7 @@ def test_investigate_uses_existing_dispatch_and_execution_authorities(tmp_path):
     ):
         result = service.investigate("198.51.100.10")
 
-    assert [event["kind"] for event in result["events"]] == ["probe", "evidence"]
+    assert [event["kind"] for event in result["events"]] == ["enrichment", "evidence"]
     assert result["events"][0]["briefing"]["source"] == "VirusTotal"
     assert result["events"][1]["summary"] == "Observed service response"
     execute.assert_called_once()

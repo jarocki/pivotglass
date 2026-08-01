@@ -343,9 +343,9 @@ class LivePane:
             self._hook_hypothesis = text
 
     def show_tool_start(self, tool_name: str, arguments: dict) -> None:
-        """Expose an LLM-selected deterministic probe in the intelligence feed."""
+        """Expose an LLM-selected deterministic enrichment in the intelligence feed."""
         if self._feed_emit is not None:
-            self._feed_emit("probe", tool_name, arguments)
+            self._feed_emit("enrichment", tool_name, arguments)
 
     def show_tool_result(self, tool_name: str, summary: str) -> None:
         """Expose a grounded preview after an LLM-selected tool completes."""

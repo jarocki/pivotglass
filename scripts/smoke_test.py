@@ -48,12 +48,12 @@ Exit codes
            and keeps this file free of field-name duplication that can drift.
 
 @decision DEC-SMOKE-004
-@title Source layer identified via Option B: raw model attribute check + env probe
+@title Source layer identified via Option B: raw model attribute check + env inspection
 @status accepted
 @rationale Identifying which layer supplied a key ("config", "AP env", "vendor env")
            for diagnostic display requires per-layer probing. ConfigManager does not
            expose a get_api_key_with_source() method (adding one would require
-           touching the forbidden src/ scope). Option B: the smoke test probes each
+           touching the forbidden src/ scope). Option B: the smoke test inspects each
            layer directly using the already-loaded config model's attribute + os.environ
            lookups that mirror ConfigManager's precedence logic. This is a read-only
            diagnostic path only — the actual key VALUE always comes from ConfigManager.
@@ -168,7 +168,7 @@ def _source_for(
 ) -> str:
     """Return which config layer supplied the value for *service_id*.
 
-    This is a DIAGNOSTIC-ONLY helper (DEC-SMOKE-004). It probes the same
+    This is a DIAGNOSTIC-ONLY helper (DEC-SMOKE-004). It inspects the same
     three layers that ConfigManager.get_api_key() checks, in the same order,
     to determine WHERE the value came from so the user can see e.g.
     "(config)" vs "(AP env)" vs "(vendor env)" next to each detected key.
@@ -196,7 +196,7 @@ def _source_for(
         return ""
 
     # Layer 1: stored in config.toml — check the model attribute directly.
-    # cm.config is the loaded Config object; we probe api_keys.<service_id>.
+    # cm.config is the loaded Config object; inspect api_keys.<service_id>.
     try:
         cfg = cm._cache  # already loaded; safe to access the cache directly
         if cfg is not None:

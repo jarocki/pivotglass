@@ -7,7 +7,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-08-01
+
+This early-availability release consolidates the unreleased 0.6 development
+checkpoints into one verified minor release.
+
+### Added
+
+- Added a concise Quick Start, a task-oriented User Guide, a documentation
+  index, and an accessible transcript for the guided demonstration.
+- Added the finished two-minute guided video and current screenshots covering
+  startup, masked credential setup, model selection, the Investigation
+  Constellation, relationship graph, and reporting.
+- Added one shared model and API configuration authority for the terminal
+  cyberdeck and Pivotglass. `model show`, `model list`, `model check`,
+  `model select`, enable/disable, repair, and advisor controls now execute
+  locally instead of falling through to model synthesis.
+- Added a viewport-centered Pivotglass Configuration center with masked
+  credential state, explicit credential tests, per-service enable/disable,
+  safe credential removal, live provider model catalogs, and model selection.
+- Added account-visible model profiles whose strengths and limitations are
+  derived from provider availability and optional local LiteLLM capability
+  metadata, with explicit caveats where quota, latency, quality, or capability
+  are not proven.
+- Added throttled, asynchronous configuration suggestions in every public
+  character voice. Suggestions are local deterministic narration, never
+  evidence; they spend no tokens, make no background provider requests, do not
+  steal focus, and can be disabled.
+- Added the persistent Investigation Constellation: stored indicators form
+  rows, the nine canonical Dossier dimensions form columns, and every cell
+  shows its deterministic empty, partial, filled, or deferred state from the
+  indicator and evidence in its direct graph neighborhood.
+
+### Changed
+
+- Intelligence-service disable controls now prevent the disabled module from
+  resolving credentials or running while preserving the stored credential.
+- Model disable now blocks every synthesis call while deterministic commands
+  and investigation tools remain available.
+- Expanded shared command completion and operator documentation for the new
+  model and configuration command families.
+- Hardened command-completion stacking with an explicit top-level interaction
+  layer and opaque surface, keeping every row above Systems, Intelligence, and
+  maximized panes; dialogs remain above the completion layer.
+- Made Constellation newest-last-seen first by default, with reversible search,
+  IoC-type, mapped-completeness, first/last-seen, direct-relatedness, and sort
+  controls. Enrichment lifecycle remains a separate secondary matrix.
+
 ### Security
+
+- Ordinary configuration payloads expose credential source and health only.
+  A newly entered secret exists transiently in the masked field and explicit
+  local save/test request; stored secrets are not returned by routine polling,
+  repopulated into fields, logged, exported, or sent to a model.
+
+### Visualization, graph, and atmosphere
+
+#### Added
+
+- Added the Pivotglass 0.6.0 semantic visualization foundation: a bounded
+  Python-owned intent schema, deterministic question-to-view policy, and an
+  allow-listed TypeScript adapter that compiles supported charts through Flint.
+- Added question-first visual analysis for stored evidence composition,
+  dossier completeness, UTC activity concentration, indicator-by-enrichment job
+  state, and stored relationships. Every view includes source scope,
+  missing-data treatment, an accessible exact-data table, empty/error states,
+  caveats, and CSV or JSON export.
+
+#### Changed
+
+- Replaced the ad hoc Artifact Field chart with a unified Visual Analysis
+  workspace and removed the decorative hand-drawn geography from the
+  analytical surface.
+- Made relationship overviews bounded and filterable, show actual indicator
+  values, distinguish explicit relationships from property pivots, and state
+  plainly when stored indicators have no relationship edges.
+- Replaced the static relationship overview with a deterministic force-directed
+  investigation graph. Analysts can drag, pan, zoom, center, filter, select,
+  and open evidence for actual IoC nodes and provenance-backed directional
+  edges without changing stored evidence.
+- Added an in-pane restore control and corrected stacking so maximized cockpit
+  panes remain readable and escapable.
+- Replaced the hairline screen sweep with a broad, soft-edged fog band that
+  remains behind evidence and focus indicators and respects reduced motion.
+- Raised command completion above every ordinary and maximized cockpit pane,
+  bounded it to the viewport, and added a one-time preference migration that
+  reveals Visual Analysis for existing installations.
+- Expanded the character arcade with larger shuffled question banks and
+  seeded, replayable scenarios. Neuromancer now has eight increasingly
+  difficult 5×5–7×7 Jack In runs with trace pressure, black ICE, data caches,
+  scoring, same-map retries, and fresh generated identities.
+- Added deterministic arcade-engine tests covering content variation and 800
+  generated Neuromancer maps, each verified to retain a route to the exit.
+- Made the editable-checkout web launcher reject stale static exports and
+  disabled browser caching for exported assets so `ap` cannot silently serve
+  an older cockpit after source changes.
+
+#### Security
 
 - Updated Next.js from 16.2.10 to 16.2.12, rebuilt the packaged Pivotglass
   static assets, and restored a zero-vulnerability `npm audit` result.
@@ -114,7 +210,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Accessible 3×3 RGB task constellation with non-color lifecycle marks,
-  hover/focus previews, bounded attention twinkles, and complete per-probe
+  hover/focus previews, bounded attention twinkles, and complete per-enrichment
   transition and evidence drill-down.
 - Persistent collapsible panes, active-pane navigation, interactive dossier
   cells, task-oriented contextual Help, and the optional Sensei Flow Dojo.
@@ -124,7 +220,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Prevented one probe from rendering three or four permanently expanded feed
+- Prevented one enrichment from rendering three or four permanently expanded feed
   cards, while preserving every immutable event behind the task detail.
 - Prevented `?` from opening Help while typing, made overlays mutually
   exclusive, restored opener focus, respected reduced motion during scrolling,
@@ -325,9 +421,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - A shared, UI-neutral investigation lifecycle with stable IDs, timestamps,
-  resumable cursors, per-probe states, cancellation acknowledgement, and
+  resumable cursors, per-enrichment states, cancellation acknowledgement, and
   incremental event delivery.
-- Live elapsed-time feedback and incremental probe/evidence cards in
+- Live elapsed-time feedback and incremental enrichment/evidence cards in
   Pivotglass.
 - Focused lifecycle, cursor, cancellation, and truthful-instrumentation tests.
 - The approved v0.4.2 through v0.5.0 QA/UX release plan.
@@ -336,7 +432,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Pivotglass now starts investigations asynchronously and polls an authoritative
   event stream rather than waiting on one opaque synchronous request.
-- Approximate reactor, probe, token, and hull meters now report measured state
+- Approximate reactor, enrichment, token, and hull meters now report measured state
   or explicitly say that a measurement is unavailable or not engaged.
 
 ## [0.4.1] — 2026-07-21
@@ -364,7 +460,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   zero-moderate-vulnerability audit are release gates. Runtime assets are local
   and the server binds to `127.0.0.1` with a restrictive CSP and no telemetry.
 - **Enrichment briefings teach while services respond**: every deterministic
-  enrichment probe now explains which artifacts its source is gathering, why
+  enrichment source now explains which artifacts it is gathering, why
   they matter, and what the analyst should watch for. Cards remain explicitly
   prospective until results arrive, preserving the boundary between analytical
   guidance and observed evidence.
@@ -376,12 +472,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Living, voiced cyberdeck**: mode changes now update the LLM persona as well
   as the palette. Active work has a real spinner, laptop-friendly
   keyboard-independent feed navigation, stronger persona/world identity, and
-  visible probe/evidence/provenance
+  visible enrichment/evidence/provenance
   cards. Hunt synthesis now surfaces a concise character-voiced analyst
   intuition and clearly labels evidence, inference, uncertainty, and next pivot.
 - **Mode-specific cockpit HUDs**: all 14 modes now select distinct vehicle/deck
   vocabulary and perspective rails. The six-row tactical HUD reports real
-  target lock, classification, active probe, queue depth, dossier progress,
+  target lock, classification, active enrichment, queue depth, dossier progress,
   feed position, and active/standby state. Trackpad/wheel scrolling and
   universal `[`/`]` feed keys replace reliance on Mac-intercepted modifiers.
 - **Documentation reset**: replaced the legacy feature inventory with an
@@ -518,7 +614,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/jarocki/pivotglass/compare/v0.5.2...v0.7.0
 [0.5.2]: https://github.com/jarocki/pivotglass/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/jarocki/pivotglass/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/jarocki/pivotglass/compare/v0.4.9...v0.5.0

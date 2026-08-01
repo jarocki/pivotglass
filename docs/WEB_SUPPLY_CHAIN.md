@@ -10,15 +10,21 @@ available publisher provenance:
 4. `npm audit signatures` must verify registry signatures and available SLSA
    provenance attestations before release.
 5. `npm audit --audit-level=moderate` must report zero known vulnerabilities.
-6. The production UI is a static export served from AP itself on `127.0.0.1`.
+6. The production UI is a static export served by Pivotglass on `127.0.0.1`.
    It loads no CDN scripts, fonts, telemetry, or remote UI code.
 7. The Python lockfile retains hashes for the analysis engine dependencies.
 
-Initial verified direct artifacts on 2026-07-19:
+## v0.7.0 release receipt
+
+Verification on 2026-08-01 covered 31 packages: all 31 had valid registry
+signatures, 17 had verified provenance attestations, and `npm audit
+--audit-level=moderate` reported zero known vulnerabilities.
+
+Verified direct artifacts:
 
 | Package | Version | Registry integrity/provenance |
 |---|---:|---|
-| Next.js | 16.2.10 | SHA-512 integrity + SLSA provenance |
+| Next.js | 16.2.12 | SHA-512 integrity + SLSA provenance |
 | React | 19.2.7 | SHA-512 integrity + SLSA provenance |
 | React DOM | 19.2.7 | SHA-512 integrity + SLSA provenance |
 | Microsoft Flint | 0.3.0 | SHA-512 integrity + SLSA provenance |

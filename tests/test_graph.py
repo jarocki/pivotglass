@@ -680,3 +680,29 @@ def test_property_pivots_are_conservative_and_labeled():
             "basis": "property",
         }
     ]
+
+
+def test_property_pivots_link_cross_type_records_for_the_same_observable():
+    objects = [
+        {"id": "domain-name--a", "type": "domain-name", "value": "example.test"},
+        {"id": "url--b", "type": "url", "value": "EXAMPLE.TEST"},
+        {"id": "domain-name--c", "type": "domain-name", "value": "example.test"},
+        {"id": "domain-name--d", "type": "domain-name", "value": "different.test"},
+    ]
+    graph = RelationshipGraph()
+    graph.build_from_workspace(objects)
+
+    assert graph.to_dict()["edges"] == [
+        {
+            "source": "domain-name--a",
+            "target": "url--b",
+            "relationship": "same-observable-value",
+            "basis": "property",
+        },
+        {
+            "source": "url--b",
+            "target": "domain-name--c",
+            "relationship": "same-observable-value",
+            "basis": "property",
+        },
+    ]

@@ -23,9 +23,12 @@ from __future__ import annotations
 
 from unittest.mock import Mock  # @mock-exempt: ConfigManager is external I/O boundary
 
+import pytest
+
 from adversary_pursuit.core.module_credentials import (
     CREDENTIAL_BUILDERS,
     SERVICE_NAMES,
+    ServiceDisabledError,
     resolve_module_credentials,
 )
 
@@ -139,6 +142,13 @@ class TestResolveModuleCredentials:
         assert result.get("api_key", "") == "vt-key"
         # Unknown key with default must not raise:
         assert result.get("nonexistent_key", "fallback") == "fallback"
+
+    def test_disabled_service_is_blocked_before_credential_resolution(self):
+        cfg = Mock()
+        cfg.is_service_enabled.return_value = False
+
+        with pytest.raises(ServiceDisabledError, match="virustotal is disabled"):
+            resolve_module_credentials("cti/virustotal", cfg)
 
 
 class TestServiceNamesMapping:
