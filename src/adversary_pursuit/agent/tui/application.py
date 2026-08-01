@@ -222,6 +222,14 @@ class TuiApplication:
 
         # Live pane — subscribes to all event types on construction
         mode_name = mode_mgr.active.name if mode_mgr is not None else "default"
+        from adversary_pursuit.agent.configuration_advisor import ConfigurationAdvisor
+        from adversary_pursuit.agent.model_control import ModelControl
+
+        self._configuration_advisor = (
+            ConfigurationAdvisor(ModelControl(self._runner._config_mgr))
+            if getattr(self._runner, "_config_mgr", None) is not None
+            else None
+        )
         self._music = ProceduralMusicController(Path.home() / ".ap" / "audio", mode_name)
         model_display = self._resolve_model_display()
         self._live_pane = LivePane(
@@ -578,7 +586,7 @@ class TuiApplication:
             f"{profile.left_rail} {profile.hud_title} {profile.right_rail}",
             f"LOCK   {str(state['target'])[:23]}",
             f"CLASS  {str(state['target_type'])[:23]}",
-            f"PROBE  {str(state['activity'])[:17]}  q:{state['queued']}",
+            f"ENRICH  {str(state['activity'])[:17]}  q:{state['queued']}",
             f"DOSSIER {state['slots']}/9   FEED {feed_state}",
             f"{active}  {music_state}  [ older · ] newer",
         ]
@@ -795,7 +803,7 @@ class TuiApplication:
                     self._live_pane.set_activity("thinking")
                     self._append_rule("ANALYSIS CHANNEL OPEN")
                     self.emit_scrollback(
-                        "◇ Reasoning over the current evidence and selecting justified probes…"
+                        "◇ Reasoning over the current evidence and selecting justified enrichments…"
                     )
                 with self._chat_lock:
                     result = self._runner.handle_input(text, status_bar=self._live_pane)
@@ -871,7 +879,7 @@ class TuiApplication:
             required = parameters.get("required", ())
             argument_name = required[0] if required else next(iter(properties), "target")
             self._append_panel(
-                f"PROBE · {tool_name.upper().replace('_', ' ')}",
+                f"ENRICHMENT · {tool_name.upper().replace('_', ' ')}",
                 render_briefing(tool_name, value),
             )
             self._app.invalidate()
@@ -950,10 +958,10 @@ class TuiApplication:
     def _emit_agent_trace(self, kind: str, tool_name: str, payload) -> None:  # type: ignore[no-untyped-def]
         """Render LLM-selected tool work without confusing it with synthesis."""
         display = tool_name.upper().replace("_", " ")
-        if kind == "probe":
+        if kind == "enrichment":
             target = next(iter(payload.values()), "unspecified")
             body = render_briefing(tool_name, str(target))
-            self._append_panel(f"PROBE · {display}", body)
+            self._append_panel(f"ENRICHMENT · {display}", body)
         else:
             snippet = self._interesting_snippet(str(payload))
             self._append_panel(
@@ -1125,6 +1133,18 @@ class TuiApplication:
             interval = 1.0 / max(hz, 0.1)
             time.sleep(interval)
             self._prompt_phase = not self._prompt_phase
+            if self._configuration_advisor is not None:
+                character = (
+                    self._mode_mgr.active.name
+                    if self._mode_mgr is not None
+                    else "default"
+                )
+                advisory = self._configuration_advisor.poll(character)
+                if advisory is not None:
+                    self._append_panel(
+                        f"{advisory.character_name.upper()} · CONFIGURATION ADVISOR · NARRATION",
+                        f"{advisory.message}\n\nACTION  {advisory.action}",
+                    )
             try:
                 self._app.invalidate()
             except Exception:  # noqa: BLE001

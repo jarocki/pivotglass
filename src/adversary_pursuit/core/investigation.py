@@ -184,7 +184,7 @@ class InvestigationStore:
             return event
 
     def transition(self, investigation_id: str, lifecycle: LifecycleState) -> None:
-        """Update the investigation-level lifecycle independently of probe events."""
+        """Update the investigation lifecycle independently of enrichment events."""
         with self._lock:
             record = self._records[investigation_id]
             now = utc_now()
@@ -196,6 +196,16 @@ class InvestigationStore:
     def snapshot(self, investigation_id: str, cursor: int = 0) -> dict[str, Any]:
         with self._lock:
             return self._records[investigation_id].snapshot(max(0, cursor))
+
+    def snapshots(self) -> list[dict[str, Any]]:
+        """Return complete snapshots in stable creation order.
+
+        Visualization adapters use this read-only projection to build task and
+        activity views.  Returning copies prevents a browser renderer from
+        becoming a second lifecycle authority.
+        """
+        with self._lock:
+            return [record.snapshot() for record in self._records.values()]
 
     def request_cancel(self, investigation_id: str) -> bool:
         with self._lock:

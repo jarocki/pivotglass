@@ -66,6 +66,7 @@ _FREE_ARG_VERBS: frozenset[str] = frozenset(
         "challenges",
         "autopivot",
         "model",
+        "config",
         "theme",
     }
 )
@@ -212,6 +213,8 @@ def dispatch_repl_verb(
     status_bar=None,  # _StatusHook | None
     scrollback_clear: Callable[[], None] | None = None,
     event_bus=None,  # EventBus | None
+    config_mgr=None,  # ConfigManager | None
+    runner=None,  # AgentRunner | None
 ) -> str:
     """Dispatch a parsed REPL verb locally.
 
@@ -422,8 +425,24 @@ def dispatch_repl_verb(
         return f"Auto-pivot {'enabled' if enabled else 'disabled'}."
 
     if name == "model":
-        runner_model = getattr(ctx, "model", None) if ctx is not None else None
-        return f"Configured model: {runner_model or 'managed by AgentRunner/configuration'}"
+        if config_mgr is None:
+            return "Model configuration unavailable."
+        from adversary_pursuit.agent.model_control import (
+            ModelControl,
+            execute_model_command,
+        )
+
+        return execute_model_command(verb.args, ModelControl(config_mgr), runner)
+
+    if name == "config":
+        if config_mgr is None:
+            return "API configuration unavailable."
+        from adversary_pursuit.agent.model_control import (
+            ModelControl,
+            execute_configuration_command,
+        )
+
+        return execute_configuration_command(verb.args, ModelControl(config_mgr))
 
     # --- quit / exit / q ---
     if name in ("quit", "exit", "q"):

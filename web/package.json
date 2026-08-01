@@ -1,11 +1,12 @@
 {
   "name": "pivotglass-web",
-  "version": "0.5.2",
+  "version": "0.7.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "lint": "tsc --noEmit",
+    "test:arcade": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/test-arcade-engine.test.ts",
     "verify:supply-chain": "npm audit signatures"
   },
   "dependencies": {

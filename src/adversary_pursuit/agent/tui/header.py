@@ -6,7 +6,7 @@ application version, current target, workspace name, and a PRIOR breadcrumb
 
 Layout (80-column example):
 
-    ╭─ ADVERSARY PURSUIT v0.5.2 ── CURRENT: evil.com ── WORKSPACE: default ─╮
+    ╭─ ADVERSARY PURSUIT v0.6.0 ── CURRENT: evil.com ── WORKSPACE: default ─╮
     │ PRIOR: prev.example.com                                                  │
     ╰──────────────────────────────────────────────────────────────────────────╯
 
@@ -54,7 +54,7 @@ class HeaderState:
     Parameters
     ----------
     version:
-        Application version string shown in the title bar (e.g. ``"v0.5.2"``).
+        Application version string shown in the title bar (e.g. ``"v0.6.0"``).
     current_target:
         Current investigation target, or ``"—"`` when unset.
     workspace_name:
@@ -159,7 +159,7 @@ class HeaderPane:
         Initial workspace name (e.g. ``"default"``). May be updated via
         ``set_workspace_name()``.
     version:
-        Application version string (e.g. ``"v0.5.2"``).
+        Application version string (e.g. ``"v0.6.0"``).
     """
 
     def __init__(
@@ -213,7 +213,7 @@ class HeaderPane:
         Parameters
         ----------
         version:
-            Version string (e.g. ``"v0.5.2"``).
+            Version string (e.g. ``"v0.6.0"``).
         """
         with self._lock:
             self._version = version

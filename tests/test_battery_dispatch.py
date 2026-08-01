@@ -86,7 +86,7 @@ def test_dispatch_domain_name_includes_identity():
     assert "identity_battery" in names
 
 
-def test_dispatch_domain_name_excludes_direct_infrastructure_probes():
+def test_dispatch_domain_name_excludes_direct_infrastructure_contact():
     names = {b.name for b in dispatch_batteries("domain-name", None)}
     assert "infrastructure_battery" not in names
 

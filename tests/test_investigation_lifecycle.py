@@ -33,7 +33,7 @@ def test_event_cursor_is_stable_and_resumable():
     assert [event["sequence"] for event in resumed["events"]] == [2]
 
 
-def test_probe_terminal_state_does_not_finish_investigation():
+def test_enrichment_terminal_state_does_not_finish_investigation():
     store = InvestigationStore()
     record = store.create("suspect.test", "domain-name")
     store.transition(record.investigation_id, LifecycleState.RUNNING)

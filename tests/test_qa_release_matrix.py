@@ -48,15 +48,30 @@ def test_web_music_is_local_opt_in_and_effects_have_off_path():
 
 def test_public_characters_have_distinct_interactive_diversions():
     page = Path("web/app/page.tsx").read_text()
+    arcade = Path("web/app/arcade-games.tsx").read_text()
     for component, title in {
         "SherlockChessGame": "CHESS · THE FORCED CONCLUSION",
         "HalShutdownGame": "DISABLE THE COMPUTER",
-        "NeuromancerJackInGame": "JACK IN",
+        "NeuromancerJackInGame": "JACK IN / AVOID ICE",
         "MatrixPowerGridGame": "HACK THE POWER GRID",
     }.items():
-        assert f"function {component}" in page
-        assert title in page
-    assert "OPTIONAL DIVERSION · NO ANALYTICAL MEANING" in page
+        assert f"function {component}" in arcade
+        assert title in arcade
+    assert "OPTIONAL DIVERSION · NO ANALYTICAL MEANING" in arcade
+    assert "publicModeLabel={publicModeLabel}" in page
+
+
+def test_web_arcade_replayability_is_seeded_and_presentation_only():
+    arcade = Path("web/app/arcade-games.tsx").read_text()
+    engine = Path("web/app/arcade-engine.ts").read_text()
+    assert "buildJackInRun" in engine
+    assert "seededShuffle" in engine
+    assert len(engine.split("TRIAGE_CARDS", 1)[1].split("] as const", 1)[0].split("prompt:")) >= 11
+    assert "NEXT LEVEL" in arcade
+    assert "RETRY SAME MAP" in arcade
+    assert "BURN ID / NEW RUN" in arcade
+    assert "never affect evidence, confidence, dossier, command, or investigation state" in arcade
+    assert "window.addEventListener" not in arcade
 
 
 def test_character_palettes_encode_identity_without_old_chuck_pink():
@@ -71,3 +86,54 @@ def test_character_palettes_encode_identity_without_old_chuck_pink():
 def test_retired_characters_never_reenter_selectable_catalogue():
     assert "drunken_master" not in DEFAULT_MODES
     assert "bobby_hill" not in DEFAULT_MODES
+
+
+def test_command_completion_has_an_explicit_top_level_stacking_contract():
+    css = Path("web/app/pivotglass.css").read_text()
+
+    focused = css.split("main>.command-rail.has-focus{", 1)[1].split("}", 1)[0]
+    completion = css.split(".command-completions{", 1)[1].split("}", 1)[0]
+
+    assert "z-index:12000!important" in focused
+    assert "overflow:visible!important" in focused
+    assert "isolation:isolate" in focused
+    assert "z-index:12001!important" in completion
+    assert "background:var(--elevated)" in completion
+    assert "z-index:20000!important" in css
+
+
+def test_constellation_defaults_to_persistent_indicator_dimension_status():
+    workspace = Path("web/app/visualization-workspace.tsx").read_text()
+    authority = Path("src/adversary_pursuit/core/visualization.py").read_text()
+
+    assert 'intent.intent_id === "indicator-constellation"' in workspace
+    assert 'useState("last_desc")' in workspace
+    for label in (
+        "IoC type",
+        "Completeness",
+        "Directly related to",
+        "First seen on/after",
+        "Last seen on/before",
+    ):
+        assert label in workspace
+    assert "for dimension in DossierSlotName" in authority
+    assert "infer_dossier_state(connected_evidence)" in authority
+    assert "indicator_constellation_intent(workspace, objects, graph)" in authority
+
+
+def test_product_uses_enrichment_and_reserves_connection_for_graph_relations():
+    product_files = (
+        Path("README.md"),
+        Path("docs/USER_GUIDE.md"),
+        Path("src/adversary_pursuit/web/server.py"),
+        Path("src/adversary_pursuit/agent/tui/application.py"),
+        Path("src/adversary_pursuit/core/visualization.py"),
+        Path("web/app/page.tsx"),
+        Path("web/app/visualization-workspace.tsx"),
+    )
+    combined = "\n".join(path.read_text().lower() for path in product_files)
+    retired_active_contact_term = "".join(("pro", "be"))
+
+    assert retired_active_contact_term not in combined
+    assert "enrichment" in combined
+    assert "a connection is an evidence-backed relationship between graph nodes" in combined

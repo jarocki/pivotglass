@@ -69,8 +69,19 @@ _MODULE_NAMES: list[str] = list(MODULE_NAMES)
 #: Export format choices.
 _EXPORT_FORMATS: list[str] = ["json", "csv", "gexf", "stix"]
 
-#: Model sub-commands.
-_MODEL_SUBCMDS: list[str] = ["show", "select"]
+#: Model sub-commands. Completion is owned by ``command_completion``.
+_MODEL_SUBCMDS: list[str] = [
+    "show",
+    "providers",
+    "list",
+    "check",
+    "select",
+    "enable",
+    "disable",
+    "repair",
+    "configure",
+    "advisor",
+]
 
 #: Report sub-commands.
 _REPORT_SUBCMDS: list[str] = ["answer", "generate"]
@@ -92,7 +103,7 @@ class APCompleter(Completer):
       * ``mode <TAB>`` or ``mode <partial><TAB>`` → complete against mode names
       * ``hint <TAB>`` → complete against module names + "buy"
       * ``export <TAB>`` → complete against "gexf" / "stix"
-      * ``model <TAB>`` → complete against "show" / "select"
+      * ``model <TAB>`` → complete against the shared model-control commands
       * ``report <TAB>`` → complete against "answer" / "generate"
       * ``autopivot <TAB>`` → complete against "on" / "off"
       * Anything else → no completions (let the LLM handle it)

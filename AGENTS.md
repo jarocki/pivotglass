@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This repository is the source of truth for Adversary Pursuit: an AI-augmented,
+This repository is the source of truth for Pivotglass: an AI-augmented,
 gamified framework for hunting, pivoting, and discovering adversary
 infrastructure, indicators, and TTPs. Changes should strengthen analytical
 truthfulness, operator agency, deterministic evidence collection, coherent

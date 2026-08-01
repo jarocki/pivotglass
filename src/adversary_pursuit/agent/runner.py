@@ -552,6 +552,10 @@ class AgentRunner:
 
         Returns the message object from the LLM response.
         """
+        if self._config_mgr is not None and not self._config_mgr.is_agent_enabled():
+            raise RuntimeError(
+                "Model-backed synthesis is disabled. Run 'model enable' to restore it."
+            )
         kwargs: dict = {
             "model": self.model,
             "messages": self.conversation,
@@ -735,6 +739,8 @@ class AgentRunner:
                     status_bar=status_bar,
                     scrollback_clear=_scrollback_clear,
                     event_bus=_event_bus,
+                    config_mgr=self._config_mgr,
+                    runner=self,
                 )
                 # The mode manager owns selection, while AgentRunner owns the
                 # LLM system prompt. Keep both authorities synchronized after
@@ -788,6 +794,11 @@ class AgentRunner:
             return feedback
 
         # --- Priority 3: LLM chat ---
+        if self._config_mgr is not None and not self._config_mgr.is_agent_enabled():
+            return (
+                "Model-backed synthesis is disabled. Deterministic investigation "
+                "commands remain available; run 'model enable' to restore synthesis."
+            )
         return self.chat(text, status_bar=status_bar)
 
     def reset(self) -> None:

@@ -22,7 +22,14 @@ from urllib.parse import parse_qs, urlparse
 from rich.text import Text
 
 from adversary_pursuit.agent.battery_registry import dispatch_batteries
+from adversary_pursuit.agent.configuration_advisor import ConfigurationAdvisor
 from adversary_pursuit.agent.enrichment_briefings import BRIEFINGS
+from adversary_pursuit.agent.model_control import (
+    ModelControl,
+    execute_configuration_command,
+    execute_model_command,
+)
+from adversary_pursuit.agent.provider_setup import CTI_SERVICES
 from adversary_pursuit.agent.tools import ToolContext, create_tools, execute_tool
 from adversary_pursuit.agent.tui.themes import (
     COCKPIT_PROFILES,
@@ -40,6 +47,7 @@ from adversary_pursuit.core.investigation import (
     utc_now,
 )
 from adversary_pursuit.core.ioc_types import detect_ioc_type
+from adversary_pursuit.core.visualization import build_visualization_intents
 from adversary_pursuit.core.workspace_admin import (
     export_workspace,
     merge_workspaces,
@@ -50,9 +58,9 @@ from adversary_pursuit.dossier.state import load_dossier_state
 from adversary_pursuit.gamification.modes import DEFAULT_MODES, display_mode_name
 
 _LOG = logging.getLogger(__name__)
-_SOURCE_WEB_ROOT = Path(__file__).parents[3] / "web" / "out"
+_SOURCE_WEB_DIR = Path(__file__).parents[3] / "web"
+_SOURCE_WEB_ROOT = _SOURCE_WEB_DIR / "out"
 _PACKAGED_WEB_ROOT = Path(__file__).with_name("static")
-_WEB_ROOT = _SOURCE_WEB_ROOT if _SOURCE_WEB_ROOT.exists() else _PACKAGED_WEB_ROOT
 _TYPE_MAP = {
     "ipv4": "ipv4-addr",
     "ipv6": "ipv6-addr",
@@ -65,11 +73,50 @@ _TYPE_MAP = {
 }
 
 
+def _web_root() -> Path:
+    """Resolve the cockpit assets at launch rather than module-import time.
+
+    Editable installs must serve the current checkout's export.  Wheels do not
+    contain ``web/`` and therefore fall back to the force-included packaged
+    assets.
+    """
+
+    if _SOURCE_WEB_ROOT.joinpath("index.html").is_file():
+        return _SOURCE_WEB_ROOT
+    return _PACKAGED_WEB_ROOT
+
+
+def _source_web_build_is_stale(web_root: Path) -> bool:
+    """Return whether an editable checkout's source is newer than its export."""
+
+    if web_root != _SOURCE_WEB_ROOT:
+        return False
+    index = web_root / "index.html"
+    if not index.is_file():
+        return True
+    exported_at = index.stat().st_mtime_ns
+    source_files = (
+        *(_SOURCE_WEB_DIR / "app").glob("**/*.ts"),
+        *(_SOURCE_WEB_DIR / "app").glob("**/*.tsx"),
+        *(_SOURCE_WEB_DIR / "app").glob("**/*.css"),
+        *(_SOURCE_WEB_DIR / "app").glob("**/*.json"),
+        _SOURCE_WEB_DIR / "next.config.ts",
+        _SOURCE_WEB_DIR / "package.json",
+    )
+    return any(
+        source.is_file() and source.stat().st_mtime_ns > exported_at
+        for source in source_files
+    )
+
+
 class WebCockpitService:
     """JSON-facing adapter around the existing deterministic tool context."""
 
     def __init__(self, ctx: ToolContext | None = None) -> None:
         self.ctx = ctx or ToolContext()
+        self.config_mgr = self.ctx.config_mgr
+        self.model_control = ModelControl(self.config_mgr)
+        self.configuration_advisor = ConfigurationAdvisor(self.model_control)
         self._investigation_lock = threading.Lock()
         self.investigations = InvestigationStore()
         self.mode_mgr = self.ctx.mode_mgr
@@ -124,6 +171,18 @@ class WebCockpitService:
                     "evidence": slot_evidence[slot_name][:8],
                 }
             )
+        relationship_graph = RelationshipGraph()
+        relationship_graph.build_from_workspace(
+            objects,
+            persisted_relationships(self.ctx.workspace_mgr),
+        )
+        visualizations = build_visualization_intents(
+            workspace=self.ctx.workspace_mgr.active,
+            objects=objects,
+            dossier_slots=dossier_slots,
+            graph=relationship_graph.to_dict(),
+            investigations=self.investigations.snapshots(),
+        )
         modes = []
         for entry in self.mode_mgr.list_modes(public_only=True):
             name = entry["name"]
@@ -145,6 +204,9 @@ class WebCockpitService:
             "character": self.mode_mgr.active.name,
             "modes": modes,
             "dossier_slots": dossier_slots,
+            "visualizations": [
+                intent.model_dump(mode="json") for intent in visualizations
+            ],
             "processed_targets": sorted(
                 {
                     str(run["target"])
@@ -190,6 +252,14 @@ class WebCockpitService:
             {"command": "report", "purpose": "Generate the evidence-grounded Markdown report"},
             {"command": "export <json|csv|stix|gexf>", "purpose": "Download workspace data"},
             {"command": "help", "purpose": "Show this command reference"},
+            {"command": "model show", "purpose": "Show the effective provider, model, credential source, and enabled state"},
+            {"command": "model list", "purpose": "Fetch account-visible models and evidence-based capability notes"},
+            {"command": "model check", "purpose": "Test provider authentication and selected-model visibility"},
+            {"command": "model select [provider] <model-id>", "purpose": "Select a model returned by the provider"},
+            {"command": "model repair", "purpose": "Show a non-destructive model repair plan"},
+            {"command": "config show", "purpose": "Show masked intelligence API configuration"},
+            {"command": "config check <service>", "purpose": "Test one configured intelligence API"},
+            {"command": "config enable|disable <service>", "purpose": "Enable or disable one intelligence source without deleting its key"},
             {"command": "<natural-language question>", "purpose": "Ask AP; local tools run first and the configured model synthesizes only when needed"},
         ]
 
@@ -221,6 +291,26 @@ class WebCockpitService:
             return {"kind": "investigation", "snapshot": self.start_investigation(rest)}
         if command in {"help", "?"}:
             return {"kind": "commands", "commands": self.command_catalog()}
+        if command == "model":
+            return {
+                "kind": "text",
+                "title": "Model configuration",
+                "text": execute_model_command(
+                    tuple(rest.split()),
+                    self.model_control,
+                    self._runner,
+                ),
+            }
+        if command in {"config", "configuration"}:
+            return {
+                "kind": "configuration" if not rest or rest in {"show", "configure"} else "text",
+                "title": "API configuration",
+                "text": execute_configuration_command(
+                    tuple(rest.split()),
+                    self.model_control,
+                ),
+                "configuration": self.configuration(),
+            }
         if command == "mode":
             if rest and rest != "list":
                 return {"kind": "state", "text": f"Mode switched to {rest}.", "state": self.switch_mode(rest)}
@@ -297,11 +387,117 @@ class WebCockpitService:
         with self._command_lock:
             if self._runner is None:
                 from adversary_pursuit.agent.runner import AgentRunner
-                from adversary_pursuit.core.config import ConfigManager
 
-                self._runner = AgentRunner(tool_context=self.ctx, config_mgr=ConfigManager())
+                self._runner = AgentRunner(
+                    tool_context=self.ctx,
+                    config_mgr=self.config_mgr,
+                )
             response = self._runner.handle_input(stripped)
         return {"kind": "text", "title": "AP analysis", "text": response, "synthesized": True}
+
+    def configuration(self) -> dict[str, Any]:
+        """Return masked provider and intelligence-service configuration."""
+        return self.model_control.configuration_summary(
+            getattr(self._runner, "model", None)
+        )
+
+    def model_catalog(self, provider: str | None = None) -> dict[str, Any]:
+        """Return the live account-visible catalogue with bounded capability notes."""
+        profiles = self.model_control.list_models(provider)
+        selected = provider or str(self.model_control.status()["provider"])
+        return {
+            "provider": selected,
+            "models": [profile.to_dict() for profile in profiles],
+            "notice": (
+                "Availability comes from the provider. Strengths and limitations use "
+                "local capability metadata when present; they are not quality rankings."
+            ),
+        }
+
+    def configuration_advisory(self) -> dict[str, Any] | None:
+        """Return one due character advisory without calling a model or provider."""
+        advisory = self.configuration_advisor.poll(self.mode_mgr.active.name)
+        return advisory.to_dict() if advisory is not None else None
+
+    def check_configuration(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Test one provider or service and return only sanitized diagnostics."""
+        kind = str(payload.get("kind", "")).strip().lower()
+        target = str(payload.get("id", "")).strip().lower()
+        if kind == "provider":
+            secret = str(payload.get("secret", "")) or None
+            return self.model_control.check_provider(target or None, secret).to_dict()
+        if kind == "service":
+            values = payload.get("values")
+            secrets = (
+                [str(value) for value in values]
+                if isinstance(values, list) and values
+                else None
+            )
+            return self.model_control.check_service(target, secrets).to_dict()
+        raise ValueError("kind must be provider or service")
+
+    def update_configuration(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Apply one explicit configuration mutation and return masked state."""
+        action = str(payload.get("action", "")).strip().lower()
+        target = str(payload.get("id", "")).strip().lower()
+        if action == "model-enabled":
+            self.config_mgr.set_agent_enabled(bool(payload.get("enabled")))
+        elif action == "advisor-enabled":
+            self.config_mgr.set_configuration_advisor_enabled(
+                bool(payload.get("enabled"))
+            )
+        elif action == "service-enabled":
+            self.config_mgr.set_service_enabled(target, bool(payload.get("enabled")))
+        elif action == "provider-credential":
+            result = self.model_control.set_provider_credential(
+                target,
+                str(payload.get("secret", "")),
+                verify=bool(payload.get("verify", True)),
+            )
+            if result.state != "ready" and bool(payload.get("verify", True)):
+                return {"saved": False, "health": result.to_dict()}
+            return {
+                "saved": True,
+                "health": result.to_dict(),
+                "configuration": self.configuration(),
+            }
+        elif action == "service-credentials":
+            values = payload.get("values")
+            if not isinstance(values, list):
+                raise ValueError("credential values are required")
+            result = self.model_control.set_service_credentials(
+                target,
+                [str(value) for value in values],
+                verify=bool(payload.get("verify", True)),
+            )
+            if result.state != "ready" and bool(payload.get("verify", True)):
+                return {"saved": False, "health": result.to_dict()}
+            return {
+                "saved": True,
+                "health": result.to_dict(),
+                "configuration": self.configuration(),
+            }
+        elif action == "select-model":
+            selected = self.model_control.select_model(
+                str(payload.get("model_id", "")),
+                target or None,
+            )
+            if self._runner is not None:
+                self._runner.model = selected["runtime_model"]
+        elif action == "remove-provider-credential":
+            self.config_mgr.remove_provider_api_key(target)
+        elif action == "remove-service-credentials":
+            service = next(
+                (item for item in CTI_SERVICES if item.id == target),
+                None,
+            )
+            if service is None:
+                raise ValueError(f"Unknown intelligence service: {target}")
+            for key in service.config_keys:
+                self.config_mgr.remove_api_key(key)
+        else:
+            raise ValueError("unknown configuration action")
+        return {"saved": True, "configuration": self.configuration()}
 
     def export_payload(self, format_name: str) -> dict[str, Any]:
         """Return a browser-downloadable export without writing outside the workspace."""
@@ -355,7 +551,7 @@ class WebCockpitService:
             severity="info",
             lifecycle=LifecycleState.PLANNED,
             content_class=ContentClass.SYSTEM,
-            summary=f"Planned {len(tools)} deterministic probes.",
+            summary=f"Planned {len(tools)} deterministic enrichments.",
             actions=("cancel",),
         )
         for position, tool_name in enumerate(tools, start=1):
@@ -389,7 +585,7 @@ class WebCockpitService:
             raise ValueError("unknown investigation") from exc
 
     def cancel_investigation(self, investigation_id: str) -> dict[str, Any]:
-        """Request cancellation; the active probe completes before shutdown."""
+        """Request cancellation; the active enrichment completes before shutdown."""
         try:
             accepted = self.investigations.request_cancel(investigation_id)
         except KeyError as exc:
@@ -401,7 +597,7 @@ class WebCockpitService:
                 severity="caution",
                 lifecycle=LifecycleState.RUNNING,
                 content_class=ContentClass.SYSTEM,
-                summary="Cancellation received; the active probe will finish safely.",
+                summary="Cancellation received; the active enrichment will finish safely.",
             )
         return self.investigations.snapshot(investigation_id)
 
@@ -428,7 +624,7 @@ class WebCockpitService:
         target_type: str,
         tools: list[str],
     ) -> None:
-        """Execute probes sequentially while publishing incremental transitions."""
+        """Execute enrichments sequentially while publishing incremental transitions."""
         with self._investigation_lock:
             self.investigations.transition(investigation_id, LifecycleState.RUNNING)
             any_results = False
@@ -554,7 +750,7 @@ class WebCockpitService:
             briefing = BRIEFINGS.get(tool_name)
             events.append(
                 {
-                    "kind": "probe",
+                    "kind": "enrichment",
                     "tool": tool_name,
                     "source": briefing.source if briefing else tool_name,
                     "briefing": asdict(briefing) if briefing else None,
@@ -595,7 +791,7 @@ class WebCockpitService:
             briefing = BRIEFINGS.get(tool_name)
             events.append(
                 {
-                    "kind": "probe",
+                    "kind": "enrichment",
                     "tool": tool_name,
                     "source": briefing.source if briefing else tool_name,
                     "briefing": asdict(briefing) if briefing else None,
@@ -604,10 +800,27 @@ class WebCockpitService:
         return {"target": target, "target_type": target_type, "events": events}
 
 
-def _handler(service: WebCockpitService, web_root: Path):
+def _handler(
+    service: WebCockpitService,
+    web_root: Path,
+    *,
+    allowed_hosts: frozenset[str] | None = None,
+):
+    host_allowlist = allowed_hosts or frozenset({"127.0.0.1", "localhost", "[::1]"})
+
     class CockpitHandler(SimpleHTTPRequestHandler):
         def __init__(self, *args: object, **kwargs: object) -> None:
             super().__init__(*args, directory=str(web_root), **kwargs)
+
+        def end_headers(self) -> None:
+            # Pivotglass is a local live cockpit.  Never let a browser reuse an
+            # earlier export after the process or source checkout has changed.
+            # API responses already set the same policy explicitly.
+            if not self.path.startswith("/api/"):
+                self.send_header("Cache-Control", "no-store, max-age=0")
+                self.send_header("Pragma", "no-cache")
+                self.send_header("Expires", "0")
+            super().end_headers()
 
         def _json(self, payload: object, status: HTTPStatus = HTTPStatus.OK) -> None:
             body = json.dumps(payload, default=str).encode()
@@ -626,12 +839,17 @@ def _handler(service: WebCockpitService, web_root: Path):
             self.wfile.write(body)
 
         def _host_allowed(self) -> bool:
-            host = self.headers.get("Host", "").split(":", 1)[0].lower()
-            return host in {"127.0.0.1", "localhost", "[::1]"}
+            raw_host = self.headers.get("Host", "").strip().lower()
+            if raw_host.startswith("["):
+                closing = raw_host.find("]")
+                host = raw_host[: closing + 1] if closing >= 0 else raw_host
+            else:
+                host = raw_host.rsplit(":", 1)[0] if raw_host.count(":") == 1 else raw_host
+            return host in host_allowlist
 
         def do_GET(self) -> None:  # noqa: N802
             if not self._host_allowed():
-                self._json({"error": "loopback host required"}, HTTPStatus.FORBIDDEN)
+                self._json({"error": "configured host required"}, HTTPStatus.FORBIDDEN)
                 return
             parsed = urlparse(self.path)
             if parsed.path == "/api/health":
@@ -643,6 +861,19 @@ def _handler(service: WebCockpitService, web_root: Path):
             if parsed.path == "/api/completions":
                 text = parse_qs(parsed.query).get("text", [""])[0]
                 self._json({"completions": service.completions(text)})
+                return
+            if parsed.path == "/api/configuration":
+                self._json(service.configuration())
+                return
+            if parsed.path == "/api/models":
+                provider = parse_qs(parsed.query).get("provider", [""])[0].strip()
+                try:
+                    self._json(service.model_catalog(provider or None))
+                except ValueError as exc:
+                    self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+                return
+            if parsed.path == "/api/advisories":
+                self._json({"advisory": service.configuration_advisory()})
                 return
             if parsed.path == "/api/plan":
                 try:
@@ -679,7 +910,7 @@ def _handler(service: WebCockpitService, web_root: Path):
 
         def do_POST(self) -> None:  # noqa: N802
             if not self._host_allowed():
-                self._json({"error": "loopback host required"}, HTTPStatus.FORBIDDEN)
+                self._json({"error": "configured host required"}, HTTPStatus.FORBIDDEN)
                 return
             parsed = urlparse(self.path)
             is_cancel = parsed.path.startswith("/api/investigations/") and parsed.path.endswith(
@@ -689,7 +920,14 @@ def _handler(service: WebCockpitService, web_root: Path):
                 "/acknowledge"
             )
             if (
-                parsed.path not in {"/api/investigate", "/api/mode", "/api/command", "/api/annotate"}
+                parsed.path not in {
+                    "/api/investigate",
+                    "/api/mode",
+                    "/api/command",
+                    "/api/annotate",
+                    "/api/configuration/check",
+                    "/api/configuration/update",
+                }
                 and not is_cancel
                 and not is_ack
             ):
@@ -700,6 +938,14 @@ def _handler(service: WebCockpitService, web_root: Path):
                 if length > 16_384:
                     raise ValueError("request too large")
                 payload = json.loads(self.rfile.read(length) or b"{}")
+                if not isinstance(payload, dict):
+                    raise ValueError("request body must be an object")
+                if parsed.path == "/api/configuration/check":
+                    self._json(service.check_configuration(payload))
+                    return
+                if parsed.path == "/api/configuration/update":
+                    self._json(service.update_configuration(payload))
+                    return
                 if parsed.path == "/api/mode":
                     name = str(payload.get("name", "")).strip()
                     if not name:
@@ -754,10 +1000,28 @@ def _handler(service: WebCockpitService, web_root: Path):
 
 def run_web(*, host: str = "127.0.0.1", port: int = 8765, open_browser: bool = True) -> None:
     """Serve the built cockpit locally and optionally open the default browser."""
-    if not _WEB_ROOT.joinpath("index.html").exists():
+    normalized_host = host.strip().lower()
+    if normalized_host in {"", "0.0.0.0", "::"}:
+        raise ValueError(
+            "Pivotglass requires an explicit loopback or LAN address; "
+            "wildcard interface binding is not allowed."
+        )
+    web_root = _web_root()
+    if not web_root.joinpath("index.html").exists():
         raise RuntimeError("Web cockpit is not built. Run `npm ci && npm run build` in web/.")
+    if _source_web_build_is_stale(web_root):
+        raise RuntimeError(
+            "Web cockpit export is older than its source. Run `npm run build` in web/ "
+            "before launching `ap`."
+        )
     service = WebCockpitService()
-    server = ThreadingHTTPServer((host, port), _handler(service, _WEB_ROOT))
+    allowed_hosts = frozenset(
+        {"127.0.0.1", "localhost", "[::1]", normalized_host}
+    )
+    server = ThreadingHTTPServer(
+        (host, port),
+        _handler(service, web_root, allowed_hosts=allowed_hosts),
+    )
     url = f"http://{host}:{server.server_port}"
     print(f"Pivotglass cockpit: {url}")
     if open_browser:

@@ -217,8 +217,16 @@ class RelationshipGraph:
             "certificate_fingerprint": "shares-certificate",
             "x509_serial_number": "shares-certificate",
         }
+        same_observable: dict[str, list[tuple[str, str]]] = {}
         shared: dict[tuple[str, str], list[str]] = {}
         for source_id, item in by_id.items():
+            observable_value = str(
+                item.get("value", item.get("x_indicator_value", item.get("name", "")))
+            ).strip().lower()
+            if observable_value:
+                same_observable.setdefault(observable_value, []).append(
+                    (source_id, str(item.get("type", "unknown")))
+                )
             for key, verb in reference_fields.items():
                 raw = item.get(key)
                 values = raw if isinstance(raw, list) else [raw]
@@ -235,6 +243,17 @@ class RelationshipGraph:
             for index, source_id in enumerate(unique):
                 for target_id in unique[index + 1 :]:
                     self._add_edge(source_id, target_id, verb, "property")
+        for identities in same_observable.values():
+            unique = list(dict.fromkeys(identities))
+            for index, (source_id, source_type) in enumerate(unique):
+                for target_id, target_type in unique[index + 1 :]:
+                    if source_type != target_type:
+                        self._add_edge(
+                            source_id,
+                            target_id,
+                            "same-observable-value",
+                            "property",
+                        )
 
     def _add_edge(self, source: str, target: str, verb: str, basis: str) -> None:
         edge = (source, target, verb)
