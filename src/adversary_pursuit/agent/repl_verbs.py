@@ -68,6 +68,7 @@ _FREE_ARG_VERBS: frozenset[str] = frozenset(
         "model",
         "config",
         "theme",
+        "analysis",
     }
 )
 
@@ -352,6 +353,14 @@ def dispatch_repl_verb(
         summary, *_ = execute_tool(ctx, "export_workspace", {"format": fmt})
         return str(summary)
 
+    if name == "analysis":
+        if _workspace_mgr is None:
+            return "Workspace unavailable."
+        from adversary_pursuit.core.analytic_commands import execute_analysis_command
+
+        result = execute_analysis_command(verb.args, _workspace_mgr)
+        return f"{result['title']}\n{json.dumps(result['data'], indent=2, default=str)}"
+
     if name == "theme":
         import os
 
@@ -377,6 +386,12 @@ def dispatch_repl_verb(
         sub = verb.args[0].lower() if verb.args else "list"
         if sub == "list":
             return "\n".join(_workspace_mgr.list_workspaces())
+        if sub == "schema" and len(verb.args) <= 2:
+            workspace_name = verb.args[1] if len(verb.args) == 2 else None
+            return json.dumps(
+                _workspace_mgr.get_workspace_schema_status(workspace_name),
+                indent=2,
+            )
         if sub in {"create", "switch"} and len(verb.args) == 2:
             if sub == "create":
                 _workspace_mgr.create(verb.args[1])
@@ -413,7 +428,7 @@ def dispatch_repl_verb(
             _workspace_mgr.delete(verb.args[1])
             return f"Workspace deleted: {verb.args[1]}"
         return (
-            "Usage: workspace list|create <name>|switch <name>|export <name>|"
+            "Usage: workspace list|create <name>|switch <name>|schema [name]|export <name>|"
             "merge <source> <destination>|delete <name> --confirm <name>"
         )
 

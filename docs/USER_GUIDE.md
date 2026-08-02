@@ -298,6 +298,7 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `workspace list` | List workspaces |
 | `workspace create <name>` | Create and switch to a workspace |
 | `workspace switch <name>` | Switch workspaces |
+| `workspace schema [name]` | Validate integrity and preview a migration without changing data |
 | `workspace export <name>` | Export a portable workspace archive |
 | `workspace merge <source> <destination>` | Add source evidence to a destination |
 | `workspace delete <name> --confirm <name>` | Delete after exact confirmation |
@@ -307,6 +308,14 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `graph` | Open a deterministic relationship summary |
 | `dossier` / `gaps` | Inspect coverage and missing evidence |
 | `timeline` | List stored collection events chronologically |
+| `analysis show` | Inspect questions, hypotheses, assertions, confidence, likelihood, and contradictions |
+| `analysis methods` | List versioned Structured Analytic Technique protocols |
+| `analysis question <text>` | Record the question the investigation must answer |
+| `analysis assertion <type> <text>` | Record an inferred, assumed, or judgment statement; observations come only from sources |
+| `analysis hypothesis <question-id> <text>` | Propose a falsifiable candidate answer |
+| `analysis accept\|reject\|suspend <hypothesis-id>` | Record an explicit analyst disposition |
+| `analysis confidence <kind> <id> <level> <rationale>` | Record Low, Moderate, or High analytic confidence |
+| `analysis likelihood <kind> <id> <term> <rationale>` | Record probability language separately from confidence |
 | `note <text>` | Add an analyst note |
 | `report` / `report generate` | Build the current Dossier report |
 | `export json\|csv\|stix\|gexf` | Export investigation data |
@@ -323,6 +332,10 @@ remains text; outside an editable field it opens Help.
 
 The TUI-only `theme light|dark|high` command changes the current terminal
 palette. Use DECK controls for Day, Night, and contrast in Pivotglass.
+
+See [Analytic Method](ANALYTIC_METHOD.md) for the record distinctions and
+[Workspace Migration and Recovery](WORKSPACE_MIGRATIONS.md) before opening a
+valuable workspace with a newer release.
 
 ## Terminal navigation
 

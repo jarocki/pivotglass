@@ -8,6 +8,8 @@ interface.
 
 - [Quick Start](QUICKSTART.md) — install Pivotglass and complete a first investigation
 - [User Guide](USER_GUIDE.md) — task guidance and command reference
+- [Analytic method](ANALYTIC_METHOD.md) — scientific workflow, structured techniques, confidence, and contradictions
+- [Workspace migration and recovery](WORKSPACE_MIGRATIONS.md) — preview, backup, validation, and recovery
 - [Guided video](media/pivotglass-guided-demo-v0.7.0.mp4) — two-minute visual walkthrough
 - [Video transcript](media/pivotglass-guided-demo-transcript.md) — accessible narration text
 
@@ -28,6 +30,7 @@ have been superseded.
 
 - [v0.4.2 QA/UX plan](plans/V0.4.2_QA_UX_PLAN.md)
 - [v0.6 capability plan and disposition](plans/V0.6.0_PLAN.md)
+- [v0.8 through v1.0 approved roadmap](plans/V0.8_TO_1.0_ROADMAP.md)
 - [v0.6 arcade synthetic review](reviews/V0.6_ARCADE_SYNTHETIC_PLAYTEST.md)
 - [Development history](../MASTER_PLAN.md)
 - [Generated decision index](../DECISIONS.md)

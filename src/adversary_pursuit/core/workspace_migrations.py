@@ -1,0 +1,355 @@
+"""Versioned, backup-first migrations for Pivotglass workspace databases.
+
+This module is the sole authority for workspace schema versions.  It does not
+own investigation data semantics; it only moves durable databases forward and
+records a receipt.  Existing v0.7 and earlier databases are treated as schema
+version 1 because they predate an explicit version row.
+
+@decision DEC-WORKSPACE-MIGRATIONS-001
+@title Workspace migrations are versioned, forward-only, and backup-first
+@status accepted
+@rationale Investigation databases contain analyst work that cannot be assumed
+           reproducible. Every schema-changing path therefore has one version
+           authority, creates a recoverable sibling backup before mutation, and
+           rejects unknown future versions instead of guessing compatibility.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import shutil
+import sqlite3
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
+
+from sqlalchemy import Engine, inspect, select, text
+from sqlalchemy.orm import Session
+
+from adversary_pursuit.models.database import (
+    Base,
+    EvidenceObservation,
+    EvidenceSource,
+    Relationship,
+    StixObject,
+    WorkspaceSchemaVersion,
+)
+
+CURRENT_WORKSPACE_SCHEMA_VERSION = 2
+LEGACY_WORKSPACE_SCHEMA_VERSION = 1
+_VERSION_ROW_ID = 1
+
+
+@dataclass(frozen=True)
+class MigrationReceipt:
+    """Result of checking or upgrading one workspace database."""
+
+    from_version: int
+    to_version: int
+    migrated: bool
+    backup_path: Path | None = None
+    observations_backfilled: int = 0
+
+
+@dataclass(frozen=True)
+class MigrationPlan:
+    """Read-only description of the migration that would run."""
+
+    from_version: int
+    to_version: int
+    requires_migration: bool
+    supported: bool
+    backup_path: Path | None
+    steps: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SchemaValidation:
+    """Integrity and contract check for an already-migrated workspace."""
+
+    valid: bool
+    version: int
+    sqlite_integrity: str
+    missing_tables: tuple[str, ...]
+
+
+def sanitize_endpoint(value: str | None) -> str | None:
+    """Return a source endpoint without query parameters, fragments, or credentials."""
+
+    if value is None:
+        return None
+    try:
+        parsed = urlsplit(value)
+        hostname = parsed.hostname or ""
+        port = parsed.port
+    except ValueError:
+        return None
+    if not parsed.scheme or not parsed.netloc:
+        return value.split("?", 1)[0].split("#", 1)[0]
+    if port is not None:
+        hostname = f"{hostname}:{port}"
+    return urlunsplit((parsed.scheme, hostname, parsed.path, "", ""))
+
+
+def source_identity(
+    name: str,
+    endpoint: str | None,
+    api_version: str | None,
+    collector_version: str | None,
+    dependence_group: str | None = None,
+) -> str:
+    """Create a stable, non-secret source identity from sanitized metadata."""
+
+    payload = json.dumps(
+        {
+            "name": name,
+            "endpoint": sanitize_endpoint(endpoint),
+            "api_version": api_version,
+            "collector_version": collector_version,
+            "dependence_group": dependence_group,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return f"source-{hashlib.sha256(payload.encode()).hexdigest()[:24]}"
+
+
+def initialize_workspace_schema(engine: Engine) -> None:
+    """Create a new workspace at the current schema version."""
+
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        row = session.get(WorkspaceSchemaVersion, _VERSION_ROW_ID)
+        if row is None:
+            session.add(
+                WorkspaceSchemaVersion(
+                    id=_VERSION_ROW_ID,
+                    version=CURRENT_WORKSPACE_SCHEMA_VERSION,
+                )
+            )
+        else:
+            row.version = CURRENT_WORKSPACE_SCHEMA_VERSION
+            row.migrated_at = datetime.now(timezone.utc)
+        session.commit()
+
+
+def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
+    """Upgrade an existing workspace and return a durable migration receipt.
+
+    A sibling backup is created before the first schema-changing operation.
+    Unknown future schema versions fail loudly instead of being opened by older
+    code.  The v1 -> v2 migration creates epistemic tables and backfills one
+    legacy observation for every existing STIX object and relationship.
+    """
+
+    tables = set(inspect(engine).get_table_names())
+    if not tables:
+        initialize_workspace_schema(engine)
+        return MigrationReceipt(0, CURRENT_WORKSPACE_SCHEMA_VERSION, True)
+
+    current = _read_schema_version(engine, tables)
+    if current > CURRENT_WORKSPACE_SCHEMA_VERSION:
+        raise RuntimeError(
+            f"Workspace schema v{current} is newer than this Pivotglass build "
+            f"(supports through v{CURRENT_WORKSPACE_SCHEMA_VERSION})."
+        )
+    if current == CURRENT_WORKSPACE_SCHEMA_VERSION:
+        return MigrationReceipt(current, current, False)
+
+    backup_path = _backup_path(db_path, current)
+    if not backup_path.exists():
+        _create_sqlite_backup(db_path, backup_path)
+
+    observations_backfilled = 0
+    if current == LEGACY_WORKSPACE_SCHEMA_VERSION:
+        observations_backfilled = _migrate_v1_to_v2(engine)
+        current = 2
+
+    if current != CURRENT_WORKSPACE_SCHEMA_VERSION:
+        raise RuntimeError(
+            f"No migration path from workspace schema v{current} "
+            f"to v{CURRENT_WORKSPACE_SCHEMA_VERSION}."
+        )
+
+    return MigrationReceipt(
+        from_version=LEGACY_WORKSPACE_SCHEMA_VERSION,
+        to_version=current,
+        migrated=True,
+        backup_path=backup_path,
+        observations_backfilled=observations_backfilled,
+    )
+
+
+def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
+    """Inspect a workspace without changing it and describe the forward path."""
+
+    tables = set(inspect(engine).get_table_names())
+    if not tables:
+        return MigrationPlan(
+            from_version=0,
+            to_version=CURRENT_WORKSPACE_SCHEMA_VERSION,
+            requires_migration=True,
+            supported=True,
+            backup_path=None,
+            steps=("initialize current schema", "write schema-version receipt"),
+        )
+    current = _read_schema_version(engine, tables)
+    if current == CURRENT_WORKSPACE_SCHEMA_VERSION:
+        return MigrationPlan(current, current, False, True, None, ())
+    supported = current == LEGACY_WORKSPACE_SCHEMA_VERSION
+    return MigrationPlan(
+        from_version=current,
+        to_version=CURRENT_WORKSPACE_SCHEMA_VERSION,
+        requires_migration=True,
+        supported=supported,
+        backup_path=_backup_path(db_path, current),
+        steps=(
+            "create sibling backup",
+            "create epistemic-ledger tables",
+            "backfill legacy STIX observations",
+            "write schema-version receipt",
+        )
+        if supported
+        else (),
+    )
+
+
+def validate_workspace_schema(engine: Engine) -> SchemaValidation:
+    """Run SQLite integrity and required-table checks without mutating data."""
+
+    tables = set(inspect(engine).get_table_names())
+    version = _read_schema_version(engine, tables)
+    required_tables = set(Base.metadata.tables)
+    missing = tuple(sorted(required_tables - tables))
+    with engine.connect() as connection:
+        integrity = str(connection.execute(text("PRAGMA quick_check")).scalar_one())
+    return SchemaValidation(
+        valid=(
+            version == CURRENT_WORKSPACE_SCHEMA_VERSION
+            and integrity.casefold() == "ok"
+            and not missing
+        ),
+        version=version,
+        sqlite_integrity=integrity,
+        missing_tables=missing,
+    )
+
+
+def get_workspace_schema_version(engine: Engine) -> int:
+    """Return the detected schema version without mutating the workspace."""
+
+    return _read_schema_version(engine, set(inspect(engine).get_table_names()))
+
+
+def _read_schema_version(engine: Engine, tables: set[str]) -> int:
+    if "workspace_schema_version" not in tables:
+        return LEGACY_WORKSPACE_SCHEMA_VERSION
+    with Session(engine) as session:
+        row = session.get(WorkspaceSchemaVersion, _VERSION_ROW_ID)
+        if row is None:
+            raise RuntimeError("Workspace schema table exists without its required version row.")
+        return int(row.version)
+
+
+def _backup_path(db_path: Path, version: int) -> Path:
+    return db_path.with_name(f"{db_path.name}.pre-v{version}-backup")
+
+
+def _create_sqlite_backup(db_path: Path, backup_path: Path) -> None:
+    """Create a consistent backup, including committed WAL content."""
+
+    try:
+        with sqlite3.connect(db_path) as source, sqlite3.connect(backup_path) as destination:
+            source.backup(destination)
+        shutil.copystat(db_path, backup_path)
+    except Exception:
+        backup_path.unlink(missing_ok=True)
+        raise
+
+
+def _migrate_v1_to_v2(engine: Engine) -> int:
+    # create_all is intentionally scoped to this migration step. Future changes
+    # that alter existing columns require a new explicit migration function.
+    Base.metadata.create_all(engine)
+    backfilled = 0
+    with Session(engine) as session:
+        for row in session.execute(select(StixObject).order_by(StixObject.id)).scalars():
+            backfilled += _backfill_observation(
+                session,
+                entity_ref=row.id,
+                entity_type=row.type,
+                entity_value=row.value,
+                blob=dict(row.json_blob),
+                created_at=row.created_at,
+            )
+        for row in session.execute(select(Relationship).order_by(Relationship.id)).scalars():
+            backfilled += _backfill_observation(
+                session,
+                entity_ref=row.id,
+                entity_type="relationship",
+                entity_value=row.relationship_type,
+                blob=dict(row.json_blob),
+                created_at=row.created_at,
+            )
+
+        session.add(
+            WorkspaceSchemaVersion(
+                id=_VERSION_ROW_ID,
+                version=CURRENT_WORKSPACE_SCHEMA_VERSION,
+                migrated_at=datetime.now(timezone.utc),
+            )
+        )
+        session.commit()
+    return backfilled
+
+
+def _backfill_observation(
+    session: Session,
+    *,
+    entity_ref: str,
+    entity_type: str,
+    entity_value: str | None,
+    blob: dict,
+    created_at: datetime,
+) -> int:
+    source_name = str(blob.get("x_ap_source_module") or "legacy/unknown")
+    endpoint = sanitize_endpoint(blob.get("x_ap_source_url"))
+    api_version = blob.get("x_ap_api_version")
+    source_id = source_identity(source_name, endpoint, api_version, "legacy")
+    if session.get(EvidenceSource, source_id) is None:
+        session.add(
+            EvidenceSource(
+                id=source_id,
+                name=source_name,
+                source_type="legacy",
+                endpoint=endpoint,
+                api_version=api_version,
+                collector_version="legacy",
+            )
+        )
+
+    fetched_at = str(
+        blob.get("x_ap_fetched_at")
+        or created_at.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
+    )
+    digest_input = f"{entity_ref}\0{source_id}\0{fetched_at}".encode()
+    observation_id = f"observation-legacy-{hashlib.sha256(digest_input).hexdigest()[:24]}"
+    if session.get(EvidenceObservation, observation_id) is not None:
+        return 0
+    session.add(
+        EvidenceObservation(
+            id=observation_id,
+            entity_ref=entity_ref,
+            entity_type=entity_type,
+            entity_value=entity_value,
+            source_id=source_id,
+            module_run_id=None,
+            fetched_at=fetched_at,
+            response_sha256=blob.get("x_ap_response_sha256"),
+            observed_blob=blob,
+            created_at=created_at,
+        )
+    )
+    return 1

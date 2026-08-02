@@ -138,12 +138,13 @@ also export the exact rows, nodes, and edges behind the current view.
 Pivotglass and the terminal interface complete and execute the same local
 command families:
 
-- `workspace` — list, create, switch, export, merge, or safely delete workspaces
+- `workspace` — list, create, switch, validate schema, export, merge, or safely delete workspaces
 - `mode` — list or select a character
 - `model` — inspect, check, select, enable, disable, or repair model settings
 - `config` — inspect, test, enable, disable, or repair intelligence APIs
 - `use <indicator>` — set an investigation target
 - `search`, `graph`, `dossier`, `gaps`, and `timeline` — inspect stored work
+- `analysis` — record questions, hypotheses, assertions, confidence, likelihood, contradictions, and structured methods
 - `note` — add analyst-authored context
 - `report` and `export` — produce reports or portable data
 - `autopivot`, `hint`, and `challenges` — control optional assistance

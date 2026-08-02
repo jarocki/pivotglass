@@ -1,7 +1,7 @@
 """SQLAlchemy ORM models for workspace storage.
 
 Each workspace is a separate SQLite file. This module defines the shared schema
-(Base + four tables) that WorkspaceManager applies to every workspace database.
+that WorkspaceManager applies to every workspace database.
 
 @decision DEC-DB-001
 @title STIX objects stored as JSON blobs, not relational decomposition
@@ -14,12 +14,13 @@ Each workspace is a separate SQLite file. This module defines the shared schema
            into the blob when needed in future iterations.
 
 @decision DEC-DB-002
-@title No Alembic migrations in v1
-@status accepted
-@rationale Schema is greenfield and evolving rapidly. Workspaces are per-investigation
-           SQLite files that can be recreated without data loss concerns (investigation
-           data is always re-derivable from module runs). Migration overhead is not
-           justified pre-1.0. When schema stabilizes post-1.0, Alembic can be added.
+@title Versioned, backup-first workspace migrations begin in v0.8
+@status superseded
+@rationale The pre-1.0 assumption that investigation databases could always be
+           recreated ceased to be true once analyst notes, predictions, annotations,
+           and imported evidence became durable user work. Workspace migrations are
+           now explicit and versioned; existing databases are backed up before the
+           first schema-changing step. See core/workspace_migrations.py.
 
 @decision DEC-DB-003
 @title SQLAlchemy 2.0 DeclarativeBase, not legacy declarative_base()
@@ -34,7 +35,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Column, DateTime, Integer, String, Text
+from sqlalchemy import JSON, Column, DateTime, Float, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase
 
 # @decision DEC-DB-004
@@ -49,6 +50,20 @@ from sqlalchemy.orm import DeclarativeBase
 
 class Base(DeclarativeBase):
     """Shared declarative base for all workspace tables."""
+
+
+class WorkspaceSchemaVersion(Base):
+    """Single-row authority for the workspace schema version."""
+
+    __tablename__ = "workspace_schema_version"
+
+    id = Column(Integer, primary_key=True)
+    version = Column(Integer, nullable=False)
+    migrated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
 
 class StixObject(Base):
@@ -237,3 +252,259 @@ class AnalystNote(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+
+class EvidenceSource(Base):
+    """A stable collection-source identity, separate from any observation."""
+
+    __tablename__ = "evidence_sources"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False, index=True)
+    source_type = Column(String, nullable=False, default="provider")
+    endpoint = Column(Text, nullable=True)
+    api_version = Column(String, nullable=True)
+    collector_version = Column(String, nullable=True)
+    dependence_group = Column(String, nullable=True, index=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class EvidenceObservation(Base):
+    """Immutable record that a source observed an entity or relationship.
+
+    Normalized STIX objects remain deduplicated. Observations deliberately do
+    not: two sources seeing the same entity are two analytically meaningful
+    records, as are two observations by one source at different times.
+    """
+
+    __tablename__ = "evidence_observations"
+
+    id = Column(String, primary_key=True)
+    entity_ref = Column(String, nullable=False, index=True)
+    entity_type = Column(String, nullable=False, index=True)
+    entity_value = Column(Text, nullable=True)
+    source_id = Column(String, nullable=False, index=True)
+    module_run_id = Column(Integer, nullable=True, index=True)
+    fetched_at = Column(String, nullable=False, index=True)
+    response_sha256 = Column(String, nullable=True)
+    response_media_type = Column(String, nullable=True)
+    handling_marking = Column(String, nullable=True)
+    transformation_id = Column(String, nullable=True)
+    raw_artifact_ref = Column(String, nullable=True)
+    retained_until = Column(DateTime, nullable=True)
+    observed_blob = Column(JSON, nullable=False)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class EvidenceObservationDisposition(Base):
+    """Append-only correction, retraction, or supersession of an observation.
+
+    The observation itself is never edited. This event records what changed,
+    why, by whom, and—when applicable—which immutable observation replaces it.
+    """
+
+    __tablename__ = "evidence_observation_dispositions"
+
+    id = Column(String, primary_key=True)
+    observation_id = Column(String, nullable=False, index=True)
+    action = Column(String, nullable=False, index=True)
+    replacement_observation_id = Column(String, nullable=True, index=True)
+    reason = Column(Text, nullable=False)
+    recorded_by = Column(String, nullable=False, default="human")
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class InvestigationQuestion(Base):
+    """The explicit question an investigation is attempting to answer."""
+
+    __tablename__ = "investigation_questions"
+
+    id = Column(String, primary_key=True)
+    text = Column(Text, nullable=False)
+    status = Column(String, nullable=False, default="open", index=True)
+    created_by = Column(String, nullable=False, default="human")
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    closed_at = Column(DateTime, nullable=True)
+
+
+class AnalyticAssertion(Base):
+    """A contestable statement distinguished from its supporting evidence."""
+
+    __tablename__ = "analytic_assertions"
+
+    id = Column(String, primary_key=True)
+    statement = Column(Text, nullable=False)
+    assertion_type = Column(String, nullable=False, index=True)
+    status = Column(String, nullable=False, default="active", index=True)
+    subject_ref = Column(String, nullable=True, index=True)
+    predicate = Column(String, nullable=True)
+    object_ref = Column(String, nullable=True, index=True)
+    object_value = Column(Text, nullable=True)
+    author_kind = Column(String, nullable=False, default="human")
+    method = Column(String, nullable=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class AnalyticHypothesis(Base):
+    """A falsifiable candidate answer to an investigation question."""
+
+    __tablename__ = "analytic_hypotheses"
+
+    id = Column(String, primary_key=True)
+    question_id = Column(String, nullable=False, index=True)
+    statement = Column(Text, nullable=False)
+    status = Column(String, nullable=False, default="proposed", index=True)
+    author_kind = Column(String, nullable=False, default="human")
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class AnalyticEvidenceLink(Base):
+    """A typed support or contradiction link in the epistemic graph."""
+
+    __tablename__ = "analytic_evidence_links"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_kind",
+            "source_id",
+            "target_kind",
+            "target_id",
+            "stance",
+            name="uq_analytic_evidence_link",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source_kind = Column(String, nullable=False)
+    source_id = Column(String, nullable=False, index=True)
+    target_kind = Column(String, nullable=False)
+    target_id = Column(String, nullable=False, index=True)
+    stance = Column(String, nullable=False, index=True)
+    rationale = Column(Text, nullable=False)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class AnalyticConfidenceAssessment(Base):
+    """Confidence in the evidentiary and logical basis of a judgment.
+
+    Likelihood is intentionally not stored here. A separate table prevents a
+    provider score, probability estimate, completeness score, and analytic
+    confidence from silently becoming one overloaded number.
+    """
+
+    __tablename__ = "analytic_confidence_assessments"
+
+    id = Column(String, primary_key=True)
+    target_kind = Column(String, nullable=False)
+    target_id = Column(String, nullable=False, index=True)
+    level = Column(String, nullable=False, index=True)
+    rationale = Column(Text, nullable=False)
+    factors = Column(JSON, nullable=False, default=dict)
+    assessed_by = Column(String, nullable=False, default="human")
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class LikelihoodAssessment(Base):
+    """Probability language for a future event, separate from confidence."""
+
+    __tablename__ = "likelihood_assessments"
+
+    id = Column(String, primary_key=True)
+    target_kind = Column(String, nullable=False)
+    target_id = Column(String, nullable=False, index=True)
+    term = Column(String, nullable=False, index=True)
+    probability_min = Column(Float, nullable=False)
+    probability_max = Column(Float, nullable=False)
+    rationale = Column(Text, nullable=False)
+    assessed_by = Column(String, nullable=False, default="human")
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class AnalyticContradiction(Base):
+    """A first-class unresolved or resolved conflict between analytic records."""
+
+    __tablename__ = "analytic_contradictions"
+
+    id = Column(String, primary_key=True)
+    left_kind = Column(String, nullable=False)
+    left_id = Column(String, nullable=False, index=True)
+    right_kind = Column(String, nullable=False)
+    right_id = Column(String, nullable=False, index=True)
+    summary = Column(Text, nullable=False)
+    materiality = Column(String, nullable=False, default="medium", index=True)
+    status = Column(String, nullable=False, default="unresolved", index=True)
+    resolution_required = Column(Text, nullable=False)
+    resolution_note = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    resolved_at = Column(DateTime, nullable=True)
+
+
+class AnalyticMethodRun(Base):
+    """Versioned execution record for a Structured Analytic Technique."""
+
+    __tablename__ = "analytic_method_runs"
+
+    id = Column(String, primary_key=True)
+    question_id = Column(String, nullable=False, index=True)
+    technique = Column(String, nullable=False, index=True)
+    technique_version = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="draft", index=True)
+    input_blob = Column(JSON, nullable=False)
+    output_blob = Column(JSON, nullable=True)
+    created_by = Column(String, nullable=False, default="human")
+    analyst_disposition = Column(String, nullable=False, default="pending", index=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    completed_at = Column(DateTime, nullable=True)

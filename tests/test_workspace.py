@@ -324,6 +324,16 @@ class TestWorkspaceManagerCRUD:
         with pytest.raises(ValueError, match="already exists"):
             wm.create("alpha")
 
+    @pytest.mark.parametrize(
+        "name",
+        ("../escape", "/tmp/escape", "nested/name", "", ".hidden", "a" * 129),
+    )
+    def test_workspace_names_cannot_escape_workspace_directory(self, tmp_path, name):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        with pytest.raises(ValueError, match="Workspace names"):
+            wm.create(name)
+        assert list(tmp_path.glob("**/*.db")) == []
+
 
 # ---------------------------------------------------------------------------
 # WorkspaceManager data operations
@@ -1190,10 +1200,21 @@ class TestWorkspaceClear:
         return wm
 
     def test_clear_active_empty_workspace_is_noop(self, tmp_path):
-        """clear() on an empty workspace returns zeros for all 6 tables."""
+        """clear() on an empty workspace returns zero for every data table."""
         wm = self._make_wm(tmp_path)
         deleted = wm.clear()
         assert deleted == {
+            "analytic_evidence_links": 0,
+            "analytic_method_runs": 0,
+            "analytic_contradictions": 0,
+            "analytic_confidence_assessments": 0,
+            "likelihood_assessments": 0,
+            "analytic_hypotheses": 0,
+            "analytic_assertions": 0,
+            "investigation_questions": 0,
+            "evidence_observation_dispositions": 0,
+            "evidence_observations": 0,
+            "evidence_sources": 0,
             "stix_objects": 0,
             "relationships": 0,
             "module_runs": 0,
@@ -1335,10 +1356,21 @@ class TestWorkspaceStatusHelpers:
         assert size_beta > 0
 
     def test_get_workspace_table_counts_keys_complete(self, tmp_path):
-        """get_workspace_table_counts() returns all 6 expected table keys."""
+        """get_workspace_table_counts() returns every investigation-data table."""
         wm = self._make_wm(tmp_path)
         counts = wm.get_workspace_table_counts()
         expected_keys = {
+            "evidence_sources",
+            "evidence_observations",
+            "evidence_observation_dispositions",
+            "investigation_questions",
+            "analytic_assertions",
+            "analytic_hypotheses",
+            "analytic_evidence_links",
+            "analytic_method_runs",
+            "analytic_confidence_assessments",
+            "likelihood_assessments",
+            "analytic_contradictions",
             "stix_objects",
             "relationships",
             "module_runs",

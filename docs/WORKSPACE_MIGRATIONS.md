@@ -1,0 +1,60 @@
+# Workspace migration and recovery
+
+Pivotglass workspaces are durable investigation records, not disposable caches.
+Beginning with the v0.8 schema, each workspace carries an explicit schema
+version. Pivotglass checks that version whenever it opens the workspace.
+
+## Preview and validate
+
+Run this before upgrading a valuable workspace:
+
+```text
+workspace schema
+workspace schema case-name
+```
+
+The command is read-only. It reports the current and target versions, whether
+the migration is supported, the planned steps and backup path, SQLite's
+integrity result, and any missing required tables. A future schema version is
+rejected instead of being opened by an older Pivotglass build.
+
+## What an upgrade does
+
+The first v1-to-v2 upgrade performs these operations in order:
+
+1. creates a sibling `NAME.db.pre-v1-backup` copy;
+2. adds the epistemic-ledger tables;
+3. backfills each legacy STIX object and relationship as a legacy observation;
+4. writes the schema-version receipt;
+5. validates the resulting schema when requested with `workspace schema`.
+
+The normalized STIX records are not rewritten. The backfill labels unknown
+legacy source details as `legacy` or `legacy/unknown`; it does not invent them.
+
+## Recovery
+
+If migration fails, Pivotglass leaves the prior active workspace selected and
+reports the failure. Do not overwrite the failed database. Stop Pivotglass,
+copy the sibling backup to a new workspace name, and open that copy with the
+older release that created it. For example:
+
+```sh
+cp ~/.ap/workspaces/case.db.pre-v1-backup ~/.ap/workspaces/case-recovery.db
+```
+
+This creates a recoverable copy while preserving both the failed database and
+the original backup. Keep the backup until you have validated the upgraded
+workspace and exported its investigation record.
+
+## Data handling guarantees
+
+- Provider credentials, URL query strings, URL fragments, and embedded URL
+  user information are not stored as source endpoints.
+- Normalized entities may deduplicate; observations do not.
+- Corrections, retractions, and supersessions are append-only disposition
+  events. They do not edit the original observation.
+- Clearing a workspace removes investigation content but retains the schema
+  receipt so the empty workspace remains safely openable.
+
+Migration support is forward-only. Downgrading an upgraded workspace in place
+is not supported; use the preserved backup with the older release instead.

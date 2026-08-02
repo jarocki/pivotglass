@@ -36,6 +36,7 @@ from adversary_pursuit.agent.tui.themes import (
     DEFAULT_THEMES,
     PURSUIT_TITLES,
 )
+from adversary_pursuit.core.analytic_commands import execute_analysis_command
 from adversary_pursuit.core.command_completion import command_completions
 from adversary_pursuit.core.evidence_detail import evidence_ref, list_evidence, project_evidence
 from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
@@ -242,6 +243,7 @@ class WebCockpitService:
             {"command": "workspace list", "purpose": "List investigation workspaces"},
             {"command": "workspace create <name>", "purpose": "Create and switch to an isolated workspace"},
             {"command": "workspace switch <name>", "purpose": "Switch the active workspace"},
+            {"command": "workspace schema [name]", "purpose": "Validate integrity and preview any required migration"},
             {"command": "workspace export <name>", "purpose": "Download a portable workspace archive"},
             {"command": "workspace merge <source> <destination>", "purpose": "Merge evidence transactionally without changing the source"},
             {"command": "workspace delete <name> --confirm <name>", "purpose": "Delete an inactive workspace after explicit confirmation"},
@@ -250,6 +252,9 @@ class WebCockpitService:
             {"command": "timeline", "purpose": "Show the ordered collection timeline"},
             {"command": "note <text>", "purpose": "Save an analyst annotation"},
             {"command": "report", "purpose": "Generate the evidence-grounded Markdown report"},
+            {"command": "analysis show", "purpose": "Show questions, hypotheses, assertions, confidence, likelihood, and contradictions"},
+            {"command": "analysis methods", "purpose": "List the supported structured analytic techniques and their required records"},
+            {"command": "analysis question <text>", "purpose": "Record the investigation question the evidence must answer"},
             {"command": "export <json|csv|stix|gexf>", "purpose": "Download workspace data"},
             {"command": "help", "purpose": "Show this command reference"},
             {"command": "model show", "purpose": "Show the effective provider, model, credential source, and enabled state"},
@@ -336,6 +341,13 @@ class WebCockpitService:
                     self.ctx.workspace_mgr.create(parts[1])
                 self.ctx.workspace_mgr.switch(parts[1])
                 return {"kind": "state", "text": f"Workspace active: {parts[1]}", "state": self.state()}
+            if sub == "schema" and len(parts) <= 2:
+                workspace_name = parts[1] if len(parts) == 2 else None
+                return {
+                    "kind": "json",
+                    "title": "Workspace schema and integrity",
+                    "data": self.ctx.workspace_mgr.get_workspace_schema_status(workspace_name),
+                }
             if sub == "export" and len(parts) == 2:
                 content = json.dumps(export_workspace(self.ctx.workspace_mgr, parts[1]), indent=2, default=str)
                 return {"kind": "download", "filename": f"{parts[1]}-workspace.ap.json", "mime": "application/json", "content": content}
@@ -349,7 +361,7 @@ class WebCockpitService:
                     raise ValueError("cannot delete the active workspace; switch first")
                 self.ctx.workspace_mgr.delete(parts[1])
                 return {"kind": "text", "title": "Workspace deleted", "text": parts[1]}
-            raise ValueError("usage: workspace list|create <name>|switch <name>|export <name>|merge <source> <destination>|delete <name> --confirm <name>")
+            raise ValueError("usage: workspace list|create <name>|switch <name>|schema [name]|export <name>|merge <source> <destination>|delete <name> --confirm <name>")
         if command in {"status", "show"} and (command == "status" or rest in {"", "status"}):
             summary, *_ = execute_tool(self.ctx, "get_workspace_summary", {})
             return {"kind": "text", "title": "Workspace status", "text": str(summary)}
@@ -376,6 +388,9 @@ class WebCockpitService:
         if command == "report":
             summary, *_ = execute_tool(self.ctx, "generate_dossier_report", {})
             return {"kind": "text", "title": "Dossier report", "text": str(summary), "printable": True}
+        if command == "analysis":
+            result = execute_analysis_command(tuple(rest.split()), self.ctx.workspace_mgr)
+            return {"kind": "json", **result}
         if command == "export":
             return self.export_payload(rest or "stix")
         if command in {"clear", "quit", "exit", "q"}:

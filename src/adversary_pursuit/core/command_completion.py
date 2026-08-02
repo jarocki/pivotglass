@@ -18,6 +18,7 @@ TOP_LEVEL_COMMANDS: tuple[str, ...] = (
     "note",
     "export",
     "report",
+    "analysis",
     "help",
     "model",
     "config",
@@ -108,12 +109,35 @@ def command_completions(
         choices = ["light", "dark", "high"]
     elif command == "report":
         choices = ["answer", "generate"]
+    elif command == "analysis":
+        choices = [
+            "show",
+            "methods",
+            "contradictions",
+            "question ",
+            "assertion ",
+            "hypothesis ",
+            "accept ",
+            "reject ",
+            "suspend ",
+            "confidence ",
+            "likelihood ",
+        ]
     elif command == "autopivot":
         choices = ["on", "off"]
     elif command == "workspace":
-        subcommands = ["list", "create ", "switch ", "export ", "merge ", "delete "]
+        subcommands = [
+            "list",
+            "create ",
+            "switch ",
+            "schema",
+            "schema ",
+            "export ",
+            "merge ",
+            "delete ",
+        ]
         choices = list(subcommands)
-        for action in ("switch", "export"):
+        for action in ("switch", "schema", "export"):
             choices.extend(f"{action} {name}" for name in workspace_names)
         choices.extend(f"merge {name} " for name in workspace_names)
         choices.extend(f"delete {name} --confirm {name}" for name in workspace_names)

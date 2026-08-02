@@ -56,6 +56,8 @@ from __future__ import annotations
 
 import json
 import logging
+import re
+import uuid
 import warnings
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -65,10 +67,28 @@ from typing import Generator
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
+from adversary_pursuit.core.workspace_migrations import (
+    ensure_workspace_schema,
+    initialize_workspace_schema,
+    plan_workspace_migration,
+    sanitize_endpoint,
+    source_identity,
+    validate_workspace_schema,
+)
 from adversary_pursuit.models.database import (
     AnalystNote,
+    AnalyticAssertion,
+    AnalyticConfidenceAssessment,
+    AnalyticContradiction,
+    AnalyticEvidenceLink,
+    AnalyticHypothesis,
+    AnalyticMethodRun,
     BadgeEvent,
-    Base,
+    EvidenceObservation,
+    EvidenceObservationDisposition,
+    EvidenceSource,
+    InvestigationQuestion,
+    LikelihoodAssessment,
     ModuleRun,
     ScoreEvent,
     StixObject,
@@ -88,14 +108,12 @@ from adversary_pursuit.models.stix import dict_to_stix
 #            user interaction; the manager owns data mutation.
 
 # @decision DEC-WORKSPACE-DB-002
-# @title 6 ORM models cleared per workspace clear; sentinel rows cleared by side effect
-# @status accepted
-# @rationale The 6 tables (stix_objects, relationships, module_runs, score_events,
-#            analyst_notes, badge_events) together represent all investigation data for
-#            a workspace. Sentinel rows in score_events (_milestone_sentinel,
-#            _dossier_state_snapshot, _predictions_log) ARE cleared by intentional side
-#            effect — "clear workspace data" includes dossier state. This aligns with the
-#            user's mental model of "clear this investigation."
+# @title Workspace clear covers operational and epistemic data; schema receipt survives
+# @status superseded
+# @rationale v0.8 adds sources, observations, questions, assertions, hypotheses,
+#            evidence links, confidence, likelihood, and contradictions. Clear removes
+#            all investigation content but preserves workspace_schema_version so an empty
+#            workspace remains safely openable without repeating a migration.
 
 # @decision DEC-WORKSPACE-DB-007
 # @title Post-clear loud verification — RuntimeError if any table still has rows
@@ -229,7 +247,7 @@ class WorkspaceManager:
             raise ValueError(f"Workspace '{name}' already exists at {db_path}")
         self._workspace_dir.mkdir(parents=True, exist_ok=True)
         engine = create_engine(f"sqlite:///{db_path}")
-        Base.metadata.create_all(engine)
+        initialize_workspace_schema(engine)
         engine.dispose()
 
     def delete(self, name: str) -> None:
@@ -285,9 +303,18 @@ class WorkspaceManager:
         db_path = self._db_path(name)
         if not db_path.exists():
             raise ValueError(f"Workspace '{name}' does not exist")
+        # Validate and migrate a candidate engine before replacing the active
+        # connection. A failed migration must not strand the session with a
+        # half-selected workspace or discard access to the previous case.
+        candidate_engine = create_engine(f"sqlite:///{db_path}")
+        try:
+            ensure_workspace_schema(candidate_engine, db_path)
+        except Exception:
+            candidate_engine.dispose()
+            raise
         if self._engine is not None:
             self._engine.dispose()
-        self._engine = create_engine(f"sqlite:///{db_path}")
+        self._engine = candidate_engine
         self._active = name
         # Start session timer on first switch (DEC-WORKSPACE-PIVOTS-001)
         if self._session_started_at == 0.0:
@@ -358,6 +385,13 @@ class WorkspaceManager:
         api_version: str | None = None,
         response_sha256: str | None = None,
         fetched_at: str | None = None,
+        collector_version: str | None = None,
+        response_media_type: str | None = None,
+        handling_marking: str | None = None,
+        transformation_id: str | None = None,
+        raw_artifact_ref: str | None = None,
+        retained_until: datetime | None = None,
+        source_dependence_group: str | None = None,
     ) -> int:
         """Store STIX objects from a module run.
 
@@ -380,8 +414,9 @@ class WorkspaceManager:
         target:
             The hunt() target string for the audit log.
         source_url:
-            URL of the vendor API endpoint that produced these objects.
-            Stored verbatim as x_ap_source_url. Pass None for legacy call sites.
+            URL of the vendor API endpoint that produced these objects. User
+            information, query parameters, and fragments are removed before
+            persistence. Pass None for legacy call sites.
         api_version:
             Vendor API version string (e.g. "v2"). Stored verbatim as
             x_ap_api_version. Pass None for legacy call sites.
@@ -440,6 +475,12 @@ class WorkspaceManager:
         #            run BEFORE store_stix_objects on fresh sessions, triggering the crash.
         self._ensure_active()
         stored_count = 0
+        if raw_artifact_ref is not None and not raw_artifact_ref.startswith(
+            ("artifact://", "sha256:")
+        ):
+            raise ValueError(
+                "raw_artifact_ref must be an opaque artifact:// or sha256: identifier, not a path."
+            )
 
         # Resolve fetched_at default once for the entire batch (DEC-59-STIX-PROVENANCE-004)
         effective_fetched_at = fetched_at or datetime.now(timezone.utc).isoformat().replace(
@@ -457,14 +498,47 @@ class WorkspaceManager:
             "x_ap_fetched_at": effective_fetched_at,
             "x_ap_source_module": module_name,
         }
-        if source_url is not None:
-            provenance["x_ap_source_url"] = source_url
+        sanitized_source_url = sanitize_endpoint(source_url)
+        if sanitized_source_url is not None:
+            provenance["x_ap_source_url"] = sanitized_source_url
         if api_version is not None:
             provenance["x_ap_api_version"] = api_version
         if response_sha256 is not None:
             provenance["x_ap_response_sha256"] = response_sha256
 
         with Session(self._engine) as session:
+            # Create the authoritative execution record first so each immutable
+            # observation can point to the run that collected it.
+            run = ModuleRun(
+                module_name=module_name,
+                target=target,
+                result_count=0,
+            )
+            session.add(run)
+            session.flush()
+
+            endpoint = sanitized_source_url
+            source_id = source_identity(
+                module_name,
+                endpoint,
+                api_version,
+                collector_version,
+                source_dependence_group,
+            )
+            source = session.get(EvidenceSource, source_id)
+            if source is None:
+                session.add(
+                    EvidenceSource(
+                        id=source_id,
+                        name=module_name,
+                        source_type="provider",
+                        endpoint=endpoint,
+                        api_version=api_version,
+                        collector_version=collector_version,
+                        dependence_group=source_dependence_group,
+                    )
+                )
+
             for obj in objects:
                 # Strip caller-supplied x_ap_* fields from dicts before conversion
                 # (DEC-59-STIX-PROVENANCE-001: workspace is the sole x_ap_* authority)
@@ -488,19 +562,36 @@ class WorkspaceManager:
 
                 # Dispatch on STIX object type
                 obj_type = getattr(obj, "type", None)
+                serialized = json.loads(obj.serialize())
                 if obj_type == "relationship":
                     self._store_relationship(session, obj)
                 else:
                     self._store_sco(session, obj, provenance)
+                session.add(
+                    EvidenceObservation(
+                        id=f"observation-{uuid.uuid4()}",
+                        entity_ref=obj.id,
+                        entity_type=obj_type or "unknown",
+                        entity_value=(
+                            serialized.get("value")
+                            if obj_type != "relationship"
+                            else serialized.get("relationship_type")
+                        ),
+                        source_id=source_id,
+                        module_run_id=run.id,
+                        fetched_at=effective_fetched_at,
+                        response_sha256=response_sha256,
+                        response_media_type=response_media_type,
+                        handling_marking=handling_marking,
+                        transformation_id=transformation_id,
+                        raw_artifact_ref=raw_artifact_ref,
+                        retained_until=retained_until,
+                        observed_blob=serialized,
+                    )
+                )
                 stored_count += 1
 
-            # Log the module run
-            run = ModuleRun(
-                module_name=module_name,
-                target=target,
-                result_count=stored_count,
-            )
-            session.add(run)
+            run.result_count = stored_count
             session.commit()
 
         return stored_count
@@ -546,6 +637,114 @@ class WorkspaceManager:
                     "timestamp": row.timestamp,
                     "result_count": row.result_count,
                 }
+                for row in rows
+            ]
+
+    def get_observations(
+        self,
+        *,
+        entity_ref: str | None = None,
+        source_module: str | None = None,
+    ) -> list[dict]:
+        """Return immutable observation records in collection order."""
+
+        self._ensure_active()
+        with Session(self._engine) as session:
+            stmt = select(EvidenceObservation, EvidenceSource).join(
+                EvidenceSource,
+                EvidenceObservation.source_id == EvidenceSource.id,
+            )
+            if entity_ref is not None:
+                stmt = stmt.where(EvidenceObservation.entity_ref == entity_ref)
+            if source_module is not None:
+                stmt = stmt.where(EvidenceSource.name == source_module)
+            rows = session.execute(stmt.order_by(EvidenceObservation.created_at)).all()
+            return [
+                {
+                    "id": observation.id,
+                    "entity_ref": observation.entity_ref,
+                    "entity_type": observation.entity_type,
+                    "entity_value": observation.entity_value,
+                    "source_id": source.id,
+                    "source_module": source.name,
+                    "source_type": source.source_type,
+                    "source_endpoint": source.endpoint,
+                    "api_version": source.api_version,
+                    "collector_version": source.collector_version,
+                    "source_dependence_group": source.dependence_group,
+                    "module_run_id": observation.module_run_id,
+                    "fetched_at": observation.fetched_at,
+                    "response_sha256": observation.response_sha256,
+                    "response_media_type": observation.response_media_type,
+                    "handling_marking": observation.handling_marking,
+                    "transformation_id": observation.transformation_id,
+                    "raw_artifact_ref": observation.raw_artifact_ref,
+                    "retained_until": observation.retained_until,
+                    "observed_blob": observation.observed_blob,
+                    "created_at": observation.created_at,
+                }
+                for observation, source in rows
+            ]
+
+    def record_observation_disposition(
+        self,
+        observation_id: str,
+        *,
+        action: str,
+        reason: str,
+        replacement_observation_id: str | None = None,
+        recorded_by: str = "human",
+    ) -> str:
+        """Append a correction, retraction, or supersession without editing evidence."""
+
+        normalized_action = action.casefold()
+        if normalized_action not in {"corrected", "retracted", "superseded"}:
+            raise ValueError("Observation action must be corrected, retracted, or superseded.")
+        if not reason.strip():
+            raise ValueError("Observation disposition requires a reason.")
+        if normalized_action in {"corrected", "superseded"} and not replacement_observation_id:
+            raise ValueError(f"{normalized_action.title()} observations require a replacement.")
+        self._ensure_active()
+        disposition_id = f"observation-disposition-{uuid.uuid4()}"
+        with Session(self._engine) as session:
+            if session.get(EvidenceObservation, observation_id) is None:
+                raise ValueError(f"Unknown observation: {observation_id}")
+            if replacement_observation_id is not None:
+                if replacement_observation_id == observation_id:
+                    raise ValueError("An observation cannot replace itself.")
+                if session.get(EvidenceObservation, replacement_observation_id) is None:
+                    raise ValueError(f"Unknown replacement observation: {replacement_observation_id}")
+            session.add(
+                EvidenceObservationDisposition(
+                    id=disposition_id,
+                    observation_id=observation_id,
+                    action=normalized_action,
+                    replacement_observation_id=replacement_observation_id,
+                    reason=reason.strip(),
+                    recorded_by=recorded_by,
+                )
+            )
+            session.commit()
+        return disposition_id
+
+    def get_observation_dispositions(
+        self,
+        observation_id: str | None = None,
+    ) -> list[dict]:
+        """Return append-only observation correction and retraction events."""
+
+        self._ensure_active()
+        with Session(self._engine) as session:
+            statement = select(EvidenceObservationDisposition)
+            if observation_id is not None:
+                statement = statement.where(
+                    EvidenceObservationDisposition.observation_id == observation_id
+                )
+            rows = session.execute(
+                statement.order_by(EvidenceObservationDisposition.created_at)
+            ).scalars()
+            return [
+                {column.name: getattr(row, column.name) for column in row.__table__.columns}
                 for row in rows
             ]
 
@@ -889,9 +1088,8 @@ class WorkspaceManager:
     def clear(self, name: str | None = None) -> dict[str, int]:
         """Clear all data tables in the named workspace (or active if None).
 
-        Deletes all rows from 6 ORM models: ``stix_objects``, ``relationships``,
-        ``module_runs``, ``score_events``, ``analyst_notes``, ``badge_events``.
-        The SQLite file and schema are preserved; only row data is removed.
+        Deletes all operational and epistemic investigation records. The SQLite
+        file, schema, and schema-version receipt are preserved.
 
         Sentinel rows stored in ``score_events`` (``_milestone_sentinel``,
         ``_dossier_state_snapshot``, ``_predictions_log``) are cleared by
@@ -932,8 +1130,7 @@ class WorkspaceManager:
         ValueError
             If ``name`` is given but does not exist.
         RuntimeError
-            If post-clear verification finds any of the 6 tables still non-empty
-            (DEC-WORKSPACE-DB-007).
+            If post-clear verification finds any data table still non-empty.
         """
         if name is not None:
             # Named workspace — validate existence without switching active session
@@ -955,7 +1152,23 @@ class WorkspaceManager:
         deleted: dict[str, int] = {}
 
         with Session(target_engine) as session:
-            # Delete all rows from each of the 6 ORM data models
+            # Delete epistemic links before their targets. Explicit ordering keeps
+            # this correct if foreign-key enforcement is enabled in a future schema.
+            deleted["analytic_evidence_links"] = session.query(AnalyticEvidenceLink).delete()
+            deleted["analytic_method_runs"] = session.query(AnalyticMethodRun).delete()
+            deleted["analytic_contradictions"] = session.query(AnalyticContradiction).delete()
+            deleted["analytic_confidence_assessments"] = session.query(
+                AnalyticConfidenceAssessment
+            ).delete()
+            deleted["likelihood_assessments"] = session.query(LikelihoodAssessment).delete()
+            deleted["analytic_hypotheses"] = session.query(AnalyticHypothesis).delete()
+            deleted["analytic_assertions"] = session.query(AnalyticAssertion).delete()
+            deleted["investigation_questions"] = session.query(InvestigationQuestion).delete()
+            deleted["evidence_observation_dispositions"] = session.query(
+                EvidenceObservationDisposition
+            ).delete()
+            deleted["evidence_observations"] = session.query(EvidenceObservation).delete()
+            deleted["evidence_sources"] = session.query(EvidenceSource).delete()
             deleted["stix_objects"] = session.query(StixObject).delete()
             deleted["relationships"] = session.query(RelationshipModel).delete()
             deleted["module_runs"] = session.query(ModuleRun).delete()
@@ -967,6 +1180,50 @@ class WorkspaceManager:
             # DEC-WORKSPACE-DB-007: post-clear loud verification
             # Re-query each table; any non-zero count is a partial-clear bug
             remaining = {
+                "analytic_evidence_links": session.execute(
+                    select(func.count(AnalyticEvidenceLink.id))
+                ).scalar()
+                or 0,
+                "analytic_method_runs": session.execute(
+                    select(func.count(AnalyticMethodRun.id))
+                ).scalar()
+                or 0,
+                "analytic_contradictions": session.execute(
+                    select(func.count(AnalyticContradiction.id))
+                ).scalar()
+                or 0,
+                "analytic_confidence_assessments": session.execute(
+                    select(func.count(AnalyticConfidenceAssessment.id))
+                ).scalar()
+                or 0,
+                "likelihood_assessments": session.execute(
+                    select(func.count(LikelihoodAssessment.id))
+                ).scalar()
+                or 0,
+                "analytic_hypotheses": session.execute(
+                    select(func.count(AnalyticHypothesis.id))
+                ).scalar()
+                or 0,
+                "analytic_assertions": session.execute(
+                    select(func.count(AnalyticAssertion.id))
+                ).scalar()
+                or 0,
+                "investigation_questions": session.execute(
+                    select(func.count(InvestigationQuestion.id))
+                ).scalar()
+                or 0,
+                "evidence_observation_dispositions": session.execute(
+                    select(func.count(EvidenceObservationDisposition.id))
+                ).scalar()
+                or 0,
+                "evidence_observations": session.execute(
+                    select(func.count(EvidenceObservation.id))
+                ).scalar()
+                or 0,
+                "evidence_sources": session.execute(
+                    select(func.count(EvidenceSource.id))
+                ).scalar()
+                or 0,
                 "stix_objects": session.execute(select(func.count(StixObject.id))).scalar() or 0,
                 "relationships": session.execute(select(func.count(RelationshipModel.id))).scalar()
                 or 0,
@@ -1021,8 +1278,36 @@ class WorkspaceManager:
             return 0
         return db_path.stat().st_size
 
+    def get_workspace_schema_status(self, name: str | None = None) -> dict:
+        """Return a read-only migration plan and integrity validation."""
+
+        resolved_name = name or self.active
+        db_path = self._db_path(resolved_name)
+        if not db_path.exists():
+            raise ValueError(f"Workspace '{resolved_name}' does not exist")
+        owns_engine = name is not None and name != self._active
+        engine = create_engine(f"sqlite:///{db_path}") if owns_engine else self._engine
+        try:
+            plan = plan_workspace_migration(engine, db_path)
+            validation = validate_workspace_schema(engine)
+            return {
+                "workspace": resolved_name,
+                "from_version": plan.from_version,
+                "to_version": plan.to_version,
+                "requires_migration": plan.requires_migration,
+                "supported": plan.supported,
+                "backup_path": str(plan.backup_path) if plan.backup_path else None,
+                "steps": list(plan.steps),
+                "valid": validation.valid,
+                "sqlite_integrity": validation.sqlite_integrity,
+                "missing_tables": list(validation.missing_tables),
+            }
+        finally:
+            if owns_engine:
+                engine.dispose()
+
     def get_workspace_table_counts(self) -> dict[str, int]:
-        """Return row counts for all 6 ORM data tables in the active workspace.
+        """Return row counts for every investigation-data table.
 
         Calls ``_ensure_active()`` so a default workspace is auto-created when
         none is active (same lazy-init semantics as all other data methods).
@@ -1037,6 +1322,50 @@ class WorkspaceManager:
         self._ensure_active()
         with Session(self._engine) as session:
             return {
+                "evidence_sources": session.execute(
+                    select(func.count(EvidenceSource.id))
+                ).scalar()
+                or 0,
+                "evidence_observations": session.execute(
+                    select(func.count(EvidenceObservation.id))
+                ).scalar()
+                or 0,
+                "evidence_observation_dispositions": session.execute(
+                    select(func.count(EvidenceObservationDisposition.id))
+                ).scalar()
+                or 0,
+                "investigation_questions": session.execute(
+                    select(func.count(InvestigationQuestion.id))
+                ).scalar()
+                or 0,
+                "analytic_assertions": session.execute(
+                    select(func.count(AnalyticAssertion.id))
+                ).scalar()
+                or 0,
+                "analytic_hypotheses": session.execute(
+                    select(func.count(AnalyticHypothesis.id))
+                ).scalar()
+                or 0,
+                "analytic_evidence_links": session.execute(
+                    select(func.count(AnalyticEvidenceLink.id))
+                ).scalar()
+                or 0,
+                "analytic_method_runs": session.execute(
+                    select(func.count(AnalyticMethodRun.id))
+                ).scalar()
+                or 0,
+                "analytic_confidence_assessments": session.execute(
+                    select(func.count(AnalyticConfidenceAssessment.id))
+                ).scalar()
+                or 0,
+                "likelihood_assessments": session.execute(
+                    select(func.count(LikelihoodAssessment.id))
+                ).scalar()
+                or 0,
+                "analytic_contradictions": session.execute(
+                    select(func.count(AnalyticContradiction.id))
+                ).scalar()
+                or 0,
                 "stix_objects": session.execute(select(func.count(StixObject.id))).scalar() or 0,
                 "relationships": session.execute(select(func.count(RelationshipModel.id))).scalar()
                 or 0,
@@ -1133,7 +1462,17 @@ class WorkspaceManager:
     # ------------------------------------------------------------------
 
     def _db_path(self, name: str) -> Path:
-        """Return the Path for a workspace's SQLite file."""
+        """Return a contained database path for a validated workspace name."""
+        if not isinstance(name, str) or not re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}",
+            name,
+        ):
+            raise ValueError(
+                "Workspace names must be 1-128 letters, numbers, dots, dashes, or "
+                "underscores and must start with a letter or number."
+            )
+        if name in {".", ".."}:
+            raise ValueError("Workspace name must not be a path segment.")
         return self._workspace_dir / f"{name}.db"
 
     def _ensure_active(self) -> None:

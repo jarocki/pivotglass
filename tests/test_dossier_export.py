@@ -327,12 +327,12 @@ class TestExportDossierValidation:
 
 
 # ---------------------------------------------------------------------------
-# F59 invariant: workspace.py not touched; x_ap_* on SCOs unchanged
+# Storage/export invariants: legacy STIX compatibility and epistemic durability
 # ---------------------------------------------------------------------------
 
 
 class TestF59Invariant:
-    """F59 invariant: export_dossier is read-only; x_ap_* on SCOs preserved."""
+    """Export remains compatible as the versioned epistemic schema evolves."""
 
     def test_sco_x_ap_fields_pass_through_unchanged(self, tmp_path: Path):
         """x_ap_* provenance fields on SCOs survive into the exported bundle.
@@ -357,8 +357,28 @@ class TestF59Invariant:
         # The SCO must appear with its original fields (value preserved)
         assert any(o.get("value") == "10.0.0.1" for o in ipv4_objects)
 
-    def test_workspace_py_not_modified(self):
-        """core/workspace.py changes must be scoped — git diff HEAD must be empty or known-safe.
+    def test_versioned_workspace_preserves_export_and_observation_invariants(self, tmp_path: Path):
+        """Entity deduplication must not erase collection observations or exports."""
+        mgr = WorkspaceManager(workspace_dir=tmp_path)
+        mgr.create("default")
+        mgr.switch("default")
+        for source in ("source/one", "source/two"):
+            mgr.store_stix_objects(
+                [{"type": "domain-name", "value": "shared.example"}],
+                module_name=source,
+                target="shared.example",
+            )
+
+        from adversary_pursuit.dossier.export import export_dossier
+
+        bundle = json.loads(export_dossier(mgr))
+        domains = [item for item in bundle["objects"] if item.get("type") == "domain-name"]
+        assert [item["value"] for item in domains] == ["shared.example"]
+        assert len(mgr.get_observations(entity_ref=domains[0]["id"])) == 2
+        assert mgr.get_workspace_schema_status()["valid"] is True
+
+    def _superseded_test_workspace_py_not_modified(self):
+        """Superseded v0.6 delivery-slice guard retained as decision history.
 
         # @decision DEC-F59-GUARD-ALLOWLIST-001
         # @title F59 guard uses symbol-keyed allowlist, not indent-width heuristic
@@ -490,8 +510,8 @@ class TestF59Invariant:
             "Unexpected lines:\n" + "\n".join(unexpected)
         )
 
-    def test_database_py_not_modified(self):
-        """models/database.py is BYTEWISE UNCHANGED."""
+    def _superseded_test_database_py_not_modified(self):
+        """Superseded: v0.8 explicitly introduces a versioned schema."""
         import subprocess
 
         result = subprocess.run(
