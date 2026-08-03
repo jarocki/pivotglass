@@ -319,7 +319,9 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `note <text>` | Add an analyst note |
 | `report` / `report generate` | Build the current Dossier report |
 | `export json\|csv\|stix\|gexf` | Export investigation data |
-| `hint [source]` / `challenges` | Use optional assistance |
+| `hint [source]` | Use optional assistance |
+| `challenges` | Show starter and pursuit-specific challenges, progress, public-reporting basis, and badge rewards |
+| `badges` | Show every earned badge, its artwork, award time, and originating challenge |
 | `autopivot on\|off` | Control event-driven pivots |
 | `status` | Show current workspace and character |
 | `clear` | Clear the current terminal transcript view |
@@ -332,6 +334,21 @@ remains text; outside an editable field it opens Help.
 
 The TUI-only `theme light|dark|high` command changes the current terminal
 palette. Use DECK controls for Day, Night, and contrast in Pivotglass.
+
+### Pursuit-specific challenges and badges
+
+Pivotglass creates challenges from the indicator currently being pursued and
+the public-reporting evidence already stored for it. For example, a reported
+malware family, campaign, threat actor, or infrastructure owner can introduce
+a corroboration challenge. A challenge records the exact observation, source,
+field, and value that caused it to appear. It does not treat a character line
+or model suggestion as evidence.
+
+Progress is checked deterministically. “Independent sources” counts source
+dependence groups, so two feeds repeating the same upstream report do not count
+as two witnesses. Completing a challenge awards its badge once; both progress
+and awards survive restarts. The Pivotglass masthead shows the total earned and
+the latest badge. Select it, or run `badges`, for the full history.
 
 See [Analytic Method](ANALYTIC_METHOD.md) for the record distinctions and
 [Workspace Migration and Recovery](WORKSPACE_MIGRATIONS.md) before opening a

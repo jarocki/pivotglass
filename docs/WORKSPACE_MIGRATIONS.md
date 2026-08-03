@@ -31,6 +31,13 @@ The first v1-to-v2 upgrade performs these operations in order:
 The normalized STIX records are not rewritten. The backfill labels unknown
 legacy source details as `legacy` or `legacy/unknown`; it does not invent them.
 
+The v2-to-v3 upgrade uses the same sibling-backup rule. It adds durable
+hunt-challenge records and self-describing badge metadata: description, rarity,
+simple artwork key, glyph, and originating challenge. Existing badge awards
+remain valid; their new optional fields remain empty because the migration does
+not invent historical context. A v1 workspace advances through both steps in a
+single checked migration.
+
 ## Recovery
 
 If migration fails, Pivotglass leaves the prior active workspace selected and

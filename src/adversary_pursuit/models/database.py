@@ -222,12 +222,58 @@ class BadgeEvent(Base):
     badge_name = Column(String, nullable=False)
     """Snapshot of Badge.name at award time. Survives catalog changes."""
 
+    badge_description = Column(Text, nullable=True)
+    badge_rarity = Column(String, nullable=True)
+    badge_artwork = Column(String, nullable=True)
+    badge_glyph = Column(String, nullable=True)
+    challenge_id = Column(String, nullable=True, index=True)
+
     awarded_at = Column(
         DateTime,
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
     """UTC timestamp when this badge was first earned."""
+
+
+class HuntChallengeRecord(Base):
+    """Persisted, evidence-scoped challenge and its badge reward contract."""
+
+    __tablename__ = "hunt_challenges"
+
+    id = Column(String, primary_key=True)
+    origin = Column(String, nullable=False, default="hunt", index=True)
+    subject_ref = Column(String, nullable=True, index=True)
+    subject_type = Column(String, nullable=True, index=True)
+    subject_value = Column(Text, nullable=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=False)
+    challenge_type = Column(String, nullable=False, index=True)
+    points = Column(Integer, nullable=False, default=0)
+    verification = Column(JSON, nullable=False)
+    hints = Column(JSON, nullable=False, default=list)
+    evidence_basis = Column(JSON, nullable=False, default=list)
+    badge_id = Column(String, nullable=False, index=True)
+    badge_name = Column(String, nullable=False)
+    badge_description = Column(Text, nullable=False)
+    badge_rarity = Column(String, nullable=False)
+    badge_artwork = Column(String, nullable=False)
+    badge_glyph = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="active", index=True)
+    progress_current = Column(Integer, nullable=False, default=0)
+    progress_target = Column(Integer, nullable=False, default=1)
+    progress_label = Column(String, nullable=False, default="requirements met")
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    completed_at = Column(DateTime, nullable=True)
 
 
 class AnalystNote(Base):

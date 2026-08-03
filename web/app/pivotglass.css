@@ -38,6 +38,7 @@ to{transform:translate3d(0,calc(100vh + 110%),0)}
 .menu-button{font-size:16px}
 .menu-button span,.help-button{font-size:10px;letter-spacing:.14em}
 .status-cluster{display:flex;align-items:center;gap:8px}
+.badge-summary{display:flex;align-items:center;gap:6px;border:1px solid color-mix(in srgb,var(--line) 52%,transparent);background:var(--control);color:var(--ink);padding:4px 7px;cursor:pointer;text-align:left}.badge-summary span{display:grid}.badge-summary b{color:var(--heading);font-size:9px;letter-spacing:.08em}.badge-summary small{color:var(--dim);font-size:7px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.badge-art{width:30px;height:30px;flex:none;color:var(--accent)}.badge-art circle,.badge-art path{fill:none;stroke:currentColor;stroke-width:1.5}.badge-art text{fill:currentColor;stroke:none;text-anchor:middle;font-size:10px;font-weight:800}
 .lamp{width:8px;height:8px;border-radius:50%;background:#263438;box-shadow:inset 0 0 3px #000}
 .lamp.ok{background:var(--accent);box-shadow:0 0 9px var(--accent);animation:flicker 3.1s infinite}
 .lamp.hot{background:#ffbf3f;box-shadow:0 0 9px #ffbf3f;animation:flicker .6s infinite}
@@ -306,11 +307,13 @@ main.max-dossier #dossier .panel-content,main.max-artifact-field #artifact-field
 .telemetry-content{grid-template-columns:1fr 1fr}
 .damage{grid-column:1/-1}
 .status-cluster .system-state{display:none}
+.badge-summary small{display:none}
 }
 @media(max-width:650px){.masthead{align-items:flex-start}
 .brand h1{font-size:21px}
 .brand .eyebrow,.brand small{display:none}
 .menu-button span,.status-cluster .lamp{display:none}
+.badge-summary{padding:3px}.badge-summary span{display:none}.badge-summary .badge-art{width:25px;height:25px}
 .menu-button,.help-button{padding:7px}
 .command-rail form{grid-template-columns:1fr auto auto}
 .prompt{grid-column:1/-1}
@@ -397,6 +400,7 @@ pre{font-size:12px;line-height:1.5}
 .graph-edge-list li{display:grid;grid-template-columns:minmax(120px,1fr) minmax(180px,1.4fr) minmax(120px,1fr);align-items:center;gap:8px}
 .graph-edge-list span{text-align:center;color:var(--dim)}
 .timeline-result li{grid-template-columns:minmax(150px,.8fr) minmax(140px,.8fr) minmax(220px,1.4fr) auto;align-items:center}
+.challenge-result>div,.badge-result>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px}.challenge-card,.badge-result article{display:grid;grid-template-columns:auto 1fr;gap:10px;padding:11px;border:1px solid color-mix(in srgb,var(--line) 48%,transparent);background:var(--surface)}.challenge-card>div,.badge-result article>div{display:grid;gap:5px}.challenge-card header{display:flex;justify-content:space-between;gap:8px}.challenge-card p,.badge-result p{margin:0;color:var(--ink);font-size:10px;line-height:1.45}.challenge-card small,.badge-result span,.badge-result small{color:var(--dim);font-size:9px}.challenge-card progress{width:100%;accent-color:var(--accent)}.challenge-card.state-completed{border-color:var(--accent);box-shadow:inset 0 0 18px color-mix(in srgb,var(--accent) 9%,transparent)}.challenge-card details{font-size:8px;color:var(--dim)}
 .relationship-list li>div{display:flex;flex-wrap:wrap;gap:6px}
 @media(max-width:650px){.structured-result{min-width:0}.graph-edge-list li,.timeline-result li{grid-template-columns:1fr}.graph-edge-list span{text-align:left}}
 

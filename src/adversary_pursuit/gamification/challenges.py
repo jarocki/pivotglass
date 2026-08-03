@@ -17,14 +17,12 @@ They can be loaded from YAML files or defined programmatically.
            rather than a live DB connection — consistent pattern across gamification.
 
 @decision DEC-CHALLENGE-002
-@title In-memory challenge state (no persistence)
-@status accepted
-@rationale Challenge completion is session-scoped for v1. Persisting completed
-           challenges to SQLite would require schema changes and migration logic.
-           The gamification layer is intentionally stateless at the storage layer
-           for v1: ChallengeManager holds state in memory, APConsole re-instantiates
-           it on each session. This matches how ScoringEngine works (no state between
-           sessions). Persistence can be added in v2 as a StorageBackend adapter.
+@title Hunt challenge state is workspace-persistent
+@status superseded
+@rationale v0.8 introduces schema-v3 challenge records. Hunt-specific challenges,
+           progress, their public-reporting basis, and badge reward snapshots now
+           survive restarts. The pure dataclass contract remains available for
+           built-in and YAML compatibility.
 
 @decision DEC-CHALLENGE-003
 @title YAML file format: top-level "challenges" list key
@@ -47,14 +45,16 @@ import yaml
 
 class ChallengeType(Enum):
     """Categories of challenges reflecting different intelligence hunting patterns."""
-    STANDARD = "standard"     # Find a specific indicator
-    PIVOTING = "pivoting"     # Multi-step transform chain
-    DISCOVERY = "discovery"   # Identify a new tool/TTP/campaign
-    TIMED = "timed"           # Complete within time limit
+
+    STANDARD = "standard"  # Find a specific indicator
+    PIVOTING = "pivoting"  # Multi-step transform chain
+    DISCOVERY = "discovery"  # Identify a new tool/TTP/campaign
+    TIMED = "timed"  # Complete within time limit
 
 
 class ChallengeStatus(Enum):
     """Lifecycle state of a challenge."""
+
     ACTIVE = "active"
     COMPLETED = "completed"
     EXPIRED = "expired"
@@ -104,6 +104,18 @@ class Challenge:
     time_limit_seconds: int | None = None
     status: ChallengeStatus = field(default=ChallengeStatus.ACTIVE)
     completed_at: datetime | None = None
+    badge_id: str = ""
+    badge_name: str = ""
+    badge_description: str = ""
+    badge_rarity: str = "common"
+    badge_artwork: str = "field-mark"
+    badge_glyph: str = "◆"
+    origin: str = "starter"
+    subject_value: str | None = None
+    evidence_basis: list[dict] = field(default_factory=list)
+    progress_current: int = 0
+    progress_target: int = 1
+    progress_label: str = "requirements met"
 
     def check_completion(self, workspace_data: dict) -> bool:
         """Check if this challenge is satisfied by the current workspace state.
@@ -221,7 +233,8 @@ class ChallengeManager:
             print(f"Challenge completed: {ch.name} (+{ch.points} pts)")
     """
 
-    def __init__(self) -> None:
+    def __init__(self, workspace_mgr: object | None = None) -> None:
+        self.workspace_mgr = workspace_mgr
         self._challenges: dict[str, Challenge] = {}
         self._load_builtin_challenges()
 
@@ -240,6 +253,11 @@ class ChallengeManager:
                     "min_count": 1,
                 },
                 hints=["Use PassiveTotal, VirusTotal, URLScan, or Censys enrichment"],
+                badge_id="badge-first-blood",
+                badge_name="First Blood",
+                badge_description="Found the first IP address in a pursuit.",
+                badge_artwork="crossbeam",
+                badge_glyph="✣",
             ),
             Challenge(
                 id="ch-002",
@@ -253,6 +271,11 @@ class ChallengeManager:
                     "min_count": 5,
                 },
                 hints=["Use WHOIS plus passive-DNS or certificate intelligence"],
+                badge_id="badge-challenge-domain-hunter",
+                badge_name="Domain Hunter",
+                badge_description="Mapped five unique domains.",
+                badge_artwork="constellation",
+                badge_glyph="✦",
             ),
             Challenge(
                 id="ch-003",
@@ -261,6 +284,11 @@ class ChallengeManager:
                 challenge_type=ChallengeType.PIVOTING,
                 points=200,
                 verification={"type": "module_count", "min_count": 3},
+                badge_id="badge-challenge-three-lens",
+                badge_name="Three Lenses",
+                badge_description="Used three different enrichment sources.",
+                badge_artwork="public-record",
+                badge_glyph="◈",
             ),
             Challenge(
                 id="ch-004",
@@ -269,6 +297,11 @@ class ChallengeManager:
                 challenge_type=ChallengeType.STANDARD,
                 points=100,
                 verification={"type": "score_threshold", "min_score": 500},
+                badge_id="badge-challenge-score-hunter",
+                badge_name="Score Hunter",
+                badge_description="Reached 500 evidence points.",
+                badge_artwork="field-mark",
+                badge_glyph="◆",
             ),
             Challenge(
                 id="ch-005",
@@ -282,6 +315,12 @@ class ChallengeManager:
                     "min_count": 10,
                 },
                 time_limit_seconds=300,
+                badge_id="badge-challenge-speed-run",
+                badge_name="Rapid Cartographer",
+                badge_description="Mapped ten indicators in five minutes.",
+                badge_rarity="rare",
+                badge_artwork="campaign-thread",
+                badge_glyph="⟲",
             ),
         ]
         for ch in starters:
@@ -383,11 +422,18 @@ class ChallengeManager:
             if ch.check_completion(workspace_data):
                 ch.status = ChallengeStatus.COMPLETED
                 ch.completed_at = datetime.now(tz=timezone.utc)
+                if self.workspace_mgr is not None and ch.badge_id:
+                    self.workspace_mgr.store_badge_event(
+                        ch.badge_id,
+                        ch.badge_name or ch.name,
+                        badge_description=ch.badge_description or ch.description,
+                        badge_rarity=ch.badge_rarity,
+                        badge_artwork=ch.badge_artwork,
+                        badge_glyph=ch.badge_glyph,
+                        challenge_id=ch.id,
+                    )
                 newly_completed.append(ch)
-            elif (
-                ch.challenge_type == ChallengeType.TIMED
-                and ch.time_limit_seconds is not None
-            ):
+            elif ch.challenge_type == ChallengeType.TIMED and ch.time_limit_seconds is not None:
                 # Mark expired if time limit exceeded and not completed
                 elapsed = workspace_data.get("elapsed_seconds")
                 if elapsed is not None and elapsed > ch.time_limit_seconds:
@@ -419,19 +465,113 @@ class ChallengeManager:
             Each dict has: id, name, description, challenge_type, points,
             status, completed_at (ISO string or None), hints.
         """
+        if self.workspace_mgr is not None:
+            counts = self.workspace_mgr.get_stix_type_counts()
+            runs = self.workspace_mgr.get_module_runs()
+            snapshot = {
+                "stix_type_counts": counts,
+                "modules_used": [row["module_name"] for row in runs],
+                "total_score": self.workspace_mgr.get_total_score(),
+                "total_indicators": sum(counts.values()),
+                "indicators": [
+                    {"type": row.get("type", ""), "value": row.get("value", "")}
+                    for row in self.workspace_mgr.get_stix_objects()
+                ],
+            }
+            for challenge in self._challenges.values():
+                self._update_progress(challenge, snapshot)
+            self.check_all(snapshot)
         result = []
         for ch in self._challenges.values():
-            result.append({
-                "id": ch.id,
-                "name": ch.name,
-                "description": ch.description,
-                "challenge_type": ch.challenge_type.value,
-                "points": ch.points,
-                "status": ch.status.value,
-                "completed_at": (
-                    ch.completed_at.isoformat() if ch.completed_at is not None else None
-                ),
-                "hints": ch.hints,
-                "time_limit_seconds": ch.time_limit_seconds,
-            })
+            result.append(
+                {
+                    "id": ch.id,
+                    "name": ch.name,
+                    "description": ch.description,
+                    "challenge_type": ch.challenge_type.value,
+                    "points": ch.points,
+                    "status": ch.status.value,
+                    "completed_at": (
+                        ch.completed_at.isoformat() if ch.completed_at is not None else None
+                    ),
+                    "hints": ch.hints,
+                    "time_limit_seconds": ch.time_limit_seconds,
+                    "origin": ch.origin,
+                    "subject_value": ch.subject_value,
+                    "evidence_basis": ch.evidence_basis,
+                    "progress_current": ch.progress_current,
+                    "progress_target": ch.progress_target,
+                    "progress_label": ch.progress_label,
+                    "badge": {
+                        "badge_id": ch.badge_id,
+                        "badge_name": ch.badge_name or ch.name,
+                        "badge_description": ch.badge_description or ch.description,
+                        "badge_rarity": ch.badge_rarity,
+                        "badge_artwork": ch.badge_artwork,
+                        "badge_glyph": ch.badge_glyph,
+                    },
+                }
+            )
+        if self.workspace_mgr is not None:
+            from adversary_pursuit.gamification.dynamic_challenges import (
+                refresh_hunt_challenges,
+            )
+
+            dynamic = refresh_hunt_challenges(self.workspace_mgr)
+            result.extend(
+                {
+                    **row,
+                    "badge": {
+                        "badge_id": row["badge_id"],
+                        "badge_name": row["badge_name"],
+                        "badge_description": row["badge_description"],
+                        "badge_rarity": row["badge_rarity"],
+                        "badge_artwork": row["badge_artwork"],
+                        "badge_glyph": row["badge_glyph"],
+                    },
+                }
+                for row in dynamic
+            )
         return result
+
+    @staticmethod
+    def _update_progress(challenge: Challenge, workspace_data: dict) -> None:
+        """Project the pure verification contract into a truthful progress meter."""
+        verification = challenge.verification
+        kind = verification.get("type")
+        if kind == "indicator_count":
+            stix_type = verification.get("stix_type")
+            challenge.progress_current = (
+                workspace_data.get("stix_type_counts", {}).get(stix_type, 0)
+                if stix_type
+                else workspace_data.get("total_indicators", 0)
+            )
+            challenge.progress_target = int(verification.get("min_count", 1))
+            challenge.progress_label = "indicators"
+        elif kind == "module_count":
+            challenge.progress_current = len(set(workspace_data.get("modules_used", [])))
+            challenge.progress_target = int(verification.get("min_count", 1))
+            challenge.progress_label = "independent enrichment tools"
+        elif kind == "module_used":
+            challenge.progress_current = int(
+                verification.get("module_name") in workspace_data.get("modules_used", [])
+            )
+            challenge.progress_target = 1
+            challenge.progress_label = "required tool used"
+        elif kind == "score_threshold":
+            challenge.progress_current = int(workspace_data.get("total_score", 0))
+            challenge.progress_target = int(verification.get("min_score", 1))
+            challenge.progress_label = "evidence points"
+        elif kind == "indicator_exists":
+            challenge.progress_current = int(challenge._check_indicator_exists(workspace_data))
+            challenge.progress_target = 1
+            challenge.progress_label = "specific indicator found"
+
+    def refresh_for_hunt(self, target: str | None = None) -> list[dict]:
+        """Refresh hunt-specific challenges for an active target."""
+        if self.workspace_mgr is None:
+            return self.list_challenges()
+        from adversary_pursuit.gamification.dynamic_challenges import refresh_hunt_challenges
+
+        refresh_hunt_challenges(self.workspace_mgr, target)
+        return self.list_challenges()

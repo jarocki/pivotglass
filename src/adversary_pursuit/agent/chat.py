@@ -595,6 +595,27 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
             console.print(table)
             continue
 
+        if lower == "badges":
+            awarded = runner.ctx.workspace_mgr.get_awarded_badges()
+            table = Table(title=f"Earned Badges ({len(awarded)})", show_header=True)
+            table.add_column("Art", style="cyan")
+            table.add_column("Badge", style="bold")
+            table.add_column("Rarity", style="yellow")
+            table.add_column("Earned", style="green")
+            table.add_column("Challenge")
+            for item in awarded:
+                table.add_row(
+                    str(item.get("badge_glyph") or "◆"),
+                    str(item["badge_name"]),
+                    str(item.get("badge_rarity") or "earned"),
+                    str(item["awarded_at"]),
+                    str(item.get("challenge_id") or "milestone"),
+                )
+            if not awarded:
+                table.add_row("◇", "No badges earned yet", "—", "—", "Complete a challenge")
+            console.print(table)
+            continue
+
         # Graph meta-command — mirrors APConsole.do_graph (DEC-AGENT-GRAPH-EXPORT-001).
         # Handled locally (not sent to LLM) for immediate, deterministic output.
         # Shares ToolContext.workspace_mgr so the graph reflects the live workspace.

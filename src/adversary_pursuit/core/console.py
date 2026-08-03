@@ -354,7 +354,7 @@ class APConsole(cmd2.Cmd):
         self.plugin_mgr.load_plugins()
         self.workspace_mgr = WorkspaceManager(workspace_dir=workspace_dir)
         self.scoring_engine = ScoringEngine()
-        self.challenge_mgr = ChallengeManager()
+        self.challenge_mgr = ChallengeManager(self.workspace_mgr)
         self.badge_mgr = BadgeManager()
         self.hint_provider = HintProvider()
         self.mode_mgr = ModeManager()
@@ -836,7 +836,7 @@ class APConsole(cmd2.Cmd):
 
         # Check challenges after every run (errors are non-fatal)
         try:
-            self._check_challenges_after_run()
+            self._check_challenges_after_run(target)
         except Exception:  # noqa: BLE001
             pass  # Challenge checks must never interrupt the hunt flow
 
@@ -1289,7 +1289,7 @@ class APConsole(cmd2.Cmd):
                 "indicators": [],
             }
 
-    def _check_challenges_after_run(self) -> None:
+    def _check_challenges_after_run(self, target: str | None = None) -> None:
         """Check all active challenges after a module run and announce completions.
 
         Called by _execute_hunt() after results are stored. Newly completed
@@ -1298,6 +1298,7 @@ class APConsole(cmd2.Cmd):
         """
         workspace_data = self._build_workspace_data()
         newly_completed = self.challenge_mgr.check_all(workspace_data)
+        self.challenge_mgr.refresh_for_hunt(target)
         for ch in newly_completed:
             self.rich_console.print(
                 Panel(

@@ -87,6 +87,7 @@ from adversary_pursuit.models.database import (
     EvidenceObservation,
     EvidenceObservationDisposition,
     EvidenceSource,
+    HuntChallengeRecord,
     InvestigationQuestion,
     LikelihoodAssessment,
     ModuleRun,
@@ -713,7 +714,9 @@ class WorkspaceManager:
                 if replacement_observation_id == observation_id:
                     raise ValueError("An observation cannot replace itself.")
                 if session.get(EvidenceObservation, replacement_observation_id) is None:
-                    raise ValueError(f"Unknown replacement observation: {replacement_observation_id}")
+                    raise ValueError(
+                        f"Unknown replacement observation: {replacement_observation_id}"
+                    )
             session.add(
                 EvidenceObservationDisposition(
                     id=disposition_id,
@@ -978,13 +981,22 @@ class WorkspaceManager:
             session.add(note)
             session.commit()
 
-    def store_badge_event(self, badge_id: str, badge_name: str) -> None:
+    def store_badge_event(
+        self,
+        badge_id: str,
+        badge_name: str,
+        *,
+        badge_description: str | None = None,
+        badge_rarity: str | None = None,
+        badge_artwork: str | None = None,
+        badge_glyph: str | None = None,
+        challenge_id: str | None = None,
+    ) -> bool:
         """Persist a badge award to the active workspace.
 
-        Does NOT enforce uniqueness at the DB layer — callers are responsible
-        for checking get_awarded_badges() first (DEC-DB-005). Idempotency is
-        enforced at the application layer by APConsole._check_badges_after_run()
-        which builds the already_awarded set before calling BadgeManager.check_all().
+        The operation is idempotent by badge ID.  Dynamic hunt badges snapshot
+        their visible metadata so a later catalog change cannot rewrite an
+        analyst's earned history.
 
         Parameters
         ----------
@@ -995,9 +1007,39 @@ class WorkspaceManager:
         """
         self._ensure_active()
         with Session(self._engine) as session:
-            event = BadgeEvent(badge_id=badge_id, badge_name=badge_name)
+            existing = (
+                session.execute(select(BadgeEvent).where(BadgeEvent.badge_id == badge_id))
+                .scalars()
+                .first()
+            )
+            if existing is not None:
+                metadata = {
+                    "badge_description": badge_description,
+                    "badge_rarity": badge_rarity,
+                    "badge_artwork": badge_artwork,
+                    "badge_glyph": badge_glyph,
+                    "challenge_id": challenge_id,
+                }
+                changed = False
+                for key, value in metadata.items():
+                    if getattr(existing, key) is None and value is not None:
+                        setattr(existing, key, value)
+                        changed = True
+                if changed:
+                    session.commit()
+                return False
+            event = BadgeEvent(
+                badge_id=badge_id,
+                badge_name=badge_name,
+                badge_description=badge_description,
+                badge_rarity=badge_rarity,
+                badge_artwork=badge_artwork,
+                badge_glyph=badge_glyph,
+                challenge_id=challenge_id,
+            )
             session.add(event)
             session.commit()
+            return True
 
     def get_awarded_badges(self) -> list[dict]:
         """Return all badges earned in the active workspace.
@@ -1013,14 +1055,118 @@ class WorkspaceManager:
             rows = (
                 session.execute(select(BadgeEvent).order_by(BadgeEvent.awarded_at)).scalars().all()
             )
+            result = []
+            seen: set[str] = set()
+            for row in rows:
+                if row.badge_id in seen:
+                    continue
+                seen.add(row.badge_id)
+                result.append(
+                    {
+                        "badge_id": row.badge_id,
+                        "badge_name": row.badge_name,
+                        "badge_description": row.badge_description,
+                        "badge_rarity": row.badge_rarity,
+                        "badge_artwork": row.badge_artwork,
+                        "badge_glyph": row.badge_glyph,
+                        "challenge_id": row.challenge_id,
+                        "awarded_at": row.awarded_at,
+                    }
+                )
+            return result
+
+    def upsert_hunt_challenges(self, records: list[dict]) -> None:
+        """Persist new deterministic hunt challenges without rewriting history."""
+        self._ensure_active()
+        with Session(self._engine) as session:
+            now = datetime.now(timezone.utc)
+            for record in records:
+                row = session.get(HuntChallengeRecord, record["id"])
+                if row is None:
+                    session.add(HuntChallengeRecord(**record, updated_at=now))
+                    continue
+                if row.status == "active":
+                    for key in (
+                        "name",
+                        "description",
+                        "verification",
+                        "hints",
+                        "evidence_basis",
+                        "progress_current",
+                        "progress_target",
+                        "progress_label",
+                    ):
+                        if key in record:
+                            setattr(row, key, record[key])
+                    row.updated_at = now
+            session.commit()
+
+    def list_hunt_challenges(self) -> list[dict]:
+        """Return persisted challenges, newest first, with reward contracts."""
+        self._ensure_active()
+        with Session(self._engine) as session:
+            rows = (
+                session.execute(
+                    select(HuntChallengeRecord).order_by(HuntChallengeRecord.created_at.desc())
+                )
+                .scalars()
+                .all()
+            )
             return [
                 {
-                    "badge_id": row.badge_id,
-                    "badge_name": row.badge_name,
-                    "awarded_at": row.awarded_at,
+                    column.name: getattr(row, column.name)
+                    for column in HuntChallengeRecord.__table__.columns
                 }
                 for row in rows
             ]
+
+    def update_hunt_challenge_progress(
+        self, challenge_id: str, current: int, target: int, label: str
+    ) -> None:
+        """Update a challenge's deterministic completion meter."""
+        self._ensure_active()
+        with Session(self._engine) as session:
+            row = session.get(HuntChallengeRecord, challenge_id)
+            if row is None or row.status != "active":
+                return
+            row.progress_current = max(0, current)
+            row.progress_target = max(1, target)
+            row.progress_label = label
+            row.updated_at = datetime.now(timezone.utc)
+            session.commit()
+
+    def complete_hunt_challenge(self, challenge_id: str) -> bool:
+        """Atomically complete one challenge and award its badge once."""
+        self._ensure_active()
+        with Session(self._engine) as session:
+            row = session.get(HuntChallengeRecord, challenge_id)
+            if row is None or row.status == "completed":
+                return False
+            now = datetime.now(timezone.utc)
+            row.status = "completed"
+            row.completed_at = now
+            row.updated_at = now
+            row.progress_current = max(row.progress_current, row.progress_target)
+            awarded = (
+                session.execute(select(BadgeEvent).where(BadgeEvent.badge_id == row.badge_id))
+                .scalars()
+                .first()
+            )
+            if awarded is None:
+                session.add(
+                    BadgeEvent(
+                        badge_id=row.badge_id,
+                        badge_name=row.badge_name,
+                        badge_description=row.badge_description,
+                        badge_rarity=row.badge_rarity,
+                        badge_artwork=row.badge_artwork,
+                        badge_glyph=row.badge_glyph,
+                        challenge_id=row.id,
+                        awarded_at=now,
+                    )
+                )
+            session.commit()
+            return True
 
     def get_workspace_stats(self) -> dict:
         """Return aggregated stats for badge/achievement evaluation.
@@ -1175,6 +1321,7 @@ class WorkspaceManager:
             deleted["score_events"] = session.query(ScoreEvent).delete()
             deleted["analyst_notes"] = session.query(AnalystNote).delete()
             deleted["badge_events"] = session.query(BadgeEvent).delete()
+            deleted["hunt_challenges"] = session.query(HuntChallengeRecord).delete()
             session.commit()
 
             # DEC-WORKSPACE-DB-007: post-clear loud verification
@@ -1220,9 +1367,7 @@ class WorkspaceManager:
                     select(func.count(EvidenceObservation.id))
                 ).scalar()
                 or 0,
-                "evidence_sources": session.execute(
-                    select(func.count(EvidenceSource.id))
-                ).scalar()
+                "evidence_sources": session.execute(select(func.count(EvidenceSource.id))).scalar()
                 or 0,
                 "stix_objects": session.execute(select(func.count(StixObject.id))).scalar() or 0,
                 "relationships": session.execute(select(func.count(RelationshipModel.id))).scalar()
@@ -1231,6 +1376,10 @@ class WorkspaceManager:
                 "score_events": session.execute(select(func.count(ScoreEvent.id))).scalar() or 0,
                 "analyst_notes": session.execute(select(func.count(AnalystNote.id))).scalar() or 0,
                 "badge_events": session.execute(select(func.count(BadgeEvent.id))).scalar() or 0,
+                "hunt_challenges": session.execute(
+                    select(func.count(HuntChallengeRecord.id))
+                ).scalar()
+                or 0,
             }
 
         non_empty = {t: c for t, c in remaining.items() if c != 0}
@@ -1322,9 +1471,7 @@ class WorkspaceManager:
         self._ensure_active()
         with Session(self._engine) as session:
             return {
-                "evidence_sources": session.execute(
-                    select(func.count(EvidenceSource.id))
-                ).scalar()
+                "evidence_sources": session.execute(select(func.count(EvidenceSource.id))).scalar()
                 or 0,
                 "evidence_observations": session.execute(
                     select(func.count(EvidenceObservation.id))
@@ -1373,6 +1520,10 @@ class WorkspaceManager:
                 "score_events": session.execute(select(func.count(ScoreEvent.id))).scalar() or 0,
                 "analyst_notes": session.execute(select(func.count(AnalystNote.id))).scalar() or 0,
                 "badge_events": session.execute(select(func.count(BadgeEvent.id))).scalar() or 0,
+                "hunt_challenges": session.execute(
+                    select(func.count(HuntChallengeRecord.id))
+                ).scalar()
+                or 0,
             }
 
     def get_last_event_timestamps(self) -> dict:

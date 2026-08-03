@@ -26,6 +26,7 @@ _EXPORT_TABLES = (
     "module_runs",
     "score_events",
     "badge_events",
+    "hunt_challenges",
     "notes",
     "evidence_sources",
     "evidence_observations",
@@ -39,7 +40,10 @@ _EXPORT_TABLES = (
     "likelihood_assessments",
     "analytic_contradictions",
 )
-_JSON_COLUMNS = {"json_blob", "observed_blob", "factors", "input_blob", "output_blob"}
+_JSON_COLUMNS = {
+    "json_blob", "observed_blob", "factors", "input_blob", "output_blob",
+    "verification", "hints", "evidence_basis",
+}
 _STRING_KEY_TABLES = (
     "stix_objects",
     "relationships",
@@ -52,6 +56,7 @@ _STRING_KEY_TABLES = (
     "likelihood_assessments",
     "analytic_contradictions",
     "evidence_observation_dispositions",
+    "hunt_challenges",
 )
 
 
@@ -72,7 +77,7 @@ def export_workspace(manager: Any, name: str) -> dict[str, Any]:
     finally:
         engine.dispose()
     result: dict[str, Any] = {
-        "format": "pivotglass-workspace-v2",
+        "format": "pivotglass-workspace-v3",
         "workspace": name,
         "schema_version": schema_version,
         "tables": {},

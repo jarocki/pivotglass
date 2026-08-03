@@ -37,7 +37,7 @@ from adversary_pursuit.models.database import (
     WorkspaceSchemaVersion,
 )
 
-CURRENT_WORKSPACE_SCHEMA_VERSION = 2
+CURRENT_WORKSPACE_SCHEMA_VERSION = 3
 LEGACY_WORKSPACE_SCHEMA_VERSION = 1
 _VERSION_ROW_ID = 1
 
@@ -141,7 +141,8 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     A sibling backup is created before the first schema-changing operation.
     Unknown future schema versions fail loudly instead of being opened by older
     code.  The v1 -> v2 migration creates epistemic tables and backfills one
-    legacy observation for every existing STIX object and relationship.
+    legacy observation for every existing STIX object and relationship. The
+    v2 -> v3 step adds persisted hunt challenges and badge reward metadata.
     """
 
     tables = set(inspect(engine).get_table_names())
@@ -162,10 +163,14 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     if not backup_path.exists():
         _create_sqlite_backup(db_path, backup_path)
 
+    original_version = current
     observations_backfilled = 0
     if current == LEGACY_WORKSPACE_SCHEMA_VERSION:
         observations_backfilled = _migrate_v1_to_v2(engine)
         current = 2
+    if current == 2:  # noqa: PLR2004
+        _migrate_v2_to_v3(engine)
+        current = 3
 
     if current != CURRENT_WORKSPACE_SCHEMA_VERSION:
         raise RuntimeError(
@@ -174,7 +179,7 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
         )
 
     return MigrationReceipt(
-        from_version=LEGACY_WORKSPACE_SCHEMA_VERSION,
+        from_version=original_version,
         to_version=current,
         migrated=True,
         backup_path=backup_path,
@@ -198,21 +203,30 @@ def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
     current = _read_schema_version(engine, tables)
     if current == CURRENT_WORKSPACE_SCHEMA_VERSION:
         return MigrationPlan(current, current, False, True, None, ())
-    supported = current == LEGACY_WORKSPACE_SCHEMA_VERSION
+    supported = current in {LEGACY_WORKSPACE_SCHEMA_VERSION, 2}
+    steps = ["create sibling backup"]
+    if current == LEGACY_WORKSPACE_SCHEMA_VERSION:
+        steps.extend(
+            (
+                "create epistemic-ledger tables",
+                "backfill legacy STIX observations",
+                "write schema-version 2 receipt",
+            )
+        )
+    if current <= 2:  # noqa: PLR2004
+        steps.extend(
+            (
+                "add persisted hunt challenges and badge artwork metadata",
+                "write schema-version 3 receipt",
+            )
+        )
     return MigrationPlan(
         from_version=current,
         to_version=CURRENT_WORKSPACE_SCHEMA_VERSION,
         requires_migration=True,
         supported=supported,
         backup_path=_backup_path(db_path, current),
-        steps=(
-            "create sibling backup",
-            "create epistemic-ledger tables",
-            "backfill legacy STIX observations",
-            "write schema-version receipt",
-        )
-        if supported
-        else (),
+        steps=tuple(steps) if supported else (),
     )
 
 
@@ -297,12 +311,45 @@ def _migrate_v1_to_v2(engine: Engine) -> int:
         session.add(
             WorkspaceSchemaVersion(
                 id=_VERSION_ROW_ID,
-                version=CURRENT_WORKSPACE_SCHEMA_VERSION,
+                version=2,
                 migrated_at=datetime.now(timezone.utc),
             )
         )
         session.commit()
     return backfilled
+
+
+def _migrate_v2_to_v3(engine: Engine) -> None:
+    """Add persisted hunt challenges and self-describing badge awards."""
+
+    Base.metadata.create_all(engine)
+    columns = {column["name"] for column in inspect(engine).get_columns("badge_events")}
+    additions = {
+        "badge_description": "TEXT",
+        "badge_rarity": "VARCHAR",
+        "badge_artwork": "VARCHAR",
+        "badge_glyph": "VARCHAR",
+        "challenge_id": "VARCHAR",
+    }
+    with engine.begin() as connection:
+        for name, sql_type in additions.items():
+            if name not in columns:
+                connection.execute(
+                    text(f"ALTER TABLE badge_events ADD COLUMN {name} {sql_type}")
+                )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_badge_events_challenge_id "
+                "ON badge_events (challenge_id)"
+            )
+        )
+    with Session(engine) as session:
+        row = session.get(WorkspaceSchemaVersion, _VERSION_ROW_ID)
+        if row is None:
+            raise RuntimeError("Schema v2 workspace is missing its version receipt.")
+        row.version = 3
+        row.migrated_at = datetime.now(timezone.utc)
+        session.commit()
 
 
 def _backfill_observation(

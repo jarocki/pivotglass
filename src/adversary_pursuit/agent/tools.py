@@ -303,7 +303,7 @@ class ToolContext:
         # ChallengeManager is session-scoped (DEC-CHALLENGE-002, DEC-AGENT-CHALLENGES-001).
         # Shared by both the LLM tool path and the chat meta-command path so that
         # challenge completion state is consistent regardless of which path checks it.
-        self.challenge_mgr: ChallengeManager = ChallengeManager()
+        self.challenge_mgr: ChallengeManager = ChallengeManager(self.workspace_mgr)
         # Tracks challenge IDs announced in this session to prevent re-announcement
         # in the run_module summary. Parallel to _awarded_badges for badges.
         self._announced_challenges: set[str] = set()
@@ -823,6 +823,10 @@ class ToolContext:
                 "indicators": indicators,
             }
             all_newly_completed = self.challenge_mgr.check_all(workspace_data)
+            self.challenge_mgr.refresh_for_hunt(target)
+            self._awarded_badges.update(
+                row["badge_id"] for row in self.workspace_mgr.get_awarded_badges()
+            )
             for ch in all_newly_completed:
                 if ch.id not in self._announced_challenges:
                     newly_completed_challenges.append(ch)

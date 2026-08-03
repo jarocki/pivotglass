@@ -147,7 +147,9 @@ command families:
 - `analysis` — record questions, hypotheses, assertions, confidence, likelihood, contradictions, and structured methods
 - `note` — add analyst-authored context
 - `report` and `export` — produce reports or portable data
-- `autopivot`, `hint`, and `challenges` — control optional assistance
+- `autopivot` and `hint` — control optional assistance
+- `challenges` — inspect pursuit-specific, source-grounded goals and progress
+- `badges` — inspect durable challenge awards and their artwork
 - `status`, `clear`, `help`, `quit`, and `exit` — control the session
 
 During an active investigation, `stop`, `focus`, `add`, and `skip` control the

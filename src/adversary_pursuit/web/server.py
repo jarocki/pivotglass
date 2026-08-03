@@ -134,6 +134,10 @@ class WebCockpitService:
     def state(self) -> dict[str, Any]:
         """Return the current workspace snapshot for the cockpit."""
         objects = self.ctx.workspace_mgr.get_stix_objects()
+        runs = self.ctx.workspace_mgr.get_module_runs()
+        latest_target = str(runs[-1]["target"]) if runs else None
+        challenges = self.ctx.challenge_mgr.refresh_for_hunt(latest_target)
+        badges = self.ctx.workspace_mgr.get_awarded_badges()
         dossier_state = load_dossier_state(self.ctx.workspace_mgr)
         slot_evidence: dict[DossierSlotName, list[dict[str, str]]] = {
             slot_name: [] for slot_name in DossierSlotName
@@ -208,6 +212,12 @@ class WebCockpitService:
             "visualizations": [
                 intent.model_dump(mode="json") for intent in visualizations
             ],
+            "challenges": challenges,
+            "badges": badges,
+            "badge_summary": {
+                "count": len(badges),
+                "latest": badges[-1] if badges else None,
+            },
             "processed_targets": sorted(
                 {
                     str(run["target"])
@@ -255,6 +265,8 @@ class WebCockpitService:
             {"command": "analysis show", "purpose": "Show questions, hypotheses, assertions, confidence, likelihood, and contradictions"},
             {"command": "analysis methods", "purpose": "List the supported structured analytic techniques and their required records"},
             {"command": "analysis question <text>", "purpose": "Record the investigation question the evidence must answer"},
+            {"command": "challenges", "purpose": "Show hunt-specific challenges, progress, evidence basis, and rewards"},
+            {"command": "badges", "purpose": "Show earned badges and their challenge-linked artwork"},
             {"command": "export <json|csv|stix|gexf>", "purpose": "Download workspace data"},
             {"command": "help", "purpose": "Show this command reference"},
             {"command": "model show", "purpose": "Show the effective provider, model, credential source, and enabled state"},
@@ -368,6 +380,20 @@ class WebCockpitService:
         if command == "search":
             summary, *_ = execute_tool(self.ctx, "search_workspace", {"type_filter": rest or None})
             return {"kind": "text", "title": "Workspace search", "text": str(summary)}
+        if command == "challenges":
+            runs = self.ctx.workspace_mgr.get_module_runs()
+            latest_target = str(runs[-1]["target"]) if runs else None
+            return {
+                "kind": "challenges",
+                "title": "Hunt challenges",
+                "data": self.ctx.challenge_mgr.refresh_for_hunt(latest_target),
+            }
+        if command == "badges":
+            return {
+                "kind": "badges",
+                "title": "Earned badges",
+                "data": self.ctx.workspace_mgr.get_awarded_badges(),
+            }
         if command == "graph":
             graph = RelationshipGraph()
             graph.build_from_workspace(

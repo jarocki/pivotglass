@@ -10,6 +10,7 @@ TOP_LEVEL_COMMANDS: tuple[str, ...] = (
     "hint",
     "autopivot",
     "challenges",
+    "badges",
     "search",
     "graph",
     "dossier",

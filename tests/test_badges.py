@@ -378,6 +378,26 @@ class TestWorkspaceManagerBadges:
         awarded = wm.get_awarded_badges()
         assert len(awarded) == 2
 
+    def test_store_badge_event_is_idempotent_and_enriches_metadata(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("test")
+        wm.switch("test")
+        assert wm.store_badge_event("badge-one", "One") is True
+        assert (
+            wm.store_badge_event(
+                "badge-one",
+                "One",
+                badge_artwork="constellation",
+                badge_glyph="✦",
+                challenge_id="challenge-one",
+            )
+            is False
+        )
+        awarded = wm.get_awarded_badges()
+        assert len(awarded) == 1
+        assert awarded[0]["badge_artwork"] == "constellation"
+        assert awarded[0]["challenge_id"] == "challenge-one"
+
     def test_get_awarded_badges_empty_initially(self, tmp_path):
         wm = WorkspaceManager(workspace_dir=tmp_path)
         wm.create("test")
