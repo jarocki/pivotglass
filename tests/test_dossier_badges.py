@@ -7,7 +7,7 @@ Stage C+D tests covering:
 - build_dossier_stats() with None dossier_state returns zeroed dict
 - build_dossier_stats() with stubbed DossierState computes correct counts
 - build_dossier_stats() novelty count via workspace_mgr (M-8, DEC-M8-NOVELTY-010)
-- _DEFAULT_BADGES now has 16 entries (10 original + 5 M-7 + 1 M-8 Pioneer)
+- _DEFAULT_BADGES now has 40 entries (10 original + 24 graduated + 6 dossier)
 - Badge manager check_all() correctly awards dossier badges given dossier stats
 
 @decision DEC-TEST-M7-BADGE-001
@@ -15,7 +15,7 @@ Stage C+D tests covering:
 @status accepted
 @rationale Covers the five new badge specs (DEC-M7-BADGE-001..005) plus the M-8
            Pioneer badge (DEC-M8-NOVELTY-010), the build_dossier_stats helper,
-           and verifies _DEFAULT_BADGES counts 16 after the M-7+M-8 splice
+           and verifies the dossier definitions remain present in the full catalog
            (DEC-M7-BADGE-006). Compound-interaction test exercises BadgeManager.check_all()
            with real dossier stats to confirm end-to-end badge award.
            No external services used; all stubs are internal state factories
@@ -181,12 +181,11 @@ class TestDossierBadgesList:
 
 
 class TestDefaultBadgesCount:
-    """_DEFAULT_BADGES must have 16 entries after the M-7+M-8 splice."""
+    """_DEFAULT_BADGES includes the graduated v0.8 catalog additively."""
 
-    def test_default_badges_has_16_entries(self) -> None:
-        """M-8 adds Pioneer badge — _DEFAULT_BADGES must have 16 entries (DEC-M8-NOVELTY-010)."""
-        assert len(_DEFAULT_BADGES) == 16, (
-            f"Expected 16 badges (10 original + 5 M-7 dossier + 1 M-8 Pioneer), got {len(_DEFAULT_BADGES)}. "
+    def test_default_badges_has_40_entries(self) -> None:
+        assert len(_DEFAULT_BADGES) == 40, (
+            f"Expected 40 badges (10 original + 24 graduated + 6 dossier), got {len(_DEFAULT_BADGES)}. "
             f"IDs: {[b.id for b in _DEFAULT_BADGES]}"
         )
 
@@ -375,7 +374,7 @@ class TestDossierBadgeCompoundInteraction:
     def _make_manager(self):
         from adversary_pursuit.gamification.badges import BadgeManager
 
-        return BadgeManager()  # uses _DEFAULT_BADGES (16 entries including M-7 + M-8 Pioneer)
+        return BadgeManager()  # uses the full additive catalog, including dossier badges
 
     def _base_stats(self) -> dict:
         return {

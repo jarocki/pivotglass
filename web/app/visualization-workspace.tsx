@@ -12,8 +12,22 @@ import {
   type VisualizationRow,
   type VisualizationTheme,
 } from "./visualization-intent";
+import { RGBLed, rgbLabelForStatus } from "./rgb-led";
+import { LiteBritePeg } from "./lite-brite-peg";
 
 Chart.register(...registerables);
+
+const CONSTELLATION_COLUMN_LABELS: Readonly<Record<string, string>> = {
+  identity: "ID",
+  ttps: "TTP",
+  infrastructure: "INF",
+  timing: "TIM",
+  targeting: "TAR",
+  capability: "CAP",
+  motivation: "MOT",
+  predictions: "PRE",
+  denial: "DEN",
+};
 
 function displayValue(value: unknown): string {
   if (value === null || value === undefined || value === "") return "Unavailable";
@@ -198,12 +212,16 @@ const TERMINAL_GLYPH: Record<string, string> = {
   cancelled: "×",
 };
 
-function TaskMatrix({
+export function TaskMatrix({
   intent,
   onOpenEvidence,
+  onSelectCell,
+  liveRows = [],
 }: {
   intent: VisualizationIntent;
   onOpenEvidence?: (reference: string, origin: HTMLElement) => void;
+  onSelectCell?: (row: VisualizationRow) => void;
+  liveRows?: VisualizationRow[];
 }) {
   const [selected, setSelected] = useState<VisualizationRow | null>(null);
   const [query, setQuery] = useState("");
@@ -218,17 +236,33 @@ function TaskMatrix({
   const columnField = intent.fields.column;
   const statusField = intent.fields.status;
   const isConstellation = intent.intent_id === "indicator-constellation";
+  const mergedRows = useMemo(() => {
+    const rows = new Map<string, VisualizationRow>();
+    for (const row of [...intent.data.rows, ...liveRows]) {
+      rows.set(`${String(row[rowIdField])}\u0000${String(row[columnField])}`, row);
+    }
+    return [...rows.values()];
+  }, [columnField, intent.data.rows, liveRows, rowIdField]);
   const metadata = useMemo(() => {
     const values = new Map<string, VisualizationRow>();
-    for (const row of intent.data.rows) {
+    for (const row of mergedRows) {
       const rowId = String(row[rowIdField]);
       if (!values.has(rowId)) values.set(rowId, row);
     }
     return values;
-  }, [intent.data.rows, rowIdField]);
+  }, [mergedRows, rowIdField]);
+  const latestUpdate = useMemo(() => {
+    const values = new Map<string, string>();
+    for (const row of mergedRows) {
+      const rowId = String(row[rowIdField]);
+      const updated = String(row.updated_at ?? "");
+      if (updated > (values.get(rowId) ?? "")) values.set(rowId, updated);
+    }
+    return values;
+  }, [mergedRows, rowIdField]);
   const columns = useMemo(
-    () => [...new Set(intent.data.rows.map((row) => String(row[columnField])))],
-    [columnField, intent.data.rows],
+    () => [...new Set(mergedRows.map((row) => String(row[columnField])))],
+    [columnField, mergedRows],
   );
   const types = useMemo(
     () => [...new Set([...metadata.values()].map((row) => String(row.indicator_type ?? "")))]
@@ -269,6 +303,10 @@ function TaskMatrix({
         );
       });
     values.sort(([leftId, left], [rightId, right]) => {
+      if (!isConstellation) {
+        return (latestUpdate.get(rightId) ?? "").localeCompare(latestUpdate.get(leftId) ?? "")
+          || leftId.localeCompare(rightId);
+      }
       if (sortOrder === "last_desc" || sortOrder === "last_asc") {
         return compareDates(
           dateValue(left, "last_seen"),
@@ -302,6 +340,8 @@ function TaskMatrix({
     firstSeenAfter,
     lastSeenBefore,
     metadata,
+    isConstellation,
+    latestUpdate,
     query,
     relatedReference,
     rowField,
@@ -310,15 +350,15 @@ function TaskMatrix({
   ]);
   const cells = useMemo(
     () => new Map(
-      intent.data.rows.map((row) => [
+      mergedRows.map((row) => [
         `${String(row[rowIdField])}\u0000${String(row[columnField])}`,
         row,
       ]),
     ),
-    [columnField, intent.data.rows, rowIdField],
+    [columnField, mergedRows, rowIdField],
   );
 
-  if (intent.data.rows.length === 0) return <VisualizationEmpty intent={intent} />;
+  if (mergedRows.length === 0) return <VisualizationEmpty intent={intent} />;
   return (
     <>
       {isConstellation && (
@@ -412,14 +452,33 @@ function TaskMatrix({
           <output>{rowIds.length} of {metadata.size} indicators</output>
         </div>
       )}
+      {isConstellation && (
+        <div className="lite-brite-legend" aria-label="Lite Brite Dossier status legend">
+          {(["filled", "partial", "deferred", "empty"] as const).map((status) => (
+            <span key={status}>
+              <LiteBritePeg status={status} label={`${status} Dossier status`} />
+              <b>{status}</b>
+            </span>
+          ))}
+        </div>
+      )}
       <div className="task-matrix-wrap">
-        <table className="task-matrix">
+        <table className={`task-matrix ${isConstellation ? "constellation-matrix" : ""}`}>
           <caption className="sr-only">{intent.question_text}</caption>
           <thead>
             <tr>
               <th scope="col">Indicator</th>
               {columns.map((column) => (
-                <th scope="col" key={column}>{column.replaceAll("_", " ")}</th>
+                <th
+                  scope="col"
+                  key={column}
+                  title={column.replaceAll("_", " ")}
+                  aria-label={column.replaceAll("_", " ")}
+                >
+                  {isConstellation
+                    ? (CONSTELLATION_COLUMN_LABELS[column] ?? column.slice(0, 3).toUpperCase())
+                    : column.replaceAll("_", " ")}
+                </th>
               ))}
             </tr>
           </thead>
@@ -451,15 +510,28 @@ function TaskMatrix({
                     return (
                       <td key={column}>
                         <button
-                          className={`matrix-cell state-${status}`}
-                          onClick={() => setSelected(cell)}
-                          aria-label={`${label}, ${column}, ${status}`}
+                          className={`matrix-cell ${isConstellation ? "lite-brite-cell" : ""} state-${status}`}
+                          onClick={() => {
+                            setSelected(cell);
+                            onSelectCell?.(cell);
+                          }}
+                          title={`${column.replaceAll("_", " ")} · ${status} · ${displayValue(cell.evidence_count)} evidence records`}
+                          aria-label={`${label}, ${column}, ${status}. RGB status ${rgbLabelForStatus(status)}`}
                         >
-                          <span className="matrix-led" aria-hidden="true">
-                            {Array.from({ length: 9 }, (_, index) => <i key={index} />)}
-                          </span>
-                          <b>{TERMINAL_GLYPH[status] ?? "·"}</b>
-                          <span>{status}</span>
+                          {isConstellation
+                            ? (
+                              <LiteBritePeg
+                                status={status}
+                                label={`${column.replaceAll("_", " ")}, ${status}`}
+                              />
+                            )
+                            : (
+                              <>
+                                <RGBLed status={status} label={`${status} RGB status ${rgbLabelForStatus(status)}`} />
+                                <b>{TERMINAL_GLYPH[status] ?? "·"}</b>
+                                <span>{status}</span>
+                              </>
+                            )}
                         </button>
                       </td>
                     );

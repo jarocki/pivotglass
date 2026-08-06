@@ -1,7 +1,7 @@
 """Tests for the Badge/Achievement system (Issue #17).
 
 Covers:
-- All 10 built-in badges exist with correct attributes
+- All built-in badges exist with correct attributes and artwork
 - BadgeRarity enum values
 - Badge and AwardedBadge dataclasses
 - BadgeManager.check_all returns newly awarded badges
@@ -33,6 +33,7 @@ Production sequence tested:
 from __future__ import annotations
 
 import io
+from pathlib import Path
 
 import pytest
 
@@ -93,12 +94,27 @@ class TestBadgeRarity:
 
 
 class TestBuiltinBadges:
-    """All 16 default badges load with correct attributes (10 original + 5 M-7 + 1 M-8 Pioneer)."""
+    """The 40-badge catalog loads with distinct deterministic artwork."""
 
-    def test_sixteen_builtins_loaded(self):
-        """M-8 adds Pioneer badge — _DEFAULT_BADGES must have 16 entries (DEC-M8-NOVELTY-010)."""
+    def test_forty_builtins_loaded(self):
         mgr = BadgeManager()
-        assert len(mgr._badges) == 16
+        assert len(mgr._badges) == 40
+
+    def test_catalog_has_broad_visual_variety(self):
+        mgr = BadgeManager()
+        artwork = {badge.artwork for badge in mgr._badges.values()}
+        assert len(artwork) >= 20
+        assert all(badge.glyph for badge in mgr._badges.values())
+
+    def test_web_renderer_supports_every_catalog_artwork(self):
+        source = (Path(__file__).parents[1] / "web" / "app" / "badge-artwork.tsx").read_text(
+            encoding="utf-8"
+        )
+        supported = source.split("const SUPPORTED_KINDS = [", 1)[1].split("] as const", 1)[0]
+        for badge in BadgeManager()._badges.values():
+            assert f'"{badge.artwork}"' in supported, (
+                f"Badge artwork {badge.artwork!r} has no Pivotglass renderer"
+            )
 
     def test_first_blood_badge(self):
         mgr = BadgeManager()
@@ -368,6 +384,8 @@ class TestWorkspaceManagerBadges:
         assert len(awarded) == 1
         assert awarded[0]["badge_id"] == "badge-first-blood"
         assert awarded[0]["badge_name"] == "First Blood"
+        assert awarded[0]["badge_artwork"] == "first-signal"
+        assert awarded[0]["badge_rarity"] == "common"
 
     def test_store_badge_event_multiple(self, tmp_path):
         wm = WorkspaceManager(workspace_dir=tmp_path)

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Expanded the durable achievement catalog to 40 graduated badges with
+  accessible, achievement-specific artwork and labeled rarity colors.
+- Added periodic character-voiced Analyst Advisor guidance based on bounded
+  local state, character-and-topic artwork, and optional device-local speech
+  that remains explicitly labeled as narration rather than evidence.
+- Added restrained theme-derived musical acknowledgements for newly awarded
+  badges and newly filled Dossier facets. Acknowledgements never enable muted
+  audio, replay existing progress, or change investigation state.
+
+### Changed
+
+- Reworked the Investigation Constellation into a compact Lite Brite display
+  whose starburst, striped, octagonal, and recessed shapes redundantly encode
+  filled, partial, deferred, and empty Dossier states.
+- Preserved larger literal RGB status blocks for Enrichment Activity, ordered
+  recent work newest-first, and shared one deterministic lifecycle color
+  authority across activity views.
+- Strengthened every public character score with a more recognizable ensemble,
+  articulation, rhythmic identity, and orchestral or atmospheric role while
+  retaining local, procedural, opt-in playback.
+- Moved non-modal Advisor cards near the top of the current viewport so they
+  remain visible without stealing keyboard focus or covering evidence.
+
 ## [0.7.0] — 2026-08-01
 
 This early-availability release consolidates the unreleased 0.6 development

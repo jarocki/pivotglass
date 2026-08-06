@@ -90,6 +90,8 @@ DOSSIER_BADGES: list[Badge] = [
         rarity=BadgeRarity.LEGENDARY,
         metric=BadgeMetric.DOSSIER_SLOTS_FILLED,
         threshold=9,
+        artwork="dossier-prism",
+        glyph="9",
     ),
     Badge(
         id="badge-identity-first",
@@ -101,6 +103,8 @@ DOSSIER_BADGES: list[Badge] = [
         rarity=BadgeRarity.RARE,
         metric=BadgeMetric.DOSSIER_IDENTITY_FIRST,
         threshold=1,
+        artwork="identity-key",
+        glyph="ID",
     ),
     Badge(
         id="badge-predictor",
@@ -109,6 +113,8 @@ DOSSIER_BADGES: list[Badge] = [
         rarity=BadgeRarity.UNCOMMON,
         metric=BadgeMetric.DOSSIER_PREDICTIONS_VALIDATED,
         threshold=3,
+        artwork="prediction-prism",
+        glyph="3",
     ),
     Badge(
         id="badge-skeptic",
@@ -119,6 +125,8 @@ DOSSIER_BADGES: list[Badge] = [
         rarity=BadgeRarity.UNCOMMON,
         metric=BadgeMetric.DOSSIER_PREDICTIONS_FALSIFIED,
         threshold=3,
+        artwork="skeptic-scale",
+        glyph="?",
     ),
     Badge(
         id="badge-deception-spotter",
@@ -130,6 +138,8 @@ DOSSIER_BADGES: list[Badge] = [
         rarity=BadgeRarity.RARE,
         metric=BadgeMetric.DOSSIER_DENIAL_FILLED,
         threshold=1,
+        artwork="deception-eye",
+        glyph="!",
     ),
     # M-8: Pioneer badge — first novel slot-fill method (DEC-M8-NOVELTY-010)
     Badge(
@@ -143,6 +153,8 @@ DOSSIER_BADGES: list[Badge] = [
         rarity=BadgeRarity.RARE,
         metric=BadgeMetric.DOSSIER_NOVELTY_RECOGNIZED,
         threshold=1,
+        artwork="pioneer-compass",
+        glyph="N",
     ),
 ]
 

@@ -103,7 +103,12 @@ def test_character_identity_lives_in_score_not_only_rendering(tmp_path: Path):
 
     def signature(score):
         return tuple(
-            (round(event.start, 3), round(event.duration, 3), round(event.frequency, 2), event.voice)
+            (
+                round(event.start, 3),
+                round(event.duration, 3),
+                round(event.frequency, 2),
+                event.voice,
+            )
             for event in score
         )
 
@@ -128,28 +133,62 @@ def test_score_has_form_memory_and_transformation(tmp_path: Path):
 
 def test_public_score_bibles_have_distinct_compositional_grammar():
     names = (
-        "default", "chuck_norris", "full_troll", "hal9000",
-        "sherlock_holmes", "neuromancer", "the_matrix",
+        "default",
+        "chuck_norris",
+        "full_troll",
+        "hal9000",
+        "sherlock_holmes",
+        "neuromancer",
+        "the_matrix",
     )
     specs = [_THEMES[name] for name in names]
     signatures = {
         (
-            spec.tempo, spec.meter, spec.phrase_bars, spec.scale, spec.motif,
-            spec.rhythm, spec.cadence, spec.form, spec.lead_voice,
-            spec.bass_voice, spec.pad_voice, spec.pulse,
+            spec.tempo,
+            spec.meter,
+            spec.phrase_bars,
+            spec.scale,
+            spec.motif,
+            spec.rhythm,
+            spec.cadence,
+            spec.form,
+            spec.lead_voice,
+            spec.bass_voice,
+            spec.pad_voice,
+            spec.pulse,
         )
         for spec in specs
     }
     assert len(signatures) == len(names)
     assert {spec.public_identity for spec in specs} == {
-        "Default (Analyst)", "Chuck Norris", "Troll", "HAL9000",
-        "Sherlock Holmes", "Neuromancer", "The Matrix",
+        "Default (Analyst)",
+        "Chuck Norris",
+        "Troll",
+        "HAL9000",
+        "Sherlock Holmes",
+        "Neuromancer",
+        "The Matrix",
     }
     synthetic_tokens = {"machine", "code", "packet", "signal", "pulse", "square"}
     for spec in specs:
         assert not synthetic_tokens.intersection(
             {spec.lead_voice, spec.bass_voice, spec.pad_voice, spec.pulse_voice}
         )
+
+
+def test_public_scores_keep_their_characteristic_ensembles():
+    expected = {
+        "default": ("piano", "cello", "strings", "timpani"),
+        "chuck_norris": ("french_horn", "baritone_guitar", "strings", "timpani"),
+        "full_troll": ("bass_clarinet", "pizzicato_strings", "muted_strings", "woodblock"),
+        "hal9000": ("glass_harmonica", "cello", "choir", "frame_drum"),
+        "sherlock_holmes": ("solo_violin", "bassoon", "chamber_strings", "woodblock"),
+        "neuromancer": ("electric_cello", "synth_bass", "analog_strings", "gated_snare"),
+        "the_matrix": ("string_ostinato", "low_strings", "brass_choir", "taiko"),
+    }
+    for name, ensemble in expected.items():
+        theme = _THEMES[name]
+        assert (theme.lead_voice, theme.bass_voice, theme.pad_voice, theme.pulse_voice) == ensemble
 
 
 def test_preserved_internal_ids_resolve_to_requested_public_scores():
@@ -162,15 +201,25 @@ def test_preserved_internal_ids_resolve_to_requested_public_scores():
 
 def test_all_public_scores_render_pairwise_distinct_event_timelines(tmp_path: Path):
     names = (
-        "default", "chuck_norris", "full_troll", "hal9000",
-        "sherlock_holmes", "neuromancer", "the_matrix",
+        "default",
+        "chuck_norris",
+        "full_troll",
+        "hal9000",
+        "sherlock_holmes",
+        "neuromancer",
+        "the_matrix",
     )
     signatures = set()
     for name in names:
         score = ProceduralMusicController(tmp_path, mode=name)._score()
         signatures.add(
             tuple(
-                (round(event.start, 3), round(event.duration, 3), round(event.frequency, 2), event.voice)
+                (
+                    round(event.start, 3),
+                    round(event.duration, 3),
+                    round(event.frequency, 2),
+                    event.voice,
+                )
                 for event in score
             )
         )
@@ -187,8 +236,16 @@ def test_macro_cycles_are_reproducible_varied_and_protect_return(tmp_path: Path)
     assert first != next_cycle
     theme = _THEMES["neuromancer"]
     return_start = 3 * (60 / theme.tempo * theme.meter * theme.phrase_bars)
-    first_return = [event.frequency for event in first if event.voice == theme.lead_voice and event.start >= return_start]
-    next_return = [event.frequency for event in next_cycle if event.voice == theme.lead_voice and event.start >= return_start]
+    first_return = [
+        event.frequency
+        for event in first
+        if event.voice == theme.lead_voice and event.start >= return_start
+    ]
+    next_return = [
+        event.frequency
+        for event in next_cycle
+        if event.voice == theme.lead_voice and event.start >= return_start
+    ]
     assert first_return[-2:] == next_return[-2:]
 
 
@@ -204,7 +261,14 @@ def test_tui_identity_fields_match_web_score_authority_contract():
     }
     for name, identity in expected.items():
         theme = _THEMES[name]
-        assert (theme.root_midi, theme.tempo, theme.meter, theme.phrase_bars, theme.scale, theme.motif) == identity
+        assert (
+            theme.root_midi,
+            theme.tempo,
+            theme.meter,
+            theme.phrase_bars,
+            theme.scale,
+            theme.motif,
+        ) == identity
         contract = _PERFORMED_CONTRACTS[name]
         assert theme.rhythm == contract["rhythm"]
         assert theme.pulse == contract["pulse"]
@@ -218,7 +282,9 @@ def test_renderer_has_headroom_and_faded_loop_edges(tmp_path: Path):
     output = tmp_path / "sprawl.wav"
     ProceduralMusicController(tmp_path, mode="the_sprawl", volume=100)._render(output)
     with wave.open(str(output), "rb") as rendered:
-        samples = struct.unpack(f"<{rendered.getnframes()}h", rendered.readframes(rendered.getnframes()))
+        samples = struct.unpack(
+            f"<{rendered.getnframes()}h", rendered.readframes(rendered.getnframes())
+        )
 
     assert max(abs(sample) for sample in samples) < 32767
     assert max(abs(sample) for sample in samples[:100]) < 1_000

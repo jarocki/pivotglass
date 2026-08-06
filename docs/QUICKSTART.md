@@ -134,6 +134,17 @@ activity feed shows each job moving through planned, queued, running, and a
 terminal state such as succeeded, empty, failed, skipped, or canceled. These
 states describe the enrichment job—not whether the indicator is malicious.
 
+**Enrichment Activity** keeps recent indicators as rows and enrichment sources
+as columns, newest activity first. Each large cell contains a three-channel
+8-bit LED. Green `[0,255,0]` means the enrichment completed, black `[0,0,0]`
+means no result is mapped, and gray `[128,128,128]` marks partial coverage.
+Symbols and text repeat every status; color is never the only cue.
+
+Run `challenges` to see source-grounded goals for the current pursuit and
+`badges` to review earned milestones. Pivotglass includes 40 graduated badges;
+their shapes identify the achievement family and their labeled color tier marks
+common, uncommon, rare, epic, or legendary awards.
+
 For meaningful research, create a separate workspace and submit only
 indicators you are authorized to send to the enabled services.
 
@@ -151,6 +162,12 @@ indicator.
 Select an indicator to open its evidence. Select a cell to see why that
 dimension is filled, partial, empty, or deferred. The overall mapped value is a
 navigation aid, not confidence or a verdict.
+
+The Constellation compresses those states into a child's Lite Brite motif so
+all nine Dossier dimensions remain scannable beside each indicator: a bright
+starburst is filled, a striped round peg is partial, a concentric octagonal peg
+is deferred, and a dark recessed peg is empty. Shape repeats color, and hover,
+keyboard focus, and selection expose the complete status and evidence count.
 
 > A blank cell is not missing interface. It is visible uncertainty.
 
@@ -237,9 +254,20 @@ mode Neuromancer
 ```
 
 Music begins off. If enabled, the choice persists when the character changes.
-The browser score cross-fades; the terminal score uses short edge fades when it
-stops and starts the new movement. Music, character narration, visual effects,
-scores, and mini-games never alter evidence or investigation state.
+The browser schedules ahead, caches its instrument and percussion material,
+and cross-fades between movements so interface work cannot create gaps or hard
+audio edges. The terminal score uses short edge fades when it stops and starts
+the new movement. Music, character narration, visual effects, scores, and
+mini-games never alter evidence or investigation state.
+
+With Narration enabled, the active character periodically offers a non-modal
+next-step idea based on visible local state. The Analyst Advisor appears near
+the top of the current viewport, never steals focus, and is always labeled
+**Narration, not evidence**. Its artwork combines the active character with the
+kind of advice being offered. Choose its action, select **Read Aloud**, dismiss
+it, or turn Narration off from **DECK**. Automatic Advisor voice audio is a
+separate opt-in setting; it uses a browser or operating-system voice with
+character-specific pacing and pitch, not a cloned actor or character voice.
 
 In the terminal interface, `Alt-M` toggles music immediately.
 

@@ -1055,20 +1055,35 @@ class WorkspaceManager:
             rows = (
                 session.execute(select(BadgeEvent).order_by(BadgeEvent.awarded_at)).scalars().all()
             )
+            # Legacy milestone rows predate presentation metadata. Hydrate only
+            # missing display fields from the current deterministic catalog;
+            # the persisted name, award time, and challenge provenance remain
+            # authoritative and are never rewritten here.
+            try:
+                from adversary_pursuit.gamification.badges import BadgeManager
+
+                badge_catalog = BadgeManager()
+            except Exception:  # pragma: no cover - display fallback only
+                badge_catalog = None
             result = []
             seen: set[str] = set()
             for row in rows:
                 if row.badge_id in seen:
                     continue
                 seen.add(row.badge_id)
+                definition = badge_catalog.get_badge(row.badge_id) if badge_catalog else None
                 result.append(
                     {
                         "badge_id": row.badge_id,
                         "badge_name": row.badge_name,
-                        "badge_description": row.badge_description,
-                        "badge_rarity": row.badge_rarity,
-                        "badge_artwork": row.badge_artwork,
-                        "badge_glyph": row.badge_glyph,
+                        "badge_description": row.badge_description
+                        or (definition.description if definition else None),
+                        "badge_rarity": row.badge_rarity
+                        or (definition.rarity.value if definition else None),
+                        "badge_artwork": row.badge_artwork
+                        or (definition.artwork if definition else None),
+                        "badge_glyph": row.badge_glyph
+                        or (definition.glyph if definition else None),
                         "challenge_id": row.challenge_id,
                         "awarded_at": row.awarded_at,
                     }

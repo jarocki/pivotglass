@@ -745,9 +745,9 @@ class APConsole(cmd2.Cmd):
                 self.workspace_mgr.store_score_events(scoring_events)
                 from adversary_pursuit.gamification.phrases import pick
 
-                celebration = pick(
-                    self.mode_mgr.active.name, "score_celebration"
-                ).format(points=total_gained)
+                celebration = pick(self.mode_mgr.active.name, "score_celebration").format(
+                    points=total_gained
+                )
                 self.rich_console.print(celebration)
                 for event in scoring_events:
                     self.rich_console.print(
@@ -1374,7 +1374,14 @@ class APConsole(cmd2.Cmd):
 
         for badge in newly_earned:
             # Persist
-            self.workspace_mgr.store_badge_event(badge.id, badge.name)
+            self.workspace_mgr.store_badge_event(
+                badge.id,
+                badge.name,
+                badge_description=badge.description,
+                badge_rarity=badge.rarity.value,
+                badge_artwork=badge.artwork,
+                badge_glyph=badge.glyph,
+            )
             # Announce with rarity-styled panel
             rarity_colors = {
                 "common": "white",
@@ -1484,15 +1491,11 @@ class APConsole(cmd2.Cmd):
             current = self.mode_mgr.active
             from adversary_pursuit.gamification.modes import display_mode_name
 
-            self.poutput(
-                f"Current mode: {display_mode_name(current.name)} — {current.personality}"
-            )
+            self.poutput(f"Current mode: {display_mode_name(current.name)} — {current.personality}")
             self.poutput("Available modes:")
             for entry in self.mode_mgr.list_modes(public_only=True):
                 marker = "* " if entry["name"] == current.name else "  "
-                self.poutput(
-                    f"  {marker}{entry['display_name']}: {entry['personality']}"
-                )
+                self.poutput(f"  {marker}{entry['display_name']}: {entry['personality']}")
             return
 
         try:

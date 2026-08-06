@@ -91,7 +91,11 @@ Every stored indicator is a row; the nine Dossier dimensions are columns. The
 newest indicators appear first. Sort or filter by value, indicator type,
 mapped completeness, first or last seen, and direct graph relationship. A cell
 can be filled, partial, empty, or deferred. That state is navigation help—not a
-confidence score or malware verdict.
+confidence score or malware verdict. Compact Lite Brite pegs keep all nine
+dimensions visible: starburst is filled, striped round is partial, concentric
+octagonal is deferred, and dark recessed is empty. Shape, hover text, keyboard
+focus, and selection repeat the color meaning. Enrichment Activity retains its
+three-channel RGB blocks for indicator enrichment jobs.
 
 ![Investigation Constellation](docs/media/pivotglass-constellation-v0.7.0.png)
 
@@ -149,7 +153,8 @@ command families:
 - `report` and `export` — produce reports or portable data
 - `autopivot` and `hint` — control optional assistance
 - `challenges` — inspect pursuit-specific, source-grounded goals and progress
-- `badges` — inspect durable challenge awards and their artwork
+- `badges` — inspect durable awards from the 40-badge catalog; distinct artwork
+  and rarity color make different milestones recognizable at a glance
 - `status`, `clear`, `help`, `quit`, and `exit` — control the session
 
 During an active investigation, `stop`, `focus`, `add`, and `skip` control the
@@ -185,8 +190,14 @@ meaning or order of evidence.
 
 Music starts off, runs locally, and persists its enabled state when the
 character changes. The procedural scores use original motifs, harmony,
-counterlines, percussion, modeled instruments, and room ambience. Music,
-narration, animation, scores, and mini-games are presentation only.
+counterlines, percussion, modeled instruments, and room ambience. The browser
+schedules ahead and cross-fades to avoid gaps and hard audio edges. Periodic
+in-character field guidance appears near the top of the current viewport
+without taking focus. Each Advisor card uses character- and advice-specific
+artwork and remains labeled narration, not evidence. **Read Aloud** uses a
+character-shaped rate and pitch profile with an available browser or operating-
+system voice; automatic voice audio is off by default and never clones an actor.
+Music, narration, animation, scores, and mini-games are presentation only.
 
 Pivotglass includes Day, Night, high-contrast, reduced-motion, and effects-off
 controls. Terminal equivalents include:

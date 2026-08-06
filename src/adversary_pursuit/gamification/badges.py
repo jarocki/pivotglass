@@ -110,6 +110,10 @@ class Badge:
         Which workspace stat to compare against the threshold.
     threshold:
         The stat value that must be reached or exceeded to earn the badge.
+    artwork:
+        Stable visual family used by Pivotglass and other rich clients.
+    glyph:
+        Short redundant mark shown inside the artwork.
     """
 
     id: str
@@ -118,6 +122,8 @@ class Badge:
     rarity: BadgeRarity
     metric: BadgeMetric
     threshold: int
+    artwork: str = "field-mark"
+    glyph: str = "◆"
 
     def check_award(self, workspace_stats: dict) -> bool:
         """Check if this badge is earned given the current workspace stats.
@@ -174,6 +180,8 @@ _DEFAULT_BADGES: list[Badge] = [
         rarity=BadgeRarity.COMMON,
         metric=BadgeMetric.TOTAL_INDICATORS,
         threshold=1,
+        artwork="first-signal",
+        glyph="1",
     ),
     Badge(
         id="badge-data-hoarder",
@@ -182,6 +190,8 @@ _DEFAULT_BADGES: list[Badge] = [
         rarity=BadgeRarity.EPIC,
         metric=BadgeMetric.TOTAL_INDICATORS,
         threshold=1000,
+        artwork="archive-stack",
+        glyph="1K",
     ),
     Badge(
         id="badge-pivot-master",
@@ -190,6 +200,8 @@ _DEFAULT_BADGES: list[Badge] = [
         rarity=BadgeRarity.UNCOMMON,
         metric=BadgeMetric.MODULE_RUN_COUNT,
         threshold=5,
+        artwork="pivot-nodes",
+        glyph="5",
     ),
     Badge(
         id="badge-century",
@@ -198,6 +210,8 @@ _DEFAULT_BADGES: list[Badge] = [
         rarity=BadgeRarity.COMMON,
         metric=BadgeMetric.TOTAL_SCORE,
         threshold=100,
+        artwork="score-star",
+        glyph="100",
     ),
     Badge(
         id="badge-grand-master",
@@ -206,6 +220,8 @@ _DEFAULT_BADGES: list[Badge] = [
         rarity=BadgeRarity.RARE,
         metric=BadgeMetric.TOTAL_SCORE,
         threshold=1000,
+        artwork="grand-crown",
+        glyph="1K",
     ),
     Badge(
         id="badge-domain-hunter",
@@ -214,6 +230,8 @@ _DEFAULT_BADGES: list[Badge] = [
         rarity=BadgeRarity.UNCOMMON,
         metric=BadgeMetric.DOMAIN_COUNT,
         threshold=50,
+        artwork="constellation",
+        glyph="50",
     ),
     Badge(
         id="badge-ip-collector",
@@ -222,6 +240,8 @@ _DEFAULT_BADGES: list[Badge] = [
         rarity=BadgeRarity.UNCOMMON,
         metric=BadgeMetric.IP_COUNT,
         threshold=50,
+        artwork="network-grid",
+        glyph="50",
     ),
     Badge(
         id="badge-note-taker",
@@ -230,6 +250,8 @@ _DEFAULT_BADGES: list[Badge] = [
         rarity=BadgeRarity.COMMON,
         metric=BadgeMetric.NOTE_COUNT,
         threshold=10,
+        artwork="public-record",
+        glyph="10",
     ),
     Badge(
         id="badge-persistent",
@@ -238,6 +260,8 @@ _DEFAULT_BADGES: list[Badge] = [
         rarity=BadgeRarity.UNCOMMON,
         metric=BadgeMetric.MODULE_RUN_COUNT,
         threshold=10,
+        artwork="persistence-loop",
+        glyph="10",
     ),
     Badge(
         id="badge-supreme-hunter",
@@ -246,18 +270,267 @@ _DEFAULT_BADGES: list[Badge] = [
         rarity=BadgeRarity.LEGENDARY,
         metric=BadgeMetric.TOTAL_SCORE,
         threshold=10000,
+        artwork="trophy",
+        glyph="10K",
     ),
 ]
 
-# M-7: extend _DEFAULT_BADGES with the 5 new dossier-aware badges.
-# gamification/dossier_badges.py is the authority for the new badge specs;
+# v0.8: graduated milestones give analysts frequent, legible recognition
+# across collection, enrichment, documentation, and dossier construction.
+# They reuse the deterministic BadgeMetric contract; no award depends on a
+# character line, model judgment, or decorative UI state.
+PROGRESSION_BADGES: list[Badge] = [
+    Badge(
+        "badge-signal-trace",
+        "Signal Trace",
+        "Map 5 indicators",
+        BadgeRarity.COMMON,
+        BadgeMetric.TOTAL_INDICATORS,
+        5,
+        "evidence-lens",
+        "5",
+    ),
+    Badge(
+        "badge-evidence-cache",
+        "Evidence Cache",
+        "Map 25 indicators",
+        BadgeRarity.COMMON,
+        BadgeMetric.TOTAL_INDICATORS,
+        25,
+        "archive-stack",
+        "25",
+    ),
+    Badge(
+        "badge-field-atlas",
+        "Field Atlas",
+        "Map 100 indicators",
+        BadgeRarity.UNCOMMON,
+        BadgeMetric.TOTAL_INDICATORS,
+        100,
+        "route-map",
+        "100",
+    ),
+    Badge(
+        "badge-deep-archive",
+        "Deep Archive",
+        "Map 500 indicators",
+        BadgeRarity.RARE,
+        BadgeMetric.TOTAL_INDICATORS,
+        500,
+        "source-layers",
+        "500",
+    ),
+    Badge(
+        "badge-domain-scout",
+        "Domain Scout",
+        "Map 10 unique domains",
+        BadgeRarity.COMMON,
+        BadgeMetric.DOMAIN_COUNT,
+        10,
+        "domain-orbit",
+        "10",
+    ),
+    Badge(
+        "badge-zone-mapper",
+        "Zone Mapper",
+        "Map 100 unique domains",
+        BadgeRarity.RARE,
+        BadgeMetric.DOMAIN_COUNT,
+        100,
+        "route-map",
+        "100",
+    ),
+    Badge(
+        "badge-domain-atlas",
+        "Domain Atlas",
+        "Map 250 unique domains",
+        BadgeRarity.EPIC,
+        BadgeMetric.DOMAIN_COUNT,
+        250,
+        "domain-orbit",
+        "250",
+    ),
+    Badge(
+        "badge-network-scout",
+        "Network Scout",
+        "Map 10 unique IP addresses",
+        BadgeRarity.COMMON,
+        BadgeMetric.IP_COUNT,
+        10,
+        "network-grid",
+        "10",
+    ),
+    Badge(
+        "badge-subnet-cartographer",
+        "Subnet Cartographer",
+        "Map 100 unique IP addresses",
+        BadgeRarity.RARE,
+        BadgeMetric.IP_COUNT,
+        100,
+        "infrastructure-tower",
+        "100",
+    ),
+    Badge(
+        "badge-address-space-atlas",
+        "Address Space Atlas",
+        "Map 250 unique IP addresses",
+        BadgeRarity.EPIC,
+        BadgeMetric.IP_COUNT,
+        250,
+        "route-map",
+        "250",
+    ),
+    Badge(
+        "badge-first-enrichment",
+        "First Enrichment",
+        "Complete the first enrichment run",
+        BadgeRarity.COMMON,
+        BadgeMetric.MODULE_RUN_COUNT,
+        1,
+        "public-record",
+        "1",
+    ),
+    Badge(
+        "badge-source-mixer",
+        "Source Mixer",
+        "Complete 3 enrichment runs",
+        BadgeRarity.COMMON,
+        BadgeMetric.MODULE_RUN_COUNT,
+        3,
+        "source-layers",
+        "3",
+    ),
+    Badge(
+        "badge-long-watch",
+        "Long Watch",
+        "Complete 25 enrichment runs",
+        BadgeRarity.RARE,
+        BadgeMetric.MODULE_RUN_COUNT,
+        25,
+        "time-watch",
+        "25",
+    ),
+    Badge(
+        "badge-marathon-analyst",
+        "Marathon Analyst",
+        "Complete 50 enrichment runs",
+        BadgeRarity.EPIC,
+        BadgeMetric.MODULE_RUN_COUNT,
+        50,
+        "lightning-map",
+        "50",
+    ),
+    Badge(
+        "badge-working-theory",
+        "Working Theory",
+        "Earn 250 evidence points",
+        BadgeRarity.UNCOMMON,
+        BadgeMetric.TOTAL_SCORE,
+        250,
+        "prediction-prism",
+        "250",
+    ),
+    Badge(
+        "badge-evidence-architect",
+        "Evidence Architect",
+        "Earn 2500 evidence points",
+        BadgeRarity.EPIC,
+        BadgeMetric.TOTAL_SCORE,
+        2500,
+        "dossier-prism",
+        "2.5K",
+    ),
+    Badge(
+        "badge-signal-sovereign",
+        "Signal Sovereign",
+        "Earn 5000 evidence points",
+        BadgeRarity.EPIC,
+        BadgeMetric.TOTAL_SCORE,
+        5000,
+        "trophy",
+        "5K",
+    ),
+    Badge(
+        "badge-first-annotation",
+        "First Annotation",
+        "Write the first analyst note",
+        BadgeRarity.COMMON,
+        BadgeMetric.NOTE_COUNT,
+        1,
+        "notebook",
+        "1",
+    ),
+    Badge(
+        "badge-case-journal",
+        "Case Journal",
+        "Write 5 analyst notes",
+        BadgeRarity.COMMON,
+        BadgeMetric.NOTE_COUNT,
+        5,
+        "notebook",
+        "5",
+    ),
+    Badge(
+        "badge-analyst-ledger",
+        "Analyst Ledger",
+        "Write 25 analyst notes",
+        BadgeRarity.RARE,
+        BadgeMetric.NOTE_COUNT,
+        25,
+        "source-layers",
+        "25",
+    ),
+    Badge(
+        "badge-chronicle-keeper",
+        "Chronicle Keeper",
+        "Write 100 analyst notes",
+        BadgeRarity.EPIC,
+        BadgeMetric.NOTE_COUNT,
+        100,
+        "archive-stack",
+        "100",
+    ),
+    Badge(
+        "badge-facet-finder",
+        "Facet Finder",
+        "Fill the first dossier facet",
+        BadgeRarity.COMMON,
+        BadgeMetric.DOSSIER_SLOTS_FILLED,
+        1,
+        "evidence-lens",
+        "1",
+    ),
+    Badge(
+        "badge-half-the-picture",
+        "Half the Picture",
+        "Fill 5 dossier facets",
+        BadgeRarity.UNCOMMON,
+        BadgeMetric.DOSSIER_SLOTS_FILLED,
+        5,
+        "dossier-prism",
+        "5",
+    ),
+    Badge(
+        "badge-dossier-architect",
+        "Dossier Architect",
+        "Fill 7 dossier facets",
+        BadgeRarity.RARE,
+        BadgeMetric.DOSSIER_SLOTS_FILLED,
+        7,
+        "dossier-prism",
+        "7",
+    ),
+]
+
+# Extend _DEFAULT_BADGES with the dossier-aware badge family.
+# gamification/dossier_badges.py is the authority for those badge specs;
 # _DEFAULT_BADGES is the splice site (Sacred Practice 12, DEC-M7-BADGE-006).
 # Import is deferred to module tail to avoid a circular import: dossier_badges.py
 # imports Badge and BadgeMetric from this file, so this module must define both
 # before the import runs.
 from adversary_pursuit.gamification.dossier_badges import DOSSIER_BADGES  # noqa: E402
 
-_DEFAULT_BADGES = _DEFAULT_BADGES + DOSSIER_BADGES
+_DEFAULT_BADGES = _DEFAULT_BADGES + PROGRESSION_BADGES + DOSSIER_BADGES
 
 
 class BadgeManager:
@@ -286,7 +559,7 @@ class BadgeManager:
         ----------
         badges:
             Override the default badge definitions. Pass None to use the
-            built-in 10 badges. Useful for tests that need isolated badges.
+            built-in badge catalog. Useful for tests that need isolated badges.
         """
         self._badges: dict[str, Badge] = {
             b.id: b for b in (badges if badges is not None else _DEFAULT_BADGES)
@@ -338,7 +611,8 @@ class BadgeManager:
         Returns
         -------
         list[dict]
-            Each dict has: id, name, description, rarity, metric, threshold.
+            Each dict has: id, name, description, rarity, metric, threshold,
+            artwork, and glyph.
         """
         return [
             {
@@ -348,6 +622,8 @@ class BadgeManager:
                 "rarity": b.rarity.value,
                 "metric": b.metric.value,
                 "threshold": b.threshold,
+                "artwork": b.artwork,
+                "glyph": b.glyph,
             }
             for b in self._badges.values()
         ]

@@ -156,6 +156,14 @@ neighborhood. Relationship filters use only edges admitted by the graph
 authority. Selecting an indicator opens its evidence; selecting a cell explains
 the dimension state.
 
+Each Dossier state is a compact Lite Brite peg. A bright starburst is filled, a
+striped round peg is partial, a concentric octagonal peg is deferred, and a
+dark recessed peg is empty. The form makes each state recognizable without
+color; hover, keyboard focus, and selection expose the full dimension name,
+status, and evidence count. Enrichment Activity keeps the larger three-channel
+RGB blocks because those cells represent job lifecycles rather than Dossier
+coverage.
+
 The overall mapped value is navigation help, not confidence or a verdict.
 
 ![Investigation Constellation](media/pivotglass-constellation-v0.7.0.png)
@@ -262,6 +270,22 @@ character-voiced suggestion based only on masked local state. It is labeled
 **Narration**, makes no model request, spends no tokens, adds no evidence, and
 does not take focus.
 
+Field Guidance uses the same boundary for investigation ideas: it periodically
+selects a bounded action from visible local gaps, challenges, visualizations,
+or attention records and renders the idea in the active character's voice. The
+Analyst Advisor is fixed near the top of the current viewport, above the working
+surface but without moving keyboard focus. Character-and-topic artwork makes
+the suggestion identifiable before it is read. It is labeled **Narration, not
+evidence**, never runs the action automatically, and can be dismissed or
+disabled with the Narration control.
+
+Every card also offers **Read Aloud**. The optional automatic Advisor Voice
+setting is off by default and persists locally when enabled. Speech uses an
+available browser or operating-system voice with character-specific rate and
+pitch; Pivotglass does not clone an actor, celebrity, or fictional performance.
+Speech stops when the card is dismissed, audio is disabled, or the character
+changes.
+
 ### Intelligence-service commands
 
 ```text
@@ -350,6 +374,15 @@ as two witnesses. Completing a challenge awards its badge once; both progress
 and awards survive restarts. The Pivotglass masthead shows the total earned and
 the latest badge. Select it, or run `badges`, for the full history.
 
+The built-in catalog contains 40 graduated milestones across indicator mapping,
+domain and network discovery, enrichment, evidence scoring, analyst notes, and
+Dossier construction. Common, uncommon, rare, epic, and legendary awards use
+different color families as a presentation aid; the label always states the
+rarity, so meaning never depends on color alone. Each artwork family has its own
+shape. Awards created by older versions keep their original name and timestamp
+while receiving the current catalog artwork at display time; the stored
+investigation record is not rewritten.
+
 See [Analytic Method](ANALYTIC_METHOD.md) for the record distinctions and
 [Workspace Migration and Recovery](WORKSPACE_MIGRATIONS.md) before opening a
 valuable workspace with a newer release.
@@ -390,9 +423,14 @@ Important Dossier breakthroughs may receive one bounded model-generated line,
 but that prompt may not add facts, confidence, results, score, or control state.
 
 Music starts off and is generated locally. The enabled state persists across
-character changes. The browser cross-fades between movements; the terminal
-uses short edge fades when stopping and starting the new score. Neither path
-streams music or treats sound as evidence.
+character changes. The browser schedules audio ahead, reuses cached timbres and
+percussion buffers, smooths every voice envelope, and cross-fades between
+movements. The terminal uses short edge fades when stopping and starting the
+new score. In Pivotglass, a newly awarded badge or newly filled Dossier facet
+adds a brief, theme-derived musical acknowledgement when music is already on.
+Initial loading, workspace changes, and muted playback remain silent; these
+gestures celebrate persisted progress but carry no analytical meaning. Neither
+path streams music or treats sound as evidence.
 
 Pivotglass provides Day, Night, high-contrast, reduced-motion, and effects-off
 controls. Terminal equivalents are:

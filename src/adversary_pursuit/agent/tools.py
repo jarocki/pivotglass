@@ -622,9 +622,9 @@ class ToolContext:
             art = self.celebration.celebrate(total)
             from adversary_pursuit.gamification.phrases import pick
 
-            mode_points_line = pick(
-                self.mode_mgr.active.name, "score_celebration"
-            ).format(points=total)
+            mode_points_line = pick(self.mode_mgr.active.name, "score_celebration").format(
+                points=total
+            )
             celebration = art + "\n" + mode_points_line
             # Milestone catch-up check (DEC-63-MILESTONE-CATCHUP-001).
             # Quiet-start migration: seed last_id from pre_total (score BEFORE this
@@ -727,7 +727,14 @@ class ToolContext:
                     badge_stats, already_awarded=self._awarded_badges
                 )
                 for badge in newly_earned_badges:
-                    self.workspace_mgr.store_badge_event(badge.id, badge.name)
+                    self.workspace_mgr.store_badge_event(
+                        badge.id,
+                        badge.name,
+                        badge_description=badge.description,
+                        badge_rarity=badge.rarity.value,
+                        badge_artwork=badge.artwork,
+                        badge_glyph=badge.glyph,
+                    )
                     self._awarded_badges.add(badge.id)
             except Exception:  # noqa: BLE001
                 pass  # badge check must never block tool result delivery
@@ -2161,8 +2168,14 @@ def _search_workspace(ctx: ToolContext, type_filter: str | None = None) -> str:
 
         expression = (type_filter or "").strip()
         known_types = {
-            "ipv4-addr", "ipv6-addr", "domain-name", "url", "email-addr",
-            "file", "x509-certificate", "autonomous-system",
+            "ipv4-addr",
+            "ipv6-addr",
+            "domain-name",
+            "url",
+            "email-addr",
+            "file",
+            "x509-certificate",
+            "autonomous-system",
         }
         requested_type: str | None = expression if expression.lower() in known_types else None
         requested_source: str | None = None
@@ -2184,9 +2197,7 @@ def _search_workspace(ctx: ToolContext, type_filter: str | None = None) -> str:
             source_module = str(obj.get("x_ap_source_module", "")).lower()
             source_url = str(obj.get("x_ap_source_url", "")).lower()
             if requested_source and not any(
-                requested_source in source
-                for source in (source_module, source_url)
-                if source
+                requested_source in source for source in (source_module, source_url) if source
             ):
                 continue
             if terms and not all(term in haystack for term in terms):
@@ -2471,10 +2482,7 @@ def _execute_export_workspace(ctx: ToolContext, fmt: str) -> str:
 
     fmt = (fmt or "stix").strip().lower()
     if fmt not in ("json", "csv", "gexf", "stix"):
-        return (
-            f"Unknown export format '{fmt}'. "
-            "Supported formats: json, csv, gexf, stix."
-        )
+        return f"Unknown export format '{fmt}'. Supported formats: json, csv, gexf, stix."
 
     try:
         raw_objects = ctx.workspace_mgr.get_stix_objects()

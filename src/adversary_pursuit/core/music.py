@@ -103,8 +103,36 @@ _THEMES: dict[str, ThemeSpec] = {
         "step",
         (0.18, 0.34, 0.86, 1.0),
     ),
-    "full_troll": ThemeSpec(43, (0, 2, 4, 6, 7, 9, 10), (0, 4, 1, 5, 2, 6), (0.5, 0.5, 1, 0.5, 0.5, 2), (0, 4, 1, 5), 108, 4, "brass", "grit", "glass", 0.58, 0.44, (1, 0, 1, 1)),
-    "bureaucrat": ThemeSpec(41, (0, 2, 3, 5, 7, 8, 10), (0, 1, 0, 2, 0, 3), (1, 1, 1, 1, 1, 3), (0, 0, 4, 0), 68, 4, "clock", "square", "air", 0.84, 0.18, (1, 0, 0, 0)),
+    "full_troll": ThemeSpec(
+        43,
+        (0, 2, 4, 6, 7, 9, 10),
+        (0, 4, 1, 5, 2, 6),
+        (0.5, 0.5, 1, 0.5, 0.5, 2),
+        (0, 4, 1, 5),
+        108,
+        4,
+        "brass",
+        "grit",
+        "glass",
+        0.58,
+        0.44,
+        (1, 0, 1, 1),
+    ),
+    "bureaucrat": ThemeSpec(
+        41,
+        (0, 2, 3, 5, 7, 8, 10),
+        (0, 1, 0, 2, 0, 3),
+        (1, 1, 1, 1, 1, 3),
+        (0, 0, 4, 0),
+        68,
+        4,
+        "clock",
+        "square",
+        "air",
+        0.84,
+        0.18,
+        (1, 0, 0, 0),
+    ),
     "strategist": ThemeSpec(
         40,
         (0, 2, 3, 5, 7, 9, 10),
@@ -238,38 +266,113 @@ _PUBLIC_SCORE_IDS: dict[str, str] = {
 _THEMES.update(
     {
         "chuck_norris": ThemeSpec(
-            38, (0, 2, 4, 5, 7, 9, 10), (0, 4, 3, 5, 2), (0.5, 0.5, 1, 0.5, 1.5),
-            (0, 4, 1, 5), 132, 4, "french_horn", "low_brass", "strings",
-            0.72, 0.38, (1, 0, 1, 0, 0, 1, 0, 0), 0.5, "timpani",
-            (0.55, 0.82, 1.0, 0.62), "Chuck Norris", 4, (5, 2, 0),
+            38,
+            (0, 2, 4, 5, 7, 9, 10),
+            (0, 4, 3, 5, 2),
+            (0.5, 0.5, 1, 0.5, 1.5),
+            (0, 4, 1, 5),
+            132,
+            4,
+            "french_horn",
+            "baritone_guitar",
+            "strings",
+            0.72,
+            0.38,
+            (1, 0, 0, 1, 1, 0, 1, 0),
+            0.5,
+            "timpani",
+            (0.55, 0.82, 1.0, 0.62),
+            "Chuck Norris",
+            4,
+            (5, 2, 0),
             ("swagger", "setup", "impact", "wink"),
         ),
         "hal9000": ThemeSpec(
-            36, (0, 2, 4, 6, 8, 10), (0, 3, 2, 4, 1), (1.5, 0.5, 0.5, 1, 1.5),
-            (0, 3, 1, 4), 76, 5, "glass_harmonica", "cello", "choir",
-            0.92, 0.72, (1, 0, 0, 1, 0), 1.0, "frame_drum",
-            (0.7, 0.74, 0.82, 0.66), "HAL9000", 2, (3, 1, 0),
+            36,
+            (0, 2, 4, 6, 8, 10),
+            (0, 3, 2, 4, 1),
+            (1.5, 0.5, 0.5, 1, 1.5),
+            (0, 3, 1, 4),
+            76,
+            5,
+            "glass_harmonica",
+            "cello",
+            "choir",
+            0.92,
+            0.72,
+            (1, 0, 0, 1, 0),
+            1.0,
+            "frame_drum",
+            (0.7, 0.74, 0.82, 0.66),
+            "HAL9000",
+            2,
+            (3, 1, 0),
             ("symmetry", "substitution", "canon", "withhold"),
         ),
         "sherlock_holmes": ThemeSpec(
-            38, (0, 2, 3, 5, 7, 8, 11), (0, 5, 4, 2, 3, 1), (0.75, 0.25, 1, 0.5, 0.5, 2),
-            (0, 4, 1, 5), 96, 6, "solo_violin", "bassoon", "chamber_strings",
-            0.76, 0.74, (1, 0, 0, 1, 0, 0), 0.5, "woodblock",
-            (0.42, 0.7, 0.96, 0.74), "Sherlock Holmes", 2, (4, 2, 1),
+            38,
+            (0, 2, 3, 5, 7, 8, 11),
+            (0, 5, 4, 2, 3, 1),
+            (0.75, 0.25, 1, 0.5, 0.5, 2),
+            (0, 4, 1, 5),
+            96,
+            6,
+            "solo_violin",
+            "bassoon",
+            "chamber_strings",
+            0.76,
+            0.74,
+            (1, 0, 0, 1, 0, 0),
+            0.5,
+            "woodblock",
+            (0.42, 0.7, 0.96, 0.74),
+            "Sherlock Holmes",
+            2,
+            (4, 2, 1),
             ("clue", "deduction", "proof", "one_detail_remains"),
         ),
         "neuromancer": ThemeSpec(
-            31, (0, 2, 3, 5, 7, 8, 10), (0, 0, 4, 3, 6, 5, 3, 2),
-            (0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 2), (0, 0, 5, 3), 132, 4,
-            "electric_cello", "contrabass", "dark_strings", 0.82, 0.7, (1, 0, 0, 1, 0, 1, 0),
-            0.5, "timpani", (0.5, 0.74, 1.0, 0.78), "Neuromancer", 4, (5, 2, 0),
+            31,
+            (0, 2, 3, 5, 7, 8, 10),
+            (0, 0, 4, 3, 6, 5, 3, 2),
+            (0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 2),
+            (0, 0, 5, 3),
+            132,
+            4,
+            "electric_cello",
+            "synth_bass",
+            "analog_strings",
+            0.82,
+            0.7,
+            (1, 0, 1, 0, 1, 0, 1, 0),
+            0.5,
+            "gated_snare",
+            (0.5, 0.74, 1.0, 0.78),
+            "Neuromancer",
+            4,
+            (5, 2, 0),
             ("night_drive", "jack_in", "ice", "afterimage"),
         ),
         "the_matrix": ThemeSpec(
-            36, (0, 1, 3, 5, 7, 8, 10), (0, 0, 4, 2, 0, 5, 4, 2),
-            (0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 2), (0, 5, 3, 6), 126, 4,
-            "string_ostinato", "low_strings", "brass_choir", 0.68, 0.56, (1, 0, 1, 0, 1, 0, 0, 1),
-            0.5, "taiko", (0.5, 0.74, 1.0, 0.68), "The Matrix", 4, (4, 1, 0),
+            36,
+            (0, 1, 3, 5, 7, 8, 10),
+            (0, 0, 4, 2, 0, 5, 4, 2),
+            (0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 2),
+            (0, 5, 3, 6),
+            126,
+            4,
+            "string_ostinato",
+            "low_strings",
+            "brass_choir",
+            0.68,
+            0.56,
+            (1, 0, 1, 0, 1, 0, 0, 1),
+            0.5,
+            "taiko",
+            (0.5, 0.74, 1.0, 0.68),
+            "The Matrix",
+            4,
+            (4, 1, 0),
             ("signal", "pursuit", "rabbit", "exit"),
         ),
     }
@@ -278,48 +381,78 @@ _THEMES.update(
 # Enrich the two reused public bibles without duplicating their established
 # musical material.
 _THEMES["default"] = ThemeSpec(
-    **{**_THEMES["default"].__dict__, "root_midi": 45, "tempo": 108,
-       "scale": (0, 2, 4, 5, 7, 9, 10), "motif": (0, 1, 3, 2, 4),
-       "rhythm": (1, 1, 0.5, 0.5, 2), "bass": (0, 3, 4, 0),
-       "lead_voice": "piano", "bass_voice": "cello", "pad_voice": "strings",
-       "pulse_voice": "timpani", "articulation": 0.74,
-       "public_identity": "Default (Analyst)", "phrase_bars": 4,
-       "cadence": (4, 2, 0), "form": ("observe", "question", "synthesize", "resolve")}
+    **{
+        **_THEMES["default"].__dict__,
+        "root_midi": 45,
+        "tempo": 108,
+        "scale": (0, 2, 4, 5, 7, 9, 10),
+        "motif": (0, 1, 3, 2, 4),
+        "rhythm": (1, 1, 0.5, 0.5, 2),
+        "bass": (0, 3, 4, 0),
+        "lead_voice": "piano",
+        "bass_voice": "cello",
+        "pad_voice": "strings",
+        "pulse_voice": "timpani",
+        "articulation": 0.74,
+        "public_identity": "Default (Analyst)",
+        "phrase_bars": 4,
+        "cadence": (4, 2, 0),
+        "form": ("observe", "question", "synthesize", "resolve"),
+    }
 )
 _THEMES["full_troll"] = ThemeSpec(
-    **{**_THEMES["full_troll"].__dict__, "tempo": 118, "meter": 7,
-       "motif": (0, 3, 1, 4, 2, 1), "bass": (0, 3, 1, 0),
-       "lead_voice": "bass_clarinet", "bass_voice": "cello",
-       "pad_voice": "muted_strings", "pulse_voice": "woodblock",
-       "public_identity": "Troll", "phrase_bars": 2,
-       "cadence": (6, 1, 0), "form": ("bait", "eyeroll", "heckle", "grudging_help")}
+    **{
+        **_THEMES["full_troll"].__dict__,
+        "tempo": 118,
+        "meter": 7,
+        "motif": (0, 3, 1, 4, 2, 1),
+        "bass": (0, 3, 1, 0),
+        "lead_voice": "bass_clarinet",
+        "bass_voice": "pizzicato_strings",
+        "pad_voice": "muted_strings",
+        "pulse_voice": "woodblock",
+        "public_identity": "Troll",
+        "phrase_bars": 2,
+        "cadence": (6, 1, 0),
+        "form": ("bait", "eyeroll", "heckle", "grudging_help"),
+    }
 )
 
 _PERFORMED_CONTRACTS = {
     "default": {
-        "pulse": (1, 0, 0, 0, 1, 0, 0, 0), "rhythm": (1, 1, 0.5, 0.5, 2),
+        "pulse": (1, 0, 0, 0, 1, 0, 0, 0),
+        "rhythm": (1, 1, 0.5, 0.5, 2),
         "chords": ((0, 2, 4), (3, 5, 0), (4, 6, 1), (0, 2, 4)),
-        "progression": (0, 1, 2, 0), "orchestration": "measured",
+        "progression": (0, 1, 2, 0),
+        "orchestration": "measured",
     },
     "chuck_norris": {
-        "pulse": (1, 0, 1, 0, 0, 1, 0, 0), "rhythm": (0.5, 0.5, 1, 0.5, 1.5),
+        "pulse": (1, 0, 0, 1, 1, 0, 1, 0),
+        "rhythm": (0.5, 0.5, 1, 0.5, 1.5),
         "chords": ((0, 2, 4), (3, 5, 1), (4, 6, 2), (0, 2, 4)),
-        "progression": (0, 2, 1, 0), "orchestration": "stop-time",
+        "progression": (0, 2, 1, 0),
+        "orchestration": "stop-time",
     },
     "full_troll": {
-        "pulse": (1, 0, 1, 0, 1, 0, 0), "rhythm": (0.5, 0.5, 1, 0.5, 0.5, 1),
+        "pulse": (1, 0, 1, 0, 1, 0, 0),
+        "rhythm": (0.5, 0.5, 1, 0.5, 0.5, 1),
         "chords": ((0, 2, 4), (3, 5, 1), (1, 4, 0), (0, 2, 4)),
-        "progression": (0, 2, 1, 0), "orchestration": "crooked",
+        "progression": (0, 2, 1, 0),
+        "orchestration": "crooked",
     },
     "hal9000": {
-        "pulse": (1, 0, 0, 1, 0), "rhythm": (1.5, 0.5, 0.5, 1, 1.5),
+        "pulse": (1, 0, 0, 1, 0),
+        "rhythm": (1.5, 0.5, 0.5, 1, 1.5),
         "chords": ((0, 2, 4), (1, 3, 5), (4, 0, 2), (2, 4, 1)),
-        "progression": (0, 1, 2, 3), "orchestration": "orbital",
+        "progression": (0, 1, 2, 3),
+        "orchestration": "orbital",
     },
     "sherlock_holmes": {
-        "pulse": (1, 0, 0, 1, 0, 0), "rhythm": (0.75, 0.25, 1, 0.5, 0.5, 2),
+        "pulse": (1, 0, 0, 1, 0, 0),
+        "rhythm": (0.75, 0.25, 1, 0.5, 0.5, 2),
         "chords": ((0, 2, 4), (3, 5, 1), (4, 0, 2), (0, 2, 4)),
-        "progression": (0, 2, 1, 3), "orchestration": "chamber",
+        "progression": (0, 2, 1, 3),
+        "orchestration": "chamber",
     },
     "neuromancer": {
         # Four-on-the-floor low pulse, syncopated cello ostinato, and minor
@@ -327,12 +460,15 @@ _PERFORMED_CONTRACTS = {
         "pulse": (1, 0, 1, 0, 1, 0, 1, 0),
         "rhythm": (0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 2),
         "chords": ((0, 2, 4), (5, 0, 2), (3, 5, 1), (4, 1, 3)),
-        "progression": (0, 1, 2, 0, 3, 2), "orchestration": "signals",
+        "progression": (0, 1, 2, 0, 3, 2),
+        "orchestration": "signals",
     },
     "the_matrix": {
-        "pulse": (1, 0, 1, 0, 1, 0, 0, 1), "rhythm": (0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 2),
+        "pulse": (1, 0, 1, 0, 1, 0, 0, 1),
+        "rhythm": (0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 2),
         "chords": ((0, 2, 4), (4, 1, 3), (3, 5, 1), (0, 2, 4)),
-        "progression": (0, 1, 2, 1), "orchestration": "pursuit",
+        "progression": (0, 1, 2, 1),
+        "orchestration": "pursuit",
     },
 }
 for _theme_name, _contract in _PERFORMED_CONTRACTS.items():
@@ -372,7 +508,11 @@ def _transformed_motif(theme: ThemeSpec, section: int, cycle: int = 0) -> tuple[
         axis = motif[0] + motif[-1]
         transformed = tuple(max(0, axis - degree) for degree in motif)
     else:
-        transformed = theme.cadence if section == len(theme.form) - 1 else motif[:3] + tuple(reversed(motif[:2]))
+        transformed = (
+            theme.cadence
+            if section == len(theme.form) - 1
+            else motif[:3] + tuple(reversed(motif[:2]))
+        )
     if cycle and section not in {0, len(theme.form) - 1}:
         offset = cycle % len(transformed)
         transformed = transformed[offset:] + transformed[:offset]
@@ -384,7 +524,10 @@ def _plan_score(theme: ThemeSpec, cycle: int = 0) -> tuple[NoteEvent, ...]:
     beat = 60.0 / theme.tempo
     section_duration = beat * theme.meter * theme.phrase_bars
     total_duration = section_duration * len(theme.form)
-    rng = random.Random(sum((index + 1) * ord(char) for index, char in enumerate(theme.public_identity)) + cycle * 104_729)
+    rng = random.Random(
+        sum((index + 1) * ord(char) for index, char in enumerate(theme.public_identity))
+        + cycle * 104_729
+    )
     events: list[NoteEvent] = []
 
     for section in range(len(theme.form)):
@@ -398,10 +541,26 @@ def _plan_score(theme: ThemeSpec, cycle: int = 0) -> tuple[NoteEvent, ...]:
             chord = (bass_fallback, bass_fallback + 2, bass_fallback + 4)
         bass_degree = chord[0]
 
-        events.append(NoteEvent(section_start, section_duration * 1.01, _frequency(theme, bass_degree, -1), 0.12 * tension, theme.pad_voice))
+        events.append(
+            NoteEvent(
+                section_start,
+                section_duration * 1.01,
+                _frequency(theme, bass_degree, -1),
+                0.12 * tension,
+                theme.pad_voice,
+            )
+        )
         upper_degrees = chord[1:3] if tension > 0.65 else chord[1:2]
         for chord_degree in upper_degrees:
-            events.append(NoteEvent(section_start, section_duration * 0.97, _frequency(theme, chord_degree), 0.035 * tension, theme.pad_voice))
+            events.append(
+                NoteEvent(
+                    section_start,
+                    section_duration * 0.97,
+                    _frequency(theme, chord_degree),
+                    0.035 * tension,
+                    theme.pad_voice,
+                )
+            )
 
         motif = _transformed_motif(theme, section, cycle)
         cursor = section_start + (beat * (0.5 if section == 1 else 0.0))
@@ -421,7 +580,15 @@ def _plan_score(theme: ThemeSpec, cycle: int = 0) -> tuple[NoteEvent, ...]:
                 and cursor > section_start + section_duration - beat
             )
             if not stop_time:
-                events.append(NoteEvent(cursor, duration, _frequency(theme, degree, octave), 0.13 * tension * accent, theme.lead_voice))
+                events.append(
+                    NoteEvent(
+                        cursor,
+                        duration,
+                        _frequency(theme, degree, octave),
+                        0.13 * tension * accent,
+                        theme.lead_voice,
+                    )
+                )
             counter_entry = (
                 (theme.orchestration == "chamber" and note_index % 3 == 1)
                 or (theme.orchestration == "signals" and note_index % 4 == 0)
@@ -431,7 +598,15 @@ def _plan_score(theme: ThemeSpec, cycle: int = 0) -> tuple[NoteEvent, ...]:
             if counter_entry:
                 answer_start = cursor + beat * theme.counterpoint
                 counter_degree = degree + (3 if theme.orchestration == "crooked" else 2)
-                events.append(NoteEvent(answer_start, duration * 0.82, _frequency(theme, counter_degree), 0.065, "answer"))
+                events.append(
+                    NoteEvent(
+                        answer_start,
+                        duration * 0.82,
+                        _frequency(theme, counter_degree),
+                        0.065,
+                        "answer",
+                    )
+                )
             cursor += rhythm
             note_index += 1
 
@@ -440,7 +615,15 @@ def _plan_score(theme: ThemeSpec, cycle: int = 0) -> tuple[NoteEvent, ...]:
         bass_step = 0
         while bass_cursor < section_start + section_duration - beat * 0.2:
             degree = theme.bass[(section + bass_step) % len(theme.bass)]
-            events.append(NoteEvent(bass_cursor, beat * 0.7, _frequency(theme, degree, -1), 0.12 * tension, theme.bass_voice))
+            events.append(
+                NoteEvent(
+                    bass_cursor,
+                    beat * 0.7,
+                    _frequency(theme, degree, -1),
+                    0.12 * tension,
+                    theme.bass_voice,
+                )
+            )
             bass_cursor += beat * theme.meter
             bass_step += 1
 
@@ -469,6 +652,15 @@ def _oscillator(voice: str, phase: float) -> float:
     square/saw waves, removing the arcade-like "bloop" character while keeping
     the renderer dependency-free and deterministic.
     """
+    if voice == "gated_snare":
+        # A deterministic cluster of inharmonic partials gives the darkwave
+        # backbeat a brushed-noise body without random samples or hard edges.
+        return (
+            0.38 * math.sin(phase * 11.7)
+            + 0.31 * math.sin(phase * 17.13)
+            + 0.22 * math.sin(phase * 23.71)
+            + 0.09 * math.sin(phase * 31.37)
+        )
     profiles: dict[str, tuple[float, ...]] = {
         "piano": (1.0, 0.62, 0.34, 0.2, 0.11, 0.07, 0.04),
         "strings": (1.0, 0.48, 0.30, 0.19, 0.12, 0.08, 0.05),
@@ -479,6 +671,11 @@ def _oscillator(voice: str, phase: float) -> float:
         "string_ostinato": (1.0, 0.58, 0.36, 0.22, 0.14, 0.08),
         "cello": (1.0, 0.55, 0.30, 0.16, 0.10, 0.06),
         "electric_cello": (1.0, 0.52, 0.28, 0.20, 0.13, 0.08),
+        "baritone_guitar": (1.0, 0.68, 0.38, 0.24, 0.15, 0.09, 0.05),
+        "pizzicato_strings": (1.0, 0.42, 0.24, 0.13, 0.07, 0.04),
+        "analog_strings": (1.0, 0.36, 0.31, 0.20, 0.14, 0.09, 0.06),
+        "synth_bass": (1.0, 0.74, 0.24, 0.12, 0.06, 0.03),
+        "gated_snare": (1.0, 0.50, 0.32, 0.20, 0.13, 0.08),
         "contrabass": (1.0, 0.48, 0.24, 0.13, 0.07),
         "solo_violin": (1.0, 0.58, 0.37, 0.24, 0.16, 0.10, 0.06),
         "french_horn": (1.0, 0.28, 0.46, 0.24, 0.14, 0.07),
@@ -496,20 +693,45 @@ def _oscillator(voice: str, phase: float) -> float:
     }
     partials = profiles.get(voice, profiles.get("strings", (1.0,)))
     normalization = max(1.0, sum(partials) * 0.72)
-    return sum(
-        strength * math.sin((index + 1) * phase)
-        for index, strength in enumerate(partials)
-    ) / normalization
+    return (
+        sum(strength * math.sin((index + 1) * phase) for index, strength in enumerate(partials))
+        / normalization
+    )
 
 
 def _envelope(voice: str, position: float, duration: float) -> float:
     sustained = {
-        "strings", "chamber_strings", "muted_strings", "dark_strings",
-        "low_strings", "cello", "electric_cello", "contrabass", "solo_violin",
-        "french_horn", "low_brass", "brass_choir", "bassoon",
-        "bass_clarinet", "choir", "glass_harmonica", "answer",
+        "strings",
+        "chamber_strings",
+        "muted_strings",
+        "dark_strings",
+        "low_strings",
+        "cello",
+        "electric_cello",
+        "contrabass",
+        "solo_violin",
+        "analog_strings",
+        "synth_bass",
+        "french_horn",
+        "low_brass",
+        "brass_choir",
+        "bassoon",
+        "bass_clarinet",
+        "choir",
+        "glass_harmonica",
+        "answer",
     }
-    percussion = {"piano", "timpani", "taiko", "frame_drum", "woodblock"}
+    percussion = {
+        "piano",
+        "timpani",
+        "taiko",
+        "frame_drum",
+        "woodblock",
+        "baritone_guitar",
+        "pizzicato_strings",
+        "string_ostinato",
+        "gated_snare",
+    }
     attack = min(0.18 if voice in sustained else 0.012, duration * 0.25)
     release = min(0.42 if voice in sustained else 0.14, duration * 0.42)
     attack_level = min(1.0, position / max(attack, 0.001))
@@ -526,7 +748,9 @@ class ProceduralMusicController:
 
     def __init__(self, cache_dir: Path, mode: str = "default", volume: int = 18) -> None:
         self.cache_dir = cache_dir
-        self.mode = mode if _score_id(mode) != "default" or mode in {"default", "analyst"} else "default"
+        self.mode = (
+            mode if _score_id(mode) != "default" or mode in {"default", "analyst"} else "default"
+        )
         self.volume = max(0, min(100, volume))
         self._player = self._find_player()
         self._process: subprocess.Popen[bytes] | None = None
@@ -555,7 +779,9 @@ class ProceduralMusicController:
         )
 
     def set_mode(self, mode: str) -> None:
-        next_mode = mode if _score_id(mode) != "default" or mode in {"default", "analyst"} else "default"
+        next_mode = (
+            mode if _score_id(mode) != "default" or mode in {"default", "analyst"} else "default"
+        )
         if next_mode == self.mode:
             return
         was_enabled = self._enabled
@@ -670,7 +896,9 @@ class ProceduralMusicController:
                 position = offset / _SAMPLE_RATE
                 phase = 2 * math.pi * event.frequency * position
                 sample = event.amplitude * _oscillator(event.voice, phase)
-                mix[first_frame + offset] += sample * _envelope(event.voice, position, event.duration)
+                mix[first_frame + offset] += sample * _envelope(
+                    event.voice, position, event.duration
+                )
 
         def shaped_sample(index: int, sample: float) -> float:
             time = index / _SAMPLE_RATE

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { planMusic, SCORE_BIBLES } from "../app/flow-music.ts";
+import { planMusic, planMusicalAccent, SCORE_BIBLES } from "../app/flow-music.ts";
 
 const modes = ["default", "chuck_norris", "full_troll", "hal9000", "sherlock_holmes", "neuromancer", "the_matrix"];
 const signature = (events) => JSON.stringify(events.map(({ at, duration, midi, role, noise }) => [at, duration, midi, role, !!noise]));
@@ -8,9 +8,26 @@ const timelines = modes.map((mode) => planMusic(mode, 0x51c0ffee, 0));
 assert.equal(new Set(timelines.map(signature)).size, modes.length, "all public modes need distinct timelines");
 assert.equal(new Set(modes.map((mode) => SCORE_BIBLES[mode].strategy)).size, modes.length, "orchestration strategies must be unique");
 assert.equal(new Set(modes.map((mode) => JSON.stringify(SCORE_BIBLES[mode].voices))).size, modes.length, "role articulation and spatial contracts must be unique");
-const acousticInstruments = new Set(["strings","cello","piano","french-horn","low-brass","solo-violin","bassoon","clarinet","choir","glass-harmonica","harp","electric-cello","timpani","taiko","frame-drum","woodblock","bowed-cymbal","air"]);
+const acousticInstruments = new Set(["strings","cello","piano","french-horn","low-brass","solo-violin","bassoon","clarinet","choir","glass-harmonica","harp","electric-cello","timpani","taiko","frame-drum","woodblock","bowed-cymbal","air","baritone-guitar","pizzicato-strings","analog-strings","synth-bass","gated-snare","string-ostinato"]);
 for (const mode of modes) for (const voice of Object.values(SCORE_BIBLES[mode].voices)) {
   assert.ok(acousticInstruments.has(voice.instrument), `${mode} must use an orchestral/atmospheric instrument model, got ${voice.instrument}`);
+}
+const expectedEnsembles = {
+  default: ["piano", "cello", "strings", "timpani"],
+  chuck_norris: ["french-horn", "baritone-guitar", "strings", "timpani"],
+  full_troll: ["bassoon", "pizzicato-strings", "strings", "woodblock"],
+  hal9000: ["glass-harmonica", "cello", "choir", "frame-drum"],
+  sherlock_holmes: ["solo-violin", "bassoon", "strings", "woodblock"],
+  neuromancer: ["electric-cello", "synth-bass", "analog-strings", "gated-snare"],
+  the_matrix: ["string-ostinato", "cello", "low-brass", "taiko"],
+};
+for (const mode of modes) {
+  const voices = SCORE_BIBLES[mode].voices;
+  assert.deepEqual(
+    [voices.lead.instrument, voices.bass.instrument, voices.pad.instrument, voices.pulse.instrument],
+    expectedEnsembles[mode],
+    `${mode} characteristic ensemble drift`,
+  );
 }
 for (let index = 0; index < modes.length; index += 1) {
   const mode = modes[index];
@@ -30,6 +47,24 @@ for (let index = 0; index < modes.length; index += 1) {
 const aliases = { sensei: "chuck_norris", the_computer: "hal9000", detective: "sherlock_holmes", the_sprawl: "neuromancer", m4tr1x: "the_matrix" };
 for (const [alias, publicMode] of Object.entries(aliases)) {
   assert.equal(signature(planMusic(alias, 77, 0)), signature(planMusic(publicMode, 77, 0)), `${alias} compatibility drift`);
+  for (const accent of ["badge", "dossier"]) {
+    assert.equal(signature(planMusicalAccent(alias, accent)), signature(planMusicalAccent(publicMode, accent)), `${alias} ${accent} accent drift`);
+  }
 }
 
-console.log(`flow-music: ${modes.length} deterministic, rhythmically distinct score planners verified`);
+for (const mode of modes) {
+  const badge = planMusicalAccent(mode, "badge");
+  const dossier = planMusicalAccent(mode, "dossier");
+  assert.equal(badge.length, 3, `${mode} badge acknowledgement must remain compact`);
+  assert.equal(dossier.length, 2, `${mode} dossier acknowledgement must remain compact`);
+  for (const event of [...badge, ...dossier]) {
+    assert.ok(["lead", "counter"].includes(event.role), `${mode} accents must use pitched theme voices`);
+    assert.equal(event.noise, undefined, `${mode} accents must not become notification percussion`);
+    assert.ok(event.gain <= 0.38, `${mode} accents must remain beneath the principal score voice`);
+    assert.ok(event.at + event.duration <= 1.3, `${mode} accents must resolve quickly`);
+  }
+}
+assert.equal(new Set(modes.map((mode) => signature(planMusicalAccent(mode, "badge")))).size, modes.length, "badge acknowledgements must retain character identity");
+assert.equal(new Set(modes.map((mode) => signature(planMusicalAccent(mode, "dossier")))).size, modes.length, "dossier acknowledgements must retain character identity");
+
+console.log(`flow-music: ${modes.length} deterministic score planners and restrained adaptive accents verified`);
