@@ -554,3 +554,80 @@ class AnalyticMethodRun(Base):
         nullable=False,
     )
     completed_at = Column(DateTime, nullable=True)
+
+
+class AnalyticInvestigation(Base):
+    """Root record for one persisted scientific investigation lifecycle.
+
+    The root organizes existing epistemic records without replacing them.
+    Questions, hypotheses, assertions, observations, and method runs remain
+    authoritative in their existing tables and are connected through
+    :class:`AnalyticLifecycleItem` records.
+    """
+
+    __tablename__ = "analytic_investigations"
+
+    id = Column(String, primary_key=True)
+    title = Column(Text, nullable=False)
+    purpose = Column(Text, nullable=False)
+    scope = Column(Text, nullable=False)
+    status = Column(String, nullable=False, default="framing", index=True)
+    primary_question_id = Column(String, nullable=True, index=True)
+    created_by = Column(String, nullable=False, default="human")
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    concluded_at = Column(DateTime, nullable=True)
+
+
+class AnalyticLifecycleItem(Base):
+    """One typed component of a scientific investigation lifecycle.
+
+    ``record_kind`` and ``record_id`` point to an existing authoritative
+    epistemic record when one exists. Native planning records such as
+    collection requirements, stop conditions, limitations, and knowledge gaps
+    store their statement directly. The table therefore organizes the method
+    without duplicating observations or judgments.
+    """
+
+    __tablename__ = "analytic_lifecycle_items"
+    __table_args__ = (
+        UniqueConstraint(
+            "investigation_id",
+            "item_type",
+            "record_kind",
+            "record_id",
+            name="uq_analytic_lifecycle_record_link",
+        ),
+    )
+
+    id = Column(String, primary_key=True)
+    investigation_id = Column(String, nullable=False, index=True)
+    item_type = Column(String, nullable=False, index=True)
+    record_kind = Column(String, nullable=True)
+    record_id = Column(String, nullable=True, index=True)
+    statement = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default="open", index=True)
+    priority = Column(Integer, nullable=False, default=0)
+    criteria = Column(JSON, nullable=False, default=dict)
+    evidence_refs = Column(JSON, nullable=False, default=list)
+    author_kind = Column(String, nullable=False, default="human")
+    analyst_disposition = Column(String, nullable=False, default="accepted", index=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    resolved_at = Column(DateTime, nullable=True)

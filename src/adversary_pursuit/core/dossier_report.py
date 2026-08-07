@@ -83,7 +83,8 @@ def generate_dossier_report(
 
     # Load dossier state (M-4 persistence authority)
     dossier_state = _load_dossier_state_safe(workspace_mgr)
-    # Load predictions log (M-4 persistence authority)
+    # Load the scientific lifecycle and legacy predictions authority.
+    analysis = _load_analytic_snapshot_safe(workspace_mgr)
     predictions = _load_predictions_safe(workspace_mgr)
     # Load analyst notes (M-5 AnalystNote table)
     notes = _load_analyst_notes_safe(workspace_mgr)
@@ -100,6 +101,19 @@ def generate_dossier_report(
     lines.append(f"- **Total Score:** {total_score}")
     lines.append(f"- **Modules Used:** {modules_used}")
     lines.append(f"- **Total Indicators:** {total_indicators}")
+    if analysis["investigations"]:
+        current = analysis["investigations"][-1]
+        lines.append(f"- **Analytic Status:** {current['status']}")
+        lines.append(
+            "- **Open Contradictions:** "
+            f"{sum(1 for item in analysis['contradictions'] if item['status'] == 'unresolved')}"
+        )
+    lines.append("")
+
+    # --- Scientific investigation and Structured Analytic Techniques ---
+    lines.append("## Scientific Investigation")
+    lines.append("")
+    lines.append(_render_scientific_analysis_section(analysis))
     lines.append("")
 
     # --- Executive Summary ---
@@ -126,6 +140,11 @@ def generate_dossier_report(
 
     # --- Predictions ---
     lines.append("## Predictions")
+    lines.append("")
+    lines.append(
+        "_Legacy Dossier Predictions Log. Schema-v4 scientific predictions and "
+        "signposts are reported in Scientific Investigation above._"
+    )
     lines.append("")
     lines.append(_render_predictions_section(predictions))
     lines.append("")
@@ -230,6 +249,195 @@ def _render_dossier_slots_section(dossier_state: object | None) -> str:
         lines.append(f"| {display_name} | {status_label} | {evidence_count} | {contributing} |")
 
     return "\n".join(lines)
+
+
+def _render_scientific_analysis_section(analysis: dict[str, list[dict]]) -> str:
+    """Render the persisted lifecycle without collapsing evidence and judgment."""
+
+    investigations = analysis["investigations"]
+    if not investigations:
+        return (
+            "_No scientific investigation has been framed yet. Use "
+            "`analysis question <text>` to begin._"
+        )
+
+    investigation = investigations[-1]
+    item_rows = [
+        item
+        for item in analysis["lifecycle_items"]
+        if item["investigation_id"] == investigation["id"]
+    ]
+    linked_ids = {
+        (str(item.get("record_kind")), str(item.get("record_id")))
+        for item in item_rows
+        if item.get("record_kind") and item.get("record_id")
+    }
+    questions = [row for row in analysis["questions"] if ("question", str(row["id"])) in linked_ids]
+    assertions = [
+        row for row in analysis["assertions"] if ("assertion", str(row["id"])) in linked_ids
+    ]
+    hypotheses = [
+        row for row in analysis["hypotheses"] if ("hypothesis", str(row["id"])) in linked_ids
+    ]
+    method_runs = [
+        row for row in analysis["method_runs"] if ("method_run", str(row["id"])) in linked_ids
+    ]
+    confidence = {
+        (str(row["target_kind"]), str(row["target_id"])): row for row in analysis["confidence"]
+    }
+    likelihood = {
+        (str(row["target_kind"]), str(row["target_id"])): row for row in analysis["likelihood"]
+    }
+
+    lines = [
+        f"### {_markdown(str(investigation['title']))}",
+        "",
+        f"- **Purpose:** {_markdown(str(investigation['purpose']))}",
+        f"- **Scope:** {_markdown(str(investigation['scope']))}",
+        f"- **State:** {investigation['status']}",
+        f"- **Authority:** {investigation['created_by']}",
+        "",
+        "### Investigation Questions",
+        "",
+    ]
+    lines.extend(
+        f"- **{str(row['status']).upper()}** — {_markdown(str(row['text']))}" for row in questions
+    )
+    if not questions:
+        lines.append("_No question linked to this investigation._")
+
+    lines.extend(["", "### Assumptions and Assertions", ""])
+    if assertions:
+        lines.extend(
+            f"- **{str(row['assertion_type']).upper()} · {str(row['status']).upper()} · "
+            f"{str(row['author_kind']).upper()}** — {_markdown(str(row['statement']))}"
+            for row in assertions
+        )
+    else:
+        lines.append("_No assumptions or assertions recorded._")
+
+    lines.extend(
+        [
+            "",
+            "### Competing Hypotheses",
+            "",
+            "| Hypothesis | Status | Author | Confidence | Likelihood |",
+            "|---|---|---|---|---|",
+        ]
+    )
+    for row in hypotheses:
+        key = ("hypothesis", str(row["id"]))
+        confidence_row = confidence.get(key)
+        likelihood_row = likelihood.get(key)
+        lines.append(
+            f"| {_markdown(str(row['statement']))} | {row['status']} | {row['author_kind']} | "
+            f"{confidence_row['level'] if confidence_row else 'not assessed'} | "
+            f"{likelihood_row['term'] if likelihood_row else 'not assessed'} |"
+        )
+    if not hypotheses:
+        lines.append("| _No competing hypotheses recorded._ | — | — | — | — |")
+
+    evidence_links = [
+        row
+        for row in analysis["evidence_links"]
+        if (str(row["target_kind"]), str(row["target_id"])) in linked_ids
+    ]
+    lines.extend(
+        [
+            "",
+            "### Evidence Tests",
+            "",
+            "Evidence links below are explicit analytic relationships. They do not change "
+            "the underlying observation.",
+            "",
+            "| Source record | Stance | Target record | Rationale |",
+            "|---|---|---|---|",
+        ]
+    )
+    for row in evidence_links:
+        lines.append(
+            f"| `{row['source_kind']}:{row['source_id']}` | **{row['stance']}** | "
+            f"`{row['target_kind']}:{row['target_id']}` | "
+            f"{_markdown(str(row['rationale']))} |"
+        )
+    if not evidence_links:
+        lines.append("| _No explicit evidence tests recorded._ | — | — | — |")
+
+    lines.extend(["", "### Predictions, Signposts, Collection, and Stopping Rules", ""])
+    planning_types = {
+        "prediction",
+        "signpost",
+        "collection_requirement",
+        "stop_condition",
+    }
+    planning = [item for item in item_rows if item["item_type"] in planning_types]
+    if planning:
+        lines.extend(
+            f"- **{str(item['item_type']).replace('_', ' ').upper()} · "
+            f"{str(item['status']).upper()}** — "
+            f"{_markdown(str(item.get('statement') or item.get('record_id') or 'unavailable'))}"
+            for item in planning
+        )
+    else:
+        lines.append("_No predictions, signposts, collection requirements, or stop conditions._")
+
+    lines.extend(["", "### Structured Analytic Technique Runs", ""])
+    if method_runs:
+        lines.extend(
+            f"- **{str(row['technique']).replace('_', ' ').title()} v{row['technique_version']}** "
+            f"— {row['status']}; analyst disposition: {row['analyst_disposition']}"
+            for row in method_runs
+        )
+    else:
+        lines.append("_No Structured Analytic Technique runs recorded._")
+
+    lines.extend(["", "### Contradictions", ""])
+    if analysis["contradictions"]:
+        for row in analysis["contradictions"]:
+            lines.append(
+                f"- **{str(row['materiality']).upper()} · {str(row['status']).upper()}** — "
+                f"{_markdown(str(row['summary']))}"
+            )
+            if row["status"] == "unresolved":
+                lines.append(
+                    f"  - Resolution required: {_markdown(str(row['resolution_required']))}"
+                )
+            elif row.get("resolution_note"):
+                lines.append(f"  - Resolution: {_markdown(str(row['resolution_note']))}")
+    else:
+        lines.append("_No explicit contradictions recorded._")
+
+    lines.extend(["", "### Conclusions, Limitations, and Intelligence Gaps", ""])
+    closing_types = {"conclusion", "limitation", "knowledge_gap"}
+    closing = [item for item in item_rows if item["item_type"] in closing_types]
+    if closing:
+        lines.extend(
+            f"- **{str(item['item_type']).replace('_', ' ').upper()} · "
+            f"{str(item['status']).upper()}** — {_markdown(str(item.get('statement') or 'unavailable'))}"
+            for item in closing
+        )
+    else:
+        lines.append("_No conclusion, limitation, or intelligence gap recorded._")
+
+    lines.extend(["", "### Confidence Basis", ""])
+    if analysis["confidence"]:
+        for row in analysis["confidence"]:
+            factors = row.get("factors") or {}
+            lines.append(
+                f"- **{row['target_kind']}:{row['target_id']} — "
+                f"{str(row['level']).upper()} confidence**: "
+                f"{_markdown(str(row['rationale']))}"
+            )
+            if factors:
+                lines.append(f"  - Factors: `{factors}`")
+    else:
+        lines.append("_No formal confidence assessment recorded._")
+
+    return "\n".join(lines)
+
+
+def _markdown(value: str) -> str:
+    return value.replace("|", "\\|").replace("\n", " ")
 
 
 def _render_predictions_section(predictions: list) -> str:
@@ -405,6 +613,32 @@ def _load_dossier_state_safe(workspace_mgr: "WorkspaceManager") -> object | None
     except Exception:  # noqa: BLE001
         _LOG.debug("Could not load dossier state for report", exc_info=True)
         return None
+
+
+def _load_analytic_snapshot_safe(
+    workspace_mgr: "WorkspaceManager",
+) -> dict[str, list[dict]]:
+    """Load the persisted analytic lifecycle without modifying the workspace."""
+
+    keys = (
+        "investigations",
+        "lifecycle_items",
+        "questions",
+        "hypotheses",
+        "assertions",
+        "evidence_links",
+        "method_runs",
+        "confidence",
+        "likelihood",
+        "contradictions",
+    )
+    try:
+        from adversary_pursuit.core.analytic_ledger import AnalyticLedger
+
+        return AnalyticLedger(workspace_mgr).snapshot()
+    except Exception:  # noqa: BLE001
+        _LOG.debug("Could not load analytic lifecycle for report", exc_info=True)
+        return {key: [] for key in keys}
 
 
 def _load_predictions_safe(workspace_mgr: "WorkspaceManager") -> list:

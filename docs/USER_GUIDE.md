@@ -333,13 +333,21 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `dossier` / `gaps` | Inspect coverage and missing evidence |
 | `timeline` | List stored collection events chronologically |
 | `analysis show` | Inspect questions, hypotheses, assertions, confidence, likelihood, and contradictions |
+| `analysis lifecycle` | Inspect the persisted scientific lifecycle and outstanding work |
 | `analysis methods` | List versioned Structured Analytic Technique protocols |
 | `analysis question <text>` | Record the question the investigation must answer |
+| `analysis assumption <text>` | Expose a key assumption for testing |
 | `analysis assertion <type> <text>` | Record an inferred, assumed, or judgment statement; observations come only from sources |
 | `analysis hypothesis <question-id> <text>` | Propose a falsifiable candidate answer |
+| `analysis prediction <text>` | Record an observable prediction |
+| `analysis signpost <text>` | Record a development that should change the judgment |
+| `analysis collect <text>` / `analysis stop <text>` | Bound collection and state when it should stop |
+| `analysis limitation <text>` / `analysis gap <text>` | Preserve limitations and unresolved intelligence gaps |
 | `analysis accept\|reject\|suspend <hypothesis-id>` | Record an explicit analyst disposition |
-| `analysis confidence <kind> <id> <level> <rationale>` | Record Low, Moderate, or High analytic confidence |
+| `analysis confidence <kind> <id> <level> <rationale> \| <factor-json>` | Record Low, Moderate, or High confidence with explicit source quality, independence, corroboration, assumptions, gaps, and rigor |
 | `analysis likelihood <kind> <id> <term> <rationale>` | Record probability language separately from confidence |
+| `analysis contradiction … \| <resolution requirement>` | Preserve a conflict and the evidence needed to resolve it |
+| `analysis method start\|complete\|accept\|reject\|revise …` | Run and disposition a versioned Structured Analytic Technique |
 | `note <text>` | Add an analyst note |
 | `report` / `report generate` | Build the current Dossier report |
 | `export json\|csv\|stix\|gexf` | Export investigation data |

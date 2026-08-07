@@ -82,6 +82,8 @@ from adversary_pursuit.models.database import (
     AnalyticContradiction,
     AnalyticEvidenceLink,
     AnalyticHypothesis,
+    AnalyticInvestigation,
+    AnalyticLifecycleItem,
     AnalyticMethodRun,
     BadgeEvent,
     EvidenceObservation,
@@ -1315,6 +1317,7 @@ class WorkspaceManager:
         with Session(target_engine) as session:
             # Delete epistemic links before their targets. Explicit ordering keeps
             # this correct if foreign-key enforcement is enabled in a future schema.
+            deleted["analytic_lifecycle_items"] = session.query(AnalyticLifecycleItem).delete()
             deleted["analytic_evidence_links"] = session.query(AnalyticEvidenceLink).delete()
             deleted["analytic_method_runs"] = session.query(AnalyticMethodRun).delete()
             deleted["analytic_contradictions"] = session.query(AnalyticContradiction).delete()
@@ -1325,6 +1328,7 @@ class WorkspaceManager:
             deleted["analytic_hypotheses"] = session.query(AnalyticHypothesis).delete()
             deleted["analytic_assertions"] = session.query(AnalyticAssertion).delete()
             deleted["investigation_questions"] = session.query(InvestigationQuestion).delete()
+            deleted["analytic_investigations"] = session.query(AnalyticInvestigation).delete()
             deleted["evidence_observation_dispositions"] = session.query(
                 EvidenceObservationDisposition
             ).delete()
@@ -1342,6 +1346,10 @@ class WorkspaceManager:
             # DEC-WORKSPACE-DB-007: post-clear loud verification
             # Re-query each table; any non-zero count is a partial-clear bug
             remaining = {
+                "analytic_lifecycle_items": session.execute(
+                    select(func.count(AnalyticLifecycleItem.id))
+                ).scalar()
+                or 0,
                 "analytic_evidence_links": session.execute(
                     select(func.count(AnalyticEvidenceLink.id))
                 ).scalar()
@@ -1372,6 +1380,10 @@ class WorkspaceManager:
                 or 0,
                 "investigation_questions": session.execute(
                     select(func.count(InvestigationQuestion.id))
+                ).scalar()
+                or 0,
+                "analytic_investigations": session.execute(
+                    select(func.count(AnalyticInvestigation.id))
                 ).scalar()
                 or 0,
                 "evidence_observation_dispositions": session.execute(
@@ -1486,6 +1498,14 @@ class WorkspaceManager:
         self._ensure_active()
         with Session(self._engine) as session:
             return {
+                "analytic_investigations": session.execute(
+                    select(func.count(AnalyticInvestigation.id))
+                ).scalar()
+                or 0,
+                "analytic_lifecycle_items": session.execute(
+                    select(func.count(AnalyticLifecycleItem.id))
+                ).scalar()
+                or 0,
                 "evidence_sources": session.execute(select(func.count(EvidenceSource.id))).scalar()
                 or 0,
                 "evidence_observations": session.execute(

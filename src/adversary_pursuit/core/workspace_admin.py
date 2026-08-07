@@ -31,6 +31,8 @@ _EXPORT_TABLES = (
     "evidence_sources",
     "evidence_observations",
     "evidence_observation_dispositions",
+    "analytic_investigations",
+    "analytic_lifecycle_items",
     "investigation_questions",
     "analytic_assertions",
     "analytic_hypotheses",
@@ -41,13 +43,23 @@ _EXPORT_TABLES = (
     "analytic_contradictions",
 )
 _JSON_COLUMNS = {
-    "json_blob", "observed_blob", "factors", "input_blob", "output_blob",
-    "verification", "hints", "evidence_basis",
+    "json_blob",
+    "observed_blob",
+    "factors",
+    "input_blob",
+    "output_blob",
+    "verification",
+    "hints",
+    "evidence_basis",
+    "criteria",
+    "evidence_refs",
 }
 _STRING_KEY_TABLES = (
     "stix_objects",
     "relationships",
     "evidence_sources",
+    "analytic_investigations",
+    "analytic_lifecycle_items",
     "investigation_questions",
     "analytic_assertions",
     "analytic_hypotheses",
@@ -77,7 +89,7 @@ def export_workspace(manager: Any, name: str) -> dict[str, Any]:
     finally:
         engine.dispose()
     result: dict[str, Any] = {
-        "format": "pivotglass-workspace-v3",
+        "format": "pivotglass-workspace-v4",
         "workspace": name,
         "schema_version": schema_version,
         "tables": {},
@@ -123,7 +135,9 @@ def merge_workspaces(manager: Any, source: str, destination: str) -> dict[str, i
             db.execute("BEGIN IMMEDIATE")
             for table in _STRING_KEY_TABLES:
                 before = db.total_changes
-                db.execute(f"INSERT OR IGNORE INTO main.{table} SELECT * FROM source_workspace.{table}")  # noqa: S608
+                db.execute(
+                    f"INSERT OR IGNORE INTO main.{table} SELECT * FROM source_workspace.{table}"
+                )  # noqa: S608
                 counts[table] = db.total_changes - before
 
             module_run_map: dict[int, int] = {}
@@ -197,7 +211,9 @@ def merge_workspaces(manager: Any, source: str, destination: str) -> dict[str, i
                 ]
                 names = ", ".join(columns)
                 before = db.total_changes
-                insert_clause = "INSERT OR IGNORE" if table == "analytic_evidence_links" else "INSERT"
+                insert_clause = (
+                    "INSERT OR IGNORE" if table == "analytic_evidence_links" else "INSERT"
+                )
                 db.execute(
                     f"{insert_clause} INTO main.{table} ({names}) "  # noqa: S608
                     f"SELECT {names} FROM source_workspace.{table}"

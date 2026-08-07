@@ -68,9 +68,7 @@ def command_completions(
     normalized = leading.casefold()
     if " " not in leading:
         return [
-            command
-            for command in TOP_LEVEL_COMMANDS
-            if command.casefold().startswith(normalized)
+            command for command in TOP_LEVEL_COMMANDS if command.casefold().startswith(normalized)
         ]
 
     command, remainder = leading.split(" ", 1)
@@ -113,11 +111,30 @@ def command_completions(
     elif command == "analysis":
         choices = [
             "show",
+            "lifecycle",
             "methods",
             "contradictions",
             "question ",
             "assertion ",
+            "assumption ",
             "hypothesis ",
+            "prediction ",
+            "signpost ",
+            "collect ",
+            "stop ",
+            "limitation ",
+            "gap ",
+            "conclude ",
+            "status ",
+            "item ",
+            "contradiction ",
+            "resolve ",
+            "method list",
+            "method start ",
+            "method complete ",
+            "method accept ",
+            "method reject ",
+            "method revise ",
             "accept ",
             "reject ",
             "suspend ",

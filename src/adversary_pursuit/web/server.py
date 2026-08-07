@@ -37,6 +37,7 @@ from adversary_pursuit.agent.tui.themes import (
     PURSUIT_TITLES,
 )
 from adversary_pursuit.core.analytic_commands import execute_analysis_command
+from adversary_pursuit.core.analytic_ledger import AnalyticLedger
 from adversary_pursuit.core.command_completion import command_completions
 from adversary_pursuit.core.evidence_detail import evidence_ref, list_evidence, project_evidence
 from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
@@ -105,8 +106,7 @@ def _source_web_build_is_stale(web_root: Path) -> bool:
         _SOURCE_WEB_DIR / "package.json",
     )
     return any(
-        source.is_file() and source.stat().st_mtime_ns > exported_at
-        for source in source_files
+        source.is_file() and source.stat().st_mtime_ns > exported_at for source in source_files
     )
 
 
@@ -209,9 +209,8 @@ class WebCockpitService:
             "character": self.mode_mgr.active.name,
             "modes": modes,
             "dossier_slots": dossier_slots,
-            "visualizations": [
-                intent.model_dump(mode="json") for intent in visualizations
-            ],
+            "visualizations": [intent.model_dump(mode="json") for intent in visualizations],
+            "analysis": AnalyticLedger(self.ctx.workspace_mgr).snapshot(),
             "challenges": challenges,
             "badges": badges,
             "badge_summary": {
@@ -247,44 +246,130 @@ class WebCockpitService:
         """Return the shared analyst command surface exposed by Pivotglass."""
         return [
             {"command": "use <indicator>", "purpose": "Investigate and pivot to an indicator"},
-            {"command": "search [STIX type]", "purpose": "Search evidence already in this workspace"},
+            {
+                "command": "search [STIX type]",
+                "purpose": "Search evidence already in this workspace",
+            },
             {"command": "status", "purpose": "Show workspace and model status"},
             {"command": "mode [name]", "purpose": "List or switch character mode"},
             {"command": "workspace list", "purpose": "List investigation workspaces"},
-            {"command": "workspace create <name>", "purpose": "Create and switch to an isolated workspace"},
+            {
+                "command": "workspace create <name>",
+                "purpose": "Create and switch to an isolated workspace",
+            },
             {"command": "workspace switch <name>", "purpose": "Switch the active workspace"},
-            {"command": "workspace schema [name]", "purpose": "Validate integrity and preview any required migration"},
-            {"command": "workspace export <name>", "purpose": "Download a portable workspace archive"},
-            {"command": "workspace merge <source> <destination>", "purpose": "Merge evidence transactionally without changing the source"},
-            {"command": "workspace delete <name> --confirm <name>", "purpose": "Delete an inactive workspace after explicit confirmation"},
+            {
+                "command": "workspace schema [name]",
+                "purpose": "Validate integrity and preview any required migration",
+            },
+            {
+                "command": "workspace export <name>",
+                "purpose": "Download a portable workspace archive",
+            },
+            {
+                "command": "workspace merge <source> <destination>",
+                "purpose": "Merge evidence transactionally without changing the source",
+            },
+            {
+                "command": "workspace delete <name> --confirm <name>",
+                "purpose": "Delete an inactive workspace after explicit confirmation",
+            },
             {"command": "graph", "purpose": "Render the relationship graph"},
             {"command": "dossier", "purpose": "Show dossier details and intelligence gaps"},
             {"command": "timeline", "purpose": "Show the ordered collection timeline"},
             {"command": "note <text>", "purpose": "Save an analyst annotation"},
             {"command": "report", "purpose": "Generate the evidence-grounded Markdown report"},
-            {"command": "analysis show", "purpose": "Show questions, hypotheses, assertions, confidence, likelihood, and contradictions"},
-            {"command": "analysis methods", "purpose": "List the supported structured analytic techniques and their required records"},
-            {"command": "analysis question <text>", "purpose": "Record the investigation question the evidence must answer"},
-            {"command": "challenges", "purpose": "Show hunt-specific challenges, progress, evidence basis, and rewards"},
-            {"command": "badges", "purpose": "Show earned badges and their challenge-linked artwork"},
+            {
+                "command": "analysis show",
+                "purpose": "Show questions, hypotheses, assertions, confidence, likelihood, and contradictions",
+            },
+            {
+                "command": "analysis lifecycle",
+                "purpose": "Show the scientific investigation lifecycle and unresolved work",
+            },
+            {
+                "command": "analysis methods",
+                "purpose": "List the supported structured analytic techniques and their required records",
+            },
+            {
+                "command": "analysis question <text>",
+                "purpose": "Record the investigation question the evidence must answer",
+            },
+            {
+                "command": "analysis assumption <text>",
+                "purpose": "Expose a key assumption for later testing",
+            },
+            {
+                "command": "analysis hypothesis <question-id> <text>",
+                "purpose": "Propose a competing explanation without treating it as fact",
+            },
+            {
+                "command": "analysis prediction <text>",
+                "purpose": "Record an observable prediction that could support or weaken the explanation",
+            },
+            {
+                "command": "analysis signpost <text>",
+                "purpose": "Record a development that should change the judgment",
+            },
+            {
+                "command": "analysis collect <text>",
+                "purpose": "Record a bounded collection requirement",
+            },
+            {"command": "analysis stop <text>", "purpose": "Record when collection should stop"},
+            {
+                "command": "analysis limitation <text>",
+                "purpose": "Preserve a known limitation in the final analytic record",
+            },
+            {
+                "command": "analysis gap <text>",
+                "purpose": "Record an intelligence gap without inventing an answer",
+            },
+            {
+                "command": "challenges",
+                "purpose": "Show hunt-specific challenges, progress, evidence basis, and rewards",
+            },
+            {
+                "command": "badges",
+                "purpose": "Show earned badges and their challenge-linked artwork",
+            },
             {"command": "export <json|csv|stix|gexf>", "purpose": "Download workspace data"},
             {"command": "help", "purpose": "Show this command reference"},
-            {"command": "model show", "purpose": "Show the effective provider, model, credential source, and enabled state"},
-            {"command": "model list", "purpose": "Fetch account-visible models and evidence-based capability notes"},
-            {"command": "model check", "purpose": "Test provider authentication and selected-model visibility"},
-            {"command": "model select [provider] <model-id>", "purpose": "Select a model returned by the provider"},
+            {
+                "command": "model show",
+                "purpose": "Show the effective provider, model, credential source, and enabled state",
+            },
+            {
+                "command": "model list",
+                "purpose": "Fetch account-visible models and evidence-based capability notes",
+            },
+            {
+                "command": "model check",
+                "purpose": "Test provider authentication and selected-model visibility",
+            },
+            {
+                "command": "model select [provider] <model-id>",
+                "purpose": "Select a model returned by the provider",
+            },
             {"command": "model repair", "purpose": "Show a non-destructive model repair plan"},
             {"command": "config show", "purpose": "Show masked intelligence API configuration"},
-            {"command": "config check <service>", "purpose": "Test one configured intelligence API"},
-            {"command": "config enable|disable <service>", "purpose": "Enable or disable one intelligence source without deleting its key"},
-            {"command": "<natural-language question>", "purpose": "Ask AP; local tools run first and the configured model synthesizes only when needed"},
+            {
+                "command": "config check <service>",
+                "purpose": "Test one configured intelligence API",
+            },
+            {
+                "command": "config enable|disable <service>",
+                "purpose": "Enable or disable one intelligence source without deleting its key",
+            },
+            {
+                "command": "<natural-language question>",
+                "purpose": "Ask AP; local tools run first and the configured model synthesizes only when needed",
+            },
         ]
 
     def completions(self, text: str) -> list[str]:
         """Return the same contextual command completions used by the TUI."""
         mode_names = [
-            str(entry["display_name"])
-            for entry in self.mode_mgr.list_modes(public_only=True)
+            str(entry["display_name"]) for entry in self.mode_mgr.list_modes(public_only=True)
         ]
         return command_completions(
             text,
@@ -330,7 +415,11 @@ class WebCockpitService:
             }
         if command == "mode":
             if rest and rest != "list":
-                return {"kind": "state", "text": f"Mode switched to {rest}.", "state": self.switch_mode(rest)}
+                return {
+                    "kind": "state",
+                    "text": f"Mode switched to {rest}.",
+                    "state": self.switch_mode(rest),
+                }
             lines = [
                 f"{'*' if item['name'] == self.mode_mgr.active.name else ' '} "
                 f"{item['display_name']}: {item['personality']}"
@@ -342,17 +431,22 @@ class WebCockpitService:
             sub = parts[0].lower() if parts else "list"
             if sub == "list":
                 active = self.ctx.workspace_mgr.active
-                lines = [f"{'*' if name == active else ' '} {name}" for name in self.ctx.workspace_mgr.list_workspaces()]
+                lines = [
+                    f"{'*' if name == active else ' '} {name}"
+                    for name in self.ctx.workspace_mgr.list_workspaces()
+                ]
                 return {"kind": "text", "title": "Workspaces", "text": "\n".join(lines)}
             if sub in {"create", "switch"} and len(parts) == 2:
                 if self.investigations.active_count():
-                    raise ValueError(
-                        "cannot change workspace while an investigation is active"
-                    )
+                    raise ValueError("cannot change workspace while an investigation is active")
                 if sub == "create":
                     self.ctx.workspace_mgr.create(parts[1])
                 self.ctx.workspace_mgr.switch(parts[1])
-                return {"kind": "state", "text": f"Workspace active: {parts[1]}", "state": self.state()}
+                return {
+                    "kind": "state",
+                    "text": f"Workspace active: {parts[1]}",
+                    "state": self.state(),
+                }
             if sub == "schema" and len(parts) <= 2:
                 workspace_name = parts[1] if len(parts) == 2 else None
                 return {
@@ -361,19 +455,37 @@ class WebCockpitService:
                     "data": self.ctx.workspace_mgr.get_workspace_schema_status(workspace_name),
                 }
             if sub == "export" and len(parts) == 2:
-                content = json.dumps(export_workspace(self.ctx.workspace_mgr, parts[1]), indent=2, default=str)
-                return {"kind": "download", "filename": f"{parts[1]}-workspace.ap.json", "mime": "application/json", "content": content}
+                content = json.dumps(
+                    export_workspace(self.ctx.workspace_mgr, parts[1]), indent=2, default=str
+                )
+                return {
+                    "kind": "download",
+                    "filename": f"{parts[1]}-workspace.ap.json",
+                    "mime": "application/json",
+                    "content": content,
+                }
             if sub == "merge" and len(parts) == 3:
                 counts = merge_workspaces(self.ctx.workspace_mgr, parts[1], parts[2])
                 if parts[2] == self.ctx.workspace_mgr.active:
                     self.ctx.workspace_mgr.switch(parts[2])
-                return {"kind": "json", "title": "Workspace merge complete", "data": {"source": parts[1], "destination": parts[2], "inserted": counts}}
-            if sub == "delete" and len(parts) == 4 and parts[2] == "--confirm" and parts[1] == parts[3]:
+                return {
+                    "kind": "json",
+                    "title": "Workspace merge complete",
+                    "data": {"source": parts[1], "destination": parts[2], "inserted": counts},
+                }
+            if (
+                sub == "delete"
+                and len(parts) == 4
+                and parts[2] == "--confirm"
+                and parts[1] == parts[3]
+            ):
                 if parts[1] == self.ctx.workspace_mgr.active:
                     raise ValueError("cannot delete the active workspace; switch first")
                 self.ctx.workspace_mgr.delete(parts[1])
                 return {"kind": "text", "title": "Workspace deleted", "text": parts[1]}
-            raise ValueError("usage: workspace list|create <name>|switch <name>|schema [name]|export <name>|merge <source> <destination>|delete <name> --confirm <name>")
+            raise ValueError(
+                "usage: workspace list|create <name>|switch <name>|schema [name]|export <name>|merge <source> <destination>|delete <name> --confirm <name>"
+            )
         if command in {"status", "show"} and (command == "status" or rest in {"", "status"}):
             summary, *_ = execute_tool(self.ctx, "get_workspace_summary", {})
             return {"kind": "text", "title": "Workspace status", "text": str(summary)}
@@ -405,7 +517,11 @@ class WebCockpitService:
             summary, *_ = execute_tool(self.ctx, "get_dossier_state", {})
             return {"kind": "json", "title": "Dossier and intelligence gaps", "data": summary}
         if command == "timeline":
-            return {"kind": "json", "title": "Collection timeline", "data": self.ctx.workspace_mgr.get_module_runs()}
+            return {
+                "kind": "json",
+                "title": "Collection timeline",
+                "data": self.ctx.workspace_mgr.get_module_runs(),
+            }
         if command == "note":
             if not rest:
                 raise ValueError("usage: note <text>")
@@ -413,10 +529,15 @@ class WebCockpitService:
             return {"kind": "text", "title": "Annotation saved", "text": rest}
         if command == "report":
             summary, *_ = execute_tool(self.ctx, "generate_dossier_report", {})
-            return {"kind": "text", "title": "Dossier report", "text": str(summary), "printable": True}
+            return {
+                "kind": "text",
+                "title": "Dossier report",
+                "text": str(summary),
+                "printable": True,
+            }
         if command == "analysis":
             result = execute_analysis_command(tuple(rest.split()), self.ctx.workspace_mgr)
-            return {"kind": "json", **result}
+            return {"kind": "json", **result, "state": self.state()}
         if command == "export":
             return self.export_payload(rest or "stix")
         if command in {"clear", "quit", "exit", "q"}:
@@ -438,9 +559,7 @@ class WebCockpitService:
 
     def configuration(self) -> dict[str, Any]:
         """Return masked provider and intelligence-service configuration."""
-        return self.model_control.configuration_summary(
-            getattr(self._runner, "model", None)
-        )
+        return self.model_control.configuration_summary(getattr(self._runner, "model", None))
 
     def model_catalog(self, provider: str | None = None) -> dict[str, Any]:
         """Return the live account-visible catalogue with bounded capability notes."""
@@ -470,9 +589,7 @@ class WebCockpitService:
         if kind == "service":
             values = payload.get("values")
             secrets = (
-                [str(value) for value in values]
-                if isinstance(values, list) and values
-                else None
+                [str(value) for value in values] if isinstance(values, list) and values else None
             )
             return self.model_control.check_service(target, secrets).to_dict()
         raise ValueError("kind must be provider or service")
@@ -484,9 +601,7 @@ class WebCockpitService:
         if action == "model-enabled":
             self.config_mgr.set_agent_enabled(bool(payload.get("enabled")))
         elif action == "advisor-enabled":
-            self.config_mgr.set_configuration_advisor_enabled(
-                bool(payload.get("enabled"))
-            )
+            self.config_mgr.set_configuration_advisor_enabled(bool(payload.get("enabled")))
         elif action == "service-enabled":
             self.config_mgr.set_service_enabled(target, bool(payload.get("enabled")))
         elif action == "provider-credential":
@@ -546,10 +661,21 @@ class WebCockpitService:
         objects = self.ctx.workspace_mgr.get_stix_objects()
         workspace = self.ctx.workspace_mgr.active
         if fmt == "json":
-            content = json.dumps(objects, indent=2, default=str)
+            content = json.dumps(
+                export_workspace(self.ctx.workspace_mgr, workspace),
+                indent=2,
+                default=str,
+            )
             mime, suffix = "application/json", "json"
         elif fmt == "csv":
-            fields = sorted({str(key) for item in objects for key in item if not isinstance(item.get(key), (dict, list))})
+            fields = sorted(
+                {
+                    str(key)
+                    for item in objects
+                    for key in item
+                    if not isinstance(item.get(key), (dict, list))
+                }
+            )
             stream = io.StringIO()
             writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
             writer.writeheader()
@@ -557,8 +683,12 @@ class WebCockpitService:
             content, mime, suffix = stream.getvalue(), "text/csv", "csv"
         elif fmt in {"stix", "gexf"}:
             summary, *_ = execute_tool(self.ctx, "export_workspace", {"format": fmt})
-            content = summary if isinstance(summary, str) else json.dumps(summary, indent=2, default=str)
-            mime, suffix = ("application/xml", "gexf") if fmt == "gexf" else ("application/json", "stix.json")
+            content = (
+                summary if isinstance(summary, str) else json.dumps(summary, indent=2, default=str)
+            )
+            mime, suffix = (
+                ("application/xml", "gexf") if fmt == "gexf" else ("application/json", "stix.json")
+            )
         else:
             raise ValueError("supported export formats: json, csv, stix, gexf")
         return {
@@ -925,9 +1055,7 @@ def _handler(
                 except ValueError as exc:
                     self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
                 return
-            if parsed.path.startswith("/api/investigations/") and parsed.path.endswith(
-                "/events"
-            ):
+            if parsed.path.startswith("/api/investigations/") and parsed.path.endswith("/events"):
                 try:
                     investigation_id = parsed.path.split("/")[3]
                     raw_cursor = parse_qs(parsed.query).get("cursor", ["0"])[0]
@@ -957,11 +1085,10 @@ def _handler(
             is_cancel = parsed.path.startswith("/api/investigations/") and parsed.path.endswith(
                 "/cancel"
             )
-            is_ack = parsed.path.startswith("/api/alerts/") and parsed.path.endswith(
-                "/acknowledge"
-            )
+            is_ack = parsed.path.startswith("/api/alerts/") and parsed.path.endswith("/acknowledge")
             if (
-                parsed.path not in {
+                parsed.path
+                not in {
                     "/api/investigate",
                     "/api/mode",
                     "/api/command",
@@ -1001,12 +1128,8 @@ def _handler(
                             expected_workspace
                             and expected_workspace != service.ctx.workspace_mgr.active
                         ):
-                            raise ValueError(
-                                "workspace changed; queue item was not executed"
-                            )
-                        self._json(
-                            service.execute_command(command), HTTPStatus.ACCEPTED
-                        )
+                            raise ValueError("workspace changed; queue item was not executed")
+                        self._json(service.execute_command(command), HTTPStatus.ACCEPTED)
                     return
                 if parsed.path == "/api/annotate":
                     text = str(payload.get("text", "")).strip()
@@ -1021,9 +1144,7 @@ def _handler(
                     self._json(service.cancel_investigation(investigation_id))
                     return
                 if is_ack:
-                    event_id = parsed.path.removeprefix("/api/alerts/").removesuffix(
-                        "/acknowledge"
-                    )
+                    event_id = parsed.path.removeprefix("/api/alerts/").removesuffix("/acknowledge")
                     self._json(service.acknowledge_alert(event_id))
                     return
                 target = str(payload.get("target", "")).strip()
@@ -1056,9 +1177,7 @@ def run_web(*, host: str = "127.0.0.1", port: int = 8765, open_browser: bool = T
             "before launching `ap`."
         )
     service = WebCockpitService()
-    allowed_hosts = frozenset(
-        {"127.0.0.1", "localhost", "[::1]", normalized_host}
-    )
+    allowed_hosts = frozenset({"127.0.0.1", "localhost", "[::1]", normalized_host})
     server = ThreadingHTTPServer(
         (host, port),
         _handler(service, web_root, allowed_hosts=allowed_hosts),

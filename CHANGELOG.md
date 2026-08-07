@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added workspace schema v4 with a persisted scientific-investigation root and
+  lifecycle links for questions, hypotheses, assumptions, predictions,
+  signposts, collection requirements, stop conditions, observations, method
+  runs, conclusions, limitations, and knowledge gaps.
+- Added a Pivotglass Scientific Notebook with lifecycle progress, assumption
+  register, competing-hypothesis controls, contradiction queue, and a
+  deterministic ACH matrix whose empty cells remain explicitly unknown.
+- Added shared TUI/Pivotglass lifecycle, contradiction, and Structured Analytic
+  Technique commands with explicit human disposition of model-authored work.
+- Added method-aware Markdown reporting and complete portable JSON export of
+  the scientific record, including confidence basis, likelihood,
+  contradictions, limitations, and unresolved gaps.
 - Expanded the durable achievement catalog to 40 graduated badges with
   accessible, achievement-specific artwork and labeled rarity colors.
 - Added periodic character-voiced Analyst Advisor guidance based on bounded
@@ -20,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Formal analytic-confidence records now require explicit source quality,
+  source independence, corroboration, assumptions, knowledge gaps, and
+  analytic-rigor factors; likelihood remains a separate probability judgment.
+- Schema-v3 workspaces migrate backup-first to schema v4. Existing analytic
+  records remain authoritative and the legacy Predictions Log is linked without
+  being deleted or rewritten.
 - Reworked the Investigation Constellation into a compact Lite Brite display
   whose starburst, striped, octagonal, and recessed shapes redundantly encode
   filled, partial, deferred, and empty Dossier states.

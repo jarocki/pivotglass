@@ -23,7 +23,12 @@ from typing import Any
 
 from sqlalchemy import select
 
-from adversary_pursuit.core.analytic_ledger import AuthorKind
+from adversary_pursuit.core.analytic_ledger import (
+    AnalystDisposition,
+    AnalyticLedger,
+    AuthorKind,
+    LifecycleItemStatus,
+)
 from adversary_pursuit.models.database import AnalyticMethodRun, InvestigationQuestion
 
 
@@ -40,13 +45,6 @@ class StructuredTechnique(StrEnum):
 class MethodRunStatus(StrEnum):
     DRAFT = "draft"
     COMPLETE = "complete"
-
-
-class AnalystDisposition(StrEnum):
-    PENDING = "pending"
-    ACCEPTED = "accepted"
-    REJECTED = "rejected"
-    REVISED = "revised"
 
 
 @dataclass(frozen=True)
@@ -156,6 +154,12 @@ class StructuredAnalysisWorkbench:
                 )
             )
             session.commit()
+        AnalyticLedger(self._workspace).link_method_run(
+            question_id,
+            run_id,
+            created_by=created_by,
+            statement=f"{definition.label}: {definition.purpose}",
+        )
         return run_id
 
     def complete(self, run_id: str, outputs: dict[str, Any]) -> None:
@@ -170,6 +174,12 @@ class StructuredAnalysisWorkbench:
             run.status = MethodRunStatus.COMPLETE.value
             run.completed_at = datetime.now(timezone.utc)
             session.commit()
+        AnalyticLedger(self._workspace).update_linked_record(
+            "method_run",
+            run_id,
+            status=LifecycleItemStatus.SATISFIED,
+            decided_by=AuthorKind.SYSTEM,
+        )
 
     def disposition(
         self,
@@ -190,6 +200,12 @@ class StructuredAnalysisWorkbench:
                 raise ValueError("A method run must be complete before analyst disposition.")
             run.analyst_disposition = disposition.value
             session.commit()
+        AnalyticLedger(self._workspace).update_linked_record(
+            "method_run",
+            run_id,
+            disposition=disposition,
+            decided_by=decided_by,
+        )
 
     def list_runs(self, *, question_id: str | None = None) -> list[dict[str, Any]]:
         with self._workspace.get_session() as session:

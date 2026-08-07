@@ -1204,6 +1204,8 @@ class TestWorkspaceClear:
         wm = self._make_wm(tmp_path)
         deleted = wm.clear()
         assert deleted == {
+            "analytic_lifecycle_items": 0,
+            "analytic_investigations": 0,
             "analytic_evidence_links": 0,
             "analytic_method_runs": 0,
             "analytic_contradictions": 0,
@@ -1361,6 +1363,8 @@ class TestWorkspaceStatusHelpers:
         wm = self._make_wm(tmp_path)
         counts = wm.get_workspace_table_counts()
         expected_keys = {
+            "analytic_investigations",
+            "analytic_lifecycle_items",
             "evidence_sources",
             "evidence_observations",
             "evidence_observation_dispositions",

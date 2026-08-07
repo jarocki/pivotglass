@@ -7,6 +7,7 @@ import { BadgeArtwork } from "./badge-artwork";
 import { FlowMusicEngine } from "./flow-music";
 import { ThemeArcade } from "./arcade-games";
 import { ConfigurationCenter, type ConfigurationAdvisory } from "./configuration-center";
+import { ScientificWorkbench, type AnalyticSnapshot } from "./scientific-workbench";
 import { type VisualizationIntent } from "./visualization-intent";
 import { TaskMatrix, VisualizationWorkspace } from "./visualization-workspace";
 
@@ -25,7 +26,7 @@ type SourceIntelligence = { provider: string; headline: string; facts: Array<{la
 type EvidenceDetail = { reference: string; stix_id: string; type: string; value: string; source_module: string; original_query: string; provenance: Record<string, unknown>; normalized: Record<string, unknown>; raw: Record<string, unknown>; relationships: EvidenceRelationship[]; purpose: string[]; breadcrumbs: Array<{indicator: string; relationship: string}>; history: unknown[]; dossier_contributions: unknown[]; supporting_observations: unknown[]; conflicting_observations: unknown[]; next_pivots: unknown[]; source_intelligence?: SourceIntelligence | null };
 type BadgeAward = { badge_id: string; badge_name: string; badge_description?: string; badge_rarity?: string; badge_artwork?: string; badge_glyph?: string; challenge_id?: string; awarded_at: string };
 type ChallengeRecord = { id: string; name: string; description: string; status: string; origin?: string; subject_value?: string; points: number; progress_current?: number; progress_target?: number; progress_label?: string; evidence_basis?: Array<Record<string, unknown>>; badge?: BadgeAward };
-type State = { workspace: string; stats: Record<string, number>; objects: EvidenceCard[]; briefings: Record<string, Briefing>; character: string; modes: Mode[]; dossier_slots: DossierSlot[]; visualizations: VisualizationIntent[]; processed_targets: string[]; instruments: Instruments; challenges: ChallengeRecord[]; badges: BadgeAward[]; badge_summary: { count: number; latest: BadgeAward | null } };
+type State = { workspace: string; stats: Record<string, number>; objects: EvidenceCard[]; briefings: Record<string, Briefing>; character: string; modes: Mode[]; dossier_slots: DossierSlot[]; visualizations: VisualizationIntent[]; analysis: AnalyticSnapshot; processed_targets: string[]; instruments: Instruments; challenges: ChallengeRecord[]; badges: BadgeAward[]; badge_summary: { count: number; latest: BadgeAward | null } };
 type InvestigationSnapshot = { investigation_id: string; lifecycle: Lifecycle; cursor: number; events: FeedEvent[] };
 type AlertEvent = FeedEvent & { acknowledged: boolean; investigation_id: string };
 type AlertState = { alerts: AlertEvent[]; unread_count: number; highest_unread: string };
@@ -599,6 +600,16 @@ export default function Cockpit() {
     } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
   }
 
+  async function runAnalyticCommand(command: string) {
+    setError("");
+    const response = await fetch("/api/command", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command }) });
+    const result = await response.json() as CommandResult & { error?: string };
+    if (!response.ok) throw new Error(result.error ?? "Analytic command failed");
+    if (result.state) setState(result.state);
+    else await refresh();
+    return result.title ?? "Analytic record updated";
+  }
+
   async function cancelInvestigation() {
     if (!investigationId) return;
     const response = await fetch(`/api/investigations/${investigationId}/cancel`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
@@ -775,6 +786,7 @@ export default function Cockpit() {
 
     <section className="cockpit-grid">
       <article className={`panel feed-panel ${collapsed.intelligence ? "collapsed" : ""}`} id="intelligence" tabIndex={-1}><PanelTitle id="intelligence" title={`${mode?.cockpit.left_rail} ${mode?.pursuit_title} // INTELLIGENCE`} status={`${taskGroups.length} TASKS · ${feed.length} EVENTS`} collapsed={collapsed.intelligence} maximized={maximized === "intelligence"} onToggle={() => togglePane("intelligence")} onMaximize={() => toggleMaximize("intelligence")}/><div id="intelligence-content" className="feed" ref={feedRef} tabIndex={0} aria-label="Scrollable intelligence feed" onScroll={(event) => { const node = event.currentTarget; setReviewingHistory(node.scrollHeight - node.scrollTop - node.clientHeight > 32); }}>
+        {state?.analysis && <ScientificWorkbench analysis={state.analysis} onCommand={runAnalyticCommand}/>}
         {feed.length === 0 && <div className="standby"><div className="reticle"><i/><i/><i/></div><b>AWAITING TARGET LOCK</b><span>Evidence, retrieval briefings, and justified pivots will appear here.</span></div>}
         {enrichmentActivity && (enrichmentActivity.data.rows.length > 0 || liveEnrichmentRows.length > 0) && <><section className="hunt-summary"><b>ENRICHMENT ACTIVITY</b><span>indicators × enrichment sources · RGB status blocks · newest activity first</span></section><TaskMatrix intent={enrichmentActivity} liveRows={liveEnrichmentRows} onSelectCell={(cell) => setExpandedTask(String(cell.enrichment ?? ""))}/></>}
         {taskGroups.filter((task) => expandedTask === task.key).map((task) => <section className="task-detail" id={`task-${task.key}`} key={task.key}><header><div><b>{task.tool}</b><small>{task.events.length} ordered transitions · {task.artifacts.length} evidence records</small></div><button onClick={() => setExpandedTask(null)}>COLLAPSE</button></header>{task.events.map((item) => <section id={`event-${item.event_id}`} className={`event ${item.content_class} state-${item.lifecycle} class-${item.event_class}`} key={item.event_id}><div className="event-head"><b>{item.lifecycle.toUpperCase()}</b><span>{item.source ?? item.event_class}</span></div><small>{item.tool} · event {item.sequence}</small>{item.briefing && <><p><label>GATHER</label>{item.briefing.artifacts}</p><p><label>WHY</label>{item.briefing.purpose}</p><p><label>WATCH</label>{item.briefing.watch_for}</p><small>Retrieval goal—not an observed finding.</small></>}{item.summary && <pre>{item.summary}</pre>}{item.reason && <p><label>STATE</label>{item.reason}</p>}{item.artifact_ids?.map((id) => { const artifact = state?.objects.find((candidate) => candidate.reference === id || candidate.stix_id === id); return <button className="evidence-link" title={artifact?.value ?? "Open stored evidence"} key={id} onClick={(event) => openDetail(id, event.currentTarget)}>OPEN {shortenMiddle(artifact?.value ?? "stored evidence", 44)}</button>; })}</section>)}</section>)}

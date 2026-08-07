@@ -203,6 +203,84 @@ class TestGenerateDossierReport:
         assert "test" in result  # workspace name
         assert "300" in result  # total score
 
+    def test_scientific_lifecycle_confidence_and_contradictions_are_reported(self, wm):
+        from adversary_pursuit.core.analytic_ledger import (
+            AnalyticLedger,
+            AssertionType,
+            ConfidenceLevel,
+            LifecycleItemType,
+            LikelihoodTerm,
+            Materiality,
+        )
+        from adversary_pursuit.core.dossier_report import generate_dossier_report
+
+        ledger = AnalyticLedger(wm)
+        question_id = ledger.create_question("Who controls the observed infrastructure?")
+        hypothesis_id = ledger.create_hypothesis(
+            question_id,
+            "A common operator controls the infrastructure.",
+        )
+        assumption_id = ledger.create_assertion(
+            "Certificate reuse implies common control.",
+            assertion_type=AssertionType.ASSUMED,
+        )
+        alternative_id = ledger.create_assertion(
+            "The certificate was supplied by shared hosting.",
+            assertion_type=AssertionType.JUDGMENT,
+        )
+        ledger.assess_confidence(
+            target_kind="hypothesis",
+            target_id=hypothesis_id,
+            level=ConfidenceLevel.LOW,
+            rationale="The current evidence comes from one source.",
+            factors={
+                "source_quality": "one API source with direct access",
+                "source_independence": "one dependence group",
+                "corroboration": "not corroborated",
+                "assumptions": ["certificate reuse implies control"],
+                "knowledge_gaps": ["hosting allocation unavailable"],
+                "analytic_rigor": "competing explanation retained",
+            },
+        )
+        ledger.assess_likelihood(
+            target_kind="hypothesis",
+            target_id=hypothesis_id,
+            term=LikelihoodTerm.ROUGHLY_EVEN_CHANCE,
+            rationale="Both explanations remain plausible.",
+        )
+        investigation_id = ledger.active_investigation()["id"]
+        ledger.add_lifecycle_item(
+            investigation_id,
+            LifecycleItemType.PREDICTION,
+            "An independently sourced certificate match will appear.",
+        )
+        ledger.add_lifecycle_item(
+            investigation_id,
+            LifecycleItemType.KNOWLEDGE_GAP,
+            "Contemporaneous hosting allocation records are unavailable.",
+        )
+        ledger.record_contradiction(
+            left_kind="assertion",
+            left_id=assumption_id,
+            right_kind="assertion",
+            right_id=alternative_id,
+            summary="Common control and shared hosting are competing explanations.",
+            materiality=Materiality.HIGH,
+            resolution_required="Obtain contemporaneous allocation records.",
+        )
+
+        result = generate_dossier_report(wm)
+
+        assert "## Scientific Investigation" in result
+        assert "### Competing Hypotheses" in result
+        assert "A common operator controls the infrastructure" in result
+        assert "LOW confidence" in result
+        assert "roughly_even_chance" in result
+        assert "### Contradictions" in result
+        assert "Obtain contemporaneous allocation records" in result
+        assert "### Conclusions, Limitations, and Intelligence Gaps" in result
+        assert "Contemporaneous hosting allocation records are unavailable" in result
+
     def test_has_statistics_section(self, populated_wm):
         """Report contains Statistics section."""
         from adversary_pursuit.core.dossier_report import generate_dossier_report

@@ -6,11 +6,12 @@ import json
 import sqlite3
 
 import pytest
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 
 from adversary_pursuit.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
 from adversary_pursuit.core.analytic_commands import execute_analysis_command
 from adversary_pursuit.core.analytic_ledger import (
+    AnalystDisposition,
     AnalyticLedger,
     AssertionType,
     AuthorKind,
@@ -18,12 +19,14 @@ from adversary_pursuit.core.analytic_ledger import (
     ContradictionStatus,
     EvidenceStance,
     HypothesisStatus,
+    InvestigationStatus,
+    LifecycleItemStatus,
+    LifecycleItemType,
     LikelihoodTerm,
     Materiality,
 )
 from adversary_pursuit.core.command_completion import command_completions
 from adversary_pursuit.core.structured_analysis import (
-    AnalystDisposition,
     StructuredAnalysisWorkbench,
     StructuredTechnique,
 )
@@ -57,6 +60,8 @@ def test_fresh_workspace_is_stamped_at_current_schema(tmp_path):
         "analytic_hypotheses",
         "analytic_evidence_links",
         "analytic_method_runs",
+        "analytic_investigations",
+        "analytic_lifecycle_items",
         "analytic_confidence_assessments",
         "likelihood_assessments",
         "analytic_contradictions",
@@ -118,6 +123,78 @@ def test_legacy_workspace_migrates_with_backup_and_observation_backfill(tmp_path
     assert observations[0]["source_module"] == "osint/legacy"
     assert observations[0]["source_endpoint"] == "https://example.test/v1"
     assert observations[0]["fetched_at"] == "2025-01-01T00:00:00Z"
+
+
+def test_schema_v3_migrates_analytic_records_and_predictions_without_rewriting_source(
+    tmp_path,
+):
+    manager = WorkspaceManager(tmp_path)
+    manager.create("v3")
+    connection = sqlite3.connect(tmp_path / "v3.db")
+    connection.execute("DROP TABLE analytic_lifecycle_items")
+    connection.execute("DROP TABLE analytic_investigations")
+    connection.execute("UPDATE workspace_schema_version SET version = 3 WHERE id = 1")
+    connection.execute(
+        """
+        INSERT INTO investigation_questions
+            (id, text, status, created_by, created_at, closed_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "question-v3",
+            "What would falsify the leading explanation?",
+            "open",
+            "human",
+            "2026-08-01 00:00:00",
+            None,
+        ),
+    )
+    prediction_payload = {
+        "schema_version": 2,
+        "predictions": [
+            {
+                "prediction_id": "prediction-v3",
+                "text": "A second independently sourced certificate will appear.",
+                "status": "pending",
+                "slot": "infrastructure",
+                "expected_evidence": {"type": "x509-certificate"},
+            }
+        ],
+    }
+    connection.execute(
+        """
+        INSERT INTO score_events
+            (action, points, indicator, module_run_id, timestamp)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            "_predictions_log",
+            0,
+            json.dumps(prediction_payload),
+            None,
+            "2026-08-01 00:01:00",
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    manager.switch("v3")
+
+    assert (tmp_path / "v3.db.pre-v3-backup").is_file()
+    assert get_workspace_schema_version(manager._engine) == CURRENT_WORKSPACE_SCHEMA_VERSION
+    snapshot = AnalyticLedger(manager).snapshot()
+    assert snapshot["investigations"][0]["primary_question_id"] == "question-v3"
+    linked = {
+        (item["item_type"], item["record_kind"], item["record_id"])
+        for item in snapshot["lifecycle_items"]
+    }
+    assert ("question", "question", "question-v3") in linked
+    assert ("prediction", "legacy_prediction", "prediction-v3") in linked
+    with manager.get_session() as session:
+        original = session.execute(
+            text("SELECT indicator FROM score_events WHERE action = '_predictions_log'")
+        ).scalar_one()
+    assert json.loads(original) == prediction_payload
 
 
 def test_duplicate_entity_preserves_every_observation_and_source(tmp_path):
@@ -248,11 +325,97 @@ def test_analysis_command_is_shared_with_local_repl_and_completion(tmp_path):
     assert verb is not None
     response = dispatch_repl_verb(verb, None, None, manager)
     assert '"status": "retained"' in response
-    assert command_completions("analysis m") == ["analysis methods"]
+    completions = command_completions("analysis m")
+    assert "analysis methods" in completions
+    assert "analysis method start " in completions
 
     snapshot = execute_analysis_command(("show",), manager)["data"]
     assert snapshot["questions"][0]["text"] == "Which hypothesis best explains the activity?"
     assert snapshot["hypotheses"][0]["status"] == "retained"
+
+
+def test_analysis_commands_cover_lifecycle_contradictions_and_sat_runs(tmp_path):
+    manager = _workspace(tmp_path)
+    question_id = execute_analysis_command(
+        ("question", "Which", "operator", "controls", "the", "infrastructure?"),
+        manager,
+    )["data"]["question_id"]
+    assumption_id = execute_analysis_command(
+        ("assumption", "Certificate", "reuse", "implies", "common", "control."),
+        manager,
+    )["data"]["assertion_id"]
+    judgment_id = execute_analysis_command(
+        ("assertion", "judgment", "The", "hosting", "is", "shared."),
+        manager,
+    )["data"]["assertion_id"]
+    prediction_id = execute_analysis_command(
+        ("prediction", "A", "second", "certificate", "match", "will", "appear."),
+        manager,
+    )["data"]["item_id"]
+    execute_analysis_command(
+        ("signpost", "An", "independent", "provider", "confirms", "the", "match."),
+        manager,
+    )
+    contradiction_id = execute_analysis_command(
+        (
+            "contradiction",
+            "assertion",
+            assumption_id,
+            "assertion",
+            judgment_id,
+            "Dedicated",
+            "control",
+            "conflicts",
+            "with",
+            "shared",
+            "hosting",
+            "|",
+            "Obtain",
+            "allocation",
+            "records.",
+        ),
+        manager,
+    )["data"]["contradiction_id"]
+    execute_analysis_command(
+        ("resolve", contradiction_id, "Provider", "records", "show", "shared", "tenancy."),
+        manager,
+    )
+    run_id = execute_analysis_command(
+        (
+            "method",
+            "start",
+            question_id,
+            "key_assumptions_check",
+            json.dumps({"assumptions": [assumption_id]}),
+        ),
+        manager,
+    )["data"]["run_id"]
+    execute_analysis_command(
+        (
+            "method",
+            "complete",
+            run_id,
+            json.dumps(
+                {
+                    "challenged_assumptions": [assumption_id],
+                    "implications": ["Seek independent tenancy evidence."],
+                }
+            ),
+        ),
+        manager,
+    )
+    execute_analysis_command(("method", "revise", run_id), manager)
+    execute_analysis_command(("item", prediction_id, "satisfied", "revised"), manager)
+
+    lifecycle = execute_analysis_command(("lifecycle",), manager)["data"]
+    assert len(lifecycle["investigations"]) == 1
+    assert {item["item_type"] for item in lifecycle["items"]}.issuperset(
+        {"question", "assumption", "assertion", "prediction", "signpost", "method_run"}
+    )
+    snapshot = execute_analysis_command(("show",), manager)["data"]
+    assert snapshot["contradictions"][0]["status"] == "resolved"
+    method_item = next(item for item in lifecycle["items"] if item["record_id"] == run_id)
+    assert method_item["analyst_disposition"] == "revised"
 
 
 def test_portable_export_and_merge_preserve_complete_analytic_record(tmp_path):
@@ -270,9 +433,10 @@ def test_portable_export_and_merge_preserve_complete_analytic_record(tmp_path):
     )
 
     payload = export_workspace(manager, "source")
-    assert payload["format"] == "pivotglass-workspace-v3"
+    assert payload["format"] == "pivotglass-workspace-v4"
     assert payload["schema_version"] == CURRENT_WORKSPACE_SCHEMA_VERSION
     assert payload["tables"]["investigation_questions"][0]["id"] == question_id
+    assert payload["tables"]["analytic_investigations"][0]["primary_question_id"] == (question_id)
     assert payload["tables"]["evidence_observations"][0]["observed_blob"]["value"] == (
         "source.example"
     )
@@ -285,6 +449,8 @@ def test_portable_export_and_merge_preserve_complete_analytic_record(tmp_path):
     )
     counts = merge_workspaces(manager, "source", "destination")
     assert counts["investigation_questions"] == 1
+    assert counts["analytic_investigations"] == 1
+    assert counts["analytic_lifecycle_items"] == 2
     assert counts["evidence_observations"] == 1
 
     manager.switch("destination")
@@ -334,12 +500,27 @@ def test_analytic_ledger_keeps_evidence_judgment_confidence_and_likelihood_disti
         stance=EvidenceStance.SUPPORTS,
         rationale="Certificate reuse is consistent with the candidate operator.",
     )
+    with pytest.raises(ValueError, match="missing required fields"):
+        ledger.assess_confidence(
+            target_kind="hypothesis",
+            target_id=hypothesis_id,
+            level=ConfidenceLevel.LOW,
+            rationale="A rationale alone does not expose the confidence basis.",
+            factors={"source_quality": "one API source"},
+        )
     ledger.assess_confidence(
         target_kind="hypothesis",
         target_id=hypothesis_id,
         level=ConfidenceLevel.LOW,
         rationale="The evidence is single-source and infrastructure may be shared.",
-        factors={"independent_sources": 1, "shared_infrastructure_risk": True},
+        factors={
+            "source_quality": "one API source with direct access",
+            "source_independence": "one dependence group",
+            "corroboration": "not corroborated",
+            "assumptions": ["certificate reuse implies control"],
+            "knowledge_gaps": ["hosting allocation unknown"],
+            "analytic_rigor": "alternative explanation retained",
+        },
     )
     ledger.assess_likelihood(
         target_kind="hypothesis",
@@ -364,6 +545,57 @@ def test_analytic_ledger_keeps_evidence_judgment_confidence_and_likelihood_disti
         )
     ledger.set_hypothesis_status(hypothesis_id, HypothesisStatus.RETAINED)
     assert ledger.snapshot()["hypotheses"][0]["status"] == "retained"
+    hypothesis_link = next(
+        item for item in ledger.snapshot()["lifecycle_items"] if item["record_id"] == hypothesis_id
+    )
+    assert hypothesis_link["status"] == LifecycleItemStatus.SATISFIED.value
+
+
+def test_scientific_lifecycle_preserves_model_proposals_for_human_disposition(tmp_path):
+    ledger = AnalyticLedger(_workspace(tmp_path))
+    investigation_id = ledger.create_investigation(
+        "Certificate reuse",
+        purpose="Determine whether certificate reuse links the observed infrastructure.",
+        scope="Observed domains and certificates collected in this workspace.",
+    )
+    question_id = ledger.create_question(
+        "Does certificate reuse indicate common control?",
+        investigation_id=investigation_id,
+    )
+    prediction_id = ledger.add_lifecycle_item(
+        investigation_id,
+        LifecycleItemType.PREDICTION,
+        "A second independently sourced certificate match will appear.",
+        criteria={"minimum_independent_sources": 2},
+        author_kind=AuthorKind.MODEL,
+    )
+    ledger.add_lifecycle_item(
+        investigation_id,
+        LifecycleItemType.STOP_CONDITION,
+        "Stop collection after two independent providers agree or the timebox expires.",
+    )
+
+    snapshot = ledger.snapshot()
+    assert snapshot["investigations"][0]["primary_question_id"] == question_id
+    prediction = next(item for item in snapshot["lifecycle_items"] if item["id"] == prediction_id)
+    assert prediction["analyst_disposition"] == AnalystDisposition.PENDING.value
+    with pytest.raises(ValueError, match="Only an explicit human action"):
+        ledger.update_lifecycle_item(
+            prediction_id,
+            disposition=AnalystDisposition.ACCEPTED,
+            decided_by=AuthorKind.MODEL,
+        )
+    ledger.update_lifecycle_item(
+        prediction_id,
+        disposition=AnalystDisposition.REVISED,
+        status=LifecycleItemStatus.SATISFIED,
+    )
+    ledger.set_investigation_status(investigation_id, InvestigationStatus.ANALYZING)
+    updated = ledger.snapshot()
+    assert updated["investigations"][0]["status"] == "analyzing"
+    prediction = next(item for item in updated["lifecycle_items"] if item["id"] == prediction_id)
+    assert prediction["analyst_disposition"] == "revised"
+    assert prediction["status"] == "satisfied"
 
 
 def test_contradiction_is_persistent_and_requires_resolution_information(tmp_path):
@@ -411,6 +643,8 @@ def test_workspace_clear_removes_epistemic_data_but_preserves_schema_receipt(tmp
 
     deleted = manager.clear()
     assert deleted["investigation_questions"] == 1
+    assert deleted["analytic_investigations"] == 1
+    assert deleted["analytic_lifecycle_items"] == 1
     assert deleted["evidence_observations"] == 1
     assert deleted["evidence_sources"] == 1
     assert all(count == 0 for count in manager.get_workspace_table_counts().values())
@@ -456,6 +690,11 @@ def test_structured_analysis_run_is_versioned_bounded_and_human_dispositioned(tm
     assert run["technique"] == "analysis_of_competing_hypotheses"
     assert run["technique_version"] == "1.0"
     assert run["analyst_disposition"] == "pending"
+    method_link = next(
+        item for item in ledger.snapshot()["lifecycle_items"] if item["record_id"] == run_id
+    )
+    assert method_link["status"] == LifecycleItemStatus.SATISFIED.value
+    assert method_link["analyst_disposition"] == AnalystDisposition.PENDING.value
 
     with pytest.raises(ValueError, match="Only an explicit human action"):
         workbench.disposition(
@@ -465,3 +704,7 @@ def test_structured_analysis_run_is_versioned_bounded_and_human_dispositioned(tm
         )
     workbench.disposition(run_id, AnalystDisposition.REVISED)
     assert workbench.list_runs()[0]["analyst_disposition"] == "revised"
+    method_link = next(
+        item for item in ledger.snapshot()["lifecycle_items"] if item["record_id"] == run_id
+    )
+    assert method_link["analyst_disposition"] == "revised"
