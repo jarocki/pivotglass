@@ -30,17 +30,22 @@ from adversary_pursuit.core.analytic_ledger import (
     LikelihoodTerm,
     Materiality,
 )
+from adversary_pursuit.core.information_requirements import (
+    build_information_requirements,
+    validate_requirement_criteria,
+)
 from adversary_pursuit.core.structured_analysis import (
     StructuredAnalysisWorkbench,
     StructuredTechnique,
 )
 
 ANALYSIS_USAGE = (
-    "Usage: analysis show|lifecycle|methods|contradictions|question <text>|"
+    "Usage: analysis show|lifecycle|methods|contradictions|priorities|question <text>|"
     "assertion <inferred|assumed|judgment> <text>|"
     "assumption <text>|"
     "hypothesis <question-id> <text>|"
     "prediction|signpost|collect|stop|limitation|gap <text>|"
+    "requirement <text> | <factor-json>|prioritize <item-id> <0-100>|"
     "conclude <text>|status <framing|collecting|analyzing|concluded|suspended>|"
     "item <item-id> <open|satisfied|rejected|resolved|deferred> "
     "[accepted|rejected|revised]|"
@@ -97,6 +102,11 @@ def execute_analysis_command(args: tuple[str, ...], workspace_manager: Any) -> d
             "title": "Analytic contradictions",
             "data": contradictions,
         }
+    if action == "priorities":
+        return {
+            "title": "Priority intelligence requirements",
+            "data": build_information_requirements(ledger.snapshot()),
+        }
     if action == "question" and len(args) >= 2:
         question_id = ledger.create_question(" ".join(args[1:]))
         return {
@@ -138,6 +148,40 @@ def execute_analysis_command(args: tuple[str, ...], workspace_manager: Any) -> d
         return {
             "title": "Hypothesis disposition recorded",
             "data": {"hypothesis_id": args[1], "status": status.value},
+        }
+    if action == "requirement" and len(args) >= 2:
+        statement, separator, criteria_json = " ".join(args[1:]).partition("|")
+        if not separator:
+            raise ValueError(
+                "Separate the collection requirement and four-factor JSON with |."
+            )
+        criteria = validate_requirement_criteria(
+            _json_object(criteria_json, "requirement factors")
+        )
+        investigation_id = _active_investigation_id(ledger)
+        item_id = ledger.add_lifecycle_item(
+            investigation_id,
+            LifecycleItemType.COLLECTION_REQUIREMENT,
+            statement,
+            criteria=criteria,
+        )
+        return {
+            "title": "Priority intelligence requirement recorded",
+            "data": {
+                "investigation_id": investigation_id,
+                "item_id": item_id,
+                "criteria": criteria,
+            },
+        }
+    if action == "prioritize" and len(args) == 3:
+        try:
+            priority = int(args[2])
+        except ValueError as exc:
+            raise ValueError("Information-requirement priority must be 0 to 100.") from exc
+        ledger.prioritize_information_requirement(args[1], priority)
+        return {
+            "title": "Information requirement prioritized",
+            "data": {"item_id": args[1], "priority": priority},
         }
     lifecycle_types = {
         "prediction": LifecycleItemType.PREDICTION,

@@ -26,6 +26,8 @@ import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from adversary_pursuit.core.information_requirements import build_information_requirements
+
 if TYPE_CHECKING:
     from adversary_pursuit.core.workspace import WorkspaceManager
     from adversary_pursuit.gamification.scoring import ScoringEngine
@@ -380,6 +382,37 @@ def _render_scientific_analysis_section(analysis: dict[str, list[dict]]) -> str:
         )
     else:
         lines.append("_No predictions, signposts, collection requirements, or stop conditions._")
+
+    priority_state = build_information_requirements(analysis)
+    lines.extend(
+        [
+            "",
+            "### Priority Intelligence Requirements and Next Best Information",
+            "",
+            "Recorded requirements are ranked by explicit analyst priority when present. "
+            "Otherwise the versioned deterministic information-value policy is used; "
+            "missing factors score zero.",
+            "",
+            "| Rank | Requirement | Score | Authority |",
+            "|---:|---|---:|---|",
+        ]
+    )
+    for row in priority_state["requirements"]:
+        lines.append(
+            f"| {row['rank']} | {_markdown(str(row['statement']))} | "
+            f"{row['rank_score']}/100 | {row['priority_source']} |"
+        )
+    if not priority_state["requirements"]:
+        lines.append("| — | _No priority intelligence requirements recorded._ | — | — |")
+    lines.extend(["", "**Method-derived suggestions (not evidence):**", ""])
+    for row in priority_state["suggestions"]:
+        lines.append(
+            f"- **{row['score']}/100 · {str(row['suggestion_type']).replace('_', ' ').upper()}** "
+            f"— {_markdown(str(row['statement']))}"
+        )
+        lines.append(f"  - Rationale: {_markdown(str(row['rationale']))}")
+    if not priority_state["suggestions"]:
+        lines.append("_No method-derived next-information suggestions at this stage._")
 
     lines.extend(["", "### Structured Analytic Technique Runs", ""])
     if method_runs:

@@ -36,6 +36,7 @@ analysis show
 analysis lifecycle
 analysis methods
 analysis contradictions
+analysis priorities
 analysis question Who controls the observed infrastructure?
 analysis assumption Certificate reuse implies common control.
 analysis assertion inferred The certificate was reused across both hosts.
@@ -43,6 +44,8 @@ analysis hypothesis <question-id> A single operator controls both hosts.
 analysis prediction A second independently sourced certificate match will appear.
 analysis signpost An unrelated provider confirms the certificate match.
 analysis collect Obtain contemporaneous hosting-allocation records.
+analysis requirement Obtain independently sourced allocation records. | {"decision_impact":4,"discriminating_power":4,"time_sensitivity":2,"feasibility":3}
+analysis prioritize <requirement-item-id> 75
 analysis stop Stop after two independent sources agree or the timebox expires.
 analysis limitation Historical allocation records may no longer exist.
 analysis gap The hosting tenant during the observed interval is unknown.
@@ -58,6 +61,34 @@ analysis resolve <contradiction-id> Provider records confirm shared tenancy.
 New hypotheses begin as `proposed`. Only an explicit human command can retain,
 reject, or suspend one. A model may propose structured work, but it cannot
 disposition it.
+
+## Priority intelligence requirements
+
+`analysis priorities` ranks the active investigation's recorded collection
+requirements and displays bounded next-best-information suggestions. The policy
+is deterministic and versioned as `pivotglass-information-value-v1`.
+
+An explicit analyst priority from 1 through 100 is authoritative. A priority of
+0 clears that override. Without an override, Pivotglass computes information
+value from four analyst-declared factors, each scored from 0 through 4:
+
+| Factor | Weight | Meaning |
+| --- | ---: | --- |
+| Decision impact | 30% | Could the answer change an analytic judgment or action? |
+| Discriminating power | 30% | Could it distinguish among competing explanations? |
+| Time sensitivity | 20% | Would delay materially reduce its value? |
+| Feasibility | 20% | Can the information be obtained within current constraints? |
+
+Missing factors score zero; Pivotglass does not infer convenient values. An
+unscored `analysis collect` record remains valid but ranks at zero until the
+analyst supplies factors or an explicit priority.
+
+Open contradictions, unsupported hypotheses, knowledge gaps, and missing
+analytic safeguards can produce **Next Best Information** suggestions. Each
+suggestion exposes its score, rationale, and source record IDs. It is method
+output, not evidence, and is not persisted as a requirement until the analyst
+chooses **Adopt as Requirement** or records it explicitly. Reports preserve the
+same distinction.
 
 Analytic confidence requires six explicit factors: source quality, source
 independence, corroboration, assumptions, knowledge gaps, and analytic rigor.

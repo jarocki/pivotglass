@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added method-aware Markdown reporting and complete portable JSON export of
   the scientific record, including confidence basis, likelihood,
   contradictions, limitations, and unresolved gaps.
+- Added deterministic Priority Intelligence Requirement ranking and
+  source-linked Next Best Information suggestions. Analyst-set priority remains
+  authoritative; derived suggestions remain non-evidence until explicitly
+  adopted.
 - Expanded the durable achievement catalog to 40 graduated badges with
   accessible, achievement-specific artwork and labeled rarity colors.
 - Added periodic character-voiced Analyst Advisor guidance based on bounded

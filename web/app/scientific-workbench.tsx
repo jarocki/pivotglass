@@ -65,6 +65,39 @@ type AnalyticMethodRun = {
   analyst_disposition: string;
   output_blob?: Record<string, unknown> | null;
 };
+type RankedInformationRequirement = {
+  id: string;
+  statement: string;
+  status: string;
+  rank: number;
+  analyst_priority: number;
+  information_value: number;
+  rank_score: number;
+  priority_source: "analyst" | "deterministic";
+  contributions: Record<string, number>;
+  scoring_error?: string | null;
+};
+type InformationSuggestion = {
+  id: string;
+  suggestion_type: string;
+  statement: string;
+  score: number;
+  rationale: string;
+  source_refs: Array<{ kind: string; id: string }>;
+  criteria?: Record<string, unknown> | null;
+  adoptable: boolean;
+  content_class: "method_derived_suggestion";
+};
+type InformationRequirementState = {
+  policy: {
+    id: string;
+    weights: Record<string, number>;
+    missing_factor_behavior: string;
+    human_authority: string;
+  };
+  requirements: RankedInformationRequirement[];
+  suggestions: InformationSuggestion[];
+};
 
 export type AnalyticSnapshot = {
   investigations: AnalyticInvestigation[];
@@ -77,6 +110,7 @@ export type AnalyticSnapshot = {
   likelihood: Array<Record<string, unknown>>;
   contradictions: AnalyticContradiction[];
   method_runs?: AnalyticMethodRun[];
+  information_requirements?: InformationRequirementState;
 };
 
 type CaptureKind =
@@ -175,6 +209,15 @@ export function ScientificWorkbench({
     }
     setStatement("");
   }
+
+  async function adoptSuggestion(suggestion: InformationSuggestion) {
+    if (!suggestion.adoptable || !suggestion.criteria) return;
+    await run(
+      `analysis requirement ${suggestion.statement} | ${JSON.stringify(suggestion.criteria)}`,
+    );
+  }
+
+  const requirementState = analysis.information_requirements;
 
   return (
     <section className="scientific-workbench" aria-label="Scientific investigation workbench">
@@ -282,6 +325,66 @@ export function ScientificWorkbench({
           </div>
         )}
       </details>
+
+      <section className="information-requirements" aria-label="Priority intelligence requirements">
+        <header>
+          <div>
+            <b>PRIORITY INTELLIGENCE REQUIREMENTS</b>
+            <span>WHAT INFORMATION WOULD MOST CHANGE THE JUDGMENT?</span>
+          </div>
+          <small>DETERMINISTIC POLICY · {requirementState?.policy.id ?? "NOT AVAILABLE"}</small>
+        </header>
+        <p className="requirement-explainer">
+          An analyst-set priority controls rank. Otherwise Pivotglass scores only the declared
+          decision impact, discriminating power, time sensitivity, and feasibility; missing
+          factors remain zero.
+        </p>
+        <div className="requirement-grid">
+          <section>
+            <header><b>RECORDED REQUIREMENTS</b><span>{requirementState?.requirements.length ?? 0}</span></header>
+            {!requirementState?.requirements.length && <p className="empty-copy">No bounded information requirements recorded.</p>}
+            {requirementState?.requirements.map((item) => (
+              <article key={item.id}>
+                <span>#{item.rank} · {item.priority_source === "analyst" ? "ANALYST PRIORITY" : "INFORMATION VALUE"} · {item.rank_score}/100</span>
+                <p>{item.statement}</p>
+                <small>
+                  DECISION {item.contributions.decision_impact ?? 0} · DISCRIMINATION {item.contributions.discriminating_power ?? 0} · TIME {item.contributions.time_sensitivity ?? 0} · FEASIBILITY {item.contributions.feasibility ?? 0}
+                </small>
+                {item.scoring_error && <small>SCORING PAUSED: {item.scoring_error}</small>}
+                <label>
+                  ANALYST PRIORITY
+                  <select
+                    aria-label={`Priority for ${item.statement}`}
+                    value={item.analyst_priority}
+                    disabled={busy}
+                    onChange={(event) => void run(`analysis prioritize ${item.id} ${event.target.value}`)}
+                  >
+                    <option value={0}>Use information value</option>
+                    <option value={25}>25 · low</option>
+                    <option value={50}>50 · medium</option>
+                    <option value={75}>75 · high</option>
+                    <option value={100}>100 · critical</option>
+                  </select>
+                </label>
+              </article>
+            ))}
+          </section>
+          <section>
+            <header><b>NEXT BEST INFORMATION</b><span>{requirementState?.suggestions.length ?? 0}</span></header>
+            {!requirementState?.suggestions.length && <p className="empty-copy">No method-derived suggestions at this stage.</p>}
+            {requirementState?.suggestions.map((item) => (
+              <article key={item.id}>
+                <span>METHOD-DERIVED SUGGESTION · {item.score}/100 · NOT EVIDENCE</span>
+                <p>{item.statement}</p>
+                <small>{item.rationale}</small>
+                {item.source_refs.length > 0 && <small>BASIS: {item.source_refs.map((ref) => `${ref.kind}:${ref.id}`).join(" · ")}</small>}
+                {item.adoptable && <button disabled={busy} onClick={() => void adoptSuggestion(item)}>ADOPT AS REQUIREMENT</button>}
+              </article>
+            ))}
+          </section>
+        </div>
+        <small className="analytic-truth-label">Suggestions are reproducible method output. Adoption is an explicit analyst action; neither suggestions nor priorities are observations.</small>
+      </section>
 
       {(gaps.length > 0 || items.some((item) => item.item_type === "stop_condition")) && (
         <footer>

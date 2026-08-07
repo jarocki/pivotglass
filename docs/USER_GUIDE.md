@@ -335,13 +335,16 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `analysis show` | Inspect questions, hypotheses, assertions, confidence, likelihood, and contradictions |
 | `analysis lifecycle` | Inspect the persisted scientific lifecycle and outstanding work |
 | `analysis methods` | List versioned Structured Analytic Technique protocols |
+| `analysis priorities` | Rank recorded information requirements and show sourced, method-derived next-information suggestions |
 | `analysis question <text>` | Record the question the investigation must answer |
 | `analysis assumption <text>` | Expose a key assumption for testing |
 | `analysis assertion <type> <text>` | Record an inferred, assumed, or judgment statement; observations come only from sources |
 | `analysis hypothesis <question-id> <text>` | Propose a falsifiable candidate answer |
 | `analysis prediction <text>` | Record an observable prediction |
 | `analysis signpost <text>` | Record a development that should change the judgment |
-| `analysis collect <text>` / `analysis stop <text>` | Bound collection and state when it should stop |
+| `analysis collect <text>` / `analysis stop <text>` | Record an unscored collection requirement and state when collection should stop |
+| `analysis requirement <text> \| <factor-json>` | Record a requirement with explicit 0–4 decision-impact, discriminating-power, time-sensitivity, and feasibility factors |
+| `analysis prioritize <item-id> <0-100>` | Set an analyst-owned priority; 0 returns to deterministic information-value ranking |
 | `analysis limitation <text>` / `analysis gap <text>` | Preserve limitations and unresolved intelligence gaps |
 | `analysis accept\|reject\|suspend <hypothesis-id>` | Record an explicit analyst disposition |
 | `analysis confidence <kind> <id> <level> <rationale> \| <factor-json>` | Record Low, Moderate, or High confidence with explicit source quality, independence, corroboration, assumptions, gaps, and rigor |

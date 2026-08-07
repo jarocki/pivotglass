@@ -40,6 +40,10 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
         "which_indicator_enrichment_work_is_pending",
     }
     assert all(intent["schema_version"] == "1.0" for intent in state["visualizations"])
+    assert state["analysis"]["information_requirements"]["policy"]["id"] == (
+        "pivotglass-information-value-v1"
+    )
+    assert state["analysis"]["information_requirements"]["requirements"] == []
     assert len(state["modes"]) == 7
     assert {mode["display_name"] for mode in state["modes"]} == {
         "Default (Analyst)",
@@ -74,6 +78,7 @@ def test_completions_match_public_modes_and_workspace_context(tmp_path):
     assert "workspace switch case-red" in service.completions("workspace switch c")
     assert "model check" in service.completions("model ch")
     assert "config disable " in service.completions("config dis")
+    assert "analysis priorities" in service.completions("analysis pr")
 
 
 def test_model_show_and_config_show_are_deterministic_local_commands(tmp_path):

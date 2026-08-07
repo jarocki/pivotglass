@@ -41,6 +41,7 @@ from adversary_pursuit.core.analytic_ledger import AnalyticLedger
 from adversary_pursuit.core.command_completion import command_completions
 from adversary_pursuit.core.evidence_detail import evidence_ref, list_evidence, project_evidence
 from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
+from adversary_pursuit.core.information_requirements import build_information_requirements
 from adversary_pursuit.core.investigation import (
     ContentClass,
     EventClass,
@@ -201,6 +202,8 @@ class WebCockpitService:
                     "pursuit_title": PURSUIT_TITLES[name],
                 }
             )
+        analysis = AnalyticLedger(self.ctx.workspace_mgr).snapshot()
+        analysis["information_requirements"] = build_information_requirements(analysis)
         return {
             "workspace": self.ctx.workspace_mgr.active,
             "stats": self.ctx.workspace_mgr.get_workspace_stats(),
@@ -210,7 +213,7 @@ class WebCockpitService:
             "modes": modes,
             "dossier_slots": dossier_slots,
             "visualizations": [intent.model_dump(mode="json") for intent in visualizations],
-            "analysis": AnalyticLedger(self.ctx.workspace_mgr).snapshot(),
+            "analysis": analysis,
             "challenges": challenges,
             "badges": badges,
             "badge_summary": {
@@ -292,6 +295,10 @@ class WebCockpitService:
                 "purpose": "List the supported structured analytic techniques and their required records",
             },
             {
+                "command": "analysis priorities",
+                "purpose": "Rank recorded intelligence requirements and show method-derived next-information suggestions",
+            },
+            {
                 "command": "analysis question <text>",
                 "purpose": "Record the investigation question the evidence must answer",
             },
@@ -313,7 +320,15 @@ class WebCockpitService:
             },
             {
                 "command": "analysis collect <text>",
-                "purpose": "Record a bounded collection requirement",
+                "purpose": "Record an unscored bounded collection requirement",
+            },
+            {
+                "command": "analysis requirement <text> | <factor-json>",
+                "purpose": "Record a requirement with explicit decision, discrimination, urgency, and feasibility factors",
+            },
+            {
+                "command": "analysis prioritize <item-id> <0-100>",
+                "purpose": "Set or clear the analyst-owned priority for one information requirement",
             },
             {"command": "analysis stop <text>", "purpose": "Record when collection should stop"},
             {

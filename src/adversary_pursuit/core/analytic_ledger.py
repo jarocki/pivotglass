@@ -459,6 +459,38 @@ class AnalyticLedger:
             row.updated_at = now
             session.commit()
 
+    def prioritize_information_requirement(
+        self,
+        item_id: str,
+        priority: int,
+        *,
+        criteria: dict[str, Any] | None = None,
+        decided_by: AuthorKind = AuthorKind.HUMAN,
+    ) -> None:
+        """Set human-owned priority and optional transparent scoring factors."""
+
+        if decided_by is not AuthorKind.HUMAN:
+            raise ValueError("Only an explicit human action may prioritize analytic work.")
+        if isinstance(priority, bool) or not isinstance(priority, int) or not 0 <= priority <= 100:
+            raise ValueError("Information-requirement priority must be an integer from 0 to 100.")
+        if criteria is not None:
+            from adversary_pursuit.core.information_requirements import (
+                validate_requirement_criteria,
+            )
+
+            criteria = validate_requirement_criteria(criteria)
+        with self._workspace.get_session() as session:
+            row = session.get(AnalyticLifecycleItem, item_id)
+            if row is None:
+                raise ValueError(f"Unknown lifecycle item: {item_id}")
+            if row.item_type != LifecycleItemType.COLLECTION_REQUIREMENT.value:
+                raise ValueError("Only a collection requirement may receive requirement priority.")
+            row.priority = priority
+            if criteria is not None:
+                row.criteria = criteria
+            row.updated_at = datetime.now(timezone.utc)
+            session.commit()
+
     def update_linked_record(
         self,
         record_kind: str,
