@@ -30,6 +30,7 @@ from adversary_pursuit.core.analytic_ledger import (
     LikelihoodTerm,
     Materiality,
 )
+from adversary_pursuit.core.analytic_rigor import canonical_claim_value
 from adversary_pursuit.core.information_requirements import (
     build_information_requirements,
     validate_requirement_criteria,
@@ -42,6 +43,7 @@ from adversary_pursuit.core.structured_analysis import (
 ANALYSIS_USAGE = (
     "Usage: analysis show|lifecycle|methods|contradictions|priorities|question <text>|"
     "assertion <inferred|assumed|judgment> <text>|"
+    "claim <inferred|assumed|judgment> <subject-ref> <predicate> <value> | <statement>|"
     "assumption <text>|"
     "hypothesis <question-id> <text>|"
     "prediction|signpost|collect|stop|limitation|gap <text>|"
@@ -50,7 +52,8 @@ ANALYSIS_USAGE = (
     "item <item-id> <open|satisfied|rejected|resolved|deferred> "
     "[accepted|rejected|revised]|"
     "contradiction <left-kind> <left-id> <right-kind> <right-id> "
-    "<summary> | <resolution requirement>|resolve <contradiction-id> <note>|"
+    "<summary> | <resolution requirement> [| <low|medium|high>]|"
+    "resolve <contradiction-id> <note>|"
     "method list [question-id]|method start <question-id> <technique> <json>|"
     "method complete <run-id> <json>|method accept|reject|revise <run-id>|"
     "accept|reject|suspend <hypothesis-id>|"
@@ -131,6 +134,27 @@ def execute_analysis_command(args: tuple[str, ...], workspace_manager: Any) -> d
         return {
             "title": "Analytic assertion created",
             "data": {"assertion_id": assertion_id, "assertion_type": assertion_type.value},
+        }
+    if action == "claim" and len(args) >= 6:
+        assertion_type = _enum_value(AssertionType, args[1], "assertion type")
+        value_text, separator, statement = " ".join(args[4:]).partition("|")
+        if not separator:
+            raise ValueError("Separate the structured value and readable claim with |.")
+        assertion_id = ledger.create_assertion(
+            statement,
+            assertion_type=assertion_type,
+            subject_ref=args[2],
+            predicate=args[3],
+            object_value=canonical_claim_value(value_text),
+        )
+        return {
+            "title": "Structured analytic claim created",
+            "data": {
+                "assertion_id": assertion_id,
+                "assertion_type": assertion_type.value,
+                "subject_ref": args[2],
+                "predicate": args[3],
+            },
         }
     if action == "hypothesis" and len(args) >= 3:
         hypothesis_id = ledger.create_hypothesis(args[1], " ".join(args[2:]))
@@ -255,21 +279,30 @@ def execute_analysis_command(args: tuple[str, ...], workspace_manager: Any) -> d
             },
         }
     if action == "contradiction" and len(args) >= 6:
-        summary, separator, requirement = " ".join(args[5:]).partition("|")
-        if not separator:
+        parts = [part.strip() for part in " ".join(args[5:]).split("|")]
+        if len(parts) not in {2, 3} or not all(parts):
             raise ValueError("Separate the contradiction summary and required resolution with |.")
+        materiality = (
+            _enum_value(Materiality, parts[2], "contradiction materiality")
+            if len(parts) == 3
+            else Materiality.HIGH
+        )
         contradiction_id = ledger.record_contradiction(
             left_kind=args[1],
             left_id=args[2],
             right_kind=args[3],
             right_id=args[4],
-            summary=summary,
-            resolution_required=requirement,
-            materiality=Materiality.HIGH,
+            summary=parts[0],
+            resolution_required=parts[1],
+            materiality=materiality,
         )
         return {
             "title": "Analytic contradiction recorded",
-            "data": {"contradiction_id": contradiction_id, "status": "unresolved"},
+            "data": {
+                "contradiction_id": contradiction_id,
+                "status": "unresolved",
+                "materiality": materiality.value,
+            },
         }
     if action == "resolve" and len(args) >= 3:
         ledger.resolve_contradiction(

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-08-06
+
 ### Added
 
 - Added workspace schema v4 with a persisted scientific-investigation root and
@@ -30,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   operational-authority registry for explicit degraded behavior.
 - Expanded the durable achievement catalog to 40 graduated badges with
   accessible, achievement-specific artwork and labeled rarity colors.
-- Added periodic character-voiced Analyst Advisor guidance based on bounded
+- Added character-voiced Analyst Advisor guidance based on bounded
   local state, character-and-topic artwork, and optional device-local speech
   that remains explicitly labeled as narration rather than evidence.
 - Added restrained theme-derived musical acknowledgements for newly awarded
@@ -60,6 +62,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retaining local, procedural, opt-in playback.
 - Moved non-modal Advisor cards near the top of the current viewport so they
   remain visible without stealing keyboard focus or covering evidence.
+- Changed Analyst Advisor and configuration suggestions to appear only after
+  extended inactivity: five minutes in Full narration mode or eight minutes in
+  Brief mode, with a fifteen-minute cooldown and resets for meaningful analyst
+  or investigation activity.
+- Updated the locked web runtime to Next.js 16.3.0 and PostCSS 8.5.23 after the
+  release audit identified the inherited PostCSS source-map advisory.
+- Added deterministic value and non-overlapping-interval conflict candidates,
+  structured analytic claims, and formal confidence warnings that count source
+  dependence groups rather than duplicated reporting feeds. Candidates remain
+  method-derived suggestions until an analyst explicitly records them.
 
 ## [0.7.0] — 2026-08-01
 
@@ -668,7 +680,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/jarocki/pivotglass/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/jarocki/pivotglass/compare/v0.5.2...v0.7.0
 [0.5.2]: https://github.com/jarocki/pivotglass/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/jarocki/pivotglass/compare/v0.5.0...v0.5.1

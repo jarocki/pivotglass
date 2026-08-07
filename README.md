@@ -12,7 +12,7 @@ The installed command remains `ap` for compatibility with earlier releases.
 The Python distribution is `adversary-pursuit`, and local configuration and
 workspaces remain under `~/.ap/`.
 
-Current release: **v0.7.0 early availability**.
+Current release: **v0.8.0 early availability**.
 
 [![Watch the Pivotglass guided walkthrough](docs/media/pivotglass-guided-demo-poster.png)](docs/media/pivotglass-guided-demo-v0.7.0.mp4)
 
@@ -41,6 +41,19 @@ clue → enrichment → evidence → relationship → gap → pivot → report
 6. The analyst chooses the next pivot, adds notes, and produces a report or
    structured export.
 
+Version 0.8 adds a scientific investigation notebook around that operational
+flow:
+
+```text
+question → competing explanations → predictions → collection → test → judgment
+```
+
+Assumptions, source-backed observations, analytic assertions, confidence,
+likelihood, contradictions, and unresolved gaps remain separate records.
+Structured Analytic Techniques are named and versioned. Pivotglass can point
+out non-overlapping value claims or dependent reporting, but it cannot silently
+promote a suggestion into a contradiction or change the analyst's confidence.
+
 A model may explain, synthesize, or propose. It does not own collection,
 storage, status, relationship admission, or successful-action claims. The
 model can explain the case; it cannot rewrite the evidence.
@@ -51,14 +64,14 @@ Pivotglass requires Python 3.12 or newer. The shortest source installation uses
 [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone --branch v0.7.0 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v0.8.0 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent
 uv run ap --version
 uv run ap
 ```
 
-`uv run ap --version` should report `adversary-pursuit 0.7.0`. Pivotglass opens
+`uv run ap --version` should report `adversary-pursuit 0.8.0`. Pivotglass opens
 at `http://127.0.0.1:8765` and listens only on the local computer by default.
 The committed release already contains the built web interface; Node.js is
 required only when changing that interface.
@@ -191,9 +204,9 @@ meaning or order of evidence.
 Music starts off, runs locally, and persists its enabled state when the
 character changes. The procedural scores use original motifs, harmony,
 counterlines, percussion, modeled instruments, and room ambience. The browser
-schedules ahead and cross-fades to avoid gaps and hard audio edges. Periodic
-in-character field guidance appears near the top of the current viewport
-without taking focus. Each Advisor card uses character- and advice-specific
+schedules ahead and cross-fades to avoid gaps and hard audio edges. In-character
+field guidance appears only after an extended pause in meaningful analyst work,
+near the top of the current viewport without taking focus. Each Advisor card uses character- and advice-specific
 artwork and remains labeled narration, not evidence. **Read Aloud** uses a
 character-shaped rate and pitch profile with an available browser or operating-
 system voice; automatic voice audio is off by default and never clones an actor.

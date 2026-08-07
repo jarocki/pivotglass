@@ -40,6 +40,7 @@ from adversary_pursuit.agent.tui.themes import (
 )
 from adversary_pursuit.core.analytic_commands import execute_analysis_command
 from adversary_pursuit.core.analytic_ledger import AnalyticLedger
+from adversary_pursuit.core.analytic_rigor import build_analytic_rigor
 from adversary_pursuit.core.command_completion import command_completions
 from adversary_pursuit.core.error_interpreter import DEBUG_LOG_PATH
 from adversary_pursuit.core.evidence_detail import evidence_ref, list_evidence, project_evidence
@@ -234,6 +235,7 @@ class WebCockpitService:
             )
         analysis = AnalyticLedger(self.ctx.workspace_mgr).snapshot()
         analysis["information_requirements"] = build_information_requirements(analysis)
+        analysis["rigor"] = build_analytic_rigor(analysis)
         return {
             "workspace": self.ctx.workspace_mgr.active,
             "stats": self.ctx.workspace_mgr.get_workspace_stats(),
@@ -335,6 +337,10 @@ class WebCockpitService:
             {
                 "command": "analysis assumption <text>",
                 "purpose": "Expose a key assumption for later testing",
+            },
+            {
+                "command": "analysis claim <type> <subject> <predicate> <value> | <statement>",
+                "purpose": "Record a structured value or interval claim for deterministic conflict review",
             },
             {
                 "command": "analysis hypothesis <question-id> <text>",

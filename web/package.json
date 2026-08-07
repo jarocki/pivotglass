@@ -1,18 +1,19 @@
 {
   "name": "pivotglass-web",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "lint": "tsc --noEmit",
+    "test:advisor": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/test-advisor-idle.test.ts",
     "test:arcade": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/test-arcade-engine.test.ts",
     "verify:supply-chain": "npm audit signatures"
   },
   "dependencies": {
     "chart.js": "4.5.1",
     "flint-chart": "0.3.0",
-    "next": "16.2.12",
+    "next": "16.3.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "sharp": "0.35.3"
@@ -27,7 +28,7 @@
     "node": ">=20.9.0"
   },
   "overrides": {
-    "postcss": "8.5.20",
+    "postcss": "8.5.23",
     "sharp": "$sharp"
   }
 }

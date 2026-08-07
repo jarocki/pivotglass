@@ -17,7 +17,8 @@ interface.
 
 - [Procedural music](PROCEDURAL_MUSIC.md) — composition, playback, and evidence boundary
 - [Web supply chain](WEB_SUPPLY_CHAIN.md) — dependency integrity and release checks
-- [v0.7.0 quality record](QA_V0.7.0.md) — release verification
+- [v0.8.0 quality record](QA_V0.8.0.md) — current release verification
+- [v0.7.0 quality record](QA_V0.7.0.md) — prior release verification
 - [Project philosophy](../PHILOSOPHY.md) — judgment framework
 - [Contributor governance](../AGENTS.md) — engineering and preservation rules
 

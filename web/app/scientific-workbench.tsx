@@ -33,6 +33,9 @@ type AnalyticAssertion = {
   assertion_type: string;
   status: string;
   author_kind: string;
+  subject_ref?: string | null;
+  predicate?: string | null;
+  object_value?: string | null;
 };
 type AnalyticHypothesis = {
   id: string;
@@ -98,6 +101,38 @@ type InformationRequirementState = {
   requirements: RankedInformationRequirement[];
   suggestions: InformationSuggestion[];
 };
+type ConfidenceAssessment = {
+  id: string;
+  target_kind: string;
+  target_id: string;
+  level: "low" | "moderate" | "high";
+  rationale: string;
+  factors: Record<string, unknown>;
+};
+type ConfidenceReview = {
+  assessment_id: string;
+  target_kind: string;
+  target_id: string;
+  level: string;
+  warnings: Array<{ code: string; message: string }>;
+};
+type ContradictionCandidate = {
+  id: string;
+  content_class: "method_derived_suggestion";
+  conflict_kind: "value_mismatch" | "non_overlapping_interval";
+  left_kind: "assertion";
+  left_id: string;
+  right_kind: "assertion";
+  right_id: string;
+  summary: string;
+  resolution_required: string;
+  materiality: "low" | "medium" | "high";
+};
+type AnalyticRigorState = {
+  policy: { id: string; candidate_authority: string; confidence_authority: string };
+  contradiction_candidates: ContradictionCandidate[];
+  confidence_reviews: ConfidenceReview[];
+};
 
 export type AnalyticSnapshot = {
   investigations: AnalyticInvestigation[];
@@ -106,11 +141,12 @@ export type AnalyticSnapshot = {
   hypotheses: AnalyticHypothesis[];
   assertions: AnalyticAssertion[];
   evidence_links: AnalyticEvidenceLink[];
-  confidence: Array<Record<string, unknown>>;
+  confidence: ConfidenceAssessment[];
   likelihood: Array<Record<string, unknown>>;
   contradictions: AnalyticContradiction[];
   method_runs?: AnalyticMethodRun[];
   information_requirements?: InformationRequirementState;
+  rigor?: AnalyticRigorState;
 };
 
 type CaptureKind =
@@ -156,6 +192,22 @@ export function ScientificWorkbench({
   const [statement, setStatement] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const [claimType, setClaimType] = useState("judgment");
+  const [claimSubject, setClaimSubject] = useState("");
+  const [claimPredicate, setClaimPredicate] = useState("");
+  const [claimValue, setClaimValue] = useState("");
+  const [claimStatement, setClaimStatement] = useState("");
+  const [confidenceTarget, setConfidenceTarget] = useState("");
+  const [confidenceLevel, setConfidenceLevel] = useState<"low" | "moderate" | "high">("low");
+  const [confidenceRationale, setConfidenceRationale] = useState("");
+  const [sourceQuality, setSourceQuality] = useState("");
+  const [sourceCount, setSourceCount] = useState(1);
+  const [dependenceGroups, setDependenceGroups] = useState(1);
+  const [independenceNotes, setIndependenceNotes] = useState("");
+  const [corroboration, setCorroboration] = useState("");
+  const [confidenceAssumptions, setConfidenceAssumptions] = useState("");
+  const [confidenceGaps, setConfidenceGaps] = useState("");
+  const [analyticRigor, setAnalyticRigor] = useState("");
   const active = [...analysis.investigations]
     .reverse()
     .find((item) => !["concluded", "suspended"].includes(item.status));
@@ -166,6 +218,21 @@ export function ScientificWorkbench({
   const assumptions = analysis.assertions.filter((item) => item.assertion_type === "assumed");
   const unresolved = analysis.contradictions.filter((item) => item.status === "unresolved");
   const gaps = items.filter((item) => ["knowledge_gap", "limitation"].includes(item.item_type));
+  const judgments = [
+    ...analysis.assertions.map((item) => ({ kind: "assertion", id: item.id, label: item.statement })),
+    ...analysis.hypotheses.map((item) => ({ kind: "hypothesis", id: item.id, label: item.statement })),
+  ];
+  const confidenceReviewById = new Map(
+    (analysis.rigor?.confidence_reviews ?? []).map((review) => [review.assessment_id, review]),
+  );
+  const liveConfidenceWarnings = [
+    ...(sourceCount > dependenceGroups
+      ? [`${sourceCount} cited sources collapse to ${dependenceGroups} independent group(s).`]
+      : []),
+    ...(["moderate", "high"].includes(confidenceLevel) && dependenceGroups < 2
+      ? [`${confidenceLevel.toUpperCase()} confidence has fewer than two independent source groups.`]
+      : []),
+  ];
   const achRows = useMemo(() => {
     const rows = new Map<string, { label: string; cells: Map<string, AnalyticEvidenceLink> }>();
     for (const link of analysis.evidence_links) {
@@ -215,6 +282,38 @@ export function ScientificWorkbench({
     await run(
       `analysis requirement ${suggestion.statement} | ${JSON.stringify(suggestion.criteria)}`,
     );
+  }
+
+  async function recordStructuredClaim(event: FormEvent) {
+    event.preventDefault();
+    if (![claimSubject, claimPredicate, claimValue, claimStatement].every((value) => value.trim())) return;
+    await run(
+      `analysis claim ${claimType} ${claimSubject.trim()} ${claimPredicate.trim()} ${claimValue.trim()} | ${claimStatement.trim()}`,
+    );
+    setClaimValue("");
+    setClaimStatement("");
+  }
+
+  async function recordConfidence(event: FormEvent) {
+    event.preventDefault();
+    const [targetKind, targetId] = confidenceTarget.split(":", 2);
+    if (!targetKind || !targetId || !confidenceRationale.trim()) return;
+    const factors = {
+      source_quality: sourceQuality.trim() || "not assessed",
+      source_independence: {
+        source_count: sourceCount,
+        dependence_group_count: dependenceGroups,
+        notes: independenceNotes.trim() || "not assessed",
+      },
+      corroboration: corroboration.trim() || "not assessed",
+      assumptions: confidenceAssumptions.trim() || "none recorded",
+      knowledge_gaps: confidenceGaps.trim() || "none recorded",
+      analytic_rigor: analyticRigor.trim() || "not assessed",
+    };
+    await run(
+      `analysis confidence ${targetKind} ${targetId} ${confidenceLevel} ${confidenceRationale.trim()} | ${JSON.stringify(factors)}`,
+    );
+    setConfidenceRationale("");
   }
 
   const requirementState = analysis.information_requirements;
@@ -324,6 +423,68 @@ export function ScientificWorkbench({
             </table>
           </div>
         )}
+      </details>
+
+      <details className="rigor-workspace" open={(analysis.rigor?.contradiction_candidates.length ?? 0) > 0}>
+        <summary>
+          <b>CONFIDENCE &amp; CONTRADICTION REVIEW</b>
+          <span>{analysis.rigor?.contradiction_candidates.length ?? 0} CANDIDATE CONFLICTS · {analysis.confidence.length} ASSESSMENTS</span>
+        </summary>
+        <p className="rigor-explainer">
+          Conflict candidates and dependence warnings are deterministic review aids, not evidence.
+          Only an explicit analyst action records a contradiction or confidence judgment.
+        </p>
+        <div className="rigor-grid">
+          <section>
+            <header><b>STRUCTURED VALUE CLAIM</b><span>ENABLES VALUE / INTERVAL REVIEW</span></header>
+            <form className="rigor-form" onSubmit={recordStructuredClaim}>
+              <label>TYPE<select value={claimType} onChange={(event) => setClaimType(event.target.value)}><option value="judgment">judgment</option><option value="inferred">inferred</option><option value="assumed">assumed</option></select></label>
+              <label>SUBJECT<input value={claimSubject} onChange={(event) => setClaimSubject(event.target.value)} placeholder="indicator or analytic subject" /></label>
+              <label>PREDICATE<input value={claimPredicate} onChange={(event) => setClaimPredicate(event.target.value)} placeholder="first_seen, operator, port…" /></label>
+              <label>VALUE OR INTERVAL<input value={claimValue} onChange={(event) => setClaimValue(event.target.value)} placeholder={'scalar or {"min":1,"max":5,"unit":"days"}'} /></label>
+              <label className="wide">READABLE CLAIM<textarea value={claimStatement} onChange={(event) => setClaimStatement(event.target.value)} placeholder="State exactly what this value means and its relevant time boundary." /></label>
+              <button disabled={busy || ![claimSubject, claimPredicate, claimValue, claimStatement].every((value) => value.trim())}>RECORD CLAIM</button>
+            </form>
+            <div className="candidate-list">
+              {(analysis.rigor?.contradiction_candidates.length ?? 0) === 0 && <p className="empty-copy">No unrecorded value or non-overlapping interval conflicts detected.</p>}
+              {analysis.rigor?.contradiction_candidates.map((candidate) => (
+                <article key={candidate.id}>
+                  <span>{candidate.conflict_kind.replaceAll("_", " ").toUpperCase()} · METHOD-DERIVED · NOT YET RECORDED</span>
+                  <p>{candidate.summary}</p>
+                  <small>NEEDED: {candidate.resolution_required}</small>
+                  <button disabled={busy} onClick={() => void run(`analysis contradiction ${candidate.left_kind} ${candidate.left_id} ${candidate.right_kind} ${candidate.right_id} ${candidate.summary} | ${candidate.resolution_required} | ${candidate.materiality}`)}>RECORD CONTRADICTION</button>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <header><b>FORMAL CONFIDENCE</b><span>LIKELIHOOD REMAINS SEPARATE</span></header>
+            <form className="rigor-form" onSubmit={recordConfidence}>
+              <label className="wide">JUDGMENT<select value={confidenceTarget} onChange={(event) => setConfidenceTarget(event.target.value)}><option value="">Choose an assertion or hypothesis</option>{judgments.map((item) => <option value={`${item.kind}:${item.id}`} key={`${item.kind}:${item.id}`}>{item.kind}: {item.label}</option>)}</select></label>
+              <label>LEVEL<select value={confidenceLevel} onChange={(event) => setConfidenceLevel(event.target.value as "low" | "moderate" | "high")}><option value="low">low</option><option value="moderate">moderate</option><option value="high">high</option></select></label>
+              <label>SOURCES<input type="number" min="0" value={sourceCount} onChange={(event) => setSourceCount(Math.max(0, Number(event.target.value)))} /></label>
+              <label>INDEPENDENT GROUPS<input type="number" min="0" value={dependenceGroups} onChange={(event) => setDependenceGroups(Math.max(0, Number(event.target.value)))} /></label>
+              <label>SOURCE QUALITY<input value={sourceQuality} onChange={(event) => setSourceQuality(event.target.value)} placeholder="access, reliability, limitations" /></label>
+              <label>INDEPENDENCE NOTES<input value={independenceNotes} onChange={(event) => setIndependenceNotes(event.target.value)} placeholder="shared upstream reporting?" /></label>
+              <label>CORROBORATION<input value={corroboration} onChange={(event) => setCorroboration(event.target.value)} placeholder="what independently agrees?" /></label>
+              <label>ASSUMPTIONS<input value={confidenceAssumptions} onChange={(event) => setConfidenceAssumptions(event.target.value)} placeholder="material assumptions" /></label>
+              <label>KNOWLEDGE GAPS<input value={confidenceGaps} onChange={(event) => setConfidenceGaps(event.target.value)} placeholder="unresolved information" /></label>
+              <label>ANALYTIC RIGOR<input value={analyticRigor} onChange={(event) => setAnalyticRigor(event.target.value)} placeholder="methods and alternatives tested" /></label>
+              <label className="wide">RATIONALE<textarea value={confidenceRationale} onChange={(event) => setConfidenceRationale(event.target.value)} placeholder="Explain why this evidentiary and logical basis warrants the selected level." /></label>
+              {liveConfidenceWarnings.length > 0 && <div className="rigor-warning wide" role="alert">{liveConfidenceWarnings.map((warning) => <span key={warning}>{warning}</span>)}</div>}
+              <button disabled={busy || !confidenceTarget || !confidenceRationale.trim()}>RECORD CONFIDENCE</button>
+            </form>
+            <div className="confidence-list">
+              {analysis.confidence.length === 0 && <p className="empty-copy">No formal confidence assessment recorded.</p>}
+              {analysis.confidence.map((assessment) => {
+                const review = confidenceReviewById.get(assessment.id);
+                return <article className={review?.warnings.length ? "has-warning" : ""} key={assessment.id}><span>{assessment.level.toUpperCase()} CONFIDENCE · {assessment.target_kind}</span><p>{assessment.rationale}</p>{review?.warnings.map((warning) => <small key={warning.code}>⚠ {warning.message}</small>)}</article>;
+              })}
+            </div>
+          </section>
+        </div>
+        <small className="analytic-truth-label">{analysis.rigor?.policy.confidence_authority ?? "Warnings never silently rewrite analyst judgment."}</small>
       </details>
 
       <section className="information-requirements" aria-label="Priority intelligence requirements">

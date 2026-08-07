@@ -14,6 +14,24 @@ available publisher provenance:
    It loads no CDN scripts, fonts, telemetry, or remote UI code.
 7. The Python lockfile retains hashes for the analysis engine dependencies.
 
+## v0.8.0 release receipt
+
+Verification on 2026-08-06 covered 31 packages: all 31 had valid registry
+signatures, 17 had verified provenance attestations, and the production audit
+reported zero known vulnerabilities. The first audit identified the PostCSS
+source-map advisory inherited through Next.js 16.2.12; the release candidate
+therefore moved to Next.js 16.3.0 and the fixed PostCSS 8.5.23 override before
+tagging.
+
+| Package | Version | Registry integrity/provenance |
+|---|---:|---|
+| Next.js | 16.3.0 | SHA-512 integrity + SLSA provenance |
+| React | 19.2.7 | SHA-512 integrity + SLSA provenance |
+| React DOM | 19.2.7 | SHA-512 integrity + SLSA provenance |
+| Microsoft Flint | 0.3.0 | SHA-512 integrity + SLSA provenance |
+| PostCSS override | 8.5.23 | SHA-512 integrity + SLSA provenance |
+| Chart.js | 4.5.1 | SHA-512 integrity; no publisher attestation advertised |
+
 ## v0.7.0 release receipt
 
 Verification on 2026-08-01 covered 31 packages: all 31 had valid registry

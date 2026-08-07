@@ -265,14 +265,18 @@ model advisor off
 selection, and **SAVE + TEST** contact the selected provider only when
 explicitly requested.
 
-When enabled, the Configuration Advisor periodically offers one non-modal,
-character-voiced suggestion based only on masked local state. It is labeled
+When enabled, the Configuration Advisor may offer one non-modal,
+character-voiced suggestion after an extended pause, based only on masked local state. It is labeled
 **Narration**, makes no model request, spends no tokens, adds no evidence, and
 does not take focus.
 
-Field Guidance uses the same boundary for investigation ideas: it periodically
-selects a bounded action from visible local gaps, challenges, visualizations,
-or attention records and renders the idea in the active character's voice. The
+Field Guidance uses the same boundary for investigation ideas: after five
+minutes without meaningful activity in Full narration mode, or eight minutes
+in Brief mode, it may select a bounded action from visible local gaps,
+challenges, visualizations, or attention records and render the idea in the
+active character's voice. At least fifteen minutes separates suggestions.
+Typing, clicking, scrolling, touch, new evidence, and investigation state
+changes reset the idle timer and dismiss visible guidance. The
 Analyst Advisor is fixed near the top of the current viewport, above the working
 surface but without moving keyboard focus. Character-and-topic artwork makes
 the suggestion identifiable before it is read. It is labeled **Narration, not

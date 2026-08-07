@@ -16,20 +16,20 @@ Pivotglass separate from the system Python.
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install "adversary-pursuit[agent] @ git+https://github.com/jarocki/pivotglass.git@v0.7.0"
+python -m pip install "adversary-pursuit[agent] @ git+https://github.com/jarocki/pivotglass.git@v0.8.0"
 ap --version
 ```
 
 The final command should report:
 
 ```text
-adversary-pursuit 0.7.0
+adversary-pursuit 0.8.0
 ```
 
 For a source checkout, use [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone --branch v0.7.0 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v0.8.0 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent
 uv run ap --version
@@ -260,8 +260,11 @@ audio edges. The terminal score uses short edge fades when it stops and starts
 the new movement. Music, character narration, visual effects, scores, and
 mini-games never alter evidence or investigation state.
 
-With Narration enabled, the active character periodically offers a non-modal
-next-step idea based on visible local state. The Analyst Advisor appears near
+With Narration enabled, the active character may offer a non-modal next-step
+idea after an extended pause in meaningful work. Full mode waits five minutes;
+Brief waits eight, and suggestions are at least fifteen minutes apart. Typing,
+clicking, scrolling, new evidence, or investigation activity resets the timer.
+The Analyst Advisor appears near
 the top of the current viewport, never steals focus, and is always labeled
 **Narration, not evidence**. Its artwork combines the active character with the
 kind of advice being offered. Choose its action, select **Read Aloud**, dismiss

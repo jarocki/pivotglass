@@ -197,6 +197,27 @@ def test_schema_v3_migrates_analytic_records_and_predictions_without_rewriting_s
     assert json.loads(original) == prediction_payload
 
 
+def test_schema_v2_workspace_uses_backup_first_complete_forward_path(tmp_path):
+    manager = WorkspaceManager(tmp_path)
+    manager.create("v2")
+    connection = sqlite3.connect(tmp_path / "v2.db")
+    connection.execute("UPDATE workspace_schema_version SET version = 2 WHERE id = 1")
+    connection.commit()
+    connection.close()
+
+    manager.switch("v2")
+
+    backup_path = tmp_path / "v2.db.pre-v2-backup"
+    assert backup_path.is_file()
+    backup = sqlite3.connect(backup_path)
+    assert backup.execute(
+        "SELECT version FROM workspace_schema_version WHERE id = 1"
+    ).fetchone() == (2,)
+    backup.close()
+    assert get_workspace_schema_version(manager._engine) == CURRENT_WORKSPACE_SCHEMA_VERSION
+    assert manager.get_workspace_schema_status()["valid"] is True
+
+
 def test_duplicate_entity_preserves_every_observation_and_source(tmp_path):
     manager = _workspace(tmp_path)
     first_count = manager.store_stix_objects(
@@ -629,6 +650,54 @@ def test_contradiction_is_persistent_and_requires_resolution_information(tmp_pat
     resolved = ledger.snapshot()["contradictions"][0]
     assert resolved["status"] == "resolved"
     assert resolved["resolved_at"] is not None
+
+
+def test_analysis_commands_record_structured_claims_and_explicit_materiality(tmp_path):
+    manager = _workspace(tmp_path)
+    left = execute_analysis_command(
+        (
+            "claim",
+            "judgment",
+            "ipv4-addr--example",
+            "active_window_days",
+            '{"min":1,"max":3,"unit":"days"}',
+            "|",
+            "The observed activity lasted one to three days.",
+        ),
+        manager,
+    )["data"]["assertion_id"]
+    right = execute_analysis_command(
+        (
+            "claim",
+            "judgment",
+            "ipv4-addr--example",
+            "active_window_days",
+            '{"min":7,"max":9,"unit":"days"}',
+            "|",
+            "The observed activity lasted seven to nine days.",
+        ),
+        manager,
+    )["data"]["assertion_id"]
+    result = execute_analysis_command(
+        (
+            "contradiction",
+            "assertion",
+            left,
+            "assertion",
+            right,
+            "The recorded intervals do not overlap.",
+            "|",
+            "Obtain contemporaneous source-backed timing.",
+            "|",
+            "medium",
+        ),
+        manager,
+    )
+
+    assertions = AnalyticLedger(manager).snapshot()["assertions"]
+    assert assertions[0]["object_value"] == '{"max":3,"min":1,"unit":"days"}'
+    assert result["data"]["materiality"] == "medium"
+    assert AnalyticLedger(manager).snapshot()["contradictions"][0]["materiality"] == "medium"
 
 
 def test_workspace_clear_removes_epistemic_data_but_preserves_schema_receipt(tmp_path):

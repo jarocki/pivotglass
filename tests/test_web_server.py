@@ -45,6 +45,8 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
         "pivotglass-information-value-v1"
     )
     assert state["analysis"]["information_requirements"]["requirements"] == []
+    assert state["analysis"]["rigor"]["policy"]["id"] == "analytic-rigor-v1"
+    assert state["analysis"]["rigor"]["contradiction_candidates"] == []
     assert len(state["modes"]) == 7
     assert {mode["display_name"] for mode in state["modes"]} == {
         "Default (Analyst)",

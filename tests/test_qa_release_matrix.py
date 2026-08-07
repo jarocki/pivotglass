@@ -74,6 +74,33 @@ def test_web_music_acknowledges_only_new_authoritative_milestones():
     assert "planMusicalAccent(this.id,kind)" in engine
 
 
+def test_analyst_advisor_waits_for_extended_inactivity_and_resets_on_work():
+    page = Path("web/app/page.tsx").read_text()
+    idle = Path("web/app/advisor-idle.ts").read_text()
+
+    assert "full: 5 * 60_000" in idle
+    assert "brief: 8 * 60_000" in idle
+    assert "ADVISOR_COOLDOWN_MS = 15 * 60_000" in idle
+    assert '"keydown", "pointerdown", "wheel", "touchstart"' in page
+    assert "current.feed !== previous.feed" in page
+    assert "current.objects !== previous.objects" in page
+    assert "current.active !== previous.active" in page
+    assert "setTimeout(present, 16_000)" not in page
+    assert "setInterval(present, 120_000)" not in page
+
+
+def test_scientific_workbench_exposes_conflicts_without_auto_promoting_them():
+    workbench = Path("web/app/scientific-workbench.tsx").read_text()
+    rigor = Path("src/adversary_pursuit/core/analytic_rigor.py").read_text()
+
+    assert "CONFIDENCE &amp; CONTRADICTION REVIEW" in workbench
+    assert "RECORD CONTRADICTION" in workbench
+    assert "METHOD-DERIVED · NOT YET RECORDED" in workbench
+    assert "dependence_group_count" in workbench
+    assert '"content_class": "method_derived_suggestion"' in rigor
+    assert "duplicate reporting is not corroboration" in rigor
+
+
 def test_public_characters_have_distinct_interactive_diversions():
     page = Path("web/app/page.tsx").read_text()
     arcade = Path("web/app/arcade-games.tsx").read_text()
@@ -183,12 +210,13 @@ def test_constellation_uses_compact_shape_redundant_lite_brite_pegs():
     assert ".constellation-matrix .lite-brite-cell" in styles
 
 
-def test_field_guidance_is_periodic_character_voiced_and_not_evidence():
+def test_field_guidance_is_idle_gated_character_voiced_and_not_evidence():
     page = Path("web/app/page.tsx").read_text()
     guidance = Path("web/app/character-guidance.ts").read_text()
 
-    assert "window.setInterval(present, 120_000)" in page
-    assert "if (modalOpen || active) return" in page
+    assert "advisorCanInterrupt" in page
+    assert "lastAnalystActivityAt" in page
+    assert "lastAdvisorPresentedAt" in page
     assert "NARRATION, NOT EVIDENCE" in page
     assert 'contentClass: "narration"' in guidance
     assert "evidence: false" in guidance

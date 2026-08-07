@@ -3,6 +3,7 @@
 import { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { characterGuidance, type CharacterGuidance, type GuidanceCandidate } from "./character-guidance";
 import { AdvisorPortal, CharacterAdvisorArtwork, speakCharacterNarration, stopCharacterNarration } from "./character-advisor";
+import { advisorCanInterrupt } from "./advisor-idle";
 import { ActivityTerminal, type ActivityState } from "./activity-terminal";
 import { BadgeArtwork } from "./badge-artwork";
 import { FlowMusicEngine } from "./flow-music";
@@ -224,6 +225,7 @@ export default function Cockpit() {
   const [configurationOpen, setConfigurationOpen] = useState(false);
   const [configurationAdvisory, setConfigurationAdvisory] = useState<ConfigurationAdvisory | null>(null);
   const [guidance, setGuidance] = useState<CharacterGuidance | null>(null);
+  const [idleClock, setIdleClock] = useState(() => Date.now());
   const [maximized, setMaximized] = useState<PaneId | null>(null);
   const [noteText, setNoteText] = useState("");
   const [investigationQueue, setInvestigationQueue] = useState<QueueItem[]>([]);
@@ -243,6 +245,9 @@ export default function Cockpit() {
   const feedRef = useRef<HTMLDivElement>(null);
   const cockpitRef = useRef<HTMLElement | null>(null);
   const guidanceSequence = useRef(0);
+  const lastAnalystActivityAt = useRef(Date.now());
+  const lastAdvisorPresentedAt = useRef(0);
+  const previousWorkState = useRef({ feed: 0, objects: 0, active: false });
   const commandInputRef = useRef<HTMLInputElement | null>(null);
   const modalOpen = Boolean(detail || help || alertsOpen || palette || dojo || commandResult || configurationOpen);
 
@@ -251,22 +256,6 @@ export default function Cockpit() {
   const refreshActivity = async () => { const response = await fetch("/api/activity", { cache: "no-store" }); if (response.ok) setActivityState(await response.json()); };
   useEffect(() => { Promise.all([refresh(), refreshAlerts(), refreshActivity()]).catch((reason) => setError(String(reason))); }, []);
   useEffect(() => { const interval = window.setInterval(() => void refreshActivity(), 2_000); return () => window.clearInterval(interval); }, []);
-  useEffect(() => {
-    let stopped = false;
-    const poll = async () => {
-      try {
-        const response = await fetch("/api/advisories", { cache: "no-store" });
-        if (!response.ok || stopped) return;
-        const result = await response.json() as { advisory?: ConfigurationAdvisory | null };
-        if (result.advisory?.content_class === "narration" && result.advisory.evidence === false) {
-          setConfigurationAdvisory(result.advisory);
-        }
-      } catch { /* configuration guidance must never disrupt investigation flow */ }
-    };
-    const first = window.setTimeout(() => void poll(), 8_000);
-    const interval = window.setInterval(() => void poll(), 60_000);
-    return () => { stopped = true; window.clearTimeout(first); window.clearInterval(interval); };
-  }, [state?.character]);
   useEffect(() => {
     const workspace = state?.workspace;
     if (!workspace) return;
@@ -459,20 +448,67 @@ export default function Cockpit() {
     [alerts, state],
   );
   useEffect(() => {
-    if (!state || narration === "off" || availableGuidance.length === 0) {
+    const activity = (event: Event) => {
+      const targetNode = event.target;
+      if (targetNode instanceof Element && targetNode.closest(".advisor-portal")) return;
+      recordAnalystActivity();
+    };
+    const events: Array<keyof WindowEventMap> = ["keydown", "pointerdown", "wheel", "touchstart"];
+    events.forEach((name) => window.addEventListener(name, activity, { passive: true }));
+    const interval = window.setInterval(() => setIdleClock(Date.now()), 15_000);
+    return () => {
+      events.forEach((name) => window.removeEventListener(name, activity));
+      window.clearInterval(interval);
+    };
+  }, []);
+  useEffect(() => {
+    const current = { feed: feed.length, objects: state?.objects.length ?? 0, active };
+    const previous = previousWorkState.current;
+    if (
+      current.feed !== previous.feed
+      || current.objects !== previous.objects
+      || current.active !== previous.active
+    ) recordAnalystActivity();
+    previousWorkState.current = current;
+  }, [active, feed.length, state?.objects.length]);
+  useEffect(() => {
+    if (!state || narration === "off") {
       setGuidance(null);
+      setConfigurationAdvisory(null);
       return;
     }
-    const present = () => {
-      if (modalOpen || active) return;
+    if (!advisorCanInterrupt({
+      now: idleClock,
+      lastActivityAt: lastAnalystActivityAt.current,
+      lastPresentedAt: lastAdvisorPresentedAt.current,
+      narration,
+      busy: active,
+      overlayOpen: modalOpen,
+      adviceVisible: Boolean(configurationAdvisory || guidance),
+    })) return;
+    let stopped = false;
+    const present = async () => {
+      try {
+        const response = await fetch("/api/advisories", { cache: "no-store" });
+        const result = response.ok
+          ? await response.json() as { advisory?: ConfigurationAdvisory | null }
+          : {};
+        if (stopped) return;
+        if (result.advisory?.content_class === "narration" && result.advisory.evidence === false) {
+          setConfigurationAdvisory(result.advisory);
+          lastAdvisorPresentedAt.current = Date.now();
+          return;
+        }
+      } catch { /* configuration guidance must never disrupt investigation flow */ }
+      if (stopped || availableGuidance.length === 0) return;
       const next = characterGuidance(state.character, availableGuidance, guidanceSequence.current);
       guidanceSequence.current += 1;
       setGuidance(next);
+      lastAdvisorPresentedAt.current = Date.now();
     };
-    const first = window.setTimeout(present, 16_000);
-    const interval = window.setInterval(present, 120_000);
-    return () => { window.clearTimeout(first); window.clearInterval(interval); };
-  }, [active, availableGuidance, modalOpen, narration, state]);
+    void present();
+    return () => { stopped = true; };
+  }, [active, availableGuidance, configurationAdvisory, guidance, idleClock, modalOpen, narration, state]);
   const advisorMessage = configurationAdvisory?.message ?? guidance?.message ?? "";
   useEffect(() => {
     if (!voiceAudio || narration === "off" || modalOpen || !advisorMessage || !state?.character) return;
@@ -481,12 +517,22 @@ export default function Cockpit() {
   }, [advisorMessage, modalOpen, narration, state?.character, voiceAudio]);
   useEffect(() => stopCharacterNarration, []);
 
+  function recordAnalystActivity() {
+    const now = Date.now();
+    lastAnalystActivityAt.current = now;
+    setIdleClock(now);
+    stopCharacterNarration();
+    setGuidance(null);
+    setConfigurationAdvisory(null);
+  }
+
   function closeOverlays() { if (detail) closeDetail(); setPalette(false); setHelp(false); setAlertsOpen(false); setDojo(false); setConfigurationOpen(false); setMenu(false); requestAnimationFrame(() => overlayOrigin.current?.focus()); }
   function openOverlay(kind: "help" | "palette" | "alerts" | "dojo" | "configuration", origin?: HTMLElement) { overlayOrigin.current = origin ?? document.activeElement as HTMLElement; setHelp(kind === "help"); setPalette(kind === "palette"); setAlertsOpen(kind === "alerts"); setDojo(kind === "dojo"); setConfigurationOpen(kind === "configuration"); setMenu(false); }
   function closeCommandResult() { if (!commandResult) return; setCommandResult(null); requestAnimationFrame(() => overlayOrigin.current?.focus()); }
   function togglePane(id: PaneId) { setCollapsed((current) => { const next = { ...current, [id]: !current[id] }; window.localStorage.setItem("pivotglass.panes", JSON.stringify(next)); return next; }); }
   function toggleMaximize(id: PaneId) { setActivePane(id); setMaximized((current) => current === id ? null : id); }
   function followGuidance(idea: CharacterGuidance) {
+    recordAnalystActivity();
     setGuidance(null);
     if (idea.action === "focus") {
       requestAnimationFrame(() => commandInputRef.current?.focus());
@@ -817,12 +863,12 @@ export default function Cockpit() {
       <CharacterAdvisorArtwork character={configurationAdvisory.character} category="configuration" label={`${configurationAdvisory.character_name} configuration advisor artwork`}/>
       <div className="advisor-copy"><span>{configurationAdvisory.character_name.toUpperCase()} · CONFIGURATION ADVISOR · NARRATION</span>
       <p>{configurationAdvisory.message}</p>
-      <div><button onClick={(event) => openOverlay("configuration", event.currentTarget)}>CONFIGURE</button><button onClick={() => setTarget(configurationAdvisory.action)}>COPY ACTION TO COMMAND</button><button onClick={() => speakCharacterNarration(configurationAdvisory.character, configurationAdvisory.message)}>READ ALOUD</button><button aria-label="Dismiss configuration suggestion" onClick={() => { stopCharacterNarration(); setConfigurationAdvisory(null); }}>DISMISS</button></div></div>
+      <div><button onClick={(event) => { recordAnalystActivity(); openOverlay("configuration", event.currentTarget); }}>CONFIGURE</button><button onClick={() => { recordAnalystActivity(); setTarget(configurationAdvisory.action); }}>COPY ACTION TO COMMAND</button><button onClick={() => speakCharacterNarration(configurationAdvisory.character, configurationAdvisory.message)}>READ ALOUD</button><button aria-label="Dismiss configuration suggestion" onClick={recordAnalystActivity}>DISMISS</button></div></div>
     </aside> : guidance && <aside className={`configuration-advisory character-guidance advisor-${state?.character ?? "default"}`} aria-live="polite" role="status">
       <CharacterAdvisorArtwork character={state?.character ?? "default"} category={guidance.category} label={`${guidance.characterName} ${guidance.category} advisor artwork`}/>
       <div className="advisor-copy"><span>{guidance.characterName.toUpperCase()} · ANALYST ADVISOR · NARRATION, NOT EVIDENCE</span>
       <p>{guidance.message}</p>
-      <div><button onClick={() => followGuidance(guidance)}>{guidance.actionLabel}</button><button onClick={() => speakCharacterNarration(state?.character ?? "default", guidance.message)}>READ ALOUD</button><button aria-label="Dismiss field guidance" onClick={() => { stopCharacterNarration(); setGuidance(null); }}>DISMISS</button></div></div>
+      <div><button onClick={() => followGuidance(guidance)}>{guidance.actionLabel}</button><button onClick={() => speakCharacterNarration(state?.character ?? "default", guidance.message)}>READ ALOUD</button><button aria-label="Dismiss field guidance" onClick={recordAnalystActivity}>DISMISS</button></div></div>
     </aside>}
     </AdvisorPortal>}
     <footer><span>EVIDENCE ≠ INFERENCE</span><span>LOCALHOST · NO TELEMETRY · OPERATOR CONTROLLED</span><button title="Open contextual operator help" onClick={(event) => openOverlay("help", event.currentTarget)}>HELP ?</button></footer>
