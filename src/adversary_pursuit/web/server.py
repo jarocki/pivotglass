@@ -10,6 +10,7 @@ import csv
 import io
 import json
 import logging
+import re
 import threading
 import webbrowser
 from dataclasses import asdict
@@ -19,6 +20,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from rich.console import Console
 from rich.text import Text
 
 from adversary_pursuit.agent.battery_registry import dispatch_batteries
@@ -39,6 +41,7 @@ from adversary_pursuit.agent.tui.themes import (
 from adversary_pursuit.core.analytic_commands import execute_analysis_command
 from adversary_pursuit.core.analytic_ledger import AnalyticLedger
 from adversary_pursuit.core.command_completion import command_completions
+from adversary_pursuit.core.error_interpreter import DEBUG_LOG_PATH
 from adversary_pursuit.core.evidence_detail import evidence_ref, list_evidence, project_evidence
 from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
 from adversary_pursuit.core.information_requirements import build_information_requirements
@@ -50,6 +53,7 @@ from adversary_pursuit.core.investigation import (
     utc_now,
 )
 from adversary_pursuit.core.ioc_types import detect_ioc_type
+from adversary_pursuit.core.operational_status import build_authority_registry
 from adversary_pursuit.core.visualization import build_visualization_intents
 from adversary_pursuit.core.workspace_admin import (
     export_workspace,
@@ -74,6 +78,10 @@ _TYPE_MAP = {
     "sha1": "file",
     "sha256": "file",
 }
+_DIAGNOSTIC_SUMMARY = re.compile(
+    r"^\[USER_SAW_PANEL\]\s+\[(?P<category>[^\]]+)]\s+"
+    r"(?P<action>.+?)\s+\(diag\s+(?P<diagnostic_id>[a-f0-9]{8})\)$"
+)
 
 
 def _web_root() -> Path:
@@ -87,6 +95,25 @@ def _web_root() -> Path:
     if _SOURCE_WEB_ROOT.joinpath("index.html").is_file():
         return _SOURCE_WEB_ROOT
     return _PACKAGED_WEB_ROOT
+
+
+def _tool_failure(summary: str) -> dict[str, str] | None:
+    """Decode the shared tool boundary's sanitized failure receipt."""
+
+    match = _DIAGNOSTIC_SUMMARY.fullmatch(summary.strip())
+    if match is not None:
+        return {
+            "category": match.group("category"),
+            "next_action": match.group("action"),
+            "diagnostic_id": match.group("diagnostic_id"),
+        }
+    if summary.startswith("Error:"):
+        return {
+            "category": "Source",
+            "next_action": summary.removeprefix("Error:").strip(),
+            "diagnostic_id": "",
+        }
+    return None
 
 
 def _source_web_build_is_stale(web_root: Path) -> bool:
@@ -115,7 +142,10 @@ class WebCockpitService:
     """JSON-facing adapter around the existing deterministic tool context."""
 
     def __init__(self, ctx: ToolContext | None = None) -> None:
-        self.ctx = ctx or ToolContext()
+        self._web_console_buffer = io.StringIO() if ctx is None else None
+        self.ctx = ctx or ToolContext(
+            console=Console(file=self._web_console_buffer, force_terminal=False)
+        )
         self.config_mgr = self.ctx.config_mgr
         self.model_control = ModelControl(self.config_mgr)
         self.configuration_advisor = ConfigurationAdvisor(self.model_control)
@@ -799,6 +829,61 @@ class WebCockpitService:
         )
         return {"alerts": alerts, "unread_count": len(unread), "highest_unread": highest}
 
+    def activity(self) -> dict[str, Any]:
+        """Return bounded event history and masked operational authority state."""
+
+        events = [
+            event
+            for snapshot in self.investigations.snapshots()
+            for event in snapshot["events"]
+        ]
+        events.sort(key=lambda event: (str(event["created_at"]), str(event["event_id"])))
+        events = events[-500:]
+        configuration = self.configuration()
+        registry = build_authority_registry(
+            configuration,
+            sorted(self._tool_schemas),
+            events,
+        )
+        return {
+            "events": events,
+            "event_limit": 500,
+            "registry": registry,
+            "notice": (
+                "Activity contains deterministic lifecycle and sanitized failure summaries. "
+                "Narration and evidence remain separately labeled."
+            ),
+        }
+
+    def diagnostic_detail(self, diagnostic_id: str) -> dict[str, Any]:
+        """Return one sanitized diagnostic from the fixed Pivotglass debug log."""
+
+        if re.fullmatch(r"[a-f0-9]{8}", diagnostic_id) is None:
+            raise ValueError("invalid diagnostic reference")
+        if not DEBUG_LOG_PATH.is_file():
+            raise ValueError("diagnostic detail is unavailable")
+        for line in reversed(DEBUG_LOG_PATH.read_text(encoding="utf-8").splitlines()[-1000:]):
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if entry.get("diagnostic_id") != diagnostic_id:
+                continue
+            context = entry.get("context") if isinstance(entry.get("context"), dict) else {}
+            return {
+                "diagnostic_id": diagnostic_id,
+                "log_name": DEBUG_LOG_PATH.name,
+                "category": str(entry.get("category") or "Unknown"),
+                "summary": str(entry.get("summary") or "No sanitized summary is available."),
+                "exception_type": str(entry.get("exc_type") or "Unknown"),
+                "component": context.get("tool") or context.get("component") or context.get("surface"),
+                "detail_scope": (
+                    "Sanitized browser detail. Raw exception text, traceback, credentials, "
+                    "query strings, and private file contents remain local and are not returned."
+                ),
+            }
+        raise ValueError("diagnostic detail is unavailable")
+
     def acknowledge_alert(self, event_id: str) -> dict[str, Any]:
         """Acknowledge one attention record without deleting it."""
         return self.investigations.acknowledge_alert(event_id)
@@ -870,6 +955,25 @@ class WebCockpitService:
                     summary, celebration, _badges, _challenges = execute_tool(
                         self.ctx, tool_name, {argument_name: target}
                     )
+                    failure = _tool_failure(summary)
+                    if failure is not None:
+                        self.investigations.append(
+                            investigation_id,
+                            event_class=EventClass.SOURCE_FAULT,
+                            severity="warning",
+                            lifecycle=LifecycleState.FAILED,
+                            content_class=ContentClass.SYSTEM,
+                            tool=tool_name,
+                            source=source,
+                            reason=f"{failure['category']} failure",
+                            retryable=True,
+                            actions=("retry", "details"),
+                            diagnostic_id=failure["diagnostic_id"] or None,
+                            diagnostic_category=failure["category"],
+                            next_action=failure["next_action"],
+                            log_name=(DEBUG_LOG_PATH.name if failure["diagnostic_id"] else None),
+                        )
+                        continue
                     after_objects = self.ctx.workspace_mgr.get_stix_objects()
                     artifact_ids = tuple(
                         str(item["id"])
@@ -1089,6 +1193,16 @@ def _handler(
                 return
             if parsed.path == "/api/alerts":
                 self._json(service.alerts())
+                return
+            if parsed.path == "/api/activity":
+                self._json(service.activity())
+                return
+            if parsed.path.startswith("/api/diagnostics/"):
+                try:
+                    diagnostic_id = parsed.path.removeprefix("/api/diagnostics/").strip()
+                    self._json(service.diagnostic_detail(diagnostic_id))
+                except ValueError as exc:
+                    self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
                 return
             super().do_GET()
 

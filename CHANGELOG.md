@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   source-linked Next Best Information suggestions. Analyst-set priority remains
   authoritative; derived suggestions remain non-evidence until explicitly
   adopted.
+- Added a scrolling Activity & Errors terminal with filtering, pause-follow,
+  clear-view, sanitized download, fixed-log diagnostic detail, and a masked
+  operational-authority registry for explicit degraded behavior.
 - Expanded the durable achievement catalog to 40 graduated badges with
   accessible, achievement-specific artwork and labeled rarity colors.
 - Added periodic character-voiced Analyst Advisor guidance based on bounded
@@ -35,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   audio, replay existing progress, or change investigation state.
 
 ### Changed
+
+- Pivotglass web enrichment failures now become sanitized lifecycle events in
+  the cockpit instead of printing user-facing Rich error panels in the launch
+  terminal. Raw diagnostic detail remains local in the fixed debug log.
 
 - Formal analytic-confidence records now require explicit source quality,
   source independence, corroboration, assumptions, knowledge gaps, and

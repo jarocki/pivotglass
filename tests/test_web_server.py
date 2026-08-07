@@ -1,5 +1,6 @@
 """Tests for the loopback Pivotglass API adapter."""
 
+import json
 import time
 from unittest.mock import MagicMock, patch
 
@@ -11,7 +12,7 @@ from adversary_pursuit.core.investigation import (
     EventClass,
     LifecycleState,
 )
-from adversary_pursuit.web.server import WebCockpitService
+from adversary_pursuit.web.server import WebCockpitService, _tool_failure
 
 
 def _service(tmp_path) -> WebCockpitService:
@@ -279,6 +280,87 @@ def test_attention_records_can_be_acknowledged_without_deletion(tmp_path):
     assert alerts["unread_count"] == 0
     assert len(alerts["alerts"]) == 1
     assert alerts["alerts"][0]["acknowledged"] is True
+
+
+def test_web_activity_turns_tool_failure_receipt_into_sanitized_event(tmp_path):
+    service = _service(tmp_path)
+    record = service.investigations.create("suspect.test", "domain-name")
+    service._tool_schemas = {
+        "example_lookup": {
+            "name": "example_lookup",
+            "parameters": {
+                "properties": {"domain": {"type": "string"}},
+                "required": ["domain"],
+            },
+        }
+    }
+    receipt = (
+        "[USER_SAW_PANEL] [API key] Configure the source credential, then retry. "
+        "(diag cafe1234)"
+    )
+    with patch("adversary_pursuit.web.server.execute_tool", return_value=(receipt, None, [], [])):
+        service._run_investigation(
+            record.investigation_id,
+            "suspect.test",
+            "domain-name",
+            ["example_lookup"],
+        )
+
+    activity = service.activity()
+    fault = next(event for event in activity["events"] if event["event_class"] == "source_fault")
+    assert fault["diagnostic_id"] == "cafe1234"
+    assert fault["diagnostic_category"] == "API key"
+    assert fault["next_action"] == "Configure the source credential, then retry."
+    assert fault["reason"] == "API key failure"
+    assert activity["registry"]["authorities"][0]["authority"] == (
+        "Pivotglass workspace database"
+    )
+
+
+def test_diagnostic_detail_reads_only_sanitized_fields_from_fixed_log(tmp_path):
+    service = _service(tmp_path)
+    debug_log = tmp_path / "debug.log"
+    debug_log.write_text(
+        json.dumps(
+            {
+                "diagnostic_id": "abcd1234",
+                "category": "Network",
+                "summary": "The source could not be reached.",
+                "exc_type": "ConnectError",
+                "exc_str": "https://user:secret@example.test/?token=private",
+                "traceback": "/Users/analyst/private/file.py secret",
+                "context": {
+                    "surface": "agent_execute_tool",
+                    "tool": "example_lookup",
+                    "target": "private-target.example",
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    with patch("adversary_pursuit.web.server.DEBUG_LOG_PATH", debug_log):
+        detail = service.diagnostic_detail("abcd1234")
+
+    assert detail["log_name"] == "debug.log"
+    assert detail["component"] == "example_lookup"
+    rendered = json.dumps(detail)
+    assert "user:secret" not in rendered
+    assert "token=private" not in rendered
+    assert "/Users/analyst" not in rendered
+    assert "private-target.example" not in rendered
+    assert "traceback" not in detail
+    with pytest.raises(ValueError, match="invalid diagnostic reference"):
+        service.diagnostic_detail("../../debug.log")
+
+
+def test_tool_failure_parser_rejects_unmarked_results():
+    assert _tool_failure("ordinary evidence summary") is None
+    assert _tool_failure("Error: provider response was malformed") == {
+        "category": "Source",
+        "next_action": "provider response was malformed",
+        "diagnostic_id": "",
+    }
 
 
 def test_web_command_router_accepts_iocs_commands_and_workspace_queries(tmp_path):

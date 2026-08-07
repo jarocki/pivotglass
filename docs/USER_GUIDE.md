@@ -286,6 +286,27 @@ pitch; Pivotglass does not clone an actor, celebrity, or fictional performance.
 Speech stops when the card is dismissed, audio is disabled, or the character
 changes.
 
+## Activity, errors, and degraded operation
+
+Pivotglass keeps user-relevant enrichment lifecycle events in the scrolling
+**Activity & Errors** panel. It includes timestamps, severity, component,
+sanitized summary, and the next action when one is available. The view can be
+filtered, paused, cleared without deleting history, and downloaded as sanitized
+JSON.
+
+A clickable `debug.log · <diagnostic-id>` reference opens only the sanitized
+record for that exact eight-character diagnostic identifier. The browser never
+receives raw exception strings, tracebacks, credentials, query strings, private
+file paths, or arbitrary log-file contents. Full local debugging material stays
+in `~/.ap/debug.log`.
+
+The panel's **Operational Authorities** section identifies which component owns
+each action and labels it Ready, Degraded, Disabled, Missing Configuration, or
+Unavailable. This registry is a read-only projection: it performs no background
+provider tests. When remote sources are unavailable, stored evidence, workspace
+search, analytic methods, and reports remain usable; Pivotglass skips the source
+explicitly instead of fabricating telemetry or replacing it with model output.
+
 ### Intelligence-service commands
 
 ```text

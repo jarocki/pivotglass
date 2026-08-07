@@ -3,6 +3,7 @@
 import { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { characterGuidance, type CharacterGuidance, type GuidanceCandidate } from "./character-guidance";
 import { AdvisorPortal, CharacterAdvisorArtwork, speakCharacterNarration, stopCharacterNarration } from "./character-advisor";
+import { ActivityTerminal, type ActivityState } from "./activity-terminal";
 import { BadgeArtwork } from "./badge-artwork";
 import { FlowMusicEngine } from "./flow-music";
 import { ThemeArcade } from "./arcade-games";
@@ -203,6 +204,7 @@ export default function Cockpit() {
   const [elapsed, setElapsed] = useState(0);
   const [detail, setDetail] = useState<EvidenceDetail | null>(null);
   const [alerts, setAlerts] = useState<AlertState>({ alerts: [], unread_count: 0, highest_unread: "clear" });
+  const [activityState, setActivityState] = useState<ActivityState | null>(null);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [reviewingHistory, setReviewingHistory] = useState(false);
   const [palette, setPalette] = useState(false);
@@ -246,7 +248,9 @@ export default function Cockpit() {
 
   const refresh = async () => { const response = await fetch("/api/state", { cache: "no-store" }); setState(await response.json()); };
   const refreshAlerts = async () => { const response = await fetch("/api/alerts", { cache: "no-store" }); if (response.ok) setAlerts(await response.json()); };
-  useEffect(() => { Promise.all([refresh(), refreshAlerts()]).catch((reason) => setError(String(reason))); }, []);
+  const refreshActivity = async () => { const response = await fetch("/api/activity", { cache: "no-store" }); if (response.ok) setActivityState(await response.json()); };
+  useEffect(() => { Promise.all([refresh(), refreshAlerts(), refreshActivity()]).catch((reason) => setError(String(reason))); }, []);
+  useEffect(() => { const interval = window.setInterval(() => void refreshActivity(), 2_000); return () => window.clearInterval(interval); }, []);
   useEffect(() => {
     let stopped = false;
     const poll = async () => {
@@ -636,6 +640,14 @@ export default function Cockpit() {
     if (response.ok) await refreshAlerts();
   }
 
+  async function openDiagnostic(diagnosticId: string) {
+    overlayOrigin.current = document.activeElement as HTMLElement | null;
+    const response = await fetch(`/api/diagnostics/${encodeURIComponent(diagnosticId)}`, { cache: "no-store" });
+    const result = await response.json() as Record<string, unknown> & { error?: string };
+    if (!response.ok) { setError(result.error ?? "Diagnostic detail unavailable"); return; }
+    setCommandResult({ kind: "json", title: `Diagnostic ${diagnosticId}`, data: result });
+  }
+
   async function saveAnnotation() {
     if (!detail || !noteText.trim()) return;
     const response = await fetch("/api/annotate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: noteText.trim(), stix_id: detail.stix_id }) });
@@ -795,6 +807,7 @@ export default function Cockpit() {
       <aside className="right-stack">
         <article className={`panel instruments ${collapsed.dossier ? "collapsed" : ""}`} id="dossier" tabIndex={-1}><PanelTitle id="dossier" title={mode?.cockpit.hud_title ?? "TACTICAL HUD"} status={`${dossier}/9 FACETS`} collapsed={collapsed.dossier} maximized={maximized === "dossier"} onToggle={() => togglePane("dossier")} onMaximize={() => toggleMaximize("dossier")}/><div id="dossier-content" className="panel-content"><dl><div><dt>WORKSPACE</dt><dd>{state?.workspace ?? "—"}</dd></div><div><dt>CHARACTER</dt><dd>{publicModeLabel(state?.character)}</dd></div><div><dt>ARTIFACTS</dt><dd>{state?.objects.length ?? 0}</dd></div><div><dt>DOSSIER</dt><dd>{dossier}/9 FILLED</dd></div></dl><div className="dossier-object" aria-label={`${dossier} of 9 dossier facets filled`}><div className="dossier-core"><b>DOSSIER</b><span>{dossierProgress}/9 mapped</span></div><div className="dossier-facets">{(state?.dossier_slots ?? Array.from({length: 9}, (_, index) => ({name: `slot ${index + 1}`, status: "empty" as const, evidence_count: 0}))).map((slot, index) => <button className={`${slot.status} ${selectedFacet === slot.name ? "selected" : ""}`} key={slot.name} data-tooltip={`${slot.name.replaceAll("_", " ")}: ${slot.status}, ${slot.evidence_count} source-backed puzzle pieces. Click to inspect this plane.`} onClick={() => setSelectedFacet((current) => current === slot.name ? null : slot.name)} aria-pressed={selectedFacet === slot.name} aria-label={`${slot.name}: ${slot.status}, ${slot.evidence_count} evidence. Inspect dossier facet.`}><span>{index + 1}</span><small>{slot.name.replaceAll("_", " ")}</small></button>)}</div></div>{selectedDossierSlot && <section className="facet-evidence"><header><b>{selectedDossierSlot.name.replaceAll("_", " ").toUpperCase()}</b><button onClick={() => setSelectedFacet(null)}>CLOSE</button></header><p>{selectedDossierSlot.evidence_count} source-backed puzzle pieces contribute to this plane.</p>{selectedDossierSlot.evidence?.length ? <div>{selectedDossierSlot.evidence.map((item) => <button key={item.reference} onClick={(event) => void openDetail(item.reference, event.currentTarget)}><b title={item.value}>{shortenMiddle(item.value, 38)}</b><span>{item.type}</span></button>)}</div> : <small>No directly attributable stored evidence yet.</small>}</section>}</div></article>
         <article className={`panel chart-panel ${collapsed["artifact-field"] ? "collapsed" : ""}`} id="artifact-field" tabIndex={-1}><PanelTitle id="artifact-field" title="VISUAL ANALYSIS" status="PYTHON INTENT / FLINT" collapsed={collapsed["artifact-field"]} maximized={maximized === "artifact-field"} onToggle={() => togglePane("artifact-field")} onMaximize={() => toggleMaximize("artifact-field")}/><div id="artifact-field-content" className="panel-content"><VisualizationWorkspace intents={state?.visualizations ?? []} theme={theme} onOpenEvidence={(reference, origin) => void openDetail(reference, origin)}/><div className="artifact-list">{state?.objects.slice(-12).map((item) => { const queued = investigationQueue.some((entry) => entry.target === item.value && ["pending", "running"].includes(entry.status)); return <div className="artifact-row" key={item.reference} data-tooltip={`${item.value} · ${item.type} · ${item.country ? `source-backed location ${item.country}` : "location unknown"} · ${queued ? "already queued" : processedTargets.has(item.value ?? "") ? "processed previously; queue to re-run" : "new; click queue to investigate"}`}><button title={`${item.value} · ${item.country ?? "location unknown"} · open provenance`} onClick={(event) => openDetail(item.reference, event.currentTarget)}><b>{flag(item.country)} {item.known_malware ? "☠️ " : ""}{shortenMiddle(item.value)}</b><span>{item.type} · {queued ? "queued" : processedTargets.has(item.value ?? "") ? "processed" : "new"}</span></button><button className="queue-indicator" onClick={() => queueIndicator(item.value)} disabled={queued} title={queued ? "Already queued" : processedTargets.has(item.value ?? "") ? "Queue a fresh investigation" : "Queue this indicator for investigation"}>{queued ? "✓ QUEUED" : processedTargets.has(item.value ?? "") ? "↻ QUEUE AGAIN" : "+ QUEUE"}</button></div>; })}</div></div></article>
+        {activityState && <article className="panel activity-panel"><ActivityTerminal activity={activityState} onDiagnostic={(diagnosticId) => void openDiagnostic(diagnosticId)}/></article>}
         <article className="panel alert-panel"><div className="panel-title"><button title="Open persistent attention records" onClick={(event) => openOverlay("alerts", event.currentTarget)}>ATTENTION NEEDED</button><small>{error ? "FAULT" : alerts.unread_count ? `${alerts.unread_count} UNREAD · ${alerts.highest_unread.toUpperCase()}` : "CLEAR"}</small></div><p>{error ? error : alerts.unread_count ? "Attention records are waiting. Open Attention Needed to inspect and acknowledge them." : active ? "Enrichment activity underway. Retrieval briefings are prospective until evidence arrives." : "No unacknowledged attention records."}</p></article>
       </aside>
     </section>

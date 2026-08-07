@@ -80,6 +80,10 @@ class InvestigationEvent:
     retryable: bool = False
     actions: tuple[str, ...] = ()
     briefing: dict[str, Any] | None = None
+    diagnostic_id: str | None = None
+    diagnostic_category: str | None = None
+    next_action: str | None = None
+    log_name: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -152,6 +156,10 @@ class InvestigationStore:
         retryable: bool = False,
         actions: tuple[str, ...] = (),
         briefing: dict[str, Any] | None = None,
+        diagnostic_id: str | None = None,
+        diagnostic_category: str | None = None,
+        next_action: str | None = None,
+        log_name: str | None = None,
     ) -> InvestigationEvent:
         with self._lock:
             record = self._records[investigation_id]
@@ -178,6 +186,10 @@ class InvestigationStore:
                 retryable=retryable,
                 actions=actions,
                 briefing=briefing,
+                diagnostic_id=diagnostic_id,
+                diagnostic_category=diagnostic_category,
+                next_action=next_action,
+                log_name=log_name,
             )
             record.events.append(event)
             record.updated_at = now
