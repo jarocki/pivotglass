@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Began the v0.8.5 cockpit clarity redesign: the primary workflow is now
+  framed as Pursuit, with plain-language navigation, a persistent focus view,
+  secondary charts and service panels tucked away on demand, and progressive
+  disclosure for analytic review and next-best-information work.
+
 ## [0.8.0] — 2026-08-06
 
 ### Added

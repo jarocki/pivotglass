@@ -624,6 +624,61 @@ main.max-artifact-field #artifact-field .artifact-list{display:none}
 .chess-board{grid-template-columns:repeat(8,minmax(28px,1fr))}
 }
 
+/* v0.8.5 cockpit redesign: one clear pursuit surface, with secondary tools on demand. */
+.skip-link{position:fixed;z-index:40000;top:8px;left:8px;transform:translateY(-180%);padding:9px 12px;border:2px solid var(--focus-ring);border-radius:8px;background:var(--elevated);color:var(--ink);font-size:12px;font-weight:800;text-decoration:none;transition:transform .12s ease}
+.skip-link:focus{transform:translateY(0)}
+.workflow-label{align-self:center;padding:0 4px;color:var(--dim);font-size:8px;letter-spacing:.16em;white-space:nowrap}
+.pane-switcher .utility-control{color:var(--dim);border-style:dashed}
+.pane-switcher .focus-toggle{border-color:var(--focus-ring);color:var(--focus-ring)}
+.pane-switcher .focus-toggle[aria-pressed="true"]{background:color-mix(in srgb,var(--focus-ring) 18%,var(--control));box-shadow:inset 0 -2px var(--focus-ring)}
+.focus-view .voice-strip,.focus-view .telemetry-rack{display:none}
+.focus-view .right-stack>.chart-panel,.focus-view .right-stack>.activity-panel,.focus-view .right-stack>.alert-panel{display:none}
+.focus-view .right-stack{grid-template-rows:auto}
+.focus-view .cockpit-grid{grid-template-columns:minmax(0,1fr) minmax(280px,.42fr)}
+.focus-view .feed{min-height:0}
+.focus-view .ambient-environment{opacity:.08}
+.analysis-review,.information-review{border:1px solid color-mix(in srgb,var(--line) 30%,transparent);border-radius:8px;background:var(--control)}
+.analysis-review>summary,.information-review>summary{display:flex;justify-content:space-between;gap:12px;padding:9px;color:var(--heading);cursor:pointer;list-style:none}
+.analysis-review>summary::-webkit-details-marker,.information-review>summary::-webkit-details-marker{display:none}
+.analysis-review>summary::before,.information-review>summary::before{content:"▸";color:var(--accent);margin-right:4px}
+.analysis-review[open]>summary::before,.information-review[open]>summary::before{content:"▾"}
+.analysis-review>summary b,.information-review>summary b{font-size:9px;letter-spacing:.07em}
+.analysis-review>summary span,.information-review>summary span{color:var(--dim);font-size:8px;text-align:right}
+.analysis-review .analytic-columns{padding:0 8px 8px}
+.information-review .information-requirements{border:0;border-radius:0;background:transparent}
+.command-rail{position:sticky;top:8px;z-index:1100}
+.panel-title{font-size:11px}
+.feed{content-visibility:auto;contain-intrinsic-size:720px}
+.panel-content,.feed{line-height:1.45}
+
+@media(max-width:1000px){
+  .focus-view .cockpit-grid{grid-template-columns:1fr}
+  .workflow-label{display:none}
+  .pane-switcher .utility-control{display:none}
+  .pane-switcher .focus-toggle{margin-left:auto}
+}
+
+@media(max-width:650px){
+  main{padding:10px 12px 24px;gap:10px}
+  .masthead{position:relative}
+  .brand .eyebrow,.brand small,.focus-status{display:none}
+  .brand h1{font-size:clamp(22px,8vw,34px);letter-spacing:.18em}
+  .pane-switcher{position:sticky;top:0;z-index:1400;padding:4px 0;background:color-mix(in srgb,var(--base) 94%,transparent);backdrop-filter:blur(8px)}
+  .pane-switcher button{min-height:40px;padding:8px 11px;font-size:10px}
+  .pane-switcher button:nth-of-type(4){display:none}
+  .command-rail{top:46px}
+  .command-rail form{grid-template-columns:minmax(0,1fr) auto}
+  .command-rail form>.prompt{grid-column:1/-1}
+  .command-rail input{min-height:42px;font-size:14px}
+  .command-rail form>button{min-height:42px}
+  .cockpit-grid{min-height:0}
+  .feed-panel:not(.collapsed){min-height:0}
+  .feed{min-height:0;height:auto;max-height:none}
+  .focus-view .right-stack{display:grid}
+}
+
+@media(prefers-reduced-motion:reduce){.skip-link{transition:none}.command-rail{top:0}}
+
 /* Pivotglass clarity layer: restrained framing, generous spacing, progressive disclosure. */
 .masthead,.pane-switcher,.voice-strip,.command-rail,.telemetry-rack,.cockpit-grid,footer{width:min(1180px,100%);margin-inline:auto}
 main{gap:14px;padding:20px 24px 32px;background:radial-gradient(circle at 54% -16%,color-mix(in srgb,var(--line) 15%,transparent),transparent 42%),var(--base)}

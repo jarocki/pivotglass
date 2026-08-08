@@ -365,6 +365,8 @@ export function ScientificWorkbench({
       </form>
       {notice && <p className="analytic-notice" role="status">{notice}</p>}
 
+      <details className="analysis-review">
+        <summary><b>REVIEW ASSUMPTIONS, EXPLANATIONS &amp; CONTRADICTIONS</b><span>{assumptions.length + analysis.hypotheses.length} records · {unresolved.length} open conflicts</span></summary>
       <div className="analytic-columns">
         <section>
           <header><b>ASSUMPTIONS</b><span>{assumptions.length}</span></header>
@@ -405,6 +407,7 @@ export function ScientificWorkbench({
           ))}
         </section>
       </div>
+      </details>
 
       <details className="ach-workspace" open={analysis.hypotheses.length > 1}>
         <summary>
@@ -487,6 +490,8 @@ export function ScientificWorkbench({
         <small className="analytic-truth-label">{analysis.rigor?.policy.confidence_authority ?? "Warnings never silently rewrite analyst judgment."}</small>
       </details>
 
+      <details className="information-review">
+        <summary><b>NEXT BEST INFORMATION</b><span>{requirementState?.suggestions.length ?? 0} method-derived suggestions · {requirementState?.requirements.length ?? 0} recorded requirements</span></summary>
       <section className="information-requirements" aria-label="Priority intelligence requirements">
         <header>
           <div>
@@ -546,6 +551,7 @@ export function ScientificWorkbench({
         </div>
         <small className="analytic-truth-label">Suggestions are reproducible method output. Adoption is an explicit analyst action; neither suggestions nor priorities are observations.</small>
       </section>
+      </details>
 
       {(gaps.length > 0 || items.some((item) => item.item_type === "stop_condition")) && (
         <footer>
