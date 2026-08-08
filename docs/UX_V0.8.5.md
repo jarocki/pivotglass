@@ -1,6 +1,6 @@
 # Pivotglass v0.8.5 UX redesign catalog
 
-**Status:** implementation slice in progress
+**Status:** complete for the 0.8.5 release
 
 ## Why this work exists
 
@@ -28,6 +28,11 @@ open analysis and reporting tools when they are needed.
   Scientific Workbench. Their counts remain visible before expansion.
 - A skip link, larger mobile targets, sticky command context, and a reduced
   mobile control set improve keyboard and small-screen flow.
+- Activity & Errors and Attention Needed now live together in a Utilities
+  drawer, keeping routine diagnostics out of the main pursuit path while
+  preserving filtering, acknowledgement, sanitized export, and detail links.
+- The Dossier rail becomes a contextual Inspector on screens below 1000px; it
+  is hidden until requested and remains presentation-only.
 
 ## Preserved contracts
 
@@ -38,13 +43,11 @@ View is presentation state only and is stored locally as
 as `0.8.5` and starts Charts & Evidence collapsed so the initial screen has one
 clear primary task.
 
-## Next 0.8.5 slices
+## Follow-on work
 
-1. Move Activity & Errors and Attention Needed into a shared utility drawer.
-2. Make the Dossier a contextual inspector on narrow screens.
-3. Add a compact pursuit summary above the enrichment matrix and keep the full
+1. Add a compact pursuit summary above the enrichment matrix and keep the full
    Scientific Workbench in the Analysis route.
-4. Add contrast and keyboard walkthrough receipts for all themes at 320, 1024,
+2. Add contrast and keyboard walkthrough receipts for all themes at 320, 1024,
    and desktop widths.
 
 The redesign is presentation-only: evidence, inference, narration, music, and

@@ -14,6 +14,14 @@ available publisher provenance:
    It loads no CDN scripts, fonts, telemetry, or remote UI code.
 7. The Python lockfile retains hashes for the analysis engine dependencies.
 
+## v0.8.5 release receipt
+
+Verification on 2026-08-07 covered 31 packages: all 31 had valid registry
+signatures, 17 had verified provenance attestations, and both production and
+full npm audits reported zero known vulnerabilities. The release retains the
+Next.js 16.3.0 and PostCSS 8.5.23 fixes from v0.8.0 and pins nanoid 3.3.17
+through the package override to address the custom-generator advisory.
+
 ## v0.8.0 release receipt
 
 Verification on 2026-08-06 covered 31 packages: all 31 had valid registry

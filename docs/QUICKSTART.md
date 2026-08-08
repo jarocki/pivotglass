@@ -16,20 +16,20 @@ Pivotglass separate from the system Python.
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install "adversary-pursuit[agent] @ git+https://github.com/jarocki/pivotglass.git@v0.8.0"
+python -m pip install "adversary-pursuit[agent] @ git+https://github.com/jarocki/pivotglass.git@v0.8.5"
 ap --version
 ```
 
 The final command should report:
 
 ```text
-adversary-pursuit 0.8.0
+adversary-pursuit 0.8.5
 ```
 
 For a source checkout, use [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone --branch v0.8.0 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v0.8.5 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent
 uv run ap --version

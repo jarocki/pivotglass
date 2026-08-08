@@ -5,14 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.8.5] — 2026-08-07
 
 ### Changed
 
-- Began the v0.8.5 cockpit clarity redesign: the primary workflow is now
+- Completed the v0.8.5 cockpit clarity redesign: the primary workflow is now
   framed as Pursuit, with plain-language navigation, a persistent focus view,
   secondary charts and service panels tucked away on demand, and progressive
   disclosure for analytic review and next-best-information work.
+
+### Added
+
+- Added a shared Utilities drawer for Activity & Errors, Attention Needed,
+  configuration, and operational controls.
+- Added a contextual Inspector toggle that keeps the Dossier available on
+  narrow screens without forcing the full right rail into the reading path.
 
 ## [0.8.0] — 2026-08-06
 
@@ -687,7 +694,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.8.5...HEAD
+[0.8.5]: https://github.com/jarocki/pivotglass/compare/v0.8.0...v0.8.5
 [0.8.0]: https://github.com/jarocki/pivotglass/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/jarocki/pivotglass/compare/v0.5.2...v0.7.0
 [0.5.2]: https://github.com/jarocki/pivotglass/compare/v0.5.1...v0.5.2
