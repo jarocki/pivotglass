@@ -6,6 +6,9 @@ preserves every result with provenance, connects only supported relationships,
 shows what remains unknown, and turns the investigation into a defensible
 report.
 
+The next release line adds version-pinned ATT&CK, Kill Chain, and Diamond
+framework projections without creating a second evidence authority.
+
 > An indicator is not the answer. It is the first node.
 
 The installed command remains `ap` for compatibility with earlier releases.

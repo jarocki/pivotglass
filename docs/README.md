@@ -9,6 +9,7 @@ interface.
 - [Quick Start](QUICKSTART.md) — install Pivotglass and complete a first investigation
 - [User Guide](USER_GUIDE.md) — task guidance and command reference
 - [Analytic method](ANALYTIC_METHOD.md) — scientific workflow, structured techniques, confidence, and contradictions
+- [Framework projections](FRAMEWORK_PROJECTIONS.md) — evidence-backed ATT&CK, Kill Chain, and Diamond mapping contract
 - [Workspace migration and recovery](WORKSPACE_MIGRATIONS.md) — preview, backup, validation, and recovery
 - [Guided video](media/pivotglass-guided-demo-v0.7.0.mp4) — two-minute visual walkthrough
 - [Video transcript](media/pivotglass-guided-demo-transcript.md) — accessible narration text

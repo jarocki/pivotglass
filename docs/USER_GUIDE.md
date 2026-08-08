@@ -375,6 +375,8 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `analysis confidence <kind> <id> <level> <rationale> \| <factor-json>` | Record Low, Moderate, or High confidence with explicit source quality, independence, corroboration, assumptions, gaps, and rigor |
 | `analysis likelihood <kind> <id> <term> <rationale>` | Record probability language separately from confidence |
 | `analysis contradiction … \| <resolution requirement>` | Preserve a conflict and the evidence needed to resolve it |
+| `framework list` | Export the current framework mappings and their provenance |
+| `framework show <framework> <content-version>` | View one pinned framework lens and its evidence gaps |
 | `analysis method start\|complete\|accept\|reject\|revise …` | Run and disposition a versioned Structured Analytic Technique |
 | `note <text>` | Add an analyst note |
 | `report` / `report generate` | Build the current Dossier report |

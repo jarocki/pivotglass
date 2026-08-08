@@ -47,6 +47,13 @@ legacy log becomes an explicit knowledge gap instead of being silently ignored.
 The backup is named `NAME.db.pre-v3-backup` when this is the first step required
 for that workspace.
 
+The v4-to-v5 upgrade adds the append-only `framework_mapping_records` table.
+Mappings retain pinned framework content versions, evidence references, mapper
+provenance, confidence rationale, analyst disposition, and revocation or
+supersession state. Existing observations and analytic records are untouched.
+The backup is named `NAME.db.pre-v4-backup` when this is the first step required
+for that workspace.
+
 ## Recovery
 
 If migration fails, Pivotglass leaves the prior active workspace selected and
@@ -71,7 +78,8 @@ workspace and exported its investigation record.
   events. They do not edit the original observation.
 - Clearing a workspace removes investigation content but retains the schema
 receipt so the empty workspace remains safely openable.
-- Portable schema-v4 JSON exports include scientific lifecycle roots and links;
+- Portable schema-v5 JSON exports include scientific lifecycle roots, links,
+  and framework mapping records;
   model proposals retain their pending analyst disposition.
 
 Migration support is forward-only. Downgrading an upgraded workspace in place

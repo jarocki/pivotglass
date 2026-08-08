@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Began the v0.9 framework projection authority with schema v5 mappings for
+  ATT&CK, Cyber Kill Chain, and Diamond Model views. Mappings retain pinned
+  content versions, evidence references, mapper provenance, confidence
+  rationale, analyst disposition, and explicit gaps.
+
 ## [0.8.5] — 2026-08-07
 
 ### Changed

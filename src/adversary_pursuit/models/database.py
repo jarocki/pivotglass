@@ -127,6 +127,54 @@ class Relationship(Base):
     )
 
 
+class FrameworkMappingRecord(Base):
+    """An auditable mapping from stored evidence to a framework content item.
+
+    Framework mappings are derived views, not observations.  The evidence
+    references and mapper metadata stay with the mapping so ATT&CK, Kill
+    Chain, and Diamond projections cannot silently become unsupported facts.
+    """
+
+    __tablename__ = "framework_mapping_records"
+    __table_args__ = (
+        UniqueConstraint(
+            "framework",
+            "framework_version",
+            "content_id",
+            "evidence_fingerprint",
+            name="uq_framework_mapping_basis",
+        ),
+    )
+
+    id = Column(String, primary_key=True)
+    framework = Column(String, nullable=False, index=True)
+    framework_version = Column(String, nullable=False)
+    content_id = Column(String, nullable=False, index=True)
+    content_label = Column(String, nullable=False)
+    evidence_refs = Column(JSON, nullable=False)
+    evidence_fingerprint = Column(String, nullable=False)
+    basis = Column(Text, nullable=False)
+    mapper = Column(String, nullable=False)
+    mapper_version = Column(String, nullable=False)
+    origin = Column(String, nullable=False)
+    confidence = Column(String, nullable=False)
+    confidence_rationale = Column(Text, nullable=False)
+    analyst_override = Column(Text, nullable=True)
+    state = Column(String, nullable=False, index=True, default="proposed")
+    supersedes_id = Column(String, nullable=True, index=True)
+    revoked_reason = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 class ModuleRun(Base):
     """Audit log of module executions within this workspace.
 

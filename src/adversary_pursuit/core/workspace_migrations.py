@@ -45,7 +45,7 @@ from adversary_pursuit.models.database import (
     WorkspaceSchemaVersion,
 )
 
-CURRENT_WORKSPACE_SCHEMA_VERSION = 4
+CURRENT_WORKSPACE_SCHEMA_VERSION = 5
 LEGACY_WORKSPACE_SCHEMA_VERSION = 1
 _VERSION_ROW_ID = 1
 
@@ -152,7 +152,8 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     legacy observation for every existing STIX object and relationship. The
     v2 -> v3 step adds persisted hunt challenges and badge reward metadata. The
     v3 -> v4 step adds the scientific-investigation root and links existing
-    analytic records and legacy predictions into one lifecycle.
+    analytic records and legacy predictions into one lifecycle. The v4 -> v5
+    step adds the append-only framework mapping authority.
     """
 
     tables = set(inspect(engine).get_table_names())
@@ -184,6 +185,9 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     if current == 3:  # noqa: PLR2004
         _migrate_v3_to_v4(engine)
         current = 4
+    if current == 4:  # noqa: PLR2004
+        _migrate_v4_to_v5(engine)
+        current = 5
 
     if current != CURRENT_WORKSPACE_SCHEMA_VERSION:
         raise RuntimeError(
@@ -216,7 +220,7 @@ def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
     current = _read_schema_version(engine, tables)
     if current == CURRENT_WORKSPACE_SCHEMA_VERSION:
         return MigrationPlan(current, current, False, True, None, ())
-    supported = current in {LEGACY_WORKSPACE_SCHEMA_VERSION, 2, 3}
+    supported = current in {LEGACY_WORKSPACE_SCHEMA_VERSION, 2, 3, 4}
     steps = ["create sibling backup"]
     if current == LEGACY_WORKSPACE_SCHEMA_VERSION:
         steps.extend(
@@ -240,6 +244,13 @@ def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
                 "link existing questions, hypotheses, assertions, and method runs",
                 "bridge the legacy Predictions Log without deleting its source record",
                 "write schema-version 4 receipt",
+            )
+        )
+    if current <= 4:  # noqa: PLR2004
+        steps.extend(
+            (
+                "add append-only framework mapping records",
+                "write schema-version 5 receipt",
             )
         )
     return MigrationPlan(
@@ -510,6 +521,21 @@ def _migrate_v3_to_v4(engine: Engine) -> None:
         if row is None:
             raise RuntimeError("Schema v3 workspace is missing its version receipt.")
         row.version = 4
+        row.migrated_at = datetime.now(timezone.utc)
+        session.commit()
+
+
+def _migrate_v4_to_v5(engine: Engine) -> None:
+    """Add the versioned, provenance-bearing framework mapping authority."""
+
+    # The mapping table is additive. Existing observations and analytic
+    # records remain untouched and can be projected immediately after upgrade.
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        row = session.get(WorkspaceSchemaVersion, _VERSION_ROW_ID)
+        if row is None:
+            raise RuntimeError("Schema v4 workspace is missing its version receipt.")
+        row.version = 5
         row.migrated_at = datetime.now(timezone.utc)
         session.commit()
 
