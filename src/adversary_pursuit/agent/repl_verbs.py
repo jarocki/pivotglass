@@ -309,12 +309,14 @@ def dispatch_repl_verb(
     if name == "graph" and verb.args:
         if _workspace_mgr is None:
             return "Workspace unavailable."
-        if tuple(arg.casefold() for arg in verb.args) != ("layers",):
-            return "Usage: graph [layers]"
-        from adversary_pursuit.core.investigation_graph import build_investigation_graph
+        from adversary_pursuit.core.graph_commands import execute_graph_command
 
-        projection = build_investigation_graph(_workspace_mgr)
-        return json.dumps(projection.model_dump(mode="json"), indent=2, default=str)
+        try:
+            result = execute_graph_command(verb.args, _workspace_mgr)
+        except ValueError as exc:
+            return str(exc)
+        payload = result["graph"] if result.get("action") == "layers" else result
+        return json.dumps(payload, indent=2, default=str)
 
     if name in {"search", "graph", "dossier", "gaps", "report", "hint", "challenges"}:
         if ctx is None:

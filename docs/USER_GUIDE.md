@@ -199,9 +199,13 @@ neighbors; double-click it, or choose **OPEN EVIDENCE**, to inspect the stored
 record.
 
 Dragging, panning, zooming, filtering, centering, and selecting change only the
-saved presentation. They do not alter evidence. Large workspaces use a bounded
-overview. If no supported edge exists, Pivotglass says so and keeps the
-evidence unconnected rather than manufacturing a relationship from proximity.
+presentation. Name the view and choose **SAVE VIEW** to persist its positions,
+pinned nodes, filter text, and viewport in workspace schema v6. Saved views can
+be reopened and view changes can be undone or redone. They do not alter
+evidence. **SAVE ANNOTATION** adds explicitly analyst-authored context through
+the existing note authority. Large workspaces use a bounded overview. If no
+supported edge exists, Pivotglass says so and keeps the evidence unconnected
+rather than manufacturing a relationship from proximity.
 
 ![Evidence-backed relationship graph](media/pivotglass-graph-v0.7.0.png)
 
@@ -385,6 +389,11 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `framework revoke <mapping-id> \| <reason>` | Revoke a mapping without deleting its history |
 | `framework navigator` | Verify local ATT&CK 19.2 content and download the exact plotted Navigator layer |
 | `graph layers` | Inspect the combined entity and epistemic graph, including edge provenance and truth type |
+| `graph layout list` / `graph layout show <name>` | List or inspect saved presentation-only graph views |
+| `graph layout save <name> \| <layout-json>` | Save validated positions, pins, filters, and viewport state without changing evidence |
+| `graph layout delete <name> --confirm <name>` | Delete a named layout after exact confirmation |
+| `graph annotate <node-id> \| <text>` | Attach analyst-authored context to a current graph node |
+| `graph annotations [node-id]` | List graph-linked analyst annotations |
 | `analysis method start\|complete\|accept\|reject\|revise …` | Run and disposition a versioned Structured Analytic Technique |
 | `note <text>` | Add an analyst note |
 | `report` / `report generate` | Build the current Dossier report |

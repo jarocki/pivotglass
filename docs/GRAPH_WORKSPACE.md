@@ -31,23 +31,43 @@ Bridge edges connect an observation to the normalized entity it observed and a
 structured assertion to its subject or object entity. Every edge has one or
 more provenance references and a plain-language rationale.
 
-## Current command
+## Commands
 
 ```text
 graph          # existing indicator-first relationship view
 graph layers   # investigation-graph-1.0 entity + epistemic projection
+graph layout list
+graph layout show Triage view
+graph layout save Triage view | {"positions":{},"pinned_refs":[],"filters":{},"viewport":{"x":0,"y":0,"scale":1}}
+graph layout delete Triage view --confirm Triage view
+graph annotate entity:domain-name--... | Why this node matters
+graph annotations entity:domain-name--...
 ```
 
 `graph layers` is deterministic and read-only. It does not invoke a model,
 infer a new relationship, or modify workspace state.
 
+## Saved graph workspace
+
+Workspace schema v6 stores named graph presentation layouts. A layout contains
+validated positions, pinned node references, allow-listed filters, and a pan/
+zoom viewport. Saving or reopening a layout cannot modify graph nodes, edges,
+observations, assertions, mappings, confidence, or likelihood.
+
+Pivotglass exposes the same authority through the relationship view. Analysts
+can name and save a view, reopen it, pin the selected node, and undo or redo
+view changes. An annotation resolves through a node in the current graph and is
+stored by the existing analyst-note authority. It is labeled analyst-authored
+context, not observed evidence.
+
 ## Current boundary
 
-The v0.9 foundation defines and verifies the projection contract. The editable
-workspace remains open work: saved layouts, pinning, multiselect, annotations,
-manual assertion/link creation, undo/redo, filters, and layered exports must
-write only through their existing authorities. Node position is presentation
-state and must never alter evidence.
+The v0.9 foundation now defines and verifies the projection and saved-layout
+contracts. Expand/collapse, multiselect, manual assertion/link creation, richer
+typed filters, and complete layered exports remain open. Manual relationships
+must use the analytic assertion authority; a screen position or annotation can
+never manufacture an edge. Node position remains presentation state and never
+alters evidence.
 
 The web cockpit does not yet add a separate download of the complete layered
 provenance graph. Remote Pivotglass sessions may be configured without access

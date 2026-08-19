@@ -383,11 +383,9 @@ def test_web_command_router_accepts_iocs_commands_and_workspace_queries(tmp_path
         "export <json|csv|stix|gexf>",
     }
     assert any(item["command"].startswith("framework show") for item in help_result["commands"])
-    assert any(
-        item["command"].startswith("framework require")
-        for item in help_result["commands"]
-    )
+    assert any(item["command"].startswith("framework require") for item in help_result["commands"])
     assert any(item["command"] == "framework gaps" for item in help_result["commands"])
+    assert any(item["command"].startswith("graph layout") for item in help_result["commands"])
 
 
 def test_web_command_router_saves_linkable_notes_and_exports_csv(tmp_path):
@@ -463,6 +461,37 @@ def test_web_exposes_two_layer_graph_only_on_explicit_command(tmp_path):
     assert result["data"]["schema_version"] == "investigation-graph-1.0"
     assert result["data"]["counts"]["nodes"] == {"entity": 1, "epistemic": 1}
     assert all(edge["provenance_refs"] for edge in result["data"]["edges"])
+
+
+def test_web_graph_layout_api_reuses_presentation_authority(tmp_path):
+    service = _service(tmp_path)
+    service.ctx.workspace_mgr.store_stix_objects(
+        [{"type": "domain-name", "value": "saved-layout.test"}],
+        module_name="osint/test",
+        target="saved-layout.test",
+    )
+    reference = service.ctx.workspace_mgr.get_stix_objects()[0]["id"]
+
+    saved = service.save_graph_layout(
+        {
+            "name": "Analyst view",
+            "positions": {reference: {"x": 220, "y": 140}},
+            "pinned_refs": [reference],
+            "filters": {"query": "saved"},
+            "viewport": {"x": 4, "y": 8, "scale": 1.2},
+        }
+    )
+
+    assert saved["saved"] is True
+    assert saved["layout"]["name"] == "Analyst view"
+    assert service.graph_layouts()["layouts"] == [saved["layout"]]
+    command = service.execute_command("graph layout show Analyst view")
+    assert command["data"]["layout"]["positions"][reference] == {"x": 220.0, "y": 140.0}
+    annotation = service.annotate_graph(
+        {"node_id": reference, "text": "Review this infrastructure pivot."}
+    )
+    assert annotation["annotation"]["record_ref"] == reference
+    assert service.graph_annotations(reference)["annotations"] == [annotation["annotation"]]
 
 
 def test_workspace_commands_create_export_merge_and_confirm_delete(tmp_path):

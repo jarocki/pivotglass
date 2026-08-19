@@ -509,6 +509,12 @@ pre{font-size:12px;line-height:1.5}
 .visualization-selection b{overflow:hidden;text-overflow:ellipsis;color:var(--heading)}
 .visualization-selection small{grid-column:1/-1;color:var(--dim)}
 .relationship-visualization{display:grid;gap:6px;min-width:0}
+.graph-layout-controls{display:grid;grid-template-columns:minmax(150px,1fr) auto minmax(170px,1fr) auto auto;align-items:end;gap:6px;padding:8px;border:1px solid color-mix(in srgb,var(--line) 32%,transparent);background:color-mix(in srgb,var(--control) 82%,transparent)}
+.graph-layout-controls label{display:grid;gap:3px;min-width:0;color:var(--dim)}
+.graph-layout-controls input,.graph-layout-controls select,.graph-annotation textarea{min-width:0;padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
+.graph-layout-controls button{padding:7px 9px;border:1px solid var(--line);background:var(--control);color:var(--heading);cursor:pointer}
+.graph-layout-controls button:disabled{cursor:not-allowed;opacity:.45}
+.graph-layout-controls output{grid-column:1/-1;min-height:1.3em;color:var(--dim)}
 .relationship-controls{display:flex;flex-wrap:wrap;align-items:end;gap:8px}
 .relationship-controls label{display:grid;gap:3px;min-width:min(280px,100%)}
 .relationship-controls label span,.relationship-controls>span{color:var(--dim)}
@@ -528,6 +534,7 @@ pre{font-size:12px;line-height:1.5}
 .relationship-nodes circle{fill:var(--elevated);stroke:var(--line);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .relationship-nodes>g.selected circle,.relationship-nodes>g:focus-visible circle{stroke:var(--focus-ring);stroke-width:4}
 .relationship-nodes>g.neighbor circle{stroke:var(--heading);stroke-width:2.5}
+.relationship-nodes>g.pinned circle{stroke-dasharray:3 2;filter:drop-shadow(0 0 4px color-mix(in srgb,var(--accent) 64%,transparent))}
 .relationship-nodes .node-label{fill:var(--heading);font-size:8px;font-weight:800}
 .relationship-nodes .node-type{fill:var(--dim);font-size:7px}
 .relationship-nodes .type-domain-name circle{fill:color-mix(in srgb,var(--accent) 18%,var(--elevated))}
@@ -552,6 +559,8 @@ pre{font-size:12px;line-height:1.5}
 .graph-legend i.property{border-top-style:dashed}
 .relationship-node-inventory{padding-top:4px;border-top:1px solid color-mix(in srgb,var(--line) 20%,transparent)}
 .relationship-node-inventory summary{cursor:pointer;color:var(--heading)}
+.graph-annotation{display:grid;grid-column:1/-1;gap:4px;color:var(--dim)}
+.graph-annotation textarea{min-height:72px;resize:vertical}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 main.max-artifact-field #artifact-field .artifact-list{display:none}
 
@@ -568,6 +577,8 @@ main.max-artifact-field #artifact-field .artifact-list{display:none}
   .flint-canvas{height:280px}
   .relationship-visualization svg{min-width:560px}
   .relationship-visualization{overflow:auto}
+  .graph-layout-controls{grid-template-columns:1fr 1fr}
+  .graph-layout-controls label{grid-column:1/-1}
 }
 
 /* Compact, presentation-only arcade mechanics vary by identity without changing analysis state. */

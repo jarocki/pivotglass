@@ -127,8 +127,10 @@ an accessible table, and export of the exact plotted data.
 
 The graph labels nodes with actual indicator values. Every visible edge has a
 stored or explicitly labeled conservative basis. Dragging, filtering, and
-moving nodes change only the presentation. If no supported relationship
-exists, Pivotglass leaves the nodes unconnected.
+moving nodes change only the presentation. Named views persist positions,
+pins, filters, and viewport state separately from evidence; graph annotations
+remain explicitly analyst-authored notes. If no supported relationship exists,
+Pivotglass leaves the nodes unconnected.
 
 ![Pivotglass relationship graph](docs/media/pivotglass-graph-v0.7.0.png)
 

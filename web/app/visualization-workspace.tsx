@@ -601,6 +601,22 @@ export function TaskMatrix({
 
 type GraphPoint = { x: number; y: number };
 type GraphViewport = { x: number; y: number; scale: number };
+type SavedGraphLayout = {
+  id: string;
+  name: string;
+  graph_schema_version: string;
+  positions: Record<string, GraphPoint>;
+  pinned_refs: string[];
+  filters: { query?: string; layers?: string[]; kinds?: string[]; truth_kinds?: string[] };
+  viewport: GraphViewport;
+  updated_at: string;
+};
+type GraphSnapshot = {
+  positions: Record<string, GraphPoint>;
+  pinned: string[];
+  query: string;
+  viewport: GraphViewport;
+};
 type GraphDrag =
   | {
       kind: "canvas";
@@ -714,6 +730,13 @@ function RelationshipGraph({
   const [viewport, setViewport] = useState<GraphViewport>({ x: 0, y: 0, scale: 1 });
   const [drag, setDrag] = useState<GraphDrag | null>(null);
   const [positions, setPositions] = useState<Record<string, GraphPoint>>({});
+  const [pinned, setPinned] = useState<Set<string>>(new Set());
+  const [layoutName, setLayoutName] = useState("");
+  const [savedLayouts, setSavedLayouts] = useState<SavedGraphLayout[]>([]);
+  const [layoutStatus, setLayoutStatus] = useState("");
+  const [history, setHistory] = useState<GraphSnapshot[]>([]);
+  const [future, setFuture] = useState<GraphSnapshot[]>([]);
+  const [annotation, setAnnotation] = useState("");
   const svgRef = useRef<SVGSVGElement>(null);
   const width = 760;
   const height = 430;
@@ -753,11 +776,124 @@ function RelationshipGraph({
   useEffect(() => {
     setPositions(initialPositions);
     setViewport({ x: 0, y: 0, scale: 1 });
+    setPinned(new Set());
+    setHistory([]);
+    setFuture([]);
   }, [initialPositions]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/graph/layouts", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`layout request failed (${response.status})`);
+        return response.json() as Promise<{ layouts?: SavedGraphLayout[] }>;
+      })
+      .then((payload) => {
+        if (!cancelled) setSavedLayouts(payload.layouts ?? []);
+      })
+      .catch((reason: unknown) => {
+        if (!cancelled) {
+          setLayoutStatus(reason instanceof Error ? reason.message : "Unable to load layouts");
+        }
+      });
+    return () => { cancelled = true; };
+  }, [intent.source_scope.workspace]);
   const selectedNode = intent.data.nodes.find((node) => node.reference === selected);
   const markerId = `${intent.intent_id}-relationship-arrow`;
 
+  const snapshot = (): GraphSnapshot => ({
+    positions,
+    pinned: [...pinned],
+    query,
+    viewport,
+  });
+  const remember = () => {
+    const current = snapshot();
+    setHistory((items) => [...items.slice(-19), current]);
+    setFuture([]);
+  };
+  const applySnapshot = (next: GraphSnapshot) => {
+    setPositions(next.positions);
+    setPinned(new Set(next.pinned));
+    setQuery(next.query);
+    setViewport(next.viewport);
+  };
+  const undo = () => {
+    const previous = history.at(-1);
+    if (!previous) return;
+    setHistory((items) => items.slice(0, -1));
+    setFuture((items) => [snapshot(), ...items].slice(0, 20));
+    applySnapshot(previous);
+  };
+  const redo = () => {
+    const next = future[0];
+    if (!next) return;
+    setFuture((items) => items.slice(1));
+    setHistory((items) => [...items.slice(-19), snapshot()]);
+    applySnapshot(next);
+  };
+  const loadLayout = (id: string) => {
+    const layout = savedLayouts.find((item) => item.id === id);
+    if (!layout) return;
+    remember();
+    setLayoutName(layout.name);
+    setPositions({ ...initialPositions, ...layout.positions });
+    setPinned(new Set(layout.pinned_refs));
+    setQuery(layout.filters.query ?? "");
+    setViewport(layout.viewport);
+    setLayoutStatus(`Loaded ${layout.name}. Presentation only; evidence is unchanged.`);
+  };
+  const saveLayout = async () => {
+    const name = layoutName.trim();
+    if (!name) {
+      setLayoutStatus("Enter a layout name before saving.");
+      return;
+    }
+    setLayoutStatus("Saving layout…");
+    try {
+      const response = await fetch("/api/graph/layouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          graph_schema_version: "investigation-graph-1.0",
+          positions,
+          pinned_refs: [...pinned],
+          filters: { query },
+          viewport,
+        }),
+      });
+      const payload = await response.json() as { layout?: SavedGraphLayout; error?: string };
+      if (!response.ok || !payload.layout) throw new Error(payload.error ?? "Layout was not saved");
+      setSavedLayouts((items) => [
+        payload.layout!,
+        ...items.filter((item) => item.id !== payload.layout!.id),
+      ]);
+      setLayoutStatus(`Saved ${payload.layout.name}. Presentation only; evidence is unchanged.`);
+    } catch (reason) {
+      setLayoutStatus(reason instanceof Error ? reason.message : "Layout was not saved");
+    }
+  };
+  const saveAnnotation = async () => {
+    if (!selectedNode || !annotation.trim()) return;
+    try {
+      const response = await fetch("/api/graph/annotations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ node_id: selectedNode.reference, text: annotation }),
+      });
+      const payload = await response.json() as { annotation?: { id: number }; error?: string };
+      if (!response.ok || !payload.annotation) {
+        throw new Error(payload.error ?? "Annotation was not saved");
+      }
+      setAnnotation("");
+      setLayoutStatus(`Annotation ${payload.annotation.id} saved as analyst-authored context.`);
+    } catch (reason) {
+      setLayoutStatus(reason instanceof Error ? reason.message : "Annotation was not saved");
+    }
+  };
+
   const updateZoom = (factor: number) => {
+    remember();
     setViewport((current) => {
       const nextScale = Math.max(0.45, Math.min(3, current.scale * factor));
       const actualFactor = nextScale / current.scale;
@@ -791,6 +927,30 @@ function RelationshipGraph({
   if (intent.data.nodes.length === 0) return <VisualizationEmpty intent={intent} />;
   return (
     <div className="relationship-visualization">
+      <section className="graph-layout-controls" aria-label="Saved graph workspace">
+        <label>
+          <span>Layout name</span>
+          <input
+            value={layoutName}
+            maxLength={64}
+            onChange={(event) => setLayoutName(event.target.value)}
+            placeholder="Incident triage"
+          />
+        </label>
+        <button onClick={() => void saveLayout()}>SAVE VIEW</button>
+        <label>
+          <span>Open saved view</span>
+          <select value="" onChange={(event) => loadLayout(event.target.value)}>
+            <option value="">Choose layout…</option>
+            {savedLayouts.map((layout) => (
+              <option key={layout.id} value={layout.id}>{layout.name}</option>
+            ))}
+          </select>
+        </label>
+        <button onClick={undo} disabled={!history.length}>UNDO VIEW</button>
+        <button onClick={redo} disabled={!future.length}>REDO VIEW</button>
+        <output aria-live="polite">{layoutStatus}</output>
+      </section>
       <div className="relationship-controls">
         <label>
           <span>Filter indicators or types</span>
@@ -803,10 +963,10 @@ function RelationshipGraph({
           <span className="graph-zoom-controls" aria-label="Graph zoom controls">
             <button onClick={() => updateZoom(1.2)} aria-label="Zoom relationship graph in">＋</button>
             <button onClick={() => updateZoom(1 / 1.2)} aria-label="Zoom relationship graph out">－</button>
-            <button onClick={() => setViewport({ x: 0, y: 0, scale: 1 })}>CENTER</button>
+            <button onClick={() => { remember(); setViewport({ x: 0, y: 0, scale: 1 }); }}>CENTER</button>
           </span>
         )}
-        {(query || selected) && <button onClick={() => { setQuery(""); setSelected(null); }}>RESET VIEW</button>}
+        {(query || selected) && <button onClick={() => { remember(); setQuery(""); setSelected(null); }}>RESET VIEW</button>}
       </div>
       {intent.data.edges.length === 0 ? (
         <section className="unconnected-graph" aria-label="Unconnected stored indicators">
@@ -919,6 +1079,7 @@ function RelationshipGraph({
                   className={[
                     selected === node.reference ? "selected" : "",
                     selected && neighbors.get(selected)?.has(node.reference) ? "neighbor" : "",
+                    pinned.has(node.reference) ? "pinned" : "",
                     `type-${node.entity_type.replaceAll(/[^a-z0-9-]/gi, "-")}`,
                   ].join(" ")}
                   role="button"
@@ -940,6 +1101,7 @@ function RelationshipGraph({
                   onPointerDown={(event) => {
                     event.stopPropagation();
                     event.currentTarget.setPointerCapture(event.pointerId);
+                    remember();
                     setSelected(node.reference);
                     setDrag({
                       kind: "node",
@@ -974,11 +1136,34 @@ function RelationshipGraph({
           <b>{selectedNode.label}</b>
           <span>{selectedNode.entity_type} · {degree.get(selectedNode.reference) ?? 0} relationships</span>
           <small>Selection highlights the node and its visible neighbors without changing the graph layout.</small>
+          <button onClick={() => {
+            remember();
+            setPinned((current) => {
+              const next = new Set(current);
+              if (next.has(selectedNode.reference)) next.delete(selectedNode.reference);
+              else next.add(selectedNode.reference);
+              return next;
+            });
+          }}>
+            {pinned.has(selectedNode.reference) ? "UNPIN NODE" : "PIN NODE"}
+          </button>
           {onOpenEvidence && (
             <button onClick={(event) => onOpenEvidence(selectedNode.reference, event.currentTarget)}>
               OPEN EVIDENCE
             </button>
           )}
+          <label className="graph-annotation">
+            <span>Analyst annotation</span>
+            <textarea
+              value={annotation}
+              maxLength={4000}
+              onChange={(event) => setAnnotation(event.target.value)}
+              placeholder="Record why this node matters; this remains analyst-authored context."
+            />
+          </label>
+          <button onClick={() => void saveAnnotation()} disabled={!annotation.trim()}>
+            SAVE ANNOTATION
+          </button>
         </div>
       )}
       <details className="relationship-node-inventory">
