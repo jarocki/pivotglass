@@ -424,6 +424,21 @@ def test_web_framework_lens_polls_counts_and_requires_explicit_detail(tmp_path):
     assert shown["data"]["mappings"][0]["content_id"] == "T1003"
 
 
+def test_web_exposes_two_layer_graph_only_on_explicit_command(tmp_path):
+    service = _service(tmp_path)
+    service.ctx.workspace_mgr.store_stix_objects(
+        [{"type": "domain-name", "value": "layers.test"}],
+        module_name="osint/test",
+        target="layers.test",
+    )
+
+    result = service.execute_command("graph layers")
+    assert result["kind"] == "json"
+    assert result["data"]["schema_version"] == "investigation-graph-1.0"
+    assert result["data"]["counts"]["nodes"] == {"entity": 1, "epistemic": 1}
+    assert all(edge["provenance_refs"] for edge in result["data"]["edges"])
+
+
 def test_workspace_commands_create_export_merge_and_confirm_delete(tmp_path):
     service = _service(tmp_path)
     service.execute_command("workspace create source")

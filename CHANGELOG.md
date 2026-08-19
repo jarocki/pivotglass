@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a collapsed Framework Perspectives lens to Pivotglass. Background
   state contains only versions and disposition counts; evidence references and
   analytical rationale require an explicit command.
+- Began the W-090-03 two-layer graph with a read-only
+  `investigation-graph-1.0` projection. Entity, epistemic, and bridge edges all
+  retain provenance; conservative property pivots remain labeled as derived
+  navigation rather than observed relationships. Use `graph layers` in either
+  interface to inspect the current projection.
 
 ## [0.8.5] — 2026-08-07
 

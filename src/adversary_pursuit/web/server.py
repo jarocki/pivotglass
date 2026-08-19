@@ -60,6 +60,7 @@ from adversary_pursuit.core.investigation import (
     LifecycleState,
     utc_now,
 )
+from adversary_pursuit.core.investigation_graph import build_investigation_graph
 from adversary_pursuit.core.ioc_types import detect_ioc_type
 from adversary_pursuit.core.operational_status import build_authority_registry
 from adversary_pursuit.core.visualization import build_visualization_intents
@@ -335,6 +336,10 @@ class WebCockpitService:
                 "purpose": "Delete an inactive workspace after explicit confirmation",
             },
             {"command": "graph", "purpose": "Render the relationship graph"},
+            {
+                "command": "graph layers",
+                "purpose": "Inspect entity and epistemic nodes with provenance-bearing edges",
+            },
             {"command": "dossier", "purpose": "Show dossier details and intelligence gaps"},
             {"command": "timeline", "purpose": "Show the ordered collection timeline"},
             {"command": "note <text>", "purpose": "Save an analyst annotation"},
@@ -591,6 +596,16 @@ class WebCockpitService:
                 "data": self.ctx.workspace_mgr.get_awarded_badges(),
             }
         if command == "graph":
+            if rest:
+                if rest.casefold() != "layers":
+                    raise ValueError("usage: graph [layers]")
+                return {
+                    "kind": "json",
+                    "title": "Entity and epistemic graph",
+                    "data": build_investigation_graph(
+                        self.ctx.workspace_mgr
+                    ).model_dump(mode="json"),
+                }
             graph = RelationshipGraph()
             graph.build_from_workspace(
                 self.ctx.workspace_mgr.get_stix_objects(),

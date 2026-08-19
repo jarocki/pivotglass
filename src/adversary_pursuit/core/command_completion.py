@@ -163,6 +163,8 @@ def command_completions(
             "revoke ",
             "navigator",
         ]
+    elif command == "graph":
+        choices = ["layers"]
     elif command == "autopivot":
         choices = ["on", "off"]
     elif command == "workspace":

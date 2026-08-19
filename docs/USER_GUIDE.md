@@ -382,6 +382,7 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `framework accept\|reject <mapping-id> \| <review note>` | Record the analyst's disposition and rationale |
 | `framework revoke <mapping-id> \| <reason>` | Revoke a mapping without deleting its history |
 | `framework navigator` | Verify local ATT&CK 19.2 content and download the exact plotted Navigator layer |
+| `graph layers` | Inspect the combined entity and epistemic graph, including edge provenance and truth type |
 | `analysis method start\|complete\|accept\|reject\|revise …` | Run and disposition a versioned Structured Analytic Technique |
 | `note <text>` | Add an analyst note |
 | `report` / `report generate` | Build the current Dossier report |
@@ -398,6 +399,11 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 Tab completes commands and relevant arguments. In Pivotglass, arrow keys move
 through suggestions and Enter accepts one. A `?` typed inside an editable field
 remains text; outside an editable field it opens Help.
+
+See [Investigation graph](GRAPH_WORKSPACE.md) for the entity/epistemic layer
+contract and the distinction between observed relationships and derived
+navigation pivots. See [Framework projections](FRAMEWORK_PROJECTIONS.md) for
+the mapping and content-verification contract.
 
 The TUI-only `theme light|dark|high` command changes the current terminal
 palette. Use DECK controls for Day, Night, and contrast in Pivotglass.
