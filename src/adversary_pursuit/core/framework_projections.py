@@ -24,7 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from sqlalchemy import select
 
 from adversary_pursuit.core.analytic_ledger import ConfidenceLevel
-from adversary_pursuit.models.database import FrameworkMappingRecord
+from adversary_pursuit.models.database import EvidenceObservation, FrameworkMappingRecord
 
 
 class Framework(StrEnum):
@@ -158,6 +158,19 @@ class FrameworkProjectionAuthority:
             confidence_rationale=confidence_rationale,
         )
         with self._workspace.get_session() as session:
+            observed_refs = set(
+                session.execute(
+                    select(EvidenceObservation.id).where(
+                        EvidenceObservation.id.in_(mapping.evidence_refs)
+                    )
+                ).scalars()
+            )
+            missing_refs = sorted(set(mapping.evidence_refs) - observed_refs)
+            if missing_refs:
+                raise ValueError(
+                    "Framework mappings may reference only immutable evidence observations; "
+                    f"unknown observation IDs: {', '.join(missing_refs)}"
+                )
             duplicate = session.execute(
                 select(FrameworkMappingRecord).where(
                     FrameworkMappingRecord.framework == mapping.framework.value,

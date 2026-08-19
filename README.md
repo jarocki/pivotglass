@@ -6,8 +6,10 @@ preserves every result with provenance, connects only supported relationships,
 shows what remains unknown, and turns the investigation into a defensible
 report.
 
-The next release line adds version-pinned ATT&CK, Kill Chain, and Diamond
-framework projections without creating a second evidence authority.
+The v0.9 development line adds version-pinned ATT&CK, Kill Chain, and Diamond
+framework perspectives without creating a second evidence authority. The
+current branch verifies Enterprise ATT&CK 19.2 content and exports the exact
+evidence-backed mapping as a Navigator layer.
 
 > An indicator is not the answer. It is the first node.
 

@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ATT&CK, Cyber Kill Chain, and Diamond Model views. Mappings retain pinned
   content versions, evidence references, mapper provenance, confidence
   rationale, analyst disposition, and explicit gaps.
+- Added a digest- and version-verified Enterprise ATT&CK 19.2 STIX adapter,
+  Navigator 4.5 export, explicit non-linear Kill Chain transitions, and Diamond
+  events that preserve unknown core vertices and provisional state.
+- Added shared TUI/Pivotglass framework commands for human mapping, review,
+  revocation, content-manifest inspection, and Navigator export. Mapping
+  proposals now fail when an observation reference is not present in the
+  workspace.
+- Added a collapsed Framework Perspectives lens to Pivotglass. Background
+  state contains only versions and disposition counts; evidence references and
+  analytical rationale require an explicit command.
 
 ## [0.8.5] — 2026-08-07
 

@@ -365,26 +365,10 @@ def dispatch_repl_verb(
     if name == "framework":
         if _workspace_mgr is None:
             return "Workspace unavailable."
-        from adversary_pursuit.core.framework_projections import (
-            Framework,
-            FrameworkProjectionAuthority,
-        )
+        from adversary_pursuit.core.framework_commands import execute_framework_command
 
-        authority = FrameworkProjectionAuthority(_workspace_mgr)
-        sub = verb.args[0].casefold() if verb.args else "list"
-        if sub == "list":
-            return json.dumps(authority.export(), indent=2, default=str)
-        if sub == "show" and len(verb.args) >= 3:
-            try:
-                framework = Framework(verb.args[1].casefold())
-            except ValueError as exc:
-                raise ValueError("Frameworks: attack, kill_chain, diamond.") from exc
-            projection = authority.projection(
-                framework,
-                framework_version=" ".join(verb.args[2:]),
-            )
-            return json.dumps(projection.model_dump(mode="json"), indent=2, default=str)
-        return "Usage: framework list|show <attack|kill_chain|diamond> <content-version>"
+        result = execute_framework_command(verb.args, _workspace_mgr)
+        return f"{result['title']}\n{json.dumps(result['data'], indent=2, default=str)}"
 
     if name == "theme":
         import os

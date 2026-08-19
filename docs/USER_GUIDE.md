@@ -375,8 +375,13 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `analysis confidence <kind> <id> <level> <rationale> \| <factor-json>` | Record Low, Moderate, or High confidence with explicit source quality, independence, corroboration, assumptions, gaps, and rigor |
 | `analysis likelihood <kind> <id> <term> <rationale>` | Record probability language separately from confidence |
 | `analysis contradiction … \| <resolution requirement>` | Preserve a conflict and the evidence needed to resolve it |
-| `framework list` | Export the current framework mappings and their provenance |
-| `framework show <framework> <content-version>` | View one pinned framework lens and its evidence gaps |
+| `framework manifest` | Show pinned ATT&CK source, digest, local path, and the Kill Chain/Diamond versions |
+| `framework list [framework]` | Inspect current framework mappings and their provenance |
+| `framework show <framework> [content-version]` | View one pinned framework lens; omitted versions use the project default |
+| `framework map … \| …` | Propose a human-authored mapping backed by one or more immutable observation IDs |
+| `framework accept\|reject <mapping-id> \| <review note>` | Record the analyst's disposition and rationale |
+| `framework revoke <mapping-id> \| <reason>` | Revoke a mapping without deleting its history |
+| `framework navigator` | Verify local ATT&CK 19.2 content and download the exact plotted Navigator layer |
 | `analysis method start\|complete\|accept\|reject\|revise …` | Run and disposition a versioned Structured Analytic Technique |
 | `note <text>` | Add an analyst note |
 | `report` / `report generate` | Build the current Dossier report |

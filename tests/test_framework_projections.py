@@ -25,6 +25,15 @@ def _workspace(tmp_path) -> WorkspaceManager:
     return manager
 
 
+def _observation(manager: WorkspaceManager, value: str) -> str:
+    manager.store_stix_objects(
+        [{"type": "domain-name", "value": value}],
+        module_name="test/source",
+        target=value,
+    )
+    return manager.get_observations()[-1]["id"]
+
+
 def test_framework_mapping_requires_evidence_and_pinned_content() -> None:
     with pytest.raises(ValueError, match="evidence reference"):
         FrameworkMapping(
@@ -44,13 +53,15 @@ def test_framework_mapping_requires_evidence_and_pinned_content() -> None:
 
 
 def test_mapping_lifecycle_and_gap_projection_are_deterministic(tmp_path) -> None:
-    authority = FrameworkProjectionAuthority(_workspace(tmp_path))
+    manager = _workspace(tmp_path)
+    authority = FrameworkProjectionAuthority(manager)
+    observation_id = _observation(manager, "credential-dumping.example")
     mapping = authority.propose(
         framework=Framework.ATTACK,
         framework_version="enterprise-15.1",
         content_id="T1003",
         content_label="OS Credential Dumping",
-        evidence_refs=("observation-1",),
+        evidence_refs=(observation_id,),
         basis="The observation records a credential-dumping command line.",
         mapper="analyst",
         mapper_version="1.0",
@@ -71,13 +82,15 @@ def test_mapping_lifecycle_and_gap_projection_are_deterministic(tmp_path) -> Non
 
 
 def test_model_mapping_cannot_be_accepted_without_human_override(tmp_path) -> None:
-    authority = FrameworkProjectionAuthority(_workspace(tmp_path))
+    manager = _workspace(tmp_path)
+    authority = FrameworkProjectionAuthority(manager)
+    observation_id = _observation(manager, "model-proposal.example")
     mapping = authority.propose(
         framework=Framework.DIAMOND,
         framework_version="1.0",
         content_id="capability:credential-access",
         content_label="Credential access",
-        evidence_refs=("observation-2",),
+        evidence_refs=(observation_id,),
         basis="A model proposed this mapping from the source-backed observation.",
         mapper="local-model",
         mapper_version="2026-08",
@@ -95,6 +108,24 @@ def test_model_mapping_cannot_be_accepted_without_human_override(tmp_path) -> No
     assert accepted.state is MappingState.ACCEPTED
 
 
+def test_framework_mapping_rejects_unknown_observation_reference(tmp_path) -> None:
+    authority = FrameworkProjectionAuthority(_workspace(tmp_path))
+    with pytest.raises(ValueError, match="unknown observation IDs: observation-missing"):
+        authority.propose(
+            framework=Framework.ATTACK,
+            framework_version="19.2",
+            content_id="T1003",
+            content_label="OS Credential Dumping",
+            evidence_refs=("observation-missing",),
+            basis="The claimed evidence does not exist.",
+            mapper="test",
+            mapper_version="1.0",
+            origin=MappingOrigin.HUMAN,
+            confidence=ConfidenceLevel.LOW,
+            confidence_rationale="This proposal must be rejected.",
+        )
+
+
 def test_fresh_workspace_has_schema_v5(tmp_path) -> None:
     assert get_workspace_schema_version(_workspace(tmp_path)._engine) == 5
 
@@ -102,4 +133,4 @@ def test_fresh_workspace_has_schema_v5(tmp_path) -> None:
 def test_framework_is_shared_by_command_parser_and_completion() -> None:
     assert parse_repl_verb("framework list").name == "framework"
     assert "framework" in command_completions("frame")
-    assert "framework show attack " in command_completions("framework s")
+    assert "framework show attack" in command_completions("framework s")

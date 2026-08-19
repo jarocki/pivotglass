@@ -382,6 +382,7 @@ def test_web_command_router_accepts_iocs_commands_and_workspace_queries(tmp_path
         "timeline",
         "export <json|csv|stix|gexf>",
     }
+    assert any(item["command"].startswith("framework show") for item in help_result["commands"])
 
 
 def test_web_command_router_saves_linkable_notes_and_exports_csv(tmp_path):
@@ -399,6 +400,28 @@ def test_web_command_router_saves_linkable_notes_and_exports_csv(tmp_path):
     assert exported["kind"] == "download"
     assert exported["mime"] == "text/csv"
     assert "suspect.test" in exported["content"]
+
+
+def test_web_framework_lens_polls_counts_and_requires_explicit_detail(tmp_path):
+    service = _service(tmp_path)
+    service.ctx.workspace_mgr.store_stix_objects(
+        [{"type": "domain-name", "value": "framework.test"}],
+        module_name="osint/test",
+        target="framework.test",
+    )
+    observation_id = service.ctx.workspace_mgr.get_observations()[0]["id"]
+    proposed = service.execute_command(
+        f"framework map attack 19.2 T1003 {observation_id} | OS Credential Dumping | "
+        "Source-backed behavior. | moderate | One source; corroboration remains open."
+    )
+
+    assert proposed["kind"] == "json"
+    assert proposed["data"]["evidence_refs"] == [observation_id]
+    state = service.state()
+    assert state["frameworks"]["counts"]["attack"] == {"proposed": 1}
+    assert "mappings" not in state["frameworks"]
+    shown = service.execute_command("framework show attack")
+    assert shown["data"]["mappings"][0]["content_id"] == "T1003"
 
 
 def test_workspace_commands_create_export_merge_and_confirm_delete(tmp_path):

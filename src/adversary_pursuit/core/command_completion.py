@@ -146,7 +146,23 @@ def command_completions(
             "likelihood ",
         ]
     elif command == "framework":
-        choices = ["list", "show attack ", "show kill_chain ", "show diamond "]
+        choices = [
+            "list",
+            "list attack",
+            "list kill_chain",
+            "list diamond",
+            "manifest",
+            "show attack",
+            "show kill_chain",
+            "show diamond",
+            "map attack ",
+            "map kill_chain ",
+            "map diamond ",
+            "accept ",
+            "reject ",
+            "revoke ",
+            "navigator",
+        ]
     elif command == "autopivot":
         choices = ["on", "off"]
     elif command == "workspace":

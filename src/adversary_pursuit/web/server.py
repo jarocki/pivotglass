@@ -44,6 +44,13 @@ from adversary_pursuit.core.analytic_rigor import build_analytic_rigor
 from adversary_pursuit.core.command_completion import command_completions
 from adversary_pursuit.core.error_interpreter import DEBUG_LOG_PATH
 from adversary_pursuit.core.evidence_detail import evidence_ref, list_evidence, project_evidence
+from adversary_pursuit.core.framework_commands import execute_framework_command
+from adversary_pursuit.core.framework_perspectives import (
+    ATTACK_ENTERPRISE_V19_2,
+    DIAMOND_VERSION,
+    KILL_CHAIN_VERSION,
+)
+from adversary_pursuit.core.framework_projections import FrameworkProjectionAuthority
 from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
 from adversary_pursuit.core.information_requirements import build_information_requirements
 from adversary_pursuit.core.investigation import (
@@ -236,6 +243,11 @@ class WebCockpitService:
         analysis = AnalyticLedger(self.ctx.workspace_mgr).snapshot()
         analysis["information_requirements"] = build_information_requirements(analysis)
         analysis["rigor"] = build_analytic_rigor(analysis)
+        framework_mappings = FrameworkProjectionAuthority(self.ctx.workspace_mgr).list()
+        framework_counts: dict[str, dict[str, int]] = {}
+        for mapping in framework_mappings:
+            states = framework_counts.setdefault(mapping.framework.value, {})
+            states[mapping.state.value] = states.get(mapping.state.value, 0) + 1
         return {
             "workspace": self.ctx.workspace_mgr.active,
             "stats": self.ctx.workspace_mgr.get_workspace_stats(),
@@ -246,6 +258,19 @@ class WebCockpitService:
             "dossier_slots": dossier_slots,
             "visualizations": [intent.model_dump(mode="json") for intent in visualizations],
             "analysis": analysis,
+            "frameworks": {
+                "versions": {
+                    "attack": ATTACK_ENTERPRISE_V19_2.version,
+                    "kill_chain": KILL_CHAIN_VERSION,
+                    "diamond": DIAMOND_VERSION,
+                },
+                "counts": framework_counts,
+                "principles": {
+                    "attack": "Version-pinned ATT&CK technique perspective.",
+                    "kill_chain": "Non-linear phase perspective; sequence requires evidence.",
+                    "diamond": "Unknown core vertices stay explicitly unknown.",
+                },
+            },
             "challenges": challenges,
             "badges": badges,
             "badge_summary": {
@@ -329,6 +354,14 @@ class WebCockpitService:
             {
                 "command": "analysis priorities",
                 "purpose": "Rank recorded intelligence requirements and show method-derived next-information suggestions",
+            },
+            {
+                "command": "framework show <attack|kill_chain|diamond>",
+                "purpose": "View versioned, evidence-backed framework mappings and gaps",
+            },
+            {
+                "command": "framework manifest|navigator",
+                "purpose": "Inspect the pinned ATT&CK content or export a Navigator layer",
             },
             {
                 "command": "analysis question <text>",
@@ -588,6 +621,16 @@ class WebCockpitService:
             }
         if command == "analysis":
             result = execute_analysis_command(tuple(rest.split()), self.ctx.workspace_mgr)
+            return {"kind": "json", **result, "state": self.state()}
+        if command == "framework":
+            result = execute_framework_command(tuple(rest.split()), self.ctx.workspace_mgr)
+            if "filename" in result:
+                return {
+                    "kind": "download",
+                    "filename": result["filename"],
+                    "mime": result["mime"],
+                    "content": json.dumps(result["data"], indent=2, default=str),
+                }
             return {"kind": "json", **result, "state": self.state()}
         if command == "export":
             return self.export_payload(rest or "stix")
