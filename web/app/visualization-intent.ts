@@ -54,6 +54,8 @@ export type VisualizationIntent = {
     explanation: string;
     omitted_count: number;
   };
+  selection_rationale: string;
+  chart_properties: Record<string, number | string | boolean>;
   caveats: string[];
   export_filename: string;
 };
@@ -82,6 +84,28 @@ const REQUIRED_FIELDS: Partial<Record<VisualizationView, string[]>> = {
   scatter: ["x", "y"],
 };
 
+function validateChartProperties(
+  view: VisualizationView,
+  chartProperties: Record<string, number | string | boolean>,
+): void {
+  const propertyKeys = Object.keys(chartProperties);
+  if (propertyKeys.some((key) => key !== "binCount")) {
+    throw new Error("Visualization contains a chart property outside the allow-list");
+  }
+  if ("binCount" in chartProperties) {
+    const binCount = chartProperties.binCount;
+    if (
+      view !== "histogram"
+      || typeof binCount !== "number"
+      || !Number.isInteger(binCount)
+      || binCount < 5
+      || binCount > 50
+    ) {
+      throw new Error("Histogram bin count must be an integer from 5 to 50");
+    }
+  }
+}
+
 export function validateVisualizationIntent(intent: VisualizationIntent): void {
   if (intent.schema_version !== "1.0") {
     throw new Error(`Unsupported visualization schema ${String(intent.schema_version)}`);
@@ -89,6 +113,10 @@ export function validateVisualizationIntent(intent: VisualizationIntent): void {
   if (intent.data.rows.length + intent.data.nodes.length + intent.data.edges.length > 5_000) {
     throw new Error("Visualization exceeds the local rendering limit");
   }
+  if (!intent.selection_rationale.trim()) {
+    throw new Error("Visualization is missing its selection rationale");
+  }
+  validateChartProperties(intent.view, intent.chart_properties);
   if (intent.renderer === "flint_chartjs") {
     const chartType = FLINT_CHART_TYPES[intent.view];
     if (!chartType) throw new Error(`View ${intent.view} is not allowed for Flint/Chart.js`);
@@ -110,8 +138,10 @@ export function plottedRows(intent: VisualizationIntent): VisualizationRow[] {
 export function compileFlintChartjs(
   intent: VisualizationIntent,
   size: { width: number; height: number },
+  chartProperties: Record<string, number | string | boolean> = intent.chart_properties,
 ): ReturnType<typeof assembleChartjs> {
   validateVisualizationIntent(intent);
+  validateChartProperties(intent.view, chartProperties);
   if (intent.renderer !== "flint_chartjs") {
     throw new Error(`View ${intent.view} does not use the Flint/Chart.js renderer`);
   }
@@ -144,17 +174,19 @@ export function compileFlintChartjs(
         width: Math.max(320, Math.min(1_200, Math.round(size.width))),
         height: Math.max(240, Math.min(640, Math.round(size.height))),
       },
+      chartProperties,
     },
     options: { addTooltips: true },
   });
 }
 
 function csvCell(value: unknown): string {
-  const text = value === null || value === undefined
+  const raw = value === null || value === undefined
     ? ""
     : typeof value === "object"
       ? JSON.stringify(value)
       : String(value);
+  const text = /^[=+\-@]/.test(raw.trimStart()) ? `'${raw}` : raw;
   return `"${text.replaceAll('"', '""')}"`;
 }
 

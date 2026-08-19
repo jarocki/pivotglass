@@ -20,6 +20,7 @@ TOP_LEVEL_COMMANDS: tuple[str, ...] = (
     "export",
     "report",
     "analysis",
+    "framework",
     "help",
     "model",
     "config",
@@ -144,6 +145,30 @@ def command_completions(
             "confidence ",
             "likelihood ",
         ]
+    elif command == "framework":
+        choices = [
+            "list",
+            "list attack",
+            "list kill_chain",
+            "list diamond",
+            "manifest",
+            "show attack",
+            "show kill_chain",
+            "show diamond",
+            "map attack ",
+            "map kill_chain ",
+            "map diamond ",
+            "require attack ",
+            "require kill_chain ",
+            "require diamond ",
+            "gaps",
+            "accept ",
+            "reject ",
+            "revoke ",
+            "navigator",
+        ]
+    elif command == "graph":
+        choices = ["layers"]
     elif command == "autopivot":
         choices = ["on", "off"]
     elif command == "workspace":

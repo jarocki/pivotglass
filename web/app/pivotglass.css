@@ -413,7 +413,9 @@ pre{font-size:12px;line-height:1.5}
 .visualization-header span{color:var(--accent);font-weight:800;letter-spacing:.12em}
 .visualization-header h3{margin:0;color:var(--ink);font-size:13px;line-height:1.35}
 .visualization-header small{color:var(--dim);line-height:1.4}
-.flint-canvas{position:relative;min-height:280px;height:320px}
+.visualization-rationale{max-width:78ch}.visualization-rationale b{color:var(--heading);letter-spacing:.08em}
+.histogram-bins{display:flex;align-items:center;justify-content:flex-end;gap:8px;color:var(--dim);font-size:11px;font-weight:800;letter-spacing:.08em}.histogram-bins input{width:min(220px,45vw);accent-color:var(--accent)}.histogram-bins output{min-width:2ch;color:var(--heading)}
+.flint-canvas{position:relative;display:grid;grid-template-rows:auto minmax(0,1fr);min-height:280px;height:320px}
 .flint-canvas canvas{width:100%!important;height:100%!important;max-height:none;padding:0}
 .visualization-empty,.visualization-error{display:grid;place-items:center;gap:6px;min-height:180px;padding:16px;text-align:center;border:1px dashed color-mix(in srgb,var(--line) 46%,transparent);color:var(--dim)}
 .visualization-empty b{color:var(--heading);letter-spacing:.12em}
@@ -665,6 +667,8 @@ main.max-artifact-field #artifact-field .artifact-list{display:none}
   .right-stack{display:none}
   .right-stack.inspector-open{display:grid;grid-template-rows:auto}
   .right-stack.inspector-open>.chart-panel,.right-stack.inspector-open>.activity-panel,.right-stack.inspector-open>.alert-panel{display:none}
+  .right-stack.inspector-open.active-artifact-field>.instruments{display:none}
+  .right-stack.inspector-open.active-artifact-field>.chart-panel{display:block}
 }
 
 @media(max-width:650px){
@@ -873,3 +877,14 @@ main{padding:10px}
 .jack-controls{grid-template-columns:repeat(5,1fr)}
 .jack-controls button{min-width:0;padding-inline:4px}
 }
+
+/* Framework lenses expose only aggregate state during polling. Evidence refs,
+   mapping rationale, and confidence remain behind an explicit command. */
+.framework-lenses{border:1px solid color-mix(in srgb,var(--accent) 36%,transparent);border-radius:10px;background:var(--surface)}
+.framework-lenses>summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px;color:var(--heading);cursor:pointer}
+.framework-lenses>summary>span{display:grid;gap:3px}.framework-lenses>summary b{font-size:10px;letter-spacing:.08em}.framework-lenses>summary small,.framework-lenses>summary i{color:var(--dim);font-size:8px;font-style:normal}
+.framework-truth-label{margin:0;padding:0 11px 10px;color:var(--dim);font-size:8px;line-height:1.45}
+.framework-lens-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:0 9px 9px}.framework-lens-grid>section{display:grid;align-content:start;gap:7px;min-width:0;padding:9px;border:1px solid color-mix(in srgb,var(--line) 25%,transparent);border-radius:7px;background:var(--control)}
+.framework-lens-grid header{display:grid;gap:4px}.framework-lens-grid header>div{display:flex;justify-content:space-between;gap:8px}.framework-lens-grid header b{color:var(--heading);font-size:9px}.framework-lens-grid header small,.framework-lens-grid header span{color:var(--dim);font-size:7px}.framework-lens-grid p{margin:0;color:var(--dim);font-size:8px;line-height:1.45}
+.framework-lens-grid button,.framework-lenses>footer button{border:1px solid color-mix(in srgb,var(--line) 45%,transparent);border-radius:5px;background:var(--surface);color:var(--heading);font-size:7px;cursor:pointer}.framework-lens-grid button{justify-self:start;padding:6px 8px}.framework-lenses>footer{display:flex;flex-wrap:wrap;gap:6px;padding:0 9px 9px}.framework-lenses>footer button{padding:5px 7px}
+@media(max-width:650px){.framework-lenses>summary{display:grid}.framework-lens-grid{grid-template-columns:1fr}}

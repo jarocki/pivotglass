@@ -375,6 +375,16 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `analysis confidence <kind> <id> <level> <rationale> \| <factor-json>` | Record Low, Moderate, or High confidence with explicit source quality, independence, corroboration, assumptions, gaps, and rigor |
 | `analysis likelihood <kind> <id> <term> <rationale>` | Record probability language separately from confidence |
 | `analysis contradiction … \| <resolution requirement>` | Preserve a conflict and the evidence needed to resolve it |
+| `framework manifest` | Show pinned ATT&CK source, digest, local path, and the Kill Chain/Diamond versions |
+| `framework list [framework]` | Inspect current framework mappings and their provenance |
+| `framework show <framework> [content-version]` | View one pinned framework lens; omitted versions use the project default |
+| `framework map … \| …` | Propose a human-authored mapping backed by one or more immutable observation IDs |
+| `framework require … \| …` | Record an unsupported framework item as a scored intelligence requirement; this does not assert that the behavior occurred |
+| `framework gaps` | List framework-linked intelligence requirements |
+| `framework accept\|reject <mapping-id> \| <review note>` | Record the analyst's disposition and rationale |
+| `framework revoke <mapping-id> \| <reason>` | Revoke a mapping without deleting its history |
+| `framework navigator` | Verify local ATT&CK 19.2 content and download the exact plotted Navigator layer |
+| `graph layers` | Inspect the combined entity and epistemic graph, including edge provenance and truth type |
 | `analysis method start\|complete\|accept\|reject\|revise …` | Run and disposition a versioned Structured Analytic Technique |
 | `note <text>` | Add an analyst note |
 | `report` / `report generate` | Build the current Dossier report |
@@ -392,8 +402,27 @@ Tab completes commands and relevant arguments. In Pivotglass, arrow keys move
 through suggestions and Enter accepts one. A `?` typed inside an editable field
 remains text; outside an editable field it opens Help.
 
+See [Investigation graph](GRAPH_WORKSPACE.md) for the entity/epistemic layer
+contract and the distinction between observed relationships and derived
+navigation pivots. See [Framework projections](FRAMEWORK_PROJECTIONS.md) for
+the mapping and content-verification contract.
+
 The TUI-only `theme light|dark|high` command changes the current terminal
 palette. Use DECK controls for Day, Night, and contrast in Pivotglass.
+
+### Why Pivotglass chose a visualization
+
+Each Visual Analysis view names the analyst question, source scope, record
+count, missing-data behavior, and the deterministic reason the chart or matrix
+was selected. The connection-count histogram is derived only from graph edges
+already admitted by the relationship authority. Its **Bins** control changes
+the Flint rendering, not the underlying data. Zero-degree entities remain in
+the exact-data table, and connection count is not importance, maliciousness,
+or analytic confidence.
+
+CSV downloads neutralize leading spreadsheet-formula characters. JSON graph
+downloads preserve the exact node and edge structures shown by the current
+visualization.
 
 ### Pursuit-specific challenges and badges
 

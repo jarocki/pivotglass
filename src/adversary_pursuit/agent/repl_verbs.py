@@ -69,6 +69,7 @@ _FREE_ARG_VERBS: frozenset[str] = frozenset(
         "config",
         "theme",
         "analysis",
+        "framework",
     }
 )
 
@@ -305,6 +306,16 @@ def dispatch_repl_verb(
         return ""
 
     # --- restored deterministic analyst commands ---
+    if name == "graph" and verb.args:
+        if _workspace_mgr is None:
+            return "Workspace unavailable."
+        if tuple(arg.casefold() for arg in verb.args) != ("layers",):
+            return "Usage: graph [layers]"
+        from adversary_pursuit.core.investigation_graph import build_investigation_graph
+
+        projection = build_investigation_graph(_workspace_mgr)
+        return json.dumps(projection.model_dump(mode="json"), indent=2, default=str)
+
     if name in {"search", "graph", "dossier", "gaps", "report", "hint", "challenges"}:
         if ctx is None:
             return "Command context unavailable."
@@ -359,6 +370,14 @@ def dispatch_repl_verb(
         from adversary_pursuit.core.analytic_commands import execute_analysis_command
 
         result = execute_analysis_command(verb.args, _workspace_mgr)
+        return f"{result['title']}\n{json.dumps(result['data'], indent=2, default=str)}"
+
+    if name == "framework":
+        if _workspace_mgr is None:
+            return "Workspace unavailable."
+        from adversary_pursuit.core.framework_commands import execute_framework_command
+
+        result = execute_framework_command(verb.args, _workspace_mgr)
         return f"{result['title']}\n{json.dumps(result['data'], indent=2, default=str)}"
 
     if name == "theme":

@@ -36,6 +36,7 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
         "when_was_activity_concentrated",
         "how_complete_is_this_dossier",
         "how_complete_are_indicator_investigations",
+        "how_are_values_distributed",
         "which_evidence_types_are_stored",
         "which_entities_relate",
         "which_indicator_enrichment_work_is_pending",
@@ -106,12 +107,16 @@ def test_configuration_payload_is_masked(tmp_path):
 
     assert "never-return-this" not in repr(payload)
     assert "also-never-return-this" not in repr(payload)
-    assert next(
-        item for item in payload["providers"] if item["id"] == "openai"
-    )["credential_source"] == "config"
-    assert next(
-        item for item in payload["services"] if item["id"] == "virustotal"
-    )["credential_source"] == "config"
+    assert (
+        next(item for item in payload["providers"] if item["id"] == "openai")["credential_source"]
+        == "config"
+    )
+    assert (
+        next(item for item in payload["services"] if item["id"] == "virustotal")[
+            "credential_source"
+        ]
+        == "config"
+    )
 
 
 def test_configuration_update_enables_and_disables_without_deleting_key(tmp_path):
@@ -127,9 +132,7 @@ def test_configuration_update_enables_and_disables_without_deleting_key(tmp_path
     assert service.config_mgr.get_api_key("virustotal") == "stored-key"
 
 
-def test_model_catalog_returns_live_models_with_capability_caveats(
-    tmp_path, monkeypatch
-):
+def test_model_catalog_returns_live_models_with_capability_caveats(tmp_path, monkeypatch):
     service = _service(tmp_path)
     monkeypatch.setattr(
         "adversary_pursuit.agent.model_control.list_models",
@@ -297,8 +300,7 @@ def test_web_activity_turns_tool_failure_receipt_into_sanitized_event(tmp_path):
         }
     }
     receipt = (
-        "[USER_SAW_PANEL] [API key] Configure the source credential, then retry. "
-        "(diag cafe1234)"
+        "[USER_SAW_PANEL] [API key] Configure the source credential, then retry. (diag cafe1234)"
     )
     with patch("adversary_pursuit.web.server.execute_tool", return_value=(receipt, None, [], [])):
         service._run_investigation(
@@ -314,9 +316,7 @@ def test_web_activity_turns_tool_failure_receipt_into_sanitized_event(tmp_path):
     assert fault["diagnostic_category"] == "API key"
     assert fault["next_action"] == "Configure the source credential, then retry."
     assert fault["reason"] == "API key failure"
-    assert activity["registry"]["authorities"][0]["authority"] == (
-        "Pivotglass workspace database"
-    )
+    assert activity["registry"]["authorities"][0]["authority"] == ("Pivotglass workspace database")
 
 
 def test_diagnostic_detail_reads_only_sanitized_fields_from_fixed_log(tmp_path):
@@ -382,6 +382,12 @@ def test_web_command_router_accepts_iocs_commands_and_workspace_queries(tmp_path
         "timeline",
         "export <json|csv|stix|gexf>",
     }
+    assert any(item["command"].startswith("framework show") for item in help_result["commands"])
+    assert any(
+        item["command"].startswith("framework require")
+        for item in help_result["commands"]
+    )
+    assert any(item["command"] == "framework gaps" for item in help_result["commands"])
 
 
 def test_web_command_router_saves_linkable_notes_and_exports_csv(tmp_path):
@@ -399,6 +405,64 @@ def test_web_command_router_saves_linkable_notes_and_exports_csv(tmp_path):
     assert exported["kind"] == "download"
     assert exported["mime"] == "text/csv"
     assert "suspect.test" in exported["content"]
+
+
+def test_web_framework_lens_polls_counts_and_requires_explicit_detail(tmp_path):
+    service = _service(tmp_path)
+    service.ctx.workspace_mgr.store_stix_objects(
+        [{"type": "domain-name", "value": "framework.test"}],
+        module_name="osint/test",
+        target="framework.test",
+    )
+    observation_id = service.ctx.workspace_mgr.get_observations()[0]["id"]
+    proposed = service.execute_command(
+        f"framework map attack 19.2 T1003 {observation_id} | OS Credential Dumping | "
+        "Source-backed behavior. | moderate | One source; corroboration remains open."
+    )
+
+    assert proposed["kind"] == "json"
+    assert proposed["data"]["evidence_refs"] == [observation_id]
+    state = service.state()
+    assert state["frameworks"]["counts"]["attack"] == {"proposed": 1}
+    assert "mappings" not in state["frameworks"]
+    shown = service.execute_command("framework show attack")
+    assert shown["data"]["mappings"][0]["content_id"] == "T1003"
+
+
+def test_web_records_framework_gap_through_shared_requirement_authority(tmp_path):
+    service = _service(tmp_path)
+    result = service.execute_command(
+        "framework require attack 19.2 T1059 | Command and Scripting Interpreter | "
+        "Collect evidence relevant to command execution. | "
+        '{"decision_impact":4,"discriminating_power":3,'
+        '"time_sensitivity":2,"feasibility":3}'
+    )
+    priorities = service.execute_command("analysis priorities")
+    gaps = service.execute_command("framework gaps")
+
+    assert result["kind"] == "json"
+    assert result["data"]["created"] is True
+    assert priorities["data"]["requirements"][0]["id"] == result["data"]["item_id"]
+    assert (
+        priorities["data"]["requirements"][0]["criteria"]["addresses"][0]["id"]
+        == "attack:19.2:T1059"
+    )
+    assert gaps["data"]["requirements"][0]["record_kind"] == "framework_gap"
+
+
+def test_web_exposes_two_layer_graph_only_on_explicit_command(tmp_path):
+    service = _service(tmp_path)
+    service.ctx.workspace_mgr.store_stix_objects(
+        [{"type": "domain-name", "value": "layers.test"}],
+        module_name="osint/test",
+        target="layers.test",
+    )
+
+    result = service.execute_command("graph layers")
+    assert result["kind"] == "json"
+    assert result["data"]["schema_version"] == "investigation-graph-1.0"
+    assert result["data"]["counts"]["nodes"] == {"entity": 1, "epistemic": 1}
+    assert all(edge["provenance_refs"] for edge in result["data"]["edges"])
 
 
 def test_workspace_commands_create_export_merge_and_confirm_delete(tmp_path):

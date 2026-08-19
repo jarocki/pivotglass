@@ -44,6 +44,13 @@ from adversary_pursuit.core.analytic_rigor import build_analytic_rigor
 from adversary_pursuit.core.command_completion import command_completions
 from adversary_pursuit.core.error_interpreter import DEBUG_LOG_PATH
 from adversary_pursuit.core.evidence_detail import evidence_ref, list_evidence, project_evidence
+from adversary_pursuit.core.framework_commands import execute_framework_command
+from adversary_pursuit.core.framework_perspectives import (
+    ATTACK_ENTERPRISE_V19_2,
+    DIAMOND_VERSION,
+    KILL_CHAIN_VERSION,
+)
+from adversary_pursuit.core.framework_projections import FrameworkProjectionAuthority
 from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
 from adversary_pursuit.core.information_requirements import build_information_requirements
 from adversary_pursuit.core.investigation import (
@@ -53,6 +60,7 @@ from adversary_pursuit.core.investigation import (
     LifecycleState,
     utc_now,
 )
+from adversary_pursuit.core.investigation_graph import build_investigation_graph
 from adversary_pursuit.core.ioc_types import detect_ioc_type
 from adversary_pursuit.core.operational_status import build_authority_registry
 from adversary_pursuit.core.visualization import build_visualization_intents
@@ -236,6 +244,11 @@ class WebCockpitService:
         analysis = AnalyticLedger(self.ctx.workspace_mgr).snapshot()
         analysis["information_requirements"] = build_information_requirements(analysis)
         analysis["rigor"] = build_analytic_rigor(analysis)
+        framework_mappings = FrameworkProjectionAuthority(self.ctx.workspace_mgr).list()
+        framework_counts: dict[str, dict[str, int]] = {}
+        for mapping in framework_mappings:
+            states = framework_counts.setdefault(mapping.framework.value, {})
+            states[mapping.state.value] = states.get(mapping.state.value, 0) + 1
         return {
             "workspace": self.ctx.workspace_mgr.active,
             "stats": self.ctx.workspace_mgr.get_workspace_stats(),
@@ -246,6 +259,19 @@ class WebCockpitService:
             "dossier_slots": dossier_slots,
             "visualizations": [intent.model_dump(mode="json") for intent in visualizations],
             "analysis": analysis,
+            "frameworks": {
+                "versions": {
+                    "attack": ATTACK_ENTERPRISE_V19_2.version,
+                    "kill_chain": KILL_CHAIN_VERSION,
+                    "diamond": DIAMOND_VERSION,
+                },
+                "counts": framework_counts,
+                "principles": {
+                    "attack": "Version-pinned ATT&CK technique perspective.",
+                    "kill_chain": "Non-linear phase perspective; sequence requires evidence.",
+                    "diamond": "Unknown core vertices stay explicitly unknown.",
+                },
+            },
             "challenges": challenges,
             "badges": badges,
             "badge_summary": {
@@ -310,6 +336,10 @@ class WebCockpitService:
                 "purpose": "Delete an inactive workspace after explicit confirmation",
             },
             {"command": "graph", "purpose": "Render the relationship graph"},
+            {
+                "command": "graph layers",
+                "purpose": "Inspect entity and epistemic nodes with provenance-bearing edges",
+            },
             {"command": "dossier", "purpose": "Show dossier details and intelligence gaps"},
             {"command": "timeline", "purpose": "Show the ordered collection timeline"},
             {"command": "note <text>", "purpose": "Save an analyst annotation"},
@@ -329,6 +359,22 @@ class WebCockpitService:
             {
                 "command": "analysis priorities",
                 "purpose": "Rank recorded intelligence requirements and show method-derived next-information suggestions",
+            },
+            {
+                "command": "framework show <attack|kill_chain|diamond>",
+                "purpose": "View versioned, evidence-backed framework mappings and gaps",
+            },
+            {
+                "command": "framework manifest|navigator",
+                "purpose": "Inspect the pinned ATT&CK content or export a Navigator layer",
+            },
+            {
+                "command": "framework require <framework> <version> <content-id> | <label> | <requirement> | <factor-json>",
+                "purpose": "Record an unsupported framework item as a scored intelligence requirement",
+            },
+            {
+                "command": "framework gaps",
+                "purpose": "List framework-linked intelligence requirements",
             },
             {
                 "command": "analysis question <text>",
@@ -558,6 +604,16 @@ class WebCockpitService:
                 "data": self.ctx.workspace_mgr.get_awarded_badges(),
             }
         if command == "graph":
+            if rest:
+                if rest.casefold() != "layers":
+                    raise ValueError("usage: graph [layers]")
+                return {
+                    "kind": "json",
+                    "title": "Entity and epistemic graph",
+                    "data": build_investigation_graph(
+                        self.ctx.workspace_mgr
+                    ).model_dump(mode="json"),
+                }
             graph = RelationshipGraph()
             graph.build_from_workspace(
                 self.ctx.workspace_mgr.get_stix_objects(),
@@ -588,6 +644,16 @@ class WebCockpitService:
             }
         if command == "analysis":
             result = execute_analysis_command(tuple(rest.split()), self.ctx.workspace_mgr)
+            return {"kind": "json", **result, "state": self.state()}
+        if command == "framework":
+            result = execute_framework_command(tuple(rest.split()), self.ctx.workspace_mgr)
+            if "filename" in result:
+                return {
+                    "kind": "download",
+                    "filename": result["filename"],
+                    "mime": result["mime"],
+                    "content": json.dumps(result["data"], indent=2, default=str),
+                }
             return {"kind": "json", **result, "state": self.state()}
         if command == "export":
             return self.export_payload(rest or "stix")

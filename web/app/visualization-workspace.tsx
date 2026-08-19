@@ -50,7 +50,14 @@ function FlintCanvas({
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState("");
+  const [binCount, setBinCount] = useState(
+    Number(intent.chart_properties.binCount ?? 10),
+  );
   const rows = plottedRows(intent);
+
+  useEffect(() => {
+    setBinCount(Number(intent.chart_properties.binCount ?? 10));
+  }, [intent.chart_properties.binCount, intent.intent_id]);
 
   useEffect(() => {
     if (!canvas.current || rows.length === 0) return;
@@ -58,7 +65,11 @@ function FlintCanvas({
     try {
       setError("");
       const width = canvas.current.parentElement?.clientWidth ?? 620;
-      const config = compileFlintChartjs(intent, { width, height: 320 });
+      const config = compileFlintChartjs(
+        intent,
+        { width, height: 320 },
+        intent.view === "histogram" ? { binCount } : intent.chart_properties,
+      );
       const themed = config as typeof config & {
         options?: Record<string, unknown>;
         data: { datasets?: Array<Record<string, unknown>> };
@@ -93,6 +104,7 @@ function FlintCanvas({
     return () => chart?.destroy();
   }, [
     intent,
+    binCount,
     rows.length,
     theme.accent_color,
     theme.border_color,
@@ -105,6 +117,21 @@ function FlintCanvas({
   if (rows.length === 0) return <VisualizationEmpty intent={intent} />;
   return (
     <div className="flint-canvas">
+      {intent.view === "histogram" && (
+        <label className="histogram-bins">
+          <span>BINS</span>
+          <input
+            aria-label="Histogram bin count"
+            type="range"
+            min="5"
+            max="50"
+            step="1"
+            value={binCount}
+            onInput={(event) => setBinCount(Number(event.currentTarget.value))}
+          />
+          <output>{binCount}</output>
+        </label>
+      )}
       <canvas
         ref={canvas}
         role="img"
@@ -1036,6 +1063,9 @@ export function VisualizationWorkspace({
           <small>
             {selected.source_scope.description} · {selected.source_scope.record_count} records
             {selected.source_scope.timezone ? ` · ${selected.source_scope.timezone}` : ""}
+          </small>
+          <small className="visualization-rationale">
+            <b>WHY THIS VIEW</b> {selected.selection_rationale}
           </small>
         </div>
         <button onClick={() => downloadIntent(selected)}>EXPORT EXACT DATA</button>

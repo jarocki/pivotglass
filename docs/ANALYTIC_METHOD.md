@@ -58,6 +58,14 @@ analysis contradiction assertion <left-id> assertion <right-id> The tenancy judg
 analysis resolve <contradiction-id> Provider records confirm shared tenancy.
 ```
 
+Framework gaps use the same collection-requirement authority. For example,
+`framework require attack 19.2 T1059 | Command and Scripting Interpreter |
+Collect and disposition evidence relevant to command execution. |
+{"decision_impact":4,"discriminating_power":3,"time_sensitivity":2,"feasibility":3}`
+records planning work linked to the pinned ATT&CK item. It does not record the
+behavior as observed. Use `framework gaps` to list these requirements and
+`analysis priorities` to rank them.
+
 New hypotheses begin as `proposed`. Only an explicit human command can retain,
 reject, or suspend one. A model may propose structured work, but it cannot
 disposition it.

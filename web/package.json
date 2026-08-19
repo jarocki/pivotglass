@@ -8,6 +8,7 @@
     "lint": "tsc --noEmit",
     "test:advisor": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/test-advisor-idle.test.ts",
     "test:arcade": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/test-arcade-engine.test.ts",
+    "test:visualization": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/test-visualization-intent.test.ts",
     "verify:supply-chain": "npm audit signatures"
   },
   "dependencies": {

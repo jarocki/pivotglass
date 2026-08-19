@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Began the v0.9 framework projection authority with schema v5 mappings for
+  ATT&CK, Cyber Kill Chain, and Diamond Model views. Mappings retain pinned
+  content versions, evidence references, mapper provenance, confidence
+  rationale, analyst disposition, and explicit gaps.
+- Added a digest- and version-verified Enterprise ATT&CK 19.2 STIX adapter,
+  Navigator 4.5 export, explicit non-linear Kill Chain transitions, and Diamond
+  events that preserve unknown core vertices and provisional state.
+- Added shared TUI/Pivotglass framework commands for human mapping, review,
+  revocation, content-manifest inspection, and Navigator export. Mapping
+  proposals now fail when an observation reference is not present in the
+  workspace.
+- Added a collapsed Framework Perspectives lens to Pivotglass. Background
+  state contains only versions and disposition counts; evidence references and
+  analytical rationale require an explicit command.
+- Began the W-090-03 two-layer graph with a read-only
+  `investigation-graph-1.0` projection. Entity, epistemic, and bridge edges all
+  retain provenance; conservative property pivots remain labeled as derived
+  navigation rather than observed relationships. Use `graph layers` in either
+  interface to inspect the current projection.
+
 ## [0.8.5] — 2026-08-07
 
 ### Changed
