@@ -380,6 +380,72 @@ class AnalyticLedger:
             session.commit()
             return str(row.id)
 
+    def create_framework_gap_requirement(
+        self,
+        *,
+        framework: str,
+        framework_version: str,
+        content_id: str,
+        statement: str,
+        criteria: dict[str, Any],
+        investigation_id: str | None = None,
+    ) -> tuple[dict[str, Any], bool]:
+        """Persist one explicit framework gap as an information requirement.
+
+        The framework reference is planning provenance, not evidence. Repeating
+        the same command returns the existing lifecycle item so UI retries do
+        not create duplicate requirements.
+        """
+
+        framework_ref = ":".join(
+            (
+                _required(framework, "framework"),
+                _required(framework_version, "framework version"),
+                _required(content_id, "framework content ID"),
+            )
+        )
+        from adversary_pursuit.core.information_requirements import (
+            validate_requirement_criteria,
+        )
+
+        validated_criteria = validate_requirement_criteria(criteria)
+        with self._workspace.get_session() as session:
+            investigation = self._ensure_investigation(session, investigation_id)
+            existing = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.investigation_id == investigation.id,
+                    AnalyticLifecycleItem.item_type
+                    == LifecycleItemType.COLLECTION_REQUIREMENT.value,
+                    AnalyticLifecycleItem.record_kind == "framework_gap",
+                    AnalyticLifecycleItem.record_id == framework_ref,
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                return _row_dict(existing), False
+            row = self._link_lifecycle_item(
+                session,
+                investigation=investigation,
+                item_type=LifecycleItemType.COLLECTION_REQUIREMENT,
+                record_kind="framework_gap",
+                record_id=framework_ref,
+                statement=_required(statement, "framework intelligence requirement"),
+                criteria=validated_criteria,
+                author_kind=AuthorKind.HUMAN,
+            )
+            session.commit()
+            return _row_dict(row), True
+
+    def framework_gap_requirements(self) -> list[dict[str, Any]]:
+        """Return recorded framework-gap requirements from the active workspace."""
+
+        with self._workspace.get_session() as session:
+            rows = session.execute(
+                select(AnalyticLifecycleItem)
+                .where(AnalyticLifecycleItem.record_kind == "framework_gap")
+                .order_by(AnalyticLifecycleItem.created_at)
+            ).scalars()
+            return [_row_dict(row) for row in rows]
+
     def link_method_run(
         self,
         question_id: str,

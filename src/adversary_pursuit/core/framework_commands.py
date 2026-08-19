@@ -8,10 +8,11 @@ use the lower-level authority and remain proposed until explicitly reviewed.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
-from adversary_pursuit.core.analytic_ledger import ConfidenceLevel
+from adversary_pursuit.core.analytic_ledger import AnalyticLedger, ConfidenceLevel
 from adversary_pursuit.core.framework_perspectives import (
     ATTACK_ENTERPRISE_V19_2,
     DIAMOND_VERSION,
@@ -27,12 +28,15 @@ from adversary_pursuit.core.framework_projections import (
     MappingOrigin,
     MappingState,
 )
+from adversary_pursuit.core.information_requirements import validate_requirement_criteria
 
 FRAMEWORK_USAGE = (
     "Usage: framework list [attack|kill_chain|diamond]|manifest|"
     "show <attack|kill_chain|diamond> [version]|"
     "map <framework> <version> <content-id> <observation-id[,observation-id...]> "
     "| <label> | <basis> | <low|moderate|high> | <confidence rationale>|"
+    "require <framework> <version> <content-id> | <label> | <requirement> | <factor-json>|"
+    "gaps|"
     "accept|reject <mapping-id> | <review note>|revoke <mapping-id> | <reason>|navigator"
 )
 
@@ -122,6 +126,73 @@ def execute_framework_command(
             "data": mapping.model_dump(mode="json"),
         }
 
+    if action == "require":
+        fields = _pipe_fields(args[1:], expected=4)
+        heading = fields[0].split()
+        if len(heading) != 3:
+            raise ValueError(FRAMEWORK_USAGE)
+        framework, version, content_id = heading
+        framework_value = _framework(framework)
+        accepted = any(
+            mapping.framework_version == version
+            and mapping.content_id == content_id
+            and mapping.state is MappingState.ACCEPTED
+            for mapping in authority.list(framework=framework_value)
+        )
+        if accepted:
+            raise ValueError(
+                f"{content_id} already has an accepted evidence-backed "
+                f"{framework_value.value} mapping; it is not a framework gap."
+            )
+        criteria = validate_requirement_criteria(
+            _json_object(fields[3], "framework requirement factors")
+        )
+        framework_ref = {
+            "kind": "framework_content",
+            "id": f"{framework_value.value}:{version}:{content_id}",
+            "framework": framework_value.value,
+            "version": version,
+            "content_id": content_id,
+            "label": fields[1],
+        }
+        addresses = list(criteria.get("addresses", []))
+        if not any(
+            ref.get("kind") == framework_ref["kind"] and ref.get("id") == framework_ref["id"]
+            for ref in addresses
+        ):
+            addresses.append(framework_ref)
+        criteria["addresses"] = addresses
+        requirement, created = AnalyticLedger(workspace_manager).create_framework_gap_requirement(
+            framework=framework_value.value,
+            framework_version=version,
+            content_id=content_id,
+            statement=fields[2],
+            criteria=criteria,
+        )
+        return {
+            "title": (
+                "Framework intelligence requirement recorded"
+                if created
+                else "Framework intelligence requirement already recorded"
+            ),
+            "data": {
+                "item_id": requirement["id"],
+                "created": created,
+                "framework_gap": framework_ref,
+                "criteria": requirement["criteria"],
+                "content_class": "analyst_collection_requirement",
+            },
+        }
+
+    if action == "gaps" and len(args) == 1:
+        return {
+            "title": "Framework intelligence requirements",
+            "data": {
+                "requirements": AnalyticLedger(workspace_manager).framework_gap_requirements(),
+                "content_class": "analytic_planning",
+            },
+        }
+
     if action in {"accept", "reject"}:
         fields = _pipe_fields(args[1:], expected=2)
         if len(fields[0].split()) != 1:
@@ -194,3 +265,13 @@ def _pipe_fields(args: tuple[str, ...], *, expected: int) -> list[str]:
     if len(fields) != expected or any(not field for field in fields):
         raise ValueError(FRAMEWORK_USAGE)
     return fields
+
+
+def _json_object(value: str, label: str) -> dict[str, Any]:
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{label} must be valid JSON.") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError(f"{label} must be a JSON object.")
+    return parsed

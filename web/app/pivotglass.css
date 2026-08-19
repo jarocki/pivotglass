@@ -413,7 +413,9 @@ pre{font-size:12px;line-height:1.5}
 .visualization-header span{color:var(--accent);font-weight:800;letter-spacing:.12em}
 .visualization-header h3{margin:0;color:var(--ink);font-size:13px;line-height:1.35}
 .visualization-header small{color:var(--dim);line-height:1.4}
-.flint-canvas{position:relative;min-height:280px;height:320px}
+.visualization-rationale{max-width:78ch}.visualization-rationale b{color:var(--heading);letter-spacing:.08em}
+.histogram-bins{display:flex;align-items:center;justify-content:flex-end;gap:8px;color:var(--dim);font-size:11px;font-weight:800;letter-spacing:.08em}.histogram-bins input{width:min(220px,45vw);accent-color:var(--accent)}.histogram-bins output{min-width:2ch;color:var(--heading)}
+.flint-canvas{position:relative;display:grid;grid-template-rows:auto minmax(0,1fr);min-height:280px;height:320px}
 .flint-canvas canvas{width:100%!important;height:100%!important;max-height:none;padding:0}
 .visualization-empty,.visualization-error{display:grid;place-items:center;gap:6px;min-height:180px;padding:16px;text-align:center;border:1px dashed color-mix(in srgb,var(--line) 46%,transparent);color:var(--dim)}
 .visualization-empty b{color:var(--heading);letter-spacing:.12em}
@@ -665,6 +667,8 @@ main.max-artifact-field #artifact-field .artifact-list{display:none}
   .right-stack{display:none}
   .right-stack.inspector-open{display:grid;grid-template-rows:auto}
   .right-stack.inspector-open>.chart-panel,.right-stack.inspector-open>.activity-panel,.right-stack.inspector-open>.alert-panel{display:none}
+  .right-stack.inspector-open.active-artifact-field>.instruments{display:none}
+  .right-stack.inspector-open.active-artifact-field>.chart-panel{display:block}
 }
 
 @media(max-width:650px){

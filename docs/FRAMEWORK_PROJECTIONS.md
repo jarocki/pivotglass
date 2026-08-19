@@ -60,6 +60,8 @@ framework show attack [19.2]
 framework show kill_chain [lockheed-martin-2011]
 framework show diamond [diamond-model-1.0]
 framework map <framework> <version> <content-id> <observation-id[,observation-id...]> | <label> | <basis> | <low|moderate|high> | <confidence rationale>
+framework require <framework> <version> <content-id> | <label> | <requirement> | <factor-json>
+framework gaps
 framework accept <mapping-id> | <review note>
 framework reject <mapping-id> | <review note>
 framework revoke <mapping-id> | <reason>
@@ -71,6 +73,19 @@ navigator` verifies the local ATT&CK bundle, then exports a Navigator 4.5 layer.
 Colors distinguish proposed, accepted, rejected, superseded, and revoked
 mappings. Layer metadata retains the mapping ID, observation IDs, mapper,
 confidence, and content digest.
+
+`framework require` is an explicit analyst action that records an unsupported
+framework item as a priority intelligence requirement. The four-factor JSON is
+the same 0–4 decision-impact, discriminating-power, time-sensitivity, and
+feasibility contract used by `analysis requirement`. Pivotglass refuses this
+command when the same framework version and content item already has an
+accepted evidence-backed mapping. Repeating a requirement is idempotent.
+
+The resulting lifecycle item points to the framework content as an analytic
+planning reference. That reference is not evidence, does not create a graph
+relationship, and does not imply that the framework behavior occurred.
+`framework gaps` lists these recorded requirements; `analysis priorities`
+ranks them with every other collection requirement.
 
 The Pivotglass web cockpit shows a collapsed aggregate lens—versions plus
 accepted/proposed counts—in its normal state. It does not place evidence IDs or
@@ -84,6 +99,5 @@ same backup-first migration process used by v0.8. The new table is additive and
 does not rewrite observations or analytic records. `framework list` exports a
 secret-free envelope with schema version `framework-mappings-1.0`.
 
-The remaining 0.9 work connects explicit framework gaps to the scientific
-investigation's intelligence-requirement lifecycle and adds read-only
-Synapse/SCOT adapters while continuing to use this mapping authority.
+The remaining 0.9 work adds read-only Synapse/SCOT adapters while continuing
+to use this mapping authority.

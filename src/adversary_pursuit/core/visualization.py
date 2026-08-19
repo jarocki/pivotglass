@@ -72,6 +72,7 @@ class VisualizationPolicy(BaseModel):
     view: VisualizationView
     renderer: VisualizationRenderer
     required_roles: tuple[str, ...]
+    selection_reason: str
     guardrail: str
 
 
@@ -81,6 +82,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         view=VisualizationView.CALENDAR_HEATMAP,
         renderer=VisualizationRenderer.NATIVE,
         required_roles=("date", "value"),
+        selection_reason=(
+            "A calendar heatmap makes concentrated activity and days without events visible "
+            "without implying a continuous measurement."
+        ),
         guardrail="Expose timezone and render missing days explicitly.",
     ),
     VisualizationQuestion.DOSSIER_COMPLETENESS: VisualizationPolicy(
@@ -88,6 +93,9 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         view=VisualizationView.RADAR,
         renderer=VisualizationRenderer.FLINT_CHARTJS,
         required_roles=("category", "value"),
+        selection_reason=(
+            "A radar view compares one dossier's bounded facet scores on the same scale."
+        ),
         guardrail="Render one dossier on a common 0-100 scale with an accessible table.",
     ),
     VisualizationQuestion.VALUE_DISTRIBUTION: VisualizationPolicy(
@@ -95,6 +103,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         view=VisualizationView.HISTOGRAM,
         renderer=VisualizationRenderer.FLINT_CHARTJS,
         required_roles=("value",),
+        selection_reason=(
+            "A histogram reveals the shape of one numeric distribution without implying "
+            "time order or relationships between individual records."
+        ),
         guardrail="Show the sample count and expose the selected bin count.",
     ),
     VisualizationQuestion.ENTITY_RELATIONSHIPS: VisualizationPolicy(
@@ -102,6 +114,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         view=VisualizationView.RELATIONSHIP_GRAPH,
         renderer=VisualizationRenderer.NATIVE,
         required_roles=("source", "target", "relationship"),
+        selection_reason=(
+            "A force-directed relationship graph preserves entities as nodes and typed "
+            "relationships as inspectable edges."
+        ),
         guardrail="Never draw an edge without its evidence basis and provenance state.",
     ),
     VisualizationQuestion.HIERARCHY: VisualizationPolicy(
@@ -109,6 +125,9 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         view=VisualizationView.DENDROGRAM,
         renderer=VisualizationRenderer.NATIVE,
         required_roles=("parent", "child"),
+        selection_reason=(
+            "A dendrogram preserves parent-child structure and makes path depth explicit."
+        ),
         guardrail="Preserve path and depth in the visible table.",
     ),
     VisualizationQuestion.NUMERIC_CORRELATION: VisualizationPolicy(
@@ -116,6 +135,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         view=VisualizationView.SCATTER,
         renderer=VisualizationRenderer.FLINT_CHARTJS,
         required_roles=("x", "y"),
+        selection_reason=(
+            "A scatter view exposes every numeric point and shows association or projected "
+            "similarity without asserting a causal relationship."
+        ),
         guardrail="Expose every plotted point and label explained variance for PCA projections.",
     ),
     VisualizationQuestion.INDICATOR_COMPLETENESS: VisualizationPolicy(
@@ -123,6 +146,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         view=VisualizationView.TASK_MATRIX,
         renderer=VisualizationRenderer.NATIVE,
         required_roles=("row", "column", "status"),
+        selection_reason=(
+            "A matrix keeps every indicator aligned to the same investigation dimensions, "
+            "making gaps and uneven coverage directly comparable."
+        ),
         guardrail=(
             "Show all canonical dimensions and distinguish unavailable inference "
             "from observed evidence gaps."
@@ -133,6 +160,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         view=VisualizationView.TASK_MATRIX,
         renderer=VisualizationRenderer.NATIVE,
         required_roles=("row", "column", "status"),
+        selection_reason=(
+            "A matrix preserves one authoritative job state per indicator and enrichment "
+            "source while remaining readable at dense scale."
+        ),
         guardrail="Pair color with text or shape and preserve authoritative lifecycle order.",
     ),
     VisualizationQuestion.METRIC_TREND: VisualizationPolicy(
@@ -140,6 +171,9 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         view=VisualizationView.LINE,
         renderer=VisualizationRenderer.FLINT_CHARTJS,
         required_roles=("time", "value"),
+        selection_reason=(
+            "A line view is appropriate because the metric has an explicit order in time."
+        ),
         guardrail="Do not interpolate missing values or create unreadable multi-series lines.",
     ),
     VisualizationQuestion.EVIDENCE_COMPOSITION: VisualizationPolicy(
@@ -147,6 +181,9 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         view=VisualizationView.BAR,
         renderer=VisualizationRenderer.FLINT_CHARTJS,
         required_roles=("category", "value"),
+        selection_reason=(
+            "A bar view supports direct comparison of discrete evidence-type counts."
+        ),
         guardrail="Count only stored records in the stated workspace scope.",
     ),
 }
@@ -245,6 +282,8 @@ class VisualizationIntent(BaseModel):
     semantic_types: dict[str, str]
     table_columns: tuple[VisualizationTableColumn, ...]
     missing_data: VisualizationMissingData
+    selection_rationale: str = Field(min_length=1)
+    chart_properties: dict[str, int | float | str | bool] = Field(default_factory=dict)
     caveats: tuple[str, ...] = ()
     export_filename: str
 
@@ -281,6 +320,7 @@ def _intent(
     semantic_types: dict[str, str],
     table_columns: tuple[VisualizationTableColumn, ...],
     missing_data: VisualizationMissingData,
+    chart_properties: dict[str, int | float | str | bool] | None = None,
     caveats: tuple[str, ...] = (),
     timezone: str | None = None,
 ) -> VisualizationIntent:
@@ -303,6 +343,8 @@ def _intent(
         semantic_types=semantic_types,
         table_columns=table_columns,
         missing_data=missing_data,
+        selection_rationale=policy.selection_reason,
+        chart_properties=chart_properties or {},
         caveats=(policy.guardrail, *caveats),
         export_filename=f"{workspace}-{intent_id}.csv",
     )
@@ -348,9 +390,7 @@ _DOSSIER_SCORE: dict[str, int | None] = {
 }
 
 
-def dossier_completeness_intent(
-    workspace: str, slots: list[dict[str, Any]]
-) -> VisualizationIntent:
+def dossier_completeness_intent(workspace: str, slots: list[dict[str, Any]]) -> VisualizationIntent:
     """Project categorical dossier states onto an explicitly caveated 0-100 scale."""
 
     omitted = 0
@@ -500,15 +540,9 @@ def indicator_constellation_intent(
             adjacency[source].add(target)
             adjacency[target].add(source)
 
-    objects_by_id = {
-        str(item["id"]): item
-        for item in objects
-        if item.get("id")
-    }
+    objects_by_id = {str(item["id"]): item for item in objects if item.get("id")}
     indicators = [
-        item
-        for item in objects
-        if item.get("id") and _indicator_value(item) != "unavailable"
+        item for item in objects if item.get("id") and _indicator_value(item) != "unavailable"
     ]
     indicators.sort(
         key=lambda item: (
@@ -529,21 +563,15 @@ def indicator_constellation_intent(
         indicator = _indicator_value(item)
         scope_ids = {stix_id, *adjacency.get(stix_id, ())}
         connected_evidence = [
-            objects_by_id[scope_id]
-            for scope_id in sorted(scope_ids)
-            if scope_id in objects_by_id
+            objects_by_id[scope_id] for scope_id in sorted(scope_ids) if scope_id in objects_by_id
         ]
         contribution = infer_dossier_state(connected_evidence)
         statuses = [slot.status.value for slot in contribution.slots.values()]
         assessable_scores = [
-            _DOSSIER_SCORE[status]
-            for status in statuses
-            if _DOSSIER_SCORE.get(status) is not None
+            _DOSSIER_SCORE[status] for status in statuses if _DOSSIER_SCORE.get(status) is not None
         ]
         completeness = (
-            round(sum(assessable_scores) / len(assessable_scores))
-            if assessable_scores
-            else 0
+            round(sum(assessable_scores) / len(assessable_scores)) if assessable_scores else 0
         )
         related_ids = sorted(adjacency.get(stix_id, ()))
         related_labels = sorted(
@@ -567,9 +595,7 @@ def indicator_constellation_intent(
                     "completeness_percent": completeness,
                     "first_seen": _first_seen(item),
                     "last_seen": _last_seen(item),
-                    "related_references": [
-                        evidence_ref(related_id) for related_id in related_ids
-                    ],
+                    "related_references": [evidence_ref(related_id) for related_id in related_ids],
                     "related_to": related_labels,
                 }
             )
@@ -578,9 +604,7 @@ def indicator_constellation_intent(
         intent_id="indicator-constellation",
         title="Investigation constellation",
         question=VisualizationQuestion.INDICATOR_COMPLETENESS,
-        question_text=(
-            "How complete is each investigation dimension for every stored indicator?"
-        ),
+        question_text=("How complete is each investigation dimension for every stored indicator?"),
         workspace=workspace,
         description=(
             "Persistent stored indicators and their direct graph neighborhoods "
@@ -636,9 +660,7 @@ def indicator_constellation_intent(
     )
 
 
-def task_matrix_intent(
-    workspace: str, investigations: list[dict[str, Any]]
-) -> VisualizationIntent:
+def task_matrix_intent(workspace: str, investigations: list[dict[str, Any]]) -> VisualizationIntent:
     """Project one authoritative latest lifecycle into each target/enrichment cell."""
 
     latest: dict[tuple[str, str], dict[str, Any]] = {}
@@ -686,16 +708,13 @@ def task_matrix_intent(
         missing_data=VisualizationMissingData(
             policy="show",
             explanation=(
-                "A blank cell means that enrichment has no authoritative job "
-                "for the indicator."
+                "A blank cell means that enrichment has no authoritative job for the indicator."
             ),
         ),
     )
 
 
-def relationship_graph_intent(
-    workspace: str, graph: dict[str, Any]
-) -> VisualizationIntent:
+def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> VisualizationIntent:
     """Build an indicator-first graph intent from the persisted graph authority."""
 
     nodes = tuple(
@@ -773,6 +792,66 @@ def relationship_graph_intent(
     )
 
 
+def relationship_degree_distribution_intent(
+    workspace: str,
+    graph: dict[str, Any],
+) -> VisualizationIntent:
+    """Show the exact distribution of admitted graph-edge degree by entity."""
+
+    nodes = {str(node["id"]): node for node in graph.get("nodes", ()) if node.get("id")}
+    degree = {node_id: 0 for node_id in nodes}
+    for edge in graph.get("edges", ()):
+        source = str(edge.get("source", ""))
+        target = str(edge.get("target", ""))
+        if source in degree and target in degree:
+            degree[source] += 1
+            degree[target] += 1
+    rows = tuple(
+        {
+            "indicator": _indicator_value(nodes[node_id]),
+            "indicator_type": str(nodes[node_id].get("type", "unknown")),
+            "connection_count": degree[node_id],
+        }
+        for node_id in sorted(
+            nodes,
+            key=lambda item: (_indicator_value(nodes[item]).casefold(), item),
+        )
+    )
+    return _intent(
+        intent_id="relationship-degree-distribution",
+        title="Connection-count distribution",
+        question=VisualizationQuestion.VALUE_DISTRIBUTION,
+        question_text="How are admitted relationship counts distributed across entities?",
+        workspace=workspace,
+        description=(
+            "Degree counts from the current relationship projection; each admitted edge "
+            "contributes once to each endpoint."
+        ),
+        record_count=len(rows),
+        data=VisualizationData(rows=rows),
+        fields={"value": "connection_count"},
+        semantic_types={
+            "indicator": "Name",
+            "indicator_type": "Category",
+            "connection_count": "Count",
+        },
+        table_columns=(
+            VisualizationTableColumn(key="indicator", label="Indicator"),
+            VisualizationTableColumn(key="indicator_type", label="IoC type"),
+            VisualizationTableColumn(key="connection_count", label="Admitted connections"),
+        ),
+        missing_data=VisualizationMissingData(
+            policy="show",
+            explanation="Unconnected entities are retained with a connection count of zero.",
+        ),
+        chart_properties={"binCount": 10},
+        caveats=(
+            "Counts describe admitted graph edges, not actor importance, maliciousness, or "
+            "analytic confidence.",
+        ),
+    )
+
+
 def build_visualization_intents(
     *,
     workspace: str,
@@ -790,4 +869,5 @@ def build_visualization_intents(
         activity_concentration_intent(workspace, investigations),
         task_matrix_intent(workspace, investigations),
         relationship_graph_intent(workspace, graph),
+        relationship_degree_distribution_intent(workspace, graph),
     )

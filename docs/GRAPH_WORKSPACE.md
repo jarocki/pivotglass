@@ -48,3 +48,9 @@ workspace remains open work: saved layouts, pinning, multiselect, annotations,
 manual assertion/link creation, undo/redo, filters, and layered exports must
 write only through their existing authorities. Node position is presentation
 state and must never alter evidence.
+
+The web cockpit does not yet add a separate download of the complete layered
+provenance graph. Remote Pivotglass sessions may be configured without access
+control, so that export must wait for an authenticated or explicitly local-only
+boundary. The existing workspace exports remain available through their
+documented command and data-handling contract.

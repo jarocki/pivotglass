@@ -379,6 +379,8 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `framework list [framework]` | Inspect current framework mappings and their provenance |
 | `framework show <framework> [content-version]` | View one pinned framework lens; omitted versions use the project default |
 | `framework map … \| …` | Propose a human-authored mapping backed by one or more immutable observation IDs |
+| `framework require … \| …` | Record an unsupported framework item as a scored intelligence requirement; this does not assert that the behavior occurred |
+| `framework gaps` | List framework-linked intelligence requirements |
 | `framework accept\|reject <mapping-id> \| <review note>` | Record the analyst's disposition and rationale |
 | `framework revoke <mapping-id> \| <reason>` | Revoke a mapping without deleting its history |
 | `framework navigator` | Verify local ATT&CK 19.2 content and download the exact plotted Navigator layer |
@@ -407,6 +409,20 @@ the mapping and content-verification contract.
 
 The TUI-only `theme light|dark|high` command changes the current terminal
 palette. Use DECK controls for Day, Night, and contrast in Pivotglass.
+
+### Why Pivotglass chose a visualization
+
+Each Visual Analysis view names the analyst question, source scope, record
+count, missing-data behavior, and the deterministic reason the chart or matrix
+was selected. The connection-count histogram is derived only from graph edges
+already admitted by the relationship authority. Its **Bins** control changes
+the Flint rendering, not the underlying data. Zero-degree entities remain in
+the exact-data table, and connection count is not importance, maliciousness,
+or analytic confidence.
+
+CSV downloads neutralize leading spreadsheet-formula characters. JSON graph
+downloads preserve the exact node and edge structures shown by the current
+visualization.
 
 ### Pursuit-specific challenges and badges
 

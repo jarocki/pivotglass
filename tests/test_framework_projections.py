@@ -74,7 +74,10 @@ def test_mapping_lifecycle_and_gap_projection_are_deterministic(tmp_path) -> Non
     projection = authority.projection(
         Framework.ATTACK,
         framework_version="enterprise-15.1",
-        required_content=(("T1003", "OS Credential Dumping"), ("T1059", "Command and Scripting Interpreter")),
+        required_content=(
+            ("T1003", "OS Credential Dumping"),
+            ("T1059", "Command and Scripting Interpreter"),
+        ),
     )
     assert [item.content_id for item in projection.mappings] == ["T1003"]
     assert [gap.content_id for gap in projection.gaps] == ["T1059"]
@@ -134,3 +137,5 @@ def test_framework_is_shared_by_command_parser_and_completion() -> None:
     assert parse_repl_verb("framework list").name == "framework"
     assert "framework" in command_completions("frame")
     assert "framework show attack" in command_completions("framework s")
+    assert "framework require attack " in command_completions("framework req")
+    assert "framework gaps" in command_completions("framework g")

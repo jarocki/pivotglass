@@ -369,6 +369,14 @@ class WebCockpitService:
                 "purpose": "Inspect the pinned ATT&CK content or export a Navigator layer",
             },
             {
+                "command": "framework require <framework> <version> <content-id> | <label> | <requirement> | <factor-json>",
+                "purpose": "Record an unsupported framework item as a scored intelligence requirement",
+            },
+            {
+                "command": "framework gaps",
+                "purpose": "List framework-linked intelligence requirements",
+            },
+            {
                 "command": "analysis question <text>",
                 "purpose": "Record the investigation question the evidence must answer",
             },

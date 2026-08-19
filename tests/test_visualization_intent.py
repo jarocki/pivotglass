@@ -21,6 +21,7 @@ from adversary_pursuit.core.visualization import (
     dossier_completeness_intent,
     evidence_composition_intent,
     indicator_constellation_intent,
+    relationship_degree_distribution_intent,
     relationship_graph_intent,
     task_matrix_intent,
     visualization_policy,
@@ -29,23 +30,33 @@ from adversary_pursuit.core.visualization import (
 
 def test_every_supported_question_has_one_deterministic_policy():
     assert set(VISUALIZATION_POLICIES) == set(VisualizationQuestion)
-    assert visualization_policy(
-        VisualizationQuestion.ACTIVITY_CONCENTRATION
-    ).view == VisualizationView.CALENDAR_HEATMAP
-    assert visualization_policy(
-        VisualizationQuestion.DOSSIER_COMPLETENESS
-    ).renderer == VisualizationRenderer.FLINT_CHARTJS
-    assert visualization_policy(
-        VisualizationQuestion.ENTITY_RELATIONSHIPS
-    ).view == VisualizationView.RELATIONSHIP_GRAPH
-    assert visualization_policy(
-        VisualizationQuestion.TASK_STATUS
-    ).view == VisualizationView.TASK_MATRIX
+    assert (
+        visualization_policy(VisualizationQuestion.ACTIVITY_CONCENTRATION).view
+        == VisualizationView.CALENDAR_HEATMAP
+    )
+    assert (
+        visualization_policy(VisualizationQuestion.DOSSIER_COMPLETENESS).renderer
+        == VisualizationRenderer.FLINT_CHARTJS
+    )
+    assert (
+        visualization_policy(VisualizationQuestion.ENTITY_RELATIONSHIPS).view
+        == VisualizationView.RELATIONSHIP_GRAPH
+    )
+    assert (
+        visualization_policy(VisualizationQuestion.TASK_STATUS).view
+        == VisualizationView.TASK_MATRIX
+    )
+    assert (
+        "matrix"
+        in visualization_policy(VisualizationQuestion.TASK_STATUS).selection_reason.casefold()
+    )
 
 
 def test_visualization_data_is_bounded():
     with pytest.raises(ValueError, match="record limit"):
-        VisualizationData(rows=tuple({"value": index} for index in range(MAX_VISUALIZATION_ROWS + 1)))
+        VisualizationData(
+            rows=tuple({"value": index} for index in range(MAX_VISUALIZATION_ROWS + 1))
+        )
 
 
 def test_evidence_composition_counts_only_stored_object_types():
@@ -154,8 +165,7 @@ def test_indicator_constellation_is_persistent_newest_first_and_relation_aware()
         objects,
         {
             "nodes": [
-                {"id": item["id"], "type": item["type"], "value": item["value"]}
-                for item in objects
+                {"id": item["id"], "type": item["type"], "value": item["value"]} for item in objects
             ],
             "edges": [
                 {
@@ -246,3 +256,52 @@ def test_relationship_graph_drops_edges_whose_nodes_are_not_in_scope():
 
     assert intent.data.edges == ()
     assert intent.data.rows == ()
+
+
+def test_relationship_degree_histogram_counts_only_admitted_edges():
+    intent = relationship_degree_distribution_intent(
+        "default",
+        {
+            "nodes": [
+                {"id": "domain-name--one", "type": "domain-name", "value": "one.test"},
+                {"id": "ipv4-addr--one", "type": "ipv4-addr", "value": "198.51.100.8"},
+                {"id": "domain-name--two", "type": "domain-name", "value": "two.test"},
+            ],
+            "edges": [
+                {
+                    "source": "domain-name--one",
+                    "target": "ipv4-addr--one",
+                    "relationship": "resolves-to",
+                    "basis": "explicit",
+                },
+                {
+                    "source": "domain-name--missing",
+                    "target": "domain-name--two",
+                    "relationship": "related-to",
+                    "basis": "explicit",
+                },
+            ],
+        },
+    )
+
+    assert intent.view == VisualizationView.HISTOGRAM
+    assert intent.renderer == VisualizationRenderer.FLINT_CHARTJS
+    assert intent.chart_properties == {"binCount": 10}
+    assert intent.selection_rationale
+    assert intent.data.rows == (
+        {
+            "indicator": "198.51.100.8",
+            "indicator_type": "ipv4-addr",
+            "connection_count": 1,
+        },
+        {
+            "indicator": "one.test",
+            "indicator_type": "domain-name",
+            "connection_count": 1,
+        },
+        {
+            "indicator": "two.test",
+            "indicator_type": "domain-name",
+            "connection_count": 0,
+        },
+    )

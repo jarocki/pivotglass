@@ -45,9 +45,7 @@ def _attack_catalog(tmp_path):
                 "id": "attack-pattern--credential-dumping",
                 "name": "OS Credential Dumping",
                 "x_mitre_domains": ["enterprise-attack"],
-                "external_references": [
-                    {"source_name": "mitre-attack", "external_id": "T1003"}
-                ],
+                "external_references": [{"source_name": "mitre-attack", "external_id": "T1003"}],
             },
         ],
     }
@@ -95,16 +93,12 @@ def test_shared_commands_map_review_and_show(tmp_path) -> None:
 def test_manifest_is_pinned_and_navigator_never_silently_downloads(tmp_path) -> None:
     manager = _workspace(tmp_path)
     catalog_path = tmp_path / "missing.json"
-    manifest = execute_framework_command(
-        ("manifest",), manager, attack_catalog_path=catalog_path
-    )
+    manifest = execute_framework_command(("manifest",), manager, attack_catalog_path=catalog_path)
     assert manifest["data"]["attack"]["version"] == "19.2"
     assert len(manifest["data"]["attack"]["sha256"]) == 64
     assert "does not silently download" in manifest["data"]["download_policy"]
     with pytest.raises(ValueError, match="not installed"):
-        execute_framework_command(
-            ("navigator",), manager, attack_catalog_path=catalog_path
-        )
+        execute_framework_command(("navigator",), manager, attack_catalog_path=catalog_path)
 
 
 def test_navigator_export_uses_verified_content_and_mapping(tmp_path) -> None:
@@ -129,3 +123,89 @@ def test_navigator_export_uses_verified_content_and_mapping(tmp_path) -> None:
     assert exported["filename"].endswith(".navigator.json")
     assert exported["data"]["techniques"][0]["techniqueID"] == "T1003"
     assert exported["data"]["techniques"][0]["color"] == "#4CAF50"
+
+
+def test_framework_gap_becomes_one_sourced_information_requirement(tmp_path) -> None:
+    manager = _workspace(tmp_path)
+    factors = {
+        "decision_impact": 4,
+        "discriminating_power": 3,
+        "time_sensitivity": 2,
+        "feasibility": 3,
+    }
+    command = tuple(
+        (
+            "require attack 19.2 T1059 | Command and Scripting Interpreter | "
+            "Collect and disposition evidence relevant to command execution. | "
+            f"{json.dumps(factors)}"
+        ).split()
+    )
+
+    recorded = execute_framework_command(command, manager)
+    changed_factors = {**factors, "decision_impact": 1}
+    repeated = execute_framework_command(
+        tuple(
+            (
+                "require attack 19.2 T1059 | Command and Scripting Interpreter | "
+                "A retry must not replace the stored requirement. | "
+                f"{json.dumps(changed_factors)}"
+            ).split()
+        ),
+        manager,
+    )
+    gaps = execute_framework_command(("gaps",), manager)["data"]["requirements"]
+
+    assert recorded["data"]["created"] is True
+    assert repeated["data"]["created"] is False
+    assert repeated["data"]["item_id"] == recorded["data"]["item_id"]
+    assert repeated["data"]["criteria"] == recorded["data"]["criteria"]
+    assert len(gaps) == 1
+    assert gaps[0]["item_type"] == "collection_requirement"
+    assert gaps[0]["record_kind"] == "framework_gap"
+    assert gaps[0]["record_id"] == "attack:19.2:T1059"
+    assert gaps[0]["criteria"]["addresses"] == [
+        {
+            "kind": "framework_content",
+            "id": "attack:19.2:T1059",
+            "framework": "attack",
+            "version": "19.2",
+            "content_id": "T1059",
+            "label": "Command and Scripting Interpreter",
+        }
+    ]
+    assert recorded["data"]["content_class"] == "analyst_collection_requirement"
+
+
+def test_accepted_mapping_cannot_be_recorded_as_framework_gap(tmp_path) -> None:
+    manager = _workspace(tmp_path)
+    observation_id = _observation(manager)
+    proposed = execute_framework_command(
+        tuple(
+            (
+                f"map attack 19.2 T1003 {observation_id} | OS Credential Dumping | "
+                "Source-backed behavior. | high | Direct evidence reviewed by the analyst."
+            ).split()
+        ),
+        manager,
+    )
+    execute_framework_command(
+        tuple(f"accept {proposed['data']['id']} | Analyst verified.".split()), manager
+    )
+    factors = json.dumps(
+        {
+            "decision_impact": 4,
+            "discriminating_power": 4,
+            "time_sensitivity": 1,
+            "feasibility": 2,
+        }
+    )
+    with pytest.raises(ValueError, match="not a framework gap"):
+        execute_framework_command(
+            tuple(
+                (
+                    "require attack 19.2 T1003 | OS Credential Dumping | "
+                    f"Collect more evidence. | {factors}"
+                ).split()
+            ),
+            manager,
+        )
