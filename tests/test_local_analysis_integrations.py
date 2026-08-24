@@ -473,20 +473,41 @@ for value in sys.argv[3:]:
     ctx = ToolContext(config_dir=tmp_path / "config", workspace_dir=tmp_path / "workspaces")
     ctx.config_mgr.set("integrations.nucleotide_executable", nucleotide)
     ctx.config_mgr.set("integrations.nucleotide_lookup_path", _lookup(tmp_path))
+    url = "https://victim.example/unmatched"
+    ctx.workspace_mgr.store_stix_objects(
+        [{"type": "url", "value": url}],
+        module_name="sensor/http",
+        target=url,
+        source_dependence_group="sensor-a",
+    )
+    observation_id = ctx.workspace_mgr.get_observations()[0]["id"]
 
     result = execute_integration_command(
-        ("nucleotide", "lookup-record", "https://victim.example/unmatched"),
+        ("nucleotide", "lookup-record", url),
         ctx.config_mgr,
         ctx.workspace_mgr,
     )
 
     assert result["data"]["preview"]["matches"][0]["attribution"] == "NO_MATCH"
     assert result["data"]["recorded"][0]["created"] is True
+    assert result["data"]["recorded"][0]["observation_refs"] == [observation_id]
     proposals = execute_integration_command(("proposals",), ctx.config_mgr, ctx.workspace_mgr)[
         "data"
     ]
     assert proposals[0]["criteria"]["provider"] == "nucleotide"
     assert proposals[0]["analyst_disposition"] == "pending"
+    assert {item["kind"] for item in proposals[0]["evidence_refs"]} == {
+        "external-tool-receipt",
+        "observation",
+    }
+    proposal_id = result["data"]["recorded"][0]["proposal_id"]
+    graph = build_investigation_graph(ctx.workspace_mgr)
+    assert any(
+        edge.source == f"epistemic:external_analysis:{proposal_id}"
+        and edge.target == f"epistemic:observation:{observation_id}"
+        and edge.relationship == "derived-from"
+        for edge in graph.edges
+    )
 
 
 def test_external_analysis_completion_includes_record_and_review_paths():

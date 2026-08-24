@@ -455,7 +455,11 @@ def _nucleotide(
         ledger = AnalyticLedger(_require_workspace(workspace_mgr))
         data = {
             "preview": preview.model_dump(mode="json"),
-            "recorded": _record_nucleotide_lookup_proposals(ledger, preview),
+            "recorded": _record_nucleotide_lookup_proposals(
+                ledger,
+                preview,
+                workspace_mgr,
+            ),
             "analyst_disposition": "pending",
         }
     elif action == "fingerprint-preview" and len(args) >= 2:
@@ -745,12 +749,30 @@ def _roast_correlation_review(ledger: AnalyticLedger) -> dict[str, Any]:
 
 
 def _record_nucleotide_lookup_proposals(
-    ledger: AnalyticLedger, preview: Any
+    ledger: AnalyticLedger,
+    preview: Any,
+    workspace_mgr: Any,
 ) -> list[dict[str, Any]]:
+    observations_by_value: dict[str, list[dict[str, Any]]] = {}
+    for observation in workspace_mgr.get_observations():
+        value = str(observation.get("entity_value") or "").strip()
+        if value:
+            observations_by_value.setdefault(value, []).append(observation)
     recorded: list[dict[str, Any]] = []
     receipt_ref = f"nucleotide:{preview.receipt.request_sha256}:lookup:{preview.lookup_sha256}"
     for match in preview.matches:
         details = match.model_dump(mode="json")
+        linked_observations = observations_by_value.get(match.url.strip(), [])
+        details["source_observations"] = [
+            {
+                "observation_id": row["id"],
+                "entity_ref": row["entity_ref"],
+                "source_module": row["source_module"],
+                "source_dependence_group": row.get("source_dependence_group"),
+                "match_basis": "exact-url",
+            }
+            for row in linked_observations
+        ]
         row, created = ledger.record_external_analysis_proposal(
             provider="nucleotide",
             operation="url-template-lookup",
@@ -762,8 +784,15 @@ def _record_nucleotide_lookup_proposals(
             provenance_refs=(receipt_ref,),
             caveats=preview.caveats,
             details={**details, "lookup_sha256": preview.lookup_sha256},
+            observation_refs=tuple(item["id"] for item in linked_observations),
         )
-        recorded.append({"proposal_id": row["record_id"], "created": created})
+        recorded.append(
+            {
+                "proposal_id": row["record_id"],
+                "created": created,
+                "observation_refs": [item["id"] for item in linked_observations],
+            }
+        )
     return recorded
 
 

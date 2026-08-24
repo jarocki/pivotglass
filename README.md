@@ -238,6 +238,9 @@ evidence, or a confidence score.
 Persisted Nucleotide fingerprints can also be compared longitudinally through
 Nucleotide's own field-by-field diff contract, with lookup-corpus drift made
 explicit and no parallel confidence score created.
+Recorded URL-attribution proposals cite exact matching immutable workspace
+observations when available; the provenance link does not convert a corpus
+match into proof that Nuclei produced the request.
 
 ## Intelligence sources
 

@@ -340,6 +340,13 @@ requires a human rationale and retains a review history. Acceptance means the
 analyst accepts the proposal as analytic work; it does not reclassify it as a
 source observation, prove actor identity, or deploy generated controls.
 
+When a lookup URL exactly matches an immutable workspace observation,
+`lookup-record` attaches that observation and source-dependence metadata to the
+proposal. The epistemic graph shows the explicit `derived-from` citation. The
+citation proves which collected record was analyzed; it does not prove that
+Nuclei generated the request or that a unique-within-corpus match is unique in
+the wider world.
+
 An accepted proposal can then be promoted with `integration materialize
 <proposal-id> | <rationale>`. This separate human action creates a typed,
 inferred assertion with the original receipt, caveats, proposal lineage, and

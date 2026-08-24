@@ -467,7 +467,7 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `integration nucleotide lookup-info` | Show the configured lookup corpus metadata and SHA-256; generated controls remain review-only |
 | `integration nucleotide lookup <url>...` | Preserve unique, ambiguous, and unmatched URL-to-template attribution candidates |
 | `integration nucleotide lookup-strict <url>...` | Return only unique-within-corpus template attributions plus unmatched URLs |
-| `integration nucleotide lookup-record <url>...` | Record every lookup outcome, including ambiguity and no-match, for explicit review |
+| `integration nucleotide lookup-record <url>...` | Record every lookup outcome, including ambiguity and no-match, for explicit review and cite exact matching URL observations when present |
 | `integration nucleotide fingerprint-preview <actor-id> \| <events-json>` | Analyze an analyst-grouped event object or array and expose supporting signals, contradictions, CLI-option hypotheses, and caveats |
 | `integration nucleotide fingerprint-record <actor-id> \| <events-json>` | Record a fingerprint digest, signals, contradictions, and caveats as pending analytic work |
 | `integration nucleotide fingerprint-history <actor-id>` | List persisted fingerprint windows and structural hashes for one analyst-grouped batch |

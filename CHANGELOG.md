@@ -75,6 +75,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deterministic correlation review that groups shared decoded fragments,
   reports provenance diversity, and flags incompatible decoder outputs without
   asserting identity, observed contradiction, or confidence.
+- Linked recorded Nucleotide URL-attribution proposals to exact matching
+  immutable workspace observations and their source-dependence metadata. The
+  structural citation preserves what was analyzed without treating a template
+  match as proof that Nuclei generated the request.
 
 ## [0.8.5] — 2026-08-07
 
