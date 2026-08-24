@@ -272,6 +272,15 @@ and reason. Its disposition remains `preview`; it does not enqueue enrichment.
 This prevents content displayed in SCOT from becoming an instruction merely by
 arriving through the integration.
 
+`scot pivot-enqueue <type> <id> <indicator> | <requester> | <reason> |
+<approved-by>` is the separate local approval action. It records an idempotent,
+provenance-bearing collection requirement in the scientific lifecycle. In
+Pivotglass web, that durable item is handed to the ordinary deterministic
+enrichment planner and its queued, running, and terminal states are written
+back to the same record. `scot pivot-queue` lists the durable queue. Repeating
+the same SCOT request cannot start a second investigation after its queue item
+has advanced.
+
 `roast decode` uses go-roast's documented JSON interface. The preview preserves
 timestamp, campaign, counter, classification, machine fragment, PID fragment,
 and tool reasoning. It proposes typed `encodes-*` connections with explicit
@@ -342,7 +351,7 @@ Before either integration is release-complete, it still needs:
 - live Synapse relationship/time/provenance round-trip fixtures;
 - live disposable-SCOT readback, lossless reconciliation, and conflict
   disposition beyond the protocol fixtures;
-- SCOT-originated pivot requests routed through Pivotglass validation and the
-  enrichment queue.
+- authenticated SCOT-side creation of the validated request envelope; local
+  queue acceptance and Pivotglass execution are implemented.
 
 Unreviewed graph mutations and unapproved SCOT publication remain out of scope.

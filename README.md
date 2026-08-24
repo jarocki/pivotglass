@@ -190,6 +190,9 @@ read-only transport plus a validated Synapse model and approval-gated,
 unmerged shadow-view loading, SCOT publication previews, exact SCOT write plans, and one-shot
 approval-gated publication with durable readback receipts; see the
 [integration architecture](docs/EXTERNAL_INTEGRATIONS.md#target-architecture).
+SCOT-originated pivots now have a separate local acceptance action and a
+durable, provenance-bearing queue record; Pivotglass web runs accepted targets
+through the same enrichment planner used for ordinary investigations.
 go-roast decodes Interactsh OAST metadata into caveated graph proposals;
 Nucleotide attributes observed URLs and fingerprints analyst-grouped
 Nuclei-shaped activity. Both run locally behind time, output, and record limits,

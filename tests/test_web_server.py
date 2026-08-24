@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from adversary_pursuit.agent.tools import ToolContext
+from adversary_pursuit.core.analytic_ledger import AnalyticLedger
 from adversary_pursuit.core.investigation import (
     ContentClass,
     EventClass,
@@ -238,6 +239,47 @@ def test_async_investigation_streams_lifecycle_events(tmp_path):
     assert observed[-1]["reason"] == "no new artifacts stored"
 
 
+def test_scot_pivot_enqueue_uses_shared_enrichment_lifecycle(tmp_path):
+    service = _service(tmp_path)
+    command = (
+        "integration scot pivot-enqueue event 42 198.51.100.42 | "
+        "scot-analyst@example.test | Follow the event relationship. | local-analyst"
+    )
+    with patch("adversary_pursuit.web.server.dispatch_batteries", return_value=[]):
+        result = service.execute_command(command)
+
+    assert result["data"]["created"] is True
+    assert result["data"]["start_enrichment"] is False
+    assert result["data"]["investigation"]["target"] == "198.51.100.42"
+    request_id = result["data"]["request"]["request_id"]
+    queue_item = next(
+        item
+        for item in AnalyticLedger(service.ctx.workspace_mgr).enrichment_requests()
+        if item["record_id"] == request_id
+    )
+    for _ in range(100):
+        if queue_item["criteria"]["queue_state"] == "empty":
+            break
+        time.sleep(0.01)
+        queue_item = next(
+            item
+            for item in AnalyticLedger(service.ctx.workspace_mgr).enrichment_requests()
+            if item["record_id"] == request_id
+        )
+
+    assert queue_item["criteria"]["queue_state"] == "empty"
+    assert [event["state"] for event in queue_item["criteria"]["history"]] == [
+        "queued",
+        "running",
+        "empty",
+    ]
+    assert queue_item["evidence_refs"] == [{"kind": "scot-object", "ref": "event:42"}]
+    listed = service.execute_command("integration scot pivot-queue")["data"]
+    assert [item["record_id"] for item in listed] == [request_id]
+    assert service.state()["analysis"]["enrichment_queue"][0]["record_id"] == request_id
+    assert service.execute_command(command)["data"]["created"] is False
+
+
 def test_state_labels_instrument_authorities_truthfully(tmp_path):
     instruments = _service(tmp_path).state()["instruments"]
 
@@ -383,10 +425,7 @@ def test_web_command_router_accepts_iocs_commands_and_workspace_queries(tmp_path
         "export <json|csv|stix|gexf>",
     }
     assert any(item["command"].startswith("framework show") for item in help_result["commands"])
-    assert any(
-        item["command"].startswith("framework require")
-        for item in help_result["commands"]
-    )
+    assert any(item["command"].startswith("framework require") for item in help_result["commands"])
     assert any(item["command"] == "framework gaps" for item in help_result["commands"])
 
 

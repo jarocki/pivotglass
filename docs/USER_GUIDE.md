@@ -404,6 +404,8 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `integration scot publish-execute <owner> <plan-digest> <approved-by> \| <confirmation>` | Recompile and execute one exact, short-lived human-approved SCOT plan; never retry mutations and require every readback to reconcile |
 | `integration scot publication-receipt <plan-digest>` | Inspect the workspace-owned one-shot claim, completion receipt, or uncertain outcome for an exact plan |
 | `integration scot pivot-preview <type> <id> <indicator> \| <requester> \| <reason>` | Validate a SCOT-originated pivot request without enqueueing it |
+| `integration scot pivot-enqueue <type> <id> <indicator> \| <requester> \| <reason> \| <approved-by>` | Explicitly accept one validated SCOT pivot into the durable scientific-lifecycle enrichment queue; Pivotglass web starts it through the ordinary enrichment planner |
+| `integration scot pivot-queue` | List SCOT-originated enrichment requests with their provenance and queued, running, or terminal state |
 | `integration scot get <type> <id>` | Preview one SCOT4 object with remote ID, revision, permissions, and provenance |
 | `integration scot search <type> [filters-json]` | Run a bounded, paginated SCOT4 search |
 | `integration scot entries <type> <id> [plain\|flaired\|all]` | Read bounded SCOT4 object entries |

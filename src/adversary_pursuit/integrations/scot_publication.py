@@ -46,9 +46,7 @@ class ScotPublicationManifest(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    schema_version: Literal["pivotglass-scot-publication-1.0"] = (
-        "pivotglass-scot-publication-1.0"
-    )
+    schema_version: Literal["pivotglass-scot-publication-1.0"] = "pivotglass-scot-publication-1.0"
     publication_id: str
     workspace: str
     source_snapshot_sha256: str
@@ -81,9 +79,7 @@ class ScotWritePlan(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    schema_version: Literal["pivotglass-scot-write-plan-1.0"] = (
-        "pivotglass-scot-write-plan-1.0"
-    )
+    schema_version: Literal["pivotglass-scot-write-plan-1.0"] = "pivotglass-scot-write-plan-1.0"
     publication_id: str
     workspace: str
     manifest_digest_sha256: str
@@ -515,8 +511,9 @@ def validate_scot_pivot_request(
         "requested_at": requested_at.isoformat(),
         "reason": normalized_reason,
     }
+    request_identity = {key: value for key, value in payload.items() if key != "requested_at"}
     return ScotPivotRequest(
-        request_id=f"scot-pivot-{_digest(payload)[:24]}",
+        request_id=f"scot-pivot-{_digest(request_identity)[:24]}",
         **payload,
     )
 

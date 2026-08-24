@@ -92,3 +92,5 @@ def test_integration_completions_cover_read_operations():
     assert "integration scot publish-plan " in command_completions("integration scot p")
     assert "integration scot publish-execute " in command_completions("integration scot p")
     assert "integration scot publication-receipt " in command_completions("integration scot p")
+    assert "integration scot pivot-queue" in command_completions("integration scot pivot-q")
+    assert "integration scot pivot-enqueue " in command_completions("integration scot pivot-e")

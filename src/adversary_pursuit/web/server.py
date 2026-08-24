@@ -242,7 +242,9 @@ class WebCockpitService:
                     "pursuit_title": PURSUIT_TITLES[name],
                 }
             )
-        analysis = AnalyticLedger(self.ctx.workspace_mgr).snapshot()
+        ledger = AnalyticLedger(self.ctx.workspace_mgr)
+        analysis = ledger.snapshot()
+        analysis["enrichment_queue"] = ledger.enrichment_requests()
         analysis["information_requirements"] = build_information_requirements(analysis)
         analysis["rigor"] = build_analytic_rigor(analysis)
         framework_mappings = FrameworkProjectionAuthority(self.ctx.workspace_mgr).list()
@@ -386,8 +388,8 @@ class WebCockpitService:
                 "purpose": "Preview governed graph state, inspect the versioned model, compile a disabled shadow migration, or run explicit read-only MCP operations",
             },
             {
-                "command": "integration scot publish-preview|publish-plan|publish-execute|publication-receipt|pivot-preview|status|get|search|entries|entities",
-                "purpose": "Preview or compile a publication, explicitly approve exact-digest write/readback, or perform bounded SCOT4 reads",
+                "command": "integration scot publish-preview|publish-plan|publish-execute|publication-receipt|pivot-preview|pivot-queue|pivot-enqueue|status|get|search|entries|entities",
+                "purpose": "Preview or compile a publication, approve exact-digest write/readback, accept a pivot into enrichment, or perform bounded SCOT4 reads",
             },
             {
                 "command": "integration roast status|decode|record|analyze",
@@ -684,6 +686,26 @@ class WebCockpitService:
             result = execute_integration_command(
                 tuple(rest.split()), self.config_mgr, self.ctx.workspace_mgr
             )
+            data = result.get("data")
+            if isinstance(data, dict) and data.get("start_enrichment") is True:
+                request = data.get("request") if isinstance(data.get("request"), dict) else {}
+                request_id = str(request.get("request_id") or "")
+                target = str(request.get("indicator") or "")
+                started = self.start_investigation(
+                    target,
+                    origin_request_id=request_id,
+                )
+                queue_item = next(
+                    item
+                    for item in AnalyticLedger(self.ctx.workspace_mgr).enrichment_requests()
+                    if item["record_id"] == request_id
+                )
+                result["data"] = {
+                    **data,
+                    "start_enrichment": False,
+                    "queue_item": queue_item,
+                    "investigation": started,
+                }
             return {"kind": "json", **result}
         if command == "export":
             return self.export_payload(rest or "stix")
@@ -859,7 +881,12 @@ class WebCockpitService:
         with self._investigation_lock:
             return self._investigate_locked(target)
 
-    def start_investigation(self, target: str) -> dict[str, Any]:
+    def start_investigation(
+        self,
+        target: str,
+        *,
+        origin_request_id: str | None = None,
+    ) -> dict[str, Any]:
         """Start an investigation and return immediately with a resumable cursor."""
         target_type, tools = self.plan(target)
         record = self.investigations.create(target, target_type)
@@ -887,9 +914,15 @@ class WebCockpitService:
                 actions=("skip", "cancel"),
             )
         self.investigations.transition(record.investigation_id, LifecycleState.QUEUED)
+        if origin_request_id:
+            AnalyticLedger(self.ctx.workspace_mgr).transition_enrichment_request(
+                origin_request_id,
+                "running",
+                investigation_id=record.investigation_id,
+            )
         threading.Thread(
             target=self._run_investigation,
-            args=(record.investigation_id, target, target_type, tools),
+            args=(record.investigation_id, target, target_type, tools, origin_request_id),
             name=f"pivotglass-{record.investigation_id[:8]}",
             daemon=True,
         ).start()
@@ -996,6 +1029,7 @@ class WebCockpitService:
         target: str,
         target_type: str,
         tools: list[str],
+        origin_request_id: str | None = None,
     ) -> None:
         """Execute enrichments sequentially while publishing incremental transitions."""
         with self._investigation_lock:
@@ -1018,6 +1052,12 @@ class WebCockpitService:
                             reason="operator cancellation",
                         )
                     self.investigations.transition(investigation_id, LifecycleState.CANCELLED)
+                    if origin_request_id:
+                        AnalyticLedger(self.ctx.workspace_mgr).transition_enrichment_request(
+                            origin_request_id,
+                            "cancelled",
+                            investigation_id=investigation_id,
+                        )
                     return
                 schema = self._tool_schemas.get(tool_name)
                 if schema is None:
@@ -1125,6 +1165,12 @@ class WebCockpitService:
                     )
             final_state = LifecycleState.SUCCEEDED if any_results else LifecycleState.EMPTY
             self.investigations.transition(investigation_id, final_state)
+            if origin_request_id:
+                AnalyticLedger(self.ctx.workspace_mgr).transition_enrichment_request(
+                    origin_request_id,
+                    final_state.value,
+                    investigation_id=investigation_id,
+                )
 
     def _investigate_locked(self, target: str) -> dict[str, Any]:
         """Execute one investigation while holding the service mutation lock."""

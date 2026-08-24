@@ -223,6 +223,17 @@ def test_scot_pivot_request_validates_but_does_not_enqueue():
     assert request.indicator_type == "ipv4"
     assert request.disposition == "preview"
     assert request.enqueue_requires_analyst_action is True
+    repeated_request = validate_scot_pivot_request(
+        workspace="case",
+        scot_object_type="event",
+        scot_object_id=42,
+        indicator="198.51.100.42",
+        requested_by="analyst@example.test",
+        requested_at=datetime(2026, 8, 23, 13, 0, tzinfo=UTC),
+        reason="Investigate the related address.",
+        scot_revision="7",
+    )
+    assert repeated_request.request_id == request.request_id
 
     with pytest.raises(ValueError):
         validate_scot_pivot_request(

@@ -37,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   comparison. Logical request receipts are stable across temporary files,
   lookup-corpus drift is visible, and comparisons create neither formal
   confidence nor actor identity.
+- Added explicit SCOT pivot acceptance into a durable scientific-lifecycle
+  enrichment queue. Pivotglass web hands accepted targets to the ordinary
+  deterministic planner, writes running and terminal states back to the same
+  provenance-bearing item, and prevents completed requests from restarting.
 
 ## [0.8.5] — 2026-08-07
 

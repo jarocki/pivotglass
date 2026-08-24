@@ -277,6 +277,42 @@ def _scot(
             reason=structured[2],
         )
         return {"title": "SCOT4 pivot request preview", "data": request.model_dump(mode="json")}
+    if action == "pivot-queue" and len(args) == 1:
+        data = AnalyticLedger(_require_workspace(workspace_mgr)).enrichment_requests()
+        return {"title": "SCOT4 enrichment queue", "data": data}
+    if action == "pivot-enqueue" and len(args) >= 5:
+        structured = " ".join(args[1:]).split(" | ", 3)
+        if len(structured) != 4:
+            raise ValueError(
+                "usage: integration scot pivot-enqueue <type> <id> <indicator> | "
+                "<requester> | <reason> | <approved-by>"
+            )
+        head = structured[0].split(maxsplit=2)
+        if len(head) != 3:
+            raise ValueError("SCOT pivot enqueue requires type, ID, and indicator")
+        request = validate_scot_pivot_request(
+            workspace=_require_workspace(workspace_mgr).active,
+            scot_object_type=head[0],
+            scot_object_id=int(head[1]),
+            indicator=head[2],
+            requested_by=structured[1],
+            requested_at=datetime.now(UTC),
+            reason=structured[2],
+        )
+        queue_item, created = AnalyticLedger(
+            _require_workspace(workspace_mgr)
+        ).enqueue_scot_pivot_request(
+            request.model_dump(mode="json"),
+            approved_by=structured[3],
+        )
+        queued_request = queue_item["criteria"]["request"]
+        data = {
+            "request": queued_request,
+            "queue_item": queue_item,
+            "created": created,
+            "start_enrichment": queue_item["criteria"]["queue_state"] == "queued",
+        }
+        return {"title": "SCOT4 pivot accepted into enrichment queue", "data": data}
     adapter = _scot_adapter(config_mgr)
     if action == "status" and len(args) == 1:
         data = adapter.status()
@@ -298,7 +334,9 @@ def _scot(
             "publish-preview|publish-plan <owner>|publication-receipt <plan-digest>|"
             "publish-execute <owner> <plan-digest> "
             "<approved-by> | <confirmation>|"
-            "pivot-preview <type> <id> <indicator> | <requester> | <reason>"
+            "pivot-preview <type> <id> <indicator> | <requester> | <reason>|"
+            "pivot-queue|pivot-enqueue <type> <id> <indicator> | <requester> | "
+            "<reason> | <approved-by>"
         )
     return {"title": "Sandia SCOT4 (read-only)", "data": data}
 

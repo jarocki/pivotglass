@@ -190,6 +190,8 @@ def command_completions(
             "scot publish-execute ",
             "scot publication-receipt ",
             "scot pivot-preview ",
+            "scot pivot-queue",
+            "scot pivot-enqueue ",
             "scot get ",
             "scot search ",
             "scot entries ",
