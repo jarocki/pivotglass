@@ -115,11 +115,13 @@ config repair
 
 Pivotglass 0.9 can make explicit, bounded, read-only MCP requests to Vertex
 Synapse and Sandia SCOT4. Its separate SCOT publication workflow requires an
-exact, short-lived human approval and readback reconciliation. Configure
+exact, short-lived human approval and readback reconciliation. Synapse loading
+likewise requires an exact approval, an operator backup receipt, and an
+explicit parent view; it writes only to a new unmerged child view. Configure
 endpoints and keys outside the command field, then check local state with
 `integration status`. See
 [Vertex Synapse and SCOT4 integrations](EXTERNAL_INTEGRATIONS.md). Remote
-results are previews until an analyst deliberately imports or cites them.
+read results are previews until an analyst deliberately imports or cites them.
 
 ## 4. Create a learning workspace
 

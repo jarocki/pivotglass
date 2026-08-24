@@ -58,8 +58,10 @@ hunt session is published.
 
 ## Safety and authority
 
-- Synapse Storm runs only after validation and always receives
-  `opts.readonly=true`.
+- Every Synapse Storm query runs only after validation. Interactive queries
+  receive `opts.readonly=true`. An approved migration write receives
+  `readonly=false` only together with the exact newly forked shadow-view ID;
+  Pivotglass never writes a migration plan to the parent view.
 - Storm pages, returned records, elapsed time, and response size are bounded.
   Pivotglass cancels the Synapse cursor when one of those limits is reached.
 - The SCOT4 MCP adapter exposes only object search, object detail, entries, and
@@ -148,6 +150,9 @@ integration review <proposal-id> <accept|reject> | <reason>
 integration synapse shadow-preview
 integration synapse model-contract
 integration synapse migration-plan
+integration synapse views
+integration synapse shadow-execute <parent-view> <plan-digest> <backup-receipt-sha256> <approved-by> | <confirmation>
+integration synapse shadow-receipt <plan-digest>
 integration synapse status
 integration synapse model <pattern>
 integration synapse lookup <STIX-type> <indicator>
@@ -205,6 +210,20 @@ migration-plan` compiles the shadow manifest into dependency-ordered,
 bound-variable Storm writes and one exact readback per write. It requires model
 digest parity, a backup, an isolated shadow view, Storm validation, analyst
 approval, and readback while reporting `execution_enabled=false`.
+
+`synapse views` lists readable views and identifies the credential's effective
+default; Pivotglass never guesses the parent view. `synapse shadow-execute`
+recompiles the active workspace, rejects a stale plan digest, requires the
+SHA-256 of an operator-created backup receipt, and accepts only the exact
+15-minute confirmation phrase bound to the parent view. It verifies the
+required MCP tools and deployed `pivotglass:record`/`pivotglass:edge` model,
+then forks the named parent. Every validated write and readback carries that
+new fork ID in Storm `opts.view`. Exact node definitions and custom properties
+must reconcile. The successful fork remains unmerged for inspection; no
+Pivotglass command currently merges it. A failed load asks Synapse to remove
+the fork view and records that its underlying layer deletion was not verified.
+Either result is journaled and cannot be replayed silently. Use `synapse shadow-receipt <plan-digest>` to
+inspect that record.
 
 Maintainers can validate the contract and generated Storm against a disposable
 Synapse installation with:
@@ -294,7 +313,7 @@ stopped by a budget.
 ## Deliberately unfinished
 
 The current slices establish transport, repository snapshots, Synapse desired
-state, parity, model, and disabled shadow-migration contracts; SCOT publication
+state, parity, model, and approval-gated isolated shadow migration; SCOT publication
 previews, exact write plans, one-shot approval-gated execution, durable
 receipts, mandatory readback reconciliation, and pivot validation; go-roast
 OAST graph proposals; Nucleotide lookup/fingerprint previews; governed
@@ -304,7 +323,7 @@ Before either integration is release-complete, it still needs:
 - disposable live-system round-trip tests;
 - deployment packaging and an operator-approved installation path for the
   validated Synapse model contract;
-- backup-first migration, shadow comparison, recovery, and cutover gates;
+- live backup, recovery, reviewed shadow merge, and cutover gates;
 - live Synapse relationship/time/provenance round-trip fixtures;
 - conversion of accepted external-analysis proposals into appropriately typed
   assertions and relationship proposals without bypassing evidence rules;

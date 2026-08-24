@@ -186,8 +186,8 @@ roles: Vertex Synapse becomes the primary persisted entity/relationship graph,
 while SCOT4 becomes the web surface for reviewing published hunt sessions and
 requesting further pivots. Pivotglass remains the orchestration and analytic
 policy authority between them. The current work implements the bounded,
-read-only transport plus a validated Synapse model and disabled shadow-migration
-plan, SCOT publication previews, exact SCOT write plans, and one-shot
+read-only transport plus a validated Synapse model and approval-gated,
+unmerged shadow-view loading, SCOT publication previews, exact SCOT write plans, and one-shot
 approval-gated publication with durable readback receipts; see the
 [integration architecture](docs/EXTERNAL_INTEGRATIONS.md#target-architecture).
 go-roast decodes Interactsh OAST metadata into caveated graph proposals;

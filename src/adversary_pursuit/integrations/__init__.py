@@ -16,6 +16,10 @@ from adversary_pursuit.integrations.scot_execution import (
     ScotPublicationReceipt,
 )
 from adversary_pursuit.integrations.scot_publication import ScotWritePlan
+from adversary_pursuit.integrations.synapse_execution import (
+    SynapseShadowJournal,
+    SynapseShadowReceipt,
+)
 from adversary_pursuit.integrations.synapse_migration import SynapseMigrationPlan
 
 __all__ = [
@@ -30,4 +34,6 @@ __all__ = [
     "ScotPublicationJournal",
     "ScotPublicationReceipt",
     "SynapseMigrationPlan",
+    "SynapseShadowJournal",
+    "SynapseShadowReceipt",
 ]

@@ -26,6 +26,11 @@ from adversary_pursuit.integrations.scot_publication import (
     validate_scot_pivot_request,
 )
 from adversary_pursuit.integrations.synapse import SynapseMcpAdapter
+from adversary_pursuit.integrations.synapse_execution import (
+    SynapseShadowExecutor,
+    SynapseShadowJournal,
+    approve_synapse_shadow_load,
+)
 from adversary_pursuit.integrations.synapse_graph import build_synapse_shadow_manifest
 from adversary_pursuit.integrations.synapse_migration import (
     compile_synapse_migration_plan,
@@ -91,6 +96,8 @@ def _configuration_status(config_mgr: ConfigManager) -> dict[str, Any]:
     status["scot"]["publication_endpoint"] = (
         "configured" if config_mgr.get_scot_api_url() else "missing"
     )
+    status["synapse"]["mode"] = "read-only exploration; approved shadow-view loads"
+    status["scot"]["mode"] = "read-only exploration; approved publication"
     roast_executable = config_mgr.get_local_integration_setting("go_roast_executable") or "roast"
     nucleotide_executable = (
         config_mgr.get_local_integration_setting("nucleotide_executable") or "nucleotide"
@@ -131,11 +138,44 @@ def _synapse(
         manifest = build_synapse_shadow_manifest(snapshot)
         data = compile_synapse_migration_plan(manifest).model_dump(mode="json")
         return {"title": "Vertex Synapse review-only migration plan", "data": data}
+    if action == "shadow-receipt" and len(args) == 2:
+        data = SynapseShadowJournal(_require_workspace(workspace_mgr)).get(args[1])
+        return {"title": "Vertex Synapse shadow-load receipt", "data": data}
+    if action == "shadow-execute" and len(args) >= 6:
+        head, separator, confirmation = " ".join(args[1:]).partition(" | ")
+        fields = head.split()
+        if not separator or len(fields) != 4:
+            raise ValueError(
+                "usage: integration synapse shadow-execute <parent-view> <plan-digest> "
+                "<backup-receipt-sha256> <approved-by> | <confirmation>"
+            )
+        parent_view, supplied_digest, backup_receipt, approved_by = fields
+        snapshot = WorkspaceGraphRepository(_require_workspace(workspace_mgr)).snapshot()
+        plan = compile_synapse_migration_plan(build_synapse_shadow_manifest(snapshot))
+        if supplied_digest != plan.digest_sha256:
+            raise ValueError("Synapse migration plan digest is stale or does not match")
+        approval = approve_synapse_shadow_load(
+            plan,
+            parent_view=parent_view,
+            backup_receipt_sha256=backup_receipt,
+            approved_by=approved_by,
+            confirmation=confirmation,
+        )
+        url, key, options = _connection(config_mgr, "synapse")
+        executor = SynapseShadowExecutor(url, key, **options)
+        data = executor.execute(
+            plan,
+            approval,
+            journal=SynapseShadowJournal(_require_workspace(workspace_mgr)),
+        )
+        return {"title": "Vertex Synapse isolated shadow load reconciled", "data": data}
     adapter = _synapse_adapter(config_mgr)
     if action == "status" and len(args) == 1:
         data = adapter.status()
     elif action == "model" and len(args) >= 2:
         data = adapter.model_find(" ".join(args[1:]))
+    elif action == "views" and len(args) == 1:
+        data = adapter.views()
     elif action == "lookup" and len(args) >= 3:
         data = adapter.lookup(args[1], " ".join(args[2:]))
     elif action == "query" and len(args) >= 2:
@@ -143,7 +183,9 @@ def _synapse(
     else:
         raise ValueError(
             "usage: integration synapse shadow-preview|model-contract|migration-plan|"
-            "status|model <pattern>|"
+            "shadow-receipt <plan-digest>|shadow-execute <parent-view> <plan-digest> "
+            "<backup-receipt-sha256> <approved-by> | <confirmation>|"
+            "status|views|model <pattern>|"
             "lookup <type> <value>|query <Storm>"
         )
     return {"title": "Vertex Synapse (read-only)", "data": data}

@@ -11,13 +11,12 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy.exc import IntegrityError
 
+from adversary_pursuit.integrations.execution_journal import IntegrationExecutionJournal
 from adversary_pursuit.integrations.scot_publication import (
     ScotWriteOperation,
     ScotWritePlan,
 )
-from adversary_pursuit.models.database import IntegrationExecution
 
 _PATH_REFERENCE = re.compile(r"\{result:([A-Za-z0-9-]+):([A-Za-z0-9_-]+)\}")
 
@@ -118,15 +117,11 @@ def validate_scot_approval(
     return current_time
 
 
-class ScotPublicationJournal:
+class ScotPublicationJournal(IntegrationExecutionJournal):
     """Workspace-owned one-shot claim and receipt authority for SCOT writes."""
 
     def __init__(self, workspace_manager: Any) -> None:
-        self._workspace = workspace_manager
-
-    @staticmethod
-    def execution_id(plan_digest_sha256: str) -> str:
-        return f"scot-publication:{plan_digest_sha256}"
+        super().__init__(workspace_manager, system="scot", operation="publish")
 
     def claim(
         self,
@@ -137,86 +132,23 @@ class ScotPublicationJournal:
     ) -> dict[str, Any]:
         """Atomically claim an exact plan before its first remote mutation."""
         started_at = validate_scot_approval(plan, approval, now=now)
-        execution_id = self.execution_id(plan.digest_sha256)
-        try:
-            with self._workspace.get_session() as session:
-                existing = session.get(IntegrationExecution, execution_id)
-                if existing is not None:
-                    raise ValueError(
-                        "SCOT publication is already claimed with state "
-                        f"{existing.state}; inspect its receipt before any retry"
-                    )
-                row = IntegrationExecution(
-                    id=execution_id,
-                    system="scot",
-                    operation="publish",
-                    plan_digest_sha256=plan.digest_sha256,
-                    state="in_progress",
-                    approved_by=approval.approved_by,
-                    started_at=started_at,
-                )
-                session.add(row)
-                session.flush()
-                session.commit()
-        except IntegrityError:
-            raise ValueError(
-                "SCOT publication was claimed concurrently; inspect its receipt before any retry"
-            ) from None
-        return self.get(plan.digest_sha256)
+        return super().claim(
+            plan.digest_sha256,
+            approved_by=approval.approved_by,
+            started_at=started_at,
+        )
 
     def complete(self, receipt: ScotPublicationReceipt) -> dict[str, Any]:
         """Persist the reconciled receipt for an existing one-shot claim."""
-        with self._workspace.get_session() as session:
-            row = session.get(
-                IntegrationExecution,
-                self.execution_id(receipt.plan_digest_sha256),
-            )
-            if row is None or row.state != "in_progress":
-                raise RuntimeError("SCOT publication completion has no active claim")
-            row.state = "complete"
-            row.completed_at = receipt.completed_at
-            row.receipt = receipt.model_dump(mode="json")
-            row.error_summary = None
-            session.commit()
-        return self.get(receipt.plan_digest_sha256)
+        return super().complete(
+            receipt.plan_digest_sha256,
+            receipt=receipt.model_dump(mode="json"),
+            completed_at=receipt.completed_at,
+        )
 
     def mark_uncertain(self, plan_digest_sha256: str, error: BaseException) -> None:
         """Block replay when a remote mutation may have partially completed."""
-        with self._workspace.get_session() as session:
-            row = session.get(
-                IntegrationExecution,
-                self.execution_id(plan_digest_sha256),
-            )
-            if row is None:
-                raise RuntimeError("SCOT publication failure has no active claim")
-            if row.state == "complete":
-                raise RuntimeError("completed SCOT publication cannot become uncertain")
-            row.state = "outcome_uncertain"
-            row.completed_at = datetime.now(UTC)
-            row.error_summary = type(error).__name__
-            session.commit()
-
-    def get(self, plan_digest_sha256: str) -> dict[str, Any]:
-        """Return one sanitized persisted claim or completion receipt."""
-        with self._workspace.get_session() as session:
-            row = session.get(
-                IntegrationExecution,
-                self.execution_id(plan_digest_sha256),
-            )
-            if row is None:
-                raise ValueError("SCOT publication receipt was not found")
-            return {
-                "id": row.id,
-                "system": row.system,
-                "operation": row.operation,
-                "plan_digest_sha256": row.plan_digest_sha256,
-                "state": row.state,
-                "approved_by": row.approved_by,
-                "started_at": row.started_at,
-                "completed_at": row.completed_at,
-                "receipt": row.receipt,
-                "error_summary": row.error_summary,
-            }
+        self.fail(plan_digest_sha256, error)
 
 
 def execute_scot_publication(

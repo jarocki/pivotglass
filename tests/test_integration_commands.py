@@ -18,7 +18,7 @@ def test_integration_status_is_local_masked_and_shared(tmp_path):
     assert result["data"]["synapse"] == {
         "endpoint": "configured",
         "credential": "config",
-        "mode": "read-only",
+        "mode": "read-only exploration; approved shadow-view loads",
         "authority": "remote-preview",
     }
     assert "never-display-this" not in repr(result)
@@ -84,6 +84,9 @@ def test_integration_completions_cover_read_operations():
     assert "integration synapse shadow-preview" in command_completions("integration synapse s")
     assert "integration synapse model-contract" in command_completions("integration synapse m")
     assert "integration synapse migration-plan" in command_completions("integration synapse m")
+    assert "integration synapse shadow-execute " in command_completions("integration synapse s")
+    assert "integration synapse shadow-receipt " in command_completions("integration synapse s")
+    assert "integration synapse views" in command_completions("integration synapse v")
     assert "integration scot search " in command_completions("integration scot s")
     assert "integration scot publish-preview" in command_completions("integration scot p")
     assert "integration scot publish-plan " in command_completions("integration scot p")

@@ -390,6 +390,9 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `integration synapse shadow-preview` | Compile the active governed graph into deterministic desired Synapse nodes and edges without writing |
 | `integration synapse model-contract` | Inspect the pinned custom record/edge model definition and digest required for migration |
 | `integration synapse migration-plan` | Compile bound-variable writes and readbacks for an isolated shadow view; remote execution remains disabled |
+| `integration synapse views` | List readable Synapse views and identify the authenticated user's effective default without guessing a migration parent |
+| `integration synapse shadow-execute <parent-view> <plan-digest> <backup-receipt-sha256> <approved-by> \| <confirmation>` | Recompile and load one approved plan into a new child view, reconcile every readback, and leave the parent untouched and the fork unmerged |
+| `integration synapse shadow-receipt <plan-digest>` | Inspect the workspace-owned one-shot claim, isolated-view receipt, or view-removed/uncertain failure |
 | `integration synapse status` | Connect to the configured Cortex MCP endpoint and list visible tools |
 | `integration synapse model <pattern>` | Search the Synapse data model |
 | `integration synapse lookup <type> <indicator>` | Normalize a supported Pivotglass indicator and lift the corresponding Synapse form with a bound Storm variable |

@@ -108,6 +108,34 @@ def test_synapse_indicator_mapping_normalizes_and_uses_bound_variables():
         synapse_lift("sha256", "not-a-digest")
 
 
+def test_synapse_views_returns_default_and_readable_views():
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content) if request.content else {}
+        if payload.get("method") != "tools/call":
+            return _response(request)
+        name = payload["params"]["name"]
+        calls.append(name)
+        result = (
+            {"view": "a" * 32}
+            if name == "view_get"
+            else {"views": [{"iden": "a" * 32, "name": "main", "parent": None}]}
+        )
+        return _response(request, {"structuredContent": result})
+
+    adapter = SynapseMcpAdapter(
+        "https://synapse.test/api/v1/mcp",
+        "secret",
+        transport=httpx.MockTransport(handler),
+    )
+    result = adapter.views()
+
+    assert result["default_view"] == "a" * 32
+    assert result["views"][0]["name"] == "main"
+    assert calls == ["view_get", "view_list"]
+
+
 def test_scot_search_is_bounded_and_preserves_revision_permissions():
     calls: list[dict] = []
 

@@ -55,6 +55,16 @@ class SynapseMcpAdapter:
         with StreamableHttpMcpClient(self.url, **self._client_args) as client:
             return client.call_tool("model_find", {"pattern": pattern})
 
+    def views(self) -> dict[str, Any]:
+        """List readable views and identify the credential's effective default."""
+        with StreamableHttpMcpClient(self.url, **self._client_args) as client:
+            default = client.call_tool("view_get", {})
+            listed = client.call_tool("view_list", {})
+        return {
+            "default_view": default.get("view") if isinstance(default, dict) else None,
+            "views": listed.get("views", []) if isinstance(listed, dict) else [],
+        }
+
     def query(
         self,
         storm: str,
@@ -168,7 +178,9 @@ def _node_record(message: Any, endpoint: str) -> IntegrationRecord | None:
     if not isinstance(node, (list, tuple)) or len(node) != 2 or not isinstance(metadata, dict):
         return None
     form, value = str(node[0]), node[1]
-    rendered = json.dumps(value, sort_keys=True, default=str) if not isinstance(value, str) else value
+    rendered = (
+        json.dumps(value, sort_keys=True, default=str) if not isinstance(value, str) else value
+    )
     node_id = str(metadata.get("iden") or hashlib.sha256(f"{form}:{rendered}".encode()).hexdigest())
     revision = str(metadata.get("props", {}).get(".updated") or "") or None
     tags = sorted(str(tag) for tag in metadata.get("tags", {}))

@@ -8,6 +8,10 @@ import copy
 import os
 import tempfile
 
+from adversary_pursuit.integrations.synapse_execution import (
+    reconcile_synapse_readback,
+    verify_synapse_model,
+)
 from adversary_pursuit.integrations.synapse_graph import (
     SynapseManifestEdge,
     SynapseManifestNode,
@@ -93,6 +97,16 @@ async def _validate() -> None:
             core.model.addDataModels(
                 [(contract.model_name, copy.deepcopy(contract.model_definition))]
             )
+            model = core.model.getModelDict()
+            verify_synapse_model(
+                {
+                    "forms": {
+                        name: model["forms"][name]
+                        for name in ("pivotglass:record", "pivotglass:edge")
+                    }
+                }
+            )
+            operations = {operation.operation_id: operation for operation in plan.operations}
             for operation in plan.operations:
                 nodes = await core.nodes(
                     operation.query,
@@ -102,6 +116,14 @@ async def _validate() -> None:
                     raise RuntimeError(
                         f"Synapse readback returned no node for {operation.manifest_ref}"
                     )
+                if operation.phase == "readback":
+                    write = operations[operation.depends_on[0]]
+                    messages = [("node", node.pack()) for node in nodes]
+                    if not reconcile_synapse_readback(write, messages):
+                        raise RuntimeError(
+                            "Synapse readback properties did not reconcile for "
+                            f"{operation.manifest_ref}"
+                        )
         finally:
             await core.fini()
     print(
