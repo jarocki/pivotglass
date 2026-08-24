@@ -5,5 +5,19 @@ from adversary_pursuit.integrations.contracts import (
     IntegrationRecord,
     QueryReceipt,
 )
+from adversary_pursuit.integrations.local_tool import LocalToolReceipt
+from adversary_pursuit.integrations.nucleotide import (
+    NucleotideFingerprintPreview,
+    NucleotideLookupPreview,
+)
+from adversary_pursuit.integrations.roast import RoastDecodePreview
 
-__all__ = ["ExternalReference", "IntegrationRecord", "QueryReceipt"]
+__all__ = [
+    "ExternalReference",
+    "IntegrationRecord",
+    "LocalToolReceipt",
+    "NucleotideFingerprintPreview",
+    "NucleotideLookupPreview",
+    "QueryReceipt",
+    "RoastDecodePreview",
+]

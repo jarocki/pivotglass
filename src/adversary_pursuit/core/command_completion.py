@@ -183,6 +183,14 @@ def command_completions(
             "scot search ",
             "scot entries ",
             "scot entities ",
+            "roast status",
+            "roast decode ",
+            "roast analyze ",
+            "nucleotide status",
+            "nucleotide lookup-info",
+            "nucleotide lookup ",
+            "nucleotide lookup-strict ",
+            "nucleotide fingerprint-preview ",
         ]
     elif command == "graph":
         choices = ["layers"]

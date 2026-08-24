@@ -167,7 +167,8 @@ command families:
 - `use <indicator>` — set an investigation target
 - `search`, `graph`, `dossier`, `gaps`, and `timeline` — inspect stored work
 - `analysis` — record questions, hypotheses, assertions, confidence, likelihood, contradictions, and structured methods
-- `integration` — run explicit, bounded, read-only Vertex Synapse and SCOT4 MCP previews
+- `integration` — run explicit, bounded Synapse/SCOT exchange previews and
+  review-only go-roast/Nucleotide analysis
 - `note` — add analyst-authored context
 - `report` and `export` — produce reports or portable data
 - `autopivot` and `hint` — control optional assistance
@@ -188,6 +189,11 @@ policy authority between them. The current work implements the bounded,
 read-only transport plus deterministic Synapse shadow and SCOT publication
 previews; see the
 [integration architecture](docs/EXTERNAL_INTEGRATIONS.md#target-architecture).
+go-roast decodes Interactsh OAST metadata into caveated graph proposals;
+Nucleotide attributes observed URLs and fingerprints analyst-grouped
+Nuclei-shaped activity. Both run locally behind time, output, and record limits,
+emit request receipts, and require analyst disposition before any result can
+enter the governed graph.
 
 ## Intelligence sources
 

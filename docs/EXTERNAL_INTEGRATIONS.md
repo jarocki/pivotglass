@@ -1,8 +1,13 @@
-# Vertex Synapse and SCOT4 integrations
+# External graph, publication, and analytic integrations
 
 Pivotglass 0.9 begins both integrations as bounded, read-only MCP clients. A
 remote result is labelled `remote-preview`; it is not silently promoted to
 local evidence, a relationship, or an analytic conclusion.
+
+The same authority boundary applies to local analysis tools. go-roast and
+Nucleotide output is labelled `external-derived-proposal`; it does not become
+an observation, relationship, actor identity, attribution, or deployed control
+without analyst review.
 
 ## Target architecture
 
@@ -31,6 +36,12 @@ flowchart LR
     V --> C["SCOT4 hunt-results web interface"]
     C --> R["Analyst requests another pivot"]
     R --> P
+    O["Observed OAST domains"] --> G["go-roast bounded local analysis"]
+    N["Observed Nuclei-shaped events"] --> U["Nucleotide bounded local analysis"]
+    G --> D["Caveated proposals and receipt"]
+    U --> D
+    D --> H["Analyst disposition"]
+    H --> P
 ```
 
 This is a staged migration, not a dual-write shortcut. Until the Synapse
@@ -57,6 +68,16 @@ hunt session is published.
   not contain the API key or raw Storm query.
 - Every mapped record retains the remote system, type, ID, revision,
   permissions when supplied, retrieval time, and a stable conflict key.
+- Local tools run as fixed argument arrays without a shell. Pivotglass removes
+  API-key and application-specific environment variables, bounds run time,
+  output bytes, input records, and event size, and emits a request-digest
+  receipt for every successful result.
+- OAST machine IDs and PIDs are correlation fragments. They are truncated,
+  version-sensitive, and potentially spoofable, so Pivotglass never labels
+  them as device or operator identity.
+- Nucleotide requires the analyst to group events before fingerprinting.
+  Unique means unique within the configured template corpus, and generated
+  Snort, Suricata, Sigma, or YARA content is never deployed by Pivotglass.
 
 ## Configure
 
@@ -66,9 +87,13 @@ Add the endpoint settings to `~/.ap/config.toml`:
 [integrations]
 synapse_mcp_url = "https://synapse.example/api/v1/mcp"
 scot_mcp_url = "https://scot.example/mcp"
+go_roast_executable = "/opt/pivotglass/bin/roast"
+nucleotide_executable = "/opt/pivotglass/bin/nucleotide"
+nucleotide_lookup_path = "/var/lib/pivotglass/nucleotide-lookup.json"
 timeout_seconds = 20.0
 max_pages = 10
 max_records = 1000
+max_local_output_bytes = 2000000
 max_elapsed_seconds = 30.0
 allow_insecure_http = false
 
@@ -84,6 +109,9 @@ AP_SYNAPSE_MCP_URL
 AP_SYNAPSE_API_KEY
 AP_SCOT_MCP_URL
 AP_SCOT_API_KEY
+AP_GO_ROAST_BIN
+AP_NUCLEOTIDE_BIN
+AP_NUCLEOTIDE_LOOKUP
 ```
 
 Stored configuration takes precedence over environment variables. Cleartext
@@ -94,6 +122,13 @@ credentials, is otherwise visible on that network.
 Synapse's Cortex MCP endpoint is `/api/v1/mcp`. SCOT4 must have its MCP server
 enabled, and its mounted path is normally `/mcp`. Use the complete endpoint
 URL supplied by the administrator.
+
+The local executables may be absolute paths or executable names on `PATH`.
+Build the Nucleotide lookup separately from a reviewed, versioned Nuclei
+template corpus and configure the resulting JSON file. Pivotglass deliberately
+does not download template repositories or build/deploy detection rules in the
+background. `integration nucleotide lookup-info` reports the corpus metadata
+and digest used for every attribution.
 
 ## Read-only commands
 
@@ -111,6 +146,14 @@ integration scot get <object-type> <object-id>
 integration scot search <object-type> [filters-json]
 integration scot entries <object-type> <object-id> [plain|flaired|all]
 integration scot entities <object-type> <object-id>
+integration roast status
+integration roast decode <OAST-domain>...
+integration roast analyze <OAST-domain>...
+integration nucleotide status
+integration nucleotide lookup-info
+integration nucleotide lookup <URL>...
+integration nucleotide lookup-strict <URL>...
+integration nucleotide fingerprint-preview <actor-id> | <event-object-or-array-json>
 ```
 
 `integration status` is local and makes no network request. A system-specific
@@ -141,6 +184,20 @@ and reason. Its disposition remains `preview`; it does not enqueue enrichment.
 This prevents content displayed in SCOT from becoming an instruction merely by
 arriving through the integration.
 
+`roast decode` uses go-roast's documented JSON interface. The preview preserves
+timestamp, campaign, counter, classification, machine fragment, PID fragment,
+and tool reasoning. It proposes typed `encodes-*` connections with explicit
+caveats and provenance; it does not mutate the graph. `roast analyze` preserves
+go-roast's campaign analysis as a sourced preview and explicitly rejects
+machine or timezone correlation as identity proof.
+
+`nucleotide lookup` uses the configured lookup JSON and preserves `UNIQUE`,
+`AMBIGUOUS`, and `NO_MATCH`. `fingerprint-preview` accepts one event object or
+an array in the documented JSONL event shape; `uri` or `url` is required. It
+shows Nucleotide's supporting signals, contradictions, inferred CLI options,
+template preference, structural hash, and unmatched Nuclei-shaped request count. The `actor-id`
+names an analyst-grouped batch; it is not an attribution claim.
+
 Example incremental SCOT preview:
 
 ```text
@@ -156,7 +213,8 @@ stopped by a budget.
 
 The current slices establish transport, repository snapshots, Synapse desired
 state and parity contracts, SCOT publication previews, pivot validation,
-receipts, and protocol fixtures.
+receipts, go-roast OAST graph proposals, Nucleotide lookup/fingerprint
+previews, and protocol fixtures.
 Before either integration is release-complete, it still needs:
 
 - disposable live-system round-trip tests;

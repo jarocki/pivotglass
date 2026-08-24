@@ -397,6 +397,14 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `integration scot search <type> [filters-json]` | Run a bounded, paginated SCOT4 search |
 | `integration scot entries <type> <id> [plain\|flaired\|all]` | Read bounded SCOT4 object entries |
 | `integration scot entities <type> <id>` | Read entities associated with a SCOT4 object |
+| `integration roast status` | Show whether the configured local go-roast executable is available without running it |
+| `integration roast decode <domain>...` | Decode OAST XID fields and preview caveated campaign, machine-fragment, and process-fragment graph proposals |
+| `integration roast analyze <domain>...` | Run bounded campaign analysis; machine, PID, timezone, and temporal groupings remain correlations rather than identity proof |
+| `integration nucleotide status` | Show local Nucleotide and lookup-artifact configuration without analyzing traffic |
+| `integration nucleotide lookup-info` | Show the configured lookup corpus metadata and SHA-256; generated controls remain review-only |
+| `integration nucleotide lookup <url>...` | Preserve unique, ambiguous, and unmatched URL-to-template attribution candidates |
+| `integration nucleotide lookup-strict <url>...` | Return only unique-within-corpus template attributions plus unmatched URLs |
+| `integration nucleotide fingerprint-preview <actor-id> \| <events-json>` | Analyze an analyst-grouped event object or array and expose supporting signals, contradictions, CLI-option hypotheses, and caveats |
 | `graph layers` | Inspect the combined entity and epistemic graph, including edge provenance and truth type |
 | `analysis method start\|complete\|accept\|reject\|revise …` | Run and disposition a versioned Structured Analytic Technique |
 | `note <text>` | Add an analyst note |

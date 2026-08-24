@@ -293,9 +293,13 @@ class IntegrationsConfig(BaseModel):
 
     synapse_mcp_url: str | None = None
     scot_mcp_url: str | None = None
+    go_roast_executable: str | None = None
+    nucleotide_executable: str | None = None
+    nucleotide_lookup_path: str | None = None
     timeout_seconds: float = Field(default=20.0, gt=0, le=120)
     max_pages: int = Field(default=10, ge=1, le=100)
     max_records: int = Field(default=1000, ge=1, le=10_000)
+    max_local_output_bytes: int = Field(default=2_000_000, ge=4096, le=20_000_000)
     max_elapsed_seconds: float = Field(default=30.0, gt=0, le=300)
     allow_insecure_http: bool = False
 
@@ -531,6 +535,30 @@ class ConfigManager:
             if value:
                 return value
         return None
+
+    def get_local_integration_setting(self, setting: str) -> str | None:
+        """Resolve a non-secret local integration path from config then environment."""
+        normalized = setting.strip().lower()
+        fields = {
+            "go_roast_executable": "AP_GO_ROAST_BIN",
+            "nucleotide_executable": "AP_NUCLEOTIDE_BIN",
+            "nucleotide_lookup_path": "AP_NUCLEOTIDE_LOOKUP",
+        }
+        if normalized not in fields:
+            raise ValueError(f"Unknown local integration setting: {setting!r}")
+        cfg = self._cache if self._cache is not None else self.load()
+        stored = getattr(cfg.integrations, normalized)
+        if stored:
+            return stored
+        env_value = os.environ.get(fields[normalized])
+        if env_value:
+            return env_value
+        defaults = {
+            "go_roast_executable": "roast",
+            "nucleotide_executable": "nucleotide",
+            "nucleotide_lookup_path": None,
+        }
+        return defaults[normalized]
 
     # ------------------------------------------------------------------
     # Agent provider/model helpers (DEC-AGENT-CONFIG-PROVIDER-001)

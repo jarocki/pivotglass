@@ -390,6 +390,14 @@ class WebCockpitService:
                 "purpose": "Preview a hunt publication or bounded SCOT4 reads without unapproved writes",
             },
             {
+                "command": "integration roast status|decode|analyze",
+                "purpose": "Decode and correlate Interactsh OAST domains as sourced, review-only graph proposals",
+            },
+            {
+                "command": "integration nucleotide status|lookup-info|lookup|lookup-strict|fingerprint-preview",
+                "purpose": "Attribute observed URLs and fingerprint pre-grouped Nuclei-shaped activity without deploying controls",
+            },
+            {
                 "command": "analysis question <text>",
                 "purpose": "Record the investigation question the evidence must answer",
             },
