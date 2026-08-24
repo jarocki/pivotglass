@@ -384,6 +384,16 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `framework accept\|reject <mapping-id> \| <review note>` | Record the analyst's disposition and rationale |
 | `framework revoke <mapping-id> \| <reason>` | Revoke a mapping without deleting its history |
 | `framework navigator` | Verify local ATT&CK 19.2 content and download the exact plotted Navigator layer |
+| `integration status` | Show local endpoint and credential state without making a network request |
+| `integration synapse status` | Connect to the configured Cortex MCP endpoint and list visible tools |
+| `integration synapse model <pattern>` | Search the Synapse data model |
+| `integration synapse lookup <type> <indicator>` | Normalize a supported Pivotglass indicator and lift the corresponding Synapse form with a bound Storm variable |
+| `integration synapse query <Storm>` | Run one validated, budgeted Storm query with read-only enforcement and an audit receipt |
+| `integration scot status` | Connect to the configured SCOT4 MCP endpoint and list visible tools |
+| `integration scot get <type> <id>` | Preview one SCOT4 object with remote ID, revision, permissions, and provenance |
+| `integration scot search <type> [filters-json]` | Run a bounded, paginated SCOT4 search |
+| `integration scot entries <type> <id> [plain\|flaired\|all]` | Read bounded SCOT4 object entries |
+| `integration scot entities <type> <id>` | Read entities associated with a SCOT4 object |
 | `graph layers` | Inspect the combined entity and epistemic graph, including edge provenance and truth type |
 | `analysis method start\|complete\|accept\|reject\|revise …` | Run and disposition a versioned Structured Analytic Technique |
 | `note <text>` | Add an analyst note |
@@ -403,6 +413,8 @@ through suggestions and Enter accepts one. A `?` typed inside an editable field
 remains text; outside an editable field it opens Help.
 
 See [Investigation graph](GRAPH_WORKSPACE.md) for the entity/epistemic layer
+and [Vertex Synapse and SCOT4 integrations](EXTERNAL_INTEGRATIONS.md) for MCP
+configuration, authority boundaries, and remaining release gates.
 contract and the distinction between observed relationships and derived
 navigation pivots. See [Framework projections](FRAMEWORK_PROJECTIONS.md) for
 the mapping and content-verification contract.

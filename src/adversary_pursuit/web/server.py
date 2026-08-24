@@ -53,6 +53,7 @@ from adversary_pursuit.core.framework_perspectives import (
 from adversary_pursuit.core.framework_projections import FrameworkProjectionAuthority
 from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
 from adversary_pursuit.core.information_requirements import build_information_requirements
+from adversary_pursuit.core.integration_commands import execute_integration_command
 from adversary_pursuit.core.investigation import (
     ContentClass,
     EventClass,
@@ -377,6 +378,18 @@ class WebCockpitService:
                 "purpose": "List framework-linked intelligence requirements",
             },
             {
+                "command": "integration status",
+                "purpose": "Show local Synapse and SCOT4 MCP configuration without connecting",
+            },
+            {
+                "command": "integration synapse status|model|lookup|query",
+                "purpose": "Run explicit, validated, bounded, read-only Synapse MCP operations",
+            },
+            {
+                "command": "integration scot status|get|search|entries|entities",
+                "purpose": "Preview bounded SCOT4 records while preserving remote provenance",
+            },
+            {
                 "command": "analysis question <text>",
                 "purpose": "Record the investigation question the evidence must answer",
             },
@@ -655,6 +668,9 @@ class WebCockpitService:
                     "content": json.dumps(result["data"], indent=2, default=str),
                 }
             return {"kind": "json", **result, "state": self.state()}
+        if command == "integration":
+            result = execute_integration_command(tuple(rest.split()), self.config_mgr)
+            return {"kind": "json", **result}
         if command == "export":
             return self.export_payload(rest or "stix")
         if command in {"clear", "quit", "exit", "q"}:

@@ -118,6 +118,8 @@ _AP_ENV_VAR_MAP: dict[str, str] = {
     "agent_openai": "AP_OPENAI_API_KEY",
     "agent_openrouter": "AP_OPENROUTER_API_KEY",
     "agent_google": "AP_GOOGLE_API_KEY",
+    "synapse": "AP_SYNAPSE_API_KEY",
+    "scot": "AP_SCOT_API_KEY",
 }
 
 # Layer 3: Vendor-convention env vars.  Non-obvious names listed explicitly;
@@ -140,6 +142,8 @@ _VENDOR_ENV_VAR_MAP: dict[str, str] = {
     "agent_openai": "OPENAI_API_KEY",
     "agent_openrouter": "OPENROUTER_API_KEY",
     "agent_google": "GOOGLE_API_KEY",
+    "synapse": "SYNAPSE_API_KEY",
+    "scot": "SCOT_API_KEY",
 }
 
 # Backward-compat alias: old AP_VT_API_KEY and AP_PT_* names still honoured.
@@ -280,6 +284,20 @@ class ApiKeysConfig(BaseModel):
     agent_openai: str | None = None
     agent_openrouter: str | None = None
     agent_google: str | None = None
+    synapse: str | None = None
+    scot: str | None = None
+
+
+class IntegrationsConfig(BaseModel):
+    """Connection and safety budgets for optional MCP integrations."""
+
+    synapse_mcp_url: str | None = None
+    scot_mcp_url: str | None = None
+    timeout_seconds: float = Field(default=20.0, gt=0, le=120)
+    max_pages: int = Field(default=10, ge=1, le=100)
+    max_records: int = Field(default=1000, ge=1, le=10_000)
+    max_elapsed_seconds: float = Field(default=30.0, gt=0, le=300)
+    allow_insecure_http: bool = False
 
 
 class Config(BaseModel):
@@ -287,6 +305,7 @@ class Config(BaseModel):
 
     general: GeneralConfig = Field(default_factory=GeneralConfig)
     api_keys: ApiKeysConfig = Field(default_factory=ApiKeysConfig)
+    integrations: IntegrationsConfig = Field(default_factory=IntegrationsConfig)
 
     def to_dict(self) -> dict[str, Any]:
         """Return a plain dict suitable for TOML serialisation.
@@ -312,6 +331,9 @@ class Config(BaseModel):
         return {
             "general": general_dict,
             "api_keys": {k: v for k, v in self.api_keys.model_dump().items() if v is not None},
+            "integrations": {
+                k: v for k, v in self.integrations.model_dump().items() if v is not None
+            },
         }
 
 
@@ -371,7 +393,8 @@ class ConfigManager:
                 raw = tomllib.load(fh)
             general = GeneralConfig(**raw.get("general", {}))
             api_keys = ApiKeysConfig(**raw.get("api_keys", {}))
-            cfg = Config(general=general, api_keys=api_keys)
+            integrations = IntegrationsConfig(**raw.get("integrations", {}))
+            cfg = Config(general=general, api_keys=api_keys, integrations=integrations)
         else:
             cfg = Config()
 
@@ -492,6 +515,21 @@ class ConfigManager:
             if val:
                 return val
 
+        return None
+
+    def get_integration_url(self, system: str) -> str | None:
+        """Resolve one MCP endpoint from config first, then environment."""
+        normalized = system.strip().lower()
+        if normalized not in {"synapse", "scot"}:
+            raise ValueError(f"Unknown integration: {system!r}")
+        cfg = self._cache if self._cache is not None else self.load()
+        stored = getattr(cfg.integrations, f"{normalized}_mcp_url")
+        if stored:
+            return stored
+        for name in (f"AP_{normalized.upper()}_MCP_URL", f"{normalized.upper()}_MCP_URL"):
+            value = os.environ.get(name)
+            if value:
+                return value
         return None
 
     # ------------------------------------------------------------------

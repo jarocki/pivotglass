@@ -10,6 +10,7 @@ interface.
 - [User Guide](USER_GUIDE.md) — task guidance and command reference
 - [Analytic method](ANALYTIC_METHOD.md) — scientific workflow, structured techniques, confidence, and contradictions
 - [Framework projections](FRAMEWORK_PROJECTIONS.md) — evidence-backed ATT&CK, Kill Chain, and Diamond mapping contract
+- [Vertex Synapse and SCOT4 integrations](EXTERNAL_INTEGRATIONS.md) — read-only MCP setup, commands, receipts, and authority boundaries
 - [Workspace migration and recovery](WORKSPACE_MIGRATIONS.md) — preview, backup, validation, and recovery
 - [Guided video](media/pivotglass-guided-demo-v0.7.0.mp4) — two-minute visual walkthrough
 - [Video transcript](media/pivotglass-guided-demo-transcript.md) — accessible narration text

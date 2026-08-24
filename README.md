@@ -167,6 +167,7 @@ command families:
 - `use <indicator>` — set an investigation target
 - `search`, `graph`, `dossier`, `gaps`, and `timeline` — inspect stored work
 - `analysis` — record questions, hypotheses, assertions, confidence, likelihood, contradictions, and structured methods
+- `integration` — run explicit, bounded, read-only Vertex Synapse and SCOT4 MCP previews
 - `note` — add analyst-authored context
 - `report` and `export` — produce reports or portable data
 - `autopivot` and `hint` — control optional assistance

@@ -1,0 +1,54 @@
+"""Shared command-surface tests for the Synapse and SCOT4 adapters."""
+
+from adversary_pursuit.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
+from adversary_pursuit.agent.tools import ToolContext
+from adversary_pursuit.core.command_completion import command_completions
+from adversary_pursuit.core.config import ConfigManager
+from adversary_pursuit.core.integration_commands import execute_integration_command
+from adversary_pursuit.web.server import WebCockpitService
+
+
+def test_integration_status_is_local_masked_and_shared(tmp_path):
+    config_mgr = ConfigManager(tmp_path / "config")
+    config_mgr.set("integrations.synapse_mcp_url", "https://synapse.test/api/v1/mcp")
+    config_mgr.set("api_keys.synapse", "never-display-this")
+
+    result = execute_integration_command(("status",), config_mgr)
+
+    assert result["data"]["synapse"] == {
+        "endpoint": "configured",
+        "credential": "config",
+        "mode": "read-only",
+        "authority": "remote-preview",
+    }
+    assert "never-display-this" not in repr(result)
+
+
+def test_tui_and_web_route_integration_status_without_a_model(tmp_path):
+    ctx = ToolContext(
+        config_dir=tmp_path / "config",
+        workspace_dir=tmp_path / "workspaces",
+    )
+    verb = parse_repl_verb("integration status")
+    assert verb is not None
+    tui = dispatch_repl_verb(
+        verb,
+        ctx,
+        ctx.mode_mgr,
+        ctx.workspace_mgr,
+        config_mgr=ctx.config_mgr,
+    )
+    web_service = WebCockpitService(ctx)
+    web = web_service.execute_command("integration status")
+
+    assert "External integrations" in tui
+    assert web["kind"] == "json"
+    assert web["data"]["scot"]["authority"] == "remote-preview"
+    assert web_service._runner is None
+
+
+def test_integration_completions_cover_read_operations():
+    assert "integration" in command_completions("integ")
+    assert "integration synapse query " in command_completions("integration synapse q")
+    assert "integration synapse lookup " in command_completions("integration synapse l")
+    assert "integration scot search " in command_completions("integration scot s")

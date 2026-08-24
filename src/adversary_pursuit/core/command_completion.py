@@ -21,6 +21,7 @@ TOP_LEVEL_COMMANDS: tuple[str, ...] = (
     "report",
     "analysis",
     "framework",
+    "integration",
     "help",
     "model",
     "config",
@@ -166,6 +167,19 @@ def command_completions(
             "reject ",
             "revoke ",
             "navigator",
+        ]
+    elif command == "integration":
+        choices = [
+            "status",
+            "synapse status",
+            "synapse model ",
+            "synapse lookup ",
+            "synapse query ",
+            "scot status",
+            "scot get ",
+            "scot search ",
+            "scot entries ",
+            "scot entities ",
         ]
     elif command == "graph":
         choices = ["layers"]

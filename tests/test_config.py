@@ -68,6 +68,13 @@ class TestDefaults:
         assert cfg.api_keys.virustotal == ""
         assert cfg.api_keys.abuseipdb == ""
 
+    def test_default_integrations_are_safe_and_bounded(self, tmp_path):
+        cfg = make_manager(tmp_path).load()
+        assert cfg.integrations.synapse_mcp_url is None
+        assert cfg.integrations.scot_mcp_url is None
+        assert cfg.integrations.allow_insecure_http is False
+        assert cfg.integrations.max_pages == 10
+
 
 # ---------------------------------------------------------------------------
 # Save / load round-trip
@@ -102,6 +109,21 @@ class TestRoundTrip:
         assert cfg2.general.theme == "light"
         assert cfg2.general.auto_pivot is True
         assert cfg2.general.auto_pivot_depth == 5
+
+    def test_round_trip_integration_settings_and_secrets(self, tmp_path):
+        mgr = make_manager(tmp_path)
+        cfg = mgr.load()
+        cfg.integrations.synapse_mcp_url = "https://synapse.test/api/v1/mcp"
+        cfg.integrations.scot_mcp_url = "https://scot.test/mcp"
+        cfg.api_keys.synapse = "synapse-key"
+        cfg.api_keys.scot = "scot-key"
+        mgr.save(cfg)
+
+        cfg2 = mgr.load()
+        assert cfg2.integrations.synapse_mcp_url.endswith("/api/v1/mcp")
+        assert cfg2.integrations.scot_mcp_url.endswith("/mcp")
+        assert mgr.get_api_key("synapse") == "synapse-key"
+        assert mgr.get_api_key("scot") == "scot-key"
 
     def test_round_trip_all_api_keys(self, tmp_path):
         mgr = make_manager(tmp_path)
@@ -197,6 +219,13 @@ class TestDottedKeys:
 
 
 class TestEnvVarOverride:
+    def test_integration_urls_and_keys_resolve_from_environment(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("AP_SYNAPSE_MCP_URL", "https://synapse.test/api/v1/mcp")
+        monkeypatch.setenv("AP_SYNAPSE_API_KEY", "synapse-env")
+        mgr = make_manager(tmp_path)
+        assert mgr.get_integration_url("synapse") == "https://synapse.test/api/v1/mcp"
+        assert mgr.get_api_key("synapse") == "synapse-env"
+
     def test_shodan_ap_env_resolves_via_get_api_key(self, tmp_path, monkeypatch):
         """AP_SHODAN_API_KEY resolves via get_api_key() when no config is set."""
         monkeypatch.setenv("AP_SHODAN_API_KEY", "env-key")
