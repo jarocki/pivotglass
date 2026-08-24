@@ -262,6 +262,11 @@ investigations have similar Dossier coverage. The latter is a PCA projection,
 not a relationship or attribution graph; open its exact-data table to see the
 included dimensions and explained variance.
 
+After recording competing hypotheses and linking evidence with `analysis`,
+open **Competing hypotheses matrix** to compare the same evidence across every
+explanation. A **not assessed** cell is a visible gap, not neutral evidence;
+use the exact-data table to review the recorded rationale.
+
 Before sharing any export, remember that it can contain raw indicators and
 source-derived information.
 

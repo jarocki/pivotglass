@@ -122,16 +122,21 @@ three-channel RGB blocks for indicator enrichment jobs.
 Visual Analysis begins with an analyst question and chooses a view that fits
 the stored data. Current views include evidence composition, Dossier radar,
 UTC activity calendar, enrichment activity, the Constellation, a
-force-directed relationship graph, connection-count distribution, and a PCA
-view of similarity among indicator evidence-coverage profiles. Each view
-includes source scope, caveats, an accessible table, and export of the exact
-plotted data.
+force-directed relationship graph, connection-count distribution, a PCA view
+of similarity among indicator evidence-coverage profiles, and an Analysis of
+Competing Hypotheses matrix. Each view includes source scope, caveats, an
+accessible table, and export of the exact plotted data.
 
 The PCA view standardizes only comparable, varying Dossier dimensions and
 reports the variance explained by each axis. It excludes deferred or
 unavailable dimensions instead of inventing values. Distance in that view is
 coverage similarity—not a relationship, attribution, maliciousness verdict,
 or confidence score.
+
+The competing-hypotheses matrix crosses every linked evidence source with
+every recorded hypothesis. It shows only analyst-recorded supporting or
+contradicting stances, preserves mixed assessments, and marks absent stances as
+**not assessed** rather than silently treating them as neutral.
 
 The graph labels nodes with actual indicator values. Every visible edge has a
 stored or explicitly labeled conservative basis. Dragging, filtering, and

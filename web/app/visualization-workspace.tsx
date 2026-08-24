@@ -237,6 +237,10 @@ const TERMINAL_GLYPH: Record<string, string> = {
   failed: "!",
   skipped: "↷",
   cancelled: "×",
+  supports: "+",
+  contradicts: "−",
+  mixed: "±",
+  not_assessed: "?",
 };
 
 export function TaskMatrix({
@@ -263,6 +267,9 @@ export function TaskMatrix({
   const columnField = intent.fields.column;
   const statusField = intent.fields.status;
   const isConstellation = intent.intent_id === "indicator-constellation";
+  const isAch = intent.intent_id === "competing-hypotheses-matrix";
+  const rowHeading = intent.table_columns.find((column) => column.key === rowField)?.label
+    ?? "Indicator";
   const mergedRows = useMemo(() => {
     const rows = new Map<string, VisualizationRow>();
     for (const row of [...intent.data.rows, ...liveRows]) {
@@ -494,7 +501,7 @@ export function TaskMatrix({
           <caption className="sr-only">{intent.question_text}</caption>
           <thead>
             <tr>
-              <th scope="col">Indicator</th>
+              <th scope="col">{rowHeading}</th>
               {columns.map((column) => (
                 <th
                   scope="col"
@@ -542,7 +549,9 @@ export function TaskMatrix({
                             setSelected(cell);
                             onSelectCell?.(cell);
                           }}
-                          title={`${column.replaceAll("_", " ")} · ${status} · ${displayValue(cell.evidence_count)} evidence records`}
+                          title={isAch
+                            ? `${column} · ${status.replaceAll("_", " ")} · ${displayValue(cell.rationale)}`
+                            : `${column.replaceAll("_", " ")} · ${status} · ${displayValue(cell.evidence_count)} evidence records`}
                           aria-label={`${label}, ${column}, ${status}. RGB status ${rgbLabelForStatus(status)}`}
                         >
                           {isConstellation
@@ -556,7 +565,7 @@ export function TaskMatrix({
                               <>
                                 <RGBLed status={status} label={`${status} RGB status ${rgbLabelForStatus(status)}`} />
                                 <b>{TERMINAL_GLYPH[status] ?? "·"}</b>
-                                <span>{status}</span>
+                                <span>{status.replaceAll("_", " ")}</span>
                               </>
                             )}
                         </button>
@@ -579,7 +588,7 @@ export function TaskMatrix({
         <div className="visualization-selection" aria-live="polite">
           <b>{displayValue(selected[rowField])}</b>
           <span>
-            {displayValue(selected[columnField])} · {displayValue(selected[statusField])}
+            {displayValue(selected[columnField])} · {displayValue(selected[statusField]).replaceAll("_", " ")}
           </span>
           <small>
             {isConstellation
@@ -588,6 +597,8 @@ export function TaskMatrix({
                 + `evidence records · first ${displayValue(selected.first_seen)} · `
                 + `last ${displayValue(selected.last_seen)}`
               )
+              : isAch
+                ? `${displayValue(selected.source_kind)} · ${displayValue(selected.rationale)}`
               : (
                 `Event ${displayValue(selected.event_sequence)} · `
                 + displayValue(selected.updated_at)

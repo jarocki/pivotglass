@@ -52,6 +52,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   variance, and exports every plotted point with its exact feature profile.
   The view explicitly describes proximity as coverage similarity rather than
   a graph relationship, attribution, verdict, or confidence score.
+- Added an Analysis of Competing Hypotheses matrix over the scientific
+  notebook ledger. It crosses every linked observation or assertion with every
+  competing hypothesis, preserves supporting, contradicting, and mixed
+  analyst-recorded stances, and exposes unassessed cells without inferring
+  neutrality from missing judgments.
 
 ## [0.8.5] — 2026-08-07
 

@@ -223,12 +223,22 @@ class WebCockpitService:
             objects,
             persisted_relationships(self.ctx.workspace_mgr),
         )
+        ledger = AnalyticLedger(self.ctx.workspace_mgr)
+        analysis = ledger.snapshot()
+        analysis["enrichment_queue"] = ledger.enrichment_requests()
+        analysis["information_requirements"] = build_information_requirements(analysis)
+        analysis["rigor"] = build_analytic_rigor(analysis)
+        visualization_analysis = {
+            **analysis,
+            "observations": self.ctx.workspace_mgr.get_observations(),
+        }
         visualizations = build_visualization_intents(
             workspace=self.ctx.workspace_mgr.active,
             objects=objects,
             dossier_slots=dossier_slots,
             graph=relationship_graph.to_dict(),
             investigations=self.investigations.snapshots(),
+            analysis=visualization_analysis,
         )
         graph_layouts = GraphPresentationAuthority(self.ctx.workspace_mgr).list()
         modes = []
@@ -244,11 +254,6 @@ class WebCockpitService:
                     "pursuit_title": PURSUIT_TITLES[name],
                 }
             )
-        ledger = AnalyticLedger(self.ctx.workspace_mgr)
-        analysis = ledger.snapshot()
-        analysis["enrichment_queue"] = ledger.enrichment_requests()
-        analysis["information_requirements"] = build_information_requirements(analysis)
-        analysis["rigor"] = build_analytic_rigor(analysis)
         framework_mappings = FrameworkProjectionAuthority(self.ctx.workspace_mgr).list()
         framework_counts: dict[str, dict[str, int]] = {}
         for mapping in framework_mappings:

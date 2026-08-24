@@ -18,6 +18,7 @@ from adversary_pursuit.core.visualization import (
     VisualizationRenderer,
     VisualizationView,
     activity_concentration_intent,
+    competing_hypotheses_matrix_intent,
     dossier_completeness_intent,
     evidence_composition_intent,
     indicator_constellation_intent,
@@ -268,6 +269,103 @@ def test_indicator_coverage_pca_shows_empty_state_without_comparable_variation()
     assert intent.data.rows == ()
     assert intent.source_scope.record_count == 0
     assert "Insufficient comparable variation" in intent.caveats[-3]
+
+
+def test_competing_hypotheses_matrix_shows_recorded_and_unassessed_stances():
+    analysis = {
+        "hypotheses": [
+            {
+                "id": "hypothesis-one",
+                "statement": "The operator controls the relay.",
+                "status": "retained",
+                "created_at": "2026-08-24T10:00:00Z",
+            },
+            {
+                "id": "hypothesis-two",
+                "statement": "The relay is shared infrastructure.",
+                "status": "proposed",
+                "created_at": "2026-08-24T10:01:00Z",
+            },
+        ],
+        "observations": [
+            {
+                "id": "observation-one",
+                "entity_value": "relay.test",
+            }
+        ],
+        "assertions": [
+            {
+                "id": "assertion-one",
+                "statement": "The certificate appears on unrelated domains.",
+            }
+        ],
+        "evidence_links": [
+            {
+                "source_kind": "observation",
+                "source_id": "observation-one",
+                "target_kind": "hypothesis",
+                "target_id": "hypothesis-one",
+                "stance": "supports",
+                "rationale": "The relay was observed in the case.",
+            },
+            {
+                "source_kind": "assertion",
+                "source_id": "assertion-one",
+                "target_kind": "hypothesis",
+                "target_id": "hypothesis-one",
+                "stance": "contradicts",
+                "rationale": "Shared use weakens exclusive control.",
+            },
+            {
+                "source_kind": "assertion",
+                "source_id": "assertion-one",
+                "target_kind": "hypothesis",
+                "target_id": "hypothesis-one",
+                "stance": "supports",
+                "rationale": "Reuse may still reflect common operation.",
+            },
+        ],
+    }
+
+    intent = competing_hypotheses_matrix_intent("case-red", analysis)
+
+    assert intent.view == VisualizationView.TASK_MATRIX
+    assert intent.renderer == VisualizationRenderer.NATIVE
+    assert len(intent.data.rows) == 4
+    cells = {
+        (row["source_id"], row["hypothesis_id"]): row for row in intent.data.rows
+    }
+    assert cells[("observation-one", "hypothesis-one")]["stance"] == "supports"
+    assert cells[("observation-one", "hypothesis-two")]["stance"] == "not_assessed"
+    assert cells[("assertion-one", "hypothesis-one")]["stance"] == "mixed"
+    assert cells[("assertion-one", "hypothesis-one")]["link_count"] == 2
+    assert "No analyst-recorded assessment" in cells[
+        ("assertion-one", "hypothesis-two")
+    ]["rationale"]
+    assert "not treated as neutral" in intent.missing_data.explanation
+    assert "not properties inferred" in intent.caveats[-2]
+
+
+def test_competing_hypotheses_matrix_requires_competing_hypotheses():
+    intent = competing_hypotheses_matrix_intent(
+        "default",
+        {
+            "hypotheses": [{"id": "only-one", "statement": "One explanation"}],
+            "observations": [{"id": "observed", "entity_value": "one.test"}],
+            "evidence_links": [
+                {
+                    "source_kind": "observation",
+                    "source_id": "observed",
+                    "target_kind": "hypothesis",
+                    "target_id": "only-one",
+                    "stance": "supports",
+                }
+            ],
+        },
+    )
+
+    assert intent.data.rows == ()
+    assert intent.source_scope.record_count == 0
 
 
 def test_relationship_graph_exposes_actual_labels_and_edge_basis():

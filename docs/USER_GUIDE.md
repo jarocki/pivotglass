@@ -181,7 +181,9 @@ type. Pivotglass currently provides:
 - indicator-by-enrichment lifecycle activity; and
 - the force-directed relationship graph;
 - the admitted connection-count distribution; and
-- a PCA scatter view of similarity among indicator evidence-coverage profiles.
+- a PCA scatter view of similarity among indicator evidence-coverage profiles;
+  and
+- an Analysis of Competing Hypotheses matrix over recorded evidence stances.
 
 Every view states its source scope and missing-data policy. **View exact data
 and caveats** opens the accessible table behind the visual. **Export exact
@@ -199,6 +201,14 @@ not guessed. The chart reports the variance explained by both axes and exposes
 the exact input profile for every point. Nearby points have similar coverage
 patterns; they are not necessarily connected, related to the same actor,
 malicious, or supported with greater confidence.
+
+The competing-hypotheses matrix appears after the scientific notebook has at
+least two hypotheses and at least one observation or assertion linked directly
+to a hypothesis. Green **supports**, red **contradicts**, amber **mixed**, and
+dark **not assessed** cells always repeat their meaning with text and symbols.
+An unassessed cell means no stance was recorded; it is not neutral evidence.
+Open the exact-data table to read the analyst rationale and number of persisted
+links behind each cell.
 
 ## Relationship graph
 

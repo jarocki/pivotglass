@@ -32,6 +32,7 @@ class VisualizationQuestion(StrEnum):
     ENTITY_RELATIONSHIPS = "which_entities_relate"
     HIERARCHY = "how_does_this_hierarchy_divide"
     NUMERIC_CORRELATION = "are_numeric_features_correlated"
+    COMPETING_HYPOTHESES = "which_evidence_supports_or_contradicts_hypotheses"
     INDICATOR_COMPLETENESS = "how_complete_are_indicator_investigations"
     TASK_STATUS = "which_indicator_enrichment_work_is_pending"
     METRIC_TREND = "how_does_this_metric_change"
@@ -141,6 +142,20 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
             "similarity without asserting a causal relationship."
         ),
         guardrail="Expose every plotted point and label explained variance for PCA projections.",
+    ),
+    VisualizationQuestion.COMPETING_HYPOTHESES: VisualizationPolicy(
+        question=VisualizationQuestion.COMPETING_HYPOTHESES,
+        view=VisualizationView.TASK_MATRIX,
+        renderer=VisualizationRenderer.NATIVE,
+        required_roles=("row", "column", "status"),
+        selection_reason=(
+            "An ACH matrix places the same evidence against every competing hypothesis so "
+            "support, contradiction, mixed assessments, and unassessed cells remain visible."
+        ),
+        guardrail=(
+            "Show only analyst-recorded evidence stances; an unassessed cell is not neutral "
+            "evidence and no stance may be inferred from absence."
+        ),
     ),
     VisualizationQuestion.INDICATOR_COMPLETENESS: VisualizationPolicy(
         question=VisualizationQuestion.INDICATOR_COMPLETENESS,
@@ -858,6 +873,148 @@ def indicator_coverage_pca_intent(
     )
 
 
+def competing_hypotheses_matrix_intent(
+    workspace: str,
+    analysis: dict[str, Any],
+) -> VisualizationIntent:
+    """Compare recorded evidence stances across competing hypotheses.
+
+    The matrix is a direct projection of persisted evidence links. It never
+    assigns a stance to an unlinked source/hypothesis pair and it retains
+    mixed support/contradiction as an explicit review state.
+    """
+
+    hypotheses = sorted(
+        analysis.get("hypotheses", ()),
+        key=lambda row: (str(row.get("created_at", "")), str(row.get("id", ""))),
+    )
+    hypothesis_ids = {str(row.get("id", "")) for row in hypotheses if row.get("id")}
+    evidence_links = [
+        row
+        for row in analysis.get("evidence_links", ())
+        if row.get("source_id")
+        and str(row.get("target_kind", "")) == "hypothesis"
+        and str(row.get("target_id", "")) in hypothesis_ids
+    ]
+    sources: dict[tuple[str, str], dict[str, Any]] = {}
+    for kind, collection, label_field in (
+        ("observation", analysis.get("observations", ()), "entity_value"),
+        ("assertion", analysis.get("assertions", ()), "statement"),
+    ):
+        for row in collection:
+            record_id = str(row.get("id", ""))
+            if not record_id:
+                continue
+            sources[(kind, record_id)] = {
+                "source_kind": kind,
+                "source_id": record_id,
+                "evidence": str(row.get(label_field) or row.get("entity_ref") or record_id),
+            }
+    linked_source_keys = sorted(
+        {
+            (str(link.get("source_kind", "")), str(link.get("source_id", "")))
+            for link in evidence_links
+            if (str(link.get("source_kind", "")), str(link.get("source_id", ""))) in sources
+        }
+    )
+    matrix_ready = len(hypotheses) >= 2 and bool(linked_source_keys)  # noqa: PLR2004
+    per_hypothesis_limit = max(1, MAX_VISUALIZATION_ROWS // max(1, len(hypotheses)))
+    visible_source_keys = linked_source_keys[:per_hypothesis_limit] if matrix_ready else []
+    omitted_sources = max(0, len(linked_source_keys) - len(visible_source_keys))
+    indexed_links: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for link in evidence_links:
+        key = (
+            str(link.get("source_kind", "")),
+            str(link.get("source_id", "")),
+            str(link.get("target_id", "")),
+        )
+        indexed_links.setdefault(key, []).append(link)
+
+    rows: list[dict[str, Any]] = []
+    for source_key in visible_source_keys:
+        source = sources[source_key]
+        for index, hypothesis in enumerate(hypotheses, start=1):
+            target_id = str(hypothesis.get("id", ""))
+            links = indexed_links.get((*source_key, target_id), [])
+            stances = sorted({str(link.get("stance", "")) for link in links if link.get("stance")})
+            status = (
+                "not_assessed"
+                if not stances
+                else stances[0]
+                if len(stances) == 1
+                else "mixed"
+            )
+            rationale = " | ".join(
+                sorted({str(link.get("rationale", "")) for link in links if link.get("rationale")})
+            )
+            statement = str(hypothesis.get("statement") or target_id)
+            rows.append(
+                {
+                    **source,
+                    "hypothesis": f"H{index} · {statement}",
+                    "hypothesis_id": target_id,
+                    "hypothesis_status": str(hypothesis.get("status", "proposed")),
+                    "stance": status,
+                    "rationale": rationale or "No analyst-recorded assessment.",
+                    "link_count": len(links),
+                }
+            )
+
+    return _intent(
+        intent_id="competing-hypotheses-matrix",
+        title="Competing hypotheses matrix",
+        question=VisualizationQuestion.COMPETING_HYPOTHESES,
+        question_text="Which evidence supports or contradicts each competing hypothesis?",
+        workspace=workspace,
+        description=(
+            "Analyst-recorded observation or assertion stances against persisted hypotheses."
+        ),
+        record_count=len(visible_source_keys),
+        data=VisualizationData(rows=tuple(rows)),
+        fields={
+            "row": "evidence",
+            "row_id": "source_id",
+            "column": "hypothesis",
+            "status": "stance",
+        },
+        semantic_types={
+            "source_kind": "Category",
+            "source_id": "Identifier",
+            "evidence": "Text",
+            "hypothesis": "Category",
+            "hypothesis_id": "Identifier",
+            "hypothesis_status": "Status",
+            "stance": "Status",
+            "rationale": "Text",
+            "link_count": "Count",
+        },
+        table_columns=(
+            VisualizationTableColumn(key="evidence", label="Evidence or assertion"),
+            VisualizationTableColumn(key="source_kind", label="Source kind"),
+            VisualizationTableColumn(key="hypothesis", label="Hypothesis"),
+            VisualizationTableColumn(key="hypothesis_status", label="Hypothesis status"),
+            VisualizationTableColumn(key="stance", label="Recorded stance"),
+            VisualizationTableColumn(key="rationale", label="Analyst rationale"),
+            VisualizationTableColumn(key="link_count", label="Recorded links"),
+        ),
+        missing_data=VisualizationMissingData(
+            policy="omit_with_count" if omitted_sources else "show",
+            explanation=(
+                "Every visible source is crossed with every hypothesis. Cells without a "
+                "persisted stance are shown as not assessed; they are not treated as neutral. "
+                "At least two hypotheses and one linked evidence source are required."
+            ),
+            omitted_count=omitted_sources,
+        ),
+        caveats=(
+            "Support and contradiction are analyst-recorded assessments, not properties "
+            "inferred by the visualization.",
+            "Mixed means the ledger contains both supporting and contradicting links for "
+            "the same source/hypothesis pair and requires review.",
+        ),
+    )
+
+
 def _standardize_columns(matrix: list[list[float]]) -> list[list[float]]:
     row_count = len(matrix)
     column_count = len(matrix[0])
@@ -1064,6 +1221,7 @@ def build_visualization_intents(
     dossier_slots: list[dict[str, Any]],
     graph: dict[str, Any],
     investigations: list[dict[str, Any]],
+    analysis: dict[str, Any] | None = None,
 ) -> tuple[VisualizationIntent, ...]:
     """Build the initial 0.6.0 cockpit visualization set."""
 
@@ -1077,4 +1235,5 @@ def build_visualization_intents(
         relationship_graph_intent(workspace, graph),
         relationship_degree_distribution_intent(workspace, graph),
         indicator_coverage_pca_intent(workspace, constellation),
+        competing_hypotheses_matrix_intent(workspace, analysis or {}),
     )
