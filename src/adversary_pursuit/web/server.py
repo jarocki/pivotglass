@@ -453,12 +453,12 @@ class WebCockpitService:
                 "purpose": "Show local Synapse and SCOT4 MCP configuration without connecting",
             },
             {
-                "command": "integration synapse shadow-preview|model-contract|model-deploy-plan|model-deploy-execute|model-deploy-receipt|migration-plan|shadow-execute|shadow-receipt|views|status|model|lookup|query",
-                "purpose": "Preview governed graph state, inspect the versioned model, compile a disabled shadow migration, or run explicit read-only MCP operations",
+                "command": "integration synapse shadow-preview|cutover-readiness|model-contract|model-deploy-plan|model-deploy-execute|model-deploy-receipt|migration-plan|shadow-execute|shadow-receipt|views|status|model|lookup|query",
+                "purpose": "Preview governed graph state, inspect current cutover blockers and receipts, compile a disabled shadow migration, or run explicit read-only MCP operations",
             },
             {
-                "command": "integration scot publish-preview|publish-plan|publish-execute|publication-receipt|pivot-preview|pivot-queue|pivot-enqueue|status|get|search|entries|entities",
-                "purpose": "Preview or compile a publication, approve exact-digest write/readback, accept a pivot into enrichment, or perform bounded SCOT4 reads",
+                "command": "integration scot publish-preview|publication-readiness|publish-plan|publish-execute|publication-receipt|pivot-preview|pivot-queue|pivot-enqueue|status|get|search|entries|entities",
+                "purpose": "Preview or evaluate a current publication, approve exact-digest write/readback, accept a pivot into enrichment, or perform bounded SCOT4 reads",
             },
             {
                 "command": "integration roast status|decode|record|analyze",

@@ -46,6 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   enrichment queue. Pivotglass web hands accepted targets to the ordinary
   deterministic planner, writes running and terminal states back to the same
   provenance-bearing item, and prevents completed requests from restarting.
+- Added deterministic Synapse cutover-readiness and SCOT publication-readiness
+  reports. They bind configuration and receipts to the exact current plans,
+  disclose remaining live-system blockers, expose no secrets, and authorize no
+  cutover or remote action.
 - Added a deterministic PCA view of indicator evidence-coverage profiles.
   Pivotglass standardizes only comparable, varying Dossier dimensions,
   excludes missing or deferred inputs without imputation, labels explained

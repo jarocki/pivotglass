@@ -1,10 +1,30 @@
 """Shared command-surface tests for the Synapse and SCOT4 adapters."""
 
+from datetime import UTC, datetime
+
 from adversary_pursuit.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
 from adversary_pursuit.agent.tools import ToolContext
 from adversary_pursuit.core.command_completion import command_completions
 from adversary_pursuit.core.config import ConfigManager
+from adversary_pursuit.core.graph_repository import WorkspaceGraphRepository
 from adversary_pursuit.core.integration_commands import execute_integration_command
+from adversary_pursuit.integrations.scot_execution import (
+    ScotPublicationJournal,
+    ScotPublicationReceipt,
+    approve_scot_publication,
+    scot_confirmation,
+)
+from adversary_pursuit.integrations.scot_publication import (
+    build_scot_publication_manifest,
+    compile_scot_write_plan,
+)
+from adversary_pursuit.integrations.synapse_execution import SynapseShadowJournal
+from adversary_pursuit.integrations.synapse_graph import build_synapse_shadow_manifest
+from adversary_pursuit.integrations.synapse_migration import compile_synapse_migration_plan
+from adversary_pursuit.integrations.synapse_model_deployment import (
+    SynapseModelDeploymentJournal,
+    compile_synapse_model_deployment_plan,
+)
 from adversary_pursuit.web.server import WebCockpitService
 
 
@@ -64,6 +84,8 @@ def test_web_previews_synapse_shadow_and_scot_publication_from_same_workspace(tm
     synapse_model_plan = service.execute_command("integration synapse model-deploy-plan")
     synapse_plan = service.execute_command("integration synapse migration-plan")
     scot = service.execute_command("integration scot publish-preview")
+    synapse_readiness = service.execute_command("integration synapse cutover-readiness")
+    scot_readiness = service.execute_command("integration scot publication-readiness analyst")
     scot_plan = service.execute_command("integration scot publish-plan analyst")
 
     assert synapse["data"]["source_snapshot_sha256"] == scot["data"]["source_snapshot_sha256"]
@@ -81,7 +103,93 @@ def test_web_previews_synapse_shadow_and_scot_publication_from_same_workspace(tm
     assert scot["data"]["published"] is False
     assert scot_plan["data"]["manifest_digest_sha256"] == scot["data"]["digest_sha256"]
     assert scot_plan["data"]["execution_enabled"] is False
+    assert synapse_readiness["data"]["cutover_authorized"] is False
+    assert synapse_readiness["data"]["eligible_for_cutover_review"] is False
+    assert scot_readiness["data"]["current_graph_published"] is False
+    assert scot_readiness["data"]["scot_side_pivot_trigger_implemented"] is False
     assert service._runner is None
+
+
+def test_integration_readiness_requires_exact_current_receipts(tmp_path):
+    ctx = ToolContext(
+        config_dir=tmp_path / "config",
+        workspace_dir=tmp_path / "workspaces",
+    )
+    ctx.config_mgr.set("integrations.synapse_mcp_url", "https://synapse.test/api/v1/mcp")
+    ctx.config_mgr.set("integrations.scot_api_url", "https://scot.test/api")
+    ctx.config_mgr.set("api_keys.synapse", "masked-in-output")
+    ctx.config_mgr.set("api_keys.scot", "masked-in-output")
+    ctx.workspace_mgr.store_stix_objects(
+        [{"type": "domain-name", "value": "readiness.example"}],
+        module_name="test/source",
+        target="readiness.example",
+    )
+    snapshot = WorkspaceGraphRepository(ctx.workspace_mgr).snapshot()
+    model_plan = compile_synapse_model_deployment_plan()
+    migration_plan = compile_synapse_migration_plan(build_synapse_shadow_manifest(snapshot))
+    scot_manifest = build_scot_publication_manifest(snapshot)
+    scot_plan = compile_scot_write_plan(scot_manifest, owner="analyst")
+    now = datetime.now(UTC)
+
+    model_journal = SynapseModelDeploymentJournal(ctx.workspace_mgr)
+    model_journal.claim(model_plan.digest_sha256, approved_by="analyst", started_at=now)
+    model_journal.complete(
+        model_plan.digest_sha256,
+        receipt={
+            "plan_digest_sha256": model_plan.digest_sha256,
+            "model_digest_sha256": model_plan.model_digest_sha256,
+            "exact_readback": True,
+            "runtime_model_verified": True,
+        },
+        completed_at=now,
+    )
+    shadow_journal = SynapseShadowJournal(ctx.workspace_mgr)
+    shadow_journal.claim(migration_plan.digest_sha256, approved_by="analyst", started_at=now)
+    shadow_journal.complete(
+        migration_plan.digest_sha256,
+        receipt={
+            "plan_digest_sha256": migration_plan.digest_sha256,
+            "manifest_digest_sha256": migration_plan.manifest_digest_sha256,
+            "model_digest_sha256": migration_plan.model_digest_sha256,
+            "complete": True,
+            "reconciled": True,
+            "merged": False,
+        },
+        completed_at=now,
+    )
+    scot_journal = ScotPublicationJournal(ctx.workspace_mgr)
+    scot_approval = approve_scot_publication(
+        scot_plan,
+        approved_by="analyst",
+        confirmation=scot_confirmation(scot_plan),
+        now=now,
+    )
+    scot_journal.claim(scot_plan, scot_approval, now=now)
+    scot_journal.complete(
+        ScotPublicationReceipt(
+            publication_id=scot_manifest.publication_id,
+            workspace=snapshot.workspace,
+            plan_digest_sha256=scot_plan.digest_sha256,
+            approved_by="analyst",
+            started_at=now,
+            completed_at=now,
+            operations=(),
+        )
+    )
+
+    synapse = execute_integration_command(
+        ("synapse", "cutover-readiness"), ctx.config_mgr, ctx.workspace_mgr
+    )["data"]
+    scot = execute_integration_command(
+        ("scot", "publication-readiness", "analyst"), ctx.config_mgr, ctx.workspace_mgr
+    )["data"]
+
+    assert synapse["eligible_for_cutover_review"] is True
+    assert synapse["cutover_authorized"] is False
+    assert synapse["cutover_implemented"] is False
+    assert scot["current_graph_published"] is True
+    assert scot["scot_side_pivot_trigger_implemented"] is False
+    assert "masked-in-output" not in repr((synapse, scot))
 
 
 def test_integration_completions_cover_read_operations():
@@ -89,6 +197,9 @@ def test_integration_completions_cover_read_operations():
     assert "integration synapse query " in command_completions("integration synapse q")
     assert "integration synapse lookup " in command_completions("integration synapse l")
     assert "integration synapse shadow-preview" in command_completions("integration synapse s")
+    assert "integration synapse cutover-readiness" in command_completions(
+        "integration synapse c"
+    )
     assert "integration synapse model-contract" in command_completions("integration synapse m")
     assert "integration synapse model-deploy-plan" in command_completions("integration synapse m")
     assert "integration synapse model-deploy-execute " in command_completions(
@@ -103,6 +214,9 @@ def test_integration_completions_cover_read_operations():
     assert "integration synapse views" in command_completions("integration synapse v")
     assert "integration scot search " in command_completions("integration scot s")
     assert "integration scot publish-preview" in command_completions("integration scot p")
+    assert "integration scot publication-readiness " in command_completions(
+        "integration scot publication-r"
+    )
     assert "integration scot publish-plan " in command_completions("integration scot p")
     assert "integration scot publish-execute " in command_completions("integration scot p")
     assert "integration scot publication-receipt " in command_completions("integration scot p")

@@ -139,6 +139,157 @@ def _configuration_status(config_mgr: ConfigManager) -> dict[str, Any]:
     return status
 
 
+def _synapse_cutover_readiness(
+    config_mgr: ConfigManager,
+    workspace_mgr: Any,
+) -> dict[str, Any]:
+    """Report exact current-state prerequisites without authorizing a cutover."""
+
+    snapshot = WorkspaceGraphRepository(workspace_mgr).snapshot()
+    model_plan = compile_synapse_model_deployment_plan()
+    migration_plan = compile_synapse_migration_plan(build_synapse_shadow_manifest(snapshot))
+    model_execution = _execution_or_none(
+        SynapseModelDeploymentJournal(workspace_mgr), model_plan.digest_sha256
+    )
+    shadow_execution = _execution_or_none(
+        SynapseShadowJournal(workspace_mgr), migration_plan.digest_sha256
+    )
+    model_receipt = (model_execution or {}).get("receipt") or {}
+    shadow_receipt = (shadow_execution or {}).get("receipt") or {}
+    checks = (
+        _readiness_check(
+            "endpoint_configured",
+            bool(config_mgr.get_integration_url("synapse")),
+            "Vertex Synapse MCP endpoint is configured.",
+        ),
+        _readiness_check(
+            "credential_configured",
+            config_mgr.get_api_key_source("synapse") != "missing",
+            "Vertex Synapse credential is available from a masked source.",
+        ),
+        _readiness_check(
+            "model_exact_readback",
+            bool(
+                model_execution
+                and model_execution.get("state") == "complete"
+                and model_receipt.get("plan_digest_sha256") == model_plan.digest_sha256
+                and model_receipt.get("model_digest_sha256") == model_plan.model_digest_sha256
+                and model_receipt.get("exact_readback") is True
+                and model_receipt.get("runtime_model_verified") is True
+            ),
+            "Current Pivotglass extended model has a matching exact-readback receipt.",
+        ),
+        _readiness_check(
+            "current_shadow_reconciled",
+            bool(
+                shadow_execution
+                and shadow_execution.get("state") == "complete"
+                and shadow_receipt.get("plan_digest_sha256") == migration_plan.digest_sha256
+                and shadow_receipt.get("manifest_digest_sha256")
+                == migration_plan.manifest_digest_sha256
+                and shadow_receipt.get("model_digest_sha256") == migration_plan.model_digest_sha256
+                and shadow_receipt.get("complete") is True
+                and shadow_receipt.get("reconciled") is True
+                and shadow_receipt.get("merged") is False
+            ),
+            "Current workspace graph has a matching reconciled, unmerged shadow-load receipt.",
+        ),
+    )
+    blockers = [item["description"] for item in checks if not item["passed"]]
+    blockers.extend(
+        [
+            "Recovery rehearsal and parent-view merge review are not implemented.",
+            "No command in this release can merge the shadow view or switch graph authority.",
+        ]
+    )
+    return {
+        "workspace": snapshot.workspace,
+        "source_snapshot_sha256": snapshot.digest_sha256,
+        "model_plan_digest_sha256": model_plan.digest_sha256,
+        "migration_plan_digest_sha256": migration_plan.digest_sha256,
+        "checks": checks,
+        "eligible_for_cutover_review": all(item["passed"] for item in checks),
+        "cutover_authorized": False,
+        "cutover_implemented": False,
+        "blockers": blockers,
+        "next_action": (
+            "Design and test recovery plus merge review against a disposable Cortex."
+            if all(item["passed"] for item in checks)
+            else "Complete the failed current-state checks before any cutover review."
+        ),
+    }
+
+
+def _scot_publication_readiness(
+    config_mgr: ConfigManager,
+    workspace_mgr: Any,
+    *,
+    owner: str,
+) -> dict[str, Any]:
+    """Report whether the current graph has an exact reconciled SCOT publication."""
+
+    snapshot = WorkspaceGraphRepository(workspace_mgr).snapshot()
+    manifest = build_scot_publication_manifest(snapshot)
+    plan = compile_scot_write_plan(manifest, owner=owner)
+    execution = _execution_or_none(ScotPublicationJournal(workspace_mgr), plan.digest_sha256)
+    receipt = (execution or {}).get("receipt") or {}
+    checks = (
+        _readiness_check(
+            "publication_endpoint_configured",
+            bool(config_mgr.get_scot_api_url()),
+            "SCOT4 REST publication endpoint is configured.",
+        ),
+        _readiness_check(
+            "credential_configured",
+            config_mgr.get_api_key_source("scot") != "missing",
+            "SCOT4 credential is available from a masked source.",
+        ),
+        _readiness_check(
+            "current_publication_reconciled",
+            bool(
+                execution
+                and execution.get("state") == "complete"
+                and receipt.get("plan_digest_sha256") == plan.digest_sha256
+                and receipt.get("publication_id") == manifest.publication_id
+                and receipt.get("workspace") == snapshot.workspace
+                and receipt.get("complete") is True
+                and receipt.get("reconciled") is True
+            ),
+            "Current workspace graph has a matching SCOT4 write/readback receipt.",
+        ),
+    )
+    blockers = [item["description"] for item in checks if not item["passed"]]
+    blockers.append(
+        "An authenticated SCOT-side pivot trigger is not implemented; Pivotglass still requires explicit local pivot acceptance."
+    )
+    return {
+        "workspace": snapshot.workspace,
+        "source_snapshot_sha256": snapshot.digest_sha256,
+        "publication_id": manifest.publication_id,
+        "publication_plan_digest_sha256": plan.digest_sha256,
+        "checks": checks,
+        "current_graph_published": all(item["passed"] for item in checks),
+        "scot_side_pivot_trigger_implemented": False,
+        "blockers": blockers,
+        "next_action": (
+            "Design an authenticated SCOT-side pivot trigger with preview and local human acceptance."
+            if all(item["passed"] for item in checks)
+            else "Complete the failed current-state checks or publish the exact current plan."
+        ),
+    }
+
+
+def _execution_or_none(journal: Any, plan_digest_sha256: str) -> dict[str, Any] | None:
+    try:
+        return journal.get(plan_digest_sha256)
+    except ValueError:
+        return None
+
+
+def _readiness_check(check_id: str, passed: bool, description: str) -> dict[str, Any]:
+    return {"id": check_id, "passed": passed, "description": description}
+
+
 def _synapse(
     args: tuple[str, ...],
     config_mgr: ConfigManager,
@@ -149,6 +300,9 @@ def _synapse(
         snapshot = WorkspaceGraphRepository(_require_workspace(workspace_mgr)).snapshot()
         data = build_synapse_shadow_manifest(snapshot).model_dump(mode="json")
         return {"title": "Vertex Synapse shadow manifest", "data": data}
+    if action == "cutover-readiness" and len(args) == 1:
+        data = _synapse_cutover_readiness(config_mgr, _require_workspace(workspace_mgr))
+        return {"title": "Vertex Synapse cutover readiness", "data": data}
     if action == "model-contract" and len(args) == 1:
         data = pivotglass_synapse_model_contract().model_dump(mode="json")
         return {"title": "Vertex Synapse Pivotglass model contract", "data": data}
@@ -233,7 +387,7 @@ def _synapse(
         data = adapter.query(" ".join(args[1:]))
     else:
         raise ValueError(
-            "usage: integration synapse shadow-preview|model-contract|model-deploy-plan|"
+            "usage: integration synapse shadow-preview|cutover-readiness|model-contract|model-deploy-plan|"
             "model-deploy-receipt <plan-digest>|model-deploy-execute <plan-digest> "
             "<backup-receipt-sha256> <approved-by> | <confirmation>|migration-plan|"
             "shadow-receipt <plan-digest>|shadow-execute <parent-view> <plan-digest> "
@@ -254,6 +408,13 @@ def _scot(
         snapshot = WorkspaceGraphRepository(_require_workspace(workspace_mgr)).snapshot()
         data = build_scot_publication_manifest(snapshot).model_dump(mode="json")
         return {"title": "SCOT4 hunt publication preview", "data": data}
+    if action == "publication-readiness" and len(args) >= 2:
+        data = _scot_publication_readiness(
+            config_mgr,
+            _require_workspace(workspace_mgr),
+            owner=" ".join(args[1:]),
+        )
+        return {"title": "SCOT4 publication readiness", "data": data}
     if action == "publish-plan" and len(args) >= 2:
         snapshot = WorkspaceGraphRepository(_require_workspace(workspace_mgr)).snapshot()
         manifest = build_scot_publication_manifest(snapshot)
@@ -373,7 +534,7 @@ def _scot(
         raise ValueError(
             "usage: integration scot status|get <type> <id>|search <type> [filters-json]|"
             "entries <type> <id> [plain|flaired|all]|entities <type> <id>|"
-            "publish-preview|publish-plan <owner>|publication-receipt <plan-digest>|"
+            "publish-preview|publication-readiness <owner>|publish-plan <owner>|publication-receipt <plan-digest>|"
             "publish-execute <owner> <plan-digest> "
             "<approved-by> | <confirmation>|"
             "pivot-preview <type> <id> <indicator> | <requester> | <reason>|"

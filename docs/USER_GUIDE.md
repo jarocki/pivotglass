@@ -451,6 +451,7 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `integration review <proposal-id> <accept\|reject> \| <reason>` | Record an explicit human disposition and rationale without turning the proposal into observed evidence |
 | `integration materialize <proposal-id> \| <rationale>` | Promote an accepted external proposal to a typed inferred assertion while retaining its receipt, caveats, review, and proposal lineage; never create an observation |
 | `integration synapse shadow-preview` | Compile the active governed graph into deterministic desired Synapse nodes and edges without writing |
+| `integration synapse cutover-readiness` | Compare the current graph, current model and migration plans, masked configuration state, and exact receipts; report blockers without authorizing or performing cutover |
 | `integration synapse model-contract` | Inspect the pinned persistent extended-model definition and digest required for migration |
 | `integration synapse model-deploy-plan` | Compile the exact global extended-model change and readback without connecting or writing |
 | `integration synapse model-deploy-execute <plan-digest> <backup-receipt-sha256> <approved-by> \| <confirmation>` | Apply one exact, 15-minute human-approved model plan after an operator backup, then require exact extended-model and runtime readback |
@@ -465,6 +466,7 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `integration synapse query <Storm>` | Run one validated, budgeted Storm query with read-only enforcement and an audit receipt |
 | `integration scot status` | Connect to the configured SCOT4 MCP endpoint and list visible tools |
 | `integration scot publish-preview` | Compile the same governed graph into a reviewable SCOT event/entity/entry publication manifest without writing |
+| `integration scot publication-readiness <owner>` | Report whether the exact current graph and owner-bound plan have a reconciled publication receipt; keep SCOT-side pivot triggering visibly unimplemented |
 | `integration scot publish-plan <owner>` | Compile the manifest into exact, dependency-ordered SCOT4 REST writes and required readbacks without connecting |
 | `integration scot publish-execute <owner> <plan-digest> <approved-by> \| <confirmation>` | Recompile and execute one exact, short-lived human-approved SCOT plan; never retry mutations and require every readback to reconcile |
 | `integration scot publication-receipt <plan-digest>` | Inspect the workspace-owned one-shot claim, completion receipt, or uncertain outcome for an exact plan |

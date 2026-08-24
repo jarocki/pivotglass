@@ -227,6 +227,11 @@ approval-gated model deployment, and approval-gated unmerged shadow-view
 loading, SCOT publication previews, exact SCOT write plans, and one-shot
 approval-gated publication with durable readback receipts; see the
 [integration architecture](docs/EXTERNAL_INTEGRATIONS.md#target-architecture).
+`integration synapse cutover-readiness` and `integration scot
+publication-readiness <owner>` compare the current graph and current plans to
+masked configuration state and exact persisted receipts. They report blockers
+without connecting, mutating, authorizing cutover, or treating an older receipt
+as proof about changed evidence.
 SCOT-originated pivots now have a separate local acceptance action and a
 durable, provenance-bearing queue record; Pivotglass web runs accepted targets
 through the same enrichment planner used for ordinary investigations.
