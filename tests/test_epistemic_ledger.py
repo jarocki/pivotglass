@@ -470,7 +470,7 @@ def test_portable_export_and_merge_preserve_complete_analytic_record(tmp_path):
     )
 
     payload = export_workspace(manager, "source")
-    assert payload["format"] == "pivotglass-workspace-v6"
+    assert payload["format"] == "pivotglass-workspace-v8"
     assert payload["schema_version"] == CURRENT_WORKSPACE_SCHEMA_VERSION
     assert payload["tables"]["investigation_questions"][0]["id"] == question_id
     assert payload["tables"]["analytic_investigations"][0]["primary_question_id"] == (question_id)

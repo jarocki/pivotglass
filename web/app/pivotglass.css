@@ -514,6 +514,16 @@ pre{font-size:12px;line-height:1.5}
 .relationship-controls label span,.relationship-controls>span{color:var(--dim)}
 .relationship-controls input{min-width:0;padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
 .relationship-controls button,.visualization-selection button{padding:6px 8px;border:1px solid var(--line);background:var(--control);color:var(--heading);cursor:pointer}
+.graph-layout-controls{display:flex;flex-wrap:wrap;align-items:end;gap:8px;padding:8px;border:1px solid color-mix(in srgb,var(--line) 34%,transparent);background:color-mix(in srgb,var(--panel) 78%,transparent)}
+.graph-layout-controls label{display:grid;gap:3px;min-width:160px}
+.graph-layout-controls label span{color:var(--dim);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+.graph-layout-controls input,.graph-layout-controls select{min-width:0;padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
+.graph-layout-controls button{padding:7px 9px;border:1px solid var(--line);background:var(--control);color:var(--heading);cursor:pointer}
+.graph-layout-controls button:disabled{cursor:not-allowed;opacity:.48}
+.graph-layout-controls small{flex-basis:100%;color:var(--dim)}
+.graph-display-label{display:grid;gap:3px;min-width:min(360px,100%)}
+.graph-display-label span{color:var(--dim);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+.graph-display-label input{padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
 .graph-zoom-controls{display:inline-flex;gap:4px}
 .graph-zoom-controls button{min-width:32px}
 .relationship-visualization svg{width:100%;max-height:430px;border:1px solid color-mix(in srgb,var(--line) 28%,transparent);background:radial-gradient(circle at center,color-mix(in srgb,var(--accent) 8%,transparent),transparent 70%);cursor:grab;touch-action:none;user-select:none}
@@ -528,6 +538,7 @@ pre{font-size:12px;line-height:1.5}
 .relationship-nodes circle{fill:var(--elevated);stroke:var(--line);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .relationship-nodes>g.selected circle,.relationship-nodes>g:focus-visible circle{stroke:var(--focus-ring);stroke-width:4}
 .relationship-nodes>g.neighbor circle{stroke:var(--heading);stroke-width:2.5}
+.relationship-nodes>g.pinned circle{stroke-dasharray:3 2;stroke-width:3}
 .relationship-nodes .node-label{fill:var(--heading);font-size:8px;font-weight:800}
 .relationship-nodes .node-type{fill:var(--dim);font-size:7px}
 .relationship-nodes .type-domain-name circle{fill:color-mix(in srgb,var(--accent) 18%,var(--elevated))}

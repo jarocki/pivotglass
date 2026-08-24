@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retain provenance; conservative property pivots remain labeled as derived
   navigation rather than observed relationships. Use `graph layers` in either
   interface to inspect the current projection.
+- Added schema-v8, presentation-only graph layouts. Pivotglass can save, load,
+  overwrite, and delete named node/viewport arrangements; layouts survive
+  restarts, travel with workspace export/merge, report graph drift, and cannot
+  contain evidence nodes or relationships. The migration preserves bounded
+  coordinates, filters, viewport, and pins from the earlier development shape.
 - Added bounded, shell-free go-roast and Nucleotide analysis adapters with
   secret-safe receipts, caveat-preserving review proposals, explicit human
   disposition, and a separate idempotent path from accepted proposals to typed

@@ -54,6 +54,17 @@ supersession state. Existing observations and analytic records are untouched.
 The backup is named `NAME.db.pre-v4-backup` when this is the first step required
 for that workspace.
 
+The v5-to-v6 upgrade adds restart-safe, secret-safe execution claims and
+receipts for explicitly approved external mutations. These records prevent a
+timeout or restart from silently replaying a SCOT or Synapse write.
+
+The v6-to-v7 upgrade adds `graph_presentation_layouts`. The v7-to-v8 step
+reconciles an earlier development-only table shape and adds saved pins while
+preserving bounded coordinates, viewport, and filter text. A layout holds only
+node coordinates, viewport, filter text, and optional display labels. It
+cannot hold evidence or relationships. The backup is named
+`NAME.db.pre-v6-backup` when this is the first step required.
+
 ## Recovery
 
 If migration fails, Pivotglass leaves the prior active workspace selected and
@@ -79,9 +90,10 @@ workspace and exported its investigation record.
 - Clearing a workspace removes investigation content but retains the schema
   receipt and external-publication audit receipts. The latter prevent a
   cleared or restarted workspace from silently repeating remote side effects.
-- Portable schema-v6 JSON exports include scientific lifecycle roots, links,
-  framework mapping records, and secret-safe integration execution receipts;
-  model proposals retain their pending analyst disposition.
+- Portable schema-v8 JSON exports include scientific lifecycle roots, links,
+  framework mapping records, secret-safe integration execution receipts, and
+  presentation-only graph layouts; model proposals retain their pending
+  analyst disposition.
 
 Migration support is forward-only. Downgrading an upgraded workspace in place
 is not supported; use the preserved backup with the older release instead.

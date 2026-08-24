@@ -199,9 +199,12 @@ neighbors; double-click it, or choose **OPEN EVIDENCE**, to inspect the stored
 record.
 
 Dragging, panning, zooming, filtering, centering, and selecting change only the
-saved presentation. They do not alter evidence. Large workspaces use a bounded
-overview. If no supported edge exists, Pivotglass says so and keeps the
-evidence unconnected rather than manufacturing a relationship from proximity.
+presentation. They do not alter evidence. Enter a layout name and choose
+**SAVE VIEW** to keep an arrangement in the active workspace. Loading an older
+view reports added or absent nodes when the evidence graph has changed. Large
+workspaces use a bounded overview. If no supported edge exists, Pivotglass says
+so and keeps the evidence unconnected rather than manufacturing a relationship
+from proximity.
 
 ![Evidence-backed relationship graph](media/pivotglass-graph-v0.7.0.png)
 
@@ -427,6 +430,9 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `integration nucleotide fingerprint-history <actor-id>` | List persisted fingerprint windows and structural hashes for one analyst-grouped batch |
 | `integration nucleotide fingerprint-compare <left-proposal-id> <right-proposal-id>` | Run Nucleotide's exact field-by-field diff over two stored fingerprints, disclose lookup-corpus drift, and create no formal confidence or identity claim |
 | `graph layers` | Inspect the combined entity and epistemic graph, including edge provenance and truth type |
+| `graph layout list` | List presentation-only saved graph arrangements |
+| `graph layout show <name>` | Inspect a saved arrangement and current graph drift |
+| `graph layout delete <name> --confirm <name>` | Delete only a saved graph presentation after exact confirmation |
 | `analysis method start\|complete\|accept\|reject\|revise …` | Run and disposition a versioned Structured Analytic Technique |
 | `note <text>` | Add an analyst note |
 | `report` / `report generate` | Build the current Dossier report |

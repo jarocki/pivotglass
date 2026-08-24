@@ -130,6 +130,10 @@ stored or explicitly labeled conservative basis. Dragging, filtering, and
 moving nodes change only the presentation. If no supported relationship
 exists, Pivotglass leaves the nodes unconnected.
 
+Named graph presentations preserve node positions, viewport, and filters in
+the active workspace. They survive refreshes and portable exports, report
+topology drift when evidence changes, and cannot modify evidence or edges.
+
 ![Pivotglass relationship graph](docs/media/pivotglass-graph-v0.7.0.png)
 
 ### Configuration and models

@@ -1224,6 +1224,7 @@ class TestWorkspaceClear:
             "analyst_notes": 0,
             "badge_events": 0,
             "hunt_challenges": 0,
+            "graph_presentation_layouts": 0,
         }
 
     def test_clear_populated_workspace_zeros_six_tables(self, tmp_path):
@@ -1383,6 +1384,7 @@ class TestWorkspaceStatusHelpers:
             "analyst_notes",
             "badge_events",
             "hunt_challenges",
+            "graph_presentation_layouts",
         }
         assert set(counts.keys()) == expected_keys
         # Fresh workspace: all counts are zero

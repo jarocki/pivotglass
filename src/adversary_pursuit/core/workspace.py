@@ -89,6 +89,7 @@ from adversary_pursuit.models.database import (
     EvidenceObservation,
     EvidenceObservationDisposition,
     EvidenceSource,
+    GraphPresentationLayout,
     HuntChallengeRecord,
     InvestigationQuestion,
     LikelihoodAssessment,
@@ -1341,6 +1342,9 @@ class WorkspaceManager:
             deleted["analyst_notes"] = session.query(AnalystNote).delete()
             deleted["badge_events"] = session.query(BadgeEvent).delete()
             deleted["hunt_challenges"] = session.query(HuntChallengeRecord).delete()
+            deleted["graph_presentation_layouts"] = session.query(
+                GraphPresentationLayout
+            ).delete()
             session.commit()
 
             # DEC-WORKSPACE-DB-007: post-clear loud verification
@@ -1405,6 +1409,10 @@ class WorkspaceManager:
                 "badge_events": session.execute(select(func.count(BadgeEvent.id))).scalar() or 0,
                 "hunt_challenges": session.execute(
                     select(func.count(HuntChallengeRecord.id))
+                ).scalar()
+                or 0,
+                "graph_presentation_layouts": session.execute(
+                    select(func.count(GraphPresentationLayout.id))
                 ).scalar()
                 or 0,
             }
@@ -1557,6 +1565,10 @@ class WorkspaceManager:
                 "badge_events": session.execute(select(func.count(BadgeEvent.id))).scalar() or 0,
                 "hunt_challenges": session.execute(
                     select(func.count(HuntChallengeRecord.id))
+                ).scalar()
+                or 0,
+                "graph_presentation_layouts": session.execute(
+                    select(func.count(GraphPresentationLayout.id))
                 ).scalar()
                 or 0,
             }

@@ -234,6 +234,37 @@ class IntegrationExecution(Base):
     error_summary = Column(Text, nullable=True)
 
 
+class GraphPresentationLayout(Base):
+    """Presentation-only coordinates and viewport for an investigation graph.
+
+    Evidence nodes and relationships remain owned by their existing
+    authorities. This record cannot store edges or evidence payloads, so
+    arranging a graph cannot mutate or manufacture investigative truth.
+    """
+
+    __tablename__ = "graph_presentation_layouts"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False, unique=True, index=True)
+    graph_fingerprint = Column(String, nullable=False, index=True)
+    node_positions = Column(JSON, nullable=False, default=dict)
+    pinned_refs = Column(JSON, nullable=False, default=list)
+    viewport = Column(JSON, nullable=False, default=dict)
+    filter_text = Column(Text, nullable=False, default="")
+    labels = Column(JSON, nullable=False, default=dict)
+    created_by = Column(String, nullable=False, default="human")
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 class ScoreEvent(Base):
     """Individual scoring events from module discoveries.
 

@@ -218,6 +218,10 @@ Moving nodes changes only the layout. If no supported edge exists, Pivotglass
 shows unconnected indicators rather than implying a relationship from visual
 proximity.
 
+Enter a layout name and choose **SAVE VIEW** to keep the arrangement through
+refreshes and restarts. Saved views travel with workspace export and merge.
+Loading a view reports graph changes; it never restores old evidence or edges.
+
 > The graph is useful because it refuses to connect what the evidence does not.
 
 ![Evidence-backed relationship graph](media/pivotglass-graph-v0.7.0.png)

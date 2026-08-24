@@ -52,6 +52,7 @@ from adversary_pursuit.core.framework_perspectives import (
 )
 from adversary_pursuit.core.framework_projections import FrameworkProjectionAuthority
 from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
+from adversary_pursuit.core.graph_presentation import GraphPresentationAuthority
 from adversary_pursuit.core.information_requirements import build_information_requirements
 from adversary_pursuit.core.integration_commands import execute_integration_command
 from adversary_pursuit.core.investigation import (
@@ -229,6 +230,7 @@ class WebCockpitService:
             graph=relationship_graph.to_dict(),
             investigations=self.investigations.snapshots(),
         )
+        graph_layouts = GraphPresentationAuthority(self.ctx.workspace_mgr).list()
         modes = []
         for entry in self.mode_mgr.list_modes(public_only=True):
             name = entry["name"]
@@ -261,6 +263,15 @@ class WebCockpitService:
             "modes": modes,
             "dossier_slots": dossier_slots,
             "visualizations": [intent.model_dump(mode="json") for intent in visualizations],
+            "graph_layouts": [
+                {
+                    "id": layout["id"],
+                    "name": layout["name"],
+                    "graph_fingerprint": layout["graph_fingerprint"],
+                    "updated_at": layout["updated_at"],
+                }
+                for layout in graph_layouts
+            ],
             "analysis": analysis,
             "frameworks": {
                 "versions": {
@@ -306,6 +317,55 @@ class WebCockpitService:
             self._runner.set_character(mode)
         return self.state()
 
+    def _graph_presentation_scope(self) -> tuple[set[str], set[str]]:
+        graph = RelationshipGraph()
+        graph.build_from_workspace(
+            self.ctx.workspace_mgr.get_stix_objects(),
+            persisted_relationships(self.ctx.workspace_mgr),
+        )
+        payload = graph.to_dict()
+        node_refs = {str(node["id"]) for node in payload.get("nodes", ())}
+        edge_keys = {
+            f"{edge['source']}>{edge['target']}:{edge.get('relationship', 'related-to')}:{edge.get('basis', '')}"
+            for edge in payload.get("edges", ())
+        }
+        return node_refs, edge_keys
+
+    def graph_layout(self, name: str) -> dict[str, Any]:
+        """Resolve one saved layout against the current evidence graph."""
+
+        node_refs, edge_keys = self._graph_presentation_scope()
+        return GraphPresentationAuthority(self.ctx.workspace_mgr).resolve(
+            name,
+            current_node_refs=node_refs,
+            current_edge_keys=edge_keys,
+        )
+
+    def update_graph_layout(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Persist or delete presentation state without touching graph truth."""
+
+        action = str(payload.get("action", "save")).strip().casefold()
+        name = str(payload.get("name", "")).strip()
+        authority = GraphPresentationAuthority(self.ctx.workspace_mgr)
+        if action == "delete":
+            confirmation = str(payload.get("confirmation", "")).strip()
+            if confirmation != name:
+                raise ValueError("deleting a graph layout requires its exact name as confirmation")
+            return {"deleted": authority.delete(name), "name": name}
+        if action != "save":
+            raise ValueError("graph layout action must be save or delete")
+        node_refs, edge_keys = self._graph_presentation_scope()
+        return authority.save(
+            name,
+            node_positions=payload.get("node_positions", {}),
+            viewport=payload.get("viewport", {}),
+            filter_text=str(payload.get("filter_text", "")),
+            labels=payload.get("labels", {}),
+            pinned_refs=payload.get("pinned_refs", []),
+            current_node_refs=node_refs,
+            current_edge_keys=edge_keys,
+        )
+
     def command_catalog(self) -> list[dict[str, str]]:
         """Return the shared analyst command surface exposed by Pivotglass."""
         return [
@@ -342,6 +402,10 @@ class WebCockpitService:
             {
                 "command": "graph layers",
                 "purpose": "Inspect entity and epistemic nodes with provenance-bearing edges",
+            },
+            {
+                "command": "graph layout list|show <name>|delete <name> --confirm <name>",
+                "purpose": "Manage presentation-only saved graph layouts",
             },
             {"command": "dossier", "purpose": "Show dossier details and intelligence gaps"},
             {"command": "timeline", "purpose": "Show the ordered collection timeline"},
@@ -632,15 +696,46 @@ class WebCockpitService:
             }
         if command == "graph":
             if rest:
-                if rest.casefold() != "layers":
-                    raise ValueError("usage: graph [layers]")
-                return {
-                    "kind": "json",
-                    "title": "Entity and epistemic graph",
-                    "data": build_investigation_graph(self.ctx.workspace_mgr).model_dump(
-                        mode="json"
-                    ),
-                }
+                if rest.casefold() == "layers":
+                    return {
+                        "kind": "json",
+                        "title": "Entity and epistemic graph",
+                        "data": build_investigation_graph(self.ctx.workspace_mgr).model_dump(
+                            mode="json"
+                        ),
+                    }
+                parts = rest.split()
+                if len(parts) >= 2 and parts[0].casefold() == "layout":
+                    action = parts[1].casefold()
+                    authority = GraphPresentationAuthority(self.ctx.workspace_mgr)
+                    if action == "list" and len(parts) == 2:
+                        return {
+                            "kind": "json",
+                            "title": "Saved graph layouts",
+                            "data": authority.list(),
+                        }
+                    if action == "show" and len(parts) >= 3:
+                        return {
+                            "kind": "json",
+                            "title": "Saved graph layout",
+                            "data": self.graph_layout(" ".join(parts[2:])),
+                        }
+                    if action == "delete" and "--confirm" in parts:
+                        marker = parts.index("--confirm")
+                        name = " ".join(parts[2:marker])
+                        confirmation = " ".join(parts[marker + 1 :])
+                        if not name or name != confirmation:
+                            raise ValueError(
+                                "deleting a graph layout requires its exact name after --confirm"
+                            )
+                        return {
+                            "kind": "json",
+                            "title": "Graph layout deleted",
+                            "data": {"name": name, "deleted": authority.delete(name)},
+                        }
+                raise ValueError(
+                    "usage: graph [layers|layout list|layout show <name>|layout delete <name> --confirm <name>]"
+                )
             graph = RelationshipGraph()
             graph.build_from_workspace(
                 self.ctx.workspace_mgr.get_stix_objects(),
@@ -1296,6 +1391,18 @@ def _handler(
             if parsed.path == "/api/state":
                 self._json(service.state())
                 return
+            if parsed.path == "/api/graph-layouts":
+                name = parse_qs(parsed.query).get("name", [""])[0].strip()
+                try:
+                    if name:
+                        self._json(service.graph_layout(name))
+                    else:
+                        self._json(
+                            {"layouts": GraphPresentationAuthority(service.ctx.workspace_mgr).list()}
+                        )
+                except ValueError as exc:
+                    self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
+                return
             if parsed.path == "/api/completions":
                 text = parse_qs(parsed.query).get("text", [""])[0]
                 self._json({"completions": service.completions(text)})
@@ -1372,6 +1479,7 @@ def _handler(
                     "/api/annotate",
                     "/api/configuration/check",
                     "/api/configuration/update",
+                    "/api/graph-layouts",
                 }
                 and not is_cancel
                 and not is_ack
@@ -1390,6 +1498,9 @@ def _handler(
                     return
                 if parsed.path == "/api/configuration/update":
                     self._json(service.update_configuration(payload))
+                    return
+                if parsed.path == "/api/graph-layouts":
+                    self._json(service.update_graph_layout(payload))
                     return
                 if parsed.path == "/api/mode":
                     name = str(payload.get("name", "")).strip()

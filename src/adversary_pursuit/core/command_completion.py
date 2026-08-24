@@ -214,7 +214,12 @@ def command_completions(
             "nucleotide fingerprint-compare ",
         ]
     elif command == "graph":
-        choices = ["layers"]
+        choices = [
+            "layers",
+            "layout list",
+            "layout show ",
+            "layout delete ",
+        ]
     elif command == "autopivot":
         choices = ["on", "off"]
     elif command == "workspace":

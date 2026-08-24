@@ -310,12 +310,54 @@ def dispatch_repl_verb(
     if name == "graph" and verb.args:
         if _workspace_mgr is None:
             return "Workspace unavailable."
-        if tuple(arg.casefold() for arg in verb.args) != ("layers",):
-            return "Usage: graph [layers]"
-        from adversary_pursuit.core.investigation_graph import build_investigation_graph
+        folded = tuple(arg.casefold() for arg in verb.args)
+        if folded == ("layers",):
+            from adversary_pursuit.core.investigation_graph import build_investigation_graph
 
-        projection = build_investigation_graph(_workspace_mgr)
-        return json.dumps(projection.model_dump(mode="json"), indent=2, default=str)
+            projection = build_investigation_graph(_workspace_mgr)
+            return json.dumps(projection.model_dump(mode="json"), indent=2, default=str)
+        if len(verb.args) >= 2 and folded[:2] == ("layout", "list"):
+            from adversary_pursuit.core.graph_presentation import GraphPresentationAuthority
+
+            return json.dumps(
+                GraphPresentationAuthority(_workspace_mgr).list(), indent=2, default=str
+            )
+        if len(verb.args) >= 3 and folded[:2] == ("layout", "show"):
+            from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
+            from adversary_pursuit.core.graph_presentation import GraphPresentationAuthority
+
+            graph = RelationshipGraph()
+            graph.build_from_workspace(
+                _workspace_mgr.get_stix_objects(), persisted_relationships(_workspace_mgr)
+            )
+            payload = graph.to_dict()
+            node_refs = {str(node["id"]) for node in payload.get("nodes", ())}
+            edge_keys = {
+                f"{edge['source']}>{edge['target']}:{edge.get('relationship', 'related-to')}:{edge.get('basis', '')}"
+                for edge in payload.get("edges", ())
+            }
+            result = GraphPresentationAuthority(_workspace_mgr).resolve(
+                " ".join(verb.args[2:]),
+                current_node_refs=node_refs,
+                current_edge_keys=edge_keys,
+            )
+            return json.dumps(result, indent=2, default=str)
+        if len(verb.args) >= 5 and folded[0:2] == ("layout", "delete"):
+            if "--confirm" not in verb.args:
+                return "Usage: graph layout delete <name> --confirm <name>"
+            marker = verb.args.index("--confirm")
+            layout_name = " ".join(verb.args[2:marker])
+            confirmation = " ".join(verb.args[marker + 1 :])
+            if not layout_name or layout_name != confirmation:
+                return "Deleting a graph layout requires its exact name after --confirm."
+            from adversary_pursuit.core.graph_presentation import GraphPresentationAuthority
+
+            deleted = GraphPresentationAuthority(_workspace_mgr).delete(layout_name)
+            return json.dumps({"name": layout_name, "deleted": deleted}, indent=2)
+        return (
+            "Usage: graph [layers|layout list|layout show <name>|"
+            "layout delete <name> --confirm <name>]"
+        )
 
     if name in {"search", "graph", "dossier", "gaps", "report", "hint", "challenges"}:
         if ctx is None:

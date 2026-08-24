@@ -36,18 +36,36 @@ more provenance references and a plain-language rationale.
 ```text
 graph          # existing indicator-first relationship view
 graph layers   # investigation-graph-1.0 entity + epistemic projection
+graph layout list
+graph layout show Analyst-view
+graph layout delete Analyst-view --confirm Analyst-view
 ```
 
 `graph layers` is deterministic and read-only. It does not invoke a model,
 infer a new relationship, or modify workspace state.
 
+## Saved presentations
+
+In Pivotglass, open **Evidence relationships** under **Charts & Evidence**.
+Drag nodes, pan or zoom, optionally filter the visible subset, pin important
+nodes in view, enter a layout name, and choose **Save view**. The presentation is stored in the active
+workspace and survives refreshes and restarts. It is included in portable
+workspace exports and merges.
+
+A saved presentation contains only bounded node coordinates, viewport, filter
+text, and optional display labels. It cannot contain nodes, edges, evidence, or
+relationships. Loading a layout resolves it against the current graph and
+reports new or absent nodes instead of hiding graph drift. Deleting a layout
+deletes only this presentation record.
+
 ## Current boundary
 
-The v0.9 foundation defines and verifies the projection contract. The editable
-workspace remains open work: saved layouts, pinning, multiselect, annotations,
-manual assertion/link creation, undo/redo, filters, and layered exports must
-write only through their existing authorities. Node position is presentation
-state and must never alter evidence.
+The v0.9 foundation defines and verifies the projection contract and durable
+saved layouts. Drag, pan, zoom, text filtering, pinning, presentation labels,
+evidence drill-down, and named presentation management are implemented.
+Multiselect, manual assertion/link creation, undo/redo, relationship filters, and layered exports
+remain open; they must write only through their existing authorities. Node
+position is presentation state and never alters evidence.
 
 The web cockpit does not yet add a separate download of the complete layered
 provenance graph. Remote Pivotglass sessions may be configured without access

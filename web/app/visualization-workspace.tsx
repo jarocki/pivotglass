@@ -601,6 +601,22 @@ export function TaskMatrix({
 
 type GraphPoint = { x: number; y: number };
 type GraphViewport = { x: number; y: number; scale: number };
+export type GraphLayoutSummary = {
+  id: string;
+  name: string;
+  graph_fingerprint: string;
+  updated_at: string;
+};
+type ResolvedGraphLayout = GraphLayoutSummary & {
+  node_positions: Record<string, GraphPoint>;
+  pinned_refs: string[];
+  viewport: GraphViewport;
+  filter_text: string;
+  labels: Record<string, string>;
+  topology_changed: boolean;
+  missing_node_refs: string[];
+  new_node_refs: string[];
+};
 type GraphDrag =
   | {
       kind: "canvas";
@@ -705,16 +721,26 @@ function forceLayout(
 function RelationshipGraph({
   intent,
   onOpenEvidence,
+  layouts,
+  onLayoutsChanged,
 }: {
   intent: VisualizationIntent;
   onOpenEvidence?: (reference: string, origin: HTMLElement) => void;
+  layouts: GraphLayoutSummary[];
+  onLayoutsChanged?: () => Promise<void> | void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [viewport, setViewport] = useState<GraphViewport>({ x: 0, y: 0, scale: 1 });
   const [drag, setDrag] = useState<GraphDrag | null>(null);
   const [positions, setPositions] = useState<Record<string, GraphPoint>>({});
+  const [labels, setLabels] = useState<Record<string, string>>({});
+  const [pinned, setPinned] = useState<Set<string>>(new Set());
+  const [layoutName, setLayoutName] = useState("");
+  const [layoutMessage, setLayoutMessage] = useState("");
+  const [layoutBusy, setLayoutBusy] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
+  const pendingLayoutPositions = useRef<Record<string, GraphPoint> | null>(null);
   const width = 760;
   const height = 430;
   const degree = new Map(intent.data.nodes.map((node) => [node.reference, 0]));
@@ -730,11 +756,15 @@ function RelationshipGraph({
     const degreeDifference = (degree.get(right.reference) ?? 0) - (degree.get(left.reference) ?? 0);
     return degreeDifference || left.label.localeCompare(right.label);
   });
-  const candidates = normalizedQuery
+  const filteredCandidates = normalizedQuery
     ? ranked.filter((node) =>
         node.label.toLowerCase().includes(normalizedQuery)
         || node.entity_type.toLowerCase().includes(normalizedQuery))
     : ranked;
+  const candidates = [
+    ...ranked.filter((node) => pinned.has(node.reference)),
+    ...filteredCandidates.filter((node) => !pinned.has(node.reference)),
+  ];
   const visibleNodes = candidates.slice(0, 48);
   const visibleIds = new Set(visibleNodes.map((node) => node.reference));
   const visibleEdges = intent.data.edges.filter(
@@ -751,8 +781,10 @@ function RelationshipGraph({
     [graphKey],
   );
   useEffect(() => {
-    setPositions(initialPositions);
-    setViewport({ x: 0, y: 0, scale: 1 });
+    const restored = pendingLayoutPositions.current;
+    pendingLayoutPositions.current = null;
+    setPositions(restored ? { ...initialPositions, ...restored } : initialPositions);
+    if (!restored) setViewport({ x: 0, y: 0, scale: 1 });
   }, [initialPositions]);
   const selectedNode = intent.data.nodes.find((node) => node.reference === selected);
   const markerId = `${intent.intent_id}-relationship-arrow`;
@@ -767,6 +799,96 @@ function RelationshipGraph({
         scale: nextScale,
       };
     });
+  };
+
+  const saveLayout = async () => {
+    const name = layoutName.trim();
+    if (!name) {
+      setLayoutMessage("Enter a layout name first.");
+      return;
+    }
+    setLayoutBusy(true);
+    setLayoutMessage("");
+    try {
+      const response = await fetch("/api/graph-layouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save",
+          name,
+          node_positions: Object.fromEntries(
+            Object.entries(positions).filter(([reference]) => visibleIds.has(reference)),
+          ),
+          viewport,
+          filter_text: query,
+          labels,
+          pinned_refs: [...pinned],
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Unable to save graph layout");
+      setLayoutMessage(`Saved “${name}” as presentation state only.`);
+      await onLayoutsChanged?.();
+    } catch (reason) {
+      setLayoutMessage(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setLayoutBusy(false);
+    }
+  };
+
+  const loadLayout = async (name: string) => {
+    if (!name) return;
+    setLayoutBusy(true);
+    setLayoutMessage("");
+    try {
+      const response = await fetch(`/api/graph-layouts?name=${encodeURIComponent(name)}`, {
+        cache: "no-store",
+      });
+      const result = await response.json() as ResolvedGraphLayout & { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Unable to load graph layout");
+      setLayoutName(result.name);
+      pendingLayoutPositions.current = result.node_positions;
+      setQuery(result.filter_text);
+      setPositions((current) => ({ ...current, ...result.node_positions }));
+      setLabels(result.labels);
+      setPinned(new Set(result.pinned_refs));
+      window.setTimeout(() => {
+        pendingLayoutPositions.current = null;
+      }, 0);
+      setViewport(result.viewport);
+      setLayoutMessage(
+        result.topology_changed
+          ? `Loaded with graph changes: ${result.new_node_refs.length} new, ${result.missing_node_refs.length} absent.`
+          : "Loaded saved presentation. Evidence and relationships were not changed.",
+      );
+    } catch (reason) {
+      setLayoutMessage(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setLayoutBusy(false);
+    }
+  };
+
+  const deleteLayout = async () => {
+    const name = layoutName.trim();
+    if (!name || !layouts.some((layout) => layout.name === name)) return;
+    setLayoutBusy(true);
+    setLayoutMessage("");
+    try {
+      const response = await fetch("/api/graph-layouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", name, confirmation: name }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Unable to delete graph layout");
+      setLayoutName("");
+      setLayoutMessage(`Deleted presentation “${name}”. Graph evidence was untouched.`);
+      await onLayoutsChanged?.();
+    } catch (reason) {
+      setLayoutMessage(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setLayoutBusy(false);
+    }
   };
 
   const handlePointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
@@ -807,6 +929,38 @@ function RelationshipGraph({
           </span>
         )}
         {(query || selected) && <button onClick={() => { setQuery(""); setSelected(null); }}>RESET VIEW</button>}
+      </div>
+      <div className="graph-layout-controls" aria-label="Saved graph presentations">
+        <label>
+          <span>Saved presentation</span>
+          <select
+            value={layouts.some((layout) => layout.name === layoutName) ? layoutName : ""}
+            onChange={(event) => void loadLayout(event.target.value)}
+            disabled={layoutBusy}
+          >
+            <option value="">Choose a layout</option>
+            {layouts.map((layout) => <option key={layout.id} value={layout.name}>{layout.name}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Layout name</span>
+          <input
+            value={layoutName}
+            onChange={(event) => setLayoutName(event.target.value)}
+            maxLength={64}
+            placeholder="Analyst view"
+          />
+        </label>
+        <button onClick={() => void saveLayout()} disabled={layoutBusy || !layoutName.trim()}>
+          SAVE VIEW
+        </button>
+        <button
+          onClick={() => void deleteLayout()}
+          disabled={layoutBusy || !layouts.some((layout) => layout.name === layoutName.trim())}
+        >
+          DELETE VIEW
+        </button>
+        {layoutMessage && <small role="status">{layoutMessage}</small>}
       </div>
       {intent.data.edges.length === 0 ? (
         <section className="unconnected-graph" aria-label="Unconnected stored indicators">
@@ -918,12 +1072,13 @@ function RelationshipGraph({
                   transform={`translate(${position.x} ${position.y})`}
                   className={[
                     selected === node.reference ? "selected" : "",
+                    pinned.has(node.reference) ? "pinned" : "",
                     selected && neighbors.get(selected)?.has(node.reference) ? "neighbor" : "",
                     `type-${node.entity_type.replaceAll(/[^a-z0-9-]/gi, "-")}`,
                   ].join(" ")}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${node.label}, ${node.entity_type}, ${degree.get(node.reference) ?? 0} relationships`}
+                  aria-label={`${labels[node.reference] ?? node.label}, ${node.entity_type}, ${degree.get(node.reference) ?? 0} relationships`}
                   onClick={() => setSelected(node.reference)}
                   onDoubleClick={(event) => {
                     const origin = event.currentTarget.closest(".relationship-visualization");
@@ -953,9 +1108,9 @@ function RelationshipGraph({
                   }}
                 >
                   <circle r={degree.get(node.reference) ? 26 : 21}>
-                    <title>{node.label}</title>
+                    <title>{labels[node.reference] ?? node.label}</title>
                   </circle>
-                  <text className="node-label" textAnchor="middle" y="-2">{shortLabel(node.label, 21)}</text>
+                  <text className="node-label" textAnchor="middle" y="-2">{shortLabel(labels[node.reference] ?? node.label, 21)}</text>
                   <text className="node-type" textAnchor="middle" y="11">{node.entity_type}</text>
                 </g>
               );
@@ -974,6 +1129,26 @@ function RelationshipGraph({
           <b>{selectedNode.label}</b>
           <span>{selectedNode.entity_type} · {degree.get(selectedNode.reference) ?? 0} relationships</span>
           <small>Selection highlights the node and its visible neighbors without changing the graph layout.</small>
+          <button onClick={() => setPinned((current) => {
+            const next = new Set(current);
+            if (next.has(selectedNode.reference)) next.delete(selectedNode.reference);
+            else next.add(selectedNode.reference);
+            return next;
+          })}>
+            {pinned.has(selectedNode.reference) ? "UNPIN FROM VIEW" : "PIN IN VIEW"}
+          </button>
+          <label className="graph-display-label">
+            <span>Presentation label</span>
+            <input
+              value={labels[selectedNode.reference] ?? ""}
+              maxLength={160}
+              placeholder={selectedNode.label}
+              onChange={(event) => setLabels((current) => ({
+                ...current,
+                [selectedNode.reference]: event.target.value,
+              }))}
+            />
+          </label>
           {onOpenEvidence && (
             <button onClick={(event) => onOpenEvidence(selectedNode.reference, event.currentTarget)}>
               OPEN EVIDENCE
@@ -1017,10 +1192,14 @@ export function VisualizationWorkspace({
   intents,
   theme,
   onOpenEvidence,
+  graphLayouts = [],
+  onGraphLayoutsChanged,
 }: {
   intents: VisualizationIntent[];
   theme: VisualizationTheme;
   onOpenEvidence?: (reference: string, origin: HTMLElement) => void;
+  graphLayouts?: GraphLayoutSummary[];
+  onGraphLayoutsChanged?: () => Promise<void> | void;
 }) {
   const preferred = intents.find((intent) => intent.intent_id === "indicator-constellation");
   const [selectedId, setSelectedId] = useState(preferred?.intent_id ?? intents[0]?.intent_id ?? "");
@@ -1079,7 +1258,7 @@ export function VisualizationWorkspace({
             : selected.view === "task_matrix"
               ? <TaskMatrix intent={selected} onOpenEvidence={onOpenEvidence} />
               : selected.view === "relationship_graph"
-                ? <RelationshipGraph intent={selected} onOpenEvidence={onOpenEvidence} />
+                ? <RelationshipGraph intent={selected} onOpenEvidence={onOpenEvidence} layouts={graphLayouts} onLayoutsChanged={onGraphLayoutsChanged} />
                 : <VisualizationEmpty intent={selected} />}
       <details className="visualization-data">
         <summary>View exact data and caveats</summary>

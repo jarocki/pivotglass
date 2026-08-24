@@ -15,7 +15,10 @@ from adversary_pursuit.core.framework_projections import (
     MappingState,
 )
 from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.core.workspace_migrations import get_workspace_schema_version
+from adversary_pursuit.core.workspace_migrations import (
+    CURRENT_WORKSPACE_SCHEMA_VERSION,
+    get_workspace_schema_version,
+)
 
 
 def _workspace(tmp_path) -> WorkspaceManager:
@@ -129,8 +132,11 @@ def test_framework_mapping_rejects_unknown_observation_reference(tmp_path) -> No
         )
 
 
-def test_fresh_workspace_has_schema_v6(tmp_path) -> None:
-    assert get_workspace_schema_version(_workspace(tmp_path)._engine) == 6
+def test_fresh_workspace_has_current_schema(tmp_path) -> None:
+    assert (
+        get_workspace_schema_version(_workspace(tmp_path)._engine)
+        == CURRENT_WORKSPACE_SCHEMA_VERSION
+    )
 
 
 def test_framework_is_shared_by_command_parser_and_completion() -> None:
