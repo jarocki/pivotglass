@@ -124,7 +124,9 @@ the stored data. Current views include evidence composition, Dossier radar,
 UTC activity calendar, enrichment activity, the Constellation, a
 force-directed relationship graph, connection-count distribution, a PCA view
 of similarity among indicator evidence-coverage profiles, and an Analysis of
-Competing Hypotheses matrix. Each view includes source scope, caveats, an
+Competing Hypotheses matrix. A collapsible investigation hierarchy preserves
+the path from workspace to investigation, question, hypothesis, and other
+scientific lifecycle items. Each view includes source scope, caveats, an
 accessible table, and export of the exact plotted data.
 
 The PCA view standardizes only comparable, varying Dossier dimensions and

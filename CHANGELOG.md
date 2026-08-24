@@ -57,6 +57,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   competing hypothesis, preserves supporting, contradicting, and mixed
   analyst-recorded stances, and exposes unassessed cells without inferring
   neutrality from missing judgments.
+- Added a keyboard-operable scientific-investigation hierarchy that preserves
+  path, depth, record kind, and lifecycle status across workspace,
+  investigation, question, hypothesis, and other workflow items. Tree position
+  is explicitly presentation of membership, not evidentiary support or
+  causality.
 
 ## [0.8.5] — 2026-08-07
 

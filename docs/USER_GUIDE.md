@@ -178,12 +178,13 @@ type. Pivotglass currently provides:
   explicit 0–100 display scale;
 - investigation activity by UTC calendar day;
 - the Investigation Constellation;
-- indicator-by-enrichment lifecycle activity; and
+- indicator-by-enrichment lifecycle activity;
 - the force-directed relationship graph;
 - the admitted connection-count distribution; and
 - a PCA scatter view of similarity among indicator evidence-coverage profiles;
+- an Analysis of Competing Hypotheses matrix over recorded evidence stances;
   and
-- an Analysis of Competing Hypotheses matrix over recorded evidence stances.
+- a collapsible scientific-investigation hierarchy with exact path and depth.
 
 Every view states its source scope and missing-data policy. **View exact data
 and caveats** opens the accessible table behind the visual. **Export exact
@@ -209,6 +210,13 @@ dark **not assessed** cells always repeat their meaning with text and symbols.
 An unassessed cell means no stance was recorded; it is not neutral evidence.
 Open the exact-data table to read the analyst rationale and number of persisted
 links behind each cell.
+
+The investigation hierarchy organizes each persisted investigation beneath
+the active workspace, then nests its questions, competing hypotheses, and
+other scientific lifecycle items. Use the disclosure controls to collapse or
+expand branches. The exact-data table preserves every parent, child, status,
+depth, and full path. Tree membership does not mean that one record supports,
+causes, or increases confidence in another.
 
 ## Relationship graph
 

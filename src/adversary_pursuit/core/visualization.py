@@ -1015,6 +1015,191 @@ def competing_hypotheses_matrix_intent(
     )
 
 
+def scientific_investigation_hierarchy_intent(
+    workspace: str,
+    analysis: dict[str, Any],
+) -> VisualizationIntent:
+    """Project persisted scientific-workflow membership as a bounded tree."""
+
+    rows: list[dict[str, Any]] = []
+    omitted = 0
+    root_id = f"workspace:{workspace}"
+    root_label = f"Workspace · {workspace}"
+
+    def add_edge(
+        *,
+        parent_id: str,
+        parent_label: str,
+        child_id: str,
+        child_label: str,
+        child_kind: str,
+        status: str,
+        depth: int,
+        path: str,
+    ) -> None:
+        nonlocal omitted
+        if len(rows) >= MAX_VISUALIZATION_ROWS:
+            omitted += 1
+            return
+        rows.append(
+            {
+                "parent_id": parent_id,
+                "parent_label": parent_label,
+                "child_id": child_id,
+                "child_label": child_label,
+                "child_kind": child_kind,
+                "status": status,
+                "depth": depth,
+                "path": path,
+            }
+        )
+
+    investigations = sorted(
+        analysis.get("investigations", ()),
+        key=lambda row: (str(row.get("created_at", "")), str(row.get("id", ""))),
+    )
+    lifecycle_items = list(analysis.get("lifecycle_items", ()))
+    question_investigations = {
+        str(item.get("record_id", "")): str(item.get("investigation_id", ""))
+        for item in lifecycle_items
+        if str(item.get("record_kind", "")) == "question" and item.get("record_id")
+    }
+    questions_by_investigation: dict[str, list[dict[str, Any]]] = {}
+    for question in analysis.get("questions", ()):
+        questions_by_investigation.setdefault(
+            question_investigations.get(str(question.get("id", "")), ""), []
+        ).append(question)
+    hypotheses_by_question: dict[str, list[dict[str, Any]]] = {}
+    for hypothesis in analysis.get("hypotheses", ()):
+        hypotheses_by_question.setdefault(str(hypothesis.get("question_id", "")), []).append(
+            hypothesis
+        )
+    lifecycle_by_investigation: dict[str, list[dict[str, Any]]] = {}
+    for item in lifecycle_items:
+        if str(item.get("record_kind", "")) in {"question", "hypothesis"}:
+            continue
+        lifecycle_by_investigation.setdefault(
+            str(item.get("investigation_id", "")), []
+        ).append(item)
+
+    for investigation in investigations:
+        investigation_id = str(investigation.get("id", ""))
+        if not investigation_id:
+            continue
+        investigation_label = str(investigation.get("title") or investigation_id)
+        investigation_path = f"{root_label} / {investigation_label}"
+        add_edge(
+            parent_id=root_id,
+            parent_label=root_label,
+            child_id=f"investigation:{investigation_id}",
+            child_label=investigation_label,
+            child_kind="investigation",
+            status=str(investigation.get("status", "unknown")),
+            depth=1,
+            path=investigation_path,
+        )
+        for question in sorted(
+            questions_by_investigation.get(investigation_id, ()),
+            key=lambda row: (str(row.get("created_at", "")), str(row.get("id", ""))),
+        ):
+            question_id = str(question.get("id", ""))
+            if not question_id:
+                continue
+            question_label = str(question.get("text") or question_id)
+            question_path = f"{investigation_path} / {question_label}"
+            add_edge(
+                parent_id=f"investigation:{investigation_id}",
+                parent_label=investigation_label,
+                child_id=f"question:{question_id}",
+                child_label=question_label,
+                child_kind="question",
+                status=str(question.get("status", "open")),
+                depth=2,
+                path=question_path,
+            )
+            for hypothesis in sorted(
+                hypotheses_by_question.get(question_id, ()),
+                key=lambda row: (str(row.get("created_at", "")), str(row.get("id", ""))),
+            ):
+                hypothesis_id = str(hypothesis.get("id", ""))
+                if not hypothesis_id:
+                    continue
+                hypothesis_label = str(hypothesis.get("statement") or hypothesis_id)
+                add_edge(
+                    parent_id=f"question:{question_id}",
+                    parent_label=question_label,
+                    child_id=f"hypothesis:{hypothesis_id}",
+                    child_label=hypothesis_label,
+                    child_kind="hypothesis",
+                    status=str(hypothesis.get("status", "proposed")),
+                    depth=3,
+                    path=f"{question_path} / {hypothesis_label}",
+                )
+        for item in sorted(
+            lifecycle_by_investigation.get(investigation_id, ()),
+            key=lambda row: (str(row.get("created_at", "")), str(row.get("id", ""))),
+        ):
+            item_id = str(item.get("id", ""))
+            if not item_id:
+                continue
+            item_kind = str(item.get("item_type", "workflow_item"))
+            item_label = str(item.get("statement") or item_id)
+            add_edge(
+                parent_id=f"investigation:{investigation_id}",
+                parent_label=investigation_label,
+                child_id=f"lifecycle:{item_id}",
+                child_label=item_label,
+                child_kind=item_kind,
+                status=str(item.get("status", "open")),
+                depth=2,
+                path=f"{investigation_path} / {item_label}",
+            )
+
+    return _intent(
+        intent_id="scientific-investigation-hierarchy",
+        title="Investigation hierarchy",
+        question=VisualizationQuestion.HIERARCHY,
+        question_text="How does this scientific investigation divide into questions and tests?",
+        workspace=workspace,
+        description=(
+            "Persisted scientific investigations, questions, hypotheses, and lifecycle items."
+        ),
+        record_count=len(rows),
+        data=VisualizationData(rows=tuple(rows)),
+        fields={"parent": "parent_label", "child": "child_label"},
+        semantic_types={
+            "parent_id": "Identifier",
+            "parent_label": "Text",
+            "child_id": "Identifier",
+            "child_label": "Text",
+            "child_kind": "Category",
+            "status": "Status",
+            "depth": "Count",
+            "path": "Text",
+        },
+        table_columns=(
+            VisualizationTableColumn(key="parent_label", label="Parent"),
+            VisualizationTableColumn(key="child_label", label="Child"),
+            VisualizationTableColumn(key="child_kind", label="Record kind"),
+            VisualizationTableColumn(key="status", label="Status"),
+            VisualizationTableColumn(key="depth", label="Depth"),
+            VisualizationTableColumn(key="path", label="Full path"),
+        ),
+        missing_data=VisualizationMissingData(
+            policy="omit_with_count" if omitted else "show",
+            explanation=(
+                "Only persisted parent-child membership is shown. Records beyond the bounded "
+                "rendering limit remain stored and are counted as omitted."
+            ),
+            omitted_count=omitted,
+        ),
+        caveats=(
+            "Tree position represents scientific-workflow membership, not evidentiary support, "
+            "causality, attribution, or confidence.",
+        ),
+    )
+
+
 def _standardize_columns(matrix: list[list[float]]) -> list[list[float]]:
     row_count = len(matrix)
     column_count = len(matrix[0])
@@ -1236,4 +1421,5 @@ def build_visualization_intents(
         relationship_degree_distribution_intent(workspace, graph),
         indicator_coverage_pca_intent(workspace, constellation),
         competing_hypotheses_matrix_intent(workspace, analysis or {}),
+        scientific_investigation_hierarchy_intent(workspace, analysis or {}),
     )

@@ -458,6 +458,16 @@ pre{font-size:12px;line-height:1.5}
 .rgb-led .rgb-led-blue{background:rgb(0 0 var(--led-b));box-shadow:0 0 5px rgb(0 0 var(--led-b))}
 .matrix-cell.state-running .rgb-led,.matrix-cell.state-queued .rgb-led{animation:led-pulse 1.4s steps(3,end) infinite}
 .matrix-cell.state-failed .rgb-led,.matrix-cell.state-cancelled .rgb-led{box-shadow:inset 0 0 7px #000,0 0 12px var(--led-color)}
+.hierarchy-visualization{overflow:auto;max-height:420px;padding:10px;border:1px solid color-mix(in srgb,var(--line) 40%,transparent);background:color-mix(in srgb,var(--surface) 86%,transparent)}
+.hierarchy-visualization ul{list-style:none;margin:0;padding-left:22px;border-left:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
+.hierarchy-visualization>ul{padding-left:0;border-left:0}
+.hierarchy-visualization li{position:relative;margin:5px 0}
+.hierarchy-visualization li li::before{content:"";position:absolute;left:-22px;top:15px;width:17px;border-top:1px solid color-mix(in srgb,var(--accent) 45%,transparent)}
+.hierarchy-visualization summary,.hierarchy-leaf{display:flex;gap:10px;align-items:baseline;min-width:260px;padding:6px 8px;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);background:var(--control);cursor:pointer}
+.hierarchy-leaf{cursor:default}
+.hierarchy-visualization summary:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.hierarchy-visualization b{color:var(--ink);font-size:11px}
+.hierarchy-visualization span{color:var(--dim);font-size:9px;text-transform:uppercase}
 @keyframes led-pulse{50%{filter:brightness(1.45)}}
 .lite-brite-legend{display:flex;align-items:center;gap:12px;width:max-content;max-width:100%;padding:5px 9px;border:2px solid #020304;border-radius:14px;background:#071014;box-shadow:inset 0 0 12px #000;overflow:auto}
 .lite-brite-legend>span{display:flex;align-items:center;gap:2px;color:#a8b7be;text-transform:uppercase;white-space:nowrap}

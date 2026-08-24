@@ -25,6 +25,7 @@ from adversary_pursuit.core.visualization import (
     indicator_coverage_pca_intent,
     relationship_degree_distribution_intent,
     relationship_graph_intent,
+    scientific_investigation_hierarchy_intent,
     task_matrix_intent,
     visualization_policy,
 )
@@ -363,6 +364,86 @@ def test_competing_hypotheses_matrix_requires_competing_hypotheses():
             ],
         },
     )
+
+    assert intent.data.rows == ()
+    assert intent.source_scope.record_count == 0
+
+
+def test_scientific_investigation_hierarchy_preserves_path_depth_and_status():
+    analysis = {
+        "investigations": [
+            {
+                "id": "investigation-one",
+                "title": "Relay ownership",
+                "status": "analyzing",
+                "created_at": "2026-08-24T10:00:00Z",
+            }
+        ],
+        "questions": [
+            {
+                "id": "question-one",
+                "text": "Who controls the relay?",
+                "status": "open",
+                "created_at": "2026-08-24T10:01:00Z",
+            }
+        ],
+        "hypotheses": [
+            {
+                "id": "hypothesis-one",
+                "question_id": "question-one",
+                "statement": "One operator controls it.",
+                "status": "retained",
+                "created_at": "2026-08-24T10:02:00Z",
+            }
+        ],
+        "lifecycle_items": [
+            {
+                "id": "lifecycle-question",
+                "investigation_id": "investigation-one",
+                "record_kind": "question",
+                "record_id": "question-one",
+                "item_type": "question",
+            },
+            {
+                "id": "lifecycle-hypothesis",
+                "investigation_id": "investigation-one",
+                "record_kind": "hypothesis",
+                "record_id": "hypothesis-one",
+                "item_type": "hypothesis",
+            },
+            {
+                "id": "lifecycle-signpost",
+                "investigation_id": "investigation-one",
+                "record_kind": None,
+                "record_id": None,
+                "item_type": "signpost",
+                "statement": "A second independent source appears.",
+                "status": "open",
+                "created_at": "2026-08-24T10:03:00Z",
+            },
+        ],
+    }
+
+    intent = scientific_investigation_hierarchy_intent("case-red", analysis)
+
+    assert intent.view == VisualizationView.DENDROGRAM
+    assert intent.renderer == VisualizationRenderer.NATIVE
+    assert len(intent.data.rows) == 4
+    by_kind = {row["child_kind"]: row for row in intent.data.rows}
+    assert by_kind["investigation"]["depth"] == 1
+    assert by_kind["question"]["parent_id"] == "investigation:investigation-one"
+    assert by_kind["hypothesis"]["depth"] == 3
+    assert by_kind["hypothesis"]["status"] == "retained"
+    assert by_kind["signpost"]["depth"] == 2
+    assert by_kind["hypothesis"]["path"] == (
+        "Workspace · case-red / Relay ownership / Who controls the relay? / "
+        "One operator controls it."
+    )
+    assert "not evidentiary support" in intent.caveats[-1]
+
+
+def test_scientific_investigation_hierarchy_has_truthful_empty_state():
+    intent = scientific_investigation_hierarchy_intent("default", {})
 
     assert intent.data.rows == ()
     assert intent.source_scope.record_count == 0

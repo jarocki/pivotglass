@@ -225,6 +225,124 @@ function CalendarHeatmap({ intent }: { intent: VisualizationIntent }) {
   );
 }
 
+type HierarchyNode = {
+  id: string;
+  label: string;
+  kind: string;
+  status: string;
+};
+
+function HierarchyBranch({
+  nodeId,
+  nodes,
+  children,
+  depth,
+  ancestors,
+}: {
+  nodeId: string;
+  nodes: Map<string, HierarchyNode>;
+  children: Map<string, string[]>;
+  depth: number;
+  ancestors: ReadonlySet<string>;
+}) {
+  const node = nodes.get(nodeId);
+  if (!node) return null;
+  if (ancestors.has(nodeId)) {
+    return <li role="treeitem"><span>CYCLE REJECTED · {node.label}</span></li>;
+  }
+  const childIds = children.get(nodeId) ?? [];
+  const nextAncestors = new Set(ancestors).add(nodeId);
+  return (
+    <li role="treeitem" aria-level={depth + 1}>
+      {childIds.length
+        ? (
+          <details open={depth < 2}>
+            <summary>
+              <b>{node.label}</b>
+              <span>{node.kind.replaceAll("_", " ")} · {node.status.replaceAll("_", " ")}</span>
+            </summary>
+            <ul role="group">
+              {childIds.map((childId) => (
+                <HierarchyBranch
+                  key={childId}
+                  nodeId={childId}
+                  nodes={nodes}
+                  children={children}
+                  depth={depth + 1}
+                  ancestors={nextAncestors}
+                />
+              ))}
+            </ul>
+          </details>
+        )
+        : (
+          <div className="hierarchy-leaf">
+            <b>{node.label}</b>
+            <span>{node.kind.replaceAll("_", " ")} · {node.status.replaceAll("_", " ")}</span>
+          </div>
+        )}
+    </li>
+  );
+}
+
+function HierarchyTree({ intent }: { intent: VisualizationIntent }) {
+  const hierarchy = useMemo(() => {
+    const nodes = new Map<string, HierarchyNode>();
+    const children = new Map<string, string[]>();
+    const childIds = new Set<string>();
+    for (const row of intent.data.rows) {
+      const parentId = String(row.parent_id ?? "");
+      const childId = String(row.child_id ?? "");
+      if (!parentId || !childId) continue;
+      if (!nodes.has(parentId)) {
+        nodes.set(parentId, {
+          id: parentId,
+          label: String(row.parent_label ?? parentId),
+          kind: parentId.startsWith("workspace:") ? "workspace" : "parent",
+          status: "persisted",
+        });
+      }
+      nodes.set(childId, {
+        id: childId,
+        label: String(row.child_label ?? childId),
+        kind: String(row.child_kind ?? "record"),
+        status: String(row.status ?? "unknown"),
+      });
+      const entries = children.get(parentId) ?? [];
+      if (!entries.includes(childId)) entries.push(childId);
+      children.set(parentId, entries);
+      childIds.add(childId);
+    }
+    for (const entries of children.values()) {
+      entries.sort((left, right) => (
+        (nodes.get(left)?.label ?? left).localeCompare(nodes.get(right)?.label ?? right)
+      ));
+    }
+    const roots = [...nodes.keys()]
+      .filter((nodeId) => !childIds.has(nodeId))
+      .sort((left, right) => left.localeCompare(right));
+    return { nodes, children, roots };
+  }, [intent.data.rows]);
+
+  if (!hierarchy.roots.length) return <VisualizationEmpty intent={intent} />;
+  return (
+    <div className="hierarchy-visualization">
+      <ul role="tree" aria-label={intent.question_text}>
+        {hierarchy.roots.map((rootId) => (
+          <HierarchyBranch
+            key={rootId}
+            nodeId={rootId}
+            nodes={hierarchy.nodes}
+            children={hierarchy.children}
+            depth={0}
+            ancestors={new Set()}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 const TERMINAL_GLYPH: Record<string, string> = {
   planned: "○",
   queued: "◷",
@@ -1268,6 +1386,8 @@ export function VisualizationWorkspace({
             ? <CalendarHeatmap intent={selected} />
             : selected.view === "task_matrix"
               ? <TaskMatrix intent={selected} onOpenEvidence={onOpenEvidence} />
+              : selected.view === "dendrogram"
+                ? <HierarchyTree intent={selected} />
               : selected.view === "relationship_graph"
                 ? <RelationshipGraph intent={selected} onOpenEvidence={onOpenEvidence} layouts={graphLayouts} onLayoutsChanged={onGraphLayoutsChanged} />
                 : <VisualizationEmpty intent={selected} />}

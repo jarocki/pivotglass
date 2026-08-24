@@ -267,6 +267,11 @@ open **Competing hypotheses matrix** to compare the same evidence across every
 explanation. A **not assessed** cell is a visible gap, not neutral evidence;
 use the exact-data table to review the recorded rationale.
 
+Open **Investigation hierarchy** to see how the notebook divides into
+questions, hypotheses, signposts, collection requirements, and other workflow
+items. Expand or collapse branches with the keyboard or pointer. The hierarchy
+shows membership only—not evidence support or causality.
+
 Before sharing any export, remember that it can contain raw indicators and
 source-derived information.
 
