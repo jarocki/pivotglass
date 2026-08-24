@@ -591,6 +591,38 @@ def test_relationship_graph_drops_edges_whose_nodes_are_not_in_scope():
     assert intent.data.rows == ()
 
 
+def test_relationship_graph_keeps_manual_assertions_visibly_distinct():
+    graph = {
+        "nodes": [
+            {"id": "domain-name--one", "type": "domain-name", "value": "one.test"},
+            {"id": "ipv4-addr--one", "type": "ipv4-addr", "value": "198.51.100.8"},
+        ],
+        "edges": [],
+    }
+    analysis = {
+        "assertions": [
+            {
+                "id": "assertion-manual",
+                "statement": "Analyst annotated shared control after review.",
+                "status": "active",
+                "author_kind": "human",
+                "method": "manual-graph-relation",
+                "subject_ref": "domain-name--one",
+                "predicate": "possibly-controlled-by",
+                "object_ref": "ipv4-addr--one",
+            }
+        ]
+    }
+
+    intent = relationship_graph_intent("default", graph, analysis)
+    distribution = relationship_degree_distribution_intent("default", graph, analysis)
+
+    assert len(intent.data.edges) == 1
+    assert intent.data.edges[0].basis == "manual"
+    assert "Analyst assertion assertion-manual" in intent.data.edges[0].provenance
+    assert {row["connection_count"] for row in distribution.data.rows} == {1}
+
+
 def test_relationship_degree_histogram_counts_only_admitted_edges():
     intent = relationship_degree_distribution_intent(
         "default",

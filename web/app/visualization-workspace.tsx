@@ -892,11 +892,13 @@ function RelationshipGraph({
   onOpenEvidence,
   layouts,
   onLayoutsChanged,
+  onDataChanged,
 }: {
   intent: VisualizationIntent;
   onOpenEvidence?: (reference: string, origin: HTMLElement) => void;
   layouts: GraphLayoutSummary[];
   onLayoutsChanged?: () => Promise<void> | void;
+  onDataChanged?: () => Promise<void> | void;
 }) {
   const [selectedRefs, setSelectedRefs] = useState<string[]>([]);
   const [query, setQuery] = useState("");
@@ -908,6 +910,10 @@ function RelationshipGraph({
   const [layoutName, setLayoutName] = useState("");
   const [layoutMessage, setLayoutMessage] = useState("");
   const [layoutBusy, setLayoutBusy] = useState(false);
+  const [relationPredicate, setRelationPredicate] = useState("related-to");
+  const [relationAnnotation, setRelationAnnotation] = useState("");
+  const [relationMessage, setRelationMessage] = useState("");
+  const [relationBusy, setRelationBusy] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
   const pendingLayoutPositions = useRef<Record<string, GraphPoint> | null>(null);
   const width = 760;
@@ -958,10 +964,46 @@ function RelationshipGraph({
   const selected = selectedRefs.at(-1) ?? null;
   const selectedSet = new Set(selectedRefs);
   const selectedNode = intent.data.nodes.find((node) => node.reference === selected);
+  const selectedNodes = selectedRefs
+    .map((reference) => intent.data.nodes.find((node) => node.reference === reference))
+    .filter((node): node is NonNullable<typeof node> => Boolean(node));
   const markerId = `${intent.intent_id}-relationship-arrow`;
 
   const selectNode = (reference: string, additive: boolean) => {
     setSelectedRefs((current) => updateGraphSelection(current, reference, additive));
+  };
+
+  const recordManualRelation = async () => {
+    if (selectedNodes.length !== 2 || !relationAnnotation.trim()) return;
+    setRelationBusy(true);
+    setRelationMessage("");
+    try {
+      const response = await fetch("/api/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          command: [
+            "analysis relation",
+            selectedNodes[0].reference,
+            relationPredicate.trim().toLowerCase(),
+            selectedNodes[1].reference,
+            "|",
+            relationAnnotation.trim(),
+          ].join(" "),
+          workspace: intent.source_scope.workspace,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Unable to record analyst relation");
+      const assertionId = result.data?.assertion_id ?? "recorded assertion";
+      setRelationMessage(`Recorded ${assertionId}. It is an analyst judgment, not observed evidence.`);
+      setRelationAnnotation("");
+      await onDataChanged?.();
+    } catch (reason) {
+      setRelationMessage(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setRelationBusy(false);
+    }
   };
 
   const updateZoom = (factor: number) => {
@@ -1312,6 +1354,7 @@ function RelationshipGraph({
       <div className="graph-legend">
         <span><i className="explicit" /> Stored relationship</span>
         <span><i className="property" /> Property pivot</span>
+        <span><i className="manual" /> Analyst assertion</span>
         <span>Force layout is limited to 48 nodes; drag, pan, zoom, filtering, and selection change presentation only. Shift, Command, or Control selects more than one node.</span>
       </div>
       {selectedRefs.length > 1 && (
@@ -1330,6 +1373,47 @@ function RelationshipGraph({
           </button>
           <button onClick={() => setSelectedRefs([])}>CLEAR SELECTION</button>
         </div>
+      )}
+      {selectedNodes.length === 2 && (
+        <form
+          className="manual-graph-relation"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void recordManualRelation();
+          }}
+        >
+          <b>ANNOTATED ANALYST RELATION</b>
+          <span>
+            {shortLabel(selectedNodes[0].label, 32)} → {shortLabel(selectedNodes[1].label, 32)}
+          </span>
+          <label>
+            <span>Relationship</span>
+            <input
+              value={relationPredicate}
+              onChange={(event) => setRelationPredicate(event.target.value)}
+              pattern="[a-z][a-z0-9-]{0,63}"
+              maxLength={64}
+              required
+            />
+          </label>
+          <label className="relation-annotation">
+            <span>Required analyst annotation</span>
+            <input
+              value={relationAnnotation}
+              onChange={(event) => setRelationAnnotation(event.target.value)}
+              maxLength={1000}
+              placeholder="Why should these entities be related?"
+              required
+            />
+          </label>
+          <button disabled={relationBusy || !relationAnnotation.trim()}>
+            RECORD JUDGMENT
+          </button>
+          <small>
+            Direction follows selection order. This creates a visible analyst assertion, never an observed edge.
+          </small>
+          {relationMessage && <small role="status">{relationMessage}</small>}
+        </form>
       )}
       {selectedNode && (
         <div className="visualization-selection" aria-live="polite">
@@ -1403,12 +1487,14 @@ export function VisualizationWorkspace({
   onOpenEvidence,
   graphLayouts = [],
   onGraphLayoutsChanged,
+  onDataChanged,
 }: {
   intents: VisualizationIntent[];
   theme: VisualizationTheme;
   onOpenEvidence?: (reference: string, origin: HTMLElement) => void;
   graphLayouts?: GraphLayoutSummary[];
   onGraphLayoutsChanged?: () => Promise<void> | void;
+  onDataChanged?: () => Promise<void> | void;
 }) {
   const preferred = intents.find((intent) => intent.intent_id === "indicator-constellation");
   const [selectedId, setSelectedId] = useState(preferred?.intent_id ?? intents[0]?.intent_id ?? "");
@@ -1471,7 +1557,7 @@ export function VisualizationWorkspace({
               : selected.view === "uncertainty_intervals"
                 ? <UncertaintyIntervals intent={selected} />
               : selected.view === "relationship_graph"
-                ? <RelationshipGraph intent={selected} onOpenEvidence={onOpenEvidence} layouts={graphLayouts} onLayoutsChanged={onGraphLayoutsChanged} />
+                ? <RelationshipGraph intent={selected} onOpenEvidence={onOpenEvidence} layouts={graphLayouts} onLayoutsChanged={onGraphLayoutsChanged} onDataChanged={onDataChanged} />
                 : <VisualizationEmpty intent={selected} />}
       <details className="visualization-data">
         <summary>View exact data and caveats</summary>

@@ -70,6 +70,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   operation, a visible selected-node count, and bulk pin, unpin, and clear
   actions. Temporary selections are deliberately excluded from saved layouts
   and never become graph evidence.
+- Added annotated directional analyst relations from a two-node graph
+  selection. The shared command authority validates real entity endpoints,
+  constrains the relation name, requires an annotation, and persists a human
+  judgment that is drawn distinctly from observed relationships and property
+  pivots.
 - Linked recorded go-roast proposals to exact matching immutable OAST-domain
   observations and projected those citations into the epistemic graph. Added a
   deterministic correlation review that groups shared decoded fragments,

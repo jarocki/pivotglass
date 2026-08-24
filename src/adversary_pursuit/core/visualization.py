@@ -1404,7 +1404,11 @@ def _leading_eigenpair(matrix: list[list[float]]) -> tuple[float, list[float]]:
     return eigenvalue, vector
 
 
-def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> VisualizationIntent:
+def relationship_graph_intent(
+    workspace: str,
+    graph: dict[str, Any],
+    analysis: dict[str, Any] | None = None,
+) -> VisualizationIntent:
     """Build an indicator-first graph intent from the persisted graph authority."""
 
     nodes = tuple(
@@ -1417,7 +1421,7 @@ def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> Visualiz
         if node.get("id")
     )
     node_ids = {node.reference for node in nodes}
-    edges = tuple(
+    edges = [
         VisualizationEdge(
             source=str(edge.get("source", "")),
             target=str(edge.get("target", "")),
@@ -1435,7 +1439,30 @@ def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> Visualiz
         )
         for edge in graph.get("edges", ())
         if edge.get("source") in node_ids and edge.get("target") in node_ids
-    )
+    ]
+    for assertion in (analysis or {}).get("assertions", ()):
+        if (
+            assertion.get("method") != "manual-graph-relation"
+            or assertion.get("status") != "active"
+            or assertion.get("author_kind") != "human"
+            or assertion.get("subject_ref") not in node_ids
+            or assertion.get("object_ref") not in node_ids
+            or not assertion.get("predicate")
+        ):
+            continue
+        edges.append(
+            VisualizationEdge(
+                source=str(assertion["subject_ref"]),
+                target=str(assertion["object_ref"]),
+                relationship=str(assertion["predicate"]),
+                basis="manual",
+                provenance=(
+                    f"Analyst assertion {assertion.get('id')}: "
+                    f"{assertion.get('statement') or 'No annotation'}"
+                ),
+            )
+        )
+    edges_tuple = tuple(edges)
     labels = {node.reference: node.label for node in nodes}
     rows = tuple(
         {
@@ -1445,7 +1472,7 @@ def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> Visualiz
             "basis": edge.basis,
             "provenance": edge.provenance,
         }
-        for edge in edges
+        for edge in edges_tuple
     )
     return _intent(
         intent_id="relationship-graph",
@@ -1455,7 +1482,7 @@ def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> Visualiz
         workspace=workspace,
         description="Stored STIX objects, explicit relationships, and conservative property pivots.",
         record_count=len(nodes),
-        data=VisualizationData(rows=rows, nodes=nodes, edges=edges),
+        data=VisualizationData(rows=rows, nodes=nodes, edges=edges_tuple),
         fields={"source": "source", "target": "target", "relationship": "relationship"},
         semantic_types={
             "source": "Name",
@@ -1476,6 +1503,7 @@ def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> Visualiz
         ),
         caveats=(
             "Property pivots are navigation aids, not asserted STIX relationships.",
+            "Manual edges are analyst-authored judgments with annotations, not observed facts.",
             "First/last seen and confidence remain unavailable until their persisted "
             "relationship fields exist; the visualization does not invent them.",
         ),
@@ -1485,26 +1513,28 @@ def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> Visualiz
 def relationship_degree_distribution_intent(
     workspace: str,
     graph: dict[str, Any],
+    analysis: dict[str, Any] | None = None,
 ) -> VisualizationIntent:
     """Show the exact distribution of admitted graph-edge degree by entity."""
 
-    nodes = {str(node["id"]): node for node in graph.get("nodes", ()) if node.get("id")}
-    degree = {node_id: 0 for node_id in nodes}
-    for edge in graph.get("edges", ()):
-        source = str(edge.get("source", ""))
-        target = str(edge.get("target", ""))
+    admitted = relationship_graph_intent(workspace, graph, analysis)
+    graph_nodes = {str(node["id"]): node for node in graph.get("nodes", ()) if node.get("id")}
+    degree = {node.reference: 0 for node in admitted.data.nodes}
+    for edge in admitted.data.edges:
+        source = edge.source
+        target = edge.target
         if source in degree and target in degree:
             degree[source] += 1
             degree[target] += 1
     rows = tuple(
         {
-            "indicator": _indicator_value(nodes[node_id]),
-            "indicator_type": str(nodes[node_id].get("type", "unknown")),
+            "indicator": _indicator_value(graph_nodes[node_id]),
+            "indicator_type": str(graph_nodes[node_id].get("type", "unknown")),
             "connection_count": degree[node_id],
         }
         for node_id in sorted(
-            nodes,
-            key=lambda item: (_indicator_value(nodes[item]).casefold(), item),
+            graph_nodes,
+            key=lambda item: (_indicator_value(graph_nodes[item]).casefold(), item),
         )
     )
     return _intent(
@@ -1560,8 +1590,8 @@ def build_visualization_intents(
         dossier_completeness_intent(workspace, dossier_slots),
         activity_concentration_intent(workspace, investigations),
         task_matrix_intent(workspace, investigations),
-        relationship_graph_intent(workspace, graph),
-        relationship_degree_distribution_intent(workspace, graph),
+        relationship_graph_intent(workspace, graph, analysis),
+        relationship_degree_distribution_intent(workspace, graph, analysis),
         indicator_coverage_pca_intent(workspace, constellation),
         competing_hypotheses_matrix_intent(workspace, analysis or {}),
         scientific_investigation_hierarchy_intent(workspace, analysis or {}),

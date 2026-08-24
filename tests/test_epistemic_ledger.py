@@ -371,6 +371,53 @@ def test_analysis_command_is_shared_with_local_repl_and_completion(tmp_path):
     assert snapshot["hypotheses"][0]["status"] == "retained"
 
 
+def test_manual_graph_relation_requires_known_entities_and_annotation(tmp_path):
+    manager = _workspace(tmp_path)
+    manager.store_stix_objects(
+        [
+            {"type": "domain-name", "value": "relation.test"},
+            {"type": "ipv4-addr", "value": "198.51.100.77"},
+        ],
+        module_name="test/source",
+        target="relation.test",
+    )
+    objects = {item["type"]: item for item in manager.get_stix_objects()}
+    domain = objects["domain-name"]
+    address = objects["ipv4-addr"]
+
+    result = execute_analysis_command(
+        (
+            "relation",
+            domain["id"],
+            "possibly-resolves-to",
+            address["id"],
+            "|",
+            "Analyst annotated this after reviewing passive DNS.",
+        ),
+        manager,
+    )["data"]
+
+    assertion = AnalyticLedger(manager).snapshot()["assertions"][0]
+    assert result["truth_kind"] == "analyst_assertion"
+    assert assertion["subject_ref"] == domain["id"]
+    assert assertion["predicate"] == "possibly-resolves-to"
+    assert assertion["object_ref"] == address["id"]
+    assert assertion["method"] == "manual-graph-relation"
+    assert "analysis relation " in command_completions("analysis rel")
+    with pytest.raises(ValueError, match="unknown entities"):
+        execute_analysis_command(
+            (
+                "relation",
+                domain["id"],
+                "related-to",
+                "domain-name--missing",
+                "|",
+                "This reference must fail.",
+            ),
+            manager,
+        )
+
+
 def test_analysis_commands_cover_lifecycle_contradictions_and_sat_runs(tmp_path):
     manager = _workspace(tmp_path)
     question_id = execute_analysis_command(

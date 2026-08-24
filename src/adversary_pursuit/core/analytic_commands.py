@@ -15,6 +15,7 @@ operator input; no model is consulted and no evidence is manufactured.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from adversary_pursuit.core.analytic_ledger import (
@@ -44,6 +45,7 @@ ANALYSIS_USAGE = (
     "Usage: analysis show|lifecycle|methods|contradictions|priorities|question <text>|"
     "assertion <inferred|assumed|judgment> <text>|"
     "claim <inferred|assumed|judgment> <subject-ref> <predicate> <value> | <statement>|"
+    "relation <subject-ref> <predicate> <object-ref> | <annotation>|"
     "assumption <text>|"
     "hypothesis <question-id> <text>|"
     "prediction|signpost|collect|stop|limitation|gap <text>|"
@@ -154,6 +156,49 @@ def execute_analysis_command(args: tuple[str, ...], workspace_manager: Any) -> d
                 "assertion_type": assertion_type.value,
                 "subject_ref": args[2],
                 "predicate": args[3],
+            },
+        }
+    if action == "relation" and len(args) >= 6:
+        annotation = " ".join(args[4:]).strip()
+        if not annotation.startswith("|") or not annotation.removeprefix("|").strip():
+            raise ValueError("Separate the relation and required analyst annotation with |.")
+        subject_ref = args[1]
+        predicate = args[2].casefold()
+        object_ref = args[3]
+        if subject_ref == object_ref:
+            raise ValueError("A manual graph relation requires two different entities.")
+        if re.fullmatch(r"[a-z][a-z0-9-]{0,63}", predicate) is None:
+            raise ValueError(
+                "Relation predicate must use 1-64 lowercase letters, digits, or hyphens."
+            )
+        entity_refs = {
+            str(item.get("id"))
+            for item in workspace_manager.get_stix_objects()
+            if item.get("id")
+        }
+        missing = [ref for ref in (subject_ref, object_ref) if ref not in entity_refs]
+        if missing:
+            raise ValueError(
+                "Manual graph relation references unknown entities: " + ", ".join(missing)
+            )
+        statement = annotation.removeprefix("|").strip()
+        assertion_id = ledger.create_assertion(
+            statement,
+            assertion_type=AssertionType.JUDGMENT,
+            subject_ref=subject_ref,
+            predicate=predicate,
+            object_ref=object_ref,
+            method="manual-graph-relation",
+        )
+        return {
+            "title": "Analyst graph relation recorded",
+            "data": {
+                "assertion_id": assertion_id,
+                "assertion_type": AssertionType.JUDGMENT.value,
+                "subject_ref": subject_ref,
+                "predicate": predicate,
+                "object_ref": object_ref,
+                "truth_kind": "analyst_assertion",
             },
         }
     if action == "hypothesis" and len(args) >= 3:

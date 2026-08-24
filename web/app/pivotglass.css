@@ -537,6 +537,15 @@ pre{font-size:12px;line-height:1.5}
 .graph-multiselect b{color:var(--heading);letter-spacing:.08em}
 .graph-multiselect span{flex:1 1 360px;color:var(--dim)}
 .graph-multiselect button{padding:6px 8px;border:1px solid var(--line);background:var(--control);color:var(--heading);cursor:pointer}
+.manual-graph-relation{display:grid;grid-template-columns:auto minmax(150px,.7fr) minmax(240px,1.4fr) auto;align-items:end;gap:8px;padding:9px;border:1px solid color-mix(in srgb,var(--focus-ring) 48%,transparent);background:var(--control)}
+.manual-graph-relation>b,.manual-graph-relation>span,.manual-graph-relation>small{grid-column:1/-1}
+.manual-graph-relation>b{color:var(--heading);letter-spacing:.08em}
+.manual-graph-relation>span,.manual-graph-relation small,.manual-graph-relation label span{color:var(--dim)}
+.manual-graph-relation label{display:grid;gap:3px;min-width:0}
+.manual-graph-relation input{min-width:0;padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--surface);color:var(--ink)}
+.manual-graph-relation button{padding:7px 9px;border:1px solid var(--line);background:var(--surface);color:var(--heading);cursor:pointer}
+.manual-graph-relation button:disabled{cursor:not-allowed;opacity:.48}
+@media (max-width:650px){.manual-graph-relation{grid-template-columns:1fr}.manual-graph-relation>b,.manual-graph-relation>span,.manual-graph-relation>small{grid-column:1}}
 .graph-layout-controls{display:flex;flex-wrap:wrap;align-items:end;gap:8px;padding:8px;border:1px solid color-mix(in srgb,var(--line) 34%,transparent);background:color-mix(in srgb,var(--panel) 78%,transparent)}
 .graph-layout-controls label{display:grid;gap:3px;min-width:160px}
 .graph-layout-controls label span{color:var(--dim);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
@@ -554,6 +563,7 @@ pre{font-size:12px;line-height:1.5}
 .relationship-edges{color:var(--line)}
 .relationship-edges line{stroke:currentColor;stroke-width:1.5}
 .relationship-edges line.basis-property{stroke-dasharray:5 4;opacity:.75}
+.relationship-edges line.basis-manual{stroke:var(--focus-ring);stroke-dasharray:2 3;stroke-width:2.5}
 .relationship-edges marker path{fill:currentColor}
 .relationship-edges text{fill:var(--dim);font-size:8px;paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}
 .relationship-nodes>g{cursor:grab;outline:none}
@@ -584,6 +594,7 @@ pre{font-size:12px;line-height:1.5}
 .graph-legend span{display:flex;align-items:center;gap:5px}
 .graph-legend i{display:block;width:18px;border-top:2px solid var(--line)}
 .graph-legend i.property{border-top-style:dashed}
+.graph-legend i.manual{border-top-color:var(--focus-ring);border-top-style:dotted;border-top-width:3px}
 .relationship-node-inventory{padding-top:4px;border-top:1px solid color-mix(in srgb,var(--line) 20%,transparent)}
 .relationship-node-inventory summary{cursor:pointer;color:var(--heading)}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}

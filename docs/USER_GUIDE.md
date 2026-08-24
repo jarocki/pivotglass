@@ -239,6 +239,14 @@ node selected remains the primary selection for its presentation label and
 evidence detail. Double-click it, or choose **OPEN EVIDENCE**, to inspect the
 stored record.
 
+With exactly two nodes selected, **ANNOTATED ANALYST RELATION** records a
+directional judgment from the first selection to the second. Enter a bounded
+lowercase relationship such as `possibly-controlled-by` and a required
+annotation explaining the basis. Manual relations are amber dashed edges and
+remain analyst assertions; they are not written as observed STIX
+relationships. The equivalent shared command is `analysis relation
+<subject-ref> <predicate> <object-ref> | <annotation>`.
+
 Dragging, panning, zooming, filtering, centering, pinning, and selecting change
 only the presentation. They do not alter evidence. Selection is deliberately
 temporary and is not included in saved layouts. Enter a layout name and choose
@@ -409,6 +417,7 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `analysis question <text>` | Record the question the investigation must answer |
 | `analysis assumption <text>` | Expose a key assumption for testing |
 | `analysis assertion <type> <text>` | Record an inferred, assumed, or judgment statement; observations come only from sources |
+| `analysis relation <subject-ref> <predicate> <object-ref> \| <annotation>` | Record an annotated directional analyst judgment between two existing entities; never create an observed relationship |
 | `analysis hypothesis <question-id> <text>` | Propose a falsifiable candidate answer |
 | `analysis prediction <text>` | Record an observable prediction |
 | `analysis signpost <text>` | Record a development that should change the judgment |

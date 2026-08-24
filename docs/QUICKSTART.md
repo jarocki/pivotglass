@@ -267,6 +267,11 @@ temporary working set. You can pin or unpin the selected group without changing
 evidence. Saved views keep layout, labels, filter, viewport, and pins, but never
 the temporary selection.
 
+When exactly two nodes are selected, you may add an annotated directional
+relation. The result is visibly marked as an analyst judgment and does not
+become observed evidence. Use it to preserve a working hypothesis about a
+connection, not to replace collection or corroboration.
+
 After recording competing hypotheses and linking evidence with `analysis`,
 open **Competing hypotheses matrix** to compare the same evidence across every
 explanation. A **not assessed** cell is a visible gap, not neutral evidence;

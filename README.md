@@ -152,6 +152,12 @@ Command, or Control to select multiple nodes and pin or unpin the group. The
 temporary selection is not stored in a saved layout. If no supported relationship
 exists, Pivotglass leaves the nodes unconnected.
 
+Select exactly two nodes to record a directional, annotated analyst relation.
+It is persisted as a human-authored judgment, drawn separately from stored
+relationships and conservative pivots, and never described as observed fact.
+The same authority is available as `analysis relation <subject-ref>
+<predicate> <object-ref> | <annotation>` in both interfaces.
+
 Named graph presentations preserve node positions, viewport, and filters in
 the active workspace. They survive refreshes and portable exports, report
 topology drift when evidence changes, and cannot modify evidence or edges.

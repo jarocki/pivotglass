@@ -119,6 +119,7 @@ def command_completions(
             "priorities",
             "question ",
             "assertion ",
+            "relation ",
             "assumption ",
             "hypothesis ",
             "prediction ",
