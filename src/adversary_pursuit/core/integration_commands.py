@@ -353,6 +353,10 @@ def _nucleotide(
                 ),
             },
         }
+    if action == "fingerprint-history" and len(args) == 2:
+        ledger = AnalyticLedger(_require_workspace(workspace_mgr))
+        data = _nucleotide_fingerprint_history(ledger, args[1])
+        return {"title": "Nucleotide fingerprint history", "data": data}
     adapter = _nucleotide_adapter(config_mgr)
     if action == "lookup-info" and len(args) == 1:
         data = adapter.lookup_info()
@@ -396,12 +400,28 @@ def _nucleotide(
             "recorded": _record_nucleotide_fingerprint_proposal(ledger, structured[0], preview),
             "analyst_disposition": "pending",
         }
+    elif action == "fingerprint-compare" and len(args) == 3:
+        ledger = AnalyticLedger(_require_workspace(workspace_mgr))
+        left = _nucleotide_fingerprint_proposal(ledger, args[1])
+        right = _nucleotide_fingerprint_proposal(ledger, args[2])
+        left_details = left["criteria"]["details"]
+        right_details = right["criteria"]["details"]
+        data = adapter.compare(
+            left_details["fingerprint"],
+            right_details["fingerprint"],
+            left_proposal_id=left["record_id"],
+            right_proposal_id=right["record_id"],
+            left_lookup_sha256=left_details["lookup_sha256"],
+            right_lookup_sha256=right_details["lookup_sha256"],
+        ).model_dump(mode="json")
     else:
         raise ValueError(
             "usage: integration nucleotide status|lookup-info|lookup <url>...|"
             "lookup-strict <url>...|lookup-record <url>...|"
             "fingerprint-preview <actor-id> | <events-json>|"
-            "fingerprint-record <actor-id> | <events-json>"
+            "fingerprint-record <actor-id> | <events-json>|"
+            "fingerprint-history <actor-id>|"
+            "fingerprint-compare <left-proposal-id> <right-proposal-id>"
         )
     return {"title": "Nucleotide analysis preview", "data": data}
 
@@ -540,6 +560,7 @@ def _record_nucleotide_fingerprint_proposal(
         "event_count": preview.event_count,
         "lookup_sha256": preview.lookup_sha256,
         "fingerprint_sha256": fingerprint_sha256,
+        "fingerprint": preview.fingerprint,
         "supporting_signals": list(preview.supporting_signals),
         "contradictions": list(preview.contradictions),
     }
@@ -556,6 +577,66 @@ def _record_nucleotide_fingerprint_proposal(
         details=details,
     )
     return {"proposal_id": row["record_id"], "created": created}
+
+
+def _nucleotide_fingerprint_proposal(ledger: AnalyticLedger, proposal_id: str) -> dict[str, Any]:
+    row = next(
+        (item for item in ledger.external_analysis_proposals() if item["record_id"] == proposal_id),
+        None,
+    )
+    if row is None:
+        raise ValueError(f"Unknown external analysis proposal: {proposal_id}")
+    criteria = row.get("criteria") if isinstance(row.get("criteria"), dict) else {}
+    details = criteria.get("details") if isinstance(criteria.get("details"), dict) else {}
+    if (
+        criteria.get("provider") != "nucleotide"
+        or criteria.get("operation") != "actor-behavior-fingerprint"
+    ):
+        raise ValueError("Nucleotide comparison requires two fingerprint proposals")
+    if not isinstance(details.get("fingerprint"), dict):
+        raise ValueError(
+            "Nucleotide proposal predates stored fingerprint artifacts; record it again"
+        )
+    return row
+
+
+def _nucleotide_fingerprint_history(
+    ledger: AnalyticLedger, analyst_grouped_batch: str
+) -> list[dict[str, Any]]:
+    normalized_batch = analyst_grouped_batch.strip()
+    if not normalized_batch:
+        raise ValueError("Nucleotide fingerprint history requires an analyst-grouped batch")
+    history: list[dict[str, Any]] = []
+    for row in ledger.external_analysis_proposals():
+        criteria = row.get("criteria") if isinstance(row.get("criteria"), dict) else {}
+        details = criteria.get("details") if isinstance(criteria.get("details"), dict) else {}
+        if (
+            criteria.get("provider") != "nucleotide"
+            or criteria.get("operation") != "actor-behavior-fingerprint"
+            or details.get("analyst_grouped_batch") != normalized_batch
+        ):
+            continue
+        fingerprint = details.get("fingerprint")
+        actor_fingerprint = (
+            fingerprint.get("actor_fingerprint") if isinstance(fingerprint, dict) else {}
+        )
+        history.append(
+            {
+                "proposal_id": row["record_id"],
+                "created_at": row["created_at"],
+                "analyst_disposition": row["analyst_disposition"],
+                "lookup_sha256": details.get("lookup_sha256"),
+                "fingerprint_sha256": details.get("fingerprint_sha256"),
+                "structural_hash": (
+                    actor_fingerprint.get("structural_hash")
+                    if isinstance(actor_fingerprint, dict)
+                    else None
+                ),
+                "event_count": details.get("event_count"),
+                "artifact_available": isinstance(fingerprint, dict),
+            }
+        )
+    return history
 
 
 def _json_sha256(value: Any) -> str:

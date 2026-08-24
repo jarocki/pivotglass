@@ -306,6 +306,14 @@ review history. It is idempotent and creates neither an evidence observation
 nor an observed entity edge. The investigation graph displays the assertion
 and its `materialized-from` link to the retained external proposal.
 
+`nucleotide fingerprint-history <actor-id>` lists the persisted windows for an
+analyst-grouped batch. `nucleotide fingerprint-compare <left-proposal-id>
+<right-proposal-id>` passes the two exact stored artifacts to Nucleotide's
+published field-by-field comparison command. The result exposes structural-hash
+and field drift, both lookup-corpus digests, and a warning when those corpora
+differ. It creates no Pivotglass confidence assessment and makes no actor
+identity claim.
+
 Example incremental SCOT preview:
 
 ```text

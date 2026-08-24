@@ -419,6 +419,8 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `integration nucleotide lookup-record <url>...` | Record every lookup outcome, including ambiguity and no-match, for explicit review |
 | `integration nucleotide fingerprint-preview <actor-id> \| <events-json>` | Analyze an analyst-grouped event object or array and expose supporting signals, contradictions, CLI-option hypotheses, and caveats |
 | `integration nucleotide fingerprint-record <actor-id> \| <events-json>` | Record a fingerprint digest, signals, contradictions, and caveats as pending analytic work |
+| `integration nucleotide fingerprint-history <actor-id>` | List persisted fingerprint windows and structural hashes for one analyst-grouped batch |
+| `integration nucleotide fingerprint-compare <left-proposal-id> <right-proposal-id>` | Run Nucleotide's exact field-by-field diff over two stored fingerprints, disclose lookup-corpus drift, and create no formal confidence or identity claim |
 | `graph layers` | Inspect the combined entity and epistemic graph, including edge provenance and truth type |
 | `analysis method start\|complete\|accept\|reject\|revise …` | Run and disposition a versioned Structured Analytic Technique |
 | `note <text>` | Add an analyst note |

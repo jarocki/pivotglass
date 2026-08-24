@@ -205,6 +205,8 @@ def command_completions(
             "nucleotide lookup-record ",
             "nucleotide fingerprint-preview ",
             "nucleotide fingerprint-record ",
+            "nucleotide fingerprint-history ",
+            "nucleotide fingerprint-compare ",
         ]
     elif command == "graph":
         choices = ["layers"]

@@ -12,7 +12,7 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -60,13 +60,25 @@ class LocalToolRunner:
         self.timeout_seconds = timeout_seconds
         self.max_output_bytes = max_output_bytes
 
-    def run(self, operation: str, args: list[str], *, stdin: str = "") -> LocalToolResult:
+    def run(
+        self,
+        operation: str,
+        args: list[str],
+        *,
+        stdin: str = "",
+        request_basis: dict[str, Any] | None = None,
+    ) -> LocalToolResult:
+        digest_input = (
+            {"system": self.system, "operation": operation, "args": args, "stdin": stdin}
+            if request_basis is None
+            else {
+                "system": self.system,
+                "operation": operation,
+                "logical_request": request_basis,
+            }
+        )
         request_sha256 = hashlib.sha256(
-            json.dumps(
-                {"system": self.system, "operation": operation, "args": args, "stdin": stdin},
-                sort_keys=True,
-                separators=(",", ":"),
-            ).encode()
+            json.dumps(digest_input, sort_keys=True, separators=(",", ":"), default=str).encode()
         ).hexdigest()
         started_at = datetime.now(UTC)
         with tempfile.TemporaryFile() as stdout_file, tempfile.TemporaryFile() as stderr_file:
@@ -86,9 +98,9 @@ class LocalToolRunner:
             process.stdin.close()
             deadline = time.monotonic() + self.timeout_seconds
             while process.poll() is None:
-                output_bytes = os.fstat(stdout_file.fileno()).st_size + os.fstat(
-                    stderr_file.fileno()
-                ).st_size
+                output_bytes = (
+                    os.fstat(stdout_file.fileno()).st_size + os.fstat(stderr_file.fileno()).st_size
+                )
                 if output_bytes > self.max_output_bytes:
                     boundary_reason = "output_limit"
                     process.kill()
@@ -100,8 +112,7 @@ class LocalToolRunner:
                 time.sleep(0.01)
             process.wait()
             if boundary_reason is None and (
-                os.fstat(stdout_file.fileno()).st_size
-                + os.fstat(stderr_file.fileno()).st_size
+                os.fstat(stdout_file.fileno()).st_size + os.fstat(stderr_file.fileno()).st_size
                 > self.max_output_bytes
             ):
                 boundary_reason = "output_limit"

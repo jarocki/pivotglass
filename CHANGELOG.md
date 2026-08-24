@@ -33,6 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   disposition, and a separate idempotent path from accepted proposals to typed
   inferred assertions. Materialization preserves lineage and never creates an
   evidence observation or observed relationship.
+- Added persisted Nucleotide fingerprint history and upstream field-by-field
+  comparison. Logical request receipts are stable across temporary files,
+  lookup-corpus drift is visible, and comparisons create neither formal
+  confidence nor actor identity.
 
 ## [0.8.5] — 2026-08-07
 

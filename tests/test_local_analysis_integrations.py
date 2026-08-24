@@ -158,6 +158,102 @@ def test_nucleotide_fingerprint_surfaces_signals_and_contradictions(tmp_path):
     assert preview.event_count == 1
 
 
+def test_nucleotide_persists_and_compares_longitudinal_fingerprints(tmp_path):
+    executable = _tool(
+        tmp_path,
+        """import json, sys, yaml
+from pathlib import Path
+
+if sys.argv[1] == "fingerprint":
+    events = Path(sys.argv[2]).read_text()
+    actor_id = sys.argv[sys.argv.index("--actor-id") + 1]
+    variant = "second" if "second" in events else "first"
+    yaml.safe_dump({
+        "actor_fingerprint": {
+            "id": actor_id,
+            "structural_hash": f"sha256:{variant}",
+            "tool_inference": {
+                "likely_tool": "nuclei",
+                "confidence": 0.7,
+                "signals": [f"{variant} signal"],
+                "contradictions": [],
+            },
+            "inferred_cli_options": {"-tags": [variant]},
+            "template_preference": {"matched": [f"template-{variant}"]},
+        }
+    }, sys.stdout, sort_keys=True)
+elif sys.argv[1] == "compare":
+    left = yaml.safe_load(Path(sys.argv[2]).read_text())
+    right = yaml.safe_load(Path(sys.argv[3]).read_text())
+    left_hash = left["actor_fingerprint"]["structural_hash"]
+    right_hash = right["actor_fingerprint"]["structural_hash"]
+    diverged = {}
+    if left_hash != right_hash:
+        diverged["actor_fingerprint.structural_hash"] = {
+            "a": left_hash,
+            "b": right_hash,
+        }
+    yaml.safe_dump({
+        "identical": not diverged,
+        "reference_hash_a": left_hash,
+        "reference_hash_b": right_hash,
+        "diverged_fields": diverged,
+    }, sys.stdout, sort_keys=True)
+else:
+    raise SystemExit(2)
+""",
+    )
+    ctx = ToolContext(config_dir=tmp_path / "config", workspace_dir=tmp_path / "workspaces")
+    ctx.config_mgr.set("integrations.nucleotide_executable", executable)
+    ctx.config_mgr.set("integrations.nucleotide_lookup_path", _lookup(tmp_path))
+
+    first = execute_integration_command(
+        ("nucleotide", "fingerprint-record", "batch-1", "|", '{"uri":"/first"}'),
+        ctx.config_mgr,
+        ctx.workspace_mgr,
+    )["data"]["recorded"]
+    repeated = execute_integration_command(
+        ("nucleotide", "fingerprint-record", "batch-1", "|", '{"uri":"/first"}'),
+        ctx.config_mgr,
+        ctx.workspace_mgr,
+    )["data"]["recorded"]
+    second = execute_integration_command(
+        ("nucleotide", "fingerprint-record", "batch-1", "|", '{"uri":"/second"}'),
+        ctx.config_mgr,
+        ctx.workspace_mgr,
+    )["data"]["recorded"]
+
+    assert first["created"] is True
+    assert repeated == {"proposal_id": first["proposal_id"], "created": False}
+    assert second["proposal_id"] != first["proposal_id"]
+    history = execute_integration_command(
+        ("nucleotide", "fingerprint-history", "batch-1"),
+        ctx.config_mgr,
+        ctx.workspace_mgr,
+    )["data"]
+    assert [item["structural_hash"] for item in history] == [
+        "sha256:first",
+        "sha256:second",
+    ]
+    comparison = execute_integration_command(
+        (
+            "nucleotide",
+            "fingerprint-compare",
+            first["proposal_id"],
+            second["proposal_id"],
+        ),
+        ctx.config_mgr,
+        ctx.workspace_mgr,
+    )["data"]
+
+    assert comparison["comparison"]["identical"] is False
+    assert comparison["same_lookup_corpus"] is True
+    assert comparison["creates_formal_confidence"] is False
+    assert comparison["actor_identity_claim"] is False
+    assert "actor_fingerprint.structural_hash" in comparison["comparison"]["diverged_fields"]
+    assert AnalyticLedger(ctx.workspace_mgr).snapshot()["confidence"] == []
+
+
 def test_shared_commands_and_completion_expose_local_analysis(tmp_path):
     roast = _tool(
         tmp_path,
@@ -332,6 +428,12 @@ def test_external_analysis_completion_includes_record_and_review_paths():
     assert "integration roast record " in command_completions("integration roast r")
     assert "integration nucleotide lookup-record " in command_completions(
         "integration nucleotide lookup-r"
+    )
+    assert "integration nucleotide fingerprint-history " in command_completions(
+        "integration nucleotide fingerprint-h"
+    )
+    assert "integration nucleotide fingerprint-compare " in command_completions(
+        "integration nucleotide fingerprint-c"
     )
 
 

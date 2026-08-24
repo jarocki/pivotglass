@@ -394,7 +394,7 @@ class WebCockpitService:
                 "purpose": "Decode Interactsh OAST domains and optionally record sourced proposals for human review",
             },
             {
-                "command": "integration nucleotide status|lookup-info|lookup|lookup-strict|lookup-record|fingerprint-preview|fingerprint-record",
+                "command": "integration nucleotide status|lookup-info|lookup|lookup-strict|lookup-record|fingerprint-preview|fingerprint-record|fingerprint-history|fingerprint-compare",
                 "purpose": "Attribute URLs or fingerprint grouped activity, with optional governed proposal recording and no control deployment",
             },
             {

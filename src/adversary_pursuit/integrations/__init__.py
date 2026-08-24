@@ -7,6 +7,7 @@ from adversary_pursuit.integrations.contracts import (
 )
 from adversary_pursuit.integrations.local_tool import LocalToolReceipt
 from adversary_pursuit.integrations.nucleotide import (
+    NucleotideFingerprintComparison,
     NucleotideFingerprintPreview,
     NucleotideLookupPreview,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "ExternalReference",
     "IntegrationRecord",
     "LocalToolReceipt",
+    "NucleotideFingerprintComparison",
     "NucleotideFingerprintPreview",
     "NucleotideLookupPreview",
     "QueryReceipt",

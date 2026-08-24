@@ -68,6 +68,27 @@ class NucleotideFingerprintPreview(BaseModel):
     generated_controls_are_review_only: Literal[True] = True
 
 
+class NucleotideFingerprintComparison(BaseModel):
+    """Exact upstream diff between two persisted fingerprint proposals."""
+
+    model_config = ConfigDict(frozen=True)
+
+    schema_version: Literal["pivotglass-nucleotide-comparison-1.0"] = (
+        "pivotglass-nucleotide-comparison-1.0"
+    )
+    left_proposal_id: str
+    right_proposal_id: str
+    left_lookup_sha256: str
+    right_lookup_sha256: str
+    same_lookup_corpus: bool
+    comparison: dict[str, Any]
+    caveats: tuple[str, ...]
+    receipt: LocalToolReceipt
+    disposition: Literal["preview"] = "preview"
+    creates_formal_confidence: Literal[False] = False
+    actor_identity_claim: Literal[False] = False
+
+
 class NucleotideAdapter:
     """Invoke an installed Nucleotide CLI against a configured lookup artifact."""
 
@@ -110,7 +131,9 @@ class NucleotideAdapter:
             receipt=result.receipt,
         )
 
-    def fingerprint(self, actor_id: str, events: list[dict[str, Any]]) -> NucleotideFingerprintPreview:
+    def fingerprint(
+        self, actor_id: str, events: list[dict[str, Any]]
+    ) -> NucleotideFingerprintPreview:
         normalized_id = actor_id.strip()
         if not _ACTOR_ID.fullmatch(normalized_id):
             raise ValueError("actor ID must be 1-128 safe identifier characters")
@@ -129,6 +152,11 @@ class NucleotideAdapter:
                     "--actor-id",
                     normalized_id,
                 ],
+                request_basis={
+                    "actor_id": normalized_id,
+                    "lookup_sha256": self.lookup_sha256,
+                    "events_sha256": _json_sha256(normalized_events),
+                },
             )
         try:
             parsed = yaml.safe_load(result.stdout)
@@ -152,6 +180,68 @@ class NucleotideAdapter:
                 "Confidence is explainable model output from Nucleotide, not a formal Pivotglass confidence disposition.",
                 "Generated Snort, Suricata, Sigma, or YARA content is an artifact for review and is never deployed here.",
             ),
+            receipt=result.receipt,
+        )
+
+    def compare(
+        self,
+        left_fingerprint: dict[str, Any],
+        right_fingerprint: dict[str, Any],
+        *,
+        left_proposal_id: str,
+        right_proposal_id: str,
+        left_lookup_sha256: str,
+        right_lookup_sha256: str,
+    ) -> NucleotideFingerprintComparison:
+        """Run Nucleotide's published field-by-field comparison contract."""
+
+        left = _fingerprint_artifact(left_fingerprint, "left")
+        right = _fingerprint_artifact(right_fingerprint, "right")
+        left_digest = _json_sha256(left)
+        right_digest = _json_sha256(right)
+        with tempfile.TemporaryDirectory(prefix="pivotglass-nucleotide-compare-") as temp_dir:
+            directory = Path(temp_dir)
+            left_path = directory / "left.yml"
+            right_path = directory / "right.yml"
+            left_path.write_text(yaml.safe_dump(left, sort_keys=True), encoding="utf-8")
+            right_path.write_text(yaml.safe_dump(right, sort_keys=True), encoding="utf-8")
+            result = self.runner.run(
+                "compare",
+                ["compare", str(left_path), str(right_path)],
+                request_basis={
+                    "left_fingerprint_sha256": left_digest,
+                    "right_fingerprint_sha256": right_digest,
+                    "left_proposal_id": left_proposal_id,
+                    "right_proposal_id": right_proposal_id,
+                },
+            )
+        try:
+            comparison = yaml.safe_load(result.stdout)
+        except yaml.YAMLError as exc:
+            raise ValueError("Nucleotide returned a malformed comparison") from exc
+        if (
+            not isinstance(comparison, dict)
+            or not isinstance(comparison.get("identical"), bool)
+            or not isinstance(comparison.get("diverged_fields"), dict)
+        ):
+            raise ValueError("Nucleotide comparison output has an unsupported shape")
+        same_lookup = left_lookup_sha256 == right_lookup_sha256
+        caveats = [
+            "This is a field-by-field comparison of derived behavior fingerprints, not an actor-identity claim.",
+            "Nucleotide's reported confidence remains tool output and is not a formal Pivotglass confidence assessment.",
+        ]
+        if not same_lookup:
+            caveats.append(
+                "The fingerprints used different lookup corpora; corpus drift may contribute to the differences."
+            )
+        return NucleotideFingerprintComparison(
+            left_proposal_id=left_proposal_id,
+            right_proposal_id=right_proposal_id,
+            left_lookup_sha256=left_lookup_sha256,
+            right_lookup_sha256=right_lookup_sha256,
+            same_lookup_corpus=same_lookup,
+            comparison=comparison,
+            caveats=tuple(caveats),
             receipt=result.receipt,
         )
 
@@ -189,6 +279,19 @@ def _file_sha256(path: Path) -> str:
         while chunk := handle.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _json_sha256(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode()
+    ).hexdigest()
+
+
+def _fingerprint_artifact(value: dict[str, Any], label: str) -> dict[str, Any]:
+    copied = json.loads(json.dumps(value, sort_keys=True, default=str))
+    if not isinstance(copied.get("actor_fingerprint"), dict):
+        raise ValueError(f"{label} Nucleotide proposal has no actor_fingerprint artifact")
+    return copied
 
 
 def _normalize_urls(urls: list[str], max_records: int) -> list[str]:
