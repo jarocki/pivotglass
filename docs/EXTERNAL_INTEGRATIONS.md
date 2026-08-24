@@ -137,6 +137,8 @@ integration status
 integration proposals
 integration review <proposal-id> <accept|reject> | <reason>
 integration synapse shadow-preview
+integration synapse model-contract
+integration synapse migration-plan
 integration synapse status
 integration synapse model <pattern>
 integration synapse lookup <STIX-type> <indicator>
@@ -182,6 +184,26 @@ form for analytic records. Every edge retains its truth kind, rationale, and
 provenance references. The manifest is not executable Storm and performs no
 write. Exact parity compares node and edge content—not merely counts—before a
 future backend cutover can be considered.
+
+`synapse model-contract` exposes the pinned `pivotglass:record` and
+`pivotglass:edge` CoreModule-style forms. Companion record nodes keep
+Pivotglass metadata off native Synapse observables; edge nodes retain source,
+target, direction, truth class, rationale, and provenance. `synapse
+migration-plan` compiles the shadow manifest into dependency-ordered,
+bound-variable Storm writes and one exact readback per write. It requires model
+digest parity, a backup, an isolated shadow view, Storm validation, analyst
+approval, and readback while reporting `execution_enabled=false`.
+
+Maintainers can validate the contract and generated Storm against a disposable
+Synapse installation with:
+
+```text
+python scripts/validate_synapse_contract.py
+```
+
+The v0.9 work package was exercised successfully against a disposable Cortex
+from upstream Synapse 2.250.0. This validates the model and plan grammar; it is
+not a production cutover receipt.
 
 `scot publish-preview` compiles that same graph snapshot into a deterministic
 SCOT event, associated entities and analytic entries, and a relationship index.
@@ -244,7 +266,7 @@ stopped by a budget.
 ## Deliberately unfinished
 
 The current slices establish transport, repository snapshots, Synapse desired
-state and parity contracts, SCOT publication previews and exact review-only
+state, parity, model, and disabled shadow-migration contracts; SCOT publication previews and exact review-only
 write plans, pivot validation,
 receipts, go-roast OAST graph proposals, Nucleotide lookup/fingerprint
 previews, governed external-analysis proposal disposition, and protocol
@@ -252,7 +274,8 @@ fixtures.
 Before either integration is release-complete, it still needs:
 
 - disposable live-system round-trip tests;
-- a deployed and versioned Synapse model package for the proposed custom forms;
+- deployment packaging and an operator-approved installation path for the
+  validated Synapse model contract;
 - backup-first migration, shadow comparison, recovery, and cutover gates;
 - live Synapse relationship/time/provenance round-trip fixtures;
 - conversion of accepted external-analysis proposals into appropriately typed

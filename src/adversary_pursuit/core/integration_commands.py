@@ -21,6 +21,10 @@ from adversary_pursuit.integrations.scot_publication import (
 )
 from adversary_pursuit.integrations.synapse import SynapseMcpAdapter
 from adversary_pursuit.integrations.synapse_graph import build_synapse_shadow_manifest
+from adversary_pursuit.integrations.synapse_migration import (
+    compile_synapse_migration_plan,
+    pivotglass_synapse_model_contract,
+)
 
 
 def execute_integration_command(
@@ -112,6 +116,14 @@ def _synapse(
         snapshot = WorkspaceGraphRepository(_require_workspace(workspace_mgr)).snapshot()
         data = build_synapse_shadow_manifest(snapshot).model_dump(mode="json")
         return {"title": "Vertex Synapse shadow manifest", "data": data}
+    if action == "model-contract" and len(args) == 1:
+        data = pivotglass_synapse_model_contract().model_dump(mode="json")
+        return {"title": "Vertex Synapse Pivotglass model contract", "data": data}
+    if action == "migration-plan" and len(args) == 1:
+        snapshot = WorkspaceGraphRepository(_require_workspace(workspace_mgr)).snapshot()
+        manifest = build_synapse_shadow_manifest(snapshot)
+        data = compile_synapse_migration_plan(manifest).model_dump(mode="json")
+        return {"title": "Vertex Synapse review-only migration plan", "data": data}
     adapter = _synapse_adapter(config_mgr)
     if action == "status" and len(args) == 1:
         data = adapter.status()
@@ -123,7 +135,8 @@ def _synapse(
         data = adapter.query(" ".join(args[1:]))
     else:
         raise ValueError(
-            "usage: integration synapse shadow-preview|status|model <pattern>|"
+            "usage: integration synapse shadow-preview|model-contract|migration-plan|"
+            "status|model <pattern>|"
             "lookup <type> <value>|query <Storm>"
         )
     return {"title": "Vertex Synapse (read-only)", "data": data}

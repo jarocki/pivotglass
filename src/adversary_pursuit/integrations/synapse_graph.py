@@ -37,6 +37,7 @@ class SynapseManifestEdge(BaseModel):
     truth_kind: str
     provenance_refs: tuple[str, ...]
     rationale: str
+    directed: bool
 
 
 class SynapseShadowManifest(BaseModel):
@@ -130,6 +131,7 @@ def build_synapse_shadow_manifest(snapshot: GraphRepositorySnapshot) -> SynapseS
                 truth_kind=edge.truth_kind,
                 provenance_refs=edge.provenance_refs,
                 rationale=edge.rationale,
+                directed=edge.directed,
             )
         )
     nodes_tuple = tuple(sorted(nodes, key=lambda item: item.id))

@@ -12,6 +12,7 @@ from adversary_pursuit.integrations.nucleotide import (
 )
 from adversary_pursuit.integrations.roast import RoastDecodePreview
 from adversary_pursuit.integrations.scot_publication import ScotWritePlan
+from adversary_pursuit.integrations.synapse_migration import SynapseMigrationPlan
 
 __all__ = [
     "ExternalReference",
@@ -22,4 +23,5 @@ __all__ = [
     "QueryReceipt",
     "RoastDecodePreview",
     "ScotWritePlan",
+    "SynapseMigrationPlan",
 ]

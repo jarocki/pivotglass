@@ -175,6 +175,8 @@ def command_completions(
             "review ",
             "synapse status",
             "synapse shadow-preview",
+            "synapse model-contract",
+            "synapse migration-plan",
             "synapse model ",
             "synapse lookup ",
             "synapse query ",

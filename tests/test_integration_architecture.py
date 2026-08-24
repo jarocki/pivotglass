@@ -19,6 +19,10 @@ from adversary_pursuit.integrations.synapse_graph import (
     build_synapse_shadow_manifest,
     compare_synapse_shadow,
 )
+from adversary_pursuit.integrations.synapse_migration import (
+    compile_synapse_migration_plan,
+    pivotglass_synapse_model_contract,
+)
 
 
 def _workspace(tmp_path) -> WorkspaceManager:
@@ -61,6 +65,7 @@ def test_synapse_shadow_uses_native_entities_and_exact_parity(tmp_path):
     forms = {node.form for node in manifest.nodes}
     assert {"inet:fqdn", "inet:ipv4", "pivotglass:record"} <= forms
     assert all(edge.provenance_refs for edge in manifest.edges)
+    assert all(edge.directed is True for edge in manifest.edges)
     assert compare_synapse_shadow(manifest, manifest).cutover_ready is True
 
     incomplete = manifest.model_copy(
@@ -74,6 +79,45 @@ def test_synapse_shadow_uses_native_entities_and_exact_parity(tmp_path):
     metadata_receipt = compare_synapse_shadow(manifest, wrong_workspace)
     assert metadata_receipt.metadata_match is False
     assert metadata_receipt.cutover_ready is False
+
+
+def test_synapse_model_and_migration_plan_are_versioned_bound_and_disabled(tmp_path):
+    snapshot = WorkspaceGraphRepository(_workspace(tmp_path)).snapshot()
+    manifest = build_synapse_shadow_manifest(snapshot)
+
+    model = pivotglass_synapse_model_contract()
+    first = compile_synapse_migration_plan(manifest)
+    second = compile_synapse_migration_plan(manifest)
+
+    assert first == second
+    assert first.model_digest_sha256 == model.digest_sha256
+    assert first.approval_required is True
+    assert first.execution_enabled is False
+    assert first.storm_validation_required is True
+    assert first.isolated_shadow_view_required is True
+    assert first.backup_required is True
+    assert first.readback_required is True
+    form_names = {form[0] for form in model.model_definition["forms"]}
+    assert form_names == {"pivotglass:record", "pivotglass:edge"}
+    writes = [operation for operation in first.operations if operation.phase == "write"]
+    readbacks = [operation for operation in first.operations if operation.phase == "readback"]
+    assert len(writes) == len(readbacks)
+    assert all(operation.opts == {"readonly": False} for operation in writes)
+    assert all(operation.opts == {"readonly": True} for operation in readbacks)
+    assert all(operation.variables for operation in first.operations)
+    assert all(
+        str(value) not in operation.query
+        for operation in first.operations
+        for value in operation.variables.values()
+        if isinstance(value, str) and len(value) > 3
+    )
+    seen: set[str] = set()
+    for operation in first.operations:
+        assert set(operation.depends_on) <= seen
+        seen.add(operation.operation_id)
+    edge_writes = [operation for operation in writes if "pivotglass:edge" in operation.query]
+    assert len(edge_writes) == len(manifest.edges)
+    assert all(operation.variables["provenance_refs"] for operation in edge_writes)
 
 
 def test_scot_publication_is_deterministic_reviewable_and_relationship_complete(tmp_path):
