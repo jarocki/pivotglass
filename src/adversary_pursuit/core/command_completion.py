@@ -222,6 +222,12 @@ def command_completions(
     elif command == "graph":
         choices = [
             "layers",
+            "export json all",
+            "export json entity",
+            "export json epistemic",
+            "export json bridge",
+            "export csv all",
+            "export gexf all",
             "layout list",
             "layout show ",
             "layout delete ",

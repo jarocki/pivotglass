@@ -311,6 +311,18 @@ def dispatch_repl_verb(
         if _workspace_mgr is None:
             return "Workspace unavailable."
         folded = tuple(arg.casefold() for arg in verb.args)
+        if len(folded) in {2, 3} and folded[0] == "export":
+            from adversary_pursuit.core.investigation_graph import build_investigation_graph
+            from adversary_pursuit.core.investigation_graph_export import (
+                export_investigation_graph,
+            )
+
+            artifact = export_investigation_graph(
+                build_investigation_graph(_workspace_mgr),
+                format=folded[1],
+                layer=folded[2] if len(folded) == 3 else "all",
+            )
+            return artifact.content
         if folded == ("layers",):
             from adversary_pursuit.core.investigation_graph import build_investigation_graph
 
@@ -355,7 +367,7 @@ def dispatch_repl_verb(
             deleted = GraphPresentationAuthority(_workspace_mgr).delete(layout_name)
             return json.dumps({"name": layout_name, "deleted": deleted}, indent=2)
         return (
-            "Usage: graph [layers|layout list|layout show <name>|"
+            "Usage: graph [layers|export <json|csv|gexf> [all|entity|epistemic|bridge]|layout list|layout show <name>|"
             "layout delete <name> --confirm <name>]"
         )
 

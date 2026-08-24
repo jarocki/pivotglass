@@ -165,6 +165,10 @@ former judgment or its required human reason.
 Named graph presentations preserve node positions, viewport, and filters in
 the active workspace. They survive refreshes and portable exports, report
 topology drift when evidence changes, and cannot modify evidence or edges.
+Use `graph export <json|csv|gexf> [all|entity|epistemic|bridge]` to download the
+governed multi-layer graph. Each edge retains its layer, truth class,
+provenance references, rationale, and direction; bridge-only exports include
+both endpoint layers so the exported edges remain usable.
 
 ![Pivotglass relationship graph](docs/media/pivotglass-graph-v0.7.0.png)
 

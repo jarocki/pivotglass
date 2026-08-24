@@ -237,6 +237,19 @@ The `graph` command opens the deterministic graph summary:
 graph
 ```
 
+Export the combined entity and analytic graph, or one explicit layer:
+
+```text
+graph export gexf all
+graph export json epistemic
+graph export csv bridge
+```
+
+GEXF opens in Gephi. JSON and CSV retain each edge's truth class, provenance,
+rationale, and direction. The older `export stix` remains the standards-based
+entity/evidence exchange; Pivotglass does not disguise analytic notebook
+records as observed STIX objects.
+
 ## 8. Report and export
 
 Generate the current Dossier report:

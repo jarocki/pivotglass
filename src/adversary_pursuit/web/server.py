@@ -409,6 +409,10 @@ class WebCockpitService:
                 "purpose": "Inspect entity and epistemic nodes with provenance-bearing edges",
             },
             {
+                "command": "graph export <json|csv|gexf> [all|entity|epistemic|bridge]",
+                "purpose": "Download the exact governed graph with layer, truth type, provenance, and rationale",
+            },
+            {
                 "command": "graph layout list|show <name>|delete <name> --confirm <name>",
                 "purpose": "Manage presentation-only saved graph layouts",
             },
@@ -710,6 +714,23 @@ class WebCockpitService:
                         ),
                     }
                 parts = rest.split()
+                if len(parts) in {2, 3} and parts[0].casefold() == "export":
+                    from adversary_pursuit.core.investigation_graph_export import (
+                        export_investigation_graph,
+                    )
+
+                    artifact = export_investigation_graph(
+                        build_investigation_graph(self.ctx.workspace_mgr),
+                        format=parts[1],
+                        layer=parts[2] if len(parts) == 3 else "all",
+                    )
+                    return {
+                        "kind": "download",
+                        "title": "Investigation graph export",
+                        "filename": artifact.filename,
+                        "mime": artifact.mime,
+                        "content": artifact.content,
+                    }
                 if len(parts) >= 2 and parts[0].casefold() == "layout":
                     action = parts[1].casefold()
                     authority = GraphPresentationAuthority(self.ctx.workspace_mgr)
@@ -739,7 +760,7 @@ class WebCockpitService:
                             "data": {"name": name, "deleted": authority.delete(name)},
                         }
                 raise ValueError(
-                    "usage: graph [layers|layout list|layout show <name>|layout delete <name> --confirm <name>]"
+                    "usage: graph [layers|export <json|csv|gexf> [all|entity|epistemic|bridge]|layout list|layout show <name>|layout delete <name> --confirm <name>]"
                 )
             graph = RelationshipGraph()
             graph.build_from_workspace(

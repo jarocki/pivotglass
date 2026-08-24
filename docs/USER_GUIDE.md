@@ -492,6 +492,7 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `integration nucleotide fingerprint-history <actor-id>` | List persisted fingerprint windows and structural hashes for one analyst-grouped batch |
 | `integration nucleotide fingerprint-compare <left-proposal-id> <right-proposal-id>` | Run Nucleotide's exact field-by-field diff over two stored fingerprints, disclose lookup-corpus drift, and create no formal confidence or identity claim |
 | `graph layers` | Inspect the combined entity and epistemic graph, including edge provenance and truth type |
+| `graph export <json\|csv\|gexf> [all\|entity\|epistemic\|bridge]` | Download the exact governed multi-layer graph; bridge scope includes both endpoint layers and every edge retains truth class, provenance, rationale, and direction |
 | `graph layout list` | List presentation-only saved graph arrangements |
 | `graph layout show <name>` | Inspect a saved arrangement and current graph drift |
 | `graph layout delete <name> --confirm <name>` | Delete only a saved graph presentation after exact confirmation |
