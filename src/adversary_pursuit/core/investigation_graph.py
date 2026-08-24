@@ -142,11 +142,15 @@ def build_investigation_graph(workspace_manager: Any) -> InvestigationGraphProje
         source_ref = str(relationship["source"])
         target_ref = str(relationship["target"])
         relation = str(relationship["relationship"])
-        if relationship["basis"] != "property" or (
-            source_ref,
-            target_ref,
-            relation,
-        ) in explicit_keys:
+        if (
+            relationship["basis"] != "property"
+            or (
+                source_ref,
+                target_ref,
+                relation,
+            )
+            in explicit_keys
+        ):
             continue
         provenance = tuple(
             dict.fromkeys(
@@ -199,6 +203,11 @@ def build_investigation_graph(workspace_manager: Any) -> InvestigationGraphProje
                 rationale="Immutable source observation of the normalized entity.",
             )
 
+    lifecycle_by_record = {
+        (str(item.get("record_kind")), str(item.get("record_id"))): item
+        for item in analysis["lifecycle_items"]
+        if item.get("record_kind") and item.get("record_id")
+    }
     record_collections = {
         "question": (analysis["questions"], "text", "status"),
         "assertion": (analysis["assertions"], "statement", "status"),
@@ -211,6 +220,18 @@ def build_investigation_graph(workspace_manager: Any) -> InvestigationGraphProje
             attributes = {"author_kind": record.get("author_kind", record.get("created_by"))}
             if kind == "assertion":
                 attributes["assertion_type"] = record.get("assertion_type")
+                lifecycle = lifecycle_by_record.get(("assertion", record_ref)) or {}
+                criteria = (
+                    lifecycle.get("criteria") if isinstance(lifecycle.get("criteria"), dict) else {}
+                )
+                if criteria.get("truth_kind"):
+                    attributes.update(
+                        {
+                            "truth_kind": criteria["truth_kind"],
+                            "source_proposal_id": criteria.get("source_proposal_id"),
+                            "caveats": criteria.get("caveats", []),
+                        }
+                    )
             nodes[node_id] = InvestigationGraphNode(
                 id=node_id,
                 layer=GraphLayer.EPISTEMIC,
@@ -239,6 +260,25 @@ def build_investigation_graph(workspace_manager: Any) -> InvestigationGraphProje
                 "truth_kind": "external-derived-proposal",
                 "caveats": criteria.get("caveats", []),
             },
+        )
+
+    for item in analysis["lifecycle_items"]:
+        if item.get("record_kind") != "assertion" or not item.get("record_id"):
+            continue
+        criteria = item.get("criteria") if isinstance(item.get("criteria"), dict) else {}
+        proposal_id = criteria.get("source_proposal_id")
+        if not proposal_id:
+            continue
+        _put_record_edge(
+            edges,
+            nodes,
+            source_kind="assertion",
+            source_id=str(item["record_id"]),
+            target_kind="external_analysis",
+            target_id=str(proposal_id),
+            relationship="materialized-from",
+            provenance_ref=str(proposal_id),
+            rationale="Explicitly accepted external analysis promoted to an inferred assertion.",
         )
 
     for hypothesis in analysis["hypotheses"]:

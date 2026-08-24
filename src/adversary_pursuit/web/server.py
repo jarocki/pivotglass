@@ -398,7 +398,7 @@ class WebCockpitService:
                 "purpose": "Attribute URLs or fingerprint grouped activity, with optional governed proposal recording and no control deployment",
             },
             {
-                "command": "integration proposals|review <proposal-id> <accept|reject> | <reason>",
+                "command": "integration proposals|review <proposal-id> <accept|reject> | <reason>|materialize <proposal-id> | <rationale>",
                 "purpose": "Inspect and explicitly disposition external-derived analysis without turning it into observed evidence",
             },
             {

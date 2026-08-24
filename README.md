@@ -196,7 +196,9 @@ Nuclei-shaped activity. Both run locally behind time, output, and record limits,
 emit request receipts, and can record idempotent, caveat-preserving proposals
 in the scientific lifecycle for explicit accept/reject review. Those proposals
 remain visibly external-derived analysis and never become observations merely
-because an analyst accepts them.
+because an analyst accepts them. A second explicit materialization action can
+create a typed inferred assertion with its complete proposal lineage; it still
+does not manufacture observed evidence or an observed relationship.
 
 ## Intelligence sources
 

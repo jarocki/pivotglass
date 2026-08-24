@@ -173,6 +173,7 @@ def command_completions(
             "status",
             "proposals",
             "review ",
+            "materialize ",
             "synapse status",
             "synapse shadow-preview",
             "synapse model-contract",

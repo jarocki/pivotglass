@@ -299,6 +299,13 @@ requires a human rationale and retains a review history. Acceptance means the
 analyst accepts the proposal as analytic work; it does not reclassify it as a
 source observation, prove actor identity, or deploy generated controls.
 
+An accepted proposal can then be promoted with `integration materialize
+<proposal-id> | <rationale>`. This separate human action creates a typed,
+inferred assertion with the original receipt, caveats, proposal lineage, and
+review history. It is idempotent and creates neither an evidence observation
+nor an observed entity edge. The investigation graph displays the assertion
+and its `materialized-from` link to the retained external proposal.
+
 Example incremental SCOT preview:
 
 ```text
@@ -325,8 +332,6 @@ Before either integration is release-complete, it still needs:
   validated Synapse model contract;
 - live backup, recovery, reviewed shadow merge, and cutover gates;
 - live Synapse relationship/time/provenance round-trip fixtures;
-- conversion of accepted external-analysis proposals into appropriately typed
-  assertions and relationship proposals without bypassing evidence rules;
 - live disposable-SCOT readback, lossless reconciliation, and conflict
   disposition beyond the protocol fixtures;
 - SCOT-originated pivot requests routed through Pivotglass validation and the

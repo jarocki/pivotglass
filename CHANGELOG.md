@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retain provenance; conservative property pivots remain labeled as derived
   navigation rather than observed relationships. Use `graph layers` in either
   interface to inspect the current projection.
+- Added bounded, shell-free go-roast and Nucleotide analysis adapters with
+  secret-safe receipts, caveat-preserving review proposals, explicit human
+  disposition, and a separate idempotent path from accepted proposals to typed
+  inferred assertions. Materialization preserves lineage and never creates an
+  evidence observation or observed relationship.
 
 ## [0.8.5] — 2026-08-07
 

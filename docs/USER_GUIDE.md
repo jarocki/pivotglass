@@ -387,6 +387,7 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `integration status` | Show local endpoint and credential state without making a network request |
 | `integration proposals` | List pending and reviewed go-roast/Nucleotide-derived analytic proposals |
 | `integration review <proposal-id> <accept\|reject> \| <reason>` | Record an explicit human disposition and rationale without turning the proposal into observed evidence |
+| `integration materialize <proposal-id> \| <rationale>` | Promote an accepted external proposal to a typed inferred assertion while retaining its receipt, caveats, review, and proposal lineage; never create an observation |
 | `integration synapse shadow-preview` | Compile the active governed graph into deterministic desired Synapse nodes and edges without writing |
 | `integration synapse model-contract` | Inspect the pinned custom record/edge model definition and digest required for migration |
 | `integration synapse migration-plan` | Compile bound-variable writes and readbacks for an isolated shadow view; remote execution remains disabled |

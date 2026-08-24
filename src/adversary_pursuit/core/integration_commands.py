@@ -71,6 +71,17 @@ def execute_integration_command(
             parts[0], disposition=disposition, reason=reason
         )
         return {"title": "External analysis review recorded", "data": data}
+    if args[0].casefold() == "materialize" and len(args) >= 4:
+        proposal_id, separator, rationale = " ".join(args[1:]).partition(" | ")
+        if not separator or len(proposal_id.split()) != 1:
+            raise ValueError("usage: integration materialize <proposal-id> | <rationale>")
+        data = AnalyticLedger(
+            _require_workspace(workspace_mgr)
+        ).materialize_external_analysis_proposal(
+            proposal_id,
+            rationale=rationale,
+        )
+        return {"title": "External analysis assertion materialized", "data": data}
     system = args[0].casefold()
     if system == "synapse":
         return _synapse(args[1:], config_mgr, workspace_mgr)
@@ -461,7 +472,8 @@ def _connection(config_mgr: ConfigManager, system: str) -> tuple[str, str, dict[
 def _usage() -> str:
     return (
         "usage: integration status|proposals|review <proposal-id> <accept|reject> | "
-        "<reason>|synapse ...|scot ...|roast ...|nucleotide ..."
+        "<reason>|materialize <proposal-id> | <rationale>|synapse ...|scot ...|"
+        "roast ...|nucleotide ..."
     )
 
 

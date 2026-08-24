@@ -472,7 +472,9 @@ class AnalyticLedger:
             character not in "0123456789abcdef" for character in normalized_digest
         ):
             raise ValueError("External analysis payload requires a SHA-256 digest.")
-        normalized_refs = tuple(sorted({_required(ref, "provenance reference") for ref in provenance_refs}))
+        normalized_refs = tuple(
+            sorted({_required(ref, "provenance reference") for ref in provenance_refs})
+        )
         if not normalized_refs:
             raise ValueError("External analysis proposals require provenance.")
         normalized_caveats = tuple(
@@ -490,9 +492,12 @@ class AnalyticLedger:
             "provenance_refs": normalized_refs,
             "details": detail_copy,
         }
-        record_id = "external-analysis-" + hashlib.sha256(
-            json.dumps(record_basis, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()[:32]
+        record_id = (
+            "external-analysis-"
+            + hashlib.sha256(
+                json.dumps(record_basis, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()[:32]
+        )
         with self._workspace.get_session() as session:
             investigation = self._ensure_investigation(session, investigation_id)
             existing = session.execute(
@@ -521,8 +526,7 @@ class AnalyticLedger:
                     "truth_kind": "external-derived-proposal",
                 },
                 evidence_refs=[
-                    {"kind": "external-tool-receipt", "ref": ref}
-                    for ref in normalized_refs
+                    {"kind": "external-tool-receipt", "ref": ref} for ref in normalized_refs
                 ],
                 author_kind=AuthorKind.EXTERNAL_TOOL,
             )
@@ -584,6 +588,133 @@ class AnalyticLedger:
             row.resolved_at = row.updated_at
             session.commit()
             return _row_dict(row)
+
+    def materialize_external_analysis_proposal(
+        self,
+        proposal_id: str,
+        *,
+        rationale: str,
+        decided_by: AuthorKind = AuthorKind.HUMAN,
+    ) -> dict[str, Any]:
+        """Promote an accepted tool proposal to a sourced inferred assertion.
+
+        Materialization never creates an observation or an authoritative entity
+        relationship. The external tool remains the assertion author, while the
+        human review and this explicit promotion are retained in lifecycle
+        provenance.
+        """
+
+        if decided_by is not AuthorKind.HUMAN:
+            raise ValueError("Only an explicit human action may materialize external analysis.")
+        normalized_rationale = _required(rationale, "external analysis materialization rationale")
+        now = datetime.now(timezone.utc)
+        with self._workspace.get_session() as session:
+            proposal = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.record_kind == "external_analysis",
+                    AnalyticLifecycleItem.record_id == proposal_id,
+                )
+            ).scalar_one_or_none()
+            if proposal is None:
+                raise ValueError(f"Unknown external analysis proposal: {proposal_id}")
+            if (
+                proposal.analyst_disposition != AnalystDisposition.ACCEPTED.value
+                or proposal.status != LifecycleItemStatus.SATISFIED.value
+            ):
+                raise ValueError(
+                    "External analysis must be explicitly accepted before materialization."
+                )
+
+            proposal_criteria = dict(proposal.criteria or {})
+            assertion_id = (
+                "assertion-external-" + hashlib.sha256(proposal_id.encode()).hexdigest()[:32]
+            )
+            recorded_assertion_id = proposal_criteria.get("materialized_assertion_id")
+            if recorded_assertion_id and recorded_assertion_id != assertion_id:
+                raise RuntimeError("External analysis materialization lineage is inconsistent.")
+
+            assertion = session.get(AnalyticAssertion, assertion_id)
+            lifecycle = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.investigation_id == proposal.investigation_id,
+                    AnalyticLifecycleItem.record_kind == "assertion",
+                    AnalyticLifecycleItem.record_id == assertion_id,
+                )
+            ).scalar_one_or_none()
+            if assertion is not None or lifecycle is not None:
+                if assertion is None or lifecycle is None:
+                    raise RuntimeError("External analysis materialization is incomplete.")
+                return {
+                    "created": False,
+                    "proposal": _row_dict(proposal),
+                    "assertion": _row_dict(assertion),
+                    "lifecycle_item": _row_dict(lifecycle),
+                }
+
+            components = _external_assertion_components(proposal_criteria)
+            assertion = AnalyticAssertion(
+                id=assertion_id,
+                statement=_required(proposal.statement or "", "external analysis statement"),
+                assertion_type=AssertionType.INFERRED.value,
+                status="active",
+                subject_ref=components["subject_ref"],
+                predicate=components["predicate"],
+                object_ref=components["object_ref"],
+                object_value=components["object_value"],
+                author_kind=AuthorKind.EXTERNAL_TOOL.value,
+                method=(
+                    f"external-analysis:{proposal_criteria['provider']}:"
+                    f"{proposal_criteria['operation']}"
+                ),
+            )
+            session.add(assertion)
+            session.flush()
+            investigation = session.get(AnalyticInvestigation, proposal.investigation_id)
+            if investigation is None:
+                raise RuntimeError("External analysis proposal references a missing investigation.")
+            lifecycle = self._link_lifecycle_item(
+                session,
+                investigation=investigation,
+                item_type=LifecycleItemType.ASSERTION,
+                record_kind="assertion",
+                record_id=assertion_id,
+                statement=assertion.statement,
+                criteria={
+                    "source_proposal_id": proposal_id,
+                    "provider": proposal_criteria["provider"],
+                    "operation": proposal_criteria["operation"],
+                    "truth_kind": "external-derived-assertion",
+                    "analyst_rationale": normalized_rationale,
+                    "caveats": list(proposal_criteria.get("caveats") or []),
+                    "details": proposal_criteria.get("details") or {},
+                    "typed_components": components,
+                },
+                evidence_refs=[
+                    *list(proposal.evidence_refs or []),
+                    {"kind": "external-analysis-proposal", "ref": proposal_id},
+                ],
+                author_kind=AuthorKind.EXTERNAL_TOOL,
+            )
+            lifecycle.status = LifecycleItemStatus.SATISFIED.value
+            lifecycle.analyst_disposition = AnalystDisposition.ACCEPTED.value
+            lifecycle.resolved_at = now
+            lifecycle.updated_at = now
+            proposal_criteria["materialized_assertion_id"] = assertion_id
+            proposal_criteria["materialization"] = {
+                "rationale": normalized_rationale,
+                "decided_by": decided_by.value,
+                "recorded_at": now.isoformat(),
+                "truth_kind": "external-derived-assertion",
+            }
+            proposal.criteria = proposal_criteria
+            proposal.updated_at = now
+            session.commit()
+            return {
+                "created": True,
+                "proposal": _row_dict(proposal),
+                "assertion": _row_dict(assertion),
+                "lifecycle_item": _row_dict(lifecycle),
+            }
 
     def link_method_run(
         self,
@@ -1075,6 +1206,60 @@ def _required(value: str, label: str) -> str:
     if not cleaned:
         raise ValueError(f"{label} must not be empty.")
     return cleaned
+
+
+def _external_assertion_components(criteria: dict[str, Any]) -> dict[str, str | None]:
+    """Map a supported external proposal to typed assertion fields."""
+
+    provider = criteria.get("provider")
+    operation = criteria.get("operation")
+    details = criteria.get("details")
+    if provider not in {"go-roast", "nucleotide"} or not isinstance(details, dict):
+        raise ValueError("External analysis proposal has unsupported materialization data.")
+
+    if provider == "go-roast" and operation == "decode-relationship":
+        source = details.get("source_node")
+        target = details.get("target_node")
+        relationship = details.get("relationship")
+        if not isinstance(source, dict) or not isinstance(target, dict):
+            raise ValueError("go-roast proposal is missing typed relationship nodes.")
+        return {
+            "subject_ref": _required(str(source.get("id") or ""), "go-roast source node"),
+            "predicate": _required(str(relationship or ""), "go-roast relationship"),
+            "object_ref": _required(str(target.get("id") or ""), "go-roast target node"),
+            "object_value": str(target.get("value")) if target.get("value") is not None else None,
+        }
+
+    if provider == "nucleotide" and operation == "url-template-lookup":
+        url = _required(str(details.get("url") or ""), "Nucleotide lookup URL")
+        attribution = _required(
+            str(details.get("attribution") or ""), "Nucleotide lookup attribution"
+        )
+        template_id = details.get("template_id")
+        return {
+            "subject_ref": url,
+            "predicate": "has-nucleotide-template-attribution",
+            "object_ref": None,
+            "object_value": str(template_id) if template_id else attribution,
+        }
+
+    if provider == "nucleotide" and operation == "actor-behavior-fingerprint":
+        batch = _required(
+            str(details.get("analyst_grouped_batch") or ""),
+            "Nucleotide analyst-grouped batch",
+        )
+        fingerprint = _required(
+            str(details.get("fingerprint_sha256") or ""),
+            "Nucleotide fingerprint digest",
+        )
+        return {
+            "subject_ref": batch,
+            "predicate": "has-nucleotide-behavior-fingerprint",
+            "object_ref": None,
+            "object_value": fingerprint,
+        }
+
+    raise ValueError(f"Unsupported external analysis materialization: {provider} {operation}.")
 
 
 def _confidence_factors(factors: dict[str, Any]) -> dict[str, Any]:
