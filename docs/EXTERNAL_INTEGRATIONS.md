@@ -4,6 +4,46 @@ Pivotglass 0.9 begins both integrations as bounded, read-only MCP clients. A
 remote result is labelled `remote-preview`; it is not silently promoted to
 local evidence, a relationship, or an analytic conclusion.
 
+## Target architecture
+
+Synapse and SCOT4 have different long-term roles:
+
+- **Vertex Synapse becomes the primary graph database.** It persists normalized
+  entities, provenance-bearing observations, typed relationships, time
+  semantics, and the links among analytic records. Pivotglass continues to own
+  normalization rules, evidence classes, confidence, contradiction handling,
+  and analyst disposition. Synapse stores and queries that governed graph; it
+  does not invent a second relationship or epistemic policy.
+- **SCOT4 becomes the hunt-results web surface.** Pivotglass publishes a
+  reviewed hunt-session projection into SCOT as connected events, entities,
+  entries, tags, sources, and report artifacts. Analysts use SCOT to browse the
+  result, follow relationships, and request further pivots. Those requests
+  return to Pivotglass for validation, queueing, collection, and persistence in
+  Synapse.
+
+```mermaid
+flowchart LR
+    A["Analyst starts or pivots a hunt"] --> P["Pivotglass orchestration and analytic policy"]
+    P --> E["Deterministic enrichment and immutable provenance"]
+    E --> S["Vertex Synapse primary graph store"]
+    S --> P
+    P --> V["Reviewed SCOT4 publication preview"]
+    V --> C["SCOT4 hunt-results web interface"]
+    C --> R["Analyst requests another pivot"]
+    R --> P
+```
+
+This is a staged migration, not a dual-write shortcut. Until the Synapse
+parity, migration, recovery, and live round-trip gates pass, existing
+Pivotglass workspaces remain authoritative. At cutover, one graph repository
+contract selects Synapse as the persistence authority; a local database must
+not continue as a competing source of truth.
+
+SCOT publication is also staged. Read-only inspection comes first, followed by
+a deterministic publication preview and explicit analyst approval. Successful
+write-back must be read back and reconciled before Pivotglass reports that a
+hunt session is published.
+
 ## Safety and authority
 
 - Synapse Storm runs only after validation and always receives
@@ -96,9 +136,13 @@ This slice establishes transport, mapping, receipts, and protocol fixtures.
 Before either integration is release-complete, it still needs:
 
 - disposable live-system round-trip tests;
-- durable incremental cursor/checkpoint state and conflict review;
-- a reviewed mapping from remote records into Pivotglass evidence authority;
-- Synapse relationship/time mapping fixtures;
-- SCOT outbound previews followed by approval-gated write-back.
+- a versioned Pivotglass graph-repository contract and Synapse schema mapping;
+- backup-first migration, shadow comparison, recovery, and cutover gates;
+- Synapse relationship/time/provenance round-trip fixtures;
+- a deterministic hunt-session-to-SCOT publication manifest;
+- SCOT outbound previews, explicit publication approval, readback, and conflict
+  reconciliation;
+- SCOT-originated pivot requests routed through Pivotglass validation and the
+  enrichment queue.
 
-Automatic SCOT or Synapse write-back remains out of scope.
+Unreviewed graph mutations and unapproved SCOT publication remain out of scope.

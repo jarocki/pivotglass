@@ -99,5 +99,6 @@ same backup-first migration process used by v0.8. The new table is additive and
 does not rewrite observations or analytic records. `framework list` exports a
 secret-free envelope with schema version `framework-mappings-1.0`.
 
-The remaining 0.9 work adds read-only Synapse/SCOT adapters while continuing
-to use this mapping authority.
+The remaining 0.9 work moves the governed graph toward Synapse persistence and
+publishes reviewed hunt projections to SCOT4 while continuing to use this
+mapping authority. Neither backend may create framework truth independently.

@@ -180,6 +180,14 @@ During an active investigation, `stop`, `focus`, `add`, and `skip` control the
 current enrichment queue where the interface supports those actions. See the
 [User Guide](docs/USER_GUIDE.md#command-reference) for exact syntax.
 
+The target integration architecture gives the two external platforms distinct
+roles: Vertex Synapse becomes the primary persisted entity/relationship graph,
+while SCOT4 becomes the web surface for reviewing published hunt sessions and
+requesting further pivots. Pivotglass remains the orchestration and analytic
+policy authority between them. The current release implements the bounded,
+read-only foundation; see the
+[integration architecture](docs/EXTERNAL_INTEGRATIONS.md#target-architecture).
+
 ## Intelligence sources
 
 Pivotglass ships 14 modules:
