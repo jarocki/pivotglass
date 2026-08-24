@@ -171,6 +171,8 @@ def command_completions(
     elif command == "integration":
         choices = [
             "status",
+            "proposals",
+            "review ",
             "synapse status",
             "synapse shadow-preview",
             "synapse model ",
@@ -186,12 +188,15 @@ def command_completions(
             "scot entities ",
             "roast status",
             "roast decode ",
+            "roast record ",
             "roast analyze ",
             "nucleotide status",
             "nucleotide lookup-info",
             "nucleotide lookup ",
             "nucleotide lookup-strict ",
+            "nucleotide lookup-record ",
             "nucleotide fingerprint-preview ",
+            "nucleotide fingerprint-record ",
         ]
     elif command == "graph":
         choices = ["layers"]

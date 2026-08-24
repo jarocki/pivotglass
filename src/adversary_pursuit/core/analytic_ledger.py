@@ -23,6 +23,8 @@ likelihood, and contradictions.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import uuid
 from datetime import datetime, timezone
 from enum import StrEnum
@@ -49,6 +51,7 @@ class AuthorKind(StrEnum):
     HUMAN = "human"
     MODEL = "model"
     SYSTEM = "system"
+    EXTERNAL_TOOL = "external_tool"
 
 
 class AssertionType(StrEnum):
@@ -445,6 +448,142 @@ class AnalyticLedger:
                 .order_by(AnalyticLifecycleItem.created_at)
             ).scalars()
             return [_row_dict(row) for row in rows]
+
+    def record_external_analysis_proposal(
+        self,
+        *,
+        provider: str,
+        operation: str,
+        statement: str,
+        payload_sha256: str,
+        provenance_refs: tuple[str, ...],
+        caveats: tuple[str, ...],
+        details: dict[str, Any],
+        investigation_id: str | None = None,
+    ) -> tuple[dict[str, Any], bool]:
+        """Record a deterministic tool result as pending analytic work, not evidence."""
+        normalized_provider = _required(provider, "external analysis provider")
+        if normalized_provider not in {"go-roast", "nucleotide"}:
+            raise ValueError("Unsupported external analysis provider.")
+        normalized_operation = _required(operation, "external analysis operation")
+        normalized_statement = _required(statement, "external analysis statement")
+        normalized_digest = payload_sha256.strip().casefold()
+        if len(normalized_digest) != 64 or any(
+            character not in "0123456789abcdef" for character in normalized_digest
+        ):
+            raise ValueError("External analysis payload requires a SHA-256 digest.")
+        normalized_refs = tuple(sorted({_required(ref, "provenance reference") for ref in provenance_refs}))
+        if not normalized_refs:
+            raise ValueError("External analysis proposals require provenance.")
+        normalized_caveats = tuple(
+            sorted({_required(caveat, "external analysis caveat") for caveat in caveats})
+        )
+        detail_copy = json.loads(json.dumps(details, sort_keys=True, default=str))
+        encoded_details = json.dumps(detail_copy, sort_keys=True, separators=(",", ":"))
+        if len(encoded_details.encode()) > 64_000:
+            raise ValueError("External analysis proposal details exceed 64 KB.")
+        record_basis = {
+            "provider": normalized_provider,
+            "operation": normalized_operation,
+            "statement": normalized_statement,
+            "payload_sha256": normalized_digest,
+            "provenance_refs": normalized_refs,
+            "details": detail_copy,
+        }
+        record_id = "external-analysis-" + hashlib.sha256(
+            json.dumps(record_basis, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()[:32]
+        with self._workspace.get_session() as session:
+            investigation = self._ensure_investigation(session, investigation_id)
+            existing = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.investigation_id == investigation.id,
+                    AnalyticLifecycleItem.record_kind == "external_analysis",
+                    AnalyticLifecycleItem.record_id == record_id,
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                return _row_dict(existing), False
+            row = self._link_lifecycle_item(
+                session,
+                investigation=investigation,
+                item_type=LifecycleItemType.ASSERTION,
+                record_kind="external_analysis",
+                record_id=record_id,
+                statement=normalized_statement,
+                criteria={
+                    "provider": normalized_provider,
+                    "operation": normalized_operation,
+                    "payload_sha256": normalized_digest,
+                    "caveats": list(normalized_caveats),
+                    "details": detail_copy,
+                    "reviews": [],
+                    "truth_kind": "external-derived-proposal",
+                },
+                evidence_refs=[
+                    {"kind": "external-tool-receipt", "ref": ref}
+                    for ref in normalized_refs
+                ],
+                author_kind=AuthorKind.EXTERNAL_TOOL,
+            )
+            session.commit()
+            return _row_dict(row), True
+
+    def external_analysis_proposals(self) -> list[dict[str, Any]]:
+        """Return reviewable external-derived proposals in creation order."""
+        with self._workspace.get_session() as session:
+            rows = session.execute(
+                select(AnalyticLifecycleItem)
+                .where(AnalyticLifecycleItem.record_kind == "external_analysis")
+                .order_by(AnalyticLifecycleItem.created_at)
+            ).scalars()
+            return [_row_dict(row) for row in rows]
+
+    def review_external_analysis_proposal(
+        self,
+        proposal_id: str,
+        *,
+        disposition: AnalystDisposition,
+        reason: str,
+        decided_by: AuthorKind = AuthorKind.HUMAN,
+    ) -> dict[str, Any]:
+        """Record an explicit human disposition while retaining tool caveats."""
+        if decided_by is not AuthorKind.HUMAN:
+            raise ValueError("Only an explicit human action may review external analysis.")
+        if disposition not in {AnalystDisposition.ACCEPTED, AnalystDisposition.REJECTED}:
+            raise ValueError("External analysis must be explicitly accepted or rejected.")
+        normalized_reason = _required(reason, "external analysis review reason")
+        with self._workspace.get_session() as session:
+            row = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.record_kind == "external_analysis",
+                    AnalyticLifecycleItem.record_id == proposal_id,
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                raise ValueError(f"Unknown external analysis proposal: {proposal_id}")
+            criteria = dict(row.criteria or {})
+            reviews = list(criteria.get("reviews") or [])
+            reviews.append(
+                {
+                    "disposition": disposition.value,
+                    "reason": normalized_reason,
+                    "decided_by": decided_by.value,
+                    "recorded_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            criteria["reviews"] = reviews
+            row.criteria = criteria
+            row.analyst_disposition = disposition.value
+            row.status = (
+                LifecycleItemStatus.SATISFIED.value
+                if disposition is AnalystDisposition.ACCEPTED
+                else LifecycleItemStatus.REJECTED.value
+            )
+            row.updated_at = datetime.now(timezone.utc)
+            row.resolved_at = row.updated_at
+            session.commit()
+            return _row_dict(row)
 
     def link_method_run(
         self,
@@ -923,7 +1062,7 @@ class AnalyticLedger:
             author_kind=author_kind.value,
             analyst_disposition=(
                 AnalystDisposition.PENDING.value
-                if author_kind is AuthorKind.MODEL
+                if author_kind in {AuthorKind.MODEL, AuthorKind.EXTERNAL_TOOL}
                 else AnalystDisposition.ACCEPTED.value
             ),
         )

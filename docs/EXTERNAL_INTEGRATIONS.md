@@ -130,10 +130,12 @@ does not download template repositories or build/deploy detection rules in the
 background. `integration nucleotide lookup-info` reports the corpus metadata
 and digest used for every attribution.
 
-## Read-only commands
+## Integration commands
 
 ```text
 integration status
+integration proposals
+integration review <proposal-id> <accept|reject> | <reason>
 integration synapse shadow-preview
 integration synapse status
 integration synapse model <pattern>
@@ -149,13 +151,20 @@ integration scot entries <object-type> <object-id> [plain|flaired|all]
 integration scot entities <object-type> <object-id>
 integration roast status
 integration roast decode <OAST-domain>...
+integration roast record <OAST-domain>...
 integration roast analyze <OAST-domain>...
 integration nucleotide status
 integration nucleotide lookup-info
 integration nucleotide lookup <URL>...
 integration nucleotide lookup-strict <URL>...
+integration nucleotide lookup-record <URL>...
 integration nucleotide fingerprint-preview <actor-id> | <event-object-or-array-json>
+integration nucleotide fingerprint-record <actor-id> | <event-object-or-array-json>
 ```
+
+Preview and status commands are read-only. The `record` and `review` commands
+change only the local analytic lifecycle after an explicit operator action;
+they do not mutate source observations, the entity graph, Synapse, or SCOT.
 
 `integration status` is local and makes no network request. A system-specific
 `status` command opens an MCP session and lists the tools visible to that
@@ -201,12 +210,25 @@ caveats and provenance; it does not mutate the graph. `roast analyze` preserves
 go-roast's campaign analysis as a sourced preview and explicitly rejects
 machine or timezone correlation as identity proof.
 
+`roast record` performs the same bounded decode and records each proposed
+relationship in the scientific-investigation lifecycle. Repeating the same
+result is idempotent. Every item begins with a pending analyst disposition,
+retains the tool receipt and caveats, and remains an external-derived proposal
+rather than observed evidence.
+
 `nucleotide lookup` uses the configured lookup JSON and preserves `UNIQUE`,
 `AMBIGUOUS`, and `NO_MATCH`. `fingerprint-preview` accepts one event object or
 an array in the documented JSONL event shape; `uri` or `url` is required. It
 shows Nucleotide's supporting signals, contradictions, inferred CLI options,
 template preference, structural hash, and unmatched Nuclei-shaped request count. The `actor-id`
 names an analyst-grouped batch; it is not an attribution claim.
+
+`nucleotide lookup-record` and `fingerprint-record` place those derived results
+under the same lifecycle gate. `integration proposals` lists all pending and
+reviewed items. `integration review <proposal-id> <accept|reject> | <reason>`
+requires a human rationale and retains a review history. Acceptance means the
+analyst accepts the proposal as analytic work; it does not reclassify it as a
+source observation, prove actor identity, or deploy generated controls.
 
 Example incremental SCOT preview:
 
@@ -225,13 +247,16 @@ The current slices establish transport, repository snapshots, Synapse desired
 state and parity contracts, SCOT publication previews and exact review-only
 write plans, pivot validation,
 receipts, go-roast OAST graph proposals, Nucleotide lookup/fingerprint
-previews, and protocol fixtures.
+previews, governed external-analysis proposal disposition, and protocol
+fixtures.
 Before either integration is release-complete, it still needs:
 
 - disposable live-system round-trip tests;
 - a deployed and versioned Synapse model package for the proposed custom forms;
 - backup-first migration, shadow comparison, recovery, and cutover gates;
 - live Synapse relationship/time/provenance round-trip fixtures;
+- conversion of accepted external-analysis proposals into appropriately typed
+  assertions and relationship proposals without bypassing evidence rules;
 - an approval-gated SCOT executor with durable per-operation receipts;
 - live SCOT readback, lossless reconciliation, and conflict disposition;
 - SCOT-originated pivot requests routed through Pivotglass validation and the

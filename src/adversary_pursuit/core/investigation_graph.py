@@ -221,6 +221,26 @@ def build_investigation_graph(workspace_manager: Any) -> InvestigationGraphProje
                 attributes=attributes,
             )
 
+    for item in analysis["lifecycle_items"]:
+        if item.get("record_kind") != "external_analysis" or not item.get("record_id"):
+            continue
+        record_ref = str(item["record_id"])
+        criteria = item.get("criteria") if isinstance(item.get("criteria"), dict) else {}
+        nodes[_epistemic_node_id("external_analysis", record_ref)] = InvestigationGraphNode(
+            id=_epistemic_node_id("external_analysis", record_ref),
+            layer=GraphLayer.EPISTEMIC,
+            kind="external_analysis",
+            label=str(item.get("statement") or "External analysis proposal"),
+            record_ref=record_ref,
+            state=str(item.get("analyst_disposition") or "pending"),
+            attributes={
+                "provider": criteria.get("provider"),
+                "operation": criteria.get("operation"),
+                "truth_kind": "external-derived-proposal",
+                "caveats": criteria.get("caveats", []),
+            },
+        )
+
     for hypothesis in analysis["hypotheses"]:
         _put_record_edge(
             edges,

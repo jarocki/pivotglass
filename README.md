@@ -192,8 +192,10 @@ previews, and exact review-only SCOT write plans; see the
 go-roast decodes Interactsh OAST metadata into caveated graph proposals;
 Nucleotide attributes observed URLs and fingerprints analyst-grouped
 Nuclei-shaped activity. Both run locally behind time, output, and record limits,
-emit request receipts, and require analyst disposition before any result can
-enter the governed graph.
+emit request receipts, and can record idempotent, caveat-preserving proposals
+in the scientific lifecycle for explicit accept/reject review. Those proposals
+remain visibly external-derived analysis and never become observations merely
+because an analyst accepts them.
 
 ## Intelligence sources
 

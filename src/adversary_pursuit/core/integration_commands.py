@@ -1,11 +1,13 @@
-"""Shared deterministic commands for optional Synapse and SCOT4 MCP reads."""
+"""Shared deterministic commands for governed external-system integration."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import UTC, datetime
 from typing import Any
 
+from adversary_pursuit.core.analytic_ledger import AnalystDisposition, AnalyticLedger
 from adversary_pursuit.core.config import ConfigManager
 from adversary_pursuit.core.graph_repository import WorkspaceGraphRepository
 from adversary_pursuit.integrations.local_tool import local_tool_status
@@ -26,21 +28,45 @@ def execute_integration_command(
     config_mgr: ConfigManager,
     workspace_mgr: Any | None = None,
 ) -> dict[str, Any]:
-    """Execute one explicitly requested, read-only integration operation."""
+    """Execute one explicitly requested integration operation under its authority."""
     if not args or args == ("status",):
         return {
             "title": "External integrations",
             "data": _configuration_status(config_mgr),
         }
+    if args[0].casefold() == "proposals" and len(args) == 1:
+        ledger = AnalyticLedger(_require_workspace(workspace_mgr))
+        return {
+            "title": "External analysis proposals",
+            "data": ledger.external_analysis_proposals(),
+        }
+    if args[0].casefold() == "review" and len(args) >= 4:
+        head, separator, reason = " ".join(args[1:]).partition(" | ")
+        parts = head.split()
+        if not separator or len(parts) != 2:
+            raise ValueError(
+                "usage: integration review <proposal-id> <accept|reject> | <reason>"
+            )
+        dispositions = {
+            "accept": AnalystDisposition.ACCEPTED,
+            "reject": AnalystDisposition.REJECTED,
+        }
+        disposition = dispositions.get(parts[1].casefold())
+        if disposition is None:
+            raise ValueError("external analysis disposition must be accept or reject")
+        data = AnalyticLedger(_require_workspace(workspace_mgr)).review_external_analysis_proposal(
+            parts[0], disposition=disposition, reason=reason
+        )
+        return {"title": "External analysis review recorded", "data": data}
     system = args[0].casefold()
     if system == "synapse":
         return _synapse(args[1:], config_mgr, workspace_mgr)
     if system == "scot":
         return _scot(args[1:], config_mgr, workspace_mgr)
     if system in {"roast", "go-roast"}:
-        return _roast(args[1:], config_mgr)
+        return _roast(args[1:], config_mgr, workspace_mgr)
     if system == "nucleotide":
-        return _nucleotide(args[1:], config_mgr)
+        return _nucleotide(args[1:], config_mgr, workspace_mgr)
     raise ValueError(_usage())
 
 
@@ -164,7 +190,11 @@ def _scot(
     return {"title": "Sandia SCOT4 (read-only)", "data": data}
 
 
-def _roast(args: tuple[str, ...], config_mgr: ConfigManager) -> dict[str, Any]:
+def _roast(
+    args: tuple[str, ...],
+    config_mgr: ConfigManager,
+    workspace_mgr: Any | None,
+) -> dict[str, Any]:
     action = args[0].casefold() if args else "status"
     executable = config_mgr.get_local_integration_setting("go_roast_executable") or "roast"
     if action == "status" and len(args) == 1:
@@ -172,14 +202,30 @@ def _roast(args: tuple[str, ...], config_mgr: ConfigManager) -> dict[str, Any]:
     adapter = _roast_adapter(config_mgr)
     if action == "decode" and len(args) >= 2:
         data = adapter.decode(list(args[1:])).model_dump(mode="json")
+    elif action == "record" and len(args) >= 2:
+        preview = adapter.decode(list(args[1:]))
+        ledger = AnalyticLedger(_require_workspace(workspace_mgr))
+        recorded = _record_roast_proposals(ledger, preview)
+        data = {
+            "preview": preview.model_dump(mode="json"),
+            "recorded": recorded,
+            "analyst_disposition": "pending",
+        }
     elif action == "analyze" and len(args) >= 2:
         data = adapter.analyze(list(args[1:]))
     else:
-        raise ValueError("usage: integration roast status|decode <domain>...|analyze <domain>...")
+        raise ValueError(
+            "usage: integration roast status|decode <domain>...|record <domain>...|"
+            "analyze <domain>..."
+        )
     return {"title": "go-roast OAST analysis preview", "data": data}
 
 
-def _nucleotide(args: tuple[str, ...], config_mgr: ConfigManager) -> dict[str, Any]:
+def _nucleotide(
+    args: tuple[str, ...],
+    config_mgr: ConfigManager,
+    workspace_mgr: Any | None,
+) -> dict[str, Any]:
     action = args[0].casefold() if args else "status"
     executable = config_mgr.get_local_integration_setting("nucleotide_executable") or "nucleotide"
     if action == "status" and len(args) == 1:
@@ -201,6 +247,14 @@ def _nucleotide(args: tuple[str, ...], config_mgr: ConfigManager) -> dict[str, A
         data = adapter.lookup(list(args[1:]), strict=action == "lookup-strict").model_dump(
             mode="json"
         )
+    elif action == "lookup-record" and len(args) >= 2:
+        preview = adapter.lookup(list(args[1:]))
+        ledger = AnalyticLedger(_require_workspace(workspace_mgr))
+        data = {
+            "preview": preview.model_dump(mode="json"),
+            "recorded": _record_nucleotide_lookup_proposals(ledger, preview),
+            "analyst_disposition": "pending",
+        }
     elif action == "fingerprint-preview" and len(args) >= 2:
         structured = " ".join(args[1:]).split(" | ", 1)
         if len(structured) != 2:
@@ -212,10 +266,31 @@ def _nucleotide(args: tuple[str, ...], config_mgr: ConfigManager) -> dict[str, A
         if not all(isinstance(item, dict) for item in events):
             raise ValueError("Nucleotide events JSON must be an object or array of objects")
         data = adapter.fingerprint(structured[0], events).model_dump(mode="json")
+    elif action == "fingerprint-record" and len(args) >= 2:
+        structured = " ".join(args[1:]).split(" | ", 1)
+        if len(structured) != 2:
+            raise ValueError(
+                "usage: integration nucleotide fingerprint-record <actor-id> | <events-json>"
+            )
+        payload = json.loads(structured[1])
+        events = payload if isinstance(payload, list) else [payload]
+        if not all(isinstance(item, dict) for item in events):
+            raise ValueError("Nucleotide events JSON must be an object or array of objects")
+        preview = adapter.fingerprint(structured[0], events)
+        ledger = AnalyticLedger(_require_workspace(workspace_mgr))
+        data = {
+            "preview": preview.model_dump(mode="json"),
+            "recorded": _record_nucleotide_fingerprint_proposal(
+                ledger, structured[0], preview
+            ),
+            "analyst_disposition": "pending",
+        }
     else:
         raise ValueError(
             "usage: integration nucleotide status|lookup-info|lookup <url>...|"
-            "lookup-strict <url>...|fingerprint-preview <actor-id> | <events-json>"
+            "lookup-strict <url>...|lookup-record <url>...|"
+            "fingerprint-preview <actor-id> | <events-json>|"
+            "fingerprint-record <actor-id> | <events-json>"
         )
     return {"title": "Nucleotide analysis preview", "data": data}
 
@@ -280,10 +355,94 @@ def _connection(config_mgr: ConfigManager, system: str) -> tuple[str, str, dict[
 
 
 def _usage() -> str:
-    return "usage: integration status|synapse ...|scot ...|roast ...|nucleotide ..."
+    return (
+        "usage: integration status|proposals|review <proposal-id> <accept|reject> | "
+        "<reason>|synapse ...|scot ...|roast ...|nucleotide ..."
+    )
 
 
 def _require_workspace(workspace_mgr: Any | None) -> Any:
     if workspace_mgr is None:
         raise ValueError("active workspace is required for this integration preview")
     return workspace_mgr
+
+
+def _record_roast_proposals(ledger: AnalyticLedger, preview: Any) -> list[dict[str, Any]]:
+    nodes = {node.id: node.model_dump(mode="json") for node in preview.nodes}
+    recorded: list[dict[str, Any]] = []
+    for relationship in preview.relationships:
+        details = relationship.model_dump(mode="json")
+        details["source_node"] = nodes.get(relationship.source)
+        details["target_node"] = nodes.get(relationship.target)
+        row, created = ledger.record_external_analysis_proposal(
+            provider="go-roast",
+            operation="decode-relationship",
+            statement=(
+                f"go-roast proposes that {relationship.source} "
+                f"{relationship.relationship} {relationship.target}."
+            ),
+            payload_sha256=_json_sha256(details),
+            provenance_refs=relationship.provenance_refs,
+            caveats=tuple((*preview.caveats, *relationship.caveats)),
+            details=details,
+        )
+        recorded.append({"proposal_id": row["record_id"], "created": created})
+    return recorded
+
+
+def _record_nucleotide_lookup_proposals(
+    ledger: AnalyticLedger, preview: Any
+) -> list[dict[str, Any]]:
+    recorded: list[dict[str, Any]] = []
+    receipt_ref = f"nucleotide:{preview.receipt.request_sha256}:lookup:{preview.lookup_sha256}"
+    for match in preview.matches:
+        details = match.model_dump(mode="json")
+        row, created = ledger.record_external_analysis_proposal(
+            provider="nucleotide",
+            operation="url-template-lookup",
+            statement=(
+                f"Nucleotide classified {match.url} as {match.attribution}"
+                + (f" for template {match.template_id}." if match.template_id else ".")
+            ),
+            payload_sha256=_json_sha256(details),
+            provenance_refs=(receipt_ref,),
+            caveats=preview.caveats,
+            details={**details, "lookup_sha256": preview.lookup_sha256},
+        )
+        recorded.append({"proposal_id": row["record_id"], "created": created})
+    return recorded
+
+
+def _record_nucleotide_fingerprint_proposal(
+    ledger: AnalyticLedger,
+    actor_id: str,
+    preview: Any,
+) -> dict[str, Any]:
+    fingerprint_sha256 = _json_sha256(preview.fingerprint)
+    details = {
+        "analyst_grouped_batch": actor_id.strip(),
+        "event_count": preview.event_count,
+        "lookup_sha256": preview.lookup_sha256,
+        "fingerprint_sha256": fingerprint_sha256,
+        "supporting_signals": list(preview.supporting_signals),
+        "contradictions": list(preview.contradictions),
+    }
+    row, created = ledger.record_external_analysis_proposal(
+        provider="nucleotide",
+        operation="actor-behavior-fingerprint",
+        statement=(
+            f"Nucleotide produced a behavior fingerprint for analyst-grouped batch "
+            f"{actor_id.strip()}; this is not an actor-identity claim."
+        ),
+        payload_sha256=fingerprint_sha256,
+        provenance_refs=(f"nucleotide:{preview.receipt.request_sha256}:fingerprint",),
+        caveats=preview.caveats,
+        details=details,
+    )
+    return {"proposal_id": row["record_id"], "created": created}
+
+
+def _json_sha256(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode()
+    ).hexdigest()
