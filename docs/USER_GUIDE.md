@@ -179,7 +179,9 @@ type. Pivotglass currently provides:
 - investigation activity by UTC calendar day;
 - the Investigation Constellation;
 - indicator-by-enrichment lifecycle activity; and
-- the force-directed relationship graph.
+- the force-directed relationship graph;
+- the admitted connection-count distribution; and
+- a PCA scatter view of similarity among indicator evidence-coverage profiles.
 
 Every view states its source scope and missing-data policy. **View exact data
 and caveats** opens the accessible table behind the visual. **Export exact
@@ -189,6 +191,14 @@ nodes and edges as JSON.
 Deferred dimensions remain in the table but are omitted from the radar shape
 because they do not have an inference path. Radar values 0, 50, and 100 map to
 empty, partial, and filled; they are not confidence scores.
+
+The PCA view uses the same explicit 0, 50, and 100 coverage mapping, then
+standardizes only dimensions that are available and vary across at least three
+indicators. Deferred, unavailable, and zero-variance dimensions are excluded,
+not guessed. The chart reports the variance explained by both axes and exposes
+the exact input profile for every point. Nearby points have similar coverage
+patterns; they are not necessarily connected, related to the same actor,
+malicious, or supported with greater confidence.
 
 ## Relationship graph
 

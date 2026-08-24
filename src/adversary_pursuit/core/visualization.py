@@ -9,6 +9,7 @@ the data.
 
 from __future__ import annotations
 
+import math
 from collections import Counter
 from enum import StrEnum
 from typing import Any, Literal
@@ -714,6 +715,210 @@ def task_matrix_intent(workspace: str, investigations: list[dict[str, Any]]) -> 
     )
 
 
+def indicator_coverage_pca_intent(
+    workspace: str,
+    constellation: VisualizationIntent,
+) -> VisualizationIntent:
+    """Project comparable dossier-coverage profiles onto two principal components.
+
+    PCA is deterministic descriptive geometry over the already-derived
+    completeness states. It does not create graph edges, attribution, or
+    confidence. Deferred dimensions are excluded rather than imputed.
+    """
+
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in constellation.data.rows:
+        reference = str(row.get("reference", ""))
+        if not reference:
+            continue
+        record = grouped.setdefault(
+            reference,
+            {
+                "reference": reference,
+                "indicator": str(row.get("indicator", "unavailable")),
+                "indicator_type": str(row.get("indicator_type", "unknown")),
+                "scores": {},
+            },
+        )
+        status = str(row.get("status", "deferred"))
+        record["scores"][str(row.get("dimension", "unknown"))] = _DOSSIER_SCORE.get(status)
+
+    records = [grouped[key] for key in sorted(grouped)]
+    dimensions = [dimension.value for dimension in DossierSlotName]
+    eligible_dimensions = []
+    for dimension in dimensions:
+        values = [record["scores"].get(dimension) for record in records]
+        if any(value is None for value in values):
+            continue
+        numeric = [float(value) for value in values]
+        if len(numeric) >= 2 and max(numeric) - min(numeric) > 1e-12:  # noqa: PLR2004
+            eligible_dimensions.append(dimension)
+
+    rows: tuple[dict[str, Any], ...] = ()
+    explained = (0.0, 0.0)
+    if len(records) >= 3 and len(eligible_dimensions) >= 2:  # noqa: PLR2004
+        matrix = [
+            [float(record["scores"][dimension]) for dimension in eligible_dimensions]
+            for record in records
+        ]
+        standardized = _standardize_columns(matrix)
+        covariance = _covariance_matrix(standardized)
+        first_value, first_vector = _leading_eigenpair(covariance)
+        deflated = [
+            [
+                covariance[row_index][column_index]
+                - first_value * first_vector[row_index] * first_vector[column_index]
+                for column_index in range(len(covariance))
+            ]
+            for row_index in range(len(covariance))
+        ]
+        second_value, second_vector = _leading_eigenpair(deflated)
+        total_variance = sum(covariance[index][index] for index in range(len(covariance)))
+        if total_variance > 1e-12:
+            explained = (
+                round(max(0.0, first_value) / total_variance * 100, 2),
+                round(max(0.0, second_value) / total_variance * 100, 2),
+            )
+        rows = tuple(
+            {
+                "reference": record["reference"],
+                "indicator": record["indicator"],
+                "indicator_type": record["indicator_type"],
+                "pc1": round(_dot(vector, first_vector), 6),
+                "pc2": round(_dot(vector, second_vector), 6),
+                "pc1_variance_percent": explained[0],
+                "pc2_variance_percent": explained[1],
+                "feature_profile": ", ".join(
+                    f"{dimension}={record['scores'][dimension]}"
+                    for dimension in eligible_dimensions
+                ),
+            }
+            for record, vector in zip(records, standardized, strict=True)
+        )
+
+    excluded_dimensions = [
+        dimension for dimension in dimensions if dimension not in eligible_dimensions
+    ]
+    ready = bool(rows)
+    return _intent(
+        intent_id="indicator-coverage-pca",
+        title="Indicator coverage similarity",
+        question=VisualizationQuestion.NUMERIC_CORRELATION,
+        question_text=(
+            "Which indicators have similar evidence-coverage profiles across dossier dimensions?"
+        ),
+        workspace=workspace,
+        description=(
+            "Principal-component projection of comparable, source-derived dossier coverage "
+            "states for stored indicators."
+        ),
+        record_count=len(records),
+        data=VisualizationData(rows=rows),
+        fields={"x": "pc1", "y": "pc2", "series": "indicator_type"},
+        semantic_types={
+            "reference": "Identifier",
+            "indicator": "Name",
+            "indicator_type": "Category",
+            "pc1": "Number",
+            "pc2": "Number",
+            "pc1_variance_percent": "Percentage",
+            "pc2_variance_percent": "Percentage",
+            "feature_profile": "Text",
+        },
+        table_columns=(
+            VisualizationTableColumn(key="indicator", label="Indicator"),
+            VisualizationTableColumn(key="indicator_type", label="IoC type"),
+            VisualizationTableColumn(key="pc1", label="Principal component 1"),
+            VisualizationTableColumn(key="pc2", label="Principal component 2"),
+            VisualizationTableColumn(key="pc1_variance_percent", label="PC1 variance (%)"),
+            VisualizationTableColumn(key="pc2_variance_percent", label="PC2 variance (%)"),
+            VisualizationTableColumn(key="feature_profile", label="Exact coverage inputs"),
+        ),
+        missing_data=VisualizationMissingData(
+            policy="omit_with_count" if excluded_dimensions else "show",
+            explanation=(
+                "Deferred, unavailable, or zero-variance dimensions are excluded, never "
+                "imputed. At least three indicators and two comparable varying dimensions "
+                "are required."
+            ),
+            omitted_count=len(excluded_dimensions),
+        ),
+        caveats=(
+            (
+                f"PC1 explains {explained[0]}% and PC2 explains {explained[1]}% of included "
+                "coverage variance."
+                if ready
+                else "Insufficient comparable variation for a two-component projection."
+            ),
+            "Distance represents similarity in coverage completeness, not a relationship, "
+            "shared actor, maliciousness, or analytical confidence.",
+            f"Included dimensions: {', '.join(eligible_dimensions) or 'none'}. Excluded: "
+            f"{', '.join(excluded_dimensions) or 'none'}.",
+        ),
+    )
+
+
+def _standardize_columns(matrix: list[list[float]]) -> list[list[float]]:
+    row_count = len(matrix)
+    column_count = len(matrix[0])
+    means = [sum(row[column] for row in matrix) / row_count for column in range(column_count)]
+    deviations = [
+        math.sqrt(
+            sum((row[column] - means[column]) ** 2 for row in matrix) / (row_count - 1)
+        )
+        for column in range(column_count)
+    ]
+    return [
+        [
+            (row[column] - means[column]) / deviations[column]
+            for column in range(column_count)
+        ]
+        for row in matrix
+    ]
+
+
+def _covariance_matrix(matrix: list[list[float]]) -> list[list[float]]:
+    denominator = len(matrix) - 1
+    width = len(matrix[0])
+    return [
+        [
+            sum(row[left] * row[right] for row in matrix) / denominator
+            for right in range(width)
+        ]
+        for left in range(width)
+    ]
+
+
+def _dot(left: list[float], right: list[float]) -> float:
+    return sum(a * b for a, b in zip(left, right, strict=True))
+
+
+def _leading_eigenpair(matrix: list[list[float]]) -> tuple[float, list[float]]:
+    """Return one deterministic symmetric-matrix eigenpair by power iteration."""
+
+    width = len(matrix)
+    vector = [float(index + 1) for index in range(width)]
+    magnitude = math.sqrt(_dot(vector, vector))
+    vector = [value / magnitude for value in vector]
+    for _ in range(120):
+        candidate = [_dot(row, vector) for row in matrix]
+        magnitude = math.sqrt(_dot(candidate, candidate))
+        if magnitude <= 1e-12:
+            return 0.0, [1.0 if index == 0 else 0.0 for index in range(width)]
+        candidate = [value / magnitude for value in candidate]
+        if _dot(candidate, vector) < 0:
+            candidate = [-value for value in candidate]
+        if math.sqrt(sum((a - b) ** 2 for a, b in zip(candidate, vector, strict=True))) < 1e-10:
+            vector = candidate
+            break
+        vector = candidate
+    anchor = max(range(width), key=lambda index: abs(vector[index]))
+    if vector[anchor] < 0:
+        vector = [-value for value in vector]
+    eigenvalue = _dot(vector, [_dot(row, vector) for row in matrix])
+    return eigenvalue, vector
+
+
 def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> VisualizationIntent:
     """Build an indicator-first graph intent from the persisted graph authority."""
 
@@ -862,12 +1067,14 @@ def build_visualization_intents(
 ) -> tuple[VisualizationIntent, ...]:
     """Build the initial 0.6.0 cockpit visualization set."""
 
+    constellation = indicator_constellation_intent(workspace, objects, graph)
     return (
-        indicator_constellation_intent(workspace, objects, graph),
+        constellation,
         evidence_composition_intent(workspace, objects),
         dossier_completeness_intent(workspace, dossier_slots),
         activity_concentration_intent(workspace, investigations),
         task_matrix_intent(workspace, investigations),
         relationship_graph_intent(workspace, graph),
         relationship_degree_distribution_intent(workspace, graph),
+        indicator_coverage_pca_intent(workspace, constellation),
     )

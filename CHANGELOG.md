@@ -46,6 +46,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   enrichment queue. Pivotglass web hands accepted targets to the ordinary
   deterministic planner, writes running and terminal states back to the same
   provenance-bearing item, and prevents completed requests from restarting.
+- Added a deterministic PCA view of indicator evidence-coverage profiles.
+  Pivotglass standardizes only comparable, varying Dossier dimensions,
+  excludes missing or deferred inputs without imputation, labels explained
+  variance, and exports every plotted point with its exact feature profile.
+  The view explicitly describes proximity as coverage similarity rather than
+  a graph relationship, attribution, verdict, or confidence score.
 
 ## [0.8.5] — 2026-08-07
 

@@ -256,6 +256,12 @@ Use STIX for structured exchange and GEXF for tools such as Gephi. Every Visual
 Analysis view also offers **EXPORT EXACT DATA**, which downloads the rows or
 nodes and edges used for that view.
 
+In **Visual Analysis**, use the force-directed graph to inspect evidence-backed
+relationships. Use **Indicator coverage similarity** to compare which
+investigations have similar Dossier coverage. The latter is a PCA projection,
+not a relationship or attribution graph; open its exact-data table to see the
+included dimensions and explained variance.
+
 Before sharing any export, remember that it can contain raw indicators and
 source-derived information.
 

@@ -38,6 +38,7 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
         "how_complete_is_this_dossier",
         "how_complete_are_indicator_investigations",
         "how_are_values_distributed",
+        "are_numeric_features_correlated",
         "which_evidence_types_are_stored",
         "which_entities_relate",
         "which_indicator_enrichment_work_is_pending",

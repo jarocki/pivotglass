@@ -121,9 +121,17 @@ three-channel RGB blocks for indicator enrichment jobs.
 
 Visual Analysis begins with an analyst question and chooses a view that fits
 the stored data. Current views include evidence composition, Dossier radar,
-UTC activity calendar, enrichment activity, the Constellation, and a
-force-directed relationship graph. Each view includes source scope, caveats,
-an accessible table, and export of the exact plotted data.
+UTC activity calendar, enrichment activity, the Constellation, a
+force-directed relationship graph, connection-count distribution, and a PCA
+view of similarity among indicator evidence-coverage profiles. Each view
+includes source scope, caveats, an accessible table, and export of the exact
+plotted data.
+
+The PCA view standardizes only comparable, varying Dossier dimensions and
+reports the variance explained by each axis. It excludes deferred or
+unavailable dimensions instead of inventing values. Distance in that view is
+coverage similarity—not a relationship, attribution, maliciousness verdict,
+or confidence score.
 
 The graph labels nodes with actual indicator values. Every visible edge has a
 stored or explicitly labeled conservative basis. Dragging, filtering, and

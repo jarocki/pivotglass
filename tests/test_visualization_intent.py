@@ -21,6 +21,7 @@ from adversary_pursuit.core.visualization import (
     dossier_completeness_intent,
     evidence_composition_intent,
     indicator_constellation_intent,
+    indicator_coverage_pca_intent,
     relationship_degree_distribution_intent,
     relationship_graph_intent,
     task_matrix_intent,
@@ -204,6 +205,69 @@ def test_indicator_constellation_is_persistent_newest_first_and_relation_aware()
     assert infrastructure["reference"].startswith("ev-")
     assert "ipv4-addr--newer" not in str(intent.data.rows)
     assert "not analytical confidence" in intent.caveats[1]
+
+
+def test_indicator_coverage_pca_is_deterministic_and_never_imputes_deferred_facets():
+    constellation = indicator_constellation_intent("case-red", [], {"nodes": [], "edges": []})
+    profiles = (
+        ("ev-one", "one.test", "domain-name", ("empty", "empty", "filled")),
+        ("ev-two", "two.test", "domain-name", ("partial", "filled", "partial")),
+        ("ev-three", "198.51.100.8", "ipv4-addr", ("filled", "partial", "empty")),
+        ("ev-four", "203.0.113.9", "ipv4-addr", ("filled", "filled", "partial")),
+    )
+    rows = tuple(
+        {
+            "reference": reference,
+            "indicator": indicator,
+            "indicator_type": indicator_type,
+            "dimension": dimension,
+            "status": status,
+        }
+        for reference, indicator, indicator_type, statuses in profiles
+        for dimension, status in zip(
+            ("identity", "infrastructure", "timing"), statuses, strict=True
+        )
+    ) + tuple(
+        {
+            "reference": reference,
+            "indicator": indicator,
+            "indicator_type": indicator_type,
+            "dimension": "predictions",
+            "status": "deferred",
+        }
+        for reference, indicator, indicator_type, _statuses in profiles
+    )
+    constellation = constellation.model_copy(update={"data": VisualizationData(rows=rows)})
+
+    first = indicator_coverage_pca_intent("case-red", constellation)
+    second = indicator_coverage_pca_intent("case-red", constellation)
+
+    assert first.view == VisualizationView.SCATTER
+    assert first.renderer == VisualizationRenderer.FLINT_CHARTJS
+    assert first.data.rows == second.data.rows
+    assert len(first.data.rows) == 4
+    assert {row["indicator"] for row in first.data.rows} == {
+        "one.test",
+        "two.test",
+        "198.51.100.8",
+        "203.0.113.9",
+    }
+    assert all("predictions=" not in row["feature_profile"] for row in first.data.rows)
+    assert all("identity=" in row["feature_profile"] for row in first.data.rows)
+    assert first.data.rows[0]["pc1_variance_percent"] > 0
+    assert first.data.rows[0]["pc2_variance_percent"] >= 0
+    assert "not a relationship" in first.caveats[-2]
+    assert "predictions" in first.caveats[-1]
+
+
+def test_indicator_coverage_pca_shows_empty_state_without_comparable_variation():
+    constellation = indicator_constellation_intent("default", [], {"nodes": [], "edges": []})
+
+    intent = indicator_coverage_pca_intent("default", constellation)
+
+    assert intent.data.rows == ()
+    assert intent.source_scope.record_count == 0
+    assert "Insufficient comparable variation" in intent.caveats[-3]
 
 
 def test_relationship_graph_exposes_actual_labels_and_edge_basis():
