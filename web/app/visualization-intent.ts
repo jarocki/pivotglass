@@ -69,6 +69,18 @@ export type VisualizationTheme = {
   dim_color: string;
 };
 
+export function updateGraphSelection(
+  current: readonly string[],
+  reference: string,
+  additive: boolean,
+): string[] {
+  if (!additive) return [reference];
+  if (current.includes(reference)) {
+    return current.filter((candidate) => candidate !== reference);
+  }
+  return [...current, reference];
+}
+
 const FLINT_CHART_TYPES: Partial<Record<VisualizationView, string>> = {
   bar: "Bar Chart",
   histogram: "Histogram",

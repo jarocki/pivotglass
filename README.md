@@ -146,8 +146,10 @@ contradicting stances, preserves mixed assessments, and marks absent stances as
 **not assessed** rather than silently treating them as neutral.
 
 The graph labels nodes with actual indicator values. Every visible edge has a
-stored or explicitly labeled conservative basis. Dragging, filtering, and
-moving nodes change only the presentation. If no supported relationship
+stored or explicitly labeled conservative basis. Dragging, filtering, moving,
+pinning, and selecting nodes change only the presentation. Hold Shift,
+Command, or Control to select multiple nodes and pin or unpin the group. The
+temporary selection is not stored in a saved layout. If no supported relationship
 exists, Pivotglass leaves the nodes unconnected.
 
 Named graph presentations preserve node positions, viewport, and filters in

@@ -219,7 +219,8 @@ expand branches. The exact-data table preserves every parent, child, status,
 depth, and full path. Tree membership does not mean that one record supports,
 causes, or increases confidence in another.
 
-The likelihood and confidence view places each recorded likelihood range on a
+The likelihood and confidence view presents repeated assessments as accessible
+small multiples on one common 0–100% axis. It places each recorded likelihood range on a
 0–100% axis. It shows the latest analytic confidence level, rationale, and
 assessor beside the range without placing confidence on the probability axis.
 Likelihood answers “how probable?” Confidence answers “how sound and
@@ -232,11 +233,15 @@ corrected.
 The relationship graph uses actual indicator values for node labels and
 directional relationships for edges. Stored STIX relationships and conservative
 property pivots are visually distinguished. Select a node to highlight its
-neighbors; double-click it, or choose **OPEN EVIDENCE**, to inspect the stored
-record.
+neighbors. Hold Shift, Command, or Control while selecting to build a temporary
+multi-node set; the set can be pinned, unpinned, or cleared together. The last
+node selected remains the primary selection for its presentation label and
+evidence detail. Double-click it, or choose **OPEN EVIDENCE**, to inspect the
+stored record.
 
-Dragging, panning, zooming, filtering, centering, and selecting change only the
-presentation. They do not alter evidence. Enter a layout name and choose
+Dragging, panning, zooming, filtering, centering, pinning, and selecting change
+only the presentation. They do not alter evidence. Selection is deliberately
+temporary and is not included in saved layouts. Enter a layout name and choose
 **SAVE VIEW** to keep an arrangement in the active workspace. Loading an older
 view reports added or absent nodes when the evidence graph has changed. Large
 workspaces use a bounded overview. If no supported edge exists, Pivotglass says

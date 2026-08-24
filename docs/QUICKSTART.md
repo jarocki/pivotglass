@@ -262,6 +262,11 @@ investigations have similar Dossier coverage. The latter is a PCA projection,
 not a relationship or attribution graph; open its exact-data table to see the
 included dimensions and explained variance.
 
+Hold Shift, Command, or Control while selecting graph nodes to assemble a
+temporary working set. You can pin or unpin the selected group without changing
+evidence. Saved views keep layout, labels, filter, viewport, and pins, but never
+the temporary selection.
+
 After recording competing hypotheses and linking evidence with `analysis`,
 open **Competing hypotheses matrix** to compare the same evidence across every
 explanation. A **not assessed** cell is a visible gap, not neutral evidence;

@@ -66,6 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   range while keeping the latest formal analytic confidence assessment,
   rationale, and assessor visibly separate. Invalid intervals are omitted and
   counted rather than repaired or guessed.
+- Added presentation-only graph multiselect with modifier-key and keyboard
+  operation, a visible selected-node count, and bulk pin, unpin, and clear
+  actions. Temporary selections are deliberately excluded from saved layouts
+  and never become graph evidence.
 
 ## [0.8.5] — 2026-08-07
 

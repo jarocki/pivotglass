@@ -533,6 +533,10 @@ pre{font-size:12px;line-height:1.5}
 .relationship-controls label span,.relationship-controls>span{color:var(--dim)}
 .relationship-controls input{min-width:0;padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
 .relationship-controls button,.visualization-selection button{padding:6px 8px;border:1px solid var(--line);background:var(--control);color:var(--heading);cursor:pointer}
+.graph-multiselect{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:8px;border:1px solid color-mix(in srgb,var(--focus-ring) 55%,transparent);background:color-mix(in srgb,var(--focus-ring) 8%,var(--control))}
+.graph-multiselect b{color:var(--heading);letter-spacing:.08em}
+.graph-multiselect span{flex:1 1 360px;color:var(--dim)}
+.graph-multiselect button{padding:6px 8px;border:1px solid var(--line);background:var(--control);color:var(--heading);cursor:pointer}
 .graph-layout-controls{display:flex;flex-wrap:wrap;align-items:end;gap:8px;padding:8px;border:1px solid color-mix(in srgb,var(--line) 34%,transparent);background:color-mix(in srgb,var(--panel) 78%,transparent)}
 .graph-layout-controls label{display:grid;gap:3px;min-width:160px}
 .graph-layout-controls label span{color:var(--dim);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}

@@ -4,9 +4,17 @@ import test from "node:test";
 import {
   compileFlintChartjs,
   exactDataExport,
+  updateGraphSelection,
   validateVisualizationIntent,
   type VisualizationIntent,
 } from "../app/visualization-intent.ts";
+
+test("graph selection is local, deterministic, and supports additive toggles", () => {
+  assert.deepEqual(updateGraphSelection([], "node-a", false), ["node-a"]);
+  assert.deepEqual(updateGraphSelection(["node-a"], "node-b", false), ["node-b"]);
+  assert.deepEqual(updateGraphSelection(["node-a"], "node-b", true), ["node-a", "node-b"]);
+  assert.deepEqual(updateGraphSelection(["node-a", "node-b"], "node-a", true), ["node-b"]);
+});
 
 function histogramIntent(): VisualizationIntent {
   return {

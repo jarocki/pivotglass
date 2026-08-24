@@ -6,6 +6,7 @@ import { Chart, registerables } from "chart.js";
 import {
   compileFlintChartjs,
   exactDataExport,
+  updateGraphSelection,
   plottedRows,
   validateVisualizationIntent,
   type VisualizationIntent,
@@ -897,7 +898,7 @@ function RelationshipGraph({
   layouts: GraphLayoutSummary[];
   onLayoutsChanged?: () => Promise<void> | void;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selectedRefs, setSelectedRefs] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [viewport, setViewport] = useState<GraphViewport>({ x: 0, y: 0, scale: 1 });
   const [drag, setDrag] = useState<GraphDrag | null>(null);
@@ -954,8 +955,14 @@ function RelationshipGraph({
     setPositions(restored ? { ...initialPositions, ...restored } : initialPositions);
     if (!restored) setViewport({ x: 0, y: 0, scale: 1 });
   }, [initialPositions]);
+  const selected = selectedRefs.at(-1) ?? null;
+  const selectedSet = new Set(selectedRefs);
   const selectedNode = intent.data.nodes.find((node) => node.reference === selected);
   const markerId = `${intent.intent_id}-relationship-arrow`;
+
+  const selectNode = (reference: string, additive: boolean) => {
+    setSelectedRefs((current) => updateGraphSelection(current, reference, additive));
+  };
 
   const updateZoom = (factor: number) => {
     setViewport((current) => {
@@ -1096,7 +1103,10 @@ function RelationshipGraph({
             <button onClick={() => setViewport({ x: 0, y: 0, scale: 1 })}>CENTER</button>
           </span>
         )}
-        {(query || selected) && <button onClick={() => { setQuery(""); setSelected(null); }}>RESET VIEW</button>}
+        {selectedRefs.length > 0 && <span>{selectedRefs.length} selected</span>}
+        {(query || selectedRefs.length > 0) && (
+          <button onClick={() => { setQuery(""); setSelectedRefs([]); }}>RESET VIEW</button>
+        )}
       </div>
       <div className="graph-layout-controls" aria-label="Saved graph presentations">
         <label>
@@ -1141,9 +1151,13 @@ function RelationshipGraph({
             {visibleNodes.map((node) => (
               <button
                 key={node.reference}
-                className={selected === node.reference ? "selected" : ""}
+                className={selectedSet.has(node.reference) ? "selected" : ""}
                 title={node.label}
-                onClick={() => setSelected(node.reference)}
+                aria-pressed={selectedSet.has(node.reference)}
+                onClick={(event) => selectNode(
+                  node.reference,
+                  event.shiftKey || event.metaKey || event.ctrlKey,
+                )}
                 onDoubleClick={(event) => {
                   if (onOpenEvidence) onOpenEvidence(node.reference, event.currentTarget);
                 }}
@@ -1239,15 +1253,21 @@ function RelationshipGraph({
                   key={node.reference}
                   transform={`translate(${position.x} ${position.y})`}
                   className={[
-                    selected === node.reference ? "selected" : "",
+                    selectedSet.has(node.reference) ? "selected" : "",
                     pinned.has(node.reference) ? "pinned" : "",
-                    selected && neighbors.get(selected)?.has(node.reference) ? "neighbor" : "",
+                    selectedRefs.some((reference) => neighbors.get(reference)?.has(node.reference))
+                      ? "neighbor"
+                      : "",
                     `type-${node.entity_type.replaceAll(/[^a-z0-9-]/gi, "-")}`,
                   ].join(" ")}
                   role="button"
                   tabIndex={0}
+                  aria-pressed={selectedSet.has(node.reference)}
                   aria-label={`${labels[node.reference] ?? node.label}, ${node.entity_type}, ${degree.get(node.reference) ?? 0} relationships`}
-                  onClick={() => setSelected(node.reference)}
+                  onClick={(event) => selectNode(
+                    node.reference,
+                    event.shiftKey || event.metaKey || event.ctrlKey,
+                  )}
                   onDoubleClick={(event) => {
                     const origin = event.currentTarget.closest(".relationship-visualization");
                     if (onOpenEvidence && origin instanceof HTMLElement) {
@@ -1257,13 +1277,15 @@ function RelationshipGraph({
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      setSelected(node.reference);
+                      selectNode(
+                        node.reference,
+                        event.shiftKey || event.metaKey || event.ctrlKey,
+                      );
                     }
                   }}
                   onPointerDown={(event) => {
                     event.stopPropagation();
                     event.currentTarget.setPointerCapture(event.pointerId);
-                    setSelected(node.reference);
                     setDrag({
                       kind: "node",
                       pointerId: event.pointerId,
@@ -1290,13 +1312,32 @@ function RelationshipGraph({
       <div className="graph-legend">
         <span><i className="explicit" /> Stored relationship</span>
         <span><i className="property" /> Property pivot</span>
-        <span>Force layout is limited to 48 nodes; drag, pan, zoom, filtering, and selection change presentation only.</span>
+        <span>Force layout is limited to 48 nodes; drag, pan, zoom, filtering, and selection change presentation only. Shift, Command, or Control selects more than one node.</span>
       </div>
+      {selectedRefs.length > 1 && (
+        <div className="graph-multiselect" aria-live="polite">
+          <b>{selectedRefs.length} NODES SELECTED</b>
+          <span>Selection is temporary presentation state and is never saved as evidence or a relationship.</span>
+          <button onClick={() => setPinned((current) => new Set([...current, ...selectedRefs]))}>
+            PIN SELECTED
+          </button>
+          <button onClick={() => setPinned((current) => {
+            const next = new Set(current);
+            selectedRefs.forEach((reference) => next.delete(reference));
+            return next;
+          })}>
+            UNPIN SELECTED
+          </button>
+          <button onClick={() => setSelectedRefs([])}>CLEAR SELECTION</button>
+        </div>
+      )}
       {selectedNode && (
         <div className="visualization-selection" aria-live="polite">
           <b>{selectedNode.label}</b>
           <span>{selectedNode.entity_type} · {degree.get(selectedNode.reference) ?? 0} relationships</span>
-          <small>Selection highlights the node and its visible neighbors without changing the graph layout.</small>
+          <small>
+            {selectedRefs.length > 1 ? "Primary selection" : "Selection"} highlights visible neighbors without changing graph evidence.
+          </small>
           <button onClick={() => setPinned((current) => {
             const next = new Set(current);
             if (next.has(selectedNode.reference)) next.delete(selectedNode.reference);
