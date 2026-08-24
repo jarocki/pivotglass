@@ -418,6 +418,96 @@ def test_manual_graph_relation_requires_known_entities_and_annotation(tmp_path):
         )
 
 
+def test_manual_graph_relation_revision_and_retraction_preserve_history(tmp_path):
+    manager = _workspace(tmp_path)
+    manager.store_stix_objects(
+        [
+            {"type": "domain-name", "value": "history.test"},
+            {"type": "ipv4-addr", "value": "198.51.100.88"},
+        ],
+        module_name="test/source",
+        target="history.test",
+    )
+    objects = {item["type"]: item for item in manager.get_stix_objects()}
+    domain = objects["domain-name"]
+    address = objects["ipv4-addr"]
+    original_id = execute_analysis_command(
+        (
+            "relation",
+            domain["id"],
+            "possibly-resolves-to",
+            address["id"],
+            "|",
+            "Initial analyst judgment.",
+        ),
+        manager,
+    )["data"]["assertion_id"]
+
+    revised = execute_analysis_command(
+        (
+            "relation-revise",
+            original_id,
+            domain["id"],
+            "historically-resolved-to",
+            address["id"],
+            "|",
+            "Revised after checking the observation time window.",
+        ),
+        manager,
+    )["data"]
+    replacement_id = revised["replacement_assertion_id"]
+    snapshot = AnalyticLedger(manager).snapshot()
+    assertions = {row["id"]: row for row in snapshot["assertions"]}
+    lifecycle = {
+        row["record_id"]: row
+        for row in snapshot["lifecycle_items"]
+        if row["record_kind"] == "assertion"
+    }
+    assert revised["truth_kind"] == "analyst_assertion_correction"
+    assert assertions[original_id]["status"] == "superseded"
+    assert assertions[replacement_id]["status"] == "active"
+    assert lifecycle[original_id]["criteria"]["relation_history"] == [
+        {
+            "action": "superseded",
+            "reason": "Revised after checking the observation time window.",
+            "decided_by": "human",
+            "occurred_at": lifecycle[original_id]["criteria"]["relation_history"][0][
+                "occurred_at"
+            ],
+            "replacement_assertion_id": replacement_id,
+        }
+    ]
+    assert lifecycle[replacement_id]["criteria"]["supersedes_assertion_id"] == original_id
+
+    retracted = execute_analysis_command(
+        (
+            "relation-retract",
+            replacement_id,
+            "|",
+            "The historical record was not independently corroborated.",
+        ),
+        manager,
+    )["data"]
+    snapshot = AnalyticLedger(manager).snapshot()
+    assertions = {row["id"]: row for row in snapshot["assertions"]}
+    lifecycle = {
+        row["record_id"]: row
+        for row in snapshot["lifecycle_items"]
+        if row["record_kind"] == "assertion"
+    }
+    assert retracted["status"] == "retracted"
+    assert assertions[replacement_id]["status"] == "retracted"
+    assert lifecycle[replacement_id]["criteria"]["relation_history"][0]["action"] == "retracted"
+    assert lifecycle[replacement_id]["analyst_disposition"] == "revised"
+    assert "analysis relation-retract " in command_completions("analysis relation-r")
+    assert "analysis relation-revise " in command_completions("analysis relation-r")
+    with pytest.raises(ValueError, match="already retracted"):
+        execute_analysis_command(
+            ("relation-retract", replacement_id, "|", "Cannot erase the audit trail."),
+            manager,
+        )
+
+
 def test_analysis_commands_cover_lifecycle_contradictions_and_sat_runs(tmp_path):
     manager = _workspace(tmp_path)
     question_id = execute_analysis_command(

@@ -26,6 +26,8 @@ export type VisualizationEdge = {
   relationship: string;
   basis: "explicit" | "property" | "manual";
   provenance: string;
+  assertion_id?: string | null;
+  annotation?: string | null;
 };
 
 export type VisualizationIntent = {

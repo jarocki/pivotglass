@@ -120,6 +120,8 @@ def command_completions(
             "question ",
             "assertion ",
             "relation ",
+            "relation-retract ",
+            "relation-revise ",
             "assumption ",
             "hypothesis ",
             "prediction ",

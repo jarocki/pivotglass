@@ -619,6 +619,8 @@ def test_relationship_graph_keeps_manual_assertions_visibly_distinct():
 
     assert len(intent.data.edges) == 1
     assert intent.data.edges[0].basis == "manual"
+    assert intent.data.edges[0].assertion_id == "assertion-manual"
+    assert intent.data.edges[0].annotation == "Analyst annotated shared control after review."
     assert "Analyst assertion assertion-manual" in intent.data.edges[0].provenance
     assert {row["connection_count"] for row in distribution.data.rows} == {1}
 

@@ -247,6 +247,12 @@ remain analyst assertions; they are not written as observed STIX
 relationships. The equivalent shared command is `analysis relation
 <subject-ref> <predicate> <object-ref> | <annotation>`.
 
+Open **Review analyst relations** to correct an active manual edge. **REVISE**
+creates a replacement judgment and marks the former assertion superseded;
+**RETRACT** withdraws the active edge. Both require a human explanation, retain
+the original assertion, and append a correction-history entry. They do not
+edit or delete observed evidence.
+
 Dragging, panning, zooming, filtering, centering, pinning, and selecting change
 only the presentation. They do not alter evidence. Selection is deliberately
 temporary and is not included in saved layouts. Enter a layout name and choose
@@ -418,6 +424,8 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `analysis assumption <text>` | Expose a key assumption for testing |
 | `analysis assertion <type> <text>` | Record an inferred, assumed, or judgment statement; observations come only from sources |
 | `analysis relation <subject-ref> <predicate> <object-ref> \| <annotation>` | Record an annotated directional analyst judgment between two existing entities; never create an observed relationship |
+| `analysis relation-revise <assertion-id> <subject-ref> <predicate> <object-ref> \| <annotation>` | Supersede a manual graph judgment with an annotated replacement while retaining both records |
+| `analysis relation-retract <assertion-id> \| <reason>` | Withdraw an active manual graph judgment without deleting its audit history |
 | `analysis hypothesis <question-id> <text>` | Propose a falsifiable candidate answer |
 | `analysis prediction <text>` | Record an observable prediction |
 | `analysis signpost <text>` | Record a development that should change the judgment |

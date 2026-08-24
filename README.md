@@ -157,6 +157,10 @@ It is persisted as a human-authored judgment, drawn separately from stored
 relationships and conservative pivots, and never described as observed fact.
 The same authority is available as `analysis relation <subject-ref>
 <predicate> <object-ref> | <annotation>` in both interfaces.
+Open **Review analyst relations** to revise or retract a manual edge. A
+revision creates a new active assertion that links back to its predecessor; a
+retraction removes the edge from the active graph. Neither action deletes the
+former judgment or its required human reason.
 
 Named graph presentations preserve node positions, viewport, and filters in
 the active workspace. They survive refreshes and portable exports, report

@@ -9,6 +9,7 @@ import {
   updateGraphSelection,
   plottedRows,
   validateVisualizationIntent,
+  type VisualizationEdge,
   type VisualizationIntent,
   type VisualizationRow,
   type VisualizationTheme,
@@ -914,11 +915,16 @@ function RelationshipGraph({
   const [relationAnnotation, setRelationAnnotation] = useState("");
   const [relationMessage, setRelationMessage] = useState("");
   const [relationBusy, setRelationBusy] = useState(false);
+  const [relationCorrection, setRelationCorrection] = useState<{
+    mode: "revise" | "retract";
+    edge: VisualizationEdge;
+  } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const pendingLayoutPositions = useRef<Record<string, GraphPoint> | null>(null);
   const width = 760;
   const height = 430;
   const degree = new Map(intent.data.nodes.map((node) => [node.reference, 0]));
+  const graphLabels = new Map(intent.data.nodes.map((node) => [node.reference, node.label]));
   const neighbors = new Map(intent.data.nodes.map((node) => [node.reference, new Set<string>()]));
   for (const edge of intent.data.edges) {
     degree.set(edge.source, (degree.get(edge.source) ?? 0) + 1);
@@ -944,6 +950,9 @@ function RelationshipGraph({
   const visibleIds = new Set(visibleNodes.map((node) => node.reference));
   const visibleEdges = intent.data.edges.filter(
     (edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target),
+  );
+  const manualEdges = visibleEdges.filter(
+    (edge) => edge.basis === "manual" && Boolean(edge.assertion_id),
   );
   const graphKey = [
     ...visibleNodes.map((node) => node.reference),
@@ -974,35 +983,68 @@ function RelationshipGraph({
   };
 
   const recordManualRelation = async () => {
-    if (selectedNodes.length !== 2 || !relationAnnotation.trim()) return;
+    if (!relationAnnotation.trim()) return;
+    if (relationCorrection?.mode !== "retract" && selectedNodes.length !== 2) return;
     setRelationBusy(true);
     setRelationMessage("");
     try {
-      const response = await fetch("/api/command", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          command: [
-            "analysis relation",
+      const command = relationCorrection?.mode === "retract"
+        ? [
+            "analysis relation-retract",
+            relationCorrection.edge.assertion_id,
+            "|",
+            relationAnnotation.trim(),
+          ].join(" ")
+        : [
+            relationCorrection?.mode === "revise"
+              ? `analysis relation-revise ${relationCorrection.edge.assertion_id}`
+              : "analysis relation",
             selectedNodes[0].reference,
             relationPredicate.trim().toLowerCase(),
             selectedNodes[1].reference,
             "|",
             relationAnnotation.trim(),
-          ].join(" "),
+          ].join(" ");
+      const response = await fetch("/api/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          command,
           workspace: intent.source_scope.workspace,
         }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Unable to record analyst relation");
-      const assertionId = result.data?.assertion_id ?? "recorded assertion";
-      setRelationMessage(`Recorded ${assertionId}. It is an analyst judgment, not observed evidence.`);
+      const assertionId = result.data?.replacement_assertion_id
+        ?? result.data?.assertion_id
+        ?? "recorded assertion";
+      setRelationMessage(
+        relationCorrection?.mode === "retract"
+          ? `Retracted ${result.data?.assertion_id ?? "analyst assertion"}; its history remains auditable.`
+          : relationCorrection?.mode === "revise"
+            ? `Recorded replacement ${assertionId}; the former judgment remains in correction history.`
+            : `Recorded ${assertionId}. It is an analyst judgment, not observed evidence.`,
+      );
       setRelationAnnotation("");
+      setRelationCorrection(null);
       await onDataChanged?.();
     } catch (reason) {
       setRelationMessage(reason instanceof Error ? reason.message : String(reason));
     } finally {
       setRelationBusy(false);
+    }
+  };
+
+  const beginRelationCorrection = (
+    mode: "revise" | "retract",
+    edge: VisualizationEdge,
+  ) => {
+    setRelationCorrection({ mode, edge });
+    setRelationMessage("");
+    setRelationAnnotation("");
+    if (mode === "revise") {
+      setSelectedRefs([edge.source, edge.target]);
+      setRelationPredicate(edge.relationship);
     }
   };
 
@@ -1357,6 +1399,26 @@ function RelationshipGraph({
         <span><i className="manual" /> Analyst assertion</span>
         <span>Force layout is limited to 48 nodes; drag, pan, zoom, filtering, and selection change presentation only. Shift, Command, or Control selects more than one node.</span>
       </div>
+      {manualEdges.length > 0 && (
+        <details className="manual-relation-review">
+          <summary>Review analyst relations · {manualEdges.length}</summary>
+          <div className="manual-relation-list">
+            {manualEdges.map((edge) => (
+              <article key={edge.assertion_id ?? `${edge.source}-${edge.target}`}>
+                <b>
+                  {shortLabel(labels[edge.source] ?? graphLabels.get(edge.source) ?? edge.source, 28)} {edge.relationship} {shortLabel(labels[edge.target] ?? graphLabels.get(edge.target) ?? edge.target, 28)}
+                </b>
+                <span>{edge.annotation || "No analyst annotation recorded."}</span>
+                <small>{edge.assertion_id}</small>
+                <div>
+                  <button onClick={() => beginRelationCorrection("revise", edge)}>REVISE</button>
+                  <button onClick={() => beginRelationCorrection("retract", edge)}>RETRACT</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </details>
+      )}
       {selectedRefs.length > 1 && (
         <div className="graph-multiselect" aria-live="polite">
           <b>{selectedRefs.length} NODES SELECTED</b>
@@ -1374,7 +1436,7 @@ function RelationshipGraph({
           <button onClick={() => setSelectedRefs([])}>CLEAR SELECTION</button>
         </div>
       )}
-      {selectedNodes.length === 2 && (
+      {selectedNodes.length === 2 && relationCorrection?.mode !== "retract" && (
         <form
           className="manual-graph-relation"
           onSubmit={(event) => {
@@ -1382,7 +1444,11 @@ function RelationshipGraph({
             void recordManualRelation();
           }}
         >
-          <b>ANNOTATED ANALYST RELATION</b>
+          <b>
+            {relationCorrection?.mode === "revise"
+              ? "REVISE ANALYST RELATION"
+              : "ANNOTATED ANALYST RELATION"}
+          </b>
           <span>
             {shortLabel(selectedNodes[0].label, 32)} → {shortLabel(selectedNodes[1].label, 32)}
           </span>
@@ -1407,11 +1473,44 @@ function RelationshipGraph({
             />
           </label>
           <button disabled={relationBusy || !relationAnnotation.trim()}>
-            RECORD JUDGMENT
+            {relationCorrection?.mode === "revise" ? "SAVE REVISION" : "RECORD JUDGMENT"}
           </button>
+          {relationCorrection && (
+            <button type="button" onClick={() => setRelationCorrection(null)}>CANCEL</button>
+          )}
           <small>
-            Direction follows selection order. This creates a visible analyst assertion, never an observed edge.
+            {relationCorrection?.mode === "revise"
+              ? "The former judgment remains auditable and the replacement becomes the active analyst assertion."
+              : "Direction follows selection order. This creates a visible analyst assertion, never an observed edge."}
           </small>
+          {relationMessage && <small role="status">{relationMessage}</small>}
+        </form>
+      )}
+      {relationCorrection?.mode === "retract" && (
+        <form
+          className="manual-graph-relation"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void recordManualRelation();
+          }}
+        >
+          <b>RETRACT ANALYST RELATION</b>
+          <span>
+            {shortLabel(labels[relationCorrection.edge.source] ?? graphLabels.get(relationCorrection.edge.source) ?? relationCorrection.edge.source, 28)} {relationCorrection.edge.relationship} {shortLabel(labels[relationCorrection.edge.target] ?? graphLabels.get(relationCorrection.edge.target) ?? relationCorrection.edge.target, 28)}
+          </span>
+          <label className="relation-annotation">
+            <span>Required retraction reason</span>
+            <input
+              value={relationAnnotation}
+              onChange={(event) => setRelationAnnotation(event.target.value)}
+              maxLength={1000}
+              placeholder="Why is this judgment being withdrawn?"
+              required
+            />
+          </label>
+          <button disabled={relationBusy || !relationAnnotation.trim()}>CONFIRM RETRACTION</button>
+          <button type="button" onClick={() => setRelationCorrection(null)}>CANCEL</button>
+          <small>The assertion is withdrawn from the active graph, never deleted from its audit history.</small>
           {relationMessage && <small role="status">{relationMessage}</small>}
         </form>
       )}

@@ -545,7 +545,17 @@ pre{font-size:12px;line-height:1.5}
 .manual-graph-relation input{min-width:0;padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--surface);color:var(--ink)}
 .manual-graph-relation button{padding:7px 9px;border:1px solid var(--line);background:var(--surface);color:var(--heading);cursor:pointer}
 .manual-graph-relation button:disabled{cursor:not-allowed;opacity:.48}
+.manual-relation-review{border:1px solid color-mix(in srgb,var(--line) 60%,transparent);background:color-mix(in srgb,var(--control) 86%,transparent)}
+.manual-relation-review>summary{padding:8px 10px;color:var(--heading);cursor:pointer;letter-spacing:.07em}
+.manual-relation-list{display:grid;gap:7px;padding:0 8px 8px}
+.manual-relation-list article{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:8px;border:1px solid color-mix(in srgb,var(--line) 42%,transparent);background:var(--surface)}
+.manual-relation-list b,.manual-relation-list span,.manual-relation-list small{min-width:0;overflow-wrap:anywhere}
+.manual-relation-list b{color:var(--heading)}
+.manual-relation-list span,.manual-relation-list small{grid-column:1;color:var(--dim)}
+.manual-relation-list article>div{grid-column:2;grid-row:1/4;display:flex;align-items:center;gap:5px}
+.manual-relation-list button{padding:6px 8px;border:1px solid var(--line);background:var(--control);color:var(--heading);cursor:pointer}
 @media (max-width:650px){.manual-graph-relation{grid-template-columns:1fr}.manual-graph-relation>b,.manual-graph-relation>span,.manual-graph-relation>small{grid-column:1}}
+@media (max-width:650px){.manual-relation-list article{grid-template-columns:1fr}.manual-relation-list article>div{grid-column:1;grid-row:auto}}
 .graph-layout-controls{display:flex;flex-wrap:wrap;align-items:end;gap:8px;padding:8px;border:1px solid color-mix(in srgb,var(--line) 34%,transparent);background:color-mix(in srgb,var(--panel) 78%,transparent)}
 .graph-layout-controls label{display:grid;gap:3px;min-width:160px}
 .graph-layout-controls label span{color:var(--dim);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}

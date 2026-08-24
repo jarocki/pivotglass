@@ -222,6 +222,11 @@ Enter a layout name and choose **SAVE VIEW** to keep the arrangement through
 refreshes and restarts. Saved views travel with workspace export and merge.
 Loading a view reports graph changes; it never restores old evidence or edges.
 
+Select two nodes to add an annotated analyst judgment. Use **Review analyst
+relations** to revise or retract one later. Pivotglass keeps the old assertion
+and the stated correction reason in the investigation history; only active
+judgments appear as manual graph edges.
+
 > The graph is useful because it refuses to connect what the evidence does not.
 
 ![Evidence-backed relationship graph](media/pivotglass-graph-v0.7.0.png)

@@ -275,6 +275,8 @@ class VisualizationEdge(BaseModel):
     relationship: str
     basis: Literal["explicit", "property", "manual"]
     provenance: str
+    assertion_id: str | None = None
+    annotation: str | None = None
 
 
 class VisualizationData(BaseModel):
@@ -1460,6 +1462,8 @@ def relationship_graph_intent(
                     f"Analyst assertion {assertion.get('id')}: "
                     f"{assertion.get('statement') or 'No annotation'}"
                 ),
+                assertion_id=str(assertion["id"]),
+                annotation=str(assertion.get("statement") or ""),
             )
         )
     edges_tuple = tuple(edges)
@@ -1471,6 +1475,8 @@ def relationship_graph_intent(
             "relationship": edge.relationship,
             "basis": edge.basis,
             "provenance": edge.provenance,
+            "assertion_id": edge.assertion_id,
+            "annotation": edge.annotation,
         }
         for edge in edges_tuple
     )

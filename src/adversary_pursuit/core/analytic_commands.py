@@ -46,6 +46,8 @@ ANALYSIS_USAGE = (
     "assertion <inferred|assumed|judgment> <text>|"
     "claim <inferred|assumed|judgment> <subject-ref> <predicate> <value> | <statement>|"
     "relation <subject-ref> <predicate> <object-ref> | <annotation>|"
+    "relation-retract <assertion-id> | <reason>|"
+    "relation-revise <assertion-id> <subject-ref> <predicate> <object-ref> | <annotation>|"
     "assumption <text>|"
     "hypothesis <question-id> <text>|"
     "prediction|signpost|collect|stop|limitation|gap <text>|"
@@ -162,25 +164,9 @@ def execute_analysis_command(args: tuple[str, ...], workspace_manager: Any) -> d
         annotation = " ".join(args[4:]).strip()
         if not annotation.startswith("|") or not annotation.removeprefix("|").strip():
             raise ValueError("Separate the relation and required analyst annotation with |.")
-        subject_ref = args[1]
-        predicate = args[2].casefold()
-        object_ref = args[3]
-        if subject_ref == object_ref:
-            raise ValueError("A manual graph relation requires two different entities.")
-        if re.fullmatch(r"[a-z][a-z0-9-]{0,63}", predicate) is None:
-            raise ValueError(
-                "Relation predicate must use 1-64 lowercase letters, digits, or hyphens."
-            )
-        entity_refs = {
-            str(item.get("id"))
-            for item in workspace_manager.get_stix_objects()
-            if item.get("id")
-        }
-        missing = [ref for ref in (subject_ref, object_ref) if ref not in entity_refs]
-        if missing:
-            raise ValueError(
-                "Manual graph relation references unknown entities: " + ", ".join(missing)
-            )
+        subject_ref, predicate, object_ref = _validated_manual_relation(
+            args[1], args[2], args[3], workspace_manager
+        )
         statement = annotation.removeprefix("|").strip()
         assertion_id = ledger.create_assertion(
             statement,
@@ -201,6 +187,39 @@ def execute_analysis_command(args: tuple[str, ...], workspace_manager: Any) -> d
                 "truth_kind": "analyst_assertion",
             },
         }
+    if action == "relation-retract" and len(args) >= 4:
+        reason = " ".join(args[2:]).strip()
+        if not reason.startswith("|") or not reason.removeprefix("|").strip():
+            raise ValueError("Separate the assertion ID and required retraction reason with |.")
+        data = ledger.retract_manual_graph_relation(
+            args[1],
+            reason.removeprefix("|").strip(),
+        )
+        data["truth_kind"] = "analyst_assertion_correction"
+        return {"title": "Analyst graph relation retracted", "data": data}
+    if action == "relation-revise" and len(args) >= 7:
+        annotation = " ".join(args[5:]).strip()
+        if not annotation.startswith("|") or not annotation.removeprefix("|").strip():
+            raise ValueError("Separate the revised relation and required annotation with |.")
+        subject_ref, predicate, object_ref = _validated_manual_relation(
+            args[2], args[3], args[4], workspace_manager
+        )
+        data = ledger.supersede_manual_graph_relation(
+            args[1],
+            annotation.removeprefix("|").strip(),
+            subject_ref=subject_ref,
+            predicate=predicate,
+            object_ref=object_ref,
+        )
+        data.update(
+            {
+                "subject_ref": subject_ref,
+                "predicate": predicate,
+                "object_ref": object_ref,
+                "truth_kind": "analyst_assertion_correction",
+            }
+        )
+        return {"title": "Analyst graph relation revised", "data": data}
     if action == "hypothesis" and len(args) >= 3:
         hypothesis_id = ledger.create_hypothesis(args[1], " ".join(args[2:]))
         return {
@@ -412,6 +431,28 @@ def _enum_value(enum_type: type, value: str, label: str):
     except ValueError as exc:
         choices = ", ".join(item.value for item in enum_type)
         raise ValueError(f"Unknown {label}: {value}. Choose: {choices}.") from exc
+
+
+def _validated_manual_relation(
+    subject_ref: str,
+    predicate_value: str,
+    object_ref: str,
+    workspace_manager: Any,
+) -> tuple[str, str, str]:
+    predicate = predicate_value.casefold()
+    if subject_ref == object_ref:
+        raise ValueError("A manual graph relation requires two different entities.")
+    if re.fullmatch(r"[a-z][a-z0-9-]{0,63}", predicate) is None:
+        raise ValueError("Relation predicate must use 1-64 lowercase letters, digits, or hyphens.")
+    entity_refs = {
+        str(item.get("id"))
+        for item in workspace_manager.get_stix_objects()
+        if item.get("id")
+    }
+    missing = [ref for ref in (subject_ref, object_ref) if ref not in entity_refs]
+    if missing:
+        raise ValueError("Manual graph relation references unknown entities: " + ", ".join(missing))
+    return subject_ref, predicate, object_ref
 
 
 def _active_investigation_id(

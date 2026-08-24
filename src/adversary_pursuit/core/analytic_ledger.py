@@ -296,6 +296,109 @@ class AnalyticLedger:
             session.commit()
         return assertion_id
 
+    def retract_manual_graph_relation(
+        self,
+        assertion_id: str,
+        reason: str,
+        *,
+        decided_by: AuthorKind = AuthorKind.HUMAN,
+    ) -> dict[str, str | None]:
+        """Withdraw a human graph judgment without deleting its audit trail."""
+
+        if decided_by is not AuthorKind.HUMAN:
+            raise ValueError("Only an explicit human action may retract a graph relation.")
+        cleaned_reason = _required(reason, "retraction reason")
+        with self._workspace.get_session() as session:
+            assertion, lifecycle = self._manual_graph_relation_records(session, assertion_id)
+            now = datetime.now(timezone.utc)
+            assertion.status = "retracted"
+            assertion.updated_at = now
+            self._append_manual_relation_history(
+                lifecycle,
+                action="retracted",
+                reason=cleaned_reason,
+                decided_by=decided_by,
+                occurred_at=now,
+            )
+            lifecycle.status = LifecycleItemStatus.RESOLVED.value
+            lifecycle.analyst_disposition = AnalystDisposition.REVISED.value
+            lifecycle.resolved_at = now
+            lifecycle.updated_at = now
+            session.commit()
+        return {
+            "assertion_id": assertion_id,
+            "status": "retracted",
+            "replacement_assertion_id": None,
+        }
+
+    def supersede_manual_graph_relation(
+        self,
+        assertion_id: str,
+        statement: str,
+        *,
+        subject_ref: str,
+        predicate: str,
+        object_ref: str,
+        decided_by: AuthorKind = AuthorKind.HUMAN,
+    ) -> dict[str, str]:
+        """Replace a human graph judgment while retaining the former assertion."""
+
+        if decided_by is not AuthorKind.HUMAN:
+            raise ValueError("Only an explicit human action may revise a graph relation.")
+        cleaned_statement = _required(statement, "revision annotation")
+        with self._workspace.get_session() as session:
+            assertion, lifecycle = self._manual_graph_relation_records(session, assertion_id)
+            investigation = session.get(AnalyticInvestigation, lifecycle.investigation_id)
+            if investigation is None:
+                raise ValueError(
+                    f"Manual graph relation {assertion_id} references a missing investigation."
+                )
+            replacement_id = _new_id("assertion")
+            now = datetime.now(timezone.utc)
+            replacement = AnalyticAssertion(
+                id=replacement_id,
+                statement=cleaned_statement,
+                assertion_type=AssertionType.JUDGMENT.value,
+                status="active",
+                subject_ref=subject_ref,
+                predicate=predicate,
+                object_ref=object_ref,
+                author_kind=AuthorKind.HUMAN.value,
+                method="manual-graph-relation",
+            )
+            session.add(replacement)
+            session.flush()
+            self._link_lifecycle_item(
+                session,
+                investigation=investigation,
+                item_type=LifecycleItemType.ASSERTION,
+                record_kind="assertion",
+                record_id=replacement_id,
+                statement=cleaned_statement,
+                author_kind=AuthorKind.HUMAN,
+                criteria={"supersedes_assertion_id": assertion_id},
+            )
+            assertion.status = "superseded"
+            assertion.updated_at = now
+            self._append_manual_relation_history(
+                lifecycle,
+                action="superseded",
+                reason=cleaned_statement,
+                decided_by=decided_by,
+                occurred_at=now,
+                replacement_assertion_id=replacement_id,
+            )
+            lifecycle.status = LifecycleItemStatus.RESOLVED.value
+            lifecycle.analyst_disposition = AnalystDisposition.REVISED.value
+            lifecycle.resolved_at = now
+            lifecycle.updated_at = now
+            session.commit()
+        return {
+            "assertion_id": assertion_id,
+            "status": "superseded",
+            "replacement_assertion_id": replacement_id,
+        }
+
     def create_hypothesis(
         self,
         question_id: str,
@@ -1318,6 +1421,57 @@ class AnalyticLedger:
         session.add(row)
         session.flush()
         return row
+
+    @staticmethod
+    def _manual_graph_relation_records(
+        session: Any,
+        assertion_id: str,
+    ) -> tuple[AnalyticAssertion, AnalyticLifecycleItem]:
+        assertion = session.get(AnalyticAssertion, assertion_id)
+        if assertion is None:
+            raise ValueError(f"Unknown analytic assertion: {assertion_id}")
+        if (
+            assertion.method != "manual-graph-relation"
+            or assertion.author_kind != AuthorKind.HUMAN.value
+        ):
+            raise ValueError("Only a human-authored manual graph relation may be corrected here.")
+        if assertion.status != "active":
+            raise ValueError(
+                f"Manual graph relation {assertion_id} is already {assertion.status}."
+            )
+        lifecycle = session.execute(
+            select(AnalyticLifecycleItem).where(
+                AnalyticLifecycleItem.record_kind == "assertion",
+                AnalyticLifecycleItem.record_id == assertion_id,
+            )
+        ).scalar_one_or_none()
+        if lifecycle is None:
+            raise ValueError(f"Manual graph relation {assertion_id} has no lifecycle record.")
+        return assertion, lifecycle
+
+    @staticmethod
+    def _append_manual_relation_history(
+        lifecycle: AnalyticLifecycleItem,
+        *,
+        action: str,
+        reason: str,
+        decided_by: AuthorKind,
+        occurred_at: datetime,
+        replacement_assertion_id: str | None = None,
+    ) -> None:
+        criteria = dict(lifecycle.criteria or {})
+        history = list(criteria.get("relation_history") or [])
+        history.append(
+            {
+                "action": action,
+                "reason": reason,
+                "decided_by": decided_by.value,
+                "occurred_at": occurred_at.isoformat(),
+                "replacement_assertion_id": replacement_assertion_id,
+            }
+        )
+        criteria["relation_history"] = history
+        lifecycle.criteria = criteria
 
     def _link_lifecycle_item(
         self,
