@@ -12,6 +12,7 @@ from adversary_pursuit.core.graph_repository import WorkspaceGraphRepository
 from adversary_pursuit.core.workspace import WorkspaceManager
 from adversary_pursuit.integrations.scot_publication import (
     build_scot_publication_manifest,
+    compile_scot_write_plan,
     validate_scot_pivot_request,
 )
 from adversary_pursuit.integrations.synapse_graph import (
@@ -92,6 +93,75 @@ def test_scot_publication_is_deterministic_reviewable_and_relationship_complete(
     )
     assert len(first.connections) == len(snapshot.edges)
     assert all(connection.provenance_refs for connection in first.connections)
+
+
+def test_scot_write_plan_is_exact_ordered_review_only_and_read_back(tmp_path):
+    snapshot = WorkspaceGraphRepository(_workspace(tmp_path)).snapshot()
+    manifest = build_scot_publication_manifest(snapshot)
+
+    first = compile_scot_write_plan(manifest, owner="analyst@example.test")
+    second = compile_scot_write_plan(manifest, owner=" analyst@example.test ")
+
+    assert first == second
+    assert first.approval_required is True
+    assert first.execution_enabled is False
+    assert first.readback_required is True
+    assert first.manifest_digest_sha256 == manifest.digest_sha256
+    writes = [operation for operation in first.operations if operation.phase == "write"]
+    readbacks = [operation for operation in first.operations if operation.phase == "readback"]
+    assert len(readbacks) == len(writes)
+    assert writes[0].path_template == "/event/"
+    assert writes[0].body == {
+        "owner": "analyst@example.test",
+        "tlp": "unset",
+        "status": "open",
+        "subject": "Pivotglass hunt: case",
+        "view_count": 0,
+        "message_id": manifest.publication_id,
+    }
+    assert {operation.path_template for operation in writes} >= {
+        "/event/",
+        "/entity/",
+        "/entry/",
+        "/tag/tag_by_name",
+        "/link/",
+    }
+    seen: set[str] = set()
+    for operation in first.operations:
+        assert set(operation.depends_on) <= seen
+        seen.add(operation.operation_id)
+    links = [operation for operation in writes if operation.path_template == "/link/"]
+    assert len(links) == len(manifest.connections)
+    assert all("truth_kind" in operation.body["context"] for operation in links)
+    assert all(operation.method == "GET" and operation.body is None for operation in readbacks)
+
+
+def test_scot_write_plan_escapes_entry_html_and_rejects_invalid_owner(tmp_path):
+    snapshot = WorkspaceGraphRepository(_workspace(tmp_path)).snapshot()
+    manifest = build_scot_publication_manifest(snapshot)
+    entry_index = next(
+        index for index, item in enumerate(manifest.items) if item.object_type == "entry"
+    )
+    entry = manifest.items[entry_index]
+    items = list(manifest.items)
+    items[entry_index] = entry.model_copy(
+        update={"payload": {**entry.payload, "plain_text": "<script>alert(1)</script>"}}
+    )
+    hostile_manifest = manifest.model_copy(update={"items": tuple(items)})
+
+    plan = compile_scot_write_plan(hostile_manifest, owner="analyst")
+    entry_write = next(
+        operation
+        for operation in plan.operations
+        if operation.phase == "write"
+        and operation.client_ref == entry.client_ref
+        and operation.path_template == "/entry/"
+    )
+
+    assert "<script>" not in entry_write.body["entry_data"]["html"]
+    assert "&lt;script&gt;" in entry_write.body["entry_data"]["html"]
+    with pytest.raises(ValueError):
+        compile_scot_write_plan(manifest, owner="\n")
 
 
 def test_scot_pivot_request_validates_but_does_not_enqueue():

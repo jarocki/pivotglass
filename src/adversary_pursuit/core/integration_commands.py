@@ -14,6 +14,7 @@ from adversary_pursuit.integrations.roast import RoastAdapter
 from adversary_pursuit.integrations.scot import ScotMcpAdapter
 from adversary_pursuit.integrations.scot_publication import (
     build_scot_publication_manifest,
+    compile_scot_write_plan,
     validate_scot_pivot_request,
 )
 from adversary_pursuit.integrations.synapse import SynapseMcpAdapter
@@ -112,6 +113,13 @@ def _scot(
         snapshot = WorkspaceGraphRepository(_require_workspace(workspace_mgr)).snapshot()
         data = build_scot_publication_manifest(snapshot).model_dump(mode="json")
         return {"title": "SCOT4 hunt publication preview", "data": data}
+    if action == "publish-plan" and len(args) >= 2:
+        snapshot = WorkspaceGraphRepository(_require_workspace(workspace_mgr)).snapshot()
+        manifest = build_scot_publication_manifest(snapshot)
+        data = compile_scot_write_plan(manifest, owner=" ".join(args[1:])).model_dump(
+            mode="json"
+        )
+        return {"title": "SCOT4 review-only write plan", "data": data}
     if action == "pivot-preview" and len(args) >= 4:
         structured = " ".join(args[1:]).split(" | ", 2)
         if len(structured) != 3:
@@ -150,7 +158,8 @@ def _scot(
         raise ValueError(
             "usage: integration scot status|get <type> <id>|search <type> [filters-json]|"
             "entries <type> <id> [plain|flaired|all]|entities <type> <id>|"
-            "publish-preview|pivot-preview <type> <id> <indicator> | <requester> | <reason>"
+            "publish-preview|publish-plan <owner>|"
+            "pivot-preview <type> <id> <indicator> | <requester> | <reason>"
         )
     return {"title": "Sandia SCOT4 (read-only)", "data": data}
 

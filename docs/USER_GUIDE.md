@@ -392,6 +392,7 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `integration synapse query <Storm>` | Run one validated, budgeted Storm query with read-only enforcement and an audit receipt |
 | `integration scot status` | Connect to the configured SCOT4 MCP endpoint and list visible tools |
 | `integration scot publish-preview` | Compile the same governed graph into a reviewable SCOT event/entity/entry publication manifest without writing |
+| `integration scot publish-plan <owner>` | Compile the manifest into exact, dependency-ordered SCOT4 REST writes and required readbacks; execution remains disabled |
 | `integration scot pivot-preview <type> <id> <indicator> \| <requester> \| <reason>` | Validate a SCOT-originated pivot request without enqueueing it |
 | `integration scot get <type> <id>` | Preview one SCOT4 object with remote ID, revision, permissions, and provenance |
 | `integration scot search <type> [filters-json]` | Run a bounded, paginated SCOT4 search |

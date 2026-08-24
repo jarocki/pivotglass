@@ -386,8 +386,8 @@ class WebCockpitService:
                 "purpose": "Preview governed graph state or run explicit read-only Synapse MCP operations",
             },
             {
-                "command": "integration scot publish-preview|pivot-preview|status|get|search|entries|entities",
-                "purpose": "Preview a hunt publication or bounded SCOT4 reads without unapproved writes",
+                "command": "integration scot publish-preview|publish-plan|pivot-preview|status|get|search|entries|entities",
+                "purpose": "Preview a hunt publication, compile exact review-only writes, or perform bounded SCOT4 reads",
             },
             {
                 "command": "integration roast status|decode|analyze",

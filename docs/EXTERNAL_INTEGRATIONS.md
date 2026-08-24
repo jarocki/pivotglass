@@ -141,6 +141,7 @@ integration synapse lookup <STIX-type> <indicator>
 integration synapse query <Storm query>
 integration scot status
 integration scot publish-preview
+integration scot publish-plan <owner>
 integration scot pivot-preview <type> <id> <indicator> | <requester> | <reason>
 integration scot get <object-type> <object-id>
 integration scot search <object-type> [filters-json]
@@ -179,6 +180,15 @@ It always reports `approval_required=true` and `published=false`. The preview
 does not require a SCOT connection because it is a local transformation of
 authoritative workspace data.
 
+`scot publish-plan <owner>` takes that manifest one step farther without
+connecting to SCOT. It compiles the preview into the exact SCOT4 event, entity,
+entry, tag, and typed-link REST operations, orders their dependencies, uses
+explicit result-ID placeholders, and adds a required readback after every
+mutation. The plan reports `approval_required=true`,
+`execution_enabled=false`, and `readback_required=true`: it is a review
+artifact, not permission to publish. Entry text is HTML-escaped before it
+enters the request body.
+
 `scot pivot-preview` validates an indicator, SCOT parent reference, requester,
 and reason. Its disposition remains `preview`; it does not enqueue enrichment.
 This prevents content displayed in SCOT from becoming an instruction merely by
@@ -212,7 +222,8 @@ stopped by a budget.
 ## Deliberately unfinished
 
 The current slices establish transport, repository snapshots, Synapse desired
-state and parity contracts, SCOT publication previews, pivot validation,
+state and parity contracts, SCOT publication previews and exact review-only
+write plans, pivot validation,
 receipts, go-roast OAST graph proposals, Nucleotide lookup/fingerprint
 previews, and protocol fixtures.
 Before either integration is release-complete, it still needs:
@@ -221,9 +232,8 @@ Before either integration is release-complete, it still needs:
 - a deployed and versioned Synapse model package for the proposed custom forms;
 - backup-first migration, shadow comparison, recovery, and cutover gates;
 - live Synapse relationship/time/provenance round-trip fixtures;
-- a versioned compiler from the SCOT manifest to its REST write operations;
-- SCOT outbound previews, explicit publication approval, readback, and conflict
-  reconciliation;
+- an approval-gated SCOT executor with durable per-operation receipts;
+- live SCOT readback, lossless reconciliation, and conflict disposition;
 - SCOT-originated pivot requests routed through Pivotglass validation and the
   enrichment queue.
 

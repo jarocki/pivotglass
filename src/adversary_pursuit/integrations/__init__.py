@@ -11,6 +11,7 @@ from adversary_pursuit.integrations.nucleotide import (
     NucleotideLookupPreview,
 )
 from adversary_pursuit.integrations.roast import RoastDecodePreview
+from adversary_pursuit.integrations.scot_publication import ScotWritePlan
 
 __all__ = [
     "ExternalReference",
@@ -20,4 +21,5 @@ __all__ = [
     "NucleotideLookupPreview",
     "QueryReceipt",
     "RoastDecodePreview",
+    "ScotWritePlan",
 ]

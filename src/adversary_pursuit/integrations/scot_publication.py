@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 from datetime import datetime
 from typing import Any, Literal
@@ -56,6 +57,42 @@ class ScotPublicationManifest(BaseModel):
     digest_sha256: str
     approval_required: Literal[True] = True
     published: Literal[False] = False
+
+
+class ScotWriteOperation(BaseModel):
+    """One exact SCOT4 REST operation in a non-executing publication plan."""
+
+    model_config = ConfigDict(frozen=True)
+
+    operation_id: str
+    phase: Literal["write", "readback"]
+    method: Literal["GET", "POST"]
+    path_template: str
+    body: dict[str, Any] | None = None
+    depends_on: tuple[str, ...] = ()
+    captures: tuple[str, ...] = ()
+    expected_status: tuple[int, ...]
+    client_ref: str | None = None
+    description: str
+
+
+class ScotWritePlan(BaseModel):
+    """Reviewable SCOT4 mutation DAG; intentionally cannot execute itself."""
+
+    model_config = ConfigDict(frozen=True)
+
+    schema_version: Literal["pivotglass-scot-write-plan-1.0"] = (
+        "pivotglass-scot-write-plan-1.0"
+    )
+    publication_id: str
+    workspace: str
+    manifest_digest_sha256: str
+    owner: str
+    operations: tuple[ScotWriteOperation, ...]
+    digest_sha256: str
+    approval_required: Literal[True] = True
+    execution_enabled: Literal[False] = False
+    readback_required: Literal[True] = True
 
 
 class ScotPivotRequest(BaseModel):
@@ -216,6 +253,229 @@ def build_scot_publication_manifest(snapshot: GraphRepositorySnapshot) -> ScotPu
     )
 
 
+def compile_scot_write_plan(
+    manifest: ScotPublicationManifest,
+    *,
+    owner: str,
+) -> ScotWritePlan:
+    """Compile a manifest into exact SCOT4 REST writes plus required readbacks.
+
+    Result references are represented as ``{"$result": {"operation_id": ..., "field":
+    "id"}}`` in request bodies and ``{result:<operation-id>:id}`` in paths. The
+    compiler does not resolve those references, authenticate, or send requests.
+    """
+    normalized_owner = owner.strip()
+    if not normalized_owner or len(normalized_owner) > 254:
+        raise ValueError("SCOT publication owner must be between 1 and 254 characters")
+    if any(ord(character) < 32 for character in normalized_owner):
+        raise ValueError("SCOT publication owner contains unsupported control characters")
+
+    events = [item for item in manifest.items if item.object_type == "event"]
+    if len(events) != 1:
+        raise ValueError("SCOT publication manifest must contain exactly one event")
+    event = events[0]
+    event_operation_id = _operation_id("create", event.client_ref)
+    operations: list[ScotWriteOperation] = [
+        ScotWriteOperation(
+            operation_id=event_operation_id,
+            phase="write",
+            method="POST",
+            path_template="/event/",
+            body={
+                "owner": normalized_owner,
+                "tlp": "unset",
+                "status": event.payload.get("status", "open"),
+                "subject": event.payload.get("subject"),
+                "view_count": 0,
+                "message_id": manifest.publication_id,
+            },
+            captures=("id",),
+            expected_status=(200,),
+            client_ref=event.client_ref,
+            description="Create the SCOT4 event that owns this Pivotglass publication.",
+        )
+    ]
+    create_operation_by_ref = {event.client_ref: event_operation_id}
+
+    for item in sorted(
+        (candidate for candidate in manifest.items if candidate.object_type != "event"),
+        key=lambda candidate: candidate.client_ref,
+    ):
+        operation_id = _operation_id("create", item.client_ref)
+        parent_ref = item.parent_client_ref or event.client_ref
+        parent_operation = create_operation_by_ref.get(parent_ref)
+        if parent_operation is None:
+            raise ValueError(f"SCOT publication item has unknown parent: {parent_ref}")
+        if item.object_type == "entity":
+            body = {
+                "entity": {
+                    "status": "tracked",
+                    "value": item.payload.get("value"),
+                    "type_id": None,
+                    "data_ver": manifest.schema_version,
+                    "data": {
+                        "pivotglass": item.payload.get("pivotglass", {}),
+                        "provenance_refs": list(item.provenance_refs),
+                    },
+                    "type_name": item.payload.get("type"),
+                    "classes": [],
+                },
+                "create_flair_regex": False,
+                "target_type": "event",
+                "target_id": _result_reference(parent_operation),
+            }
+            path = "/entity/"
+        elif item.object_type == "entry":
+            plain_text = str(item.payload.get("plain_text") or item.payload.get("title") or "")
+            body = {
+                "owner": normalized_owner,
+                "tlp": "unset",
+                "parent_entry_id": None,
+                "target_type": "event",
+                "target_id": _result_reference(parent_operation),
+                "entry_class": "entry",
+                "entry_data_ver": manifest.schema_version,
+                "entry_data": {
+                    "html": f"<pre>{html.escape(plain_text)}</pre>",
+                    "pivotglass": item.payload.get("pivotglass", {}),
+                    "provenance_refs": list(item.provenance_refs),
+                },
+                "parsed": False,
+            }
+            path = "/entry/"
+        else:  # pragma: no cover - constrained by ScotPublicationItem
+            raise ValueError(f"unsupported SCOT publication object: {item.object_type}")
+        operations.append(
+            ScotWriteOperation(
+                operation_id=operation_id,
+                phase="write",
+                method="POST",
+                path_template=path,
+                body=body,
+                depends_on=(parent_operation,),
+                captures=("id",),
+                expected_status=(200,),
+                client_ref=item.client_ref,
+                description=f"Create and attach SCOT4 {item.object_type} {item.client_ref}.",
+            )
+        )
+        create_operation_by_ref[item.client_ref] = operation_id
+
+    for item in sorted(manifest.items, key=lambda candidate: candidate.client_ref):
+        create_operation = create_operation_by_ref[item.client_ref]
+        for tag in sorted(set(item.payload.get("tags", []))):
+            tag_operation_id = _operation_id("tag", item.client_ref, str(tag))
+            operations.append(
+                ScotWriteOperation(
+                    operation_id=tag_operation_id,
+                    phase="write",
+                    method="POST",
+                    path_template="/tag/tag_by_name",
+                    body={
+                        "target_type": item.object_type,
+                        "target_id": _result_reference(create_operation),
+                        "tag_name": str(tag),
+                        "tag_description": "Assigned by an approved Pivotglass publication plan.",
+                    },
+                    depends_on=(create_operation,),
+                    expected_status=(200,),
+                    client_ref=item.client_ref,
+                    description=f"Assign tag {tag!r} to {item.client_ref}.",
+                )
+            )
+
+    for connection in manifest.connections:
+        source_operation = create_operation_by_ref.get(connection.source_client_ref)
+        target_operation = create_operation_by_ref.get(connection.target_client_ref)
+        if source_operation is None or target_operation is None:
+            raise ValueError("SCOT connection references an unknown publication item")
+        source_item = _item_by_ref(manifest, connection.source_client_ref)
+        target_item = _item_by_ref(manifest, connection.target_client_ref)
+        link_operation_id = _operation_id(
+            "link",
+            connection.source_client_ref,
+            connection.target_client_ref,
+            connection.relationship,
+        )
+        operations.append(
+            ScotWriteOperation(
+                operation_id=link_operation_id,
+                phase="write",
+                method="POST",
+                path_template="/link/",
+                body={
+                    "v0_type": source_item.object_type,
+                    "v0_id": _result_reference(source_operation),
+                    "v1_type": target_item.object_type,
+                    "v1_id": _result_reference(target_operation),
+                    "weight": None,
+                    "context": json.dumps(
+                        {
+                            "relationship": connection.relationship,
+                            "truth_kind": connection.truth_kind,
+                            "provenance_refs": list(connection.provenance_refs),
+                            "rationale": connection.rationale,
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+                depends_on=tuple(sorted((source_operation, target_operation))),
+                captures=("id",),
+                expected_status=(200,),
+                description=(
+                    f"Create typed SCOT4 link {connection.relationship!r} while retaining "
+                    f"its {connection.truth_kind!r} truth class."
+                ),
+            )
+        )
+
+    write_operations = tuple(operations)
+    for operation in write_operations:
+        if operation.path_template == "/link/":
+            object_type = "link"
+            result_operation = operation.operation_id
+        elif operation.path_template == "/tag/tag_by_name":
+            if operation.client_ref is None:  # pragma: no cover - compiler invariant
+                raise ValueError("SCOT tag operation is missing its target reference")
+            object_type = _item_by_ref(manifest, operation.client_ref).object_type
+            result_operation = create_operation_by_ref[operation.client_ref]
+        elif operation.client_ref is not None and "id" in operation.captures:
+            object_type = _item_by_ref(manifest, operation.client_ref).object_type
+            result_operation = operation.operation_id
+        else:
+            continue
+        operations.append(
+            ScotWriteOperation(
+                operation_id=_operation_id("readback", operation.operation_id),
+                phase="readback",
+                method="GET",
+                path_template=f"/{object_type}/{{result:{result_operation}:id}}",
+                depends_on=(operation.operation_id,),
+                expected_status=(200,),
+                client_ref=operation.client_ref,
+                description=f"Read back and reconcile the result of {operation.operation_id}.",
+            )
+        )
+
+    content = {
+        "schema_version": "pivotglass-scot-write-plan-1.0",
+        "publication_id": manifest.publication_id,
+        "workspace": manifest.workspace,
+        "manifest_digest_sha256": manifest.digest_sha256,
+        "owner": normalized_owner,
+        "operations": [operation.model_dump(mode="json") for operation in operations],
+    }
+    return ScotWritePlan(
+        publication_id=manifest.publication_id,
+        workspace=manifest.workspace,
+        manifest_digest_sha256=manifest.digest_sha256,
+        owner=normalized_owner,
+        operations=tuple(operations),
+        digest_sha256=_digest(content),
+    )
+
+
 def validate_scot_pivot_request(
     *,
     workspace: str,
@@ -265,3 +525,21 @@ def _digest(value: Any) -> str:
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode()
     ).hexdigest()
+
+
+def _operation_id(action: str, *parts: str) -> str:
+    return f"scot-{action}-{_digest(parts)[:24]}"
+
+
+def _result_reference(operation_id: str) -> dict[str, dict[str, str]]:
+    return {"$result": {"operation_id": operation_id, "field": "id"}}
+
+
+def _item_by_ref(
+    manifest: ScotPublicationManifest,
+    client_ref: str,
+) -> ScotPublicationItem:
+    for item in manifest.items:
+        if item.client_ref == client_ref:
+            return item
+    raise ValueError(f"SCOT publication references unknown item: {client_ref}")

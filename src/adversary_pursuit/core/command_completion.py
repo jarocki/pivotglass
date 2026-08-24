@@ -178,6 +178,7 @@ def command_completions(
             "synapse query ",
             "scot status",
             "scot publish-preview",
+            "scot publish-plan ",
             "scot pivot-preview ",
             "scot get ",
             "scot search ",

@@ -61,6 +61,7 @@ def test_web_previews_synapse_shadow_and_scot_publication_from_same_workspace(tm
 
     synapse = service.execute_command("integration synapse shadow-preview")
     scot = service.execute_command("integration scot publish-preview")
+    scot_plan = service.execute_command("integration scot publish-plan analyst")
 
     assert synapse["data"]["source_snapshot_sha256"] == scot["data"][
         "source_snapshot_sha256"
@@ -68,6 +69,8 @@ def test_web_previews_synapse_shadow_and_scot_publication_from_same_workspace(tm
     assert synapse["data"]["nodes"]
     assert scot["data"]["approval_required"] is True
     assert scot["data"]["published"] is False
+    assert scot_plan["data"]["manifest_digest_sha256"] == scot["data"]["digest_sha256"]
+    assert scot_plan["data"]["execution_enabled"] is False
     assert service._runner is None
 
 
@@ -78,3 +81,4 @@ def test_integration_completions_cover_read_operations():
     assert "integration synapse shadow-preview" in command_completions("integration synapse s")
     assert "integration scot search " in command_completions("integration scot s")
     assert "integration scot publish-preview" in command_completions("integration scot p")
+    assert "integration scot publish-plan " in command_completions("integration scot p")
