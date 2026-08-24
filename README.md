@@ -229,6 +229,12 @@ remain visibly external-derived analysis and never become observations merely
 because an analyst accepts them. A second explicit materialization action can
 create a typed inferred assertion with its complete proposal lineage; it still
 does not manufacture observed evidence or an observed relationship.
+When a decoded OAST domain exactly matches immutable workspace observations,
+the proposal cites those observations and the epistemic graph exposes the
+provenance links. `integration roast correlations` groups shared fragments,
+counts provenance diversity, and flags incompatible decoder outputs for human
+review without creating an identity claim, a contradiction in observed
+evidence, or a confidence score.
 Persisted Nucleotide fingerprints can also be compared longitudinally through
 Nucleotide's own field-by-field diff contract, with lookup-corpus drift made
 explicit and no parallel confidence score created.

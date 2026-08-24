@@ -394,6 +394,74 @@ json.dump([{
     )
 
 
+def test_roast_links_exact_observations_and_surfaces_decoder_conflicts(tmp_path):
+    domain = "c58bduhe008dovpvhvugcfemp9yyyyyyn.oast.pro"
+    ctx = ToolContext(config_dir=tmp_path / "config", workspace_dir=tmp_path / "workspaces")
+    for module, dependence_group in (("feed/alpha", "provider-a"), ("feed/beta", "provider-b")):
+        ctx.workspace_mgr.store_stix_objects(
+            [{"type": "domain-name", "value": domain}],
+            module_name=module,
+            target=domain,
+            source_dependence_group=dependence_group,
+        )
+    observations = ctx.workspace_mgr.get_observations()
+
+    first_tool = _tool(
+        tmp_path,
+        "import json, sys\n"
+        f"json.dump([{{'original': '{domain}', 'machine_id': 'aa:00:01', "
+        "'valid': True}], sys.stdout)\n",
+    )
+    ctx.config_mgr.set("integrations.go_roast_executable", first_tool)
+    first = execute_integration_command(
+        ("roast", "record", domain),
+        ctx.config_mgr,
+        ctx.workspace_mgr,
+    )["data"]["recorded"]
+
+    assert len(first) == 1
+    assert first[0]["observation_refs"] == [row["id"] for row in observations]
+    proposal = AnalyticLedger(ctx.workspace_mgr).external_analysis_proposals()[0]
+    assert [item["kind"] for item in proposal["evidence_refs"]].count("observation") == 2
+    graph = build_investigation_graph(ctx.workspace_mgr)
+    assert sum(
+        edge.source == f"epistemic:external_analysis:{first[0]['proposal_id']}"
+        and edge.relationship == "derived-from"
+        for edge in graph.edges
+    ) == 2
+
+    second_tool = tmp_path / "fake-tool-second"
+    second_tool.write_text(
+        f"#!{sys.executable}\n"
+        "import json, sys\n"
+        f"json.dump([{{'original': '{domain}', 'machine_id': 'bb:00:02', "
+        "'valid': True}], sys.stdout)\n"
+    )
+    second_tool.chmod(0o700)
+    ctx.config_mgr.set("integrations.go_roast_executable", str(second_tool))
+    execute_integration_command(
+        ("roast", "record", domain),
+        ctx.config_mgr,
+        ctx.workspace_mgr,
+    )
+    review = execute_integration_command(
+        ("roast", "correlations"),
+        ctx.config_mgr,
+        ctx.workspace_mgr,
+    )["data"]
+
+    assert review["creates_identity_claim"] is False
+    assert review["creates_formal_confidence"] is False
+    assert len(review["potential_contradictions"]) == 1
+    assert review["potential_contradictions"][0]["classification"] == (
+        "decoder-output-conflict"
+    )
+    assert {cluster["corroboration"] for cluster in review["clusters"]} == {
+        "multiple-source-groups"
+    }
+    assert all(cluster["observation_count"] == 2 for cluster in review["clusters"])
+
+
 def test_nucleotide_lookup_record_preserves_no_match_as_pending_analysis(tmp_path):
     nucleotide = _tool(
         tmp_path,
@@ -426,6 +494,9 @@ def test_external_analysis_completion_includes_record_and_review_paths():
     assert "integration review " in command_completions("integration rev")
     assert "integration materialize " in command_completions("integration mat")
     assert "integration roast record " in command_completions("integration roast r")
+    assert "integration roast correlations" in command_completions(
+        "integration roast cor"
+    )
     assert "integration nucleotide lookup-record " in command_completions(
         "integration nucleotide lookup-r"
     )

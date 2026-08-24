@@ -70,6 +70,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   operation, a visible selected-node count, and bulk pin, unpin, and clear
   actions. Temporary selections are deliberately excluded from saved layouts
   and never become graph evidence.
+- Linked recorded go-roast proposals to exact matching immutable OAST-domain
+  observations and projected those citations into the epistemic graph. Added a
+  deterministic correlation review that groups shared decoded fragments,
+  reports provenance diversity, and flags incompatible decoder outputs without
+  asserting identity, observed contradiction, or confidence.
 
 ## [0.8.5] — 2026-08-07
 

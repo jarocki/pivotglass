@@ -392,13 +392,19 @@ def _roast(
     executable = config_mgr.get_local_integration_setting("go_roast_executable") or "roast"
     if action == "status" and len(args) == 1:
         return {"title": "go-roast", "data": local_tool_status(executable)}
+    if action == "correlations" and len(args) == 1:
+        ledger = AnalyticLedger(_require_workspace(workspace_mgr))
+        return {
+            "title": "go-roast correlation and conflict review",
+            "data": _roast_correlation_review(ledger),
+        }
     adapter = _roast_adapter(config_mgr)
     if action == "decode" and len(args) >= 2:
         data = adapter.decode(list(args[1:])).model_dump(mode="json")
     elif action == "record" and len(args) >= 2:
         preview = adapter.decode(list(args[1:]))
         ledger = AnalyticLedger(_require_workspace(workspace_mgr))
-        recorded = _record_roast_proposals(ledger, preview)
+        recorded = _record_roast_proposals(ledger, preview, workspace_mgr)
         data = {
             "preview": preview.model_dump(mode="json"),
             "recorded": recorded,
@@ -409,7 +415,7 @@ def _roast(
     else:
         raise ValueError(
             "usage: integration roast status|decode <domain>...|record <domain>...|"
-            "analyze <domain>..."
+            "analyze <domain>...|correlations"
         )
     return {"title": "go-roast OAST analysis preview", "data": data}
 
@@ -583,13 +589,35 @@ def _require_workspace(workspace_mgr: Any | None) -> Any:
     return workspace_mgr
 
 
-def _record_roast_proposals(ledger: AnalyticLedger, preview: Any) -> list[dict[str, Any]]:
+def _record_roast_proposals(
+    ledger: AnalyticLedger,
+    preview: Any,
+    workspace_mgr: Any,
+) -> list[dict[str, Any]]:
     nodes = {node.id: node.model_dump(mode="json") for node in preview.nodes}
+    observations_by_value: dict[str, list[dict[str, Any]]] = {}
+    for observation in workspace_mgr.get_observations():
+        value = str(observation.get("entity_value") or "").strip().casefold().rstrip(".")
+        if value:
+            observations_by_value.setdefault(value, []).append(observation)
     recorded: list[dict[str, Any]] = []
     for relationship in preview.relationships:
         details = relationship.model_dump(mode="json")
         details["source_node"] = nodes.get(relationship.source)
         details["target_node"] = nodes.get(relationship.target)
+        source_node = details.get("source_node") or {}
+        source_value = str(source_node.get("value") or "").strip().casefold().rstrip(".")
+        linked_observations = observations_by_value.get(source_value, [])
+        details["source_observations"] = [
+            {
+                "observation_id": row["id"],
+                "entity_ref": row["entity_ref"],
+                "source_module": row["source_module"],
+                "source_dependence_group": row.get("source_dependence_group"),
+                "match_basis": "exact-normalized-domain",
+            }
+            for row in linked_observations
+        ]
         row, created = ledger.record_external_analysis_proposal(
             provider="go-roast",
             operation="decode-relationship",
@@ -601,9 +629,119 @@ def _record_roast_proposals(ledger: AnalyticLedger, preview: Any) -> list[dict[s
             provenance_refs=relationship.provenance_refs,
             caveats=tuple((*preview.caveats, *relationship.caveats)),
             details=details,
+            observation_refs=tuple(item["id"] for item in linked_observations),
         )
-        recorded.append({"proposal_id": row["record_id"], "created": created})
+        recorded.append(
+            {
+                "proposal_id": row["record_id"],
+                "created": created,
+                "observation_refs": [item["id"] for item in linked_observations],
+            }
+        )
     return recorded
+
+
+def _roast_correlation_review(ledger: AnalyticLedger) -> dict[str, Any]:
+    proposals: list[dict[str, Any]] = []
+    for row in ledger.external_analysis_proposals():
+        criteria = row.get("criteria") if isinstance(row.get("criteria"), dict) else {}
+        details = criteria.get("details") if isinstance(criteria.get("details"), dict) else {}
+        if criteria.get("provider") != "go-roast" or criteria.get("operation") != "decode-relationship":
+            continue
+        source = details.get("source_node") if isinstance(details.get("source_node"), dict) else {}
+        target = details.get("target_node") if isinstance(details.get("target_node"), dict) else {}
+        relationship = str(details.get("relationship") or "").strip()
+        if not source.get("id") or not target.get("id") or not relationship:
+            continue
+        proposals.append(
+            {
+                "proposal_id": row["record_id"],
+                "analyst_disposition": row["analyst_disposition"],
+                "source_id": str(source["id"]),
+                "source_domain": str(source.get("value") or source["id"]),
+                "target_id": str(target["id"]),
+                "target_kind": str(target.get("kind") or "unknown"),
+                "target_value": str(target.get("value") or target["id"]),
+                "relationship": relationship,
+                "source_observations": (
+                    details.get("source_observations")
+                    if isinstance(details.get("source_observations"), list)
+                    else []
+                ),
+            }
+        )
+
+    cluster_groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    source_groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for item in proposals:
+        cluster_groups.setdefault((item["relationship"], item["target_id"]), []).append(item)
+        source_groups.setdefault((item["source_id"], item["relationship"]), []).append(item)
+
+    clusters: list[dict[str, Any]] = []
+    for (relationship, _target_id), items in sorted(cluster_groups.items()):
+        domains = sorted({item["source_domain"] for item in items})
+        observations = {
+            link.get("observation_id"): link
+            for item in items
+            for link in item["source_observations"]
+            if isinstance(link, dict) and link.get("observation_id")
+        }
+        dependence_groups = sorted(
+            {
+                str(link.get("source_dependence_group") or link.get("source_module"))
+                for link in observations.values()
+                if link.get("source_dependence_group") or link.get("source_module")
+            }
+        )
+        clusters.append(
+            {
+                "relationship": relationship,
+                "target_kind": items[0]["target_kind"],
+                "target_value": items[0]["target_value"],
+                "domain_count": len(domains),
+                "domains": domains,
+                "proposal_ids": sorted({item["proposal_id"] for item in items}),
+                "observation_count": len(observations),
+                "source_dependence_groups": dependence_groups,
+                "corroboration": (
+                    "multiple-source-groups"
+                    if len(dependence_groups) > 1
+                    else "single-source-group"
+                    if dependence_groups
+                    else "no-linked-observation"
+                ),
+            }
+        )
+
+    conflicts: list[dict[str, Any]] = []
+    for (_source_id, relationship), items in sorted(source_groups.items()):
+        targets = {(item["target_id"], item["target_value"]) for item in items}
+        if len(targets) < 2:
+            continue
+        conflicts.append(
+            {
+                "source_domain": items[0]["source_domain"],
+                "relationship": relationship,
+                "target_values": sorted(value for _target_id, value in targets),
+                "proposal_ids": sorted({item["proposal_id"] for item in items}),
+                "classification": "decoder-output-conflict",
+                "requires_analyst_review": True,
+            }
+        )
+
+    return {
+        "schema_version": "pivotglass-roast-correlation-review-1.0",
+        "proposal_count": len(proposals),
+        "clusters": clusters,
+        "potential_contradictions": conflicts,
+        "creates_identity_claim": False,
+        "creates_formal_confidence": False,
+        "caveats": [
+            "Shared machine, process, campaign, counter, or timing fragments are correlations, not operator or device identity.",
+            "Multiple source groups describe provenance diversity; they do not automatically establish independence or confidence.",
+            "A decoder-output conflict flags incompatible persisted proposals for analyst review; it is not itself a contradiction in observed evidence.",
+        ],
+    }
 
 
 def _record_nucleotide_lookup_proposals(

@@ -203,6 +203,7 @@ def command_completions(
             "roast decode ",
             "roast record ",
             "roast analyze ",
+            "roast correlations",
             "nucleotide status",
             "nucleotide lookup-info",
             "nucleotide lookup ",

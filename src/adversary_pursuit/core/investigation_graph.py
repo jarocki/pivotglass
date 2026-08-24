@@ -247,8 +247,9 @@ def build_investigation_graph(workspace_manager: Any) -> InvestigationGraphProje
             continue
         record_ref = str(item["record_id"])
         criteria = item.get("criteria") if isinstance(item.get("criteria"), dict) else {}
-        nodes[_epistemic_node_id("external_analysis", record_ref)] = InvestigationGraphNode(
-            id=_epistemic_node_id("external_analysis", record_ref),
+        external_node = _epistemic_node_id("external_analysis", record_ref)
+        nodes[external_node] = InvestigationGraphNode(
+            id=external_node,
             layer=GraphLayer.EPISTEMIC,
             kind="external_analysis",
             label=str(item.get("statement") or "External analysis proposal"),
@@ -261,6 +262,26 @@ def build_investigation_graph(workspace_manager: Any) -> InvestigationGraphProje
                 "caveats": criteria.get("caveats", []),
             },
         )
+        for evidence_ref in item.get("evidence_refs") or []:
+            if not isinstance(evidence_ref, dict) or evidence_ref.get("kind") != "observation":
+                continue
+            observation_ref = str(evidence_ref.get("ref") or "")
+            observation_node = _epistemic_node_id("observation", observation_ref)
+            if observation_node not in nodes:
+                continue
+            _put_edge(
+                edges,
+                layer=GraphLayer.EPISTEMIC,
+                source=external_node,
+                target=observation_node,
+                relationship="derived-from",
+                truth_kind=GraphTruthKind.STRUCTURAL,
+                provenance_refs=(record_ref, observation_ref),
+                rationale=(
+                    "The external proposal explicitly cites this immutable observation; "
+                    "the link does not validate the proposed decoded relationship."
+                ),
+            )
 
     for item in analysis["lifecycle_items"]:
         if item.get("record_kind") != "assertion" or not item.get("record_id"):

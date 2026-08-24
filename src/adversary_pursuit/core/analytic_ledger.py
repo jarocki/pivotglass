@@ -593,6 +593,7 @@ class AnalyticLedger:
         provenance_refs: tuple[str, ...],
         caveats: tuple[str, ...],
         details: dict[str, Any],
+        observation_refs: tuple[str, ...] = (),
         investigation_id: str | None = None,
     ) -> tuple[dict[str, Any], bool]:
         """Record a deterministic tool result as pending analytic work, not evidence."""
@@ -614,6 +615,9 @@ class AnalyticLedger:
         normalized_caveats = tuple(
             sorted({_required(caveat, "external analysis caveat") for caveat in caveats})
         )
+        normalized_observations = tuple(
+            sorted({_required(ref, "observation reference") for ref in observation_refs})
+        )
         detail_copy = json.loads(json.dumps(details, sort_keys=True, default=str))
         encoded_details = json.dumps(detail_copy, sort_keys=True, separators=(",", ":"))
         if len(encoded_details.encode()) > 64_000:
@@ -624,6 +628,7 @@ class AnalyticLedger:
             "statement": normalized_statement,
             "payload_sha256": normalized_digest,
             "provenance_refs": normalized_refs,
+            "observation_refs": normalized_observations,
             "details": detail_copy,
         }
         record_id = (
@@ -633,6 +638,14 @@ class AnalyticLedger:
             ).hexdigest()[:32]
         )
         with self._workspace.get_session() as session:
+            missing_observations = [
+                ref for ref in normalized_observations if session.get(EvidenceObservation, ref) is None
+            ]
+            if missing_observations:
+                raise ValueError(
+                    "External analysis references unknown observations: "
+                    + ", ".join(missing_observations)
+                )
             investigation = self._ensure_investigation(session, investigation_id)
             existing = session.execute(
                 select(AnalyticLifecycleItem).where(
@@ -660,7 +673,14 @@ class AnalyticLedger:
                     "truth_kind": "external-derived-proposal",
                 },
                 evidence_refs=[
-                    {"kind": "external-tool-receipt", "ref": ref} for ref in normalized_refs
+                    *(
+                        {"kind": "external-tool-receipt", "ref": ref}
+                        for ref in normalized_refs
+                    ),
+                    *(
+                        {"kind": "observation", "ref": ref}
+                        for ref in normalized_observations
+                    ),
                 ],
                 author_kind=AuthorKind.EXTERNAL_TOOL,
             )

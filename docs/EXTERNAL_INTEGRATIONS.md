@@ -312,7 +312,19 @@ machine or timezone correlation as identity proof.
 relationship in the scientific-investigation lifecycle. Repeating the same
 result is idempotent. Every item begins with a pending analyst disposition,
 retains the tool receipt and caveats, and remains an external-derived proposal
-rather than observed evidence.
+rather than observed evidence. If the decoded domain exactly matches one or
+more immutable workspace observations, the proposal records those observation
+IDs and source-dependence groups. The combined epistemic graph then shows an
+explicit `derived-from` link; that link documents provenance and does not
+validate the decoded relationship.
+
+`roast correlations` reviews persisted go-roast proposals without running the
+external tool. It groups domains sharing a decoded fragment, reports linked
+observation and source-group counts, and flags one domain/relationship pair
+that has incompatible targets as a decoder-output conflict. Source-group
+diversity does not automatically establish independence or confidence, and a
+decoder-output conflict is a prompt for analyst review rather than a fabricated
+contradiction in observed evidence.
 
 `nucleotide lookup` uses the configured lookup JSON and preserves `UNIQUE`,
 `AMBIGUOUS`, and `NO_MATCH`. `fingerprint-preview` accepts one event object or

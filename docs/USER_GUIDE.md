@@ -460,8 +460,9 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `integration scot entities <type> <id>` | Read entities associated with a SCOT4 object |
 | `integration roast status` | Show whether the configured local go-roast executable is available without running it |
 | `integration roast decode <domain>...` | Decode OAST XID fields and preview caveated campaign, machine-fragment, and process-fragment graph proposals |
-| `integration roast record <domain>...` | Record decoded relationship proposals in the governed analytic lifecycle with pending disposition |
+| `integration roast record <domain>...` | Record decoded relationship proposals in the governed analytic lifecycle with pending disposition and link exact matching domain observations when present |
 | `integration roast analyze <domain>...` | Run bounded campaign analysis; machine, PID, timezone, and temporal groupings remain correlations rather than identity proof |
+| `integration roast correlations` | Cluster persisted decoded fragments, summarize linked source groups, and flag incompatible decoder outputs for analyst review without creating identity or confidence |
 | `integration nucleotide status` | Show local Nucleotide and lookup-artifact configuration without analyzing traffic |
 | `integration nucleotide lookup-info` | Show the configured lookup corpus metadata and SHA-256; generated controls remain review-only |
 | `integration nucleotide lookup <url>...` | Preserve unique, ambiguous, and unmatched URL-to-template attribution candidates |
