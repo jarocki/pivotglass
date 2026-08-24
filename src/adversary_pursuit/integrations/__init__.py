@@ -11,6 +11,10 @@ from adversary_pursuit.integrations.nucleotide import (
     NucleotideLookupPreview,
 )
 from adversary_pursuit.integrations.roast import RoastDecodePreview
+from adversary_pursuit.integrations.scot_execution import (
+    ScotPublicationJournal,
+    ScotPublicationReceipt,
+)
 from adversary_pursuit.integrations.scot_publication import ScotWritePlan
 from adversary_pursuit.integrations.synapse_migration import SynapseMigrationPlan
 
@@ -23,5 +27,7 @@ __all__ = [
     "QueryReceipt",
     "RoastDecodePreview",
     "ScotWritePlan",
+    "ScotPublicationJournal",
+    "ScotPublicationReceipt",
     "SynapseMigrationPlan",
 ]

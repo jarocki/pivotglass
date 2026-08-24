@@ -167,7 +167,7 @@ command families:
 - `use <indicator>` — set an investigation target
 - `search`, `graph`, `dossier`, `gaps`, and `timeline` — inspect stored work
 - `analysis` — record questions, hypotheses, assertions, confidence, likelihood, contradictions, and structured methods
-- `integration` — run explicit, bounded Synapse/SCOT exchange previews and
+- `integration` — run explicit, bounded Synapse/SCOT exchange workflows and
   review-only go-roast/Nucleotide analysis
 - `note` — add analyst-authored context
 - `report` and `export` — produce reports or portable data
@@ -187,7 +187,8 @@ while SCOT4 becomes the web surface for reviewing published hunt sessions and
 requesting further pivots. Pivotglass remains the orchestration and analytic
 policy authority between them. The current work implements the bounded,
 read-only transport plus a validated Synapse model and disabled shadow-migration
-plan, SCOT publication previews, and exact review-only SCOT write plans; see the
+plan, SCOT publication previews, exact SCOT write plans, and one-shot
+approval-gated publication with durable readback receipts; see the
 [integration architecture](docs/EXTERNAL_INTEGRATIONS.md#target-architecture).
 go-roast decodes Interactsh OAST metadata into caveated graph proposals;
 Nucleotide attributes observed URLs and fingerprints analyst-grouped

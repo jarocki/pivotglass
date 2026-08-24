@@ -65,11 +65,27 @@ def test_fresh_workspace_is_stamped_at_current_schema(tmp_path):
         "analytic_confidence_assessments",
         "likelihood_assessments",
         "analytic_contradictions",
+        "integration_executions",
     }.issubset(tables)
     status = manager.get_workspace_schema_status()
     assert status["valid"] is True
     assert status["requires_migration"] is False
     assert status["sqlite_integrity"] == "ok"
+
+
+def test_schema_v5_migrates_integration_execution_receipts_with_backup(tmp_path):
+    manager = _workspace(tmp_path)
+    manager._engine.dispose()
+    with sqlite3.connect(tmp_path / "case.db") as connection:
+        connection.execute("DROP TABLE integration_executions")
+        connection.execute("UPDATE workspace_schema_version SET version = 5 WHERE id = 1")
+        connection.commit()
+
+    migrated = WorkspaceManager(tmp_path)
+    migrated.switch("case")
+    assert (tmp_path / "case.db.pre-v5-backup").is_file()
+    assert get_workspace_schema_version(migrated._engine) == CURRENT_WORKSPACE_SCHEMA_VERSION
+    assert "integration_executions" in inspect(migrated._engine).get_table_names()
 
 
 def test_legacy_workspace_migrates_with_backup_and_observation_backfill(tmp_path):
@@ -454,7 +470,7 @@ def test_portable_export_and_merge_preserve_complete_analytic_record(tmp_path):
     )
 
     payload = export_workspace(manager, "source")
-    assert payload["format"] == "pivotglass-workspace-v5"
+    assert payload["format"] == "pivotglass-workspace-v6"
     assert payload["schema_version"] == CURRENT_WORKSPACE_SCHEMA_VERSION
     assert payload["tables"]["investigation_questions"][0]["id"] == question_id
     assert payload["tables"]["analytic_investigations"][0]["primary_question_id"] == (question_id)

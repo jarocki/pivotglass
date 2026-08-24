@@ -94,7 +94,7 @@ is an explicit command action.
 
 ## Migration and exchange
 
-Fresh workspaces use schema v5. Existing workspaces migrate forward with the
+Fresh workspaces use schema v6. Existing workspaces migrate forward with the
 same backup-first migration process used by v0.8. The new table is additive and
 does not rewrite observations or analytic records. `framework list` exports a
 secret-free envelope with schema version `framework-mappings-1.0`.

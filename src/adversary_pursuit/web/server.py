@@ -386,8 +386,8 @@ class WebCockpitService:
                 "purpose": "Preview governed graph state, inspect the versioned model, compile a disabled shadow migration, or run explicit read-only MCP operations",
             },
             {
-                "command": "integration scot publish-preview|publish-plan|pivot-preview|status|get|search|entries|entities",
-                "purpose": "Preview a hunt publication, compile exact review-only writes, or perform bounded SCOT4 reads",
+                "command": "integration scot publish-preview|publish-plan|publish-execute|publication-receipt|pivot-preview|status|get|search|entries|entities",
+                "purpose": "Preview or compile a publication, explicitly approve exact-digest write/readback, or perform bounded SCOT4 reads",
             },
             {
                 "command": "integration roast status|decode|record|analyze",
@@ -635,9 +635,9 @@ class WebCockpitService:
                 return {
                     "kind": "json",
                     "title": "Entity and epistemic graph",
-                    "data": build_investigation_graph(
-                        self.ctx.workspace_mgr
-                    ).model_dump(mode="json"),
+                    "data": build_investigation_graph(self.ctx.workspace_mgr).model_dump(
+                        mode="json"
+                    ),
                 }
             graph = RelationshipGraph()
             graph.build_from_workspace(
@@ -935,9 +935,7 @@ class WebCockpitService:
         """Return bounded event history and masked operational authority state."""
 
         events = [
-            event
-            for snapshot in self.investigations.snapshots()
-            for event in snapshot["events"]
+            event for snapshot in self.investigations.snapshots() for event in snapshot["events"]
         ]
         events.sort(key=lambda event: (str(event["created_at"]), str(event["event_id"])))
         events = events[-500:]
@@ -978,7 +976,9 @@ class WebCockpitService:
                 "category": str(entry.get("category") or "Unknown"),
                 "summary": str(entry.get("summary") or "No sanitized summary is available."),
                 "exception_type": str(entry.get("exc_type") or "Unknown"),
-                "component": context.get("tool") or context.get("component") or context.get("surface"),
+                "component": context.get("tool")
+                or context.get("component")
+                or context.get("surface"),
                 "detail_scope": (
                     "Sanitized browser detail. Raw exception text, traceback, credentials, "
                     "query strings, and private file contents remain local and are not returned."

@@ -111,11 +111,13 @@ config repair
 
 ![Model selection and capability notes](media/pivotglass-model-catalog-v0.7.0.png)
 
-### Optional Synapse and SCOT4 reads
+### Optional Synapse and SCOT4 integration
 
 Pivotglass 0.9 can make explicit, bounded, read-only MCP requests to Vertex
-Synapse and Sandia SCOT4. Configure the endpoint and key outside the command
-field, then check local state with `integration status`. See
+Synapse and Sandia SCOT4. Its separate SCOT publication workflow requires an
+exact, short-lived human approval and readback reconciliation. Configure
+endpoints and keys outside the command field, then check local state with
+`integration status`. See
 [Vertex Synapse and SCOT4 integrations](EXTERNAL_INTEGRATIONS.md). Remote
 results are previews until an analyst deliberately imports or cites them.
 

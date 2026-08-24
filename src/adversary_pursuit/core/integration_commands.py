@@ -14,6 +14,12 @@ from adversary_pursuit.integrations.local_tool import local_tool_status
 from adversary_pursuit.integrations.nucleotide import NucleotideAdapter
 from adversary_pursuit.integrations.roast import RoastAdapter
 from adversary_pursuit.integrations.scot import ScotMcpAdapter
+from adversary_pursuit.integrations.scot_execution import (
+    ScotPublicationJournal,
+    ScotRestPublisher,
+    approve_scot_publication,
+    execute_scot_publication,
+)
 from adversary_pursuit.integrations.scot_publication import (
     build_scot_publication_manifest,
     compile_scot_write_plan,
@@ -48,9 +54,7 @@ def execute_integration_command(
         head, separator, reason = " ".join(args[1:]).partition(" | ")
         parts = head.split()
         if not separator or len(parts) != 2:
-            raise ValueError(
-                "usage: integration review <proposal-id> <accept|reject> | <reason>"
-            )
+            raise ValueError("usage: integration review <proposal-id> <accept|reject> | <reason>")
         dispositions = {
             "accept": AnalystDisposition.ACCEPTED,
             "reject": AnalystDisposition.REJECTED,
@@ -84,6 +88,9 @@ def _configuration_status(config_mgr: ConfigManager) -> dict[str, Any]:
         }
         for name in ("synapse", "scot")
     }
+    status["scot"]["publication_endpoint"] = (
+        "configured" if config_mgr.get_scot_api_url() else "missing"
+    )
     roast_executable = config_mgr.get_local_integration_setting("go_roast_executable") or "roast"
     nucleotide_executable = (
         config_mgr.get_local_integration_setting("nucleotide_executable") or "nucleotide"
@@ -155,10 +162,48 @@ def _scot(
     if action == "publish-plan" and len(args) >= 2:
         snapshot = WorkspaceGraphRepository(_require_workspace(workspace_mgr)).snapshot()
         manifest = build_scot_publication_manifest(snapshot)
-        data = compile_scot_write_plan(manifest, owner=" ".join(args[1:])).model_dump(
-            mode="json"
-        )
+        data = compile_scot_write_plan(manifest, owner=" ".join(args[1:])).model_dump(mode="json")
         return {"title": "SCOT4 review-only write plan", "data": data}
+    if action == "publication-receipt" and len(args) == 2:
+        data = ScotPublicationJournal(_require_workspace(workspace_mgr)).get(args[1])
+        return {"title": "SCOT4 publication receipt", "data": data}
+    if action == "publish-execute" and len(args) >= 5:
+        head, separator, confirmation = " ".join(args[1:]).partition(" | ")
+        fields = head.split()
+        if not separator or len(fields) != 3:
+            raise ValueError(
+                "usage: integration scot publish-execute <owner> <plan-digest> "
+                "<approved-by> | <confirmation>"
+            )
+        owner, supplied_digest, approved_by = fields
+        snapshot = WorkspaceGraphRepository(_require_workspace(workspace_mgr)).snapshot()
+        manifest = build_scot_publication_manifest(snapshot)
+        plan = compile_scot_write_plan(manifest, owner=owner)
+        if supplied_digest != plan.digest_sha256:
+            raise ValueError("SCOT publication plan digest is stale or does not match")
+        approval = approve_scot_publication(
+            plan,
+            approved_by=approved_by,
+            confirmation=confirmation,
+        )
+        api_url = config_mgr.get_scot_api_url()
+        api_key = config_mgr.get_api_key("scot")
+        if not api_url or not api_key:
+            raise ValueError("SCOT publication requires its REST API URL and API key")
+        cfg = config_mgr.load().integrations
+        with ScotRestPublisher(
+            api_url,
+            api_key,
+            timeout_seconds=cfg.timeout_seconds,
+            allow_insecure_http=cfg.allow_insecure_http,
+        ) as publisher:
+            data = execute_scot_publication(
+                plan,
+                approval,
+                publisher=publisher,
+                journal=ScotPublicationJournal(_require_workspace(workspace_mgr)),
+            )
+        return {"title": "SCOT4 publication reconciled", "data": data}
     if action == "pivot-preview" and len(args) >= 4:
         structured = " ".join(args[1:]).split(" | ", 2)
         if len(structured) != 3:
@@ -197,7 +242,9 @@ def _scot(
         raise ValueError(
             "usage: integration scot status|get <type> <id>|search <type> [filters-json]|"
             "entries <type> <id> [plain|flaired|all]|entities <type> <id>|"
-            "publish-preview|publish-plan <owner>|"
+            "publish-preview|publish-plan <owner>|publication-receipt <plan-digest>|"
+            "publish-execute <owner> <plan-digest> "
+            "<approved-by> | <confirmation>|"
             "pivot-preview <type> <id> <indicator> | <requester> | <reason>"
         )
     return {"title": "Sandia SCOT4 (read-only)", "data": data}
@@ -293,9 +340,7 @@ def _nucleotide(
         ledger = AnalyticLedger(_require_workspace(workspace_mgr))
         data = {
             "preview": preview.model_dump(mode="json"),
-            "recorded": _record_nucleotide_fingerprint_proposal(
-                ledger, structured[0], preview
-            ),
+            "recorded": _record_nucleotide_fingerprint_proposal(ledger, structured[0], preview),
             "analyst_disposition": "pending",
         }
     else:
@@ -358,13 +403,17 @@ def _connection(config_mgr: ConfigManager, system: str) -> tuple[str, str, dict[
     if not key:
         raise ValueError(f"{system.title()} API key is missing; set api_keys.{system}")
     cfg = config_mgr.load().integrations
-    return url, key, {
-        "timeout_seconds": cfg.timeout_seconds,
-        "max_pages": cfg.max_pages,
-        "max_records": cfg.max_records,
-        "max_elapsed_seconds": cfg.max_elapsed_seconds,
-        "allow_insecure_http": cfg.allow_insecure_http,
-    }
+    return (
+        url,
+        key,
+        {
+            "timeout_seconds": cfg.timeout_seconds,
+            "max_pages": cfg.max_pages,
+            "max_records": cfg.max_records,
+            "max_elapsed_seconds": cfg.max_elapsed_seconds,
+            "allow_insecure_http": cfg.allow_insecure_http,
+        },
+    )
 
 
 def _usage() -> str:

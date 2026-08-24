@@ -77,9 +77,10 @@ workspace and exported its investigation record.
 - Corrections, retractions, and supersessions are append-only disposition
   events. They do not edit the original observation.
 - Clearing a workspace removes investigation content but retains the schema
-receipt so the empty workspace remains safely openable.
-- Portable schema-v5 JSON exports include scientific lifecycle roots, links,
-  and framework mapping records;
+  receipt and external-publication audit receipts. The latter prevent a
+  cleared or restarted workspace from silently repeating remote side effects.
+- Portable schema-v6 JSON exports include scientific lifecycle roots, links,
+  framework mapping records, and secret-safe integration execution receipts;
   model proposals retain their pending analyst disposition.
 
 Migration support is forward-only. Downgrading an upgraded workspace in place

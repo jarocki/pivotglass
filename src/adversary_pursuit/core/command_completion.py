@@ -183,6 +183,8 @@ def command_completions(
             "scot status",
             "scot publish-preview",
             "scot publish-plan ",
+            "scot publish-execute ",
+            "scot publication-receipt ",
             "scot pivot-preview ",
             "scot get ",
             "scot search ",

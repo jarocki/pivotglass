@@ -1,8 +1,9 @@
 # External graph, publication, and analytic integrations
 
-Pivotglass 0.9 begins both integrations as bounded, read-only MCP clients. A
-remote result is labelled `remote-preview`; it is not silently promoted to
-local evidence, a relationship, or an analytic conclusion.
+Pivotglass 0.9 uses bounded, read-only MCP clients for exploration. A remote
+result is labelled `remote-preview`; it is not silently promoted to local
+evidence, a relationship, or an analytic conclusion. SCOT publication is a
+separate, explicitly approved REST workflow described below.
 
 The same authority boundary applies to local analysis tools. go-roast and
 Nucleotide output is labelled `external-derived-proposal`; it does not become
@@ -61,8 +62,14 @@ hunt session is published.
   `opts.readonly=true`.
 - Storm pages, returned records, elapsed time, and response size are bounded.
   Pivotglass cancels the Synapse cursor when one of those limits is reached.
-- The SCOT4 adapter exposes object search, object detail, entries, and related
-  entities. It exposes no remote write operation.
+- The SCOT4 MCP adapter exposes only object search, object detail, entries, and
+  related entities. The separate REST publisher accepts only a freshly
+  compiled plan, an exact short-lived human confirmation, and a configured
+  publication endpoint.
+- Before its first SCOT mutation, the publisher atomically records a one-shot
+  claim in the active workspace. A completed, in-progress, or uncertain claim
+  blocks replay across process restarts. Every write is read back; Pivotglass
+  reports success only after every field reconciles.
 - Receipts contain a digest of the request, timing, page and record counts,
   completion state, and the boundary that stopped an incomplete read. They do
   not contain the API key or raw Storm query.
@@ -87,6 +94,7 @@ Add the endpoint settings to `~/.ap/config.toml`:
 [integrations]
 synapse_mcp_url = "https://synapse.example/api/v1/mcp"
 scot_mcp_url = "https://scot.example/mcp"
+scot_api_url = "https://scot.example/api/v1"
 go_roast_executable = "/opt/pivotglass/bin/roast"
 nucleotide_executable = "/opt/pivotglass/bin/nucleotide"
 nucleotide_lookup_path = "/var/lib/pivotglass/nucleotide-lookup.json"
@@ -108,6 +116,7 @@ The same values can be supplied without editing the file:
 AP_SYNAPSE_MCP_URL
 AP_SYNAPSE_API_KEY
 AP_SCOT_MCP_URL
+AP_SCOT_API_URL
 AP_SCOT_API_KEY
 AP_GO_ROAST_BIN
 AP_NUCLEOTIDE_BIN
@@ -146,6 +155,8 @@ integration synapse query <Storm query>
 integration scot status
 integration scot publish-preview
 integration scot publish-plan <owner>
+integration scot publish-execute <owner> <plan-digest> <approved-by> | <confirmation>
+integration scot publication-receipt <plan-digest>
 integration scot pivot-preview <type> <id> <indicator> | <requester> | <reason>
 integration scot get <object-type> <object-id>
 integration scot search <object-type> [filters-json]
@@ -167,6 +178,7 @@ integration nucleotide fingerprint-record <actor-id> | <event-object-or-array-js
 Preview and status commands are read-only. The `record` and `review` commands
 change only the local analytic lifecycle after an explicit operator action;
 they do not mutate source observations, the entity graph, Synapse, or SCOT.
+`scot publish-execute` is the sole currently implemented remote write command.
 
 `integration status` is local and makes no network request. A system-specific
 `status` command opens an MCP session and lists the tools visible to that
@@ -220,6 +232,22 @@ mutation. The plan reports `approval_required=true`,
 artifact, not permission to publish. Entry text is HTML-escaped before it
 enters the request body.
 
+To publish, inspect the complete plan, retain its SHA-256 digest, and use the
+exact confirmation shown by the plan:
+
+```text
+integration scot publish-execute analyst <plan-digest> analyst@example.org | APPROVE SCOT PUBLICATION <first-16-digest-characters>
+```
+
+Pivotglass recompiles the active workspace before execution and rejects a
+stale digest. Approval expires after 15 minutes. Mutations are never retried.
+The schema-v6 workspace journal claims the plan before the first request and
+stores only sanitized response digests, remote IDs, status codes, and the
+reconciled receipt. If transport or readback fails after the claim, its state
+becomes `outcome_uncertain`; the same plan cannot run again until an analyst
+reconciles SCOT manually. Inspect any claim with `scot
+publication-receipt <plan-digest>`.
+
 `scot pivot-preview` validates an indicator, SCOT parent reference, requester,
 and reason. Its disposition remains `preview`; it does not enqueue enrichment.
 This prevents content displayed in SCOT from becoming an instruction merely by
@@ -266,11 +294,11 @@ stopped by a budget.
 ## Deliberately unfinished
 
 The current slices establish transport, repository snapshots, Synapse desired
-state, parity, model, and disabled shadow-migration contracts; SCOT publication previews and exact review-only
-write plans, pivot validation,
-receipts, go-roast OAST graph proposals, Nucleotide lookup/fingerprint
-previews, governed external-analysis proposal disposition, and protocol
-fixtures.
+state, parity, model, and disabled shadow-migration contracts; SCOT publication
+previews, exact write plans, one-shot approval-gated execution, durable
+receipts, mandatory readback reconciliation, and pivot validation; go-roast
+OAST graph proposals; Nucleotide lookup/fingerprint previews; governed
+external-analysis proposal disposition; and protocol fixtures.
 Before either integration is release-complete, it still needs:
 
 - disposable live-system round-trip tests;
@@ -280,8 +308,8 @@ Before either integration is release-complete, it still needs:
 - live Synapse relationship/time/provenance round-trip fixtures;
 - conversion of accepted external-analysis proposals into appropriately typed
   assertions and relationship proposals without bypassing evidence rules;
-- an approval-gated SCOT executor with durable per-operation receipts;
-- live SCOT readback, lossless reconciliation, and conflict disposition;
+- live disposable-SCOT readback, lossless reconciliation, and conflict
+  disposition beyond the protocol fixtures;
 - SCOT-originated pivot requests routed through Pivotglass validation and the
   enrichment queue.
 

@@ -203,6 +203,37 @@ class ModuleRun(Base):
     """Number of STIX objects stored from this run (after deduplication)."""
 
 
+class IntegrationExecution(Base):
+    """Durable claim and secret-safe receipt for an external side effect.
+
+    The deterministic ``id`` binds an integration, operation, and exact plan
+    digest.  Its uniqueness is the replay guard: once a mutation has started,
+    Pivotglass will not silently issue it again after a timeout, crash, or
+    process restart.  A human must reconcile an uncertain result instead.
+    """
+
+    __tablename__ = "integration_executions"
+    __table_args__ = (
+        UniqueConstraint(
+            "system",
+            "operation",
+            "plan_digest_sha256",
+            name="uq_integration_execution_plan",
+        ),
+    )
+
+    id = Column(String, primary_key=True)
+    system = Column(String, nullable=False, index=True)
+    operation = Column(String, nullable=False, index=True)
+    plan_digest_sha256 = Column(String, nullable=False, index=True)
+    state = Column(String, nullable=False, index=True)
+    approved_by = Column(String, nullable=False)
+    started_at = Column(DateTime, nullable=False)
+    completed_at = Column(DateTime, nullable=True)
+    receipt = Column(JSON, nullable=True)
+    error_summary = Column(Text, nullable=True)
+
+
 class ScoreEvent(Base):
     """Individual scoring events from module discoveries.
 

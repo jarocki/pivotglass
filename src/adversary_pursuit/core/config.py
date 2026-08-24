@@ -293,6 +293,7 @@ class IntegrationsConfig(BaseModel):
 
     synapse_mcp_url: str | None = None
     scot_mcp_url: str | None = None
+    scot_api_url: str | None = None
     go_roast_executable: str | None = None
     nucleotide_executable: str | None = None
     nucleotide_lookup_path: str | None = None
@@ -536,6 +537,17 @@ class ConfigManager:
                 return value
         return None
 
+    def get_scot_api_url(self) -> str | None:
+        """Resolve the SCOT4 REST API root used only for approved publication."""
+        cfg = self._cache if self._cache is not None else self.load()
+        if cfg.integrations.scot_api_url:
+            return cfg.integrations.scot_api_url
+        for name in ("AP_SCOT_API_URL", "SCOT_API_URL"):
+            value = os.environ.get(name)
+            if value:
+                return value
+        return None
+
     def get_local_integration_setting(self, setting: str) -> str | None:
         """Resolve a non-secret local integration path from config then environment."""
         normalized = setting.strip().lower()
@@ -625,19 +637,13 @@ class ConfigManager:
     def is_service_enabled(self, service: str) -> bool:
         """Return whether an intelligence service is enabled."""
         cfg = self._cache if self._cache is not None else self.load()
-        return service.lower() not in {
-            item.lower() for item in cfg.general.disabled_services
-        }
+        return service.lower() not in {item.lower() for item in cfg.general.disabled_services}
 
     def set_service_enabled(self, service: str, enabled: bool) -> None:
         """Enable or disable an intelligence service without deleting its key."""
         cfg = self._cache if self._cache is not None else self.load()
         normalized = service.strip().lower()
-        disabled = {
-            item.strip().lower()
-            for item in cfg.general.disabled_services
-            if item.strip()
-        }
+        disabled = {item.strip().lower() for item in cfg.general.disabled_services if item.strip()}
         if enabled:
             disabled.discard(normalized)
         else:

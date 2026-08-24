@@ -226,6 +226,10 @@ class TestEnvVarOverride:
         assert mgr.get_integration_url("synapse") == "https://synapse.test/api/v1/mcp"
         assert mgr.get_api_key("synapse") == "synapse-env"
 
+    def test_scot_publication_url_resolves_from_environment(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("AP_SCOT_API_URL", "https://scot.test/api/v1")
+        assert make_manager(tmp_path).get_scot_api_url() == "https://scot.test/api/v1"
+
     def test_shodan_ap_env_resolves_via_get_api_key(self, tmp_path, monkeypatch):
         """AP_SHODAN_API_KEY resolves via get_api_key() when no config is set."""
         monkeypatch.setenv("AP_SHODAN_API_KEY", "env-key")

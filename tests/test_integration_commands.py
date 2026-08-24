@@ -65,14 +65,10 @@ def test_web_previews_synapse_shadow_and_scot_publication_from_same_workspace(tm
     scot = service.execute_command("integration scot publish-preview")
     scot_plan = service.execute_command("integration scot publish-plan analyst")
 
-    assert synapse["data"]["source_snapshot_sha256"] == scot["data"][
-        "source_snapshot_sha256"
-    ]
+    assert synapse["data"]["source_snapshot_sha256"] == scot["data"]["source_snapshot_sha256"]
     assert synapse["data"]["nodes"]
     assert synapse_model["data"]["model_version"] == "1.0.0"
-    assert synapse_plan["data"]["manifest_digest_sha256"] == synapse["data"][
-        "digest_sha256"
-    ]
+    assert synapse_plan["data"]["manifest_digest_sha256"] == synapse["data"]["digest_sha256"]
     assert synapse_plan["data"]["execution_enabled"] is False
     assert scot["data"]["approval_required"] is True
     assert scot["data"]["published"] is False
@@ -86,12 +82,10 @@ def test_integration_completions_cover_read_operations():
     assert "integration synapse query " in command_completions("integration synapse q")
     assert "integration synapse lookup " in command_completions("integration synapse l")
     assert "integration synapse shadow-preview" in command_completions("integration synapse s")
-    assert "integration synapse model-contract" in command_completions(
-        "integration synapse m"
-    )
-    assert "integration synapse migration-plan" in command_completions(
-        "integration synapse m"
-    )
+    assert "integration synapse model-contract" in command_completions("integration synapse m")
+    assert "integration synapse migration-plan" in command_completions("integration synapse m")
     assert "integration scot search " in command_completions("integration scot s")
     assert "integration scot publish-preview" in command_completions("integration scot p")
     assert "integration scot publish-plan " in command_completions("integration scot p")
+    assert "integration scot publish-execute " in command_completions("integration scot p")
+    assert "integration scot publication-receipt " in command_completions("integration scot p")
