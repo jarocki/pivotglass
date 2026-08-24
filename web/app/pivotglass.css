@@ -468,6 +468,15 @@ pre{font-size:12px;line-height:1.5}
 .hierarchy-visualization summary:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 .hierarchy-visualization b{color:var(--ink);font-size:11px}
 .hierarchy-visualization span{color:var(--dim);font-size:9px;text-transform:uppercase}
+.uncertainty-intervals{display:grid;gap:10px;padding:10px;border:1px solid color-mix(in srgb,var(--line) 40%,transparent);background:var(--surface)}
+.uncertainty-axis{display:grid;grid-template-columns:repeat(5,1fr);color:var(--dim);font-size:8px}.uncertainty-axis span:last-child{text-align:right}
+.uncertainty-intervals article{display:grid;gap:6px;padding:9px;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);background:var(--control)}
+.uncertainty-intervals header{display:flex;justify-content:space-between;gap:12px}.uncertainty-intervals header b{color:var(--ink);font-size:10px}.uncertainty-intervals header span,.uncertainty-intervals footer span{color:var(--heading);font-size:8px;text-transform:uppercase}
+.uncertainty-track{position:relative;height:28px;margin:2px 12px;background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--line) 22%,transparent) 0 1px,transparent 1px 25%);border-bottom:1px solid var(--line)}
+.uncertainty-track i{position:absolute;top:8px;height:10px;min-width:2px;background:linear-gradient(90deg,var(--accent),var(--heading));box-shadow:0 0 8px color-mix(in srgb,var(--accent) 40%,transparent)}
+.uncertainty-track span{position:absolute;top:19px;translate:-50% 0;color:var(--dim);font-size:7px}
+.uncertainty-intervals footer{display:grid;grid-template-columns:minmax(110px,.25fr) minmax(0,1fr);gap:3px 10px}.uncertainty-intervals footer p{margin:0;color:var(--dim);font-size:8px;line-height:1.4}
+@media(max-width:600px){.uncertainty-intervals header{display:grid}.uncertainty-intervals footer{grid-template-columns:1fr}.uncertainty-track{margin-inline:16px}}
 @keyframes led-pulse{50%{filter:brightness(1.45)}}
 .lite-brite-legend{display:flex;align-items:center;gap:12px;width:max-content;max-width:100%;padding:5px 9px;border:2px solid #020304;border-radius:14px;background:#071014;box-shadow:inset 0 0 12px #000;overflow:auto}
 .lite-brite-legend>span{display:flex;align-items:center;gap:2px;color:#a8b7be;text-transform:uppercase;white-space:nowrap}

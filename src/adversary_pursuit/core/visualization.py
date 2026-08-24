@@ -33,6 +33,7 @@ class VisualizationQuestion(StrEnum):
     HIERARCHY = "how_does_this_hierarchy_divide"
     NUMERIC_CORRELATION = "are_numeric_features_correlated"
     COMPETING_HYPOTHESES = "which_evidence_supports_or_contradicts_hypotheses"
+    RECORDED_UNCERTAINTY = "what_likelihood_and_confidence_are_recorded"
     INDICATOR_COMPLETENESS = "how_complete_are_indicator_investigations"
     TASK_STATUS = "which_indicator_enrichment_work_is_pending"
     METRIC_TREND = "how_does_this_metric_change"
@@ -51,6 +52,7 @@ class VisualizationView(StrEnum):
     TASK_MATRIX = "task_matrix"
     LINE = "line"
     BAR = "bar"
+    UNCERTAINTY_INTERVALS = "uncertainty_intervals"
 
 
 class VisualizationRenderer(StrEnum):
@@ -155,6 +157,20 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         guardrail=(
             "Show only analyst-recorded evidence stances; an unassessed cell is not neutral "
             "evidence and no stance may be inferred from absence."
+        ),
+    ),
+    VisualizationQuestion.RECORDED_UNCERTAINTY: VisualizationPolicy(
+        question=VisualizationQuestion.RECORDED_UNCERTAINTY,
+        view=VisualizationView.UNCERTAINTY_INTERVALS,
+        renderer=VisualizationRenderer.NATIVE,
+        required_roles=("target", "minimum", "maximum"),
+        selection_reason=(
+            "Bounded interval bars show the probability range attached to each recorded "
+            "likelihood term while keeping analytic confidence visibly separate."
+        ),
+        guardrail=(
+            "Never convert confidence into probability or combine the two measurements on "
+            "one scale; expose both rationales and the recorded assessor."
         ),
     ),
     VisualizationQuestion.INDICATOR_COMPLETENESS: VisualizationPolicy(
@@ -1200,6 +1216,133 @@ def scientific_investigation_hierarchy_intent(
     )
 
 
+def recorded_uncertainty_intent(
+    workspace: str,
+    analysis: dict[str, Any],
+) -> VisualizationIntent:
+    """Show recorded likelihood intervals without turning confidence into probability."""
+
+    targets: dict[tuple[str, str], str] = {}
+    for kind, collection in (
+        ("assertion", analysis.get("assertions", ())),
+        ("hypothesis", analysis.get("hypotheses", ())),
+    ):
+        for row in collection:
+            record_id = str(row.get("id", ""))
+            if record_id:
+                targets[(kind, record_id)] = str(
+                    row.get("statement") or row.get("text") or record_id
+                )
+
+    latest_confidence: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in sorted(
+        analysis.get("confidence", ()),
+        key=lambda item: (str(item.get("created_at", "")), str(item.get("id", ""))),
+    ):
+        key = (str(row.get("target_kind", "")), str(row.get("target_id", "")))
+        latest_confidence[key] = row
+
+    rows: list[dict[str, Any]] = []
+    invalid = 0
+    for likelihood in sorted(
+        analysis.get("likelihood", ()),
+        key=lambda item: (str(item.get("created_at", "")), str(item.get("id", ""))),
+    ):
+        target_kind = str(likelihood.get("target_kind", ""))
+        target_id = str(likelihood.get("target_id", ""))
+        minimum = likelihood.get("probability_min")
+        maximum = likelihood.get("probability_max")
+        if (
+            isinstance(minimum, bool)
+            or isinstance(maximum, bool)
+            or not isinstance(minimum, (int, float))
+            or not isinstance(maximum, (int, float))
+            or minimum < 0
+            or maximum > 1
+            or minimum > maximum
+        ):
+            invalid += 1
+            continue
+        confidence = latest_confidence.get((target_kind, target_id), {})
+        rows.append(
+            {
+                "target": targets.get((target_kind, target_id), target_id or "unavailable"),
+                "target_kind": target_kind or "unknown",
+                "target_id": target_id,
+                "likelihood_term": str(likelihood.get("term", "unavailable")).replace("_", " "),
+                "probability_min_percent": round(float(minimum) * 100, 2),
+                "probability_max_percent": round(float(maximum) * 100, 2),
+                "likelihood_rationale": str(likelihood.get("rationale", "")),
+                "likelihood_assessor": str(likelihood.get("assessed_by", "unknown")),
+                "likelihood_recorded_at": str(likelihood.get("created_at", "")),
+                "confidence_level": str(confidence.get("level", "not recorded")),
+                "confidence_rationale": str(
+                    confidence.get("rationale", "No confidence assessment recorded.")
+                ),
+                "confidence_assessor": str(confidence.get("assessed_by", "not recorded")),
+            }
+        )
+
+    return _intent(
+        intent_id="recorded-uncertainty",
+        title="Likelihood and confidence",
+        question=VisualizationQuestion.RECORDED_UNCERTAINTY,
+        question_text="What likelihood and analytic confidence have been recorded?",
+        workspace=workspace,
+        description=(
+            "Persisted likelihood intervals with separate latest confidence assessments "
+            "for the same assertions or hypotheses."
+        ),
+        record_count=len(rows),
+        data=VisualizationData(rows=tuple(rows)),
+        fields={
+            "target": "target",
+            "minimum": "probability_min_percent",
+            "maximum": "probability_max_percent",
+        },
+        semantic_types={
+            "target": "Text",
+            "target_kind": "Category",
+            "target_id": "Identifier",
+            "likelihood_term": "Category",
+            "probability_min_percent": "Percentage",
+            "probability_max_percent": "Percentage",
+            "likelihood_rationale": "Text",
+            "likelihood_assessor": "Category",
+            "likelihood_recorded_at": "DateTime",
+            "confidence_level": "Category",
+            "confidence_rationale": "Text",
+            "confidence_assessor": "Category",
+        },
+        table_columns=(
+            VisualizationTableColumn(key="target", label="Assertion or hypothesis"),
+            VisualizationTableColumn(key="target_kind", label="Record kind"),
+            VisualizationTableColumn(key="likelihood_term", label="Likelihood term"),
+            VisualizationTableColumn(key="probability_min_percent", label="Minimum (%)"),
+            VisualizationTableColumn(key="probability_max_percent", label="Maximum (%)"),
+            VisualizationTableColumn(key="likelihood_rationale", label="Likelihood rationale"),
+            VisualizationTableColumn(key="likelihood_assessor", label="Likelihood assessor"),
+            VisualizationTableColumn(key="confidence_level", label="Analytic confidence"),
+            VisualizationTableColumn(key="confidence_rationale", label="Confidence rationale"),
+            VisualizationTableColumn(key="confidence_assessor", label="Confidence assessor"),
+        ),
+        missing_data=VisualizationMissingData(
+            policy="omit_with_count" if invalid else "show",
+            explanation=(
+                "Likelihood records without a valid bounded probability interval are omitted "
+                "and counted. Missing confidence remains visible as not recorded."
+            ),
+            omitted_count=invalid,
+        ),
+        caveats=(
+            "Likelihood describes an assessed probability range. Analytic confidence "
+            "describes the quality and sufficiency of the reasoning and evidence.",
+            "The latest confidence record is shown beside each likelihood interval for "
+            "context, never as a numeric transformation or combined score.",
+        ),
+    )
+
+
 def _standardize_columns(matrix: list[list[float]]) -> list[list[float]]:
     row_count = len(matrix)
     column_count = len(matrix[0])
@@ -1422,4 +1565,5 @@ def build_visualization_intents(
         indicator_coverage_pca_intent(workspace, constellation),
         competing_hypotheses_matrix_intent(workspace, analysis or {}),
         scientific_investigation_hierarchy_intent(workspace, analysis or {}),
+        recorded_uncertainty_intent(workspace, analysis or {}),
     )

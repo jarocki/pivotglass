@@ -183,8 +183,9 @@ type. Pivotglass currently provides:
 - the admitted connection-count distribution; and
 - a PCA scatter view of similarity among indicator evidence-coverage profiles;
 - an Analysis of Competing Hypotheses matrix over recorded evidence stances;
+- a collapsible scientific-investigation hierarchy with exact path and depth;
   and
-- a collapsible scientific-investigation hierarchy with exact path and depth.
+- a likelihood-interval view with separate analytic confidence context.
 
 Every view states its source scope and missing-data policy. **View exact data
 and caveats** opens the accessible table behind the visual. **Export exact
@@ -217,6 +218,14 @@ other scientific lifecycle items. Use the disclosure controls to collapse or
 expand branches. The exact-data table preserves every parent, child, status,
 depth, and full path. Tree membership does not mean that one record supports,
 causes, or increases confidence in another.
+
+The likelihood and confidence view places each recorded likelihood range on a
+0–100% axis. It shows the latest analytic confidence level, rationale, and
+assessor beside the range without placing confidence on the probability axis.
+Likelihood answers “how probable?” Confidence answers “how sound and
+sufficient is the reasoning and evidence?” Pivotglass never merges them into a
+single score. Invalid ranges are omitted and counted rather than silently
+corrected.
 
 ## Relationship graph
 

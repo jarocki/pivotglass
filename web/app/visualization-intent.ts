@@ -9,7 +9,8 @@ export type VisualizationView =
   | "scatter"
   | "task_matrix"
   | "line"
-  | "bar";
+  | "bar"
+  | "uncertainty_intervals";
 
 export type VisualizationRow = Record<string, unknown>;
 

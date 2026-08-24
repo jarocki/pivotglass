@@ -150,6 +150,45 @@ function VisualizationEmpty({ intent }: { intent: VisualizationIntent }) {
   );
 }
 
+function UncertaintyIntervals({ intent }: { intent: VisualizationIntent }) {
+  if (!intent.data.rows.length) return <VisualizationEmpty intent={intent} />;
+  return (
+    <div className="uncertainty-intervals">
+      <div className="uncertainty-axis" aria-hidden="true">
+        {[0, 25, 50, 75, 100].map((value) => <span key={value}>{value}%</span>)}
+      </div>
+      {intent.data.rows.map((row, index) => {
+        const minimum = Math.max(0, Math.min(100, Number(row.probability_min_percent) || 0));
+        const maximum = Math.max(minimum, Math.min(100, Number(row.probability_max_percent) || 0));
+        const label = displayValue(row.target);
+        return (
+          <article key={`${displayValue(row.target_id)}-${index}`}>
+            <header>
+              <b>{label}</b>
+              <span>{displayValue(row.target_kind)} · {displayValue(row.likelihood_term)}</span>
+            </header>
+            <div
+              className="uncertainty-track"
+              role="img"
+              aria-label={`${label}: ${minimum}% to ${maximum}% likelihood; analytic confidence ${displayValue(row.confidence_level)}`}
+            >
+              <i style={{ left: `${minimum}%`, width: `${Math.max(1, maximum - minimum)}%` }} />
+              <span style={{ left: `${minimum}%` }}>{minimum}%</span>
+              <span style={{ left: `${maximum}%` }}>{maximum}%</span>
+            </div>
+            <footer>
+              <span>LIKELIHOOD · {displayValue(row.likelihood_assessor)}</span>
+              <p>{displayValue(row.likelihood_rationale)}</p>
+              <span>CONFIDENCE · {displayValue(row.confidence_level)} · {displayValue(row.confidence_assessor)}</span>
+              <p>{displayValue(row.confidence_rationale)}</p>
+            </footer>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 function AccessibleDataTable({ intent }: { intent: VisualizationIntent }) {
   if (intent.data.rows.length === 0) return null;
   return (
@@ -1388,6 +1427,8 @@ export function VisualizationWorkspace({
               ? <TaskMatrix intent={selected} onOpenEvidence={onOpenEvidence} />
               : selected.view === "dendrogram"
                 ? <HierarchyTree intent={selected} />
+              : selected.view === "uncertainty_intervals"
+                ? <UncertaintyIntervals intent={selected} />
               : selected.view === "relationship_graph"
                 ? <RelationshipGraph intent={selected} onOpenEvidence={onOpenEvidence} layouts={graphLayouts} onLayoutsChanged={onGraphLayoutsChanged} />
                 : <VisualizationEmpty intent={selected} />}

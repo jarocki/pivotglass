@@ -62,6 +62,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   investigation, question, hypothesis, and other workflow items. Tree position
   is explicitly presentation of membership, not evidentiary support or
   causality.
+- Added a likelihood-interval view that renders each persisted probability
+  range while keeping the latest formal analytic confidence assessment,
+  rationale, and assessor visibly separate. Invalid intervals are omitted and
+  counted rather than repaired or guessed.
 
 ## [0.8.5] — 2026-08-07
 

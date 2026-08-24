@@ -129,6 +129,11 @@ the path from workspace to investigation, question, hypothesis, and other
 scientific lifecycle items. Each view includes source scope, caveats, an
 accessible table, and export of the exact plotted data.
 
+The uncertainty view draws the bounded probability interval associated with
+each recorded likelihood term. The latest analytic confidence assessment is
+shown beside that interval with its own rationale and assessor; it is never
+converted into probability or combined into a single score.
+
 The PCA view standardizes only comparable, varying Dossier dimensions and
 reports the variance explained by each axis. It excludes deferred or
 unavailable dimensions instead of inventing values. Distance in that view is

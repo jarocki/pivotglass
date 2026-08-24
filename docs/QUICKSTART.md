@@ -272,6 +272,11 @@ questions, hypotheses, signposts, collection requirements, and other workflow
 items. Expand or collapse branches with the keyboard or pointer. The hierarchy
 shows membership only—not evidence support or causality.
 
+Open **Likelihood and confidence** after recording an `analysis likelihood`
+assessment. The bar shows the probability interval associated with the chosen
+likelihood term. Confidence remains a separate labeled judgment with its own
+rationale; it is not another position on the probability scale.
+
 Before sharing any export, remember that it can contain raw indicators and
 source-derived information.
 

@@ -40,6 +40,7 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
         "how_are_values_distributed",
         "are_numeric_features_correlated",
         "how_does_this_hierarchy_divide",
+        "what_likelihood_and_confidence_are_recorded",
         "which_evidence_supports_or_contradicts_hypotheses",
         "which_evidence_types_are_stored",
         "which_entities_relate",

@@ -23,6 +23,7 @@ from adversary_pursuit.core.visualization import (
     evidence_composition_intent,
     indicator_constellation_intent,
     indicator_coverage_pca_intent,
+    recorded_uncertainty_intent,
     relationship_degree_distribution_intent,
     relationship_graph_intent,
     scientific_investigation_hierarchy_intent,
@@ -447,6 +448,95 @@ def test_scientific_investigation_hierarchy_has_truthful_empty_state():
 
     assert intent.data.rows == ()
     assert intent.source_scope.record_count == 0
+
+
+def test_recorded_uncertainty_keeps_likelihood_and_confidence_separate():
+    intent = recorded_uncertainty_intent(
+        "case-red",
+        {
+            "hypotheses": [
+                {
+                    "id": "hypothesis-one",
+                    "statement": "One operator controls the relay.",
+                }
+            ],
+            "likelihood": [
+                {
+                    "id": "likelihood-one",
+                    "target_kind": "hypothesis",
+                    "target_id": "hypothesis-one",
+                    "term": "unlikely",
+                    "probability_min": 0.2,
+                    "probability_max": 0.45,
+                    "rationale": "Shared hosting remains a plausible alternative.",
+                    "assessed_by": "human",
+                    "created_at": "2026-08-24T10:00:00Z",
+                }
+            ],
+            "confidence": [
+                {
+                    "id": "confidence-older",
+                    "target_kind": "hypothesis",
+                    "target_id": "hypothesis-one",
+                    "level": "low",
+                    "rationale": "Initial review.",
+                    "assessed_by": "human",
+                    "created_at": "2026-08-24T09:00:00Z",
+                },
+                {
+                    "id": "confidence-latest",
+                    "target_kind": "hypothesis",
+                    "target_id": "hypothesis-one",
+                    "level": "moderate",
+                    "rationale": "Two independent sources now support the assessment.",
+                    "assessed_by": "human",
+                    "created_at": "2026-08-24T11:00:00Z",
+                },
+            ],
+        },
+    )
+
+    assert intent.view == VisualizationView.UNCERTAINTY_INTERVALS
+    assert intent.renderer == VisualizationRenderer.NATIVE
+    assert intent.data.rows == (
+        {
+            "target": "One operator controls the relay.",
+            "target_kind": "hypothesis",
+            "target_id": "hypothesis-one",
+            "likelihood_term": "unlikely",
+            "probability_min_percent": 20.0,
+            "probability_max_percent": 45.0,
+            "likelihood_rationale": "Shared hosting remains a plausible alternative.",
+            "likelihood_assessor": "human",
+            "likelihood_recorded_at": "2026-08-24T10:00:00Z",
+            "confidence_level": "moderate",
+            "confidence_rationale": "Two independent sources now support the assessment.",
+            "confidence_assessor": "human",
+        },
+    )
+    assert "Never convert confidence into probability" in intent.caveats[0]
+    assert "never as a numeric transformation" in intent.caveats[-1]
+
+
+def test_recorded_uncertainty_omits_invalid_intervals_without_guessing():
+    intent = recorded_uncertainty_intent(
+        "default",
+        {
+            "likelihood": [
+                {
+                    "target_kind": "hypothesis",
+                    "target_id": "bad-range",
+                    "term": "likely",
+                    "probability_min": 0.8,
+                    "probability_max": 0.2,
+                }
+            ]
+        },
+    )
+
+    assert intent.data.rows == ()
+    assert intent.missing_data.omitted_count == 1
+    assert "valid bounded probability interval" in intent.missing_data.explanation
 
 
 def test_relationship_graph_exposes_actual_labels_and_edge_basis():
