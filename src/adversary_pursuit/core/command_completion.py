@@ -172,10 +172,13 @@ def command_completions(
         choices = [
             "status",
             "synapse status",
+            "synapse shadow-preview",
             "synapse model ",
             "synapse lookup ",
             "synapse query ",
             "scot status",
+            "scot publish-preview",
+            "scot pivot-preview ",
             "scot get ",
             "scot search ",
             "scot entries ",

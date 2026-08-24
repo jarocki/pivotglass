@@ -385,11 +385,14 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `framework revoke <mapping-id> \| <reason>` | Revoke a mapping without deleting its history |
 | `framework navigator` | Verify local ATT&CK 19.2 content and download the exact plotted Navigator layer |
 | `integration status` | Show local endpoint and credential state without making a network request |
+| `integration synapse shadow-preview` | Compile the active governed graph into deterministic desired Synapse nodes and edges without writing |
 | `integration synapse status` | Connect to the configured Cortex MCP endpoint and list visible tools |
 | `integration synapse model <pattern>` | Search the Synapse data model |
 | `integration synapse lookup <type> <indicator>` | Normalize a supported Pivotglass indicator and lift the corresponding Synapse form with a bound Storm variable |
 | `integration synapse query <Storm>` | Run one validated, budgeted Storm query with read-only enforcement and an audit receipt |
 | `integration scot status` | Connect to the configured SCOT4 MCP endpoint and list visible tools |
+| `integration scot publish-preview` | Compile the same governed graph into a reviewable SCOT event/entity/entry publication manifest without writing |
+| `integration scot pivot-preview <type> <id> <indicator> \| <requester> \| <reason>` | Validate a SCOT-originated pivot request without enqueueing it |
 | `integration scot get <type> <id>` | Preview one SCOT4 object with remote ID, revision, permissions, and provenance |
 | `integration scot search <type> [filters-json]` | Run a bounded, paginated SCOT4 search |
 | `integration scot entries <type> <id> [plain\|flaired\|all]` | Read bounded SCOT4 object entries |

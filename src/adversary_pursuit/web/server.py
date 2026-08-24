@@ -382,12 +382,12 @@ class WebCockpitService:
                 "purpose": "Show local Synapse and SCOT4 MCP configuration without connecting",
             },
             {
-                "command": "integration synapse status|model|lookup|query",
-                "purpose": "Run explicit, validated, bounded, read-only Synapse MCP operations",
+                "command": "integration synapse shadow-preview|status|model|lookup|query",
+                "purpose": "Preview governed graph state or run explicit read-only Synapse MCP operations",
             },
             {
-                "command": "integration scot status|get|search|entries|entities",
-                "purpose": "Preview bounded SCOT4 records while preserving remote provenance",
+                "command": "integration scot publish-preview|pivot-preview|status|get|search|entries|entities",
+                "purpose": "Preview a hunt publication or bounded SCOT4 reads without unapproved writes",
             },
             {
                 "command": "analysis question <text>",
@@ -669,7 +669,9 @@ class WebCockpitService:
                 }
             return {"kind": "json", **result, "state": self.state()}
         if command == "integration":
-            result = execute_integration_command(tuple(rest.split()), self.config_mgr)
+            result = execute_integration_command(
+                tuple(rest.split()), self.config_mgr, self.ctx.workspace_mgr
+            )
             return {"kind": "json", **result}
         if command == "export":
             return self.export_payload(rest or "stix")

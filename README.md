@@ -184,8 +184,9 @@ The target integration architecture gives the two external platforms distinct
 roles: Vertex Synapse becomes the primary persisted entity/relationship graph,
 while SCOT4 becomes the web surface for reviewing published hunt sessions and
 requesting further pivots. Pivotglass remains the orchestration and analytic
-policy authority between them. The current release implements the bounded,
-read-only foundation; see the
+policy authority between them. The current work implements the bounded,
+read-only transport plus deterministic Synapse shadow and SCOT publication
+previews; see the
 [integration architecture](docs/EXTERNAL_INTEGRATIONS.md#target-architecture).
 
 ## Intelligence sources

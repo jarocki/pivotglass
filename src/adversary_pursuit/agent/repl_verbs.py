@@ -386,7 +386,7 @@ def dispatch_repl_verb(
             return "Integration configuration unavailable."
         from adversary_pursuit.core.integration_commands import execute_integration_command
 
-        result = execute_integration_command(verb.args, config_mgr)
+        result = execute_integration_command(verb.args, config_mgr, _workspace_mgr)
         return f"{result['title']}\n{json.dumps(result['data'], indent=2, default=str)}"
 
     if name == "theme":

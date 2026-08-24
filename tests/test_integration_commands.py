@@ -47,8 +47,34 @@ def test_tui_and_web_route_integration_status_without_a_model(tmp_path):
     assert web_service._runner is None
 
 
+def test_web_previews_synapse_shadow_and_scot_publication_from_same_workspace(tmp_path):
+    ctx = ToolContext(
+        config_dir=tmp_path / "config",
+        workspace_dir=tmp_path / "workspaces",
+    )
+    ctx.workspace_mgr.store_stix_objects(
+        [{"type": "domain-name", "value": "preview.example"}],
+        module_name="test/source",
+        target="preview.example",
+    )
+    service = WebCockpitService(ctx)
+
+    synapse = service.execute_command("integration synapse shadow-preview")
+    scot = service.execute_command("integration scot publish-preview")
+
+    assert synapse["data"]["source_snapshot_sha256"] == scot["data"][
+        "source_snapshot_sha256"
+    ]
+    assert synapse["data"]["nodes"]
+    assert scot["data"]["approval_required"] is True
+    assert scot["data"]["published"] is False
+    assert service._runner is None
+
+
 def test_integration_completions_cover_read_operations():
     assert "integration" in command_completions("integ")
     assert "integration synapse query " in command_completions("integration synapse q")
     assert "integration synapse lookup " in command_completions("integration synapse l")
+    assert "integration synapse shadow-preview" in command_completions("integration synapse s")
     assert "integration scot search " in command_completions("integration scot s")
+    assert "integration scot publish-preview" in command_completions("integration scot p")

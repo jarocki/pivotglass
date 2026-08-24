@@ -3,14 +3,25 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 from adversary_pursuit.core.config import ConfigManager
+from adversary_pursuit.core.graph_repository import WorkspaceGraphRepository
 from adversary_pursuit.integrations.scot import ScotMcpAdapter
+from adversary_pursuit.integrations.scot_publication import (
+    build_scot_publication_manifest,
+    validate_scot_pivot_request,
+)
 from adversary_pursuit.integrations.synapse import SynapseMcpAdapter
+from adversary_pursuit.integrations.synapse_graph import build_synapse_shadow_manifest
 
 
-def execute_integration_command(args: tuple[str, ...], config_mgr: ConfigManager) -> dict[str, Any]:
+def execute_integration_command(
+    args: tuple[str, ...],
+    config_mgr: ConfigManager,
+    workspace_mgr: Any | None = None,
+) -> dict[str, Any]:
     """Execute one explicitly requested, read-only integration operation."""
     if not args or args == ("status",):
         return {
@@ -19,9 +30,9 @@ def execute_integration_command(args: tuple[str, ...], config_mgr: ConfigManager
         }
     system = args[0].casefold()
     if system == "synapse":
-        return _synapse(args[1:], config_mgr)
+        return _synapse(args[1:], config_mgr, workspace_mgr)
     if system == "scot":
-        return _scot(args[1:], config_mgr)
+        return _scot(args[1:], config_mgr, workspace_mgr)
     raise ValueError(_usage())
 
 
@@ -37,9 +48,17 @@ def _configuration_status(config_mgr: ConfigManager) -> dict[str, Any]:
     }
 
 
-def _synapse(args: tuple[str, ...], config_mgr: ConfigManager) -> dict[str, Any]:
-    adapter = _synapse_adapter(config_mgr)
+def _synapse(
+    args: tuple[str, ...],
+    config_mgr: ConfigManager,
+    workspace_mgr: Any | None,
+) -> dict[str, Any]:
     action = args[0].casefold() if args else "status"
+    if action == "shadow-preview" and len(args) == 1:
+        snapshot = WorkspaceGraphRepository(_require_workspace(workspace_mgr)).snapshot()
+        data = build_synapse_shadow_manifest(snapshot).model_dump(mode="json")
+        return {"title": "Vertex Synapse shadow manifest", "data": data}
+    adapter = _synapse_adapter(config_mgr)
     if action == "status" and len(args) == 1:
         data = adapter.status()
     elif action == "model" and len(args) >= 2:
@@ -50,14 +69,43 @@ def _synapse(args: tuple[str, ...], config_mgr: ConfigManager) -> dict[str, Any]
         data = adapter.query(" ".join(args[1:]))
     else:
         raise ValueError(
-            "usage: integration synapse status|model <pattern>|lookup <type> <value>|query <Storm>"
+            "usage: integration synapse shadow-preview|status|model <pattern>|"
+            "lookup <type> <value>|query <Storm>"
         )
     return {"title": "Vertex Synapse (read-only)", "data": data}
 
 
-def _scot(args: tuple[str, ...], config_mgr: ConfigManager) -> dict[str, Any]:
-    adapter = _scot_adapter(config_mgr)
+def _scot(
+    args: tuple[str, ...],
+    config_mgr: ConfigManager,
+    workspace_mgr: Any | None,
+) -> dict[str, Any]:
     action = args[0].casefold() if args else "status"
+    if action == "publish-preview" and len(args) == 1:
+        snapshot = WorkspaceGraphRepository(_require_workspace(workspace_mgr)).snapshot()
+        data = build_scot_publication_manifest(snapshot).model_dump(mode="json")
+        return {"title": "SCOT4 hunt publication preview", "data": data}
+    if action == "pivot-preview" and len(args) >= 4:
+        structured = " ".join(args[1:]).split(" | ", 2)
+        if len(structured) != 3:
+            raise ValueError(
+                "usage: integration scot pivot-preview <type> <id> <indicator> | "
+                "<requester> | <reason>"
+            )
+        head = structured[0].split(maxsplit=2)
+        if len(head) != 3:
+            raise ValueError("SCOT pivot preview requires type, ID, and indicator")
+        request = validate_scot_pivot_request(
+            workspace=_require_workspace(workspace_mgr).active,
+            scot_object_type=head[0],
+            scot_object_id=int(head[1]),
+            indicator=head[2],
+            requested_by=structured[1],
+            requested_at=datetime.now(UTC),
+            reason=structured[2],
+        )
+        return {"title": "SCOT4 pivot request preview", "data": request.model_dump(mode="json")}
+    adapter = _scot_adapter(config_mgr)
     if action == "status" and len(args) == 1:
         data = adapter.status()
     elif action == "get" and len(args) == 3:
@@ -74,7 +122,8 @@ def _scot(args: tuple[str, ...], config_mgr: ConfigManager) -> dict[str, Any]:
     else:
         raise ValueError(
             "usage: integration scot status|get <type> <id>|search <type> [filters-json]|"
-            "entries <type> <id> [plain|flaired|all]|entities <type> <id>"
+            "entries <type> <id> [plain|flaired|all]|entities <type> <id>|"
+            "publish-preview|pivot-preview <type> <id> <indicator> | <requester> | <reason>"
         )
     return {"title": "Sandia SCOT4 (read-only)", "data": data}
 
@@ -111,3 +160,9 @@ def _connection(config_mgr: ConfigManager, system: str) -> tuple[str, str, dict[
 
 def _usage() -> str:
     return "usage: integration status|synapse ...|scot ..."
+
+
+def _require_workspace(workspace_mgr: Any | None) -> Any:
+    if workspace_mgr is None:
+        raise ValueError("active workspace is required for this integration preview")
+    return workspace_mgr

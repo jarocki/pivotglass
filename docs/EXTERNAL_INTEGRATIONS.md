@@ -99,11 +99,14 @@ URL supplied by the administrator.
 
 ```text
 integration status
+integration synapse shadow-preview
 integration synapse status
 integration synapse model <pattern>
 integration synapse lookup <STIX-type> <indicator>
 integration synapse query <Storm query>
 integration scot status
+integration scot publish-preview
+integration scot pivot-preview <type> <id> <indicator> | <requester> | <reason>
 integration scot get <object-type> <object-id>
 integration scot search <object-type> [filters-json]
 integration scot entries <object-type> <object-id> [plain|flaired|all]
@@ -119,6 +122,25 @@ Storm or search SCOT in the background.
 types to pinned Synapse forms. Values travel as Storm variables rather than
 being interpolated into query text.
 
+`synapse shadow-preview` compiles the active workspace's governed entity and
+epistemic graph into a deterministic desired-state manifest. It uses native
+Synapse forms for supported observables and the proposed `pivotglass:record`
+form for analytic records. Every edge retains its truth kind, rationale, and
+provenance references. The manifest is not executable Storm and performs no
+write. Exact parity compares node and edge content—not merely counts—before a
+future backend cutover can be considered.
+
+`scot publish-preview` compiles that same graph snapshot into a deterministic
+SCOT event, associated entities and analytic entries, and a relationship index.
+It always reports `approval_required=true` and `published=false`. The preview
+does not require a SCOT connection because it is a local transformation of
+authoritative workspace data.
+
+`scot pivot-preview` validates an indicator, SCOT parent reference, requester,
+and reason. Its disposition remains `preview`; it does not enqueue enrichment.
+This prevents content displayed in SCOT from becoming an instruction merely by
+arriving through the integration.
+
 Example incremental SCOT preview:
 
 ```text
@@ -132,14 +154,16 @@ stopped by a budget.
 
 ## Deliberately unfinished
 
-This slice establishes transport, mapping, receipts, and protocol fixtures.
+The current slices establish transport, repository snapshots, Synapse desired
+state and parity contracts, SCOT publication previews, pivot validation,
+receipts, and protocol fixtures.
 Before either integration is release-complete, it still needs:
 
 - disposable live-system round-trip tests;
-- a versioned Pivotglass graph-repository contract and Synapse schema mapping;
+- a deployed and versioned Synapse model package for the proposed custom forms;
 - backup-first migration, shadow comparison, recovery, and cutover gates;
-- Synapse relationship/time/provenance round-trip fixtures;
-- a deterministic hunt-session-to-SCOT publication manifest;
+- live Synapse relationship/time/provenance round-trip fixtures;
+- a versioned compiler from the SCOT manifest to its REST write operations;
 - SCOT outbound previews, explicit publication approval, readback, and conflict
   reconciliation;
 - SCOT-originated pivot requests routed through Pivotglass validation and the
