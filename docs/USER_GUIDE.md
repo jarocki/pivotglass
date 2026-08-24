@@ -389,7 +389,10 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `integration review <proposal-id> <accept\|reject> \| <reason>` | Record an explicit human disposition and rationale without turning the proposal into observed evidence |
 | `integration materialize <proposal-id> \| <rationale>` | Promote an accepted external proposal to a typed inferred assertion while retaining its receipt, caveats, review, and proposal lineage; never create an observation |
 | `integration synapse shadow-preview` | Compile the active governed graph into deterministic desired Synapse nodes and edges without writing |
-| `integration synapse model-contract` | Inspect the pinned custom record/edge model definition and digest required for migration |
+| `integration synapse model-contract` | Inspect the pinned persistent extended-model definition and digest required for migration |
+| `integration synapse model-deploy-plan` | Compile the exact global extended-model change and readback without connecting or writing |
+| `integration synapse model-deploy-execute <plan-digest> <backup-receipt-sha256> <approved-by> \| <confirmation>` | Apply one exact, 15-minute human-approved model plan after an operator backup, then require exact extended-model and runtime readback |
+| `integration synapse model-deploy-receipt <plan-digest>` | Inspect the durable one-shot deployment claim, completion receipt, or uncertain outcome |
 | `integration synapse migration-plan` | Compile bound-variable writes and readbacks for an isolated shadow view; remote execution remains disabled |
 | `integration synapse views` | List readable Synapse views and identify the authenticated user's effective default without guessing a migration parent |
 | `integration synapse shadow-execute <parent-view> <plan-digest> <backup-receipt-sha256> <approved-by> \| <confirmation>` | Recompile and load one approved plan into a new child view, reconcile every readback, and leave the parent untouched and the fork unmerged |

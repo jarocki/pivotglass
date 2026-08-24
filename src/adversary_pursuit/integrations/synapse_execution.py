@@ -20,6 +20,10 @@ from adversary_pursuit.integrations.synapse_migration import (
     SynapseStormOperation,
     pivotglass_synapse_model_contract,
 )
+from adversary_pursuit.integrations.synapse_model import (
+    PIVOTGLASS_EDGE_FORM,
+    PIVOTGLASS_RECORD_FORM,
+)
 
 _SYNAPSE_IDEN = re.compile(r"[0-9a-f]{32}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -348,12 +352,15 @@ def verify_synapse_model(value: Any) -> None:
         raise RuntimeError("Synapse did not return a model definition")
     actual_forms = value["forms"]
     contract = pivotglass_synapse_model_contract()
-    for form_name, _form_info, properties in contract.model_definition["forms"]:
+    properties_by_form: dict[str, list[str]] = {}
+    for form_name, prop_name, *_definition in contract.model_definition["props"]:
+        properties_by_form.setdefault(form_name, []).append(prop_name)
+    for form_name, *_form_definition in contract.model_definition["forms"]:
         actual = actual_forms.get(form_name)
         if not isinstance(actual, dict) or not isinstance(actual.get("props"), dict):
             raise RuntimeError(f"Synapse model is missing required form {form_name}")
         actual_props = actual["props"]
-        for prop_name, *_definition in properties:
+        for prop_name in properties_by_form[form_name]:
             if prop_name not in actual_props:
                 raise RuntimeError(
                     f"Synapse model form {form_name} is missing property {prop_name}"
@@ -371,7 +378,7 @@ def reconcile_synapse_readback(write: SynapseStormOperation, messages: list[Any]
     ]
     if len(matching) != 1:
         return False
-    if expected_form not in {"pivotglass:record", "pivotglass:edge"}:
+    if expected_form not in {PIVOTGLASS_RECORD_FORM, PIVOTGLASS_EDGE_FORM}:
         return True
     props = matching[0].get("props", {})
     if not isinstance(props, dict):
@@ -401,9 +408,9 @@ def _expected_ndef(write: SynapseStormOperation) -> tuple[str, Any]:
         form = write.query.lstrip("[ ").split("=", 1)[0].strip()
         return form, write.variables["pivotglass_value"]
     if write.operation_id.startswith("synapse-record-"):
-        return "pivotglass:record", write.variables["record_id"]
+        return PIVOTGLASS_RECORD_FORM, write.variables["record_id"]
     if write.operation_id.startswith("synapse-edge-"):
-        return "pivotglass:edge", write.variables["edge_guid"]
+        return PIVOTGLASS_EDGE_FORM, write.variables["edge_guid"]
     raise ValueError("unsupported Synapse write operation")
 
 
@@ -412,7 +419,7 @@ def _property_mapping(form: str) -> dict[str, str]:
         "workspace": "workspace",
         "source_snapshot": "source:snapshot",
     }
-    if form == "pivotglass:record":
+    if form == PIVOTGLASS_RECORD_FORM:
         return {
             **common,
             "source_value": "source:value",

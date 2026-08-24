@@ -149,6 +149,9 @@ integration proposals
 integration review <proposal-id> <accept|reject> | <reason>
 integration synapse shadow-preview
 integration synapse model-contract
+integration synapse model-deploy-plan
+integration synapse model-deploy-execute <plan-digest> <backup-receipt-sha256> <approved-by> | <confirmation>
+integration synapse model-deploy-receipt <plan-digest>
 integration synapse migration-plan
 integration synapse views
 integration synapse shadow-execute <parent-view> <plan-digest> <backup-receipt-sha256> <approved-by> | <confirmation>
@@ -183,7 +186,8 @@ integration nucleotide fingerprint-record <actor-id> | <event-object-or-array-js
 Preview and status commands are read-only. The `record` and `review` commands
 change only the local analytic lifecycle after an explicit operator action;
 they do not mutate source observations, the entity graph, Synapse, or SCOT.
-`scot publish-execute` is the sole currently implemented remote write command.
+Remote writes exist only behind the separate `synapse model-deploy-execute`,
+`synapse shadow-execute`, and `scot publish-execute` approval gates.
 
 `integration status` is local and makes no network request. A system-specific
 `status` command opens an MCP session and lists the tools visible to that
@@ -196,14 +200,16 @@ being interpolated into query text.
 
 `synapse shadow-preview` compiles the active workspace's governed entity and
 epistemic graph into a deterministic desired-state manifest. It uses native
-Synapse forms for supported observables and the proposed `pivotglass:record`
+Synapse forms for supported observables and the proposed `_pivotglass:record`
 form for analytic records. Every edge retains its truth kind, rationale, and
 provenance references. The manifest is not executable Storm and performs no
 write. Exact parity compares node and edge content—not merely counts—before a
 future backend cutover can be considered.
 
-`synapse model-contract` exposes the pinned `pivotglass:record` and
-`pivotglass:edge` CoreModule-style forms. Companion record nodes keep
+`synapse model-contract` exposes the pinned `_pivotglass:record` and
+`_pivotglass:edge` persistent extended forms. The underscore namespace is
+required by Synapse's supported extended-model API and avoids the deprecated
+custom CoreModule deployment path. Companion record nodes keep
 Pivotglass metadata off native Synapse observables; edge nodes retain source,
 target, direction, truth class, rationale, and provenance. `synapse
 migration-plan` compiles the shadow manifest into dependency-ordered,
@@ -211,12 +217,24 @@ bound-variable Storm writes and one exact readback per write. It requires model
 digest parity, a backup, an isolated shadow view, Storm validation, analyst
 approval, and readback while reporting `execution_enabled=false`.
 
+`synapse model-deploy-plan` compiles dependency-ordered, bound-variable
+`$lib.model.ext.addForm` and `addFormProp` calls plus exact readback without
+connecting. Because the
+extended model belongs to the whole Cortex rather than a view,
+`model-deploy-execute` requires a current plan digest, an operator-created
+backup receipt, a bounded human identity, and the exact 15-minute confirmation
+phrase. It validates the Storm, records a one-shot claim before mutation,
+performs no change when the exact model is already installed, and otherwise
+requires both exact extended-model readback and runtime form/property
+visibility. A failed or interrupted mutation is recorded as outcome uncertain
+and cannot be replayed silently. Use `model-deploy-receipt` to inspect it.
+
 `synapse views` lists readable views and identifies the credential's effective
 default; Pivotglass never guesses the parent view. `synapse shadow-execute`
 recompiles the active workspace, rejects a stale plan digest, requires the
 SHA-256 of an operator-created backup receipt, and accepts only the exact
 15-minute confirmation phrase bound to the parent view. It verifies the
-required MCP tools and deployed `pivotglass:record`/`pivotglass:edge` model,
+required MCP tools and deployed `_pivotglass:record`/`_pivotglass:edge` model,
 then forks the named parent. Every validated write and readback carries that
 new fork ID in Storm `opts.view`. Exact node definitions and custom properties
 must reconcile. The successful fork remains unmerged for inspection; no
@@ -232,9 +250,11 @@ Synapse installation with:
 python scripts/validate_synapse_contract.py
 ```
 
-The v0.9 work package was exercised successfully against a disposable Cortex
-from upstream Synapse 2.250.0. This validates the model and plan grammar; it is
-not a production cutover receipt.
+The v2 extended-model contract (`f3731ed95c83e8268ef183b14e1d830ccefa1aeeebd156d74faf9c5a00ab981d`)
+and eight seeded write/readback operations were exercised successfully on
+2026-08-24 against a disposable Cortex from upstream Synapse 2.250.0 commit
+`513524166d57d086cf619be715fc9ded6a7c7a54`. This validates the deployment and
+migration Storm against a real Cortex; it is not a production cutover receipt.
 
 `scot publish-preview` compiles that same graph snapshot into a deterministic
 SCOT event, associated entities and analytic entries, and a relationship index.
@@ -337,7 +357,8 @@ stopped by a budget.
 ## Deliberately unfinished
 
 The current slices establish transport, repository snapshots, Synapse desired
-state, parity, model, and approval-gated isolated shadow migration; SCOT publication
+state, parity, persistent extended model, approval-gated model deployment, and
+approval-gated isolated shadow migration; SCOT publication
 previews, exact write plans, one-shot approval-gated execution, durable
 receipts, mandatory readback reconciliation, and pivot validation; go-roast
 OAST graph proposals; Nucleotide lookup/fingerprint previews; governed
@@ -345,8 +366,6 @@ external-analysis proposal disposition; and protocol fixtures.
 Before either integration is release-complete, it still needs:
 
 - disposable live-system round-trip tests;
-- deployment packaging and an operator-approved installation path for the
-  validated Synapse model contract;
 - live backup, recovery, reviewed shadow merge, and cutover gates;
 - live Synapse relationship/time/provenance round-trip fixtures;
 - live disposable-SCOT readback, lossless reconciliation, and conflict

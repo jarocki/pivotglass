@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict
 
 from adversary_pursuit.core.graph_repository import GraphRepositorySnapshot
 from adversary_pursuit.integrations.mapping import synapse_lift
+from adversary_pursuit.integrations.synapse_model import PIVOTGLASS_RECORD_FORM
 
 
 class SynapseManifestNode(BaseModel):
@@ -190,7 +191,7 @@ def _form_and_value(kind: str, label: str, node_id: str) -> tuple[str, str]:
         lift = synapse_lift(kind, label)
         return lift.form, lift.value
     except (ValueError, UnicodeError):
-        return "pivotglass:record", node_id
+        return PIVOTGLASS_RECORD_FORM, node_id
 
 
 def _stable_id(prefix: str, payload: dict[str, Any]) -> str:

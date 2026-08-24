@@ -21,6 +21,14 @@ from adversary_pursuit.integrations.synapse_migration import (
     compile_synapse_migration_plan,
     pivotglass_synapse_model_contract,
 )
+from adversary_pursuit.integrations.synapse_model import (
+    PIVOTGLASS_EDGE_FORM,
+    PIVOTGLASS_RECORD_FORM,
+)
+from adversary_pursuit.integrations.synapse_model_deployment import (
+    compile_synapse_model_deployment_plan,
+    extended_model_contains,
+)
 
 os.environ.setdefault("SYN_AXON_LIMIT_DISK_FREE", "0")
 
@@ -61,7 +69,7 @@ async def _validate() -> None:
             ),
             SynapseManifestNode(
                 id="synapse-node-record",
-                form="pivotglass:record",
+                form=PIVOTGLASS_RECORD_FORM,
                 value="epistemic:question:validation",
                 source_node_ids=("epistemic:question:validation",),
                 properties={
@@ -94,15 +102,20 @@ async def _validate() -> None:
             conf={"limit:disk:free": 0, "health:sysctl:checks": False},
         )
         try:
-            core.model.addDataModels(
-                [(contract.model_name, copy.deepcopy(contract.model_definition))]
-            )
+            deployment = compile_synapse_model_deployment_plan()
+            for operation in deployment.operations:
+                await core.callStorm(
+                    operation.query,
+                    opts={"vars": copy.deepcopy(operation.variables)},
+                )
+            if not extended_model_contains(await core.getExtModel(), contract):
+                raise RuntimeError("Synapse extended-model readback did not match")
             model = core.model.getModelDict()
             verify_synapse_model(
                 {
                     "forms": {
                         name: model["forms"][name]
-                        for name in ("pivotglass:record", "pivotglass:edge")
+                        for name in (PIVOTGLASS_RECORD_FORM, PIVOTGLASS_EDGE_FORM)
                     }
                 }
             )

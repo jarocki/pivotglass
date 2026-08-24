@@ -12,6 +12,10 @@ from adversary_pursuit.integrations.synapse_graph import (
     SynapseManifestNode,
     SynapseShadowManifest,
 )
+from adversary_pursuit.integrations.synapse_model import (
+    PIVOTGLASS_EDGE_FORM,
+    PIVOTGLASS_RECORD_FORM,
+)
 
 _NATIVE_FORMS = frozenset(
     {
@@ -26,18 +30,17 @@ _NATIVE_FORMS = frozenset(
         "inet:url",
     }
 )
-
-
 class SynapseModelContract(BaseModel):
-    """Pinned CoreModule-style data model required by Pivotglass migration."""
+    """Pinned persistent extended-model definition required by migration."""
 
     model_config = ConfigDict(frozen=True)
 
-    schema_version: Literal["pivotglass-synapse-model-contract-1.0"] = (
-        "pivotglass-synapse-model-contract-1.0"
+    schema_version: Literal["pivotglass-synapse-model-contract-2.0"] = (
+        "pivotglass-synapse-model-contract-2.0"
     )
     model_name: Literal["pivotglass"] = "pivotglass"
-    model_version: Literal["1.0.0"] = "1.0.0"
+    model_version: Literal["2.0.0"] = "2.0.0"
+    deployment_method: Literal["synapse-extended-model"] = "synapse-extended-model"
     model_definition: dict[str, Any]
     digest_sha256: str
 
@@ -79,59 +82,58 @@ class SynapseMigrationPlan(BaseModel):
 
 
 def pivotglass_synapse_model_contract() -> SynapseModelContract:
-    """Return the exact custom forms used for records and evidence-rich edges."""
+    """Return the exact persistent extended forms used by Pivotglass.
+
+    Synapse's supported extended-model API requires custom form names to begin
+    with an underscore.  Keeping the deployable shape here makes this contract
+    the single authority used by previews, approvals, execution, and readback.
+    """
+    record_doc = "A stable Pivotglass governed-record identifier."
+    edge_doc = "A provenance-bearing Pivotglass graph relationship."
+    record_props = [
+        _prop("workspace", "str", "The originating Pivotglass workspace."),
+        _prop("source:snapshot", "str", "The source graph snapshot SHA-256."),
+        _prop("source:value", "str", "The source manifest value."),
+        _prop("node", "ndef", "The corresponding native Synapse node, when any."),
+        _array_prop("layers", "str", "Source graph layers."),
+        _array_prop("kinds", "str", "Source graph entity or record kinds."),
+        _array_prop("labels", "str", "Source display labels."),
+        _array_prop("record:refs", "str", "Authoritative Pivotglass record references."),
+        _array_prop("states", "str", "Source record states and dispositions."),
+        _array_prop("source:node:ids", "str", "Source graph node identifiers."),
+    ]
+    edge_props = [
+        _prop("workspace", "str", "The originating Pivotglass workspace."),
+        _prop("source:snapshot", "str", "The source graph snapshot SHA-256."),
+        _prop("manifest:ref", "str", "The stable source manifest edge identifier."),
+        _prop("source", "ndef", "The directional source node definition."),
+        _prop("target", "ndef", "The directional target node definition."),
+        _prop("relationship", "str", "The typed Pivotglass relationship."),
+        _prop("truth:kind", "str", "Observed, derived, asserted, or structural truth class."),
+        _array_prop("provenance:refs", "str", "Immutable provenance references."),
+        _prop("rationale", "str", "Why this relationship exists."),
+        _prop("directed", "bool", "Whether the relationship is directional."),
+    ]
     definition = {
-        "types": [
-            [
-                "pivotglass:record",
-                ["str", {"strip": True}],
-                {"doc": "A stable Pivotglass governed-record identifier."},
-            ],
-            [
-                "pivotglass:edge",
-                ["guid", {}],
-                {"doc": "A provenance-bearing Pivotglass graph relationship."},
-            ],
-        ],
+        "version": [1, 0],
+        "types": [],
         "forms": [
-            [
-                "pivotglass:record",
-                {},
-                [
-                    _prop("workspace", "str", "The originating Pivotglass workspace."),
-                    _prop("source:snapshot", "str", "The source graph snapshot SHA-256."),
-                    _prop("source:value", "str", "The source manifest value."),
-                    _prop("node", "ndef", "The corresponding native Synapse node, when any."),
-                    _array_prop("layers", "str", "Source graph layers."),
-                    _array_prop("kinds", "str", "Source graph entity or record kinds."),
-                    _array_prop("labels", "str", "Source display labels."),
-                    _array_prop("record:refs", "str", "Authoritative Pivotglass record references."),
-                    _array_prop("states", "str", "Source record states and dispositions."),
-                    _array_prop("source:node:ids", "str", "Source graph node identifiers."),
-                ],
-            ],
-            [
-                "pivotglass:edge",
-                {},
-                [
-                    _prop("workspace", "str", "The originating Pivotglass workspace."),
-                    _prop("source:snapshot", "str", "The source graph snapshot SHA-256."),
-                    _prop("manifest:ref", "str", "The stable source manifest edge identifier."),
-                    _prop("source", "ndef", "The directional source node definition."),
-                    _prop("target", "ndef", "The directional target node definition."),
-                    _prop("relationship", "str", "The typed Pivotglass relationship."),
-                    _prop("truth:kind", "str", "Observed, derived, asserted, or structural truth class."),
-                    _array_prop("provenance:refs", "str", "Immutable provenance references."),
-                    _prop("rationale", "str", "Why this relationship exists."),
-                    _prop("directed", "bool", "Whether the relationship is directional."),
-                ],
-            ],
+            [PIVOTGLASS_RECORD_FORM, "str", {"strip": True}, {"doc": record_doc}],
+            [PIVOTGLASS_EDGE_FORM, "guid", {}, {"doc": edge_doc}],
         ],
+        "props": [
+            *[[PIVOTGLASS_RECORD_FORM, *prop] for prop in record_props],
+            *[[PIVOTGLASS_EDGE_FORM, *prop] for prop in edge_props],
+        ],
+        "univs": [],
+        "tagprops": [],
+        "edges": [],
     }
     content = {
-        "schema_version": "pivotglass-synapse-model-contract-1.0",
+        "schema_version": "pivotglass-synapse-model-contract-2.0",
         "model_name": "pivotglass",
-        "model_version": "1.0.0",
+        "model_version": "2.0.0",
+        "deployment_method": "synapse-extended-model",
         "model_definition": definition,
     }
     return SynapseModelContract(
@@ -150,7 +152,7 @@ def compile_synapse_migration_plan(
     node_dependency: dict[str, str] = {}
 
     for node in manifest.nodes:
-        if node.form not in _NATIVE_FORMS and node.form != "pivotglass:record":
+        if node.form not in _NATIVE_FORMS and node.form != PIVOTGLASS_RECORD_FORM:
             raise ValueError(f"unsupported Synapse manifest form: {node.form}")
         native_operation: str | None = None
         if node.form in _NATIVE_FORMS:
@@ -188,7 +190,7 @@ def compile_synapse_migration_plan(
                 operation_id=record_operation,
                 phase="write",
                 query=(
-                    "[ pivotglass:record=$record_id :workspace=$workspace "
+                    f"[ {PIVOTGLASS_RECORD_FORM}=$record_id :workspace=$workspace "
                     ":source:snapshot=$source_snapshot :source:value=$source_value"
                     f"{node_clause} :layers=$layers :kinds=$kinds :labels=$labels "
                     ":record:refs=$record_refs :states=$states "
@@ -214,7 +216,7 @@ def compile_synapse_migration_plan(
                 operation_id=operation_id,
                 phase="write",
                 query=(
-                    "[ pivotglass:edge=$edge_guid :workspace=$workspace "
+                    f"[ {PIVOTGLASS_EDGE_FORM}=$edge_guid :workspace=$workspace "
                     ":source:snapshot=$source_snapshot :manifest:ref=$manifest_ref "
                     ":source=$source :target=$target :relationship=$relationship "
                     ":truth:kind=$truth_kind :provenance:refs=$provenance_refs "
@@ -248,10 +250,10 @@ def compile_synapse_migration_plan(
             query = write.query.strip("[] ")
             variables = dict(write.variables)
         elif write.operation_id.startswith("synapse-record-"):
-            query = "pivotglass:record=$record_id"
+            query = f"{PIVOTGLASS_RECORD_FORM}=$record_id"
             variables = {"record_id": write.variables["record_id"]}
         else:
-            query = "pivotglass:edge=$edge_guid"
+            query = f"{PIVOTGLASS_EDGE_FORM}=$edge_guid"
             variables = {"edge_guid": write.variables["edge_guid"]}
         operations.append(
             SynapseStormOperation(
@@ -293,7 +295,7 @@ def _array_prop(name: str, item_type: str, doc: str) -> list[Any]:
 def _node_ndef(node: SynapseManifestNode) -> tuple[str, str]:
     if node.form in _NATIVE_FORMS:
         return node.form, node.value
-    return "pivotglass:record", node.id
+    return PIVOTGLASS_RECORD_FORM, node.id
 
 
 def _operation_id(action: str, value: str) -> str:

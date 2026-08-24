@@ -384,7 +384,7 @@ class WebCockpitService:
                 "purpose": "Show local Synapse and SCOT4 MCP configuration without connecting",
             },
             {
-                "command": "integration synapse shadow-preview|model-contract|migration-plan|shadow-execute|shadow-receipt|views|status|model|lookup|query",
+                "command": "integration synapse shadow-preview|model-contract|model-deploy-plan|model-deploy-execute|model-deploy-receipt|migration-plan|shadow-execute|shadow-receipt|views|status|model|lookup|query",
                 "purpose": "Preview governed graph state, inspect the versioned model, compile a disabled shadow migration, or run explicit read-only MCP operations",
             },
             {

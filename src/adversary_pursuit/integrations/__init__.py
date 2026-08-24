@@ -22,6 +22,11 @@ from adversary_pursuit.integrations.synapse_execution import (
     SynapseShadowReceipt,
 )
 from adversary_pursuit.integrations.synapse_migration import SynapseMigrationPlan
+from adversary_pursuit.integrations.synapse_model_deployment import (
+    SynapseModelDeploymentJournal,
+    SynapseModelDeploymentPlan,
+    SynapseModelDeploymentReceipt,
+)
 
 __all__ = [
     "ExternalReference",
@@ -36,6 +41,9 @@ __all__ = [
     "ScotPublicationJournal",
     "ScotPublicationReceipt",
     "SynapseMigrationPlan",
+    "SynapseModelDeploymentJournal",
+    "SynapseModelDeploymentPlan",
+    "SynapseModelDeploymentReceipt",
     "SynapseShadowJournal",
     "SynapseShadowReceipt",
 ]

@@ -18,7 +18,7 @@ def test_integration_status_is_local_masked_and_shared(tmp_path):
     assert result["data"]["synapse"] == {
         "endpoint": "configured",
         "credential": "config",
-        "mode": "read-only exploration; approved shadow-view loads",
+        "mode": "read-only exploration; approved model deployment and shadow-view loads",
         "authority": "remote-preview",
     }
     assert "never-display-this" not in repr(result)
@@ -61,13 +61,20 @@ def test_web_previews_synapse_shadow_and_scot_publication_from_same_workspace(tm
 
     synapse = service.execute_command("integration synapse shadow-preview")
     synapse_model = service.execute_command("integration synapse model-contract")
+    synapse_model_plan = service.execute_command("integration synapse model-deploy-plan")
     synapse_plan = service.execute_command("integration synapse migration-plan")
     scot = service.execute_command("integration scot publish-preview")
     scot_plan = service.execute_command("integration scot publish-plan analyst")
 
     assert synapse["data"]["source_snapshot_sha256"] == scot["data"]["source_snapshot_sha256"]
     assert synapse["data"]["nodes"]
-    assert synapse_model["data"]["model_version"] == "1.0.0"
+    assert synapse_model["data"]["model_version"] == "2.0.0"
+    assert synapse_model["data"]["deployment_method"] == "synapse-extended-model"
+    assert synapse_model_plan["data"]["model_digest_sha256"] == synapse_model["data"][
+        "digest_sha256"
+    ]
+    assert synapse_model_plan["data"]["global_model_mutation"] is True
+    assert synapse_model_plan["data"]["execution_enabled"] is False
     assert synapse_plan["data"]["manifest_digest_sha256"] == synapse["data"]["digest_sha256"]
     assert synapse_plan["data"]["execution_enabled"] is False
     assert scot["data"]["approval_required"] is True
@@ -83,6 +90,13 @@ def test_integration_completions_cover_read_operations():
     assert "integration synapse lookup " in command_completions("integration synapse l")
     assert "integration synapse shadow-preview" in command_completions("integration synapse s")
     assert "integration synapse model-contract" in command_completions("integration synapse m")
+    assert "integration synapse model-deploy-plan" in command_completions("integration synapse m")
+    assert "integration synapse model-deploy-execute " in command_completions(
+        "integration synapse m"
+    )
+    assert "integration synapse model-deploy-receipt " in command_completions(
+        "integration synapse m"
+    )
     assert "integration synapse migration-plan" in command_completions("integration synapse m")
     assert "integration synapse shadow-execute " in command_completions("integration synapse s")
     assert "integration synapse shadow-receipt " in command_completions("integration synapse s")

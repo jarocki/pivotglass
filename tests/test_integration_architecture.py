@@ -63,7 +63,7 @@ def test_synapse_shadow_uses_native_entities_and_exact_parity(tmp_path):
     manifest = build_synapse_shadow_manifest(snapshot)
 
     forms = {node.form for node in manifest.nodes}
-    assert {"inet:fqdn", "inet:ipv4", "pivotglass:record"} <= forms
+    assert {"inet:fqdn", "inet:ipv4", "_pivotglass:record"} <= forms
     assert all(edge.provenance_refs for edge in manifest.edges)
     assert all(edge.directed is True for edge in manifest.edges)
     assert compare_synapse_shadow(manifest, manifest).cutover_ready is True
@@ -98,7 +98,7 @@ def test_synapse_model_and_migration_plan_are_versioned_bound_and_disabled(tmp_p
     assert first.backup_required is True
     assert first.readback_required is True
     form_names = {form[0] for form in model.model_definition["forms"]}
-    assert form_names == {"pivotglass:record", "pivotglass:edge"}
+    assert form_names == {"_pivotglass:record", "_pivotglass:edge"}
     writes = [operation for operation in first.operations if operation.phase == "write"]
     readbacks = [operation for operation in first.operations if operation.phase == "readback"]
     assert len(writes) == len(readbacks)
@@ -115,7 +115,7 @@ def test_synapse_model_and_migration_plan_are_versioned_bound_and_disabled(tmp_p
     for operation in first.operations:
         assert set(operation.depends_on) <= seen
         seen.add(operation.operation_id)
-    edge_writes = [operation for operation in writes if "pivotglass:edge" in operation.query]
+    edge_writes = [operation for operation in writes if "_pivotglass:edge" in operation.query]
     assert len(edge_writes) == len(manifest.edges)
     assert all(operation.variables["provenance_refs"] for operation in edge_writes)
 

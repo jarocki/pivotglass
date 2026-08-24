@@ -23,6 +23,9 @@ from adversary_pursuit.integrations.synapse_migration import (
     compile_synapse_migration_plan,
     pivotglass_synapse_model_contract,
 )
+from adversary_pursuit.integrations.synapse_model import (
+    PIVOTGLASS_RECORD_FORM,
+)
 
 _PARENT = "a" * 32
 _FORK = "b" * 32
@@ -68,19 +71,18 @@ def _response(request: httpx.Request, result: dict | None = None) -> httpx.Respo
 
 
 def _model_result() -> dict:
-    forms = {}
-    for form_name, _form_info, properties in pivotglass_synapse_model_contract().model_definition[
-        "forms"
-    ]:
-        forms[form_name] = {"props": {definition[0]: {} for definition in properties}}
+    contract = pivotglass_synapse_model_contract().model_definition
+    forms = {definition[0]: {"props": {}} for definition in contract["forms"]}
+    for form_name, prop_name, *_definition in contract["props"]:
+        forms[form_name]["props"][prop_name] = {}
     return {"forms": forms}
 
 
 def _node_for(arguments: dict, stored_nodes: dict[tuple[str, str], list]) -> list:
     query = arguments["query"]
     variables = arguments["opts"]["vars"]
-    if "pivotglass:record" in query:
-        key = ("pivotglass:record", variables["record_id"])
+    if PIVOTGLASS_RECORD_FORM in query:
+        key = (PIVOTGLASS_RECORD_FORM, variables["record_id"])
         if "workspace" not in variables:
             return stored_nodes[key]
         props = {
@@ -95,7 +97,7 @@ def _node_for(arguments: dict, stored_nodes: dict[tuple[str, str], list]) -> lis
             "states": variables["states"],
             "source:node:ids": variables["source_node_ids"],
         }
-        node = ["node", [["pivotglass:record", variables["record_id"]], {"props": props}]]
+        node = ["node", [[PIVOTGLASS_RECORD_FORM, variables["record_id"]], {"props": props}]]
         stored_nodes[key] = node
         return node
     return [
