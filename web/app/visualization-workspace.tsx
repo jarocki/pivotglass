@@ -4,12 +4,15 @@ import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { Chart, registerables } from "chart.js";
 
 import {
+  appendGraphPresentationHistory,
   compileFlintChartjs,
   exactDataExport,
+  graphPresentationSnapshotsEqual,
   hiddenGraphReferences,
   updateGraphSelection,
   plottedRows,
   validateVisualizationIntent,
+  type GraphPresentationSnapshot,
   type VisualizationEdge,
   type VisualizationIntent,
   type VisualizationRow,
@@ -910,6 +913,8 @@ function RelationshipGraph({
   const [labels, setLabels] = useState<Record<string, string>>({});
   const [pinned, setPinned] = useState<Set<string>>(new Set());
   const [collapsedRefs, setCollapsedRefs] = useState<Set<string>>(new Set());
+  const [undoStack, setUndoStack] = useState<GraphPresentationSnapshot[]>([]);
+  const [redoStack, setRedoStack] = useState<GraphPresentationSnapshot[]>([]);
   const [layoutName, setLayoutName] = useState("");
   const [layoutMessage, setLayoutMessage] = useState("");
   const [layoutBusy, setLayoutBusy] = useState(false);
@@ -923,6 +928,18 @@ function RelationshipGraph({
   } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const pendingLayoutPositions = useRef<Record<string, GraphPoint> | null>(null);
+  const graphInitialized = useRef(false);
+  const interactionStart = useRef<GraphPresentationSnapshot | null>(null);
+  const labelEditStart = useRef<GraphPresentationSnapshot | null>(null);
+  const labelEditCheckpointed = useRef(false);
+  const wheelCommitTimer = useRef<number | null>(null);
+  const latestPresentation = useRef<GraphPresentationSnapshot>({
+    positions: {},
+    viewport: { x: 0, y: 0, scale: 1 },
+    labels: {},
+    pinned_refs: [],
+    collapsed_refs: [],
+  });
   const width = 760;
   const height = 430;
   const degree = new Map(intent.data.nodes.map((node) => [node.reference, 0]));
@@ -974,8 +991,15 @@ function RelationshipGraph({
   useEffect(() => {
     const restored = pendingLayoutPositions.current;
     pendingLayoutPositions.current = null;
-    setPositions(restored ? { ...initialPositions, ...restored } : initialPositions);
-    if (!restored) setViewport({ x: 0, y: 0, scale: 1 });
+    setPositions((current) => (
+      restored
+        ? { ...initialPositions, ...current, ...restored }
+        : { ...initialPositions, ...current }
+    ));
+    if (!graphInitialized.current) {
+      graphInitialized.current = true;
+      if (!restored) setViewport({ x: 0, y: 0, scale: 1 });
+    }
   }, [initialPositions]);
   const selected = selectedRefs.at(-1) ?? null;
   const selectedSet = new Set(selectedRefs);
@@ -985,11 +1009,67 @@ function RelationshipGraph({
     .filter((node): node is NonNullable<typeof node> => Boolean(node));
   const markerId = `${intent.intent_id}-relationship-arrow`;
 
+  latestPresentation.current = {
+    positions,
+    viewport,
+    labels,
+    pinned_refs: [...pinned],
+    collapsed_refs: [...collapsedRefs],
+  };
+
+  const pushUndo = (snapshot: GraphPresentationSnapshot) => {
+    setUndoStack((current) => appendGraphPresentationHistory(current, snapshot));
+    setRedoStack([]);
+  };
+
+  const checkpointPresentation = () => {
+    pushUndo(latestPresentation.current);
+  };
+
+  const beginPresentationInteraction = () => {
+    if (!interactionStart.current) interactionStart.current = latestPresentation.current;
+  };
+
+  const completePresentationInteraction = () => {
+    const before = interactionStart.current;
+    interactionStart.current = null;
+    if (before && !graphPresentationSnapshotsEqual(before, latestPresentation.current)) {
+      pushUndo(before);
+    }
+  };
+
+  const applyPresentation = (snapshot: GraphPresentationSnapshot) => {
+    setPositions(snapshot.positions);
+    setViewport(snapshot.viewport);
+    setLabels(snapshot.labels);
+    setPinned(new Set(snapshot.pinned_refs));
+    setCollapsedRefs(new Set(snapshot.collapsed_refs));
+  };
+
+  const undoPresentation = () => {
+    const previous = undoStack.at(-1);
+    if (!previous) return;
+    const currentPresentation = latestPresentation.current;
+    setUndoStack((current) => current.slice(0, -1));
+    setRedoStack((current) => appendGraphPresentationHistory(current, currentPresentation));
+    applyPresentation(previous);
+  };
+
+  const redoPresentation = () => {
+    const next = redoStack.at(-1);
+    if (!next) return;
+    const currentPresentation = latestPresentation.current;
+    setRedoStack((current) => current.slice(0, -1));
+    setUndoStack((current) => appendGraphPresentationHistory(current, currentPresentation));
+    applyPresentation(next);
+  };
+
   const selectNode = (reference: string, additive: boolean) => {
     setSelectedRefs((current) => updateGraphSelection(current, reference, additive));
   };
 
   const toggleNeighborhood = (reference: string) => {
+    checkpointPresentation();
     setCollapsedRefs((current) => {
       const next = new Set(current);
       if (next.has(reference)) next.delete(reference);
@@ -1065,6 +1145,7 @@ function RelationshipGraph({
   };
 
   const updateZoom = (factor: number) => {
+    checkpointPresentation();
     setViewport((current) => {
       const nextScale = Math.max(0.45, Math.min(3, current.scale * factor));
       const actualFactor = nextScale / current.scale;
@@ -1115,12 +1196,14 @@ function RelationshipGraph({
     if (!name) return;
     setLayoutBusy(true);
     setLayoutMessage("");
+    const previousPresentation = latestPresentation.current;
     try {
       const response = await fetch(`/api/graph-layouts?name=${encodeURIComponent(name)}`, {
         cache: "no-store",
       });
       const result = await response.json() as ResolvedGraphLayout & { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Unable to load graph layout");
+      pushUndo(previousPresentation);
       setLayoutName(result.name);
       pendingLayoutPositions.current = result.node_positions;
       setQuery(result.filter_text);
@@ -1185,9 +1268,26 @@ function RelationshipGraph({
     }));
   };
 
+  useEffect(() => () => {
+    if (wheelCommitTimer.current !== null) window.clearTimeout(wheelCommitTimer.current);
+  }, []);
+
   if (intent.data.nodes.length === 0) return <VisualizationEmpty intent={intent} />;
   return (
-    <div className="relationship-visualization">
+    <div
+      className="relationship-visualization"
+      onKeyDown={(event) => {
+        if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "z") return;
+        if (
+          event.target instanceof HTMLInputElement
+          || event.target instanceof HTMLTextAreaElement
+          || event.target instanceof HTMLSelectElement
+        ) return;
+        event.preventDefault();
+        if (event.shiftKey) redoPresentation();
+        else undoPresentation();
+      }}
+    >
       <div className="relationship-controls">
         <label>
           <span>Filter indicators or types</span>
@@ -1201,15 +1301,24 @@ function RelationshipGraph({
           <span className="graph-zoom-controls" aria-label="Graph zoom controls">
             <button onClick={() => updateZoom(1.2)} aria-label="Zoom relationship graph in">＋</button>
             <button onClick={() => updateZoom(1 / 1.2)} aria-label="Zoom relationship graph out">－</button>
-            <button onClick={() => setViewport({ x: 0, y: 0, scale: 1 })}>CENTER</button>
+            <button onClick={() => { checkpointPresentation(); setViewport({ x: 0, y: 0, scale: 1 }); }}>CENTER</button>
           </span>
         )}
+        <span className="graph-history-controls" aria-label="Graph presentation history">
+          <button onClick={undoPresentation} disabled={undoStack.length === 0}>UNDO VIEW</button>
+          <button onClick={redoPresentation} disabled={redoStack.length === 0}>REDO VIEW</button>
+        </span>
         {selectedRefs.length > 0 && <span>{selectedRefs.length} selected</span>}
         {hiddenRefs.size > 0 && (
-          <button onClick={() => setCollapsedRefs(new Set())}>SHOW ALL CONNECTIONS</button>
+          <button onClick={() => { checkpointPresentation(); setCollapsedRefs(new Set()); }}>SHOW ALL CONNECTIONS</button>
         )}
         {(query || selectedRefs.length > 0 || collapsedRefs.size > 0) && (
-          <button onClick={() => { setQuery(""); setSelectedRefs([]); setCollapsedRefs(new Set()); }}>RESET VIEW</button>
+          <button onClick={() => {
+            if (collapsedRefs.size > 0) checkpointPresentation();
+            setQuery("");
+            setSelectedRefs([]);
+            setCollapsedRefs(new Set());
+          }}>RESET VIEW</button>
         )}
       </div>
       <div className="graph-layout-controls" aria-label="Saved graph presentations">
@@ -1262,7 +1371,9 @@ function RelationshipGraph({
                   node.reference,
                   event.shiftKey || event.metaKey || event.ctrlKey,
                 )}
-                onDoubleClick={() => toggleNeighborhood(node.reference)}
+                onDoubleClick={() => {
+                  if ((degree.get(node.reference) ?? 0) > 0) toggleNeighborhood(node.reference);
+                }}
               >
                 <b>{shortLabel(node.label, 30)}</b>
                 <span>{node.entity_type}</span>
@@ -1279,6 +1390,7 @@ function RelationshipGraph({
           tabIndex={0}
           onPointerDown={(event) => {
             if (event.target !== event.currentTarget) return;
+            beginPresentationInteraction();
             event.currentTarget.setPointerCapture(event.pointerId);
             setDrag({
               kind: "canvas",
@@ -1291,11 +1403,19 @@ function RelationshipGraph({
           }}
           onPointerMove={handlePointerMove}
           onPointerUp={(event) => {
-            if (drag?.pointerId === event.pointerId) setDrag(null);
+            if (drag?.pointerId === event.pointerId) {
+              setDrag(null);
+              completePresentationInteraction();
+            }
           }}
-          onPointerCancel={() => setDrag(null)}
+          onPointerCancel={() => {
+            setDrag(null);
+            completePresentationInteraction();
+          }}
           onWheel={(event) => {
             event.preventDefault();
+            beginPresentationInteraction();
+            if (wheelCommitTimer.current !== null) window.clearTimeout(wheelCommitTimer.current);
             const rect = event.currentTarget.getBoundingClientRect();
             const cursorX = ((event.clientX - rect.left) / rect.width) * width;
             const cursorY = ((event.clientY - rect.top) / rect.height) * height;
@@ -1309,6 +1429,10 @@ function RelationshipGraph({
                 scale: nextScale,
               };
             });
+            wheelCommitTimer.current = window.setTimeout(() => {
+              wheelCommitTimer.current = null;
+              completePresentationInteraction();
+            }, 180);
           }}
         >
         <title id={`${intent.intent_id}-graph-title`}>
@@ -1383,6 +1507,7 @@ function RelationshipGraph({
                   }}
                   onPointerDown={(event) => {
                     event.stopPropagation();
+                    beginPresentationInteraction();
                     event.currentTarget.setPointerCapture(event.pointerId);
                     setDrag({
                       kind: "node",
@@ -1437,14 +1562,20 @@ function RelationshipGraph({
         <div className="graph-multiselect" aria-live="polite">
           <b>{selectedRefs.length} NODES SELECTED</b>
           <span>Selection is temporary presentation state and is never saved as evidence or a relationship.</span>
-          <button onClick={() => setPinned((current) => new Set([...current, ...selectedRefs]))}>
+          <button onClick={() => {
+            checkpointPresentation();
+            setPinned((current) => new Set([...current, ...selectedRefs]));
+          }}>
             PIN SELECTED
           </button>
-          <button onClick={() => setPinned((current) => {
-            const next = new Set(current);
-            selectedRefs.forEach((reference) => next.delete(reference));
-            return next;
-          })}>
+          <button onClick={() => {
+            checkpointPresentation();
+            setPinned((current) => {
+              const next = new Set(current);
+              selectedRefs.forEach((reference) => next.delete(reference));
+              return next;
+            });
+          }}>
             UNPIN SELECTED
           </button>
           <button onClick={() => setSelectedRefs([])}>CLEAR SELECTION</button>
@@ -1535,12 +1666,15 @@ function RelationshipGraph({
           <small>
             {selectedRefs.length > 1 ? "Primary selection" : "Selection"} highlights visible neighbors without changing graph evidence.
           </small>
-          <button onClick={() => setPinned((current) => {
-            const next = new Set(current);
-            if (next.has(selectedNode.reference)) next.delete(selectedNode.reference);
-            else next.add(selectedNode.reference);
-            return next;
-          })}>
+          <button onClick={() => {
+            checkpointPresentation();
+            setPinned((current) => {
+              const next = new Set(current);
+              if (next.has(selectedNode.reference)) next.delete(selectedNode.reference);
+              else next.add(selectedNode.reference);
+              return next;
+            });
+          }}>
             {pinned.has(selectedNode.reference) ? "UNPIN FROM VIEW" : "PIN IN VIEW"}
           </button>
           {(degree.get(selectedNode.reference) ?? 0) > 0 && (
@@ -1556,10 +1690,26 @@ function RelationshipGraph({
               value={labels[selectedNode.reference] ?? ""}
               maxLength={160}
               placeholder={selectedNode.label}
-              onChange={(event) => setLabels((current) => ({
-                ...current,
-                [selectedNode.reference]: event.target.value,
-              }))}
+              onFocus={() => {
+                labelEditStart.current = latestPresentation.current;
+                labelEditCheckpointed.current = false;
+              }}
+              onChange={(event) => {
+                const before = labelEditStart.current ?? latestPresentation.current;
+                const previousLabel = before.labels[selectedNode.reference] ?? "";
+                if (!labelEditCheckpointed.current && event.target.value !== previousLabel) {
+                  pushUndo(before);
+                  labelEditCheckpointed.current = true;
+                }
+                setLabels((current) => ({
+                  ...current,
+                  [selectedNode.reference]: event.target.value,
+                }));
+              }}
+              onBlur={() => {
+                labelEditStart.current = null;
+                labelEditCheckpointed.current = false;
+              }}
             />
           </label>
           {onOpenEvidence && (

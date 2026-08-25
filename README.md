@@ -155,6 +155,12 @@ nodes and pin or unpin the group. The temporary selection is not stored in a
 saved layout. If no supported relationship exists, Pivotglass leaves the nodes
 unconnected.
 
+**UNDO VIEW** and **REDO VIEW** keep a bounded history of presentation edits:
+node positions, viewport, pins, display labels, and collapsed connections.
+`Command/Control+Z` and `Shift+Command/Control+Z` work while focus is in the
+graph rather than a text field. These controls cannot undo evidence,
+relationships, analyst assertions, or correction history.
+
 Select exactly two nodes to record a directional, annotated analyst relation.
 It is persisted as a human-authored judgment, drawn separately from stored
 relationships and conservative pivots, and never described as observed fact.

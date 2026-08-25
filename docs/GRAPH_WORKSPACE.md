@@ -60,16 +60,21 @@ relationships. Loading a layout resolves it against the current graph and
 reports new or absent nodes instead of hiding graph drift. Deleting a layout
 deletes only this presentation record.
 
+The browser also keeps up to 50 undo/redo checkpoints for node positions,
+viewport, pins, display labels, and collapsed direct connections. This history
+is session presentation state. It cannot roll back evidence, relationships,
+analyst assertions, or assertion-correction history.
+
 ## Current boundary
 
 The v0.9 foundation defines and verifies the projection contract and durable
 saved layouts. Drag, pan, zoom, text filtering, pinning, presentation labels,
 evidence drill-down, multiselect, annotated manual assertions, correction
-history, direct-connection collapse/expand, named presentation management, and
-layered exports are implemented. General presentation undo/redo and richer
-relationship filters remain open; they must write only through their existing
-authorities. Node position and collapsed visibility are presentation state and
-never alter evidence.
+history, direct-connection collapse/expand, bounded presentation undo/redo,
+named presentation management, and layered exports are implemented. Richer
+relationship filters remain open; they must read only through existing
+authorities. Node position, viewport history, and collapsed visibility are
+presentation state and never alter evidence.
 
 The governed layered graph can be exported through the shared `graph export`
 command as JSON, CSV, or GEXF. Remote Pivotglass sessions may be configured

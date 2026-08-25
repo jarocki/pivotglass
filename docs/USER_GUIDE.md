@@ -265,6 +265,12 @@ workspaces use a bounded overview. If no supported edge exists, Pivotglass says
 so and keeps the evidence unconnected rather than manufacturing a relationship
 from proximity.
 
+**UNDO VIEW** and **REDO VIEW** retain up to 50 presentation checkpoints for
+node movement, viewport changes, pins, display labels, and collapsed
+connections. Use `Command/Control+Z` and `Shift+Command/Control+Z` when focus is
+in the graph rather than a text field. Analytic evidence, relations, assertions,
+and correction history are intentionally outside this undo boundary.
+
 ![Evidence-backed relationship graph](media/pivotglass-graph-v0.7.0.png)
 
 ## Reports and exports

@@ -71,6 +71,40 @@ export type VisualizationTheme = {
   dim_color: string;
 };
 
+export type GraphPresentationSnapshot = {
+  positions: Record<string, { x: number; y: number }>;
+  viewport: { x: number; y: number; scale: number };
+  labels: Record<string, string>;
+  pinned_refs: string[];
+  collapsed_refs: string[];
+};
+
+export function graphPresentationSnapshotsEqual(
+  left: GraphPresentationSnapshot,
+  right: GraphPresentationSnapshot,
+): boolean {
+  const normalized = (snapshot: GraphPresentationSnapshot) => ({
+    positions: Object.fromEntries(Object.entries(snapshot.positions).sort(([a], [b]) => a.localeCompare(b))),
+    viewport: snapshot.viewport,
+    labels: Object.fromEntries(Object.entries(snapshot.labels).sort(([a], [b]) => a.localeCompare(b))),
+    pinned_refs: [...snapshot.pinned_refs].sort(),
+    collapsed_refs: [...snapshot.collapsed_refs].sort(),
+  });
+  return JSON.stringify(normalized(left)) === JSON.stringify(normalized(right));
+}
+
+export function appendGraphPresentationHistory(
+  history: readonly GraphPresentationSnapshot[],
+  snapshot: GraphPresentationSnapshot,
+  limit = 50,
+): GraphPresentationSnapshot[] {
+  if (!Number.isInteger(limit) || limit < 1) throw new Error("Graph history limit must be positive");
+  if (history.length && graphPresentationSnapshotsEqual(history.at(-1)!, snapshot)) {
+    return [...history];
+  }
+  return [...history, snapshot].slice(-limit);
+}
+
 export function updateGraphSelection(
   current: readonly string[],
   reference: string,
