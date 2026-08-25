@@ -230,6 +230,14 @@ class TestEnvVarOverride:
         monkeypatch.setenv("AP_SCOT_API_URL", "https://scot.test/api/v1")
         assert make_manager(tmp_path).get_scot_api_url() == "https://scot.test/api/v1"
 
+    def test_scot_pivot_intake_secret_is_environment_only(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("AP_SCOT_PIVOT_SECRET", "secret-owned-by-the-environment")
+        manager = make_manager(tmp_path)
+
+        assert manager.get_scot_pivot_secret() == "secret-owned-by-the-environment"
+        assert manager.get_scot_pivot_secret_source() == "environment"
+        assert "secret-owned-by-the-environment" not in repr(manager.load().model_dump())
+
     def test_shodan_ap_env_resolves_via_get_api_key(self, tmp_path, monkeypatch):
         """AP_SHODAN_API_KEY resolves via get_api_key() when no config is set."""
         monkeypatch.setenv("AP_SHODAN_API_KEY", "env-key")

@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 from adversary_pursuit.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
 from adversary_pursuit.agent.tools import ToolContext
+from adversary_pursuit.core.analytic_ledger import AnalyticLedger
 from adversary_pursuit.core.command_completion import command_completions
 from adversary_pursuit.core.config import ConfigManager
 from adversary_pursuit.core.graph_repository import WorkspaceGraphRepository
@@ -17,6 +18,7 @@ from adversary_pursuit.integrations.scot_execution import (
 from adversary_pursuit.integrations.scot_publication import (
     build_scot_publication_manifest,
     compile_scot_write_plan,
+    validate_scot_pivot_request,
 )
 from adversary_pursuit.integrations.synapse_execution import SynapseShadowJournal
 from adversary_pursuit.integrations.synapse_graph import build_synapse_shadow_manifest
@@ -106,7 +108,8 @@ def test_web_previews_synapse_shadow_and_scot_publication_from_same_workspace(tm
     assert synapse_readiness["data"]["cutover_authorized"] is False
     assert synapse_readiness["data"]["eligible_for_cutover_review"] is False
     assert scot_readiness["data"]["current_graph_published"] is False
-    assert scot_readiness["data"]["scot_side_pivot_trigger_implemented"] is False
+    assert scot_readiness["data"]["scot_side_pivot_trigger_implemented"] is True
+    assert scot_readiness["data"]["scot_side_pivot_trigger_configured"] is False
     assert service._runner is None
 
 
@@ -188,7 +191,8 @@ def test_integration_readiness_requires_exact_current_receipts(tmp_path):
     assert synapse["cutover_authorized"] is False
     assert synapse["cutover_implemented"] is False
     assert scot["current_graph_published"] is True
-    assert scot["scot_side_pivot_trigger_implemented"] is False
+    assert scot["scot_side_pivot_trigger_implemented"] is True
+    assert scot["scot_side_pivot_trigger_configured"] is False
     assert "masked-in-output" not in repr((synapse, scot))
 
 
@@ -220,5 +224,100 @@ def test_integration_completions_cover_read_operations():
     assert "integration scot publish-plan " in command_completions("integration scot p")
     assert "integration scot publish-execute " in command_completions("integration scot p")
     assert "integration scot publication-receipt " in command_completions("integration scot p")
+    assert "integration scot pivot-inbox" in command_completions("integration scot pivot-i")
+    assert "integration scot pivot-accept " in command_completions("integration scot pivot-a")
+    assert "integration scot pivot-reject " in command_completions("integration scot pivot-r")
     assert "integration scot pivot-queue" in command_completions("integration scot pivot-q")
     assert "integration scot pivot-enqueue " in command_completions("integration scot pivot-e")
+
+
+def test_scot_pivot_inbox_accept_and_reject_commands_preserve_human_gate(tmp_path):
+    ctx = ToolContext(
+        config_dir=tmp_path / "config",
+        workspace_dir=tmp_path / "workspaces",
+    )
+    ledger = AnalyticLedger(ctx.workspace_mgr)
+    now = datetime(2026, 8, 25, 12, 0, tzinfo=UTC)
+    first = validate_scot_pivot_request(
+        workspace="default",
+        scot_object_type="event",
+        scot_object_id=42,
+        indicator="198.51.100.42",
+        requested_by="scot-analyst",
+        requested_at=now,
+        reason="Follow the event relationship.",
+    )
+    second = validate_scot_pivot_request(
+        workspace="default",
+        scot_object_type="event",
+        scot_object_id=73,
+        indicator="203.0.113.73",
+        requested_by="scot-analyst",
+        requested_at=now,
+        reason="Review the related address.",
+    )
+    authentication = {
+        "scheme": "hmac-sha256-v1",
+        "key_id": "scot4-primary",
+        "body_sha256": "a" * 64,
+        "nonce_sha256": "b" * 64,
+    }
+    ledger.record_scot_pivot_request(
+        first.model_dump(mode="json"), authentication=authentication
+    )
+    ledger.record_scot_pivot_request(
+        second.model_dump(mode="json"), authentication=authentication
+    )
+
+    inbox = execute_integration_command(
+        ("scot", "pivot-inbox"), ctx.config_mgr, ctx.workspace_mgr
+    )["data"]
+    accepted = execute_integration_command(
+        (
+            "scot",
+            "pivot-accept",
+            first.request_id,
+            "|",
+            "local-analyst",
+            "|",
+            "In",
+            "scope.",
+        ),
+        ctx.config_mgr,
+        ctx.workspace_mgr,
+    )["data"]
+    accepted_retry = execute_integration_command(
+        (
+            "scot",
+            "pivot-accept",
+            first.request_id,
+            "|",
+            "local-analyst",
+            "|",
+            "Retry.",
+        ),
+        ctx.config_mgr,
+        ctx.workspace_mgr,
+    )["data"]
+    rejected = execute_integration_command(
+        (
+            "scot",
+            "pivot-reject",
+            second.request_id,
+            "|",
+            "local-analyst",
+            "|",
+            "Outside",
+            "scope.",
+        ),
+        ctx.config_mgr,
+        ctx.workspace_mgr,
+    )["data"]
+
+    assert len(inbox) == 2
+    assert accepted["created"] is True
+    assert accepted["start_enrichment"] is True
+    assert accepted_retry["created"] is False
+    assert accepted_retry["start_enrichment"] is False
+    assert rejected["analyst_disposition"] == "rejected"
+    assert len(ledger.enrichment_requests()) == 1

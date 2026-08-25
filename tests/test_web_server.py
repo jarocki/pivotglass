@@ -2,6 +2,7 @@
 
 import json
 import time
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,6 +14,8 @@ from adversary_pursuit.core.investigation import (
     EventClass,
     LifecycleState,
 )
+from adversary_pursuit.integrations.scot_pivot_intake import ScotPivotAuthenticationReceipt
+from adversary_pursuit.integrations.scot_publication import validate_scot_pivot_request
 from adversary_pursuit.web.server import WebCockpitService, _tool_failure
 
 
@@ -282,6 +285,50 @@ def test_scot_pivot_enqueue_uses_shared_enrichment_lifecycle(tmp_path):
     assert [item["record_id"] for item in listed] == [request_id]
     assert service.state()["analysis"]["enrichment_queue"][0]["record_id"] == request_id
     assert service.execute_command(command)["data"]["created"] is False
+
+
+def test_authenticated_scot_inbox_acceptance_starts_shared_lifecycle_once(tmp_path):
+    service = _service(tmp_path)
+    now = datetime(2026, 8, 25, 12, 0, tzinfo=UTC)
+    request = validate_scot_pivot_request(
+        workspace="default",
+        scot_object_type="event",
+        scot_object_id=42,
+        scot_revision="7",
+        indicator="198.51.100.42",
+        requested_by="scot-analyst@example.test",
+        requested_at=now,
+        reason="Follow the event relationship.",
+    )
+    received = service.receive_scot_pivot_request(
+        request.model_dump(mode="json"),
+        ScotPivotAuthenticationReceipt(
+            key_id="scot4-primary",
+            signed_at=now,
+            authenticated_at=now,
+            body_sha256="a" * 64,
+            nonce_sha256="b" * 64,
+            maximum_clock_skew_seconds=300,
+        ),
+    )
+    command = (
+        f"integration scot pivot-accept {received['request']['request_id']} | "
+        "local-analyst | In scope for this hunt."
+    )
+
+    with patch("adversary_pursuit.web.server.dispatch_batteries", return_value=[]):
+        accepted = service.execute_command(command)
+        repeated = service.execute_command(command)
+
+    assert received["created"] is True
+    assert received["enqueued"] is False
+    assert accepted["data"]["created"] is True
+    assert accepted["data"]["start_enrichment"] is False
+    assert accepted["data"]["investigation"]["target"] == "198.51.100.42"
+    assert repeated["data"]["created"] is False
+    assert repeated["data"]["start_enrichment"] is False
+    assert "investigation" not in repeated["data"]
+    assert len(AnalyticLedger(service.ctx.workspace_mgr).enrichment_requests()) == 1
 
 
 def test_state_labels_instrument_authorities_truthfully(tmp_path):

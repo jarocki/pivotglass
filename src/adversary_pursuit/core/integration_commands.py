@@ -113,6 +113,7 @@ def _configuration_status(config_mgr: ConfigManager) -> dict[str, Any]:
     status["scot"]["publication_endpoint"] = (
         "configured" if config_mgr.get_scot_api_url() else "missing"
     )
+    status["scot"]["pivot_intake_credential"] = config_mgr.get_scot_pivot_secret_source()
     status["synapse"]["mode"] = (
         "read-only exploration; approved model deployment and shadow-view loads"
     )
@@ -259,23 +260,30 @@ def _scot_publication_readiness(
         ),
     )
     blockers = [item["description"] for item in checks if not item["passed"]]
-    blockers.append(
-        "An authenticated SCOT-side pivot trigger is not implemented; Pivotglass still requires explicit local pivot acceptance."
-    )
+    pivot_trigger_configured = config_mgr.get_scot_pivot_secret_source() != "missing"
+    if not pivot_trigger_configured:
+        blockers.append(
+            "Authenticated SCOT pivot intake is implemented but its environment-owned shared secret is not configured."
+        )
+    current_graph_published = all(item["passed"] for item in checks)
+    if not current_graph_published:
+        next_action = "Complete the failed current-state checks or publish the exact current plan."
+    elif not pivot_trigger_configured:
+        next_action = "Configure the environment-owned SCOT pivot intake secret."
+    else:
+        next_action = "SCOT publication and authenticated pivot intake are ready for review."
     return {
         "workspace": snapshot.workspace,
         "source_snapshot_sha256": snapshot.digest_sha256,
         "publication_id": manifest.publication_id,
         "publication_plan_digest_sha256": plan.digest_sha256,
         "checks": checks,
-        "current_graph_published": all(item["passed"] for item in checks),
-        "scot_side_pivot_trigger_implemented": False,
+        "current_graph_published": current_graph_published,
+        "scot_side_pivot_trigger_implemented": True,
+        "scot_side_pivot_trigger_configured": pivot_trigger_configured,
+        "scot_side_pivot_intake_ready": pivot_trigger_configured,
         "blockers": blockers,
-        "next_action": (
-            "Design an authenticated SCOT-side pivot trigger with preview and local human acceptance."
-            if all(item["passed"] for item in checks)
-            else "Complete the failed current-state checks or publish the exact current plan."
-        ),
+        "next_action": next_action,
     }
 
 
@@ -480,6 +488,43 @@ def _scot(
             reason=structured[2],
         )
         return {"title": "SCOT4 pivot request preview", "data": request.model_dump(mode="json")}
+    if action == "pivot-inbox" and len(args) == 1:
+        data = AnalyticLedger(_require_workspace(workspace_mgr)).scot_pivot_requests()
+        return {"title": "Authenticated SCOT4 pivot inbox", "data": data}
+    if action == "pivot-accept" and len(args) >= 4:
+        structured = " ".join(args[1:]).split(" | ", 2)
+        if len(structured) != 3 or len(structured[0].split()) != 1:
+            raise ValueError(
+                "usage: integration scot pivot-accept <request-id> | <approved-by> | <reason>"
+            )
+        inbox, queue_item, created = AnalyticLedger(
+            _require_workspace(workspace_mgr)
+        ).accept_scot_pivot_request(
+            structured[0],
+            approved_by=structured[1],
+            reason=structured[2],
+        )
+        data = {
+            "request": queue_item["criteria"]["request"],
+            "inbox_item": inbox,
+            "queue_item": queue_item,
+            "created": created,
+            "start_enrichment": created
+            and queue_item["criteria"]["queue_state"] == "queued",
+        }
+        return {"title": "SCOT4 pivot accepted into enrichment queue", "data": data}
+    if action == "pivot-reject" and len(args) >= 4:
+        structured = " ".join(args[1:]).split(" | ", 2)
+        if len(structured) != 3 or len(structured[0].split()) != 1:
+            raise ValueError(
+                "usage: integration scot pivot-reject <request-id> | <rejected-by> | <reason>"
+            )
+        data = AnalyticLedger(_require_workspace(workspace_mgr)).reject_scot_pivot_request(
+            structured[0],
+            rejected_by=structured[1],
+            reason=structured[2],
+        )
+        return {"title": "SCOT4 pivot request rejected", "data": data}
     if action == "pivot-queue" and len(args) == 1:
         data = AnalyticLedger(_require_workspace(workspace_mgr)).enrichment_requests()
         return {"title": "SCOT4 enrichment queue", "data": data}
@@ -538,6 +583,8 @@ def _scot(
             "publish-execute <owner> <plan-digest> "
             "<approved-by> | <confirmation>|"
             "pivot-preview <type> <id> <indicator> | <requester> | <reason>|"
+            "pivot-inbox|pivot-accept <request-id> | <approved-by> | <reason>|"
+            "pivot-reject <request-id> | <rejected-by> | <reason>|"
             "pivot-queue|pivot-enqueue <type> <id> <indicator> | <requester> | "
             "<reason> | <approved-by>"
         )

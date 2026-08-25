@@ -552,26 +552,35 @@ class AnalyticLedger:
             ).scalars()
             return [_row_dict(row) for row in rows]
 
-    def enqueue_scot_pivot_request(
+    def record_scot_pivot_request(
         self,
         request: dict[str, Any],
         *,
-        approved_by: str,
+        authentication: dict[str, Any],
         investigation_id: str | None = None,
     ) -> tuple[dict[str, Any], bool]:
-        """Persist one accepted SCOT pivot as a collection requirement."""
+        """Persist one authenticated SCOT request for explicit local review."""
 
         request_id = _required(str(request.get("request_id") or ""), "SCOT pivot request ID")
         indicator = _required(str(request.get("indicator") or ""), "SCOT pivot indicator")
-        approver = _required(approved_by, "SCOT pivot approver")
-        if len(approver) > 254:
-            raise ValueError("SCOT pivot approver exceeds the supported length")
+        if not request_id.startswith("scot-pivot-"):
+            raise ValueError("SCOT pivot request ID is invalid")
         request_copy = json.loads(json.dumps(request, sort_keys=True, default=str))
-        now = datetime.now(timezone.utc)
+        authentication_copy = json.loads(
+            json.dumps(authentication, sort_keys=True, default=str)
+        )
+        if authentication_copy.get("scheme") != "hmac-sha256-v1":
+            raise ValueError("SCOT pivot authentication receipt is invalid")
+        stored_payload = json.dumps(
+            {"request": request_copy, "authentication": authentication_copy},
+            separators=(",", ":"),
+        ).encode("utf-8")
+        if len(stored_payload) > 32_000:
+            raise ValueError("SCOT pivot request exceeds the supported stored size")
         with self._workspace.get_session() as session:
             existing = session.execute(
                 select(AnalyticLifecycleItem).where(
-                    AnalyticLifecycleItem.record_kind == "enrichment_request",
+                    AnalyticLifecycleItem.record_kind == "scot_pivot_request",
                     AnalyticLifecycleItem.record_id == request_id,
                 )
             ).scalar_one_or_none()
@@ -582,22 +591,15 @@ class AnalyticLedger:
                 session,
                 investigation=investigation,
                 item_type=LifecycleItemType.COLLECTION_REQUIREMENT,
-                record_kind="enrichment_request",
+                record_kind="scot_pivot_request",
                 record_id=request_id,
-                statement=f"Enrich {indicator} from an approved SCOT pivot request.",
+                statement=f"Review SCOT request to enrich {indicator}.",
                 criteria={
-                    "queue_state": "queued",
                     "origin_system": "scot4",
-                    "approved_by": approver,
                     "request": request_copy,
-                    "truth_kind": "operator-request",
-                    "history": [
-                        {
-                            "state": "queued",
-                            "recorded_at": now.isoformat(),
-                            "actor": approver,
-                        }
-                    ],
+                    "authentication": authentication_copy,
+                    "reviews": [],
+                    "truth_kind": "authenticated-external-request",
                 },
                 evidence_refs=[
                     {
@@ -608,10 +610,201 @@ class AnalyticLedger:
                         ),
                     }
                 ],
-                author_kind=AuthorKind.HUMAN,
+                author_kind=AuthorKind.EXTERNAL_TOOL,
             )
             session.commit()
             return _row_dict(row), True
+
+    def scot_pivot_requests(self) -> list[dict[str, Any]]:
+        """Return authenticated SCOT requests awaiting or retaining review."""
+
+        with self._workspace.get_session() as session:
+            rows = session.execute(
+                select(AnalyticLifecycleItem)
+                .where(AnalyticLifecycleItem.record_kind == "scot_pivot_request")
+                .order_by(AnalyticLifecycleItem.created_at)
+            ).scalars()
+            return [_row_dict(row) for row in rows]
+
+    def accept_scot_pivot_request(
+        self,
+        request_id: str,
+        *,
+        approved_by: str,
+        reason: str,
+    ) -> tuple[dict[str, Any], dict[str, Any], bool]:
+        """Atomically approve an inbox request and create its enrichment item."""
+
+        normalized_id = _required(request_id, "SCOT pivot request ID")
+        approver = _required(approved_by, "SCOT pivot approver")
+        rationale = _required(reason, "SCOT pivot approval reason")
+        if len(approver) > 254 or len(rationale) > 1000:
+            raise ValueError("SCOT pivot approval exceeds the supported length")
+        with self._workspace.get_session() as session:
+            inbox = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.record_kind == "scot_pivot_request",
+                    AnalyticLifecycleItem.record_id == normalized_id,
+                )
+            ).scalar_one_or_none()
+            if inbox is None:
+                raise ValueError(f"Unknown SCOT pivot request: {normalized_id}")
+            if inbox.analyst_disposition == AnalystDisposition.REJECTED.value:
+                raise ValueError("Rejected SCOT pivot requests cannot be accepted")
+            criteria = dict(inbox.criteria or {})
+            request = criteria.get("request")
+            if not isinstance(request, dict):
+                raise RuntimeError("SCOT pivot inbox record is missing its validated request")
+            queue_row, created = self._queue_scot_pivot_request(
+                session,
+                request,
+                approved_by=approver,
+                investigation_id=inbox.investigation_id,
+            )
+            if inbox.analyst_disposition != AnalystDisposition.ACCEPTED.value:
+                now = datetime.now(timezone.utc)
+                reviews = list(criteria.get("reviews") or [])
+                reviews.append(
+                    {
+                        "disposition": AnalystDisposition.ACCEPTED.value,
+                        "reason": rationale,
+                        "decided_by": approver,
+                        "recorded_at": now.isoformat(),
+                        "queue_record_id": queue_row.record_id,
+                    }
+                )
+                criteria["reviews"] = reviews
+                criteria["queue_record_id"] = queue_row.record_id
+                inbox.criteria = criteria
+                inbox.analyst_disposition = AnalystDisposition.ACCEPTED.value
+                inbox.status = LifecycleItemStatus.SATISFIED.value
+                inbox.updated_at = now
+                inbox.resolved_at = now
+            session.commit()
+            return _row_dict(inbox), _row_dict(queue_row), created
+
+    def reject_scot_pivot_request(
+        self,
+        request_id: str,
+        *,
+        rejected_by: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        """Reject one pending authenticated request without creating queue work."""
+
+        normalized_id = _required(request_id, "SCOT pivot request ID")
+        reviewer = _required(rejected_by, "SCOT pivot reviewer")
+        rationale = _required(reason, "SCOT pivot rejection reason")
+        if len(reviewer) > 254 or len(rationale) > 1000:
+            raise ValueError("SCOT pivot rejection exceeds the supported length")
+        with self._workspace.get_session() as session:
+            inbox = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.record_kind == "scot_pivot_request",
+                    AnalyticLifecycleItem.record_id == normalized_id,
+                )
+            ).scalar_one_or_none()
+            if inbox is None:
+                raise ValueError(f"Unknown SCOT pivot request: {normalized_id}")
+            if inbox.analyst_disposition == AnalystDisposition.ACCEPTED.value:
+                raise ValueError("Accepted SCOT pivot requests cannot be rejected")
+            if inbox.analyst_disposition != AnalystDisposition.REJECTED.value:
+                now = datetime.now(timezone.utc)
+                criteria = dict(inbox.criteria or {})
+                reviews = list(criteria.get("reviews") or [])
+                reviews.append(
+                    {
+                        "disposition": AnalystDisposition.REJECTED.value,
+                        "reason": rationale,
+                        "decided_by": reviewer,
+                        "recorded_at": now.isoformat(),
+                    }
+                )
+                criteria["reviews"] = reviews
+                inbox.criteria = criteria
+                inbox.analyst_disposition = AnalystDisposition.REJECTED.value
+                inbox.status = LifecycleItemStatus.REJECTED.value
+                inbox.updated_at = now
+                inbox.resolved_at = now
+                session.commit()
+            return _row_dict(inbox)
+
+    def enqueue_scot_pivot_request(
+        self,
+        request: dict[str, Any],
+        *,
+        approved_by: str,
+        investigation_id: str | None = None,
+    ) -> tuple[dict[str, Any], bool]:
+        """Persist one accepted SCOT pivot as a collection requirement."""
+
+        with self._workspace.get_session() as session:
+            row, created = self._queue_scot_pivot_request(
+                session,
+                request,
+                approved_by=approved_by,
+                investigation_id=investigation_id,
+            )
+            session.commit()
+            return _row_dict(row), created
+
+    def _queue_scot_pivot_request(
+        self,
+        session: Any,
+        request: dict[str, Any],
+        *,
+        approved_by: str,
+        investigation_id: str | None,
+    ) -> tuple[AnalyticLifecycleItem, bool]:
+        request_id = _required(str(request.get("request_id") or ""), "SCOT pivot request ID")
+        indicator = _required(str(request.get("indicator") or ""), "SCOT pivot indicator")
+        approver = _required(approved_by, "SCOT pivot approver")
+        if len(approver) > 254:
+            raise ValueError("SCOT pivot approver exceeds the supported length")
+        request_copy = json.loads(json.dumps(request, sort_keys=True, default=str))
+        existing = session.execute(
+            select(AnalyticLifecycleItem).where(
+                AnalyticLifecycleItem.record_kind == "enrichment_request",
+                AnalyticLifecycleItem.record_id == request_id,
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return existing, False
+        investigation = self._ensure_investigation(session, investigation_id)
+        now = datetime.now(timezone.utc)
+        row = self._link_lifecycle_item(
+            session,
+            investigation=investigation,
+            item_type=LifecycleItemType.COLLECTION_REQUIREMENT,
+            record_kind="enrichment_request",
+            record_id=request_id,
+            statement=f"Enrich {indicator} from an approved SCOT pivot request.",
+            criteria={
+                "queue_state": "queued",
+                "origin_system": "scot4",
+                "approved_by": approver,
+                "request": request_copy,
+                "truth_kind": "operator-request",
+                "history": [
+                    {
+                        "state": "queued",
+                        "recorded_at": now.isoformat(),
+                        "actor": approver,
+                    }
+                ],
+            },
+            evidence_refs=[
+                {
+                    "kind": "scot-object",
+                    "ref": (
+                        f"{request_copy.get('scot_object_type')}:"
+                        f"{request_copy.get('scot_object_id')}"
+                    ),
+                }
+            ],
+            author_kind=AuthorKind.HUMAN,
+        )
+        return row, True
 
     def enrichment_requests(self) -> list[dict[str, Any]]:
         """Return the durable enrichment queue in creation order."""

@@ -548,6 +548,23 @@ class ConfigManager:
                 return value
         return None
 
+    def get_scot_pivot_secret(self) -> str | None:
+        """Resolve the environment-owned secret for authenticated SCOT pivot intake.
+
+        The inbound shared secret is deliberately separate from SCOT's outbound
+        REST API credential and is never persisted or returned by configuration
+        polling. Operators inject it into both local services at process start.
+        """
+        for name in ("AP_SCOT_PIVOT_SECRET", "SCOT_PIVOT_SECRET"):
+            value = os.environ.get(name)
+            if value:
+                return value
+        return None
+
+    def get_scot_pivot_secret_source(self) -> str:
+        """Return only whether the environment-owned intake secret exists."""
+        return "environment" if self.get_scot_pivot_secret() else "missing"
+
     def get_local_integration_setting(self, setting: str) -> str | None:
         """Resolve a non-secret local integration path from config then environment."""
         normalized = setting.strip().lower()

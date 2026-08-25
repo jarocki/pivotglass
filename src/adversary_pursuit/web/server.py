@@ -14,6 +14,7 @@ import re
 import threading
 import webbrowser
 from dataclasses import asdict
+from datetime import datetime
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -74,6 +75,12 @@ from adversary_pursuit.dossier.slot_inference import infer_dossier_state
 from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
 from adversary_pursuit.dossier.state import load_dossier_state
 from adversary_pursuit.gamification.modes import DEFAULT_MODES, display_mode_name
+from adversary_pursuit.integrations.scot_pivot_intake import (
+    ScotPivotAuthenticationError,
+    ScotPivotAuthenticationReceipt,
+    authenticate_scot_pivot_request,
+)
+from adversary_pursuit.integrations.scot_publication import validate_scot_pivot_request
 
 _LOG = logging.getLogger(__name__)
 _SOURCE_WEB_DIR = Path(__file__).parents[3] / "web"
@@ -461,8 +468,8 @@ class WebCockpitService:
                 "purpose": "Preview governed graph state, inspect current cutover blockers and receipts, compile a disabled shadow migration, or run explicit read-only MCP operations",
             },
             {
-                "command": "integration scot publish-preview|publication-readiness|publish-plan|publish-execute|publication-receipt|pivot-preview|pivot-queue|pivot-enqueue|status|get|search|entries|entities",
-                "purpose": "Preview or evaluate a current publication, approve exact-digest write/readback, accept a pivot into enrichment, or perform bounded SCOT4 reads",
+                "command": "integration scot publish-preview|publication-readiness|publish-plan|publish-execute|publication-receipt|pivot-preview|pivot-inbox|pivot-accept|pivot-reject|pivot-queue|pivot-enqueue|status|get|search|entries|entities",
+                "purpose": "Preview or evaluate a current publication, review authenticated SCOT pivot requests, approve exact-digest write/readback, accept a pivot into enrichment, or perform bounded SCOT4 reads",
             },
             {
                 "command": "integration roast status|decode|record|analyze",
@@ -1358,6 +1365,64 @@ class WebCockpitService:
             )
         return {"target": target, "target_type": target_type, "events": events}
 
+    def receive_scot_pivot_request(
+        self,
+        payload: dict[str, Any],
+        authentication: ScotPivotAuthenticationReceipt,
+    ) -> dict[str, Any]:
+        """Validate and retain one authenticated request without enqueueing it."""
+        requested_at_raw = str(payload.get("requested_at") or "").strip()
+        try:
+            requested_at = datetime.fromisoformat(requested_at_raw.replace("Z", "+00:00"))
+        except ValueError:
+            raise ValueError("SCOT pivot requested_at must be an ISO-8601 timestamp") from None
+        raw_object_id = payload.get("scot_object_id")
+        if isinstance(raw_object_id, bool):
+            raise ValueError("SCOT pivot object ID must be an integer")
+        try:
+            scot_object_id = int(raw_object_id or 0)
+        except (TypeError, ValueError):
+            raise ValueError("SCOT pivot object ID must be an integer") from None
+        request = validate_scot_pivot_request(
+            workspace=str(payload.get("workspace") or ""),
+            scot_object_type=str(payload.get("scot_object_type") or ""),
+            scot_object_id=scot_object_id,
+            scot_revision=(
+                str(payload["scot_revision"]) if payload.get("scot_revision") is not None else None
+            ),
+            indicator=str(payload.get("indicator") or ""),
+            requested_by=str(payload.get("requested_by") or ""),
+            requested_at=requested_at,
+            reason=str(payload.get("reason") or ""),
+        )
+        canonical = request.model_dump(mode="json")
+        for field in (
+            "schema_version",
+            "request_id",
+            "indicator_type",
+            "disposition",
+            "enqueue_requires_analyst_action",
+        ):
+            if payload.get(field) != canonical[field]:
+                raise ValueError(f"SCOT pivot {field} does not match the validated request")
+        if request.workspace != self.ctx.workspace_mgr.active:
+            raise ValueError("SCOT pivot workspace does not match the active workspace")
+        inbox_item, created = AnalyticLedger(
+            self.ctx.workspace_mgr
+        ).record_scot_pivot_request(
+            canonical,
+            authentication=authentication.model_dump(mode="json"),
+        )
+        return {
+            "request": canonical,
+            "inbox_item": inbox_item,
+            "created": created,
+            "enqueued": False,
+            "next_action": (
+                f"integration scot pivot-accept {request.request_id} | <approved-by> | <reason>"
+            ),
+        }
+
 
 def _handler(
     service: WebCockpitService,
@@ -1506,6 +1571,7 @@ def _handler(
                     "/api/configuration/check",
                     "/api/configuration/update",
                     "/api/graph-layouts",
+                    "/api/integrations/scot/pivot-request",
                 }
                 and not is_cancel
                 and not is_ack
@@ -1516,7 +1582,28 @@ def _handler(
                 length = int(self.headers.get("Content-Length", "0"))
                 if length > 16_384:
                     raise ValueError("request too large")
-                payload = json.loads(self.rfile.read(length) or b"{}")
+                raw_body = self.rfile.read(length) or b"{}"
+                if parsed.path == "/api/integrations/scot/pivot-request":
+                    if self.headers.get_content_type() != "application/json":
+                        raise ValueError("SCOT pivot request requires application/json")
+                    authentication = authenticate_scot_pivot_request(
+                        service.config_mgr.get_scot_pivot_secret(),
+                        key_id=self.headers.get("X-Pivotglass-Key-Id", ""),
+                        timestamp=self.headers.get("X-Pivotglass-Timestamp", ""),
+                        nonce=self.headers.get("X-Pivotglass-Nonce", ""),
+                        signature=self.headers.get("X-Pivotglass-Signature", ""),
+                        body=raw_body,
+                    )
+                    pivot_payload = json.loads(raw_body)
+                    if not isinstance(pivot_payload, dict):
+                        raise ValueError("request body must be an object")
+                    result = service.receive_scot_pivot_request(pivot_payload, authentication)
+                    self._json(
+                        result,
+                        HTTPStatus.CREATED if result["created"] else HTTPStatus.OK,
+                    )
+                    return
+                payload = json.loads(raw_body)
                 if not isinstance(payload, dict):
                     raise ValueError("request body must be an object")
                 if parsed.path == "/api/configuration/check":
@@ -1565,6 +1652,13 @@ def _handler(
                 if not target:
                     raise ValueError("target is required")
                 self._json(service.start_investigation(target), HTTPStatus.ACCEPTED)
+            except ScotPivotAuthenticationError as exc:
+                status = (
+                    HTTPStatus.SERVICE_UNAVAILABLE
+                    if "not configured" in str(exc) or "at least 32 bytes" in str(exc)
+                    else HTTPStatus.UNAUTHORIZED
+                )
+                self._json({"error": str(exc)}, status)
             except (ValueError, json.JSONDecodeError) as exc:
                 self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
 

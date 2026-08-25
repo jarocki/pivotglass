@@ -10,6 +10,10 @@ from stix2 import DomainName, IPv4Address, Relationship
 from adversary_pursuit.core.analytic_ledger import AnalyticLedger
 from adversary_pursuit.core.graph_repository import WorkspaceGraphRepository
 from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.integrations.scot_pivot_intake import (
+    authenticate_scot_pivot_request,
+    scot_pivot_signature,
+)
 from adversary_pursuit.integrations.scot_publication import (
     build_scot_publication_manifest,
     compile_scot_write_plan,
@@ -266,4 +270,121 @@ def test_scot_pivot_request_validates_but_does_not_enqueue():
             requested_by="analyst",
             requested_at=datetime(2026, 8, 23, 12, 0),
             reason="Try it.",
+        )
+
+
+def test_authenticated_scot_pivot_requires_explicit_acceptance_and_is_idempotent(tmp_path):
+    workspace = _workspace(tmp_path)
+    ledger = AnalyticLedger(workspace)
+    now = datetime(2026, 8, 25, 12, 0, tzinfo=UTC)
+    request = validate_scot_pivot_request(
+        workspace="case",
+        scot_object_type="event",
+        scot_object_id=42,
+        scot_revision="7",
+        indicator="198.51.100.42",
+        requested_by="scot-analyst@example.test",
+        requested_at=now,
+        reason="Follow the event relationship.",
+    )
+    body = request.model_dump_json().encode()
+    secret = "test-only-scot-pivot-secret-32-bytes-minimum"
+    nonce = "test_nonce_1234567890"
+    signature = scot_pivot_signature(
+        secret,
+        key_id="scot4-primary",
+        timestamp=int(now.timestamp()),
+        nonce=nonce,
+        body=body,
+    )
+    receipt = authenticate_scot_pivot_request(
+        secret,
+        key_id="scot4-primary",
+        timestamp=str(int(now.timestamp())),
+        nonce=nonce,
+        signature=signature,
+        body=body,
+        now=now,
+    )
+
+    inbox, created = ledger.record_scot_pivot_request(
+        request.model_dump(mode="json"),
+        authentication=receipt.model_dump(mode="json"),
+    )
+    repeated, repeated_created = ledger.record_scot_pivot_request(
+        request.model_dump(mode="json"),
+        authentication=receipt.model_dump(mode="json"),
+    )
+
+    assert created is True
+    assert repeated_created is False
+    assert repeated["id"] == inbox["id"]
+    assert inbox["author_kind"] == "external_tool"
+    assert inbox["analyst_disposition"] == "pending"
+    assert inbox["status"] == "open"
+    assert ledger.enrichment_requests() == []
+
+    accepted, queued, queue_created = ledger.accept_scot_pivot_request(
+        request.request_id,
+        approved_by="local-analyst",
+        reason="The SCOT event and indicator are in the current hunt scope.",
+    )
+    accepted_again, queued_again, queue_created_again = ledger.accept_scot_pivot_request(
+        request.request_id,
+        approved_by="local-analyst",
+        reason="Retry after the client lost its response.",
+    )
+
+    assert queue_created is True
+    assert queue_created_again is False
+    assert queued_again["id"] == queued["id"]
+    assert accepted_again["id"] == accepted["id"]
+    assert accepted["analyst_disposition"] == "accepted"
+    assert accepted["status"] == "satisfied"
+    assert queued["criteria"]["queue_state"] == "queued"
+    assert queued["author_kind"] == "human"
+    assert len(accepted["criteria"]["reviews"]) == 1
+
+
+def test_rejected_scot_pivot_never_creates_enrichment_work(tmp_path):
+    workspace = _workspace(tmp_path)
+    ledger = AnalyticLedger(workspace)
+    now = datetime(2026, 8, 25, 12, 0, tzinfo=UTC)
+    request = validate_scot_pivot_request(
+        workspace="case",
+        scot_object_type="event",
+        scot_object_id=73,
+        indicator="203.0.113.73",
+        requested_by="scot-analyst@example.test",
+        requested_at=now,
+        reason="Review this event relation.",
+    )
+    ledger.record_scot_pivot_request(
+        request.model_dump(mode="json"),
+        authentication={
+            "schema_version": "pivotglass-scot-pivot-auth-1.0",
+            "scheme": "hmac-sha256-v1",
+            "key_id": "scot4-primary",
+            "signed_at": now.isoformat(),
+            "authenticated_at": now.isoformat(),
+            "body_sha256": "a" * 64,
+            "nonce_sha256": "b" * 64,
+            "maximum_clock_skew_seconds": 300,
+        },
+    )
+
+    rejected = ledger.reject_scot_pivot_request(
+        request.request_id,
+        rejected_by="local-analyst",
+        reason="Outside the current hunt scope.",
+    )
+
+    assert rejected["analyst_disposition"] == "rejected"
+    assert rejected["status"] == "rejected"
+    assert ledger.enrichment_requests() == []
+    with pytest.raises(ValueError, match="cannot be accepted"):
+        ledger.accept_scot_pivot_request(
+            request.request_id,
+            approved_by="local-analyst",
+            reason="Changed my mind.",
         )

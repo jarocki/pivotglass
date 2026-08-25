@@ -245,9 +245,11 @@ publication-readiness <owner>` compare the current graph and current plans to
 masked configuration state and exact persisted receipts. They report blockers
 without connecting, mutating, authorizing cutover, or treating an older receipt
 as proof about changed evidence.
-SCOT-originated pivots now have a separate local acceptance action and a
-durable, provenance-bearing queue record; Pivotglass web runs accepted targets
-through the same enrichment planner used for ordinary investigations.
+SCOT can now submit a time-bounded HMAC-authenticated pivot envelope to a
+non-enqueueing Pivotglass inbox. The shared secret remains environment-owned,
+and only its authentication receipt is stored. A named local analyst must still
+accept or reject the request with a rationale; accepted targets then use the
+same durable queue and enrichment planner as ordinary investigations.
 go-roast decodes Interactsh OAST metadata into caveated graph proposals;
 Nucleotide attributes observed URLs and fingerprints analyst-grouped
 Nuclei-shaped activity. Both run locally behind time, output, and record limits,

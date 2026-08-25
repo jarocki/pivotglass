@@ -68,6 +68,10 @@ hunt session is published.
   related entities. The separate REST publisher accepts only a freshly
   compiled plan, an exact short-lived human confirmation, and a configured
   publication endpoint.
+- The inbound SCOT pivot endpoint authenticates the exact request bytes with a
+  separate environment-owned HMAC secret and a five-minute timestamp window.
+  Authentication creates a pending inbox item only. It never starts enrichment
+  or mutates the graph without a named local analyst's acceptance and rationale.
 - Before its first SCOT mutation, the publisher atomically records a one-shot
   claim in the active workspace. A completed, in-progress, or uncertain claim
   blocks replay across process restarts. Every write is read back; Pivotglass
@@ -120,15 +124,20 @@ AP_SYNAPSE_API_KEY
 AP_SCOT_MCP_URL
 AP_SCOT_API_URL
 AP_SCOT_API_KEY
+AP_SCOT_PIVOT_SECRET
 AP_GO_ROAST_BIN
 AP_NUCLEOTIDE_BIN
 AP_NUCLEOTIDE_LOOKUP
 ```
 
-Stored configuration takes precedence over environment variables. Cleartext
-HTTP is limited to loopback by default. Set `allow_insecure_http=true` only
-when a deliberately isolated deployment requires it; the traffic, including
-credentials, is otherwise visible on that network.
+Stored configuration takes precedence over environment variables except for
+`AP_SCOT_PIVOT_SECRET`, which is intentionally environment-only and must be at
+least 32 UTF-8 bytes. It is separate from the outbound SCOT API credential and
+is never returned by ordinary configuration polling. Cleartext HTTP is limited
+to loopback by default. Set `allow_insecure_http=true` only when a deliberately
+isolated deployment requires it; HMAC authenticates and protects request
+integrity but does not encrypt the indicator, requester, or reason. Put the
+endpoint behind HTTPS for networked use.
 
 Synapse's Cortex MCP endpoint is `/api/v1/mcp`. SCOT4 must have its MCP server
 enabled, and its mounted path is normally `/mcp`. Use the complete endpoint
@@ -166,6 +175,10 @@ integration scot publish-plan <owner>
 integration scot publish-execute <owner> <plan-digest> <approved-by> | <confirmation>
 integration scot publication-receipt <plan-digest>
 integration scot pivot-preview <type> <id> <indicator> | <requester> | <reason>
+integration scot pivot-inbox
+integration scot pivot-accept <request-id> | <approved-by> | <reason>
+integration scot pivot-reject <request-id> | <rejected-by> | <reason>
+integration scot pivot-queue
 integration scot get <object-type> <object-id>
 integration scot search <object-type> [filters-json]
 integration scot entries <object-type> <object-id> [plain|flaired|all]
@@ -292,6 +305,35 @@ and reason. Its disposition remains `preview`; it does not enqueue enrichment.
 This prevents content displayed in SCOT from becoming an instruction merely by
 arriving through the integration.
 
+SCOT can submit that validated JSON envelope to
+`POST /api/integrations/scot/pivot-request` with `Content-Type:
+application/json` and these headers:
+
+```text
+X-Pivotglass-Key-Id: <1-64 safe identifier characters>
+X-Pivotglass-Timestamp: <current Unix seconds>
+X-Pivotglass-Nonce: <16-128 base64url-safe characters>
+X-Pivotglass-Signature: sha256=<lowercase HMAC-SHA256 hex>
+```
+
+The HMAC input is the UTF-8 prefix below followed immediately by the exact raw
+JSON body bytes. The sender and Pivotglass must use the same body serialization.
+
+```text
+pivotglass-scot-pivot-v1\n<key-id>\n<timestamp>\n<nonce>\n<body-bytes>
+```
+
+Pivotglass rejects malformed, altered, or more-than-five-minute-skewed requests.
+It stores hashes of the body and nonce, not the shared secret, signature, or raw
+nonce. A valid retry returns the existing inbox item, so transport retries do
+not create duplicate work.
+
+`scot pivot-inbox` lists authenticated requests. `scot pivot-accept
+<request-id> | <approved-by> | <reason>` atomically records the human decision
+and creates the durable enrichment item. `scot pivot-reject <request-id> |
+<rejected-by> | <reason>` records the rejection and creates no work. Repeating
+an acceptance cannot start a second investigation.
+
 `scot pivot-enqueue <type> <id> <indicator> | <requester> | <reason> |
 <approved-by>` is the separate local approval action. It records an idempotent,
 provenance-bearing collection requirement in the scientific lifecycle. In
@@ -389,7 +431,8 @@ Before either integration is release-complete, it still needs:
 - live Synapse relationship/time/provenance round-trip fixtures;
 - live disposable-SCOT readback, lossless reconciliation, and conflict
   disposition beyond the protocol fixtures;
-- authenticated SCOT-side creation of the validated request envelope; local
-  queue acceptance and Pivotglass execution are implemented.
+- a disposable live-SCOT exercise of the authenticated pivot endpoint and its
+  SCOT-side UI action; the receiving contract, local review inbox, acceptance,
+  rejection, and idempotent execution path are implemented and locally tested.
 
 Unreviewed graph mutations and unapproved SCOT publication remain out of scope.
