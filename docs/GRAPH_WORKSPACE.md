@@ -48,7 +48,9 @@ infer a new relationship, or modify workspace state.
 
 In Pivotglass, open **Evidence relationships** under **Charts & Evidence**.
 Drag nodes, pan or zoom, optionally filter the visible subset, pin important
-nodes in view, enter a layout name, and choose **Save view**. The presentation is stored in the active
+nodes in view, and collapse or expand a selected node's direct connections.
+Collapsed nodes remain in the exact-data inventory and exports. Enter a layout
+name and choose **Save view**. The presentation is stored in the active
 workspace and survives refreshes and restarts. It is included in portable
 workspace exports and merges.
 
@@ -62,13 +64,14 @@ deletes only this presentation record.
 
 The v0.9 foundation defines and verifies the projection contract and durable
 saved layouts. Drag, pan, zoom, text filtering, pinning, presentation labels,
-evidence drill-down, and named presentation management are implemented.
-Multiselect, manual assertion/link creation, undo/redo, relationship filters, and layered exports
-remain open; they must write only through their existing authorities. Node
-position is presentation state and never alters evidence.
+evidence drill-down, multiselect, annotated manual assertions, correction
+history, direct-connection collapse/expand, named presentation management, and
+layered exports are implemented. General presentation undo/redo and richer
+relationship filters remain open; they must write only through their existing
+authorities. Node position and collapsed visibility are presentation state and
+never alter evidence.
 
-The web cockpit does not yet add a separate download of the complete layered
-provenance graph. Remote Pivotglass sessions may be configured without access
-control, so that export must wait for an authenticated or explicitly local-only
-boundary. The existing workspace exports remain available through their
-documented command and data-handling contract.
+The governed layered graph can be exported through the shared `graph export`
+command as JSON, CSV, or GEXF. Remote Pivotglass sessions may be configured
+without access control, so operators must treat exports according to their
+workspace's data-handling requirements.

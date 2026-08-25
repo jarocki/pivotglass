@@ -83,6 +83,21 @@ export function updateGraphSelection(
   return [...current, reference];
 }
 
+export function hiddenGraphReferences(
+  edges: readonly VisualizationEdge[],
+  collapsedRoots: ReadonlySet<string>,
+  protectedReferences: ReadonlySet<string> = new Set(),
+): Set<string> {
+  const hidden = new Set<string>();
+  for (const edge of edges) {
+    if (collapsedRoots.has(edge.source)) hidden.add(edge.target);
+    if (collapsedRoots.has(edge.target)) hidden.add(edge.source);
+  }
+  for (const reference of collapsedRoots) hidden.delete(reference);
+  for (const reference of protectedReferences) hidden.delete(reference);
+  return hidden;
+}
+
 const FLINT_CHART_TYPES: Partial<Record<VisualizationView, string>> = {
   bar: "Bar Chart",
   histogram: "Histogram",

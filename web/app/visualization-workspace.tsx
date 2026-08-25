@@ -6,6 +6,7 @@ import { Chart, registerables } from "chart.js";
 import {
   compileFlintChartjs,
   exactDataExport,
+  hiddenGraphReferences,
   updateGraphSelection,
   plottedRows,
   validateVisualizationIntent,
@@ -908,6 +909,7 @@ function RelationshipGraph({
   const [positions, setPositions] = useState<Record<string, GraphPoint>>({});
   const [labels, setLabels] = useState<Record<string, string>>({});
   const [pinned, setPinned] = useState<Set<string>>(new Set());
+  const [collapsedRefs, setCollapsedRefs] = useState<Set<string>>(new Set());
   const [layoutName, setLayoutName] = useState("");
   const [layoutMessage, setLayoutMessage] = useState("");
   const [layoutBusy, setLayoutBusy] = useState(false);
@@ -942,9 +944,14 @@ function RelationshipGraph({
         node.label.toLowerCase().includes(normalizedQuery)
         || node.entity_type.toLowerCase().includes(normalizedQuery))
     : ranked;
+  const protectedRefs = new Set([...selectedRefs, ...pinned]);
+  const hiddenRefs = hiddenGraphReferences(intent.data.edges, collapsedRefs, protectedRefs);
+  const priorityRefs = new Set([...selectedRefs, ...pinned]);
   const candidates = [
-    ...ranked.filter((node) => pinned.has(node.reference)),
-    ...filteredCandidates.filter((node) => !pinned.has(node.reference)),
+    ...ranked.filter((node) => priorityRefs.has(node.reference) && !hiddenRefs.has(node.reference)),
+    ...filteredCandidates.filter(
+      (node) => !priorityRefs.has(node.reference) && !hiddenRefs.has(node.reference),
+    ),
   ];
   const visibleNodes = candidates.slice(0, 48);
   const visibleIds = new Set(visibleNodes.map((node) => node.reference));
@@ -980,6 +987,15 @@ function RelationshipGraph({
 
   const selectNode = (reference: string, additive: boolean) => {
     setSelectedRefs((current) => updateGraphSelection(current, reference, additive));
+  };
+
+  const toggleNeighborhood = (reference: string) => {
+    setCollapsedRefs((current) => {
+      const next = new Set(current);
+      if (next.has(reference)) next.delete(reference);
+      else next.add(reference);
+      return next;
+    });
   };
 
   const recordManualRelation = async () => {
@@ -1179,6 +1195,7 @@ function RelationshipGraph({
         </label>
         <span>
           Showing {visibleNodes.length} of {intent.data.nodes.length} nodes · {visibleEdges.length} visible edges
+          {hiddenRefs.size > 0 ? ` · ${hiddenRefs.size} collapsed` : ""}
         </span>
         {intent.data.edges.length > 0 && (
           <span className="graph-zoom-controls" aria-label="Graph zoom controls">
@@ -1188,8 +1205,11 @@ function RelationshipGraph({
           </span>
         )}
         {selectedRefs.length > 0 && <span>{selectedRefs.length} selected</span>}
-        {(query || selectedRefs.length > 0) && (
-          <button onClick={() => { setQuery(""); setSelectedRefs([]); }}>RESET VIEW</button>
+        {hiddenRefs.size > 0 && (
+          <button onClick={() => setCollapsedRefs(new Set())}>SHOW ALL CONNECTIONS</button>
+        )}
+        {(query || selectedRefs.length > 0 || collapsedRefs.size > 0) && (
+          <button onClick={() => { setQuery(""); setSelectedRefs([]); setCollapsedRefs(new Set()); }}>RESET VIEW</button>
         )}
       </div>
       <div className="graph-layout-controls" aria-label="Saved graph presentations">
@@ -1242,9 +1262,7 @@ function RelationshipGraph({
                   node.reference,
                   event.shiftKey || event.metaKey || event.ctrlKey,
                 )}
-                onDoubleClick={(event) => {
-                  if (onOpenEvidence) onOpenEvidence(node.reference, event.currentTarget);
-                }}
+                onDoubleClick={() => toggleNeighborhood(node.reference)}
               >
                 <b>{shortLabel(node.label, 30)}</b>
                 <span>{node.entity_type}</span>
@@ -1339,6 +1357,7 @@ function RelationshipGraph({
                   className={[
                     selectedSet.has(node.reference) ? "selected" : "",
                     pinned.has(node.reference) ? "pinned" : "",
+                    collapsedRefs.has(node.reference) ? "collapsed" : "",
                     selectedRefs.some((reference) => neighbors.get(reference)?.has(node.reference))
                       ? "neighbor"
                       : "",
@@ -1352,12 +1371,7 @@ function RelationshipGraph({
                     node.reference,
                     event.shiftKey || event.metaKey || event.ctrlKey,
                   )}
-                  onDoubleClick={(event) => {
-                    const origin = event.currentTarget.closest(".relationship-visualization");
-                    if (onOpenEvidence && origin instanceof HTMLElement) {
-                      onOpenEvidence(node.reference, origin);
-                    }
-                  }}
+                  onDoubleClick={() => toggleNeighborhood(node.reference)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
@@ -1397,7 +1411,7 @@ function RelationshipGraph({
         <span><i className="explicit" /> Stored relationship</span>
         <span><i className="property" /> Property pivot</span>
         <span><i className="manual" /> Analyst assertion</span>
-        <span>Force layout is limited to 48 nodes; drag, pan, zoom, filtering, and selection change presentation only. Shift, Command, or Control selects more than one node.</span>
+        <span>Force layout is limited to 48 nodes; drag, pan, zoom, filtering, selection, and collapsed connections change presentation only. Double-click a node to collapse or expand its direct connections. Shift, Command, or Control selects more than one node.</span>
       </div>
       {manualEdges.length > 0 && (
         <details className="manual-relation-review">
@@ -1529,6 +1543,13 @@ function RelationshipGraph({
           })}>
             {pinned.has(selectedNode.reference) ? "UNPIN FROM VIEW" : "PIN IN VIEW"}
           </button>
+          {(degree.get(selectedNode.reference) ?? 0) > 0 && (
+            <button onClick={() => toggleNeighborhood(selectedNode.reference)}>
+              {collapsedRefs.has(selectedNode.reference)
+                ? "EXPAND DIRECT CONNECTIONS"
+                : "COLLAPSE DIRECT CONNECTIONS"}
+            </button>
+          )}
           <label className="graph-display-label">
             <span>Presentation label</span>
             <input
@@ -1553,13 +1574,14 @@ function RelationshipGraph({
         <div className="visualization-table-wrap">
           <table className="visualization-table">
             <caption>Exact graph nodes · {intent.source_scope.workspace}</caption>
-            <thead><tr><th scope="col">Indicator</th><th scope="col">Type</th><th scope="col">Relations</th></tr></thead>
+            <thead><tr><th scope="col">Indicator</th><th scope="col">Type</th><th scope="col">Relations</th><th scope="col">View</th></tr></thead>
             <tbody>
               {intent.data.nodes.map((node) => (
                 <tr key={node.reference}>
                   <td>{node.label}</td>
                   <td>{node.entity_type}</td>
                   <td>{degree.get(node.reference) ?? 0}</td>
+                  <td>{hiddenRefs.has(node.reference) ? "Collapsed" : "Visible"}</td>
                 </tr>
               ))}
             </tbody>

@@ -582,6 +582,7 @@ pre{font-size:12px;line-height:1.5}
 .relationship-nodes>g.selected circle,.relationship-nodes>g:focus-visible circle{stroke:var(--focus-ring);stroke-width:4}
 .relationship-nodes>g.neighbor circle{stroke:var(--heading);stroke-width:2.5}
 .relationship-nodes>g.pinned circle{stroke-dasharray:3 2;stroke-width:3}
+.relationship-nodes>g.collapsed circle{stroke-dasharray:1 3;stroke-width:3}
 .relationship-nodes .node-label{fill:var(--heading);font-size:8px;font-weight:800}
 .relationship-nodes .node-type{fill:var(--dim);font-size:7px}
 .relationship-nodes .type-domain-name circle{fill:color-mix(in srgb,var(--accent) 18%,var(--elevated))}

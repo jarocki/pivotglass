@@ -147,10 +147,13 @@ contradicting stances, preserves mixed assessments, and marks absent stances as
 
 The graph labels nodes with actual indicator values. Every visible edge has a
 stored or explicitly labeled conservative basis. Dragging, filtering, moving,
-pinning, and selecting nodes change only the presentation. Hold Shift,
-Command, or Control to select multiple nodes and pin or unpin the group. The
-temporary selection is not stored in a saved layout. If no supported relationship
-exists, Pivotglass leaves the nodes unconnected.
+pinning, selecting nodes, and collapsing direct connections change only the
+presentation. Double-click a node—or use its explicit control—to collapse or
+expand its direct connections without removing them from evidence, export, or
+the accessible inventory. Hold Shift, Command, or Control to select multiple
+nodes and pin or unpin the group. The temporary selection is not stored in a
+saved layout. If no supported relationship exists, Pivotglass leaves the nodes
+unconnected.
 
 Select exactly two nodes to record a directional, annotated analyst relation.
 It is persisted as a human-authored judgment, drawn separately from stored

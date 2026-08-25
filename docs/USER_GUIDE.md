@@ -236,8 +236,11 @@ property pivots are visually distinguished. Select a node to highlight its
 neighbors. Hold Shift, Command, or Control while selecting to build a temporary
 multi-node set; the set can be pinned, unpinned, or cleared together. The last
 node selected remains the primary selection for its presentation label and
-evidence detail. Double-click it, or choose **OPEN EVIDENCE**, to inspect the
-stored record.
+evidence detail. Choose **OPEN EVIDENCE** to inspect the stored record.
+Double-click a connected node, or use the selected-node control, to collapse or
+expand its direct connections. This changes only the bounded view: hidden
+nodes remain in the accessible inventory and exact-data export. **SHOW ALL
+CONNECTIONS** clears every temporary collapse.
 
 With exactly two nodes selected, **ANNOTATED ANALYST RELATION** records a
 directional judgment from the first selection to the second. Enter a bounded
@@ -253,8 +256,8 @@ creates a replacement judgment and marks the former assertion superseded;
 the original assertion, and append a correction-history entry. They do not
 edit or delete observed evidence.
 
-Dragging, panning, zooming, filtering, centering, pinning, and selecting change
-only the presentation. They do not alter evidence. Selection is deliberately
+Dragging, panning, zooming, filtering, centering, pinning, selecting, and
+collapsing change only the presentation. They do not alter evidence. Selection is deliberately
 temporary and is not included in saved layouts. Enter a layout name and choose
 **SAVE VIEW** to keep an arrangement in the active workspace. Loading an older
 view reports added or absent nodes when the evidence graph has changed. Large

@@ -211,7 +211,10 @@ In **VISUAL ANALYSIS**, choose **Evidence relationships**.
 
 You can search by indicator or type, drag nodes, pan and zoom, select a node to
 highlight its visible neighbors, and choose **OPEN EVIDENCE** to inspect its
-provenance.
+provenance. Double-click a connected node, or use **COLLAPSE DIRECT
+CONNECTIONS**, to hide its immediate branches temporarily. Expand it again or
+choose **SHOW ALL CONNECTIONS** to restore the complete view. Collapsed nodes
+remain present in the accessible inventory and exact-data export.
 
 Edges represent stored or explicitly labeled conservative relationships.
 Moving nodes changes only the layout. If no supported edge exists, Pivotglass

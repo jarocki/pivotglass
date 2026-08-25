@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   compileFlintChartjs,
   exactDataExport,
+  hiddenGraphReferences,
   updateGraphSelection,
   validateVisualizationIntent,
   type VisualizationIntent,
@@ -14,6 +15,27 @@ test("graph selection is local, deterministic, and supports additive toggles", (
   assert.deepEqual(updateGraphSelection(["node-a"], "node-b", false), ["node-b"]);
   assert.deepEqual(updateGraphSelection(["node-a"], "node-b", true), ["node-a", "node-b"]);
   assert.deepEqual(updateGraphSelection(["node-a", "node-b"], "node-a", true), ["node-b"]);
+});
+
+test("collapsed graph branches hide only direct unprotected connections", () => {
+  const edges = [
+    { source: "root", target: "left", relationship: "resolves-to", basis: "explicit", provenance: "test" },
+    { source: "right", target: "root", relationship: "contains", basis: "property", provenance: "test" },
+    { source: "left", target: "leaf", relationship: "related-to", basis: "manual", provenance: "test" },
+  ] satisfies VisualizationIntent["data"]["edges"];
+
+  assert.deepEqual(
+    [...hiddenGraphReferences(edges, new Set(["root"]))].sort(),
+    ["left", "right"],
+  );
+  assert.deepEqual(
+    [...hiddenGraphReferences(edges, new Set(["root"]), new Set(["right"]))],
+    ["left"],
+  );
+  assert.deepEqual(
+    [...hiddenGraphReferences(edges, new Set(["root", "left"]))].sort(),
+    ["leaf", "right"],
+  );
 });
 
 function histogramIntent(): VisualizationIntent {
