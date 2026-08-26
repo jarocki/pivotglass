@@ -70,6 +70,7 @@ _FREE_ARG_VERBS: frozenset[str] = frozenset(
         "theme",
         "analysis",
         "framework",
+        "integration",
     }
 )
 
@@ -309,14 +310,97 @@ def dispatch_repl_verb(
     if name == "graph" and verb.args:
         if _workspace_mgr is None:
             return "Workspace unavailable."
-        from adversary_pursuit.core.graph_commands import execute_graph_command
+        folded = tuple(arg.casefold() for arg in verb.args)
+        if len(folded) in {2, 3} and folded[0] == "export":
+            from adversary_pursuit.core.investigation_graph import build_investigation_graph
+            from adversary_pursuit.core.investigation_graph_export import (
+                export_investigation_graph,
+            )
 
-        try:
-            result = execute_graph_command(verb.args, _workspace_mgr)
-        except ValueError as exc:
-            return str(exc)
-        payload = result["graph"] if result.get("action") == "layers" else result
-        return json.dumps(payload, indent=2, default=str)
+            artifact = export_investigation_graph(
+                build_investigation_graph(_workspace_mgr),
+                format=folded[1],
+                layer=folded[2] if len(folded) == 3 else "all",
+            )
+            return artifact.content
+        if folded == ("layers",):
+            from adversary_pursuit.core.investigation_graph import build_investigation_graph
+
+            projection = build_investigation_graph(_workspace_mgr)
+            return json.dumps(projection.model_dump(mode="json"), indent=2, default=str)
+        if len(verb.args) >= 2 and folded[:2] == ("layout", "list"):
+            from adversary_pursuit.core.graph_presentation import GraphPresentationAuthority
+
+            return json.dumps(
+                GraphPresentationAuthority(_workspace_mgr).list(), indent=2, default=str
+            )
+        if len(verb.args) >= 3 and folded[:2] == ("layout", "show"):
+            from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
+            from adversary_pursuit.core.graph_presentation import GraphPresentationAuthority
+
+            graph = RelationshipGraph()
+            graph.build_from_workspace(
+                _workspace_mgr.get_stix_objects(), persisted_relationships(_workspace_mgr)
+            )
+            payload = graph.to_dict()
+            node_refs = {str(node["id"]) for node in payload.get("nodes", ())}
+            edge_keys = {
+                f"{edge['source']}>{edge['target']}:{edge.get('relationship', 'related-to')}:{edge.get('basis', '')}"
+                for edge in payload.get("edges", ())
+            }
+            result = GraphPresentationAuthority(_workspace_mgr).resolve(
+                " ".join(verb.args[2:]),
+                current_node_refs=node_refs,
+                current_edge_keys=edge_keys,
+            )
+            return json.dumps(result, indent=2, default=str)
+        if len(verb.args) >= 5 and folded[0:2] == ("layout", "delete"):
+            if "--confirm" not in verb.args:
+                return "Usage: graph layout delete <name> --confirm <name>"
+            marker = verb.args.index("--confirm")
+            layout_name = " ".join(verb.args[2:marker])
+            confirmation = " ".join(verb.args[marker + 1 :])
+            if not layout_name or layout_name != confirmation:
+                return "Deleting a graph layout requires its exact name after --confirm."
+            from adversary_pursuit.core.graph_presentation import GraphPresentationAuthority
+
+            deleted = GraphPresentationAuthority(_workspace_mgr).delete(layout_name)
+            return json.dumps({"name": layout_name, "deleted": deleted}, indent=2)
+        if folded[0] == "annotate":
+            payload = " ".join(verb.args[1:])
+            node_ref, separator, content = payload.partition("|")
+            if not separator:
+                return "Usage: graph annotate <node-id> | <text>"
+            from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
+            from adversary_pursuit.core.graph_presentation import GraphPresentationAuthority
+
+            graph = RelationshipGraph()
+            graph.build_from_workspace(
+                _workspace_mgr.get_stix_objects(), persisted_relationships(_workspace_mgr)
+            )
+            current_refs = {str(node["id"]) for node in graph.to_dict().get("nodes", ())}
+            result = GraphPresentationAuthority(_workspace_mgr).annotate(
+                node_ref.strip(), content.strip(), current_node_refs=current_refs
+            )
+            return json.dumps(result, indent=2, default=str)
+        if folded[0] == "annotations" and len(verb.args) <= 2:
+            from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
+            from adversary_pursuit.core.graph_presentation import GraphPresentationAuthority
+
+            graph = RelationshipGraph()
+            graph.build_from_workspace(
+                _workspace_mgr.get_stix_objects(), persisted_relationships(_workspace_mgr)
+            )
+            current_refs = {str(node["id"]) for node in graph.to_dict().get("nodes", ())}
+            result = GraphPresentationAuthority(_workspace_mgr).annotations(
+                current_node_refs=current_refs,
+                node_ref=verb.args[1] if len(verb.args) == 2 else None,
+            )
+            return json.dumps(result, indent=2, default=str)
+        return (
+            "Usage: graph [layers|export <json|csv|gexf> [all|entity|epistemic|bridge]|layout list|layout show <name>|"
+            "layout delete <name> --confirm <name>|annotate <node-id> | <text>|annotations [node-id]]"
+        )
 
     if name in {"search", "graph", "dossier", "gaps", "report", "hint", "challenges"}:
         if ctx is None:
@@ -380,6 +464,14 @@ def dispatch_repl_verb(
         from adversary_pursuit.core.framework_commands import execute_framework_command
 
         result = execute_framework_command(verb.args, _workspace_mgr)
+        return f"{result['title']}\n{json.dumps(result['data'], indent=2, default=str)}"
+
+    if name == "integration":
+        if config_mgr is None:
+            return "Integration configuration unavailable."
+        from adversary_pursuit.core.integration_commands import execute_integration_command
+
+        result = execute_integration_command(verb.args, config_mgr, _workspace_mgr)
         return f"{result['title']}\n{json.dumps(result['data'], indent=2, default=str)}"
 
     if name == "theme":

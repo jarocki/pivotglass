@@ -16,6 +16,10 @@ const STATUS_RGB: Readonly<Record<string, RGB>> = {
   failed: [255, 0, 0],
   skipped: [128, 96, 0],
   cancelled: [128, 0, 0],
+  supports: [0, 210, 96],
+  contradicts: [255, 56, 48],
+  mixed: [255, 176, 0],
+  not_assessed: [20, 20, 20],
 };
 
 const clamp8 = (value: number) => Math.max(0, Math.min(255, Math.round(value)));

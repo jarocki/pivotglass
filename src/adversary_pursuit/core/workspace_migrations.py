@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import shutil
 import sqlite3
 import uuid
@@ -38,6 +39,8 @@ from adversary_pursuit.models.database import (
     Base,
     EvidenceObservation,
     EvidenceSource,
+    GraphPresentationLayout,
+    IntegrationExecution,
     InvestigationQuestion,
     Relationship,
     ScoreEvent,
@@ -45,7 +48,7 @@ from adversary_pursuit.models.database import (
     WorkspaceSchemaVersion,
 )
 
-CURRENT_WORKSPACE_SCHEMA_VERSION = 6
+CURRENT_WORKSPACE_SCHEMA_VERSION = 8
 LEGACY_WORKSPACE_SCHEMA_VERSION = 1
 _VERSION_ROW_ID = 1
 
@@ -154,7 +157,9 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     v3 -> v4 step adds the scientific-investigation root and links existing
     analytic records and legacy predictions into one lifecycle. The v4 -> v5
     step adds the append-only framework mapping authority. The v5 -> v6 step
-    adds presentation-only graph layouts without changing evidence.
+    adds restart-safe external-integration execution claims and receipts. The
+    v6 -> v7 step adds presentation-only saved graph layouts. The v7 -> v8
+    step reconciles an earlier development-only layout shape and adds pins.
     """
 
     tables = set(inspect(engine).get_table_names())
@@ -192,6 +197,12 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     if current == 5:  # noqa: PLR2004
         _migrate_v5_to_v6(engine)
         current = 6
+    if current == 6:  # noqa: PLR2004
+        _migrate_v6_to_v7(engine)
+        current = 7
+    if current == 7:  # noqa: PLR2004
+        _migrate_v7_to_v8(engine)
+        current = 8
 
     if current != CURRENT_WORKSPACE_SCHEMA_VERSION:
         raise RuntimeError(
@@ -224,7 +235,7 @@ def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
     current = _read_schema_version(engine, tables)
     if current == CURRENT_WORKSPACE_SCHEMA_VERSION:
         return MigrationPlan(current, current, False, True, None, ())
-    supported = current in {LEGACY_WORKSPACE_SCHEMA_VERSION, 2, 3, 4, 5}
+    supported = current in {LEGACY_WORKSPACE_SCHEMA_VERSION, 2, 3, 4, 5, 6, 7}
     steps = ["create sibling backup"]
     if current == LEGACY_WORKSPACE_SCHEMA_VERSION:
         steps.extend(
@@ -260,8 +271,22 @@ def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
     if current <= 5:  # noqa: PLR2004
         steps.extend(
             (
-                "add presentation-only graph layout records",
+                "add external-integration execution claims and receipts",
                 "write schema-version 6 receipt",
+            )
+        )
+    if current <= 6:  # noqa: PLR2004
+        steps.extend(
+            (
+                "add presentation-only saved graph layouts",
+                "write schema-version 7 receipt",
+            )
+        )
+    if current <= 7:  # noqa: PLR2004
+        steps.extend(
+            (
+                "reconcile legacy graph-layout shape and add saved pins",
+                "write schema-version 8 receipt",
             )
         )
     return MigrationPlan(
@@ -552,9 +577,9 @@ def _migrate_v4_to_v5(engine: Engine) -> None:
 
 
 def _migrate_v5_to_v6(engine: Engine) -> None:
-    """Add named graph presentation state without altering analytic records."""
+    """Add durable replay protection for approved external mutations."""
 
-    Base.metadata.create_all(engine)
+    IntegrationExecution.__table__.create(engine, checkfirst=True)
     with Session(engine) as session:
         row = session.get(WorkspaceSchemaVersion, _VERSION_ROW_ID)
         if row is None:
@@ -562,6 +587,181 @@ def _migrate_v5_to_v6(engine: Engine) -> None:
         row.version = 6
         row.migrated_at = datetime.now(timezone.utc)
         session.commit()
+
+
+def _migrate_v6_to_v7(engine: Engine) -> None:
+    """Add graph presentation state without changing evidence authorities."""
+
+    GraphPresentationLayout.__table__.create(engine, checkfirst=True)
+    with Session(engine) as session:
+        row = session.get(WorkspaceSchemaVersion, _VERSION_ROW_ID)
+        if row is None:
+            raise RuntimeError("Schema v6 workspace is missing its version receipt.")
+        row.version = 7
+        row.migrated_at = datetime.now(timezone.utc)
+        session.commit()
+
+
+def _migrate_v7_to_v8(engine: Engine) -> None:
+    """Reconcile the pre-release layout shape and add presentation pins.
+
+    Some development builds created ``graph_presentation_layouts`` before the
+    schema-versioned implementation. A table-name match is not a contract
+    match, so this migration inspects columns and rebuilds the table while
+    preserving bounded coordinates, viewport, filter text, and pins.
+    """
+
+    table_exists = "graph_presentation_layouts" in inspect(engine).get_table_names()
+    existing_columns = (
+        {
+            column["name"]
+            for column in inspect(engine).get_columns("graph_presentation_layouts")
+        }
+        if table_exists
+        else set()
+    )
+    required_columns = {column.name for column in GraphPresentationLayout.__table__.columns}
+    if required_columns.issubset(existing_columns):
+        with Session(engine) as session:
+            row = session.get(WorkspaceSchemaVersion, _VERSION_ROW_ID)
+            if row is None:
+                raise RuntimeError("Schema v7 workspace is missing its version receipt.")
+            row.version = 8
+            row.migrated_at = datetime.now(timezone.utc)
+            session.commit()
+        return
+
+    with engine.begin() as connection:
+        legacy_rows = (
+            [
+                dict(row)
+                for row in connection.execute(
+                    text("SELECT * FROM graph_presentation_layouts ORDER BY rowid")
+                ).mappings()
+            ]
+            if table_exists
+            else []
+        )
+        if table_exists:
+            connection.execute(
+                text(
+                    "ALTER TABLE graph_presentation_layouts "
+                    "RENAME TO graph_presentation_layouts_legacy_v7"
+                )
+            )
+        GraphPresentationLayout.__table__.create(connection)
+        for legacy in legacy_rows:
+            positions = _bounded_legacy_positions(
+                _decode_legacy_json(legacy.get("node_positions", legacy.get("positions")), {})
+            )
+            viewport = _bounded_legacy_viewport(
+                _decode_legacy_json(legacy.get("viewport"), {})
+            )
+            pins = _bounded_legacy_pins(
+                _decode_legacy_json(legacy.get("pinned_refs"), [])
+            )
+            filters = _decode_legacy_json(legacy.get("filters"), {})
+            filter_text = str(legacy.get("filter_text") or "").strip()[:256]
+            if not filter_text and isinstance(filters, dict):
+                filter_text = str(
+                    filters.get("query") or filters.get("search") or filters.get("text") or ""
+                ).strip()[:256]
+            labels = _decode_legacy_json(legacy.get("labels"), {})
+            if not isinstance(labels, dict):
+                labels = {}
+            legacy_identity = json.dumps(
+                {
+                    "schema": legacy.get("graph_schema_version", "legacy"),
+                    "nodes": sorted(positions),
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            connection.execute(
+                GraphPresentationLayout.__table__.insert().values(
+                    id=str(legacy.get("id") or f"graph-layout-{uuid.uuid4().hex}"),
+                    name=str(legacy.get("name") or "Recovered layout")[:64],
+                    graph_fingerprint=hashlib.sha256(legacy_identity.encode()).hexdigest(),
+                    node_positions=positions,
+                    pinned_refs=pins,
+                    viewport=viewport,
+                    filter_text=filter_text,
+                    labels={
+                        str(reference): str(label)[:160]
+                        for reference, label in labels.items()
+                        if str(reference) in positions and str(label).strip()
+                    },
+                    created_by=str(legacy.get("created_by") or "human")[:80],
+                    created_at=_legacy_datetime(legacy.get("created_at")),
+                    updated_at=_legacy_datetime(legacy.get("updated_at")),
+                )
+            )
+        if table_exists:
+            connection.execute(text("DROP TABLE graph_presentation_layouts_legacy_v7"))
+        connection.execute(
+            text(
+                "UPDATE workspace_schema_version SET version = 8, migrated_at = :now WHERE id = 1"
+            ),
+            {"now": datetime.now(timezone.utc)},
+        )
+
+
+def _decode_legacy_json(value: object, default: object) -> object:
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return default
+    return value if value is not None else default
+
+
+def _legacy_datetime(value: object) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+    return datetime.now(timezone.utc)
+
+
+def _bounded_legacy_positions(value: object) -> dict[str, dict[str, float]]:
+    if not isinstance(value, dict):
+        return {}
+    result: dict[str, dict[str, float]] = {}
+    for reference, point in list(value.items())[:1_000]:
+        if not isinstance(point, dict):
+            continue
+        try:
+            x, y = float(point.get("x")), float(point.get("y"))
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(x) and math.isfinite(y) and abs(x) <= 100_000 and abs(y) <= 100_000:
+            result[str(reference)] = {"x": round(x, 3), "y": round(y, 3)}
+    return result
+
+
+def _bounded_legacy_viewport(value: object) -> dict[str, float]:
+    if not isinstance(value, dict):
+        return {"x": 0.0, "y": 0.0, "scale": 1.0}
+    try:
+        x, y, scale = float(value.get("x", 0)), float(value.get("y", 0)), float(
+            value.get("scale", 1)
+        )
+    except (TypeError, ValueError):
+        return {"x": 0.0, "y": 0.0, "scale": 1.0}
+    return {
+        "x": round(x, 3) if math.isfinite(x) and abs(x) <= 100_000 else 0.0,
+        "y": round(y, 3) if math.isfinite(y) and abs(y) <= 100_000 else 0.0,
+        "scale": round(scale, 3) if math.isfinite(scale) and 0.25 <= scale <= 4 else 1.0,
+    }
+
+
+def _bounded_legacy_pins(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return list(dict.fromkeys(str(reference) for reference in value[:1_000] if str(reference)))
 
 
 def _legacy_prediction_entries(session: Session) -> tuple[list[dict], str | None]:

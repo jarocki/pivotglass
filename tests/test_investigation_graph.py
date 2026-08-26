@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-import json
-import sqlite3
-
-import pytest
-from sqlalchemy import inspect
 from stix2 import DomainName, IPv4Address, Relationship
 
 from adversary_pursuit.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
@@ -24,12 +19,10 @@ from adversary_pursuit.core.framework_projections import (
 )
 from adversary_pursuit.core.investigation_graph import (
     GraphLayer,
-    GraphPresentationAuthority,
     GraphTruthKind,
     build_investigation_graph,
 )
 from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.core.workspace_migrations import get_workspace_schema_version
 
 
 def _workspace(tmp_path) -> WorkspaceManager:
@@ -148,7 +141,9 @@ def test_property_pivots_are_explicitly_non_observed(tmp_path) -> None:
     )
 
     projection = build_investigation_graph(manager)
-    edge = next(edge for edge in projection.edges if edge.relationship == "same-observable-value")
+    edge = next(
+        edge for edge in projection.edges if edge.relationship == "same-observable-value"
+    )
     assert edge.truth_kind is GraphTruthKind.DERIVED_NAVIGATION
     assert "not an observed" in edge.rationale
     assert len(edge.provenance_refs) == 2
@@ -166,103 +161,3 @@ def test_layered_graph_command_is_shared_and_completed(tmp_path) -> None:
     rendered = dispatch_repl_verb(verb, None, None, manager)
     assert '"schema_version": "investigation-graph-1.0"' in rendered
     assert "graph layers" in command_completions("graph l")
-    assert "graph layout list" in command_completions("graph layout l")
-
-
-def test_saved_layout_is_validated_presentation_state_not_graph_truth(tmp_path) -> None:
-    manager = _workspace(tmp_path)
-    manager.store_stix_objects(
-        [{"type": "domain-name", "value": "layout.example"}],
-        module_name="test/source",
-        target="layout.example",
-    )
-    before = build_investigation_graph(manager)
-    entity = next(node for node in before.nodes if node.layer is GraphLayer.ENTITY)
-
-    authority = GraphPresentationAuthority(manager)
-    saved = authority.save(
-        "Triage view",
-        {
-            "positions": {entity.record_ref: {"x": 120.5, "y": 88}},
-            "pinned_refs": [entity.record_ref],
-            "filters": {"query": "layout", "layers": ["entity"]},
-            "viewport": {"x": 10, "y": -5, "scale": 1.25},
-        },
-    )
-    assert saved.name == "Triage view"
-    assert saved.positions[entity.record_ref].x == 120.5
-    assert saved.pinned_refs == (entity.record_ref,)
-    assert authority.list() == (saved,)
-
-    replaced = authority.save(
-        "Triage view",
-        {
-            "positions": {entity.record_ref: {"x": 150, "y": 90}},
-            "filters": {"query": ""},
-        },
-    )
-    assert replaced.id == saved.id
-    assert len(authority.list()) == 1
-    after = build_investigation_graph(manager)
-    assert after.nodes == before.nodes
-    assert after.edges == before.edges
-
-
-def test_layout_rejects_unknown_nodes_invalid_coordinates_and_schema(tmp_path) -> None:
-    manager = _workspace(tmp_path)
-    manager.store_stix_objects(
-        [{"type": "domain-name", "value": "guard.example"}],
-        module_name="test/source",
-        target="guard.example",
-    )
-    authority = GraphPresentationAuthority(manager)
-    with pytest.raises(ValueError, match="outside the current graph"):
-        authority.save("Unknown", {"positions": {"domain-name--missing": {"x": 1, "y": 2}}})
-    with pytest.raises(ValueError, match="outside the supported range"):
-        authority.save(
-            "Infinite",
-            {"positions": {manager.get_stix_objects()[0]["id"]: {"x": float("inf"), "y": 2}}},
-        )
-    with pytest.raises(ValueError, match="current graph schema"):
-        authority.save("Old", {"graph_schema_version": "investigation-graph-0.9"})
-
-
-def test_graph_annotations_reuse_analyst_notes_and_shared_command(tmp_path) -> None:
-    manager = _workspace(tmp_path)
-    manager.store_stix_objects(
-        [{"type": "domain-name", "value": "annotate.example"}],
-        module_name="test/source",
-        target="annotate.example",
-    )
-    entity = next(
-        node for node in build_investigation_graph(manager).nodes if node.layer is GraphLayer.ENTITY
-    )
-    verb = parse_repl_verb(f"graph annotate {entity.id} | Verify passive DNS history")
-    assert verb is not None
-    rendered = json.loads(dispatch_repl_verb(verb, None, None, manager))
-    assert rendered["annotation"]["record_ref"] == entity.record_ref
-    assert rendered["annotation"]["content"] == "Verify passive DNS history"
-    assert manager.get_workspace_stats()["note_count"] == 1
-
-    verb = parse_repl_verb(f"graph annotations {entity.id}")
-    assert verb is not None
-    annotations = json.loads(dispatch_repl_verb(verb, None, None, manager))["annotations"]
-    assert [item["content"] for item in annotations] == ["Verify passive DNS history"]
-
-
-def test_schema_v5_migrates_to_graph_layout_schema_with_backup(tmp_path) -> None:
-    manager = WorkspaceManager(tmp_path / "migration")
-    manager.create("v5")
-    manager._engine = None
-    manager._active = None
-    connection = sqlite3.connect(tmp_path / "migration" / "v5.db")
-    connection.execute("DROP TABLE graph_presentation_layouts")
-    connection.execute("UPDATE workspace_schema_version SET version = 5 WHERE id = 1")
-    connection.commit()
-    connection.close()
-
-    manager.switch("v5")
-
-    assert (tmp_path / "migration" / "v5.db.pre-v5-backup").is_file()
-    assert get_workspace_schema_version(manager._engine) == 6
-    assert "graph_presentation_layouts" in inspect(manager._engine).get_table_names()

@@ -178,8 +178,14 @@ type. Pivotglass currently provides:
   explicit 0–100 display scale;
 - investigation activity by UTC calendar day;
 - the Investigation Constellation;
-- indicator-by-enrichment lifecycle activity; and
-- the force-directed relationship graph.
+- indicator-by-enrichment lifecycle activity;
+- the force-directed relationship graph;
+- the admitted connection-count distribution; and
+- a PCA scatter view of similarity among indicator evidence-coverage profiles;
+- an Analysis of Competing Hypotheses matrix over recorded evidence stances;
+- a collapsible scientific-investigation hierarchy with exact path and depth;
+  and
+- a likelihood-interval view with separate analytic confidence context.
 
 Every view states its source scope and missing-data policy. **View exact data
 and caveats** opens the accessible table behind the visual. **Export exact
@@ -190,22 +196,80 @@ Deferred dimensions remain in the table but are omitted from the radar shape
 because they do not have an inference path. Radar values 0, 50, and 100 map to
 empty, partial, and filled; they are not confidence scores.
 
+The PCA view uses the same explicit 0, 50, and 100 coverage mapping, then
+standardizes only dimensions that are available and vary across at least three
+indicators. Deferred, unavailable, and zero-variance dimensions are excluded,
+not guessed. The chart reports the variance explained by both axes and exposes
+the exact input profile for every point. Nearby points have similar coverage
+patterns; they are not necessarily connected, related to the same actor,
+malicious, or supported with greater confidence.
+
+The competing-hypotheses matrix appears after the scientific notebook has at
+least two hypotheses and at least one observation or assertion linked directly
+to a hypothesis. Green **supports**, red **contradicts**, amber **mixed**, and
+dark **not assessed** cells always repeat their meaning with text and symbols.
+An unassessed cell means no stance was recorded; it is not neutral evidence.
+Open the exact-data table to read the analyst rationale and number of persisted
+links behind each cell.
+
+The investigation hierarchy organizes each persisted investigation beneath
+the active workspace, then nests its questions, competing hypotheses, and
+other scientific lifecycle items. Use the disclosure controls to collapse or
+expand branches. The exact-data table preserves every parent, child, status,
+depth, and full path. Tree membership does not mean that one record supports,
+causes, or increases confidence in another.
+
+The likelihood and confidence view presents repeated assessments as accessible
+small multiples on one common 0–100% axis. It places each recorded likelihood range on a
+0–100% axis. It shows the latest analytic confidence level, rationale, and
+assessor beside the range without placing confidence on the probability axis.
+Likelihood answers “how probable?” Confidence answers “how sound and
+sufficient is the reasoning and evidence?” Pivotglass never merges them into a
+single score. Invalid ranges are omitted and counted rather than silently
+corrected.
+
 ## Relationship graph
 
 The relationship graph uses actual indicator values for node labels and
 directional relationships for edges. Stored STIX relationships and conservative
 property pivots are visually distinguished. Select a node to highlight its
-neighbors; double-click it, or choose **OPEN EVIDENCE**, to inspect the stored
-record.
+neighbors. Hold Shift, Command, or Control while selecting to build a temporary
+multi-node set; the set can be pinned, unpinned, or cleared together. The last
+node selected remains the primary selection for its presentation label and
+evidence detail. Choose **OPEN EVIDENCE** to inspect the stored record.
+Double-click a connected node, or use the selected-node control, to collapse or
+expand its direct connections. This changes only the bounded view: hidden
+nodes remain in the accessible inventory and exact-data export. **SHOW ALL
+CONNECTIONS** clears every temporary collapse.
 
-Dragging, panning, zooming, filtering, centering, and selecting change only the
-presentation. Name the view and choose **SAVE VIEW** to persist its positions,
-pinned nodes, filter text, and viewport in workspace schema v6. Saved views can
-be reopened and view changes can be undone or redone. They do not alter
-evidence. **SAVE ANNOTATION** adds explicitly analyst-authored context through
-the existing note authority. Large workspaces use a bounded overview. If no
-supported edge exists, Pivotglass says so and keeps the evidence unconnected
-rather than manufacturing a relationship from proximity.
+With exactly two nodes selected, **ANNOTATED ANALYST RELATION** records a
+directional judgment from the first selection to the second. Enter a bounded
+lowercase relationship such as `possibly-controlled-by` and a required
+annotation explaining the basis. Manual relations are amber dashed edges and
+remain analyst assertions; they are not written as observed STIX
+relationships. The equivalent shared command is `analysis relation
+<subject-ref> <predicate> <object-ref> | <annotation>`.
+
+Open **Review analyst relations** to correct an active manual edge. **REVISE**
+creates a replacement judgment and marks the former assertion superseded;
+**RETRACT** withdraws the active edge. Both require a human explanation, retain
+the original assertion, and append a correction-history entry. They do not
+edit or delete observed evidence.
+
+Dragging, panning, zooming, filtering, centering, pinning, selecting, and
+collapsing change only the presentation. They do not alter evidence. Selection is deliberately
+temporary and is not included in saved layouts. Enter a layout name and choose
+**SAVE VIEW** to keep an arrangement in the active workspace. Loading an older
+view reports added or absent nodes when the evidence graph has changed. Large
+workspaces use a bounded overview. If no supported edge exists, Pivotglass says
+so and keeps the evidence unconnected rather than manufacturing a relationship
+from proximity.
+
+**UNDO VIEW** and **REDO VIEW** retain up to 50 presentation checkpoints for
+node movement, viewport changes, pins, display labels, and collapsed
+connections. Use `Command/Control+Z` and `Shift+Command/Control+Z` when focus is
+in the graph rather than a text field. Analytic evidence, relations, assertions,
+and correction history are intentionally outside this undo boundary.
 
 ![Evidence-backed relationship graph](media/pivotglass-graph-v0.7.0.png)
 
@@ -368,6 +432,9 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `analysis question <text>` | Record the question the investigation must answer |
 | `analysis assumption <text>` | Expose a key assumption for testing |
 | `analysis assertion <type> <text>` | Record an inferred, assumed, or judgment statement; observations come only from sources |
+| `analysis relation <subject-ref> <predicate> <object-ref> \| <annotation>` | Record an annotated directional analyst judgment between two existing entities; never create an observed relationship |
+| `analysis relation-revise <assertion-id> <subject-ref> <predicate> <object-ref> \| <annotation>` | Supersede a manual graph judgment with an annotated replacement while retaining both records |
+| `analysis relation-retract <assertion-id> \| <reason>` | Withdraw an active manual graph judgment without deleting its audit history |
 | `analysis hypothesis <question-id> <text>` | Propose a falsifiable candidate answer |
 | `analysis prediction <text>` | Record an observable prediction |
 | `analysis signpost <text>` | Record a development that should change the judgment |
@@ -388,12 +455,61 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `framework accept\|reject <mapping-id> \| <review note>` | Record the analyst's disposition and rationale |
 | `framework revoke <mapping-id> \| <reason>` | Revoke a mapping without deleting its history |
 | `framework navigator` | Verify local ATT&CK 19.2 content and download the exact plotted Navigator layer |
+| `integration status` | Show local endpoint and credential state without making a network request |
+| `integration proposals` | List pending and reviewed go-roast/Nucleotide-derived analytic proposals |
+| `integration review <proposal-id> <accept\|reject> \| <reason>` | Record an explicit human disposition and rationale without turning the proposal into observed evidence |
+| `integration materialize <proposal-id> \| <rationale>` | Promote an accepted external proposal to a typed inferred assertion while retaining its receipt, caveats, review, and proposal lineage; never create an observation |
+| `integration synapse shadow-preview` | Compile the active governed graph into deterministic desired Synapse nodes and edges without writing |
+| `integration synapse cutover-readiness` | Compare the current graph, current model and migration plans, masked configuration state, and exact receipts; report blockers without authorizing or performing cutover |
+| `integration synapse model-contract` | Inspect the pinned persistent extended-model definition and digest required for migration |
+| `integration synapse model-deploy-plan` | Compile the exact global extended-model change and readback without connecting or writing |
+| `integration synapse model-deploy-execute <plan-digest> <backup-receipt-sha256> <approved-by> \| <confirmation>` | Apply one exact, 15-minute human-approved model plan after an operator backup, then require exact extended-model and runtime readback |
+| `integration synapse model-deploy-receipt <plan-digest>` | Inspect the durable one-shot deployment claim, completion receipt, or uncertain outcome |
+| `integration synapse migration-plan` | Compile bound-variable writes and readbacks for an isolated shadow view; remote execution remains disabled |
+| `integration synapse views` | List readable Synapse views and identify the authenticated user's effective default without guessing a migration parent |
+| `integration synapse shadow-execute <parent-view> <plan-digest> <backup-receipt-sha256> <approved-by> \| <confirmation>` | Recompile and load one approved plan into a new child view, reconcile every readback, and leave the parent untouched and the fork unmerged |
+| `integration synapse shadow-receipt <plan-digest>` | Inspect the workspace-owned one-shot claim, isolated-view receipt, or view-removed/uncertain failure |
+| `integration synapse status` | Connect to the configured Cortex MCP endpoint and list visible tools |
+| `integration synapse model <pattern>` | Search the Synapse data model |
+| `integration synapse lookup <type> <indicator>` | Normalize a supported Pivotglass indicator and lift the corresponding Synapse form with a bound Storm variable |
+| `integration synapse query <Storm>` | Run one validated, budgeted Storm query with read-only enforcement and an audit receipt |
+| `integration scot status` | Connect to the configured SCOT4 MCP endpoint and list visible tools |
+| `integration scot publish-preview` | Compile the same governed graph into a reviewable SCOT event/entity/entry publication manifest without writing |
+| `integration scot publication-readiness <owner>` | Report whether the exact current graph and owner-bound plan have a reconciled publication receipt and whether authenticated SCOT pivot intake is configured |
+| `integration scot publish-plan <owner>` | Compile the manifest into exact, dependency-ordered SCOT4 REST writes and required readbacks without connecting |
+| `integration scot publish-execute <owner> <plan-digest> <approved-by> \| <confirmation>` | Recompile and execute one exact, short-lived human-approved SCOT plan; never retry mutations and require every readback to reconcile |
+| `integration scot publication-receipt <plan-digest>` | Inspect the workspace-owned one-shot claim, completion receipt, or uncertain outcome for an exact plan |
+| `integration scot pivot-preview <type> <id> <indicator> \| <requester> \| <reason>` | Validate a SCOT-originated pivot request without enqueueing it |
+| `integration scot pivot-inbox` | List authenticated SCOT pivot requests awaiting or retaining local review |
+| `integration scot pivot-accept <request-id> \| <approved-by> \| <reason>` | Accept one authenticated inbox request with a named analyst and rationale; create and start its idempotent durable enrichment item |
+| `integration scot pivot-reject <request-id> \| <rejected-by> \| <reason>` | Reject one authenticated inbox request with a named analyst and rationale; create no enrichment work |
+| `integration scot pivot-enqueue <type> <id> <indicator> \| <requester> \| <reason> \| <approved-by>` | Explicitly accept one validated SCOT pivot into the durable scientific-lifecycle enrichment queue; Pivotglass web starts it through the ordinary enrichment planner |
+| `integration scot pivot-queue` | List SCOT-originated enrichment requests with their provenance and queued, running, or terminal state |
+| `integration scot get <type> <id>` | Preview one SCOT4 object with remote ID, revision, permissions, and provenance |
+| `integration scot search <type> [filters-json]` | Run a bounded, paginated SCOT4 search |
+| `integration scot entries <type> <id> [plain\|flaired\|all]` | Read bounded SCOT4 object entries |
+| `integration scot entities <type> <id>` | Read entities associated with a SCOT4 object |
+| `integration roast status` | Show whether the configured local go-roast executable is available without running it |
+| `integration roast decode <domain>...` | Decode OAST XID fields and preview caveated campaign, machine-fragment, and process-fragment graph proposals |
+| `integration roast record <domain>...` | Record decoded relationship proposals in the governed analytic lifecycle with pending disposition and link exact matching domain observations when present |
+| `integration roast analyze <domain>...` | Run bounded campaign analysis; machine, PID, timezone, and temporal groupings remain correlations rather than identity proof |
+| `integration roast correlations` | Cluster persisted decoded fragments, summarize linked source groups, and flag incompatible decoder outputs for analyst review without creating identity or confidence |
+| `integration nucleotide status` | Show local Nucleotide and lookup-artifact configuration without analyzing traffic |
+| `integration nucleotide lookup-info` | Show the configured lookup corpus metadata and SHA-256; generated controls remain review-only |
+| `integration nucleotide lookup <url>...` | Preserve unique, ambiguous, and unmatched URL-to-template attribution candidates |
+| `integration nucleotide lookup-strict <url>...` | Return only unique-within-corpus template attributions plus unmatched URLs |
+| `integration nucleotide lookup-record <url>...` | Record every lookup outcome, including ambiguity and no-match, for explicit review and cite exact matching URL observations when present |
+| `integration nucleotide fingerprint-preview <actor-id> \| <events-json>` | Analyze an analyst-grouped event object or array and expose supporting signals, contradictions, CLI-option hypotheses, and caveats |
+| `integration nucleotide fingerprint-record <actor-id> \| <events-json>` | Record a fingerprint digest, signals, contradictions, and caveats as pending analytic work |
+| `integration nucleotide fingerprint-history <actor-id>` | List persisted fingerprint windows and structural hashes for one analyst-grouped batch |
+| `integration nucleotide fingerprint-compare <left-proposal-id> <right-proposal-id>` | Run Nucleotide's exact field-by-field diff over two stored fingerprints, disclose lookup-corpus drift, and create no formal confidence or identity claim |
 | `graph layers` | Inspect the combined entity and epistemic graph, including edge provenance and truth type |
-| `graph layout list` / `graph layout show <name>` | List or inspect saved presentation-only graph views |
-| `graph layout save <name> \| <layout-json>` | Save validated positions, pins, filters, and viewport state without changing evidence |
-| `graph layout delete <name> --confirm <name>` | Delete a named layout after exact confirmation |
-| `graph annotate <node-id> \| <text>` | Attach analyst-authored context to a current graph node |
-| `graph annotations [node-id]` | List graph-linked analyst annotations |
+| `graph export <json\|csv\|gexf> [all\|entity\|epistemic\|bridge]` | Download the exact governed multi-layer graph; bridge scope includes both endpoint layers and every edge retains truth class, provenance, rationale, and direction |
+| `graph layout list` | List presentation-only saved graph arrangements |
+| `graph layout show <name>` | Inspect a saved arrangement and current graph drift |
+| `graph layout delete <name> --confirm <name>` | Delete only a saved graph presentation after exact confirmation |
+| `graph annotate <node-id> \| <text>` | Attach human-authored context to a real graph node without changing evidence or relationships |
+| `graph annotations [node-id]` | List analyst notes attached to current graph nodes |
 | `analysis method start\|complete\|accept\|reject\|revise …` | Run and disposition a versioned Structured Analytic Technique |
 | `note <text>` | Add an analyst note |
 | `report` / `report generate` | Build the current Dossier report |
@@ -412,6 +528,8 @@ through suggestions and Enter accepts one. A `?` typed inside an editable field
 remains text; outside an editable field it opens Help.
 
 See [Investigation graph](GRAPH_WORKSPACE.md) for the entity/epistemic layer
+and [Vertex Synapse and SCOT4 integrations](EXTERNAL_INTEGRATIONS.md) for MCP
+configuration, authority boundaries, and remaining release gates.
 contract and the distinction between observed relationships and derived
 navigation pivots. See [Framework projections](FRAMEWORK_PROJECTIONS.md) for
 the mapping and content-verification contract.

@@ -1319,7 +1319,6 @@ class WorkspaceManager:
             # Delete epistemic links before their targets. Explicit ordering keeps
             # this correct if foreign-key enforcement is enabled in a future schema.
             deleted["analytic_lifecycle_items"] = session.query(AnalyticLifecycleItem).delete()
-            deleted["graph_presentation_layouts"] = session.query(GraphPresentationLayout).delete()
             deleted["analytic_evidence_links"] = session.query(AnalyticEvidenceLink).delete()
             deleted["analytic_method_runs"] = session.query(AnalyticMethodRun).delete()
             deleted["analytic_contradictions"] = session.query(AnalyticContradiction).delete()
@@ -1343,15 +1342,14 @@ class WorkspaceManager:
             deleted["analyst_notes"] = session.query(AnalystNote).delete()
             deleted["badge_events"] = session.query(BadgeEvent).delete()
             deleted["hunt_challenges"] = session.query(HuntChallengeRecord).delete()
+            deleted["graph_presentation_layouts"] = session.query(
+                GraphPresentationLayout
+            ).delete()
             session.commit()
 
             # DEC-WORKSPACE-DB-007: post-clear loud verification
             # Re-query each table; any non-zero count is a partial-clear bug
             remaining = {
-                "graph_presentation_layouts": session.execute(
-                    select(func.count(GraphPresentationLayout.id))
-                ).scalar()
-                or 0,
                 "analytic_lifecycle_items": session.execute(
                     select(func.count(AnalyticLifecycleItem.id))
                 ).scalar()
@@ -1411,6 +1409,10 @@ class WorkspaceManager:
                 "badge_events": session.execute(select(func.count(BadgeEvent.id))).scalar() or 0,
                 "hunt_challenges": session.execute(
                     select(func.count(HuntChallengeRecord.id))
+                ).scalar()
+                or 0,
+                "graph_presentation_layouts": session.execute(
+                    select(func.count(GraphPresentationLayout.id))
                 ).scalar()
                 or 0,
             }
@@ -1504,10 +1506,6 @@ class WorkspaceManager:
         self._ensure_active()
         with Session(self._engine) as session:
             return {
-                "graph_presentation_layouts": session.execute(
-                    select(func.count(GraphPresentationLayout.id))
-                ).scalar()
-                or 0,
                 "analytic_investigations": session.execute(
                     select(func.count(AnalyticInvestigation.id))
                 ).scalar()
@@ -1567,6 +1565,10 @@ class WorkspaceManager:
                 "badge_events": session.execute(select(func.count(BadgeEvent.id))).scalar() or 0,
                 "hunt_challenges": session.execute(
                     select(func.count(HuntChallengeRecord.id))
+                ).scalar()
+                or 0,
+                "graph_presentation_layouts": session.execute(
+                    select(func.count(GraphPresentationLayout.id))
                 ).scalar()
                 or 0,
             }

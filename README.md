@@ -121,16 +121,67 @@ three-channel RGB blocks for indicator enrichment jobs.
 
 Visual Analysis begins with an analyst question and chooses a view that fits
 the stored data. Current views include evidence composition, Dossier radar,
-UTC activity calendar, enrichment activity, the Constellation, and a
-force-directed relationship graph. Each view includes source scope, caveats,
-an accessible table, and export of the exact plotted data.
+UTC activity calendar, enrichment activity, the Constellation, a
+force-directed relationship graph, connection-count distribution, a PCA view
+of similarity among indicator evidence-coverage profiles, and an Analysis of
+Competing Hypotheses matrix. A collapsible investigation hierarchy preserves
+the path from workspace to investigation, question, hypothesis, and other
+scientific lifecycle items. Each view includes source scope, caveats, an
+accessible table, and export of the exact plotted data.
+
+The uncertainty view draws the bounded probability interval associated with
+each recorded likelihood term. The latest analytic confidence assessment is
+shown beside that interval with its own rationale and assessor; it is never
+converted into probability or combined into a single score.
+
+The PCA view standardizes only comparable, varying Dossier dimensions and
+reports the variance explained by each axis. It excludes deferred or
+unavailable dimensions instead of inventing values. Distance in that view is
+coverage similarity—not a relationship, attribution, maliciousness verdict,
+or confidence score.
+
+The competing-hypotheses matrix crosses every linked evidence source with
+every recorded hypothesis. It shows only analyst-recorded supporting or
+contradicting stances, preserves mixed assessments, and marks absent stances as
+**not assessed** rather than silently treating them as neutral.
 
 The graph labels nodes with actual indicator values. Every visible edge has a
-stored or explicitly labeled conservative basis. Dragging, filtering, and
-moving nodes change only the presentation. Named views persist positions,
-pins, filters, and viewport state separately from evidence; graph annotations
-remain explicitly analyst-authored notes. If no supported relationship exists,
-Pivotglass leaves the nodes unconnected.
+stored or explicitly labeled conservative basis. Dragging, filtering, moving,
+pinning, selecting nodes, and collapsing direct connections change only the
+presentation. Double-click a node—or use its explicit control—to collapse or
+expand its direct connections without removing them from evidence, export, or
+the accessible inventory. Hold Shift, Command, or Control to select multiple
+nodes and pin or unpin the group. The temporary selection is not stored in a
+saved layout. If no supported relationship exists, Pivotglass leaves the nodes
+unconnected.
+
+**UNDO VIEW** and **REDO VIEW** keep a bounded history of presentation edits:
+node positions, viewport, pins, display labels, and collapsed connections.
+`Command/Control+Z` and `Shift+Command/Control+Z` work while focus is in the
+graph rather than a text field. These controls cannot undo evidence,
+relationships, analyst assertions, or correction history.
+
+Select exactly two nodes to record a directional, annotated analyst relation.
+It is persisted as a human-authored judgment, drawn separately from stored
+relationships and conservative pivots, and never described as observed fact.
+The same authority is available as `analysis relation <subject-ref>
+<predicate> <object-ref> | <annotation>` in both interfaces.
+Open **Review analyst relations** to revise or retract a manual edge. A
+revision creates a new active assertion that links back to its predecessor; a
+retraction removes the edge from the active graph. Neither action deletes the
+former judgment or its required human reason.
+
+The selected-node panel can also save a plain analyst note. Node notes reuse
+the workspace annotation authority and never become evidence or a graph edge;
+the shared command is `graph annotate <node-id> | <text>`.
+
+Named graph presentations preserve node positions, viewport, and filters in
+the active workspace. They survive refreshes and portable exports, report
+topology drift when evidence changes, and cannot modify evidence or edges.
+Use `graph export <json|csv|gexf> [all|entity|epistemic|bridge]` to download the
+governed multi-layer graph. Each edge retains its layer, truth class,
+provenance references, rationale, and direction; bridge-only exports include
+both endpoint layers so the exported edges remain usable.
 
 ![Pivotglass relationship graph](docs/media/pivotglass-graph-v0.7.0.png)
 
@@ -169,6 +220,8 @@ command families:
 - `use <indicator>` — set an investigation target
 - `search`, `graph`, `dossier`, `gaps`, and `timeline` — inspect stored work
 - `analysis` — record questions, hypotheses, assertions, confidence, likelihood, contradictions, and structured methods
+- `integration` — run explicit, bounded Synapse/SCOT exchange workflows and
+  review-only go-roast/Nucleotide analysis
 - `note` — add analyst-authored context
 - `report` and `export` — produce reports or portable data
 - `autopivot` and `hint` — control optional assistance
@@ -180,6 +233,48 @@ command families:
 During an active investigation, `stop`, `focus`, `add`, and `skip` control the
 current enrichment queue where the interface supports those actions. See the
 [User Guide](docs/USER_GUIDE.md#command-reference) for exact syntax.
+
+The target integration architecture gives the two external platforms distinct
+roles: Vertex Synapse becomes the primary persisted entity/relationship graph,
+while SCOT4 becomes the web surface for reviewing published hunt sessions and
+requesting further pivots. Pivotglass remains the orchestration and analytic
+policy authority between them. The current work implements the bounded,
+read-only transport plus a persistent Synapse extended-model contract,
+approval-gated model deployment, and approval-gated unmerged shadow-view
+loading, SCOT publication previews, exact SCOT write plans, and one-shot
+approval-gated publication with durable readback receipts; see the
+[integration architecture](docs/EXTERNAL_INTEGRATIONS.md#target-architecture).
+`integration synapse cutover-readiness` and `integration scot
+publication-readiness <owner>` compare the current graph and current plans to
+masked configuration state and exact persisted receipts. They report blockers
+without connecting, mutating, authorizing cutover, or treating an older receipt
+as proof about changed evidence.
+SCOT can now submit a time-bounded HMAC-authenticated pivot envelope to a
+non-enqueueing Pivotglass inbox. The shared secret remains environment-owned,
+and only its authentication receipt is stored. A named local analyst must still
+accept or reject the request with a rationale; accepted targets then use the
+same durable queue and enrichment planner as ordinary investigations.
+go-roast decodes Interactsh OAST metadata into caveated graph proposals;
+Nucleotide attributes observed URLs and fingerprints analyst-grouped
+Nuclei-shaped activity. Both run locally behind time, output, and record limits,
+emit request receipts, and can record idempotent, caveat-preserving proposals
+in the scientific lifecycle for explicit accept/reject review. Those proposals
+remain visibly external-derived analysis and never become observations merely
+because an analyst accepts them. A second explicit materialization action can
+create a typed inferred assertion with its complete proposal lineage; it still
+does not manufacture observed evidence or an observed relationship.
+When a decoded OAST domain exactly matches immutable workspace observations,
+the proposal cites those observations and the epistemic graph exposes the
+provenance links. `integration roast correlations` groups shared fragments,
+counts provenance diversity, and flags incompatible decoder outputs for human
+review without creating an identity claim, a contradiction in observed
+evidence, or a confidence score.
+Persisted Nucleotide fingerprints can also be compared longitudinally through
+Nucleotide's own field-by-field diff contract, with lookup-corpus drift made
+explicit and no parallel confidence score created.
+Recorded URL-attribution proposals cite exact matching immutable workspace
+observations when available; the provenance link does not convert a corpus
+match into proof that Nuclei produced the request.
 
 ## Intelligence sources
 

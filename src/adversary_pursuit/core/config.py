@@ -118,6 +118,8 @@ _AP_ENV_VAR_MAP: dict[str, str] = {
     "agent_openai": "AP_OPENAI_API_KEY",
     "agent_openrouter": "AP_OPENROUTER_API_KEY",
     "agent_google": "AP_GOOGLE_API_KEY",
+    "synapse": "AP_SYNAPSE_API_KEY",
+    "scot": "AP_SCOT_API_KEY",
 }
 
 # Layer 3: Vendor-convention env vars.  Non-obvious names listed explicitly;
@@ -140,6 +142,8 @@ _VENDOR_ENV_VAR_MAP: dict[str, str] = {
     "agent_openai": "OPENAI_API_KEY",
     "agent_openrouter": "OPENROUTER_API_KEY",
     "agent_google": "GOOGLE_API_KEY",
+    "synapse": "SYNAPSE_API_KEY",
+    "scot": "SCOT_API_KEY",
 }
 
 # Backward-compat alias: old AP_VT_API_KEY and AP_PT_* names still honoured.
@@ -280,6 +284,25 @@ class ApiKeysConfig(BaseModel):
     agent_openai: str | None = None
     agent_openrouter: str | None = None
     agent_google: str | None = None
+    synapse: str | None = None
+    scot: str | None = None
+
+
+class IntegrationsConfig(BaseModel):
+    """Connection and safety budgets for optional MCP integrations."""
+
+    synapse_mcp_url: str | None = None
+    scot_mcp_url: str | None = None
+    scot_api_url: str | None = None
+    go_roast_executable: str | None = None
+    nucleotide_executable: str | None = None
+    nucleotide_lookup_path: str | None = None
+    timeout_seconds: float = Field(default=20.0, gt=0, le=120)
+    max_pages: int = Field(default=10, ge=1, le=100)
+    max_records: int = Field(default=1000, ge=1, le=10_000)
+    max_local_output_bytes: int = Field(default=2_000_000, ge=4096, le=20_000_000)
+    max_elapsed_seconds: float = Field(default=30.0, gt=0, le=300)
+    allow_insecure_http: bool = False
 
 
 class Config(BaseModel):
@@ -287,6 +310,7 @@ class Config(BaseModel):
 
     general: GeneralConfig = Field(default_factory=GeneralConfig)
     api_keys: ApiKeysConfig = Field(default_factory=ApiKeysConfig)
+    integrations: IntegrationsConfig = Field(default_factory=IntegrationsConfig)
 
     def to_dict(self) -> dict[str, Any]:
         """Return a plain dict suitable for TOML serialisation.
@@ -312,6 +336,9 @@ class Config(BaseModel):
         return {
             "general": general_dict,
             "api_keys": {k: v for k, v in self.api_keys.model_dump().items() if v is not None},
+            "integrations": {
+                k: v for k, v in self.integrations.model_dump().items() if v is not None
+            },
         }
 
 
@@ -371,7 +398,8 @@ class ConfigManager:
                 raw = tomllib.load(fh)
             general = GeneralConfig(**raw.get("general", {}))
             api_keys = ApiKeysConfig(**raw.get("api_keys", {}))
-            cfg = Config(general=general, api_keys=api_keys)
+            integrations = IntegrationsConfig(**raw.get("integrations", {}))
+            cfg = Config(general=general, api_keys=api_keys, integrations=integrations)
         else:
             cfg = Config()
 
@@ -494,6 +522,73 @@ class ConfigManager:
 
         return None
 
+    def get_integration_url(self, system: str) -> str | None:
+        """Resolve one MCP endpoint from config first, then environment."""
+        normalized = system.strip().lower()
+        if normalized not in {"synapse", "scot"}:
+            raise ValueError(f"Unknown integration: {system!r}")
+        cfg = self._cache if self._cache is not None else self.load()
+        stored = getattr(cfg.integrations, f"{normalized}_mcp_url")
+        if stored:
+            return stored
+        for name in (f"AP_{normalized.upper()}_MCP_URL", f"{normalized.upper()}_MCP_URL"):
+            value = os.environ.get(name)
+            if value:
+                return value
+        return None
+
+    def get_scot_api_url(self) -> str | None:
+        """Resolve the SCOT4 REST API root used only for approved publication."""
+        cfg = self._cache if self._cache is not None else self.load()
+        if cfg.integrations.scot_api_url:
+            return cfg.integrations.scot_api_url
+        for name in ("AP_SCOT_API_URL", "SCOT_API_URL"):
+            value = os.environ.get(name)
+            if value:
+                return value
+        return None
+
+    def get_scot_pivot_secret(self) -> str | None:
+        """Resolve the environment-owned secret for authenticated SCOT pivot intake.
+
+        The inbound shared secret is deliberately separate from SCOT's outbound
+        REST API credential and is never persisted or returned by configuration
+        polling. Operators inject it into both local services at process start.
+        """
+        for name in ("AP_SCOT_PIVOT_SECRET", "SCOT_PIVOT_SECRET"):
+            value = os.environ.get(name)
+            if value:
+                return value
+        return None
+
+    def get_scot_pivot_secret_source(self) -> str:
+        """Return only whether the environment-owned intake secret exists."""
+        return "environment" if self.get_scot_pivot_secret() else "missing"
+
+    def get_local_integration_setting(self, setting: str) -> str | None:
+        """Resolve a non-secret local integration path from config then environment."""
+        normalized = setting.strip().lower()
+        fields = {
+            "go_roast_executable": "AP_GO_ROAST_BIN",
+            "nucleotide_executable": "AP_NUCLEOTIDE_BIN",
+            "nucleotide_lookup_path": "AP_NUCLEOTIDE_LOOKUP",
+        }
+        if normalized not in fields:
+            raise ValueError(f"Unknown local integration setting: {setting!r}")
+        cfg = self._cache if self._cache is not None else self.load()
+        stored = getattr(cfg.integrations, normalized)
+        if stored:
+            return stored
+        env_value = os.environ.get(fields[normalized])
+        if env_value:
+            return env_value
+        defaults = {
+            "go_roast_executable": "roast",
+            "nucleotide_executable": "nucleotide",
+            "nucleotide_lookup_path": None,
+        }
+        return defaults[normalized]
+
     # ------------------------------------------------------------------
     # Agent provider/model helpers (DEC-AGENT-CONFIG-PROVIDER-001)
     # ------------------------------------------------------------------
@@ -559,19 +654,13 @@ class ConfigManager:
     def is_service_enabled(self, service: str) -> bool:
         """Return whether an intelligence service is enabled."""
         cfg = self._cache if self._cache is not None else self.load()
-        return service.lower() not in {
-            item.lower() for item in cfg.general.disabled_services
-        }
+        return service.lower() not in {item.lower() for item in cfg.general.disabled_services}
 
     def set_service_enabled(self, service: str, enabled: bool) -> None:
         """Enable or disable an intelligence service without deleting its key."""
         cfg = self._cache if self._cache is not None else self.load()
         normalized = service.strip().lower()
-        disabled = {
-            item.strip().lower()
-            for item in cfg.general.disabled_services
-            if item.strip()
-        }
+        disabled = {item.strip().lower() for item in cfg.general.disabled_services if item.strip()}
         if enabled:
             disabled.discard(normalized)
         else:

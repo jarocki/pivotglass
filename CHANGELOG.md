@@ -28,12 +28,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retain provenance; conservative property pivots remain labeled as derived
   navigation rather than observed relationships. Use `graph layers` in either
   interface to inspect the current projection.
-- Added workspace schema v6 and a single saved-graph-layout authority for named
-  positions, pins, filters, and viewport state. Pivotglass can save, reopen,
-  undo, and redo graph views without changing analytical truth.
-- Added shared graph layout and annotation commands. Graph annotations resolve
-  through a current node and reuse the analyst-note authority rather than
-  creating a second annotation or evidence store.
+- Added schema-v8, presentation-only graph layouts. Pivotglass can save, load,
+  overwrite, and delete named node/viewport arrangements; layouts survive
+  restarts, travel with workspace export/merge, report graph drift, and cannot
+  contain evidence nodes or relationships. The migration preserves bounded
+  coordinates, filters, viewport, and pins from the earlier development shape.
+- Added bounded, shell-free go-roast and Nucleotide analysis adapters with
+  secret-safe receipts, caveat-preserving review proposals, explicit human
+  disposition, and a separate idempotent path from accepted proposals to typed
+  inferred assertions. Materialization preserves lineage and never creates an
+  evidence observation or observed relationship.
+- Added persisted Nucleotide fingerprint history and upstream field-by-field
+  comparison. Logical request receipts are stable across temporary files,
+  lookup-corpus drift is visible, and comparisons create neither formal
+  confidence nor actor identity.
+- Added explicit SCOT pivot acceptance into a durable scientific-lifecycle
+  enrichment queue. Pivotglass web hands accepted targets to the ordinary
+  deterministic planner, writes running and terminal states back to the same
+  provenance-bearing item, and prevents completed requests from restarting.
+- Added deterministic Synapse cutover-readiness and SCOT publication-readiness
+  reports. They bind configuration and receipts to the exact current plans,
+  disclose remaining live-system blockers, expose no secrets, and authorize no
+  cutover or remote action.
+- Added a deterministic PCA view of indicator evidence-coverage profiles.
+  Pivotglass standardizes only comparable, varying Dossier dimensions,
+  excludes missing or deferred inputs without imputation, labels explained
+  variance, and exports every plotted point with its exact feature profile.
+  The view explicitly describes proximity as coverage similarity rather than
+  a graph relationship, attribution, verdict, or confidence score.
+- Added an Analysis of Competing Hypotheses matrix over the scientific
+  notebook ledger. It crosses every linked observation or assertion with every
+  competing hypothesis, preserves supporting, contradicting, and mixed
+  analyst-recorded stances, and exposes unassessed cells without inferring
+  neutrality from missing judgments.
+- Added a keyboard-operable scientific-investigation hierarchy that preserves
+  path, depth, record kind, and lifecycle status across workspace,
+  investigation, question, hypothesis, and other workflow items. Tree position
+  is explicitly presentation of membership, not evidentiary support or
+  causality.
+- Added a likelihood-interval view that renders each persisted probability
+  range while keeping the latest formal analytic confidence assessment,
+  rationale, and assessor visibly separate. Invalid intervals are omitted and
+  counted rather than repaired or guessed.
+- Added presentation-only graph multiselect with modifier-key and keyboard
+  operation, a visible selected-node count, and bulk pin, unpin, and clear
+  actions. Temporary selections are deliberately excluded from saved layouts
+  and never become graph evidence.
+- Added annotated directional analyst relations from a two-node graph
+  selection. The shared command authority validates real entity endpoints,
+  constrains the relation name, requires an annotation, and persists a human
+  judgment that is drawn distinctly from observed relationships and property
+  pivots.
+- Added reason-required revision and retraction for manual graph judgments.
+  Revisions create a linked replacement; retractions withdraw the active edge;
+  both preserve the former assertion and append an auditable lifecycle event.
+- Preserved node-level graph annotations from the saved-workspace work merged
+  on `main`. Notes reuse the existing analyst-note authority, require a real
+  current graph node, and remain visibly separate from evidence and relations.
+- Added exact JSON, spreadsheet-safe CSV, and Gephi-ready GEXF exports for the
+  full entity, epistemic, and bridge graph or an explicit layer. Exports retain
+  every edge's truth class, provenance references, rationale, and direction.
+- Linked recorded go-roast proposals to exact matching immutable OAST-domain
+  observations and projected those citations into the epistemic graph. Added a
+  deterministic correlation review that groups shared decoded fragments,
+  reports provenance diversity, and flags incompatible decoder outputs without
+  asserting identity, observed contradiction, or confidence.
+- Linked recorded Nucleotide URL-attribution proposals to exact matching
+  immutable workspace observations and their source-dependence metadata. The
+  structural citation preserves what was analyzed without treating a template
+  match as proof that Nuclei generated the request.
+
+### Security
+
+- Restricted browser mutation endpoints to same-origin JSON requests while
+  preserving authenticated SCOT pivot intake and non-browser JSON clients.
+  Cross-site form posts can no longer dispatch approval-gated Synapse or SCOT
+  commands through the local cockpit.
+- Enforced MCP and SCOT REST response limits while streaming, before a remote
+  server can cause the complete response to be buffered in memory. Integration
+  clients request identity encoding and reject compressed responses before
+  decompression can exceed the decoded-byte budget.
+- Made inbound SCOT timestamp validation fail safely for unrepresentable epoch
+  values and made every compiled SCOT link/readback operation identity unique.
+  Duplicate operation identities are rejected again at the approval boundary.
 
 ## [0.8.5] — 2026-08-07
 

@@ -175,37 +175,6 @@ class FrameworkMappingRecord(Base):
     )
 
 
-class GraphPresentationLayout(Base):
-    """Named graph view state kept strictly separate from analytic truth.
-
-    Node positions, pins, filters, and viewport transforms are conveniences for
-    returning to an analyst's visual workspace.  They never create, delete, or
-    modify an entity, observation, assertion, mapping, or relationship.
-    """
-
-    __tablename__ = "graph_presentation_layouts"
-    __table_args__ = (UniqueConstraint("name", name="uq_graph_presentation_layout_name"),)
-
-    id = Column(String, primary_key=True)
-    name = Column(String, nullable=False, index=True)
-    graph_schema_version = Column(String, nullable=False)
-    positions = Column(JSON, nullable=False, default=dict)
-    pinned_refs = Column(JSON, nullable=False, default=list)
-    filters = Column(JSON, nullable=False, default=dict)
-    viewport = Column(JSON, nullable=False, default=dict)
-    created_by = Column(String, nullable=False, default="human")
-    created_at = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        nullable=False,
-    )
-    updated_at = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        nullable=False,
-    )
-
-
 class ModuleRun(Base):
     """Audit log of module executions within this workspace.
 
@@ -232,6 +201,68 @@ class ModuleRun(Base):
 
     result_count = Column(Integer, default=0, nullable=False)
     """Number of STIX objects stored from this run (after deduplication)."""
+
+
+class IntegrationExecution(Base):
+    """Durable claim and secret-safe receipt for an external side effect.
+
+    The deterministic ``id`` binds an integration, operation, and exact plan
+    digest.  Its uniqueness is the replay guard: once a mutation has started,
+    Pivotglass will not silently issue it again after a timeout, crash, or
+    process restart.  A human must reconcile an uncertain result instead.
+    """
+
+    __tablename__ = "integration_executions"
+    __table_args__ = (
+        UniqueConstraint(
+            "system",
+            "operation",
+            "plan_digest_sha256",
+            name="uq_integration_execution_plan",
+        ),
+    )
+
+    id = Column(String, primary_key=True)
+    system = Column(String, nullable=False, index=True)
+    operation = Column(String, nullable=False, index=True)
+    plan_digest_sha256 = Column(String, nullable=False, index=True)
+    state = Column(String, nullable=False, index=True)
+    approved_by = Column(String, nullable=False)
+    started_at = Column(DateTime, nullable=False)
+    completed_at = Column(DateTime, nullable=True)
+    receipt = Column(JSON, nullable=True)
+    error_summary = Column(Text, nullable=True)
+
+
+class GraphPresentationLayout(Base):
+    """Presentation-only coordinates and viewport for an investigation graph.
+
+    Evidence nodes and relationships remain owned by their existing
+    authorities. This record cannot store edges or evidence payloads, so
+    arranging a graph cannot mutate or manufacture investigative truth.
+    """
+
+    __tablename__ = "graph_presentation_layouts"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False, unique=True, index=True)
+    graph_fingerprint = Column(String, nullable=False, index=True)
+    node_positions = Column(JSON, nullable=False, default=dict)
+    pinned_refs = Column(JSON, nullable=False, default=list)
+    viewport = Column(JSON, nullable=False, default=dict)
+    filter_text = Column(Text, nullable=False, default="")
+    labels = Column(JSON, nullable=False, default=dict)
+    created_by = Column(String, nullable=False, default="human")
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
 
 class ScoreEvent(Base):

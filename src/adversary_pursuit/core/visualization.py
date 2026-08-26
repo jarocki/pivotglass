@@ -9,6 +9,7 @@ the data.
 
 from __future__ import annotations
 
+import math
 from collections import Counter
 from enum import StrEnum
 from typing import Any, Literal
@@ -31,6 +32,8 @@ class VisualizationQuestion(StrEnum):
     ENTITY_RELATIONSHIPS = "which_entities_relate"
     HIERARCHY = "how_does_this_hierarchy_divide"
     NUMERIC_CORRELATION = "are_numeric_features_correlated"
+    COMPETING_HYPOTHESES = "which_evidence_supports_or_contradicts_hypotheses"
+    RECORDED_UNCERTAINTY = "what_likelihood_and_confidence_are_recorded"
     INDICATOR_COMPLETENESS = "how_complete_are_indicator_investigations"
     TASK_STATUS = "which_indicator_enrichment_work_is_pending"
     METRIC_TREND = "how_does_this_metric_change"
@@ -49,6 +52,7 @@ class VisualizationView(StrEnum):
     TASK_MATRIX = "task_matrix"
     LINE = "line"
     BAR = "bar"
+    UNCERTAINTY_INTERVALS = "uncertainty_intervals"
 
 
 class VisualizationRenderer(StrEnum):
@@ -140,6 +144,34 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
             "similarity without asserting a causal relationship."
         ),
         guardrail="Expose every plotted point and label explained variance for PCA projections.",
+    ),
+    VisualizationQuestion.COMPETING_HYPOTHESES: VisualizationPolicy(
+        question=VisualizationQuestion.COMPETING_HYPOTHESES,
+        view=VisualizationView.TASK_MATRIX,
+        renderer=VisualizationRenderer.NATIVE,
+        required_roles=("row", "column", "status"),
+        selection_reason=(
+            "An ACH matrix places the same evidence against every competing hypothesis so "
+            "support, contradiction, mixed assessments, and unassessed cells remain visible."
+        ),
+        guardrail=(
+            "Show only analyst-recorded evidence stances; an unassessed cell is not neutral "
+            "evidence and no stance may be inferred from absence."
+        ),
+    ),
+    VisualizationQuestion.RECORDED_UNCERTAINTY: VisualizationPolicy(
+        question=VisualizationQuestion.RECORDED_UNCERTAINTY,
+        view=VisualizationView.UNCERTAINTY_INTERVALS,
+        renderer=VisualizationRenderer.NATIVE,
+        required_roles=("target", "minimum", "maximum"),
+        selection_reason=(
+            "Bounded interval bars show the probability range attached to each recorded "
+            "likelihood term while keeping analytic confidence visibly separate."
+        ),
+        guardrail=(
+            "Never convert confidence into probability or combine the two measurements on "
+            "one scale; expose both rationales and the recorded assessor."
+        ),
     ),
     VisualizationQuestion.INDICATOR_COMPLETENESS: VisualizationPolicy(
         question=VisualizationQuestion.INDICATOR_COMPLETENESS,
@@ -243,6 +275,8 @@ class VisualizationEdge(BaseModel):
     relationship: str
     basis: Literal["explicit", "property", "manual"]
     provenance: str
+    assertion_id: str | None = None
+    annotation: str | None = None
 
 
 class VisualizationData(BaseModel):
@@ -714,7 +748,669 @@ def task_matrix_intent(workspace: str, investigations: list[dict[str, Any]]) -> 
     )
 
 
-def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> VisualizationIntent:
+def indicator_coverage_pca_intent(
+    workspace: str,
+    constellation: VisualizationIntent,
+) -> VisualizationIntent:
+    """Project comparable dossier-coverage profiles onto two principal components.
+
+    PCA is deterministic descriptive geometry over the already-derived
+    completeness states. It does not create graph edges, attribution, or
+    confidence. Deferred dimensions are excluded rather than imputed.
+    """
+
+    grouped: dict[str, dict[str, Any]] = {}
+    for row in constellation.data.rows:
+        reference = str(row.get("reference", ""))
+        if not reference:
+            continue
+        record = grouped.setdefault(
+            reference,
+            {
+                "reference": reference,
+                "indicator": str(row.get("indicator", "unavailable")),
+                "indicator_type": str(row.get("indicator_type", "unknown")),
+                "scores": {},
+            },
+        )
+        status = str(row.get("status", "deferred"))
+        record["scores"][str(row.get("dimension", "unknown"))] = _DOSSIER_SCORE.get(status)
+
+    records = [grouped[key] for key in sorted(grouped)]
+    dimensions = [dimension.value for dimension in DossierSlotName]
+    eligible_dimensions = []
+    for dimension in dimensions:
+        values = [record["scores"].get(dimension) for record in records]
+        if any(value is None for value in values):
+            continue
+        numeric = [float(value) for value in values]
+        if len(numeric) >= 2 and max(numeric) - min(numeric) > 1e-12:  # noqa: PLR2004
+            eligible_dimensions.append(dimension)
+
+    rows: tuple[dict[str, Any], ...] = ()
+    explained = (0.0, 0.0)
+    if len(records) >= 3 and len(eligible_dimensions) >= 2:  # noqa: PLR2004
+        matrix = [
+            [float(record["scores"][dimension]) for dimension in eligible_dimensions]
+            for record in records
+        ]
+        standardized = _standardize_columns(matrix)
+        covariance = _covariance_matrix(standardized)
+        first_value, first_vector = _leading_eigenpair(covariance)
+        deflated = [
+            [
+                covariance[row_index][column_index]
+                - first_value * first_vector[row_index] * first_vector[column_index]
+                for column_index in range(len(covariance))
+            ]
+            for row_index in range(len(covariance))
+        ]
+        second_value, second_vector = _leading_eigenpair(deflated)
+        total_variance = sum(covariance[index][index] for index in range(len(covariance)))
+        if total_variance > 1e-12:
+            explained = (
+                round(max(0.0, first_value) / total_variance * 100, 2),
+                round(max(0.0, second_value) / total_variance * 100, 2),
+            )
+        rows = tuple(
+            {
+                "reference": record["reference"],
+                "indicator": record["indicator"],
+                "indicator_type": record["indicator_type"],
+                "pc1": round(_dot(vector, first_vector), 6),
+                "pc2": round(_dot(vector, second_vector), 6),
+                "pc1_variance_percent": explained[0],
+                "pc2_variance_percent": explained[1],
+                "feature_profile": ", ".join(
+                    f"{dimension}={record['scores'][dimension]}"
+                    for dimension in eligible_dimensions
+                ),
+            }
+            for record, vector in zip(records, standardized, strict=True)
+        )
+
+    excluded_dimensions = [
+        dimension for dimension in dimensions if dimension not in eligible_dimensions
+    ]
+    ready = bool(rows)
+    return _intent(
+        intent_id="indicator-coverage-pca",
+        title="Indicator coverage similarity",
+        question=VisualizationQuestion.NUMERIC_CORRELATION,
+        question_text=(
+            "Which indicators have similar evidence-coverage profiles across dossier dimensions?"
+        ),
+        workspace=workspace,
+        description=(
+            "Principal-component projection of comparable, source-derived dossier coverage "
+            "states for stored indicators."
+        ),
+        record_count=len(records),
+        data=VisualizationData(rows=rows),
+        fields={"x": "pc1", "y": "pc2", "series": "indicator_type"},
+        semantic_types={
+            "reference": "Identifier",
+            "indicator": "Name",
+            "indicator_type": "Category",
+            "pc1": "Number",
+            "pc2": "Number",
+            "pc1_variance_percent": "Percentage",
+            "pc2_variance_percent": "Percentage",
+            "feature_profile": "Text",
+        },
+        table_columns=(
+            VisualizationTableColumn(key="indicator", label="Indicator"),
+            VisualizationTableColumn(key="indicator_type", label="IoC type"),
+            VisualizationTableColumn(key="pc1", label="Principal component 1"),
+            VisualizationTableColumn(key="pc2", label="Principal component 2"),
+            VisualizationTableColumn(key="pc1_variance_percent", label="PC1 variance (%)"),
+            VisualizationTableColumn(key="pc2_variance_percent", label="PC2 variance (%)"),
+            VisualizationTableColumn(key="feature_profile", label="Exact coverage inputs"),
+        ),
+        missing_data=VisualizationMissingData(
+            policy="omit_with_count" if excluded_dimensions else "show",
+            explanation=(
+                "Deferred, unavailable, or zero-variance dimensions are excluded, never "
+                "imputed. At least three indicators and two comparable varying dimensions "
+                "are required."
+            ),
+            omitted_count=len(excluded_dimensions),
+        ),
+        caveats=(
+            (
+                f"PC1 explains {explained[0]}% and PC2 explains {explained[1]}% of included "
+                "coverage variance."
+                if ready
+                else "Insufficient comparable variation for a two-component projection."
+            ),
+            "Distance represents similarity in coverage completeness, not a relationship, "
+            "shared actor, maliciousness, or analytical confidence.",
+            f"Included dimensions: {', '.join(eligible_dimensions) or 'none'}. Excluded: "
+            f"{', '.join(excluded_dimensions) or 'none'}.",
+        ),
+    )
+
+
+def competing_hypotheses_matrix_intent(
+    workspace: str,
+    analysis: dict[str, Any],
+) -> VisualizationIntent:
+    """Compare recorded evidence stances across competing hypotheses.
+
+    The matrix is a direct projection of persisted evidence links. It never
+    assigns a stance to an unlinked source/hypothesis pair and it retains
+    mixed support/contradiction as an explicit review state.
+    """
+
+    hypotheses = sorted(
+        analysis.get("hypotheses", ()),
+        key=lambda row: (str(row.get("created_at", "")), str(row.get("id", ""))),
+    )
+    hypothesis_ids = {str(row.get("id", "")) for row in hypotheses if row.get("id")}
+    evidence_links = [
+        row
+        for row in analysis.get("evidence_links", ())
+        if row.get("source_id")
+        and str(row.get("target_kind", "")) == "hypothesis"
+        and str(row.get("target_id", "")) in hypothesis_ids
+    ]
+    sources: dict[tuple[str, str], dict[str, Any]] = {}
+    for kind, collection, label_field in (
+        ("observation", analysis.get("observations", ()), "entity_value"),
+        ("assertion", analysis.get("assertions", ()), "statement"),
+    ):
+        for row in collection:
+            record_id = str(row.get("id", ""))
+            if not record_id:
+                continue
+            sources[(kind, record_id)] = {
+                "source_kind": kind,
+                "source_id": record_id,
+                "evidence": str(row.get(label_field) or row.get("entity_ref") or record_id),
+            }
+    linked_source_keys = sorted(
+        {
+            (str(link.get("source_kind", "")), str(link.get("source_id", "")))
+            for link in evidence_links
+            if (str(link.get("source_kind", "")), str(link.get("source_id", ""))) in sources
+        }
+    )
+    matrix_ready = len(hypotheses) >= 2 and bool(linked_source_keys)  # noqa: PLR2004
+    per_hypothesis_limit = max(1, MAX_VISUALIZATION_ROWS // max(1, len(hypotheses)))
+    visible_source_keys = linked_source_keys[:per_hypothesis_limit] if matrix_ready else []
+    omitted_sources = max(0, len(linked_source_keys) - len(visible_source_keys))
+    indexed_links: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for link in evidence_links:
+        key = (
+            str(link.get("source_kind", "")),
+            str(link.get("source_id", "")),
+            str(link.get("target_id", "")),
+        )
+        indexed_links.setdefault(key, []).append(link)
+
+    rows: list[dict[str, Any]] = []
+    for source_key in visible_source_keys:
+        source = sources[source_key]
+        for index, hypothesis in enumerate(hypotheses, start=1):
+            target_id = str(hypothesis.get("id", ""))
+            links = indexed_links.get((*source_key, target_id), [])
+            stances = sorted({str(link.get("stance", "")) for link in links if link.get("stance")})
+            status = (
+                "not_assessed"
+                if not stances
+                else stances[0]
+                if len(stances) == 1
+                else "mixed"
+            )
+            rationale = " | ".join(
+                sorted({str(link.get("rationale", "")) for link in links if link.get("rationale")})
+            )
+            statement = str(hypothesis.get("statement") or target_id)
+            rows.append(
+                {
+                    **source,
+                    "hypothesis": f"H{index} · {statement}",
+                    "hypothesis_id": target_id,
+                    "hypothesis_status": str(hypothesis.get("status", "proposed")),
+                    "stance": status,
+                    "rationale": rationale or "No analyst-recorded assessment.",
+                    "link_count": len(links),
+                }
+            )
+
+    return _intent(
+        intent_id="competing-hypotheses-matrix",
+        title="Competing hypotheses matrix",
+        question=VisualizationQuestion.COMPETING_HYPOTHESES,
+        question_text="Which evidence supports or contradicts each competing hypothesis?",
+        workspace=workspace,
+        description=(
+            "Analyst-recorded observation or assertion stances against persisted hypotheses."
+        ),
+        record_count=len(visible_source_keys),
+        data=VisualizationData(rows=tuple(rows)),
+        fields={
+            "row": "evidence",
+            "row_id": "source_id",
+            "column": "hypothesis",
+            "status": "stance",
+        },
+        semantic_types={
+            "source_kind": "Category",
+            "source_id": "Identifier",
+            "evidence": "Text",
+            "hypothesis": "Category",
+            "hypothesis_id": "Identifier",
+            "hypothesis_status": "Status",
+            "stance": "Status",
+            "rationale": "Text",
+            "link_count": "Count",
+        },
+        table_columns=(
+            VisualizationTableColumn(key="evidence", label="Evidence or assertion"),
+            VisualizationTableColumn(key="source_kind", label="Source kind"),
+            VisualizationTableColumn(key="hypothesis", label="Hypothesis"),
+            VisualizationTableColumn(key="hypothesis_status", label="Hypothesis status"),
+            VisualizationTableColumn(key="stance", label="Recorded stance"),
+            VisualizationTableColumn(key="rationale", label="Analyst rationale"),
+            VisualizationTableColumn(key="link_count", label="Recorded links"),
+        ),
+        missing_data=VisualizationMissingData(
+            policy="omit_with_count" if omitted_sources else "show",
+            explanation=(
+                "Every visible source is crossed with every hypothesis. Cells without a "
+                "persisted stance are shown as not assessed; they are not treated as neutral. "
+                "At least two hypotheses and one linked evidence source are required."
+            ),
+            omitted_count=omitted_sources,
+        ),
+        caveats=(
+            "Support and contradiction are analyst-recorded assessments, not properties "
+            "inferred by the visualization.",
+            "Mixed means the ledger contains both supporting and contradicting links for "
+            "the same source/hypothesis pair and requires review.",
+        ),
+    )
+
+
+def scientific_investigation_hierarchy_intent(
+    workspace: str,
+    analysis: dict[str, Any],
+) -> VisualizationIntent:
+    """Project persisted scientific-workflow membership as a bounded tree."""
+
+    rows: list[dict[str, Any]] = []
+    omitted = 0
+    root_id = f"workspace:{workspace}"
+    root_label = f"Workspace · {workspace}"
+
+    def add_edge(
+        *,
+        parent_id: str,
+        parent_label: str,
+        child_id: str,
+        child_label: str,
+        child_kind: str,
+        status: str,
+        depth: int,
+        path: str,
+    ) -> None:
+        nonlocal omitted
+        if len(rows) >= MAX_VISUALIZATION_ROWS:
+            omitted += 1
+            return
+        rows.append(
+            {
+                "parent_id": parent_id,
+                "parent_label": parent_label,
+                "child_id": child_id,
+                "child_label": child_label,
+                "child_kind": child_kind,
+                "status": status,
+                "depth": depth,
+                "path": path,
+            }
+        )
+
+    investigations = sorted(
+        analysis.get("investigations", ()),
+        key=lambda row: (str(row.get("created_at", "")), str(row.get("id", ""))),
+    )
+    lifecycle_items = list(analysis.get("lifecycle_items", ()))
+    question_investigations = {
+        str(item.get("record_id", "")): str(item.get("investigation_id", ""))
+        for item in lifecycle_items
+        if str(item.get("record_kind", "")) == "question" and item.get("record_id")
+    }
+    questions_by_investigation: dict[str, list[dict[str, Any]]] = {}
+    for question in analysis.get("questions", ()):
+        questions_by_investigation.setdefault(
+            question_investigations.get(str(question.get("id", "")), ""), []
+        ).append(question)
+    hypotheses_by_question: dict[str, list[dict[str, Any]]] = {}
+    for hypothesis in analysis.get("hypotheses", ()):
+        hypotheses_by_question.setdefault(str(hypothesis.get("question_id", "")), []).append(
+            hypothesis
+        )
+    lifecycle_by_investigation: dict[str, list[dict[str, Any]]] = {}
+    for item in lifecycle_items:
+        if str(item.get("record_kind", "")) in {"question", "hypothesis"}:
+            continue
+        lifecycle_by_investigation.setdefault(
+            str(item.get("investigation_id", "")), []
+        ).append(item)
+
+    for investigation in investigations:
+        investigation_id = str(investigation.get("id", ""))
+        if not investigation_id:
+            continue
+        investigation_label = str(investigation.get("title") or investigation_id)
+        investigation_path = f"{root_label} / {investigation_label}"
+        add_edge(
+            parent_id=root_id,
+            parent_label=root_label,
+            child_id=f"investigation:{investigation_id}",
+            child_label=investigation_label,
+            child_kind="investigation",
+            status=str(investigation.get("status", "unknown")),
+            depth=1,
+            path=investigation_path,
+        )
+        for question in sorted(
+            questions_by_investigation.get(investigation_id, ()),
+            key=lambda row: (str(row.get("created_at", "")), str(row.get("id", ""))),
+        ):
+            question_id = str(question.get("id", ""))
+            if not question_id:
+                continue
+            question_label = str(question.get("text") or question_id)
+            question_path = f"{investigation_path} / {question_label}"
+            add_edge(
+                parent_id=f"investigation:{investigation_id}",
+                parent_label=investigation_label,
+                child_id=f"question:{question_id}",
+                child_label=question_label,
+                child_kind="question",
+                status=str(question.get("status", "open")),
+                depth=2,
+                path=question_path,
+            )
+            for hypothesis in sorted(
+                hypotheses_by_question.get(question_id, ()),
+                key=lambda row: (str(row.get("created_at", "")), str(row.get("id", ""))),
+            ):
+                hypothesis_id = str(hypothesis.get("id", ""))
+                if not hypothesis_id:
+                    continue
+                hypothesis_label = str(hypothesis.get("statement") or hypothesis_id)
+                add_edge(
+                    parent_id=f"question:{question_id}",
+                    parent_label=question_label,
+                    child_id=f"hypothesis:{hypothesis_id}",
+                    child_label=hypothesis_label,
+                    child_kind="hypothesis",
+                    status=str(hypothesis.get("status", "proposed")),
+                    depth=3,
+                    path=f"{question_path} / {hypothesis_label}",
+                )
+        for item in sorted(
+            lifecycle_by_investigation.get(investigation_id, ()),
+            key=lambda row: (str(row.get("created_at", "")), str(row.get("id", ""))),
+        ):
+            item_id = str(item.get("id", ""))
+            if not item_id:
+                continue
+            item_kind = str(item.get("item_type", "workflow_item"))
+            item_label = str(item.get("statement") or item_id)
+            add_edge(
+                parent_id=f"investigation:{investigation_id}",
+                parent_label=investigation_label,
+                child_id=f"lifecycle:{item_id}",
+                child_label=item_label,
+                child_kind=item_kind,
+                status=str(item.get("status", "open")),
+                depth=2,
+                path=f"{investigation_path} / {item_label}",
+            )
+
+    return _intent(
+        intent_id="scientific-investigation-hierarchy",
+        title="Investigation hierarchy",
+        question=VisualizationQuestion.HIERARCHY,
+        question_text="How does this scientific investigation divide into questions and tests?",
+        workspace=workspace,
+        description=(
+            "Persisted scientific investigations, questions, hypotheses, and lifecycle items."
+        ),
+        record_count=len(rows),
+        data=VisualizationData(rows=tuple(rows)),
+        fields={"parent": "parent_label", "child": "child_label"},
+        semantic_types={
+            "parent_id": "Identifier",
+            "parent_label": "Text",
+            "child_id": "Identifier",
+            "child_label": "Text",
+            "child_kind": "Category",
+            "status": "Status",
+            "depth": "Count",
+            "path": "Text",
+        },
+        table_columns=(
+            VisualizationTableColumn(key="parent_label", label="Parent"),
+            VisualizationTableColumn(key="child_label", label="Child"),
+            VisualizationTableColumn(key="child_kind", label="Record kind"),
+            VisualizationTableColumn(key="status", label="Status"),
+            VisualizationTableColumn(key="depth", label="Depth"),
+            VisualizationTableColumn(key="path", label="Full path"),
+        ),
+        missing_data=VisualizationMissingData(
+            policy="omit_with_count" if omitted else "show",
+            explanation=(
+                "Only persisted parent-child membership is shown. Records beyond the bounded "
+                "rendering limit remain stored and are counted as omitted."
+            ),
+            omitted_count=omitted,
+        ),
+        caveats=(
+            "Tree position represents scientific-workflow membership, not evidentiary support, "
+            "causality, attribution, or confidence.",
+        ),
+    )
+
+
+def recorded_uncertainty_intent(
+    workspace: str,
+    analysis: dict[str, Any],
+) -> VisualizationIntent:
+    """Show recorded likelihood intervals without turning confidence into probability."""
+
+    targets: dict[tuple[str, str], str] = {}
+    for kind, collection in (
+        ("assertion", analysis.get("assertions", ())),
+        ("hypothesis", analysis.get("hypotheses", ())),
+    ):
+        for row in collection:
+            record_id = str(row.get("id", ""))
+            if record_id:
+                targets[(kind, record_id)] = str(
+                    row.get("statement") or row.get("text") or record_id
+                )
+
+    latest_confidence: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in sorted(
+        analysis.get("confidence", ()),
+        key=lambda item: (str(item.get("created_at", "")), str(item.get("id", ""))),
+    ):
+        key = (str(row.get("target_kind", "")), str(row.get("target_id", "")))
+        latest_confidence[key] = row
+
+    rows: list[dict[str, Any]] = []
+    invalid = 0
+    for likelihood in sorted(
+        analysis.get("likelihood", ()),
+        key=lambda item: (str(item.get("created_at", "")), str(item.get("id", ""))),
+    ):
+        target_kind = str(likelihood.get("target_kind", ""))
+        target_id = str(likelihood.get("target_id", ""))
+        minimum = likelihood.get("probability_min")
+        maximum = likelihood.get("probability_max")
+        if (
+            isinstance(minimum, bool)
+            or isinstance(maximum, bool)
+            or not isinstance(minimum, (int, float))
+            or not isinstance(maximum, (int, float))
+            or minimum < 0
+            or maximum > 1
+            or minimum > maximum
+        ):
+            invalid += 1
+            continue
+        confidence = latest_confidence.get((target_kind, target_id), {})
+        rows.append(
+            {
+                "target": targets.get((target_kind, target_id), target_id or "unavailable"),
+                "target_kind": target_kind or "unknown",
+                "target_id": target_id,
+                "likelihood_term": str(likelihood.get("term", "unavailable")).replace("_", " "),
+                "probability_min_percent": round(float(minimum) * 100, 2),
+                "probability_max_percent": round(float(maximum) * 100, 2),
+                "likelihood_rationale": str(likelihood.get("rationale", "")),
+                "likelihood_assessor": str(likelihood.get("assessed_by", "unknown")),
+                "likelihood_recorded_at": str(likelihood.get("created_at", "")),
+                "confidence_level": str(confidence.get("level", "not recorded")),
+                "confidence_rationale": str(
+                    confidence.get("rationale", "No confidence assessment recorded.")
+                ),
+                "confidence_assessor": str(confidence.get("assessed_by", "not recorded")),
+            }
+        )
+
+    return _intent(
+        intent_id="recorded-uncertainty",
+        title="Likelihood and confidence",
+        question=VisualizationQuestion.RECORDED_UNCERTAINTY,
+        question_text="What likelihood and analytic confidence have been recorded?",
+        workspace=workspace,
+        description=(
+            "Persisted likelihood intervals with separate latest confidence assessments "
+            "for the same assertions or hypotheses."
+        ),
+        record_count=len(rows),
+        data=VisualizationData(rows=tuple(rows)),
+        fields={
+            "target": "target",
+            "minimum": "probability_min_percent",
+            "maximum": "probability_max_percent",
+        },
+        semantic_types={
+            "target": "Text",
+            "target_kind": "Category",
+            "target_id": "Identifier",
+            "likelihood_term": "Category",
+            "probability_min_percent": "Percentage",
+            "probability_max_percent": "Percentage",
+            "likelihood_rationale": "Text",
+            "likelihood_assessor": "Category",
+            "likelihood_recorded_at": "DateTime",
+            "confidence_level": "Category",
+            "confidence_rationale": "Text",
+            "confidence_assessor": "Category",
+        },
+        table_columns=(
+            VisualizationTableColumn(key="target", label="Assertion or hypothesis"),
+            VisualizationTableColumn(key="target_kind", label="Record kind"),
+            VisualizationTableColumn(key="likelihood_term", label="Likelihood term"),
+            VisualizationTableColumn(key="probability_min_percent", label="Minimum (%)"),
+            VisualizationTableColumn(key="probability_max_percent", label="Maximum (%)"),
+            VisualizationTableColumn(key="likelihood_rationale", label="Likelihood rationale"),
+            VisualizationTableColumn(key="likelihood_assessor", label="Likelihood assessor"),
+            VisualizationTableColumn(key="confidence_level", label="Analytic confidence"),
+            VisualizationTableColumn(key="confidence_rationale", label="Confidence rationale"),
+            VisualizationTableColumn(key="confidence_assessor", label="Confidence assessor"),
+        ),
+        missing_data=VisualizationMissingData(
+            policy="omit_with_count" if invalid else "show",
+            explanation=(
+                "Likelihood records without a valid bounded probability interval are omitted "
+                "and counted. Missing confidence remains visible as not recorded."
+            ),
+            omitted_count=invalid,
+        ),
+        caveats=(
+            "Likelihood describes an assessed probability range. Analytic confidence "
+            "describes the quality and sufficiency of the reasoning and evidence.",
+            "The latest confidence record is shown beside each likelihood interval for "
+            "context, never as a numeric transformation or combined score.",
+        ),
+    )
+
+
+def _standardize_columns(matrix: list[list[float]]) -> list[list[float]]:
+    row_count = len(matrix)
+    column_count = len(matrix[0])
+    means = [sum(row[column] for row in matrix) / row_count for column in range(column_count)]
+    deviations = [
+        math.sqrt(
+            sum((row[column] - means[column]) ** 2 for row in matrix) / (row_count - 1)
+        )
+        for column in range(column_count)
+    ]
+    return [
+        [
+            (row[column] - means[column]) / deviations[column]
+            for column in range(column_count)
+        ]
+        for row in matrix
+    ]
+
+
+def _covariance_matrix(matrix: list[list[float]]) -> list[list[float]]:
+    denominator = len(matrix) - 1
+    width = len(matrix[0])
+    return [
+        [
+            sum(row[left] * row[right] for row in matrix) / denominator
+            for right in range(width)
+        ]
+        for left in range(width)
+    ]
+
+
+def _dot(left: list[float], right: list[float]) -> float:
+    return sum(a * b for a, b in zip(left, right, strict=True))
+
+
+def _leading_eigenpair(matrix: list[list[float]]) -> tuple[float, list[float]]:
+    """Return one deterministic symmetric-matrix eigenpair by power iteration."""
+
+    width = len(matrix)
+    vector = [float(index + 1) for index in range(width)]
+    magnitude = math.sqrt(_dot(vector, vector))
+    vector = [value / magnitude for value in vector]
+    for _ in range(120):
+        candidate = [_dot(row, vector) for row in matrix]
+        magnitude = math.sqrt(_dot(candidate, candidate))
+        if magnitude <= 1e-12:
+            return 0.0, [1.0 if index == 0 else 0.0 for index in range(width)]
+        candidate = [value / magnitude for value in candidate]
+        if _dot(candidate, vector) < 0:
+            candidate = [-value for value in candidate]
+        if math.sqrt(sum((a - b) ** 2 for a, b in zip(candidate, vector, strict=True))) < 1e-10:
+            vector = candidate
+            break
+        vector = candidate
+    anchor = max(range(width), key=lambda index: abs(vector[index]))
+    if vector[anchor] < 0:
+        vector = [-value for value in vector]
+    eigenvalue = _dot(vector, [_dot(row, vector) for row in matrix])
+    return eigenvalue, vector
+
+
+def relationship_graph_intent(
+    workspace: str,
+    graph: dict[str, Any],
+    analysis: dict[str, Any] | None = None,
+) -> VisualizationIntent:
     """Build an indicator-first graph intent from the persisted graph authority."""
 
     nodes = tuple(
@@ -727,7 +1423,7 @@ def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> Visualiz
         if node.get("id")
     )
     node_ids = {node.reference for node in nodes}
-    edges = tuple(
+    edges = [
         VisualizationEdge(
             source=str(edge.get("source", "")),
             target=str(edge.get("target", "")),
@@ -745,7 +1441,32 @@ def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> Visualiz
         )
         for edge in graph.get("edges", ())
         if edge.get("source") in node_ids and edge.get("target") in node_ids
-    )
+    ]
+    for assertion in (analysis or {}).get("assertions", ()):
+        if (
+            assertion.get("method") != "manual-graph-relation"
+            or assertion.get("status") != "active"
+            or assertion.get("author_kind") != "human"
+            or assertion.get("subject_ref") not in node_ids
+            or assertion.get("object_ref") not in node_ids
+            or not assertion.get("predicate")
+        ):
+            continue
+        edges.append(
+            VisualizationEdge(
+                source=str(assertion["subject_ref"]),
+                target=str(assertion["object_ref"]),
+                relationship=str(assertion["predicate"]),
+                basis="manual",
+                provenance=(
+                    f"Analyst assertion {assertion.get('id')}: "
+                    f"{assertion.get('statement') or 'No annotation'}"
+                ),
+                assertion_id=str(assertion["id"]),
+                annotation=str(assertion.get("statement") or ""),
+            )
+        )
+    edges_tuple = tuple(edges)
     labels = {node.reference: node.label for node in nodes}
     rows = tuple(
         {
@@ -754,8 +1475,10 @@ def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> Visualiz
             "relationship": edge.relationship,
             "basis": edge.basis,
             "provenance": edge.provenance,
+            "assertion_id": edge.assertion_id,
+            "annotation": edge.annotation,
         }
-        for edge in edges
+        for edge in edges_tuple
     )
     return _intent(
         intent_id="relationship-graph",
@@ -765,7 +1488,7 @@ def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> Visualiz
         workspace=workspace,
         description="Stored STIX objects, explicit relationships, and conservative property pivots.",
         record_count=len(nodes),
-        data=VisualizationData(rows=rows, nodes=nodes, edges=edges),
+        data=VisualizationData(rows=rows, nodes=nodes, edges=edges_tuple),
         fields={"source": "source", "target": "target", "relationship": "relationship"},
         semantic_types={
             "source": "Name",
@@ -786,6 +1509,7 @@ def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> Visualiz
         ),
         caveats=(
             "Property pivots are navigation aids, not asserted STIX relationships.",
+            "Manual edges are analyst-authored judgments with annotations, not observed facts.",
             "First/last seen and confidence remain unavailable until their persisted "
             "relationship fields exist; the visualization does not invent them.",
         ),
@@ -795,26 +1519,28 @@ def relationship_graph_intent(workspace: str, graph: dict[str, Any]) -> Visualiz
 def relationship_degree_distribution_intent(
     workspace: str,
     graph: dict[str, Any],
+    analysis: dict[str, Any] | None = None,
 ) -> VisualizationIntent:
     """Show the exact distribution of admitted graph-edge degree by entity."""
 
-    nodes = {str(node["id"]): node for node in graph.get("nodes", ()) if node.get("id")}
-    degree = {node_id: 0 for node_id in nodes}
-    for edge in graph.get("edges", ()):
-        source = str(edge.get("source", ""))
-        target = str(edge.get("target", ""))
+    admitted = relationship_graph_intent(workspace, graph, analysis)
+    graph_nodes = {str(node["id"]): node for node in graph.get("nodes", ()) if node.get("id")}
+    degree = {node.reference: 0 for node in admitted.data.nodes}
+    for edge in admitted.data.edges:
+        source = edge.source
+        target = edge.target
         if source in degree and target in degree:
             degree[source] += 1
             degree[target] += 1
     rows = tuple(
         {
-            "indicator": _indicator_value(nodes[node_id]),
-            "indicator_type": str(nodes[node_id].get("type", "unknown")),
+            "indicator": _indicator_value(graph_nodes[node_id]),
+            "indicator_type": str(graph_nodes[node_id].get("type", "unknown")),
             "connection_count": degree[node_id],
         }
         for node_id in sorted(
-            nodes,
-            key=lambda item: (_indicator_value(nodes[item]).casefold(), item),
+            graph_nodes,
+            key=lambda item: (_indicator_value(graph_nodes[item]).casefold(), item),
         )
     )
     return _intent(
@@ -859,15 +1585,21 @@ def build_visualization_intents(
     dossier_slots: list[dict[str, Any]],
     graph: dict[str, Any],
     investigations: list[dict[str, Any]],
+    analysis: dict[str, Any] | None = None,
 ) -> tuple[VisualizationIntent, ...]:
     """Build the initial 0.6.0 cockpit visualization set."""
 
+    constellation = indicator_constellation_intent(workspace, objects, graph)
     return (
-        indicator_constellation_intent(workspace, objects, graph),
+        constellation,
         evidence_composition_intent(workspace, objects),
         dossier_completeness_intent(workspace, dossier_slots),
         activity_concentration_intent(workspace, investigations),
         task_matrix_intent(workspace, investigations),
-        relationship_graph_intent(workspace, graph),
-        relationship_degree_distribution_intent(workspace, graph),
+        relationship_graph_intent(workspace, graph, analysis),
+        relationship_degree_distribution_intent(workspace, graph, analysis),
+        indicator_coverage_pca_intent(workspace, constellation),
+        competing_hypotheses_matrix_intent(workspace, analysis or {}),
+        scientific_investigation_hierarchy_intent(workspace, analysis or {}),
+        recorded_uncertainty_intent(workspace, analysis or {}),
     )

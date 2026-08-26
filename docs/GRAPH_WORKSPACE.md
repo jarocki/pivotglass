@@ -31,46 +31,59 @@ Bridge edges connect an observation to the normalized entity it observed and a
 structured assertion to its subject or object entity. Every edge has one or
 more provenance references and a plain-language rationale.
 
-## Commands
+## Current command
 
 ```text
 graph          # existing indicator-first relationship view
 graph layers   # investigation-graph-1.0 entity + epistemic projection
 graph layout list
-graph layout show Triage view
-graph layout save Triage view | {"positions":{},"pinned_refs":[],"filters":{},"viewport":{"x":0,"y":0,"scale":1}}
-graph layout delete Triage view --confirm Triage view
-graph annotate entity:domain-name--... | Why this node matters
-graph annotations entity:domain-name--...
+graph layout show Analyst-view
+graph layout delete Analyst-view --confirm Analyst-view
+graph annotate <node-id> | <text>
+graph annotations [node-id]
 ```
 
 `graph layers` is deterministic and read-only. It does not invoke a model,
 infer a new relationship, or modify workspace state.
 
-## Saved graph workspace
+`graph annotate` attaches an analyst note to a node already present in the
+current relationship graph. The note reuses the workspace analyst-note store;
+it is human-authored context, not evidence or a relationship. Pivotglass also
+offers the same action beside the selected node in the graph workspace.
 
-Workspace schema v6 stores named graph presentation layouts. A layout contains
-validated positions, pinned node references, allow-listed filters, and a pan/
-zoom viewport. Saving or reopening a layout cannot modify graph nodes, edges,
-observations, assertions, mappings, confidence, or likelihood.
+## Saved presentations
 
-Pivotglass exposes the same authority through the relationship view. Analysts
-can name and save a view, reopen it, pin the selected node, and undo or redo
-view changes. An annotation resolves through a node in the current graph and is
-stored by the existing analyst-note authority. It is labeled analyst-authored
-context, not observed evidence.
+In Pivotglass, open **Evidence relationships** under **Charts & Evidence**.
+Drag nodes, pan or zoom, optionally filter the visible subset, pin important
+nodes in view, and collapse or expand a selected node's direct connections.
+Collapsed nodes remain in the exact-data inventory and exports. Enter a layout
+name and choose **Save view**. The presentation is stored in the active
+workspace and survives refreshes and restarts. It is included in portable
+workspace exports and merges.
+
+A saved presentation contains only bounded node coordinates, viewport, filter
+text, and optional display labels. It cannot contain nodes, edges, evidence, or
+relationships. Loading a layout resolves it against the current graph and
+reports new or absent nodes instead of hiding graph drift. Deleting a layout
+deletes only this presentation record.
+
+The browser also keeps up to 50 undo/redo checkpoints for node positions,
+viewport, pins, display labels, and collapsed direct connections. This history
+is session presentation state. It cannot roll back evidence, relationships,
+analyst assertions, or assertion-correction history.
 
 ## Current boundary
 
-The v0.9 foundation now defines and verifies the projection and saved-layout
-contracts. Expand/collapse, multiselect, manual assertion/link creation, richer
-typed filters, and complete layered exports remain open. Manual relationships
-must use the analytic assertion authority; a screen position or annotation can
-never manufacture an edge. Node position remains presentation state and never
-alters evidence.
+The v0.9 foundation defines and verifies the projection contract and durable
+saved layouts. Drag, pan, zoom, text filtering, pinning, presentation labels,
+evidence drill-down, multiselect, annotated manual assertions, correction
+history, direct-connection collapse/expand, bounded presentation undo/redo,
+named presentation management, and layered exports are implemented. Richer
+relationship filters remain open; they must read only through existing
+authorities. Node position, viewport history, and collapsed visibility are
+presentation state and never alter evidence.
 
-The web cockpit does not yet add a separate download of the complete layered
-provenance graph. Remote Pivotglass sessions may be configured without access
-control, so that export must wait for an authenticated or explicitly local-only
-boundary. The existing workspace exports remain available through their
-documented command and data-handling contract.
+The governed layered graph can be exported through the shared `graph export`
+command as JSON, CSV, or GEXF. Remote Pivotglass sessions may be configured
+without access control, so operators must treat exports according to their
+workspace's data-handling requirements.

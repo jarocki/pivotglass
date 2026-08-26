@@ -14,6 +14,7 @@ import re
 import threading
 import webbrowser
 from dataclasses import asdict
+from datetime import datetime
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -52,8 +53,9 @@ from adversary_pursuit.core.framework_perspectives import (
 )
 from adversary_pursuit.core.framework_projections import FrameworkProjectionAuthority
 from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
-from adversary_pursuit.core.graph_commands import execute_graph_command
+from adversary_pursuit.core.graph_presentation import GraphPresentationAuthority
 from adversary_pursuit.core.information_requirements import build_information_requirements
+from adversary_pursuit.core.integration_commands import execute_integration_command
 from adversary_pursuit.core.investigation import (
     ContentClass,
     EventClass,
@@ -61,7 +63,7 @@ from adversary_pursuit.core.investigation import (
     LifecycleState,
     utc_now,
 )
-from adversary_pursuit.core.investigation_graph import GraphPresentationAuthority
+from adversary_pursuit.core.investigation_graph import build_investigation_graph
 from adversary_pursuit.core.ioc_types import detect_ioc_type
 from adversary_pursuit.core.operational_status import build_authority_registry
 from adversary_pursuit.core.visualization import build_visualization_intents
@@ -73,6 +75,12 @@ from adversary_pursuit.dossier.slot_inference import infer_dossier_state
 from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
 from adversary_pursuit.dossier.state import load_dossier_state
 from adversary_pursuit.gamification.modes import DEFAULT_MODES, display_mode_name
+from adversary_pursuit.integrations.scot_pivot_intake import (
+    ScotPivotAuthenticationError,
+    ScotPivotAuthenticationReceipt,
+    authenticate_scot_pivot_request,
+)
+from adversary_pursuit.integrations.scot_publication import validate_scot_pivot_request
 
 _LOG = logging.getLogger(__name__)
 _SOURCE_WEB_DIR = Path(__file__).parents[3] / "web"
@@ -222,13 +230,24 @@ class WebCockpitService:
             objects,
             persisted_relationships(self.ctx.workspace_mgr),
         )
+        ledger = AnalyticLedger(self.ctx.workspace_mgr)
+        analysis = ledger.snapshot()
+        analysis["enrichment_queue"] = ledger.enrichment_requests()
+        analysis["information_requirements"] = build_information_requirements(analysis)
+        analysis["rigor"] = build_analytic_rigor(analysis)
+        visualization_analysis = {
+            **analysis,
+            "observations": self.ctx.workspace_mgr.get_observations(),
+        }
         visualizations = build_visualization_intents(
             workspace=self.ctx.workspace_mgr.active,
             objects=objects,
             dossier_slots=dossier_slots,
             graph=relationship_graph.to_dict(),
             investigations=self.investigations.snapshots(),
+            analysis=visualization_analysis,
         )
+        graph_layouts = GraphPresentationAuthority(self.ctx.workspace_mgr).list()
         modes = []
         for entry in self.mode_mgr.list_modes(public_only=True):
             name = entry["name"]
@@ -242,9 +261,6 @@ class WebCockpitService:
                     "pursuit_title": PURSUIT_TITLES[name],
                 }
             )
-        analysis = AnalyticLedger(self.ctx.workspace_mgr).snapshot()
-        analysis["information_requirements"] = build_information_requirements(analysis)
-        analysis["rigor"] = build_analytic_rigor(analysis)
         framework_mappings = FrameworkProjectionAuthority(self.ctx.workspace_mgr).list()
         framework_counts: dict[str, dict[str, int]] = {}
         for mapping in framework_mappings:
@@ -259,6 +275,15 @@ class WebCockpitService:
             "modes": modes,
             "dossier_slots": dossier_slots,
             "visualizations": [intent.model_dump(mode="json") for intent in visualizations],
+            "graph_layouts": [
+                {
+                    "id": layout["id"],
+                    "name": layout["name"],
+                    "graph_fingerprint": layout["graph_fingerprint"],
+                    "updated_at": layout["updated_at"],
+                }
+                for layout in graph_layouts
+            ],
             "analysis": analysis,
             "frameworks": {
                 "versions": {
@@ -304,6 +329,78 @@ class WebCockpitService:
             self._runner.set_character(mode)
         return self.state()
 
+    def _graph_presentation_scope(self) -> tuple[set[str], set[str]]:
+        graph = RelationshipGraph()
+        graph.build_from_workspace(
+            self.ctx.workspace_mgr.get_stix_objects(),
+            persisted_relationships(self.ctx.workspace_mgr),
+        )
+        payload = graph.to_dict()
+        node_refs = {str(node["id"]) for node in payload.get("nodes", ())}
+        edge_keys = {
+            f"{edge['source']}>{edge['target']}:{edge.get('relationship', 'related-to')}:{edge.get('basis', '')}"
+            for edge in payload.get("edges", ())
+        }
+        return node_refs, edge_keys
+
+    def graph_layout(self, name: str) -> dict[str, Any]:
+        """Resolve one saved layout against the current evidence graph."""
+
+        node_refs, edge_keys = self._graph_presentation_scope()
+        return GraphPresentationAuthority(self.ctx.workspace_mgr).resolve(
+            name,
+            current_node_refs=node_refs,
+            current_edge_keys=edge_keys,
+        )
+
+    def update_graph_layout(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Persist or delete presentation state without touching graph truth."""
+
+        action = str(payload.get("action", "save")).strip().casefold()
+        name = str(payload.get("name", "")).strip()
+        authority = GraphPresentationAuthority(self.ctx.workspace_mgr)
+        if action == "delete":
+            confirmation = str(payload.get("confirmation", "")).strip()
+            if confirmation != name:
+                raise ValueError("deleting a graph layout requires its exact name as confirmation")
+            return {"deleted": authority.delete(name), "name": name}
+        if action != "save":
+            raise ValueError("graph layout action must be save or delete")
+        node_refs, edge_keys = self._graph_presentation_scope()
+        return authority.save(
+            name,
+            node_positions=payload.get("node_positions", {}),
+            viewport=payload.get("viewport", {}),
+            filter_text=str(payload.get("filter_text", "")),
+            labels=payload.get("labels", {}),
+            pinned_refs=payload.get("pinned_refs", []),
+            current_node_refs=node_refs,
+            current_edge_keys=edge_keys,
+        )
+
+    def graph_annotations(self, node_ref: str | None = None) -> dict[str, Any]:
+        """Return analyst-authored notes attached to current graph nodes."""
+
+        node_refs, _edge_keys = self._graph_presentation_scope()
+        return {
+            "workspace": self.ctx.workspace_mgr.active,
+            "annotations": GraphPresentationAuthority(self.ctx.workspace_mgr).annotations(
+                current_node_refs=node_refs,
+                node_ref=node_ref,
+            ),
+        }
+
+    def annotate_graph(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Attach one analyst note to a current graph node."""
+
+        node_refs, _edge_keys = self._graph_presentation_scope()
+        annotation = GraphPresentationAuthority(self.ctx.workspace_mgr).annotate(
+            str(payload.get("node_ref", "")),
+            str(payload.get("text", "")),
+            current_node_refs=node_refs,
+        )
+        return {"saved": True, "annotation": annotation}
+
     def command_catalog(self) -> list[dict[str, str]]:
         """Return the shared analyst command surface exposed by Pivotglass."""
         return [
@@ -342,12 +439,16 @@ class WebCockpitService:
                 "purpose": "Inspect entity and epistemic nodes with provenance-bearing edges",
             },
             {
-                "command": "graph layout list|show|save|delete",
-                "purpose": "Preserve graph positions, pins, filters, and viewport without changing evidence",
+                "command": "graph export <json|csv|gexf> [all|entity|epistemic|bridge]",
+                "purpose": "Download the exact governed graph with layer, truth type, provenance, and rationale",
+            },
+            {
+                "command": "graph layout list|show <name>|delete <name> --confirm <name>",
+                "purpose": "Manage presentation-only saved graph layouts",
             },
             {
                 "command": "graph annotate <node-id> | <text>",
-                "purpose": "Attach an analyst note to an existing graph node",
+                "purpose": "Attach an analyst note to a real graph node without changing evidence",
             },
             {"command": "dossier", "purpose": "Show dossier details and intelligence gaps"},
             {"command": "timeline", "purpose": "Show the ordered collection timeline"},
@@ -384,6 +485,30 @@ class WebCockpitService:
             {
                 "command": "framework gaps",
                 "purpose": "List framework-linked intelligence requirements",
+            },
+            {
+                "command": "integration status",
+                "purpose": "Show local Synapse and SCOT4 MCP configuration without connecting",
+            },
+            {
+                "command": "integration synapse shadow-preview|cutover-readiness|model-contract|model-deploy-plan|model-deploy-execute|model-deploy-receipt|migration-plan|shadow-execute|shadow-receipt|views|status|model|lookup|query",
+                "purpose": "Preview governed graph state, inspect current cutover blockers and receipts, compile a disabled shadow migration, or run explicit read-only MCP operations",
+            },
+            {
+                "command": "integration scot publish-preview|publication-readiness|publish-plan|publish-execute|publication-receipt|pivot-preview|pivot-inbox|pivot-accept|pivot-reject|pivot-queue|pivot-enqueue|status|get|search|entries|entities",
+                "purpose": "Preview or evaluate a current publication, review authenticated SCOT pivot requests, approve exact-digest write/readback, accept a pivot into enrichment, or perform bounded SCOT4 reads",
+            },
+            {
+                "command": "integration roast status|decode|record|analyze",
+                "purpose": "Decode Interactsh OAST domains and optionally record sourced proposals for human review",
+            },
+            {
+                "command": "integration nucleotide status|lookup-info|lookup|lookup-strict|lookup-record|fingerprint-preview|fingerprint-record|fingerprint-history|fingerprint-compare",
+                "purpose": "Attribute URLs or fingerprint grouped activity, with optional governed proposal recording and no control deployment",
+            },
+            {
+                "command": "integration proposals|review <proposal-id> <accept|reject> | <reason>|materialize <proposal-id> | <rationale>",
+                "purpose": "Inspect and explicitly disposition external-derived analysis without turning it into observed evidence",
             },
             {
                 "command": "analysis question <text>",
@@ -482,42 +607,6 @@ class WebCockpitService:
             mode_names=mode_names,
             workspace_names=self.ctx.workspace_mgr.list_workspaces(),
         )
-
-    def graph_layouts(self) -> dict[str, Any]:
-        """Return saved presentation state without graph evidence payloads."""
-
-        records = GraphPresentationAuthority(self.ctx.workspace_mgr).list()
-        return {
-            "workspace": self.ctx.workspace_mgr.active,
-            "layouts": [record.model_dump(mode="json") for record in records],
-        }
-
-    def save_graph_layout(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Validate and persist one presentation-only graph layout."""
-
-        name = str(payload.get("name", "")).strip()
-        if not name:
-            raise ValueError("graph layout name is required")
-        draft = {key: value for key, value in payload.items() if key != "name"}
-        record = GraphPresentationAuthority(self.ctx.workspace_mgr).save(name, draft)
-        return {"saved": True, "layout": record.model_dump(mode="json")}
-
-    def graph_annotations(self, node_id: str | None = None) -> dict[str, Any]:
-        """Return analyst-authored notes attached through graph nodes."""
-
-        records = GraphPresentationAuthority(self.ctx.workspace_mgr).annotations(node_id)
-        return {
-            "workspace": self.ctx.workspace_mgr.active,
-            "annotations": [record.model_dump(mode="json") for record in records],
-        }
-
-    def annotate_graph(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Attach one bounded analyst note to a current graph node."""
-
-        node_id = str(payload.get("node_id", "")).strip()
-        text = str(payload.get("text", "")).strip()
-        record = GraphPresentationAuthority(self.ctx.workspace_mgr).annotate(node_id, text)
-        return {"saved": True, "annotation": record.model_dump(mode="json")}
 
     def execute_command(self, text: str) -> dict[str, Any]:
         """Route Pivotglass input local-first, then to the configured model."""
@@ -650,12 +739,81 @@ class WebCockpitService:
             }
         if command == "graph":
             if rest:
-                result = execute_graph_command(tuple(rest.split()), self.ctx.workspace_mgr)
-                return {
-                    "kind": "json",
-                    "title": "Graph workspace",
-                    "data": result.get("graph", result),
-                }
+                if rest.casefold() == "layers":
+                    return {
+                        "kind": "json",
+                        "title": "Entity and epistemic graph",
+                        "data": build_investigation_graph(self.ctx.workspace_mgr).model_dump(
+                            mode="json"
+                        ),
+                    }
+                parts = rest.split()
+                if len(parts) in {2, 3} and parts[0].casefold() == "export":
+                    from adversary_pursuit.core.investigation_graph_export import (
+                        export_investigation_graph,
+                    )
+
+                    artifact = export_investigation_graph(
+                        build_investigation_graph(self.ctx.workspace_mgr),
+                        format=parts[1],
+                        layer=parts[2] if len(parts) == 3 else "all",
+                    )
+                    return {
+                        "kind": "download",
+                        "title": "Investigation graph export",
+                        "filename": artifact.filename,
+                        "mime": artifact.mime,
+                        "content": artifact.content,
+                    }
+                if len(parts) >= 2 and parts[0].casefold() == "layout":
+                    action = parts[1].casefold()
+                    authority = GraphPresentationAuthority(self.ctx.workspace_mgr)
+                    if action == "list" and len(parts) == 2:
+                        return {
+                            "kind": "json",
+                            "title": "Saved graph layouts",
+                            "data": authority.list(),
+                        }
+                    if action == "show" and len(parts) >= 3:
+                        return {
+                            "kind": "json",
+                            "title": "Saved graph layout",
+                            "data": self.graph_layout(" ".join(parts[2:])),
+                        }
+                    if action == "delete" and "--confirm" in parts:
+                        marker = parts.index("--confirm")
+                        name = " ".join(parts[2:marker])
+                        confirmation = " ".join(parts[marker + 1 :])
+                        if not name or name != confirmation:
+                            raise ValueError(
+                                "deleting a graph layout requires its exact name after --confirm"
+                            )
+                        return {
+                            "kind": "json",
+                            "title": "Graph layout deleted",
+                            "data": {"name": name, "deleted": authority.delete(name)},
+                        }
+                if parts and parts[0].casefold() == "annotate":
+                    payload = rest.removeprefix(parts[0]).strip()
+                    node_ref, separator, text = payload.partition("|")
+                    if not separator:
+                        raise ValueError("usage: graph annotate <node-id> | <text>")
+                    return {
+                        "kind": "json",
+                        "title": "Graph annotation saved",
+                        "data": self.annotate_graph(
+                            {"node_ref": node_ref.strip(), "text": text.strip()}
+                        ),
+                    }
+                if parts and parts[0].casefold() == "annotations" and len(parts) <= 2:
+                    return {
+                        "kind": "json",
+                        "title": "Graph annotations",
+                        "data": self.graph_annotations(parts[1] if len(parts) == 2 else None),
+                    }
+                raise ValueError(
+                    "usage: graph [layers|export <json|csv|gexf> [all|entity|epistemic|bridge]|layout list|layout show <name>|layout delete <name> --confirm <name>]"
+                )
             graph = RelationshipGraph()
             graph.build_from_workspace(
                 self.ctx.workspace_mgr.get_stix_objects(),
@@ -697,6 +855,31 @@ class WebCockpitService:
                     "content": json.dumps(result["data"], indent=2, default=str),
                 }
             return {"kind": "json", **result, "state": self.state()}
+        if command == "integration":
+            result = execute_integration_command(
+                tuple(rest.split()), self.config_mgr, self.ctx.workspace_mgr
+            )
+            data = result.get("data")
+            if isinstance(data, dict) and data.get("start_enrichment") is True:
+                request = data.get("request") if isinstance(data.get("request"), dict) else {}
+                request_id = str(request.get("request_id") or "")
+                target = str(request.get("indicator") or "")
+                started = self.start_investigation(
+                    target,
+                    origin_request_id=request_id,
+                )
+                queue_item = next(
+                    item
+                    for item in AnalyticLedger(self.ctx.workspace_mgr).enrichment_requests()
+                    if item["record_id"] == request_id
+                )
+                result["data"] = {
+                    **data,
+                    "start_enrichment": False,
+                    "queue_item": queue_item,
+                    "investigation": started,
+                }
+            return {"kind": "json", **result}
         if command == "export":
             return self.export_payload(rest or "stix")
         if command in {"clear", "quit", "exit", "q"}:
@@ -871,7 +1054,12 @@ class WebCockpitService:
         with self._investigation_lock:
             return self._investigate_locked(target)
 
-    def start_investigation(self, target: str) -> dict[str, Any]:
+    def start_investigation(
+        self,
+        target: str,
+        *,
+        origin_request_id: str | None = None,
+    ) -> dict[str, Any]:
         """Start an investigation and return immediately with a resumable cursor."""
         target_type, tools = self.plan(target)
         record = self.investigations.create(target, target_type)
@@ -899,9 +1087,15 @@ class WebCockpitService:
                 actions=("skip", "cancel"),
             )
         self.investigations.transition(record.investigation_id, LifecycleState.QUEUED)
+        if origin_request_id:
+            AnalyticLedger(self.ctx.workspace_mgr).transition_enrichment_request(
+                origin_request_id,
+                "running",
+                investigation_id=record.investigation_id,
+            )
         threading.Thread(
             target=self._run_investigation,
-            args=(record.investigation_id, target, target_type, tools),
+            args=(record.investigation_id, target, target_type, tools, origin_request_id),
             name=f"pivotglass-{record.investigation_id[:8]}",
             daemon=True,
         ).start()
@@ -1008,6 +1202,7 @@ class WebCockpitService:
         target: str,
         target_type: str,
         tools: list[str],
+        origin_request_id: str | None = None,
     ) -> None:
         """Execute enrichments sequentially while publishing incremental transitions."""
         with self._investigation_lock:
@@ -1030,6 +1225,12 @@ class WebCockpitService:
                             reason="operator cancellation",
                         )
                     self.investigations.transition(investigation_id, LifecycleState.CANCELLED)
+                    if origin_request_id:
+                        AnalyticLedger(self.ctx.workspace_mgr).transition_enrichment_request(
+                            origin_request_id,
+                            "cancelled",
+                            investigation_id=investigation_id,
+                        )
                     return
                 schema = self._tool_schemas.get(tool_name)
                 if schema is None:
@@ -1137,6 +1338,12 @@ class WebCockpitService:
                     )
             final_state = LifecycleState.SUCCEEDED if any_results else LifecycleState.EMPTY
             self.investigations.transition(investigation_id, final_state)
+            if origin_request_id:
+                AnalyticLedger(self.ctx.workspace_mgr).transition_enrichment_request(
+                    origin_request_id,
+                    final_state.value,
+                    investigation_id=investigation_id,
+                )
 
     def _investigate_locked(self, target: str) -> dict[str, Any]:
         """Execute one investigation while holding the service mutation lock."""
@@ -1203,6 +1410,64 @@ class WebCockpitService:
             )
         return {"target": target, "target_type": target_type, "events": events}
 
+    def receive_scot_pivot_request(
+        self,
+        payload: dict[str, Any],
+        authentication: ScotPivotAuthenticationReceipt,
+    ) -> dict[str, Any]:
+        """Validate and retain one authenticated request without enqueueing it."""
+        requested_at_raw = str(payload.get("requested_at") or "").strip()
+        try:
+            requested_at = datetime.fromisoformat(requested_at_raw.replace("Z", "+00:00"))
+        except ValueError:
+            raise ValueError("SCOT pivot requested_at must be an ISO-8601 timestamp") from None
+        raw_object_id = payload.get("scot_object_id")
+        if isinstance(raw_object_id, bool):
+            raise ValueError("SCOT pivot object ID must be an integer")
+        try:
+            scot_object_id = int(raw_object_id or 0)
+        except (TypeError, ValueError):
+            raise ValueError("SCOT pivot object ID must be an integer") from None
+        request = validate_scot_pivot_request(
+            workspace=str(payload.get("workspace") or ""),
+            scot_object_type=str(payload.get("scot_object_type") or ""),
+            scot_object_id=scot_object_id,
+            scot_revision=(
+                str(payload["scot_revision"]) if payload.get("scot_revision") is not None else None
+            ),
+            indicator=str(payload.get("indicator") or ""),
+            requested_by=str(payload.get("requested_by") or ""),
+            requested_at=requested_at,
+            reason=str(payload.get("reason") or ""),
+        )
+        canonical = request.model_dump(mode="json")
+        for field in (
+            "schema_version",
+            "request_id",
+            "indicator_type",
+            "disposition",
+            "enqueue_requires_analyst_action",
+        ):
+            if payload.get(field) != canonical[field]:
+                raise ValueError(f"SCOT pivot {field} does not match the validated request")
+        if request.workspace != self.ctx.workspace_mgr.active:
+            raise ValueError("SCOT pivot workspace does not match the active workspace")
+        inbox_item, created = AnalyticLedger(
+            self.ctx.workspace_mgr
+        ).record_scot_pivot_request(
+            canonical,
+            authentication=authentication.model_dump(mode="json"),
+        )
+        return {
+            "request": canonical,
+            "inbox_item": inbox_item,
+            "created": created,
+            "enqueued": False,
+            "next_action": (
+                f"integration scot pivot-accept {request.request_id} | <approved-by> | <reason>"
+            ),
+        }
+
 
 def _handler(
     service: WebCockpitService,
@@ -1251,6 +1516,23 @@ def _handler(
                 host = raw_host.rsplit(":", 1)[0] if raw_host.count(":") == 1 else raw_host
             return host in host_allowlist
 
+        def _browser_mutation_allowed(self) -> bool:
+            if self.headers.get_content_type() != "application/json":
+                return False
+            if self.headers.get("Sec-Fetch-Site", "").strip().casefold() == "cross-site":
+                return False
+            raw_origin = self.headers.get("Origin", "").strip()
+            if not raw_origin:
+                return True
+            origin = urlparse(raw_origin)
+            raw_host = self.headers.get("Host", "").strip().casefold()
+            return (
+                origin.scheme.casefold() == "http"
+                and origin.netloc.casefold() == raw_host
+                and not origin.username
+                and not origin.password
+            )
+
         def do_GET(self) -> None:  # noqa: N802
             if not self._host_allowed():
                 self._json({"error": "configured host required"}, HTTPStatus.FORBIDDEN)
@@ -1262,19 +1544,28 @@ def _handler(
             if parsed.path == "/api/state":
                 self._json(service.state())
                 return
+            if parsed.path == "/api/graph-layouts":
+                name = parse_qs(parsed.query).get("name", [""])[0].strip()
+                try:
+                    if name:
+                        self._json(service.graph_layout(name))
+                    else:
+                        self._json(
+                            {"layouts": GraphPresentationAuthority(service.ctx.workspace_mgr).list()}
+                        )
+                except ValueError as exc:
+                    self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
+                return
+            if parsed.path == "/api/graph-annotations":
+                node_ref = parse_qs(parsed.query).get("node_ref", [""])[0].strip()
+                try:
+                    self._json(service.graph_annotations(node_ref or None))
+                except ValueError as exc:
+                    self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
+                return
             if parsed.path == "/api/completions":
                 text = parse_qs(parsed.query).get("text", [""])[0]
                 self._json({"completions": service.completions(text)})
-                return
-            if parsed.path == "/api/graph/layouts":
-                self._json(service.graph_layouts())
-                return
-            if parsed.path == "/api/graph/annotations":
-                node_id = parse_qs(parsed.query).get("node_id", [""])[0].strip()
-                try:
-                    self._json(service.graph_annotations(node_id or None))
-                except ValueError as exc:
-                    self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
                 return
             if parsed.path == "/api/configuration":
                 self._json(service.configuration())
@@ -1346,21 +1637,54 @@ def _handler(
                     "/api/mode",
                     "/api/command",
                     "/api/annotate",
-                    "/api/graph/layouts",
-                    "/api/graph/annotations",
                     "/api/configuration/check",
                     "/api/configuration/update",
+                    "/api/graph-layouts",
+                    "/api/graph-annotations",
+                    "/api/integrations/scot/pivot-request",
                 }
                 and not is_cancel
                 and not is_ack
             ):
                 self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
                 return
+            if (
+                parsed.path != "/api/integrations/scot/pivot-request"
+                and not self._browser_mutation_allowed()
+            ):
+                status = (
+                    HTTPStatus.UNSUPPORTED_MEDIA_TYPE
+                    if self.headers.get_content_type() != "application/json"
+                    else HTTPStatus.FORBIDDEN
+                )
+                self._json({"error": "same-origin application/json required"}, status)
+                return
             try:
                 length = int(self.headers.get("Content-Length", "0"))
                 if length > 16_384:
                     raise ValueError("request too large")
-                payload = json.loads(self.rfile.read(length) or b"{}")
+                raw_body = self.rfile.read(length) or b"{}"
+                if parsed.path == "/api/integrations/scot/pivot-request":
+                    if self.headers.get_content_type() != "application/json":
+                        raise ValueError("SCOT pivot request requires application/json")
+                    authentication = authenticate_scot_pivot_request(
+                        service.config_mgr.get_scot_pivot_secret(),
+                        key_id=self.headers.get("X-Pivotglass-Key-Id", ""),
+                        timestamp=self.headers.get("X-Pivotglass-Timestamp", ""),
+                        nonce=self.headers.get("X-Pivotglass-Nonce", ""),
+                        signature=self.headers.get("X-Pivotglass-Signature", ""),
+                        body=raw_body,
+                    )
+                    pivot_payload = json.loads(raw_body)
+                    if not isinstance(pivot_payload, dict):
+                        raise ValueError("request body must be an object")
+                    result = service.receive_scot_pivot_request(pivot_payload, authentication)
+                    self._json(
+                        result,
+                        HTTPStatus.CREATED if result["created"] else HTTPStatus.OK,
+                    )
+                    return
+                payload = json.loads(raw_body)
                 if not isinstance(payload, dict):
                     raise ValueError("request body must be an object")
                 if parsed.path == "/api/configuration/check":
@@ -1369,17 +1693,17 @@ def _handler(
                 if parsed.path == "/api/configuration/update":
                     self._json(service.update_configuration(payload))
                     return
+                if parsed.path == "/api/graph-layouts":
+                    self._json(service.update_graph_layout(payload))
+                    return
+                if parsed.path == "/api/graph-annotations":
+                    self._json(service.annotate_graph(payload))
+                    return
                 if parsed.path == "/api/mode":
                     name = str(payload.get("name", "")).strip()
                     if not name:
                         raise ValueError("mode name is required")
                     self._json(service.switch_mode(name))
-                    return
-                if parsed.path == "/api/graph/layouts":
-                    self._json(service.save_graph_layout(payload))
-                    return
-                if parsed.path == "/api/graph/annotations":
-                    self._json(service.annotate_graph(payload))
                     return
                 if parsed.path == "/api/command":
                     command = str(payload.get("command", "")).strip()
@@ -1412,6 +1736,13 @@ def _handler(
                 if not target:
                     raise ValueError("target is required")
                 self._json(service.start_investigation(target), HTTPStatus.ACCEPTED)
+            except ScotPivotAuthenticationError as exc:
+                status = (
+                    HTTPStatus.SERVICE_UNAVAILABLE
+                    if "not configured" in str(exc) or "at least 32 bytes" in str(exc)
+                    else HTTPStatus.UNAUTHORIZED
+                )
+                self._json({"error": str(exc)}, status)
             except (ValueError, json.JSONDecodeError) as exc:
                 self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
 

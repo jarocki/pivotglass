@@ -23,6 +23,8 @@ likelihood, and contradictions.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import uuid
 from datetime import datetime, timezone
 from enum import StrEnum
@@ -49,6 +51,7 @@ class AuthorKind(StrEnum):
     HUMAN = "human"
     MODEL = "model"
     SYSTEM = "system"
+    EXTERNAL_TOOL = "external_tool"
 
 
 class AssertionType(StrEnum):
@@ -293,6 +296,109 @@ class AnalyticLedger:
             session.commit()
         return assertion_id
 
+    def retract_manual_graph_relation(
+        self,
+        assertion_id: str,
+        reason: str,
+        *,
+        decided_by: AuthorKind = AuthorKind.HUMAN,
+    ) -> dict[str, str | None]:
+        """Withdraw a human graph judgment without deleting its audit trail."""
+
+        if decided_by is not AuthorKind.HUMAN:
+            raise ValueError("Only an explicit human action may retract a graph relation.")
+        cleaned_reason = _required(reason, "retraction reason")
+        with self._workspace.get_session() as session:
+            assertion, lifecycle = self._manual_graph_relation_records(session, assertion_id)
+            now = datetime.now(timezone.utc)
+            assertion.status = "retracted"
+            assertion.updated_at = now
+            self._append_manual_relation_history(
+                lifecycle,
+                action="retracted",
+                reason=cleaned_reason,
+                decided_by=decided_by,
+                occurred_at=now,
+            )
+            lifecycle.status = LifecycleItemStatus.RESOLVED.value
+            lifecycle.analyst_disposition = AnalystDisposition.REVISED.value
+            lifecycle.resolved_at = now
+            lifecycle.updated_at = now
+            session.commit()
+        return {
+            "assertion_id": assertion_id,
+            "status": "retracted",
+            "replacement_assertion_id": None,
+        }
+
+    def supersede_manual_graph_relation(
+        self,
+        assertion_id: str,
+        statement: str,
+        *,
+        subject_ref: str,
+        predicate: str,
+        object_ref: str,
+        decided_by: AuthorKind = AuthorKind.HUMAN,
+    ) -> dict[str, str]:
+        """Replace a human graph judgment while retaining the former assertion."""
+
+        if decided_by is not AuthorKind.HUMAN:
+            raise ValueError("Only an explicit human action may revise a graph relation.")
+        cleaned_statement = _required(statement, "revision annotation")
+        with self._workspace.get_session() as session:
+            assertion, lifecycle = self._manual_graph_relation_records(session, assertion_id)
+            investigation = session.get(AnalyticInvestigation, lifecycle.investigation_id)
+            if investigation is None:
+                raise ValueError(
+                    f"Manual graph relation {assertion_id} references a missing investigation."
+                )
+            replacement_id = _new_id("assertion")
+            now = datetime.now(timezone.utc)
+            replacement = AnalyticAssertion(
+                id=replacement_id,
+                statement=cleaned_statement,
+                assertion_type=AssertionType.JUDGMENT.value,
+                status="active",
+                subject_ref=subject_ref,
+                predicate=predicate,
+                object_ref=object_ref,
+                author_kind=AuthorKind.HUMAN.value,
+                method="manual-graph-relation",
+            )
+            session.add(replacement)
+            session.flush()
+            self._link_lifecycle_item(
+                session,
+                investigation=investigation,
+                item_type=LifecycleItemType.ASSERTION,
+                record_kind="assertion",
+                record_id=replacement_id,
+                statement=cleaned_statement,
+                author_kind=AuthorKind.HUMAN,
+                criteria={"supersedes_assertion_id": assertion_id},
+            )
+            assertion.status = "superseded"
+            assertion.updated_at = now
+            self._append_manual_relation_history(
+                lifecycle,
+                action="superseded",
+                reason=cleaned_statement,
+                decided_by=decided_by,
+                occurred_at=now,
+                replacement_assertion_id=replacement_id,
+            )
+            lifecycle.status = LifecycleItemStatus.RESOLVED.value
+            lifecycle.analyst_disposition = AnalystDisposition.REVISED.value
+            lifecycle.resolved_at = now
+            lifecycle.updated_at = now
+            session.commit()
+        return {
+            "assertion_id": assertion_id,
+            "status": "superseded",
+            "replacement_assertion_id": replacement_id,
+        }
+
     def create_hypothesis(
         self,
         question_id: str,
@@ -445,6 +551,620 @@ class AnalyticLedger:
                 .order_by(AnalyticLifecycleItem.created_at)
             ).scalars()
             return [_row_dict(row) for row in rows]
+
+    def record_scot_pivot_request(
+        self,
+        request: dict[str, Any],
+        *,
+        authentication: dict[str, Any],
+        investigation_id: str | None = None,
+    ) -> tuple[dict[str, Any], bool]:
+        """Persist one authenticated SCOT request for explicit local review."""
+
+        request_id = _required(str(request.get("request_id") or ""), "SCOT pivot request ID")
+        indicator = _required(str(request.get("indicator") or ""), "SCOT pivot indicator")
+        if not request_id.startswith("scot-pivot-"):
+            raise ValueError("SCOT pivot request ID is invalid")
+        request_copy = json.loads(json.dumps(request, sort_keys=True, default=str))
+        authentication_copy = json.loads(
+            json.dumps(authentication, sort_keys=True, default=str)
+        )
+        if authentication_copy.get("scheme") != "hmac-sha256-v1":
+            raise ValueError("SCOT pivot authentication receipt is invalid")
+        stored_payload = json.dumps(
+            {"request": request_copy, "authentication": authentication_copy},
+            separators=(",", ":"),
+        ).encode("utf-8")
+        if len(stored_payload) > 32_000:
+            raise ValueError("SCOT pivot request exceeds the supported stored size")
+        with self._workspace.get_session() as session:
+            existing = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.record_kind == "scot_pivot_request",
+                    AnalyticLifecycleItem.record_id == request_id,
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                return _row_dict(existing), False
+            investigation = self._ensure_investigation(session, investigation_id)
+            row = self._link_lifecycle_item(
+                session,
+                investigation=investigation,
+                item_type=LifecycleItemType.COLLECTION_REQUIREMENT,
+                record_kind="scot_pivot_request",
+                record_id=request_id,
+                statement=f"Review SCOT request to enrich {indicator}.",
+                criteria={
+                    "origin_system": "scot4",
+                    "request": request_copy,
+                    "authentication": authentication_copy,
+                    "reviews": [],
+                    "truth_kind": "authenticated-external-request",
+                },
+                evidence_refs=[
+                    {
+                        "kind": "scot-object",
+                        "ref": (
+                            f"{request_copy.get('scot_object_type')}:"
+                            f"{request_copy.get('scot_object_id')}"
+                        ),
+                    }
+                ],
+                author_kind=AuthorKind.EXTERNAL_TOOL,
+            )
+            session.commit()
+            return _row_dict(row), True
+
+    def scot_pivot_requests(self) -> list[dict[str, Any]]:
+        """Return authenticated SCOT requests awaiting or retaining review."""
+
+        with self._workspace.get_session() as session:
+            rows = session.execute(
+                select(AnalyticLifecycleItem)
+                .where(AnalyticLifecycleItem.record_kind == "scot_pivot_request")
+                .order_by(AnalyticLifecycleItem.created_at)
+            ).scalars()
+            return [_row_dict(row) for row in rows]
+
+    def accept_scot_pivot_request(
+        self,
+        request_id: str,
+        *,
+        approved_by: str,
+        reason: str,
+    ) -> tuple[dict[str, Any], dict[str, Any], bool]:
+        """Atomically approve an inbox request and create its enrichment item."""
+
+        normalized_id = _required(request_id, "SCOT pivot request ID")
+        approver = _required(approved_by, "SCOT pivot approver")
+        rationale = _required(reason, "SCOT pivot approval reason")
+        if len(approver) > 254 or len(rationale) > 1000:
+            raise ValueError("SCOT pivot approval exceeds the supported length")
+        with self._workspace.get_session() as session:
+            inbox = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.record_kind == "scot_pivot_request",
+                    AnalyticLifecycleItem.record_id == normalized_id,
+                )
+            ).scalar_one_or_none()
+            if inbox is None:
+                raise ValueError(f"Unknown SCOT pivot request: {normalized_id}")
+            if inbox.analyst_disposition == AnalystDisposition.REJECTED.value:
+                raise ValueError("Rejected SCOT pivot requests cannot be accepted")
+            criteria = dict(inbox.criteria or {})
+            request = criteria.get("request")
+            if not isinstance(request, dict):
+                raise RuntimeError("SCOT pivot inbox record is missing its validated request")
+            queue_row, created = self._queue_scot_pivot_request(
+                session,
+                request,
+                approved_by=approver,
+                investigation_id=inbox.investigation_id,
+            )
+            if inbox.analyst_disposition != AnalystDisposition.ACCEPTED.value:
+                now = datetime.now(timezone.utc)
+                reviews = list(criteria.get("reviews") or [])
+                reviews.append(
+                    {
+                        "disposition": AnalystDisposition.ACCEPTED.value,
+                        "reason": rationale,
+                        "decided_by": approver,
+                        "recorded_at": now.isoformat(),
+                        "queue_record_id": queue_row.record_id,
+                    }
+                )
+                criteria["reviews"] = reviews
+                criteria["queue_record_id"] = queue_row.record_id
+                inbox.criteria = criteria
+                inbox.analyst_disposition = AnalystDisposition.ACCEPTED.value
+                inbox.status = LifecycleItemStatus.SATISFIED.value
+                inbox.updated_at = now
+                inbox.resolved_at = now
+            session.commit()
+            return _row_dict(inbox), _row_dict(queue_row), created
+
+    def reject_scot_pivot_request(
+        self,
+        request_id: str,
+        *,
+        rejected_by: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        """Reject one pending authenticated request without creating queue work."""
+
+        normalized_id = _required(request_id, "SCOT pivot request ID")
+        reviewer = _required(rejected_by, "SCOT pivot reviewer")
+        rationale = _required(reason, "SCOT pivot rejection reason")
+        if len(reviewer) > 254 or len(rationale) > 1000:
+            raise ValueError("SCOT pivot rejection exceeds the supported length")
+        with self._workspace.get_session() as session:
+            inbox = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.record_kind == "scot_pivot_request",
+                    AnalyticLifecycleItem.record_id == normalized_id,
+                )
+            ).scalar_one_or_none()
+            if inbox is None:
+                raise ValueError(f"Unknown SCOT pivot request: {normalized_id}")
+            if inbox.analyst_disposition == AnalystDisposition.ACCEPTED.value:
+                raise ValueError("Accepted SCOT pivot requests cannot be rejected")
+            if inbox.analyst_disposition != AnalystDisposition.REJECTED.value:
+                now = datetime.now(timezone.utc)
+                criteria = dict(inbox.criteria or {})
+                reviews = list(criteria.get("reviews") or [])
+                reviews.append(
+                    {
+                        "disposition": AnalystDisposition.REJECTED.value,
+                        "reason": rationale,
+                        "decided_by": reviewer,
+                        "recorded_at": now.isoformat(),
+                    }
+                )
+                criteria["reviews"] = reviews
+                inbox.criteria = criteria
+                inbox.analyst_disposition = AnalystDisposition.REJECTED.value
+                inbox.status = LifecycleItemStatus.REJECTED.value
+                inbox.updated_at = now
+                inbox.resolved_at = now
+                session.commit()
+            return _row_dict(inbox)
+
+    def enqueue_scot_pivot_request(
+        self,
+        request: dict[str, Any],
+        *,
+        approved_by: str,
+        investigation_id: str | None = None,
+    ) -> tuple[dict[str, Any], bool]:
+        """Persist one accepted SCOT pivot as a collection requirement."""
+
+        with self._workspace.get_session() as session:
+            row, created = self._queue_scot_pivot_request(
+                session,
+                request,
+                approved_by=approved_by,
+                investigation_id=investigation_id,
+            )
+            session.commit()
+            return _row_dict(row), created
+
+    def _queue_scot_pivot_request(
+        self,
+        session: Any,
+        request: dict[str, Any],
+        *,
+        approved_by: str,
+        investigation_id: str | None,
+    ) -> tuple[AnalyticLifecycleItem, bool]:
+        request_id = _required(str(request.get("request_id") or ""), "SCOT pivot request ID")
+        indicator = _required(str(request.get("indicator") or ""), "SCOT pivot indicator")
+        approver = _required(approved_by, "SCOT pivot approver")
+        if len(approver) > 254:
+            raise ValueError("SCOT pivot approver exceeds the supported length")
+        request_copy = json.loads(json.dumps(request, sort_keys=True, default=str))
+        existing = session.execute(
+            select(AnalyticLifecycleItem).where(
+                AnalyticLifecycleItem.record_kind == "enrichment_request",
+                AnalyticLifecycleItem.record_id == request_id,
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            return existing, False
+        investigation = self._ensure_investigation(session, investigation_id)
+        now = datetime.now(timezone.utc)
+        row = self._link_lifecycle_item(
+            session,
+            investigation=investigation,
+            item_type=LifecycleItemType.COLLECTION_REQUIREMENT,
+            record_kind="enrichment_request",
+            record_id=request_id,
+            statement=f"Enrich {indicator} from an approved SCOT pivot request.",
+            criteria={
+                "queue_state": "queued",
+                "origin_system": "scot4",
+                "approved_by": approver,
+                "request": request_copy,
+                "truth_kind": "operator-request",
+                "history": [
+                    {
+                        "state": "queued",
+                        "recorded_at": now.isoformat(),
+                        "actor": approver,
+                    }
+                ],
+            },
+            evidence_refs=[
+                {
+                    "kind": "scot-object",
+                    "ref": (
+                        f"{request_copy.get('scot_object_type')}:"
+                        f"{request_copy.get('scot_object_id')}"
+                    ),
+                }
+            ],
+            author_kind=AuthorKind.HUMAN,
+        )
+        return row, True
+
+    def enrichment_requests(self) -> list[dict[str, Any]]:
+        """Return the durable enrichment queue in creation order."""
+
+        with self._workspace.get_session() as session:
+            rows = session.execute(
+                select(AnalyticLifecycleItem)
+                .where(AnalyticLifecycleItem.record_kind == "enrichment_request")
+                .order_by(AnalyticLifecycleItem.created_at)
+            ).scalars()
+            return [_row_dict(row) for row in rows]
+
+    def transition_enrichment_request(
+        self,
+        request_id: str,
+        state: str,
+        *,
+        investigation_id: str | None = None,
+        actor: AuthorKind = AuthorKind.SYSTEM,
+    ) -> dict[str, Any]:
+        """Advance one queued request through the shared enrichment lifecycle."""
+
+        transitions = {
+            "queued": {"running", "cancelled"},
+            "running": {"succeeded", "empty", "failed", "cancelled"},
+        }
+        normalized_state = state.strip().casefold()
+        with self._workspace.get_session() as session:
+            row = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.record_kind == "enrichment_request",
+                    AnalyticLifecycleItem.record_id == request_id,
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                raise ValueError(f"Unknown enrichment request: {request_id}")
+            criteria = dict(row.criteria or {})
+            current = str(criteria.get("queue_state") or "queued")
+            if normalized_state == current:
+                return _row_dict(row)
+            if normalized_state not in transitions.get(current, set()):
+                raise ValueError(
+                    f"Invalid enrichment request transition: {current} -> {normalized_state}"
+                )
+            now = datetime.now(timezone.utc)
+            history = list(criteria.get("history") or [])
+            history.append(
+                {
+                    "state": normalized_state,
+                    "recorded_at": now.isoformat(),
+                    "actor": actor.value,
+                    "investigation_id": investigation_id,
+                }
+            )
+            criteria["queue_state"] = normalized_state
+            criteria["history"] = history
+            if investigation_id:
+                criteria["investigation_id"] = investigation_id
+            row.criteria = criteria
+            row.status = (
+                LifecycleItemStatus.OPEN.value
+                if normalized_state in {"queued", "running"}
+                else (
+                    LifecycleItemStatus.SATISFIED.value
+                    if normalized_state in {"succeeded", "empty"}
+                    else LifecycleItemStatus.REJECTED.value
+                )
+            )
+            row.updated_at = now
+            if normalized_state not in {"queued", "running"}:
+                row.resolved_at = now
+            session.commit()
+            return _row_dict(row)
+
+    def record_external_analysis_proposal(
+        self,
+        *,
+        provider: str,
+        operation: str,
+        statement: str,
+        payload_sha256: str,
+        provenance_refs: tuple[str, ...],
+        caveats: tuple[str, ...],
+        details: dict[str, Any],
+        observation_refs: tuple[str, ...] = (),
+        investigation_id: str | None = None,
+    ) -> tuple[dict[str, Any], bool]:
+        """Record a deterministic tool result as pending analytic work, not evidence."""
+        normalized_provider = _required(provider, "external analysis provider")
+        if normalized_provider not in {"go-roast", "nucleotide"}:
+            raise ValueError("Unsupported external analysis provider.")
+        normalized_operation = _required(operation, "external analysis operation")
+        normalized_statement = _required(statement, "external analysis statement")
+        normalized_digest = payload_sha256.strip().casefold()
+        if len(normalized_digest) != 64 or any(
+            character not in "0123456789abcdef" for character in normalized_digest
+        ):
+            raise ValueError("External analysis payload requires a SHA-256 digest.")
+        normalized_refs = tuple(
+            sorted({_required(ref, "provenance reference") for ref in provenance_refs})
+        )
+        if not normalized_refs:
+            raise ValueError("External analysis proposals require provenance.")
+        normalized_caveats = tuple(
+            sorted({_required(caveat, "external analysis caveat") for caveat in caveats})
+        )
+        normalized_observations = tuple(
+            sorted({_required(ref, "observation reference") for ref in observation_refs})
+        )
+        detail_copy = json.loads(json.dumps(details, sort_keys=True, default=str))
+        encoded_details = json.dumps(detail_copy, sort_keys=True, separators=(",", ":"))
+        if len(encoded_details.encode()) > 64_000:
+            raise ValueError("External analysis proposal details exceed 64 KB.")
+        record_basis = {
+            "provider": normalized_provider,
+            "operation": normalized_operation,
+            "statement": normalized_statement,
+            "payload_sha256": normalized_digest,
+            "provenance_refs": normalized_refs,
+            "observation_refs": normalized_observations,
+            "details": detail_copy,
+        }
+        record_id = (
+            "external-analysis-"
+            + hashlib.sha256(
+                json.dumps(record_basis, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()[:32]
+        )
+        with self._workspace.get_session() as session:
+            missing_observations = [
+                ref for ref in normalized_observations if session.get(EvidenceObservation, ref) is None
+            ]
+            if missing_observations:
+                raise ValueError(
+                    "External analysis references unknown observations: "
+                    + ", ".join(missing_observations)
+                )
+            investigation = self._ensure_investigation(session, investigation_id)
+            existing = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.investigation_id == investigation.id,
+                    AnalyticLifecycleItem.record_kind == "external_analysis",
+                    AnalyticLifecycleItem.record_id == record_id,
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                return _row_dict(existing), False
+            row = self._link_lifecycle_item(
+                session,
+                investigation=investigation,
+                item_type=LifecycleItemType.ASSERTION,
+                record_kind="external_analysis",
+                record_id=record_id,
+                statement=normalized_statement,
+                criteria={
+                    "provider": normalized_provider,
+                    "operation": normalized_operation,
+                    "payload_sha256": normalized_digest,
+                    "caveats": list(normalized_caveats),
+                    "details": detail_copy,
+                    "reviews": [],
+                    "truth_kind": "external-derived-proposal",
+                },
+                evidence_refs=[
+                    *(
+                        {"kind": "external-tool-receipt", "ref": ref}
+                        for ref in normalized_refs
+                    ),
+                    *(
+                        {"kind": "observation", "ref": ref}
+                        for ref in normalized_observations
+                    ),
+                ],
+                author_kind=AuthorKind.EXTERNAL_TOOL,
+            )
+            session.commit()
+            return _row_dict(row), True
+
+    def external_analysis_proposals(self) -> list[dict[str, Any]]:
+        """Return reviewable external-derived proposals in creation order."""
+        with self._workspace.get_session() as session:
+            rows = session.execute(
+                select(AnalyticLifecycleItem)
+                .where(AnalyticLifecycleItem.record_kind == "external_analysis")
+                .order_by(AnalyticLifecycleItem.created_at)
+            ).scalars()
+            return [_row_dict(row) for row in rows]
+
+    def review_external_analysis_proposal(
+        self,
+        proposal_id: str,
+        *,
+        disposition: AnalystDisposition,
+        reason: str,
+        decided_by: AuthorKind = AuthorKind.HUMAN,
+    ) -> dict[str, Any]:
+        """Record an explicit human disposition while retaining tool caveats."""
+        if decided_by is not AuthorKind.HUMAN:
+            raise ValueError("Only an explicit human action may review external analysis.")
+        if disposition not in {AnalystDisposition.ACCEPTED, AnalystDisposition.REJECTED}:
+            raise ValueError("External analysis must be explicitly accepted or rejected.")
+        normalized_reason = _required(reason, "external analysis review reason")
+        with self._workspace.get_session() as session:
+            row = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.record_kind == "external_analysis",
+                    AnalyticLifecycleItem.record_id == proposal_id,
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                raise ValueError(f"Unknown external analysis proposal: {proposal_id}")
+            criteria = dict(row.criteria or {})
+            reviews = list(criteria.get("reviews") or [])
+            reviews.append(
+                {
+                    "disposition": disposition.value,
+                    "reason": normalized_reason,
+                    "decided_by": decided_by.value,
+                    "recorded_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            criteria["reviews"] = reviews
+            row.criteria = criteria
+            row.analyst_disposition = disposition.value
+            row.status = (
+                LifecycleItemStatus.SATISFIED.value
+                if disposition is AnalystDisposition.ACCEPTED
+                else LifecycleItemStatus.REJECTED.value
+            )
+            row.updated_at = datetime.now(timezone.utc)
+            row.resolved_at = row.updated_at
+            session.commit()
+            return _row_dict(row)
+
+    def materialize_external_analysis_proposal(
+        self,
+        proposal_id: str,
+        *,
+        rationale: str,
+        decided_by: AuthorKind = AuthorKind.HUMAN,
+    ) -> dict[str, Any]:
+        """Promote an accepted tool proposal to a sourced inferred assertion.
+
+        Materialization never creates an observation or an authoritative entity
+        relationship. The external tool remains the assertion author, while the
+        human review and this explicit promotion are retained in lifecycle
+        provenance.
+        """
+
+        if decided_by is not AuthorKind.HUMAN:
+            raise ValueError("Only an explicit human action may materialize external analysis.")
+        normalized_rationale = _required(rationale, "external analysis materialization rationale")
+        now = datetime.now(timezone.utc)
+        with self._workspace.get_session() as session:
+            proposal = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.record_kind == "external_analysis",
+                    AnalyticLifecycleItem.record_id == proposal_id,
+                )
+            ).scalar_one_or_none()
+            if proposal is None:
+                raise ValueError(f"Unknown external analysis proposal: {proposal_id}")
+            if (
+                proposal.analyst_disposition != AnalystDisposition.ACCEPTED.value
+                or proposal.status != LifecycleItemStatus.SATISFIED.value
+            ):
+                raise ValueError(
+                    "External analysis must be explicitly accepted before materialization."
+                )
+
+            proposal_criteria = dict(proposal.criteria or {})
+            assertion_id = (
+                "assertion-external-" + hashlib.sha256(proposal_id.encode()).hexdigest()[:32]
+            )
+            recorded_assertion_id = proposal_criteria.get("materialized_assertion_id")
+            if recorded_assertion_id and recorded_assertion_id != assertion_id:
+                raise RuntimeError("External analysis materialization lineage is inconsistent.")
+
+            assertion = session.get(AnalyticAssertion, assertion_id)
+            lifecycle = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.investigation_id == proposal.investigation_id,
+                    AnalyticLifecycleItem.record_kind == "assertion",
+                    AnalyticLifecycleItem.record_id == assertion_id,
+                )
+            ).scalar_one_or_none()
+            if assertion is not None or lifecycle is not None:
+                if assertion is None or lifecycle is None:
+                    raise RuntimeError("External analysis materialization is incomplete.")
+                return {
+                    "created": False,
+                    "proposal": _row_dict(proposal),
+                    "assertion": _row_dict(assertion),
+                    "lifecycle_item": _row_dict(lifecycle),
+                }
+
+            components = _external_assertion_components(proposal_criteria)
+            assertion = AnalyticAssertion(
+                id=assertion_id,
+                statement=_required(proposal.statement or "", "external analysis statement"),
+                assertion_type=AssertionType.INFERRED.value,
+                status="active",
+                subject_ref=components["subject_ref"],
+                predicate=components["predicate"],
+                object_ref=components["object_ref"],
+                object_value=components["object_value"],
+                author_kind=AuthorKind.EXTERNAL_TOOL.value,
+                method=(
+                    f"external-analysis:{proposal_criteria['provider']}:"
+                    f"{proposal_criteria['operation']}"
+                ),
+            )
+            session.add(assertion)
+            session.flush()
+            investigation = session.get(AnalyticInvestigation, proposal.investigation_id)
+            if investigation is None:
+                raise RuntimeError("External analysis proposal references a missing investigation.")
+            lifecycle = self._link_lifecycle_item(
+                session,
+                investigation=investigation,
+                item_type=LifecycleItemType.ASSERTION,
+                record_kind="assertion",
+                record_id=assertion_id,
+                statement=assertion.statement,
+                criteria={
+                    "source_proposal_id": proposal_id,
+                    "provider": proposal_criteria["provider"],
+                    "operation": proposal_criteria["operation"],
+                    "truth_kind": "external-derived-assertion",
+                    "analyst_rationale": normalized_rationale,
+                    "caveats": list(proposal_criteria.get("caveats") or []),
+                    "details": proposal_criteria.get("details") or {},
+                    "typed_components": components,
+                },
+                evidence_refs=[
+                    *list(proposal.evidence_refs or []),
+                    {"kind": "external-analysis-proposal", "ref": proposal_id},
+                ],
+                author_kind=AuthorKind.EXTERNAL_TOOL,
+            )
+            lifecycle.status = LifecycleItemStatus.SATISFIED.value
+            lifecycle.analyst_disposition = AnalystDisposition.ACCEPTED.value
+            lifecycle.resolved_at = now
+            lifecycle.updated_at = now
+            proposal_criteria["materialized_assertion_id"] = assertion_id
+            proposal_criteria["materialization"] = {
+                "rationale": normalized_rationale,
+                "decided_by": decided_by.value,
+                "recorded_at": now.isoformat(),
+                "truth_kind": "external-derived-assertion",
+            }
+            proposal.criteria = proposal_criteria
+            proposal.updated_at = now
+            session.commit()
+            return {
+                "created": True,
+                "proposal": _row_dict(proposal),
+                "assertion": _row_dict(assertion),
+                "lifecycle_item": _row_dict(lifecycle),
+            }
 
     def link_method_run(
         self,
@@ -895,6 +1615,57 @@ class AnalyticLedger:
         session.flush()
         return row
 
+    @staticmethod
+    def _manual_graph_relation_records(
+        session: Any,
+        assertion_id: str,
+    ) -> tuple[AnalyticAssertion, AnalyticLifecycleItem]:
+        assertion = session.get(AnalyticAssertion, assertion_id)
+        if assertion is None:
+            raise ValueError(f"Unknown analytic assertion: {assertion_id}")
+        if (
+            assertion.method != "manual-graph-relation"
+            or assertion.author_kind != AuthorKind.HUMAN.value
+        ):
+            raise ValueError("Only a human-authored manual graph relation may be corrected here.")
+        if assertion.status != "active":
+            raise ValueError(
+                f"Manual graph relation {assertion_id} is already {assertion.status}."
+            )
+        lifecycle = session.execute(
+            select(AnalyticLifecycleItem).where(
+                AnalyticLifecycleItem.record_kind == "assertion",
+                AnalyticLifecycleItem.record_id == assertion_id,
+            )
+        ).scalar_one_or_none()
+        if lifecycle is None:
+            raise ValueError(f"Manual graph relation {assertion_id} has no lifecycle record.")
+        return assertion, lifecycle
+
+    @staticmethod
+    def _append_manual_relation_history(
+        lifecycle: AnalyticLifecycleItem,
+        *,
+        action: str,
+        reason: str,
+        decided_by: AuthorKind,
+        occurred_at: datetime,
+        replacement_assertion_id: str | None = None,
+    ) -> None:
+        criteria = dict(lifecycle.criteria or {})
+        history = list(criteria.get("relation_history") or [])
+        history.append(
+            {
+                "action": action,
+                "reason": reason,
+                "decided_by": decided_by.value,
+                "occurred_at": occurred_at.isoformat(),
+                "replacement_assertion_id": replacement_assertion_id,
+            }
+        )
+        criteria["relation_history"] = history
+        lifecycle.criteria = criteria
+
     def _link_lifecycle_item(
         self,
         session: Any,
@@ -923,7 +1694,7 @@ class AnalyticLedger:
             author_kind=author_kind.value,
             analyst_disposition=(
                 AnalystDisposition.PENDING.value
-                if author_kind is AuthorKind.MODEL
+                if author_kind in {AuthorKind.MODEL, AuthorKind.EXTERNAL_TOOL}
                 else AnalystDisposition.ACCEPTED.value
             ),
         )
@@ -936,6 +1707,60 @@ def _required(value: str, label: str) -> str:
     if not cleaned:
         raise ValueError(f"{label} must not be empty.")
     return cleaned
+
+
+def _external_assertion_components(criteria: dict[str, Any]) -> dict[str, str | None]:
+    """Map a supported external proposal to typed assertion fields."""
+
+    provider = criteria.get("provider")
+    operation = criteria.get("operation")
+    details = criteria.get("details")
+    if provider not in {"go-roast", "nucleotide"} or not isinstance(details, dict):
+        raise ValueError("External analysis proposal has unsupported materialization data.")
+
+    if provider == "go-roast" and operation == "decode-relationship":
+        source = details.get("source_node")
+        target = details.get("target_node")
+        relationship = details.get("relationship")
+        if not isinstance(source, dict) or not isinstance(target, dict):
+            raise ValueError("go-roast proposal is missing typed relationship nodes.")
+        return {
+            "subject_ref": _required(str(source.get("id") or ""), "go-roast source node"),
+            "predicate": _required(str(relationship or ""), "go-roast relationship"),
+            "object_ref": _required(str(target.get("id") or ""), "go-roast target node"),
+            "object_value": str(target.get("value")) if target.get("value") is not None else None,
+        }
+
+    if provider == "nucleotide" and operation == "url-template-lookup":
+        url = _required(str(details.get("url") or ""), "Nucleotide lookup URL")
+        attribution = _required(
+            str(details.get("attribution") or ""), "Nucleotide lookup attribution"
+        )
+        template_id = details.get("template_id")
+        return {
+            "subject_ref": url,
+            "predicate": "has-nucleotide-template-attribution",
+            "object_ref": None,
+            "object_value": str(template_id) if template_id else attribution,
+        }
+
+    if provider == "nucleotide" and operation == "actor-behavior-fingerprint":
+        batch = _required(
+            str(details.get("analyst_grouped_batch") or ""),
+            "Nucleotide analyst-grouped batch",
+        )
+        fingerprint = _required(
+            str(details.get("fingerprint_sha256") or ""),
+            "Nucleotide fingerprint digest",
+        )
+        return {
+            "subject_ref": batch,
+            "predicate": "has-nucleotide-behavior-fingerprint",
+            "object_ref": None,
+            "object_value": fingerprint,
+        }
+
+    raise ValueError(f"Unsupported external analysis materialization: {provider} {operation}.")
 
 
 def _confidence_factors(factors: dict[str, Any]) -> dict[str, Any]:

@@ -111,6 +111,20 @@ config repair
 
 ![Model selection and capability notes](media/pivotglass-model-catalog-v0.7.0.png)
 
+### Optional Synapse and SCOT4 integration
+
+Pivotglass 0.9 can make explicit, bounded, read-only MCP requests to Vertex
+Synapse and Sandia SCOT4. Its separate SCOT publication workflow requires an
+exact, short-lived human approval and readback reconciliation. Synapse loading
+likewise requires an exact approval, an operator backup receipt, and an
+explicit parent view; it writes only to a new unmerged child view. The required
+persistent Synapse extended model has a separate preview and approval gate
+because model changes affect the whole Cortex rather than one view. Configure
+endpoints and keys outside the command field, then check local state with
+`integration status`. See
+[Vertex Synapse and SCOT4 integrations](EXTERNAL_INTEGRATIONS.md). Remote
+read results are previews until an analyst deliberately imports or cites them.
+
 ## 4. Create a learning workspace
 
 In the Pivotglass command field, enter:
@@ -197,12 +211,29 @@ In **VISUAL ANALYSIS**, choose **Evidence relationships**.
 
 You can search by indicator or type, drag nodes, pan and zoom, select a node to
 highlight its visible neighbors, and choose **OPEN EVIDENCE** to inspect its
-provenance.
+provenance. Double-click a connected node, or use **COLLAPSE DIRECT
+CONNECTIONS**, to hide its immediate branches temporarily. Expand it again or
+choose **SHOW ALL CONNECTIONS** to restore the complete view. Collapsed nodes
+remain present in the accessible inventory and exact-data export.
+
+Use **UNDO VIEW** and **REDO VIEW** for layout changes, or press
+`Command/Control+Z` and `Shift+Command/Control+Z` while focus is in the graph.
+The bounded history covers node movement, pan/zoom, pins, display labels, and
+collapsed connections. It never reverses evidence or analyst judgments.
 
 Edges represent stored or explicitly labeled conservative relationships.
 Moving nodes changes only the layout. If no supported edge exists, Pivotglass
 shows unconnected indicators rather than implying a relationship from visual
 proximity.
+
+Enter a layout name and choose **SAVE VIEW** to keep the arrangement through
+refreshes and restarts. Saved views travel with workspace export and merge.
+Loading a view reports graph changes; it never restores old evidence or edges.
+
+Select two nodes to add an annotated analyst judgment. Use **Review analyst
+relations** to revise or retract one later. Pivotglass keeps the old assertion
+and the stated correction reason in the investigation history; only active
+judgments appear as manual graph edges.
 
 > The graph is useful because it refuses to connect what the evidence does not.
 
@@ -213,6 +244,19 @@ The `graph` command opens the deterministic graph summary:
 ```text
 graph
 ```
+
+Export the combined entity and analytic graph, or one explicit layer:
+
+```text
+graph export gexf all
+graph export json epistemic
+graph export csv bridge
+```
+
+GEXF opens in Gephi. JSON and CSV retain each edge's truth class, provenance,
+rationale, and direction. The older `export stix` remains the standards-based
+entity/evidence exchange; Pivotglass does not disguise analytic notebook
+records as observed STIX objects.
 
 ## 8. Report and export
 
@@ -237,6 +281,37 @@ export gexf
 Use STIX for structured exchange and GEXF for tools such as Gephi. Every Visual
 Analysis view also offers **EXPORT EXACT DATA**, which downloads the rows or
 nodes and edges used for that view.
+
+In **Visual Analysis**, use the force-directed graph to inspect evidence-backed
+relationships. Use **Indicator coverage similarity** to compare which
+investigations have similar Dossier coverage. The latter is a PCA projection,
+not a relationship or attribution graph; open its exact-data table to see the
+included dimensions and explained variance.
+
+Hold Shift, Command, or Control while selecting graph nodes to assemble a
+temporary working set. You can pin or unpin the selected group without changing
+evidence. Saved views keep layout, labels, filter, viewport, and pins, but never
+the temporary selection.
+
+When exactly two nodes are selected, you may add an annotated directional
+relation. The result is visibly marked as an analyst judgment and does not
+become observed evidence. Use it to preserve a working hypothesis about a
+connection, not to replace collection or corroboration.
+
+After recording competing hypotheses and linking evidence with `analysis`,
+open **Competing hypotheses matrix** to compare the same evidence across every
+explanation. A **not assessed** cell is a visible gap, not neutral evidence;
+use the exact-data table to review the recorded rationale.
+
+Open **Investigation hierarchy** to see how the notebook divides into
+questions, hypotheses, signposts, collection requirements, and other workflow
+items. Expand or collapse branches with the keyboard or pointer. The hierarchy
+shows membership only—not evidence support or causality.
+
+Open **Likelihood and confidence** after recording an `analysis likelihood`
+assessment. The bar shows the probability interval associated with the chosen
+likelihood term. Confidence remains a separate labeled judgment with its own
+rationale; it is not another position on the probability scale.
 
 Before sharing any export, remember that it can contain raw indicators and
 source-derived information.

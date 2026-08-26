@@ -9,7 +9,8 @@ export type VisualizationView =
   | "scatter"
   | "task_matrix"
   | "line"
-  | "bar";
+  | "bar"
+  | "uncertainty_intervals";
 
 export type VisualizationRow = Record<string, unknown>;
 
@@ -25,6 +26,8 @@ export type VisualizationEdge = {
   relationship: string;
   basis: "explicit" | "property" | "manual";
   provenance: string;
+  assertion_id?: string | null;
+  annotation?: string | null;
 };
 
 export type VisualizationIntent = {
@@ -67,6 +70,67 @@ export type VisualizationTheme = {
   text_color: string;
   dim_color: string;
 };
+
+export type GraphPresentationSnapshot = {
+  positions: Record<string, { x: number; y: number }>;
+  viewport: { x: number; y: number; scale: number };
+  labels: Record<string, string>;
+  pinned_refs: string[];
+  collapsed_refs: string[];
+};
+
+export function graphPresentationSnapshotsEqual(
+  left: GraphPresentationSnapshot,
+  right: GraphPresentationSnapshot,
+): boolean {
+  const normalized = (snapshot: GraphPresentationSnapshot) => ({
+    positions: Object.fromEntries(Object.entries(snapshot.positions).sort(([a], [b]) => a.localeCompare(b))),
+    viewport: snapshot.viewport,
+    labels: Object.fromEntries(Object.entries(snapshot.labels).sort(([a], [b]) => a.localeCompare(b))),
+    pinned_refs: [...snapshot.pinned_refs].sort(),
+    collapsed_refs: [...snapshot.collapsed_refs].sort(),
+  });
+  return JSON.stringify(normalized(left)) === JSON.stringify(normalized(right));
+}
+
+export function appendGraphPresentationHistory(
+  history: readonly GraphPresentationSnapshot[],
+  snapshot: GraphPresentationSnapshot,
+  limit = 50,
+): GraphPresentationSnapshot[] {
+  if (!Number.isInteger(limit) || limit < 1) throw new Error("Graph history limit must be positive");
+  if (history.length && graphPresentationSnapshotsEqual(history.at(-1)!, snapshot)) {
+    return [...history];
+  }
+  return [...history, snapshot].slice(-limit);
+}
+
+export function updateGraphSelection(
+  current: readonly string[],
+  reference: string,
+  additive: boolean,
+): string[] {
+  if (!additive) return [reference];
+  if (current.includes(reference)) {
+    return current.filter((candidate) => candidate !== reference);
+  }
+  return [...current, reference];
+}
+
+export function hiddenGraphReferences(
+  edges: readonly VisualizationEdge[],
+  collapsedRoots: ReadonlySet<string>,
+  protectedReferences: ReadonlySet<string> = new Set(),
+): Set<string> {
+  const hidden = new Set<string>();
+  for (const edge of edges) {
+    if (collapsedRoots.has(edge.source)) hidden.add(edge.target);
+    if (collapsedRoots.has(edge.target)) hidden.add(edge.source);
+  }
+  for (const reference of collapsedRoots) hidden.delete(reference);
+  for (const reference of protectedReferences) hidden.delete(reference);
+  return hidden;
+}
 
 const FLINT_CHART_TYPES: Partial<Record<VisualizationView, string>> = {
   bar: "Bar Chart",

@@ -1,18 +1,25 @@
 """Tests for the loopback Pivotglass API adapter."""
 
 import json
+import threading
 import time
+from datetime import UTC, datetime
+from http.client import HTTPConnection
+from http.server import ThreadingHTTPServer
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from adversary_pursuit.agent.tools import ToolContext
+from adversary_pursuit.core.analytic_ledger import AnalyticLedger
 from adversary_pursuit.core.investigation import (
     ContentClass,
     EventClass,
     LifecycleState,
 )
-from adversary_pursuit.web.server import WebCockpitService, _tool_failure
+from adversary_pursuit.integrations.scot_pivot_intake import ScotPivotAuthenticationReceipt
+from adversary_pursuit.integrations.scot_publication import validate_scot_pivot_request
+from adversary_pursuit.web.server import WebCockpitService, _handler, _tool_failure
 
 
 def _service(tmp_path) -> WebCockpitService:
@@ -21,6 +28,128 @@ def _service(tmp_path) -> WebCockpitService:
         workspace_dir=tmp_path / "workspaces",
     )
     return WebCockpitService(ctx)
+
+
+def _post_json(
+    server: ThreadingHTTPServer,
+    path: str,
+    payload: dict,
+    *,
+    content_type: str = "application/json",
+    origin: str | None = None,
+    sec_fetch_site: str | None = None,
+) -> tuple[int, dict]:
+    body = json.dumps(payload).encode()
+    headers = {"Content-Type": content_type, "Content-Length": str(len(body))}
+    if origin is not None:
+        headers["Origin"] = origin
+    if sec_fetch_site is not None:
+        headers["Sec-Fetch-Site"] = sec_fetch_site
+    connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+    try:
+        connection.request("POST", path, body, headers)
+        response = connection.getresponse()
+        return response.status, json.loads(response.read())
+    finally:
+        connection.close()
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "integration synapse model-deploy-execute plan backup analyst | APPROVE",
+        "integration synapse shadow-execute parent plan backup analyst | APPROVE",
+        "integration scot publish-execute owner plan analyst | APPROVE",
+    ],
+)
+def test_browser_command_endpoint_rejects_cross_site_remote_mutations(tmp_path, command):
+    service = _service(tmp_path)
+    service.execute_command = MagicMock(return_value={"ok": True})
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(service, tmp_path))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    payload = {"command": command, "workspace": "default"}
+
+    try:
+        status, error = _post_json(
+            server,
+            "/api/command",
+            payload,
+            content_type="text/plain",
+            origin="https://attacker.example",
+        )
+        assert status == 415
+        assert error == {"error": "same-origin application/json required"}
+
+        status, error = _post_json(
+            server,
+            "/api/command",
+            payload,
+            origin="https://attacker.example",
+        )
+        assert status == 403
+        assert error == {"error": "same-origin application/json required"}
+
+        status, error = _post_json(
+            server,
+            "/api/command",
+            payload,
+            sec_fetch_site="cross-site",
+        )
+        assert status == 403
+        assert error == {"error": "same-origin application/json required"}
+        service.execute_command.assert_not_called()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_browser_command_endpoint_preserves_same_origin_and_native_json_clients(tmp_path):
+    service = _service(tmp_path)
+    service.execute_command = MagicMock(return_value={"ok": True})
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(service, tmp_path))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    payload = {"command": "model show", "workspace": "default"}
+
+    try:
+        status, result = _post_json(
+            server,
+            "/api/command",
+            payload,
+            origin=f"http://127.0.0.1:{server.server_port}",
+        )
+        assert status == 202
+        assert result == {"ok": True}
+
+        status, result = _post_json(server, "/api/command", payload)
+        assert status == 202
+        assert result == {"ok": True}
+        assert service.execute_command.call_count == 2
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_graph_annotation_service_requires_current_node_and_preserves_truth_class(tmp_path):
+    service = _service(tmp_path)
+    service.ctx.workspace_mgr.store_stix_objects(
+        [{"type": "ipv4-addr", "value": "198.51.100.77"}],
+        module_name="test/graph-annotation",
+        target="198.51.100.77",
+    )
+    node_ref = next(iter(service._graph_presentation_scope()[0]))
+
+    result = service.annotate_graph(
+        {"node_ref": node_ref, "text": "Compare this address with prior incidents."}
+    )
+
+    assert result["saved"] is True
+    assert result["annotation"]["node_ref"] == node_ref
+    assert result["annotation"]["evidence"] is False
+    assert service.graph_annotations(node_ref)["annotations"] == [result["annotation"]]
 
 
 def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
@@ -37,6 +166,10 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
         "how_complete_is_this_dossier",
         "how_complete_are_indicator_investigations",
         "how_are_values_distributed",
+        "are_numeric_features_correlated",
+        "how_does_this_hierarchy_divide",
+        "what_likelihood_and_confidence_are_recorded",
+        "which_evidence_supports_or_contradicts_hypotheses",
         "which_evidence_types_are_stored",
         "which_entities_relate",
         "which_indicator_enrichment_work_is_pending",
@@ -238,6 +371,91 @@ def test_async_investigation_streams_lifecycle_events(tmp_path):
     assert observed[-1]["reason"] == "no new artifacts stored"
 
 
+def test_scot_pivot_enqueue_uses_shared_enrichment_lifecycle(tmp_path):
+    service = _service(tmp_path)
+    command = (
+        "integration scot pivot-enqueue event 42 198.51.100.42 | "
+        "scot-analyst@example.test | Follow the event relationship. | local-analyst"
+    )
+    with patch("adversary_pursuit.web.server.dispatch_batteries", return_value=[]):
+        result = service.execute_command(command)
+
+    assert result["data"]["created"] is True
+    assert result["data"]["start_enrichment"] is False
+    assert result["data"]["investigation"]["target"] == "198.51.100.42"
+    request_id = result["data"]["request"]["request_id"]
+    queue_item = next(
+        item
+        for item in AnalyticLedger(service.ctx.workspace_mgr).enrichment_requests()
+        if item["record_id"] == request_id
+    )
+    for _ in range(100):
+        if queue_item["criteria"]["queue_state"] == "empty":
+            break
+        time.sleep(0.01)
+        queue_item = next(
+            item
+            for item in AnalyticLedger(service.ctx.workspace_mgr).enrichment_requests()
+            if item["record_id"] == request_id
+        )
+
+    assert queue_item["criteria"]["queue_state"] == "empty"
+    assert [event["state"] for event in queue_item["criteria"]["history"]] == [
+        "queued",
+        "running",
+        "empty",
+    ]
+    assert queue_item["evidence_refs"] == [{"kind": "scot-object", "ref": "event:42"}]
+    listed = service.execute_command("integration scot pivot-queue")["data"]
+    assert [item["record_id"] for item in listed] == [request_id]
+    assert service.state()["analysis"]["enrichment_queue"][0]["record_id"] == request_id
+    assert service.execute_command(command)["data"]["created"] is False
+
+
+def test_authenticated_scot_inbox_acceptance_starts_shared_lifecycle_once(tmp_path):
+    service = _service(tmp_path)
+    now = datetime(2026, 8, 25, 12, 0, tzinfo=UTC)
+    request = validate_scot_pivot_request(
+        workspace="default",
+        scot_object_type="event",
+        scot_object_id=42,
+        scot_revision="7",
+        indicator="198.51.100.42",
+        requested_by="scot-analyst@example.test",
+        requested_at=now,
+        reason="Follow the event relationship.",
+    )
+    received = service.receive_scot_pivot_request(
+        request.model_dump(mode="json"),
+        ScotPivotAuthenticationReceipt(
+            key_id="scot4-primary",
+            signed_at=now,
+            authenticated_at=now,
+            body_sha256="a" * 64,
+            nonce_sha256="b" * 64,
+            maximum_clock_skew_seconds=300,
+        ),
+    )
+    command = (
+        f"integration scot pivot-accept {received['request']['request_id']} | "
+        "local-analyst | In scope for this hunt."
+    )
+
+    with patch("adversary_pursuit.web.server.dispatch_batteries", return_value=[]):
+        accepted = service.execute_command(command)
+        repeated = service.execute_command(command)
+
+    assert received["created"] is True
+    assert received["enqueued"] is False
+    assert accepted["data"]["created"] is True
+    assert accepted["data"]["start_enrichment"] is False
+    assert accepted["data"]["investigation"]["target"] == "198.51.100.42"
+    assert repeated["data"]["created"] is False
+    assert repeated["data"]["start_enrichment"] is False
+    assert "investigation" not in repeated["data"]
+    assert len(AnalyticLedger(service.ctx.workspace_mgr).enrichment_requests()) == 1
+
+
 def test_state_labels_instrument_authorities_truthfully(tmp_path):
     instruments = _service(tmp_path).state()["instruments"]
 
@@ -385,7 +603,6 @@ def test_web_command_router_accepts_iocs_commands_and_workspace_queries(tmp_path
     assert any(item["command"].startswith("framework show") for item in help_result["commands"])
     assert any(item["command"].startswith("framework require") for item in help_result["commands"])
     assert any(item["command"] == "framework gaps" for item in help_result["commands"])
-    assert any(item["command"].startswith("graph layout") for item in help_result["commands"])
 
 
 def test_web_command_router_saves_linkable_notes_and_exports_csv(tmp_path):
@@ -461,37 +678,6 @@ def test_web_exposes_two_layer_graph_only_on_explicit_command(tmp_path):
     assert result["data"]["schema_version"] == "investigation-graph-1.0"
     assert result["data"]["counts"]["nodes"] == {"entity": 1, "epistemic": 1}
     assert all(edge["provenance_refs"] for edge in result["data"]["edges"])
-
-
-def test_web_graph_layout_api_reuses_presentation_authority(tmp_path):
-    service = _service(tmp_path)
-    service.ctx.workspace_mgr.store_stix_objects(
-        [{"type": "domain-name", "value": "saved-layout.test"}],
-        module_name="osint/test",
-        target="saved-layout.test",
-    )
-    reference = service.ctx.workspace_mgr.get_stix_objects()[0]["id"]
-
-    saved = service.save_graph_layout(
-        {
-            "name": "Analyst view",
-            "positions": {reference: {"x": 220, "y": 140}},
-            "pinned_refs": [reference],
-            "filters": {"query": "saved"},
-            "viewport": {"x": 4, "y": 8, "scale": 1.2},
-        }
-    )
-
-    assert saved["saved"] is True
-    assert saved["layout"]["name"] == "Analyst view"
-    assert service.graph_layouts()["layouts"] == [saved["layout"]]
-    command = service.execute_command("graph layout show Analyst view")
-    assert command["data"]["layout"]["positions"][reference] == {"x": 220.0, "y": 140.0}
-    annotation = service.annotate_graph(
-        {"node_id": reference, "text": "Review this infrastructure pivot."}
-    )
-    assert annotation["annotation"]["record_ref"] == reference
-    assert service.graph_annotations(reference)["annotations"] == [annotation["annotation"]]
 
 
 def test_workspace_commands_create_export_merge_and_confirm_delete(tmp_path):

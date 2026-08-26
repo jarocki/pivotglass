@@ -4,9 +4,73 @@ import test from "node:test";
 import {
   compileFlintChartjs,
   exactDataExport,
+  appendGraphPresentationHistory,
+  graphPresentationSnapshotsEqual,
+  hiddenGraphReferences,
+  updateGraphSelection,
   validateVisualizationIntent,
   type VisualizationIntent,
+  type GraphPresentationSnapshot,
 } from "../app/visualization-intent.ts";
+
+test("graph selection is local, deterministic, and supports additive toggles", () => {
+  assert.deepEqual(updateGraphSelection([], "node-a", false), ["node-a"]);
+  assert.deepEqual(updateGraphSelection(["node-a"], "node-b", false), ["node-b"]);
+  assert.deepEqual(updateGraphSelection(["node-a"], "node-b", true), ["node-a", "node-b"]);
+  assert.deepEqual(updateGraphSelection(["node-a", "node-b"], "node-a", true), ["node-b"]);
+});
+
+test("collapsed graph branches hide only direct unprotected connections", () => {
+  const edges = [
+    { source: "root", target: "left", relationship: "resolves-to", basis: "explicit", provenance: "test" },
+    { source: "right", target: "root", relationship: "contains", basis: "property", provenance: "test" },
+    { source: "left", target: "leaf", relationship: "related-to", basis: "manual", provenance: "test" },
+  ] satisfies VisualizationIntent["data"]["edges"];
+
+  assert.deepEqual(
+    [...hiddenGraphReferences(edges, new Set(["root"]))].sort(),
+    ["left", "right"],
+  );
+  assert.deepEqual(
+    [...hiddenGraphReferences(edges, new Set(["root"]), new Set(["right"]))],
+    ["left"],
+  );
+  assert.deepEqual(
+    [...hiddenGraphReferences(edges, new Set(["root", "left"]))].sort(),
+    ["leaf", "right"],
+  );
+});
+
+test("graph presentation history is bounded and ignores set ordering", () => {
+  const snapshot = (x: number, pins: string[]): GraphPresentationSnapshot => ({
+    positions: { node: { x, y: 2 } },
+    viewport: { x: 0, y: 0, scale: 1 },
+    labels: { node: "Visible label" },
+    pinned_refs: pins,
+    collapsed_refs: ["root-b", "root-a"],
+  });
+
+  assert.equal(
+    graphPresentationSnapshotsEqual(
+      snapshot(1, ["node-b", "node-a"]),
+      { ...snapshot(1, ["node-a", "node-b"]), collapsed_refs: ["root-a", "root-b"] },
+    ),
+    true,
+  );
+  assert.equal(graphPresentationSnapshotsEqual(snapshot(1, []), snapshot(3, [])), false);
+  assert.deepEqual(
+    appendGraphPresentationHistory([snapshot(1, []), snapshot(2, [])], snapshot(3, []), 2)
+      .map((item) => item.positions.node.x),
+    [2, 3],
+  );
+  assert.deepEqual(
+    appendGraphPresentationHistory([snapshot(1, [])], snapshot(1, [])).map(
+      (item) => item.positions.node.x,
+    ),
+    [1],
+  );
+  assert.throws(() => appendGraphPresentationHistory([], snapshot(1, []), 0), /must be positive/);
+});
 
 function histogramIntent(): VisualizationIntent {
   return {

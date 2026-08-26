@@ -26,7 +26,6 @@ from adversary_pursuit.core.analytic_ledger import (
     Materiality,
 )
 from adversary_pursuit.core.command_completion import command_completions
-from adversary_pursuit.core.investigation_graph import GraphPresentationAuthority
 from adversary_pursuit.core.structured_analysis import (
     StructuredAnalysisWorkbench,
     StructuredTechnique,
@@ -66,12 +65,27 @@ def test_fresh_workspace_is_stamped_at_current_schema(tmp_path):
         "analytic_confidence_assessments",
         "likelihood_assessments",
         "analytic_contradictions",
-        "graph_presentation_layouts",
+        "integration_executions",
     }.issubset(tables)
     status = manager.get_workspace_schema_status()
     assert status["valid"] is True
     assert status["requires_migration"] is False
     assert status["sqlite_integrity"] == "ok"
+
+
+def test_schema_v5_migrates_integration_execution_receipts_with_backup(tmp_path):
+    manager = _workspace(tmp_path)
+    manager._engine.dispose()
+    with sqlite3.connect(tmp_path / "case.db") as connection:
+        connection.execute("DROP TABLE integration_executions")
+        connection.execute("UPDATE workspace_schema_version SET version = 5 WHERE id = 1")
+        connection.commit()
+
+    migrated = WorkspaceManager(tmp_path)
+    migrated.switch("case")
+    assert (tmp_path / "case.db.pre-v5-backup").is_file()
+    assert get_workspace_schema_version(migrated._engine) == CURRENT_WORKSPACE_SCHEMA_VERSION
+    assert "integration_executions" in inspect(migrated._engine).get_table_names()
 
 
 def test_legacy_workspace_migrates_with_backup_and_observation_backfill(tmp_path):
@@ -357,6 +371,143 @@ def test_analysis_command_is_shared_with_local_repl_and_completion(tmp_path):
     assert snapshot["hypotheses"][0]["status"] == "retained"
 
 
+def test_manual_graph_relation_requires_known_entities_and_annotation(tmp_path):
+    manager = _workspace(tmp_path)
+    manager.store_stix_objects(
+        [
+            {"type": "domain-name", "value": "relation.test"},
+            {"type": "ipv4-addr", "value": "198.51.100.77"},
+        ],
+        module_name="test/source",
+        target="relation.test",
+    )
+    objects = {item["type"]: item for item in manager.get_stix_objects()}
+    domain = objects["domain-name"]
+    address = objects["ipv4-addr"]
+
+    result = execute_analysis_command(
+        (
+            "relation",
+            domain["id"],
+            "possibly-resolves-to",
+            address["id"],
+            "|",
+            "Analyst annotated this after reviewing passive DNS.",
+        ),
+        manager,
+    )["data"]
+
+    assertion = AnalyticLedger(manager).snapshot()["assertions"][0]
+    assert result["truth_kind"] == "analyst_assertion"
+    assert assertion["subject_ref"] == domain["id"]
+    assert assertion["predicate"] == "possibly-resolves-to"
+    assert assertion["object_ref"] == address["id"]
+    assert assertion["method"] == "manual-graph-relation"
+    assert "analysis relation " in command_completions("analysis rel")
+    with pytest.raises(ValueError, match="unknown entities"):
+        execute_analysis_command(
+            (
+                "relation",
+                domain["id"],
+                "related-to",
+                "domain-name--missing",
+                "|",
+                "This reference must fail.",
+            ),
+            manager,
+        )
+
+
+def test_manual_graph_relation_revision_and_retraction_preserve_history(tmp_path):
+    manager = _workspace(tmp_path)
+    manager.store_stix_objects(
+        [
+            {"type": "domain-name", "value": "history.test"},
+            {"type": "ipv4-addr", "value": "198.51.100.88"},
+        ],
+        module_name="test/source",
+        target="history.test",
+    )
+    objects = {item["type"]: item for item in manager.get_stix_objects()}
+    domain = objects["domain-name"]
+    address = objects["ipv4-addr"]
+    original_id = execute_analysis_command(
+        (
+            "relation",
+            domain["id"],
+            "possibly-resolves-to",
+            address["id"],
+            "|",
+            "Initial analyst judgment.",
+        ),
+        manager,
+    )["data"]["assertion_id"]
+
+    revised = execute_analysis_command(
+        (
+            "relation-revise",
+            original_id,
+            domain["id"],
+            "historically-resolved-to",
+            address["id"],
+            "|",
+            "Revised after checking the observation time window.",
+        ),
+        manager,
+    )["data"]
+    replacement_id = revised["replacement_assertion_id"]
+    snapshot = AnalyticLedger(manager).snapshot()
+    assertions = {row["id"]: row for row in snapshot["assertions"]}
+    lifecycle = {
+        row["record_id"]: row
+        for row in snapshot["lifecycle_items"]
+        if row["record_kind"] == "assertion"
+    }
+    assert revised["truth_kind"] == "analyst_assertion_correction"
+    assert assertions[original_id]["status"] == "superseded"
+    assert assertions[replacement_id]["status"] == "active"
+    assert lifecycle[original_id]["criteria"]["relation_history"] == [
+        {
+            "action": "superseded",
+            "reason": "Revised after checking the observation time window.",
+            "decided_by": "human",
+            "occurred_at": lifecycle[original_id]["criteria"]["relation_history"][0][
+                "occurred_at"
+            ],
+            "replacement_assertion_id": replacement_id,
+        }
+    ]
+    assert lifecycle[replacement_id]["criteria"]["supersedes_assertion_id"] == original_id
+
+    retracted = execute_analysis_command(
+        (
+            "relation-retract",
+            replacement_id,
+            "|",
+            "The historical record was not independently corroborated.",
+        ),
+        manager,
+    )["data"]
+    snapshot = AnalyticLedger(manager).snapshot()
+    assertions = {row["id"]: row for row in snapshot["assertions"]}
+    lifecycle = {
+        row["record_id"]: row
+        for row in snapshot["lifecycle_items"]
+        if row["record_kind"] == "assertion"
+    }
+    assert retracted["status"] == "retracted"
+    assert assertions[replacement_id]["status"] == "retracted"
+    assert lifecycle[replacement_id]["criteria"]["relation_history"][0]["action"] == "retracted"
+    assert lifecycle[replacement_id]["analyst_disposition"] == "revised"
+    assert "analysis relation-retract " in command_completions("analysis relation-r")
+    assert "analysis relation-revise " in command_completions("analysis relation-r")
+    with pytest.raises(ValueError, match="already retracted"):
+        execute_analysis_command(
+            ("relation-retract", replacement_id, "|", "Cannot erase the audit trail."),
+            manager,
+        )
+
+
 def test_analysis_commands_cover_lifecycle_contradictions_and_sat_runs(tmp_path):
     manager = _workspace(tmp_path)
     question_id = execute_analysis_command(
@@ -454,21 +605,15 @@ def test_portable_export_and_merge_preserve_complete_analytic_record(tmp_path):
         module_name="osint/source",
         target="source.example",
     )
-    source_ref = manager.get_stix_objects()[0]["id"]
-    GraphPresentationAuthority(manager).save(
-        "Source view",
-        {"positions": {source_ref: {"x": 40, "y": 50}}, "pinned_refs": [source_ref]},
-    )
 
     payload = export_workspace(manager, "source")
-    assert payload["format"] == "pivotglass-workspace-v6"
+    assert payload["format"] == "pivotglass-workspace-v8"
     assert payload["schema_version"] == CURRENT_WORKSPACE_SCHEMA_VERSION
     assert payload["tables"]["investigation_questions"][0]["id"] == question_id
     assert payload["tables"]["analytic_investigations"][0]["primary_question_id"] == (question_id)
     assert payload["tables"]["evidence_observations"][0]["observed_blob"]["value"] == (
         "source.example"
     )
-    assert payload["tables"]["graph_presentation_layouts"][0]["name"] == "Source view"
 
     manager.switch("destination")
     manager.store_stix_objects(
@@ -481,7 +626,6 @@ def test_portable_export_and_merge_preserve_complete_analytic_record(tmp_path):
     assert counts["analytic_investigations"] == 1
     assert counts["analytic_lifecycle_items"] == 2
     assert counts["evidence_observations"] == 1
-    assert counts["graph_presentation_layouts"] == 1
 
     manager.switch("destination")
     merged = AnalyticLedger(manager).snapshot()

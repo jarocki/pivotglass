@@ -458,6 +458,25 @@ pre{font-size:12px;line-height:1.5}
 .rgb-led .rgb-led-blue{background:rgb(0 0 var(--led-b));box-shadow:0 0 5px rgb(0 0 var(--led-b))}
 .matrix-cell.state-running .rgb-led,.matrix-cell.state-queued .rgb-led{animation:led-pulse 1.4s steps(3,end) infinite}
 .matrix-cell.state-failed .rgb-led,.matrix-cell.state-cancelled .rgb-led{box-shadow:inset 0 0 7px #000,0 0 12px var(--led-color)}
+.hierarchy-visualization{overflow:auto;max-height:420px;padding:10px;border:1px solid color-mix(in srgb,var(--line) 40%,transparent);background:color-mix(in srgb,var(--surface) 86%,transparent)}
+.hierarchy-visualization ul{list-style:none;margin:0;padding-left:22px;border-left:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
+.hierarchy-visualization>ul{padding-left:0;border-left:0}
+.hierarchy-visualization li{position:relative;margin:5px 0}
+.hierarchy-visualization li li::before{content:"";position:absolute;left:-22px;top:15px;width:17px;border-top:1px solid color-mix(in srgb,var(--accent) 45%,transparent)}
+.hierarchy-visualization summary,.hierarchy-leaf{display:flex;gap:10px;align-items:baseline;min-width:260px;padding:6px 8px;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);background:var(--control);cursor:pointer}
+.hierarchy-leaf{cursor:default}
+.hierarchy-visualization summary:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.hierarchy-visualization b{color:var(--ink);font-size:11px}
+.hierarchy-visualization span{color:var(--dim);font-size:9px;text-transform:uppercase}
+.uncertainty-intervals{display:grid;gap:10px;padding:10px;border:1px solid color-mix(in srgb,var(--line) 40%,transparent);background:var(--surface)}
+.uncertainty-axis{display:grid;grid-template-columns:repeat(5,1fr);color:var(--dim);font-size:8px}.uncertainty-axis span:last-child{text-align:right}
+.uncertainty-intervals article{display:grid;gap:6px;padding:9px;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);background:var(--control)}
+.uncertainty-intervals header{display:flex;justify-content:space-between;gap:12px}.uncertainty-intervals header b{color:var(--ink);font-size:10px}.uncertainty-intervals header span,.uncertainty-intervals footer span{color:var(--heading);font-size:8px;text-transform:uppercase}
+.uncertainty-track{position:relative;height:28px;margin:2px 12px;background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--line) 22%,transparent) 0 1px,transparent 1px 25%);border-bottom:1px solid var(--line)}
+.uncertainty-track i{position:absolute;top:8px;height:10px;min-width:2px;background:linear-gradient(90deg,var(--accent),var(--heading));box-shadow:0 0 8px color-mix(in srgb,var(--accent) 40%,transparent)}
+.uncertainty-track span{position:absolute;top:19px;translate:-50% 0;color:var(--dim);font-size:7px}
+.uncertainty-intervals footer{display:grid;grid-template-columns:minmax(110px,.25fr) minmax(0,1fr);gap:3px 10px}.uncertainty-intervals footer p{margin:0;color:var(--dim);font-size:8px;line-height:1.4}
+@media(max-width:600px){.uncertainty-intervals header{display:grid}.uncertainty-intervals footer{grid-template-columns:1fr}.uncertainty-track{margin-inline:16px}}
 @keyframes led-pulse{50%{filter:brightness(1.45)}}
 .lite-brite-legend{display:flex;align-items:center;gap:12px;width:max-content;max-width:100%;padding:5px 9px;border:2px solid #020304;border-radius:14px;background:#071014;box-shadow:inset 0 0 12px #000;overflow:auto}
 .lite-brite-legend>span{display:flex;align-items:center;gap:2px;color:#a8b7be;text-transform:uppercase;white-space:nowrap}
@@ -509,24 +528,57 @@ pre{font-size:12px;line-height:1.5}
 .visualization-selection b{overflow:hidden;text-overflow:ellipsis;color:var(--heading)}
 .visualization-selection small{grid-column:1/-1;color:var(--dim)}
 .relationship-visualization{display:grid;gap:6px;min-width:0}
-.graph-layout-controls{display:grid;grid-template-columns:minmax(150px,1fr) auto minmax(170px,1fr) auto auto;align-items:end;gap:6px;padding:8px;border:1px solid color-mix(in srgb,var(--line) 32%,transparent);background:color-mix(in srgb,var(--control) 82%,transparent)}
-.graph-layout-controls label{display:grid;gap:3px;min-width:0;color:var(--dim)}
-.graph-layout-controls input,.graph-layout-controls select,.graph-annotation textarea{min-width:0;padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
-.graph-layout-controls button{padding:7px 9px;border:1px solid var(--line);background:var(--control);color:var(--heading);cursor:pointer}
-.graph-layout-controls button:disabled{cursor:not-allowed;opacity:.45}
-.graph-layout-controls output{grid-column:1/-1;min-height:1.3em;color:var(--dim)}
 .relationship-controls{display:flex;flex-wrap:wrap;align-items:end;gap:8px}
 .relationship-controls label{display:grid;gap:3px;min-width:min(280px,100%)}
 .relationship-controls label span,.relationship-controls>span{color:var(--dim)}
 .relationship-controls input{min-width:0;padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
 .relationship-controls button,.visualization-selection button{padding:6px 8px;border:1px solid var(--line);background:var(--control);color:var(--heading);cursor:pointer}
+.graph-multiselect{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:8px;border:1px solid color-mix(in srgb,var(--focus-ring) 55%,transparent);background:color-mix(in srgb,var(--focus-ring) 8%,var(--control))}
+.graph-multiselect b{color:var(--heading);letter-spacing:.08em}
+.graph-multiselect span{flex:1 1 360px;color:var(--dim)}
+.graph-multiselect button{padding:6px 8px;border:1px solid var(--line);background:var(--control);color:var(--heading);cursor:pointer}
+.manual-graph-relation{display:grid;grid-template-columns:auto minmax(150px,.7fr) minmax(240px,1.4fr) auto;align-items:end;gap:8px;padding:9px;border:1px solid color-mix(in srgb,var(--focus-ring) 48%,transparent);background:var(--control)}
+.manual-graph-relation>b,.manual-graph-relation>span,.manual-graph-relation>small{grid-column:1/-1}
+.manual-graph-relation>b{color:var(--heading);letter-spacing:.08em}
+.manual-graph-relation>span,.manual-graph-relation small,.manual-graph-relation label span{color:var(--dim)}
+.manual-graph-relation label{display:grid;gap:3px;min-width:0}
+.manual-graph-relation input{min-width:0;padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--surface);color:var(--ink)}
+.manual-graph-relation button{padding:7px 9px;border:1px solid var(--line);background:var(--surface);color:var(--heading);cursor:pointer}
+.manual-graph-relation button:disabled{cursor:not-allowed;opacity:.48}
+.manual-relation-review{border:1px solid color-mix(in srgb,var(--line) 60%,transparent);background:color-mix(in srgb,var(--control) 86%,transparent)}
+.manual-relation-review>summary{padding:8px 10px;color:var(--heading);cursor:pointer;letter-spacing:.07em}
+.manual-relation-list{display:grid;gap:7px;padding:0 8px 8px}
+.manual-relation-list article{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:8px;border:1px solid color-mix(in srgb,var(--line) 42%,transparent);background:var(--surface)}
+.manual-relation-list b,.manual-relation-list span,.manual-relation-list small{min-width:0;overflow-wrap:anywhere}
+.manual-relation-list b{color:var(--heading)}
+.manual-relation-list span,.manual-relation-list small{grid-column:1;color:var(--dim)}
+.manual-relation-list article>div{grid-column:2;grid-row:1/4;display:flex;align-items:center;gap:5px}
+.manual-relation-list button{padding:6px 8px;border:1px solid var(--line);background:var(--control);color:var(--heading);cursor:pointer}
+@media (max-width:650px){.manual-graph-relation{grid-template-columns:1fr}.manual-graph-relation>b,.manual-graph-relation>span,.manual-graph-relation>small{grid-column:1}}
+@media (max-width:650px){.manual-relation-list article{grid-template-columns:1fr}.manual-relation-list article>div{grid-column:1;grid-row:auto}}
+.graph-layout-controls{display:flex;flex-wrap:wrap;align-items:end;gap:8px;padding:8px;border:1px solid color-mix(in srgb,var(--line) 34%,transparent);background:color-mix(in srgb,var(--panel) 78%,transparent)}
+.graph-layout-controls label{display:grid;gap:3px;min-width:160px}
+.graph-layout-controls label span{color:var(--dim);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+.graph-layout-controls input,.graph-layout-controls select{min-width:0;padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
+.graph-layout-controls button{padding:7px 9px;border:1px solid var(--line);background:var(--control);color:var(--heading);cursor:pointer}
+.graph-layout-controls button:disabled{cursor:not-allowed;opacity:.48}
+.graph-layout-controls small{flex-basis:100%;color:var(--dim)}
+.graph-display-label{display:grid;gap:3px;min-width:min(360px,100%)}
+.graph-display-label span{color:var(--dim);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+.graph-display-label input{padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
+.graph-node-annotation{display:grid;gap:3px;min-width:min(420px,100%)}
+.graph-node-annotation span{color:var(--dim);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+.graph-node-annotation textarea{min-height:72px;padding:7px 9px;resize:vertical;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
 .graph-zoom-controls{display:inline-flex;gap:4px}
 .graph-zoom-controls button{min-width:32px}
+.graph-history-controls{display:inline-flex;gap:4px}
+.graph-history-controls button:disabled{cursor:not-allowed;opacity:.45}
 .relationship-visualization svg{width:100%;max-height:430px;border:1px solid color-mix(in srgb,var(--line) 28%,transparent);background:radial-gradient(circle at center,color-mix(in srgb,var(--accent) 8%,transparent),transparent 70%);cursor:grab;touch-action:none;user-select:none}
 .relationship-visualization svg:active{cursor:grabbing}
 .relationship-edges{color:var(--line)}
 .relationship-edges line{stroke:currentColor;stroke-width:1.5}
 .relationship-edges line.basis-property{stroke-dasharray:5 4;opacity:.75}
+.relationship-edges line.basis-manual{stroke:var(--focus-ring);stroke-dasharray:2 3;stroke-width:2.5}
 .relationship-edges marker path{fill:currentColor}
 .relationship-edges text{fill:var(--dim);font-size:8px;paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}
 .relationship-nodes>g{cursor:grab;outline:none}
@@ -534,7 +586,8 @@ pre{font-size:12px;line-height:1.5}
 .relationship-nodes circle{fill:var(--elevated);stroke:var(--line);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .relationship-nodes>g.selected circle,.relationship-nodes>g:focus-visible circle{stroke:var(--focus-ring);stroke-width:4}
 .relationship-nodes>g.neighbor circle{stroke:var(--heading);stroke-width:2.5}
-.relationship-nodes>g.pinned circle{stroke-dasharray:3 2;filter:drop-shadow(0 0 4px color-mix(in srgb,var(--accent) 64%,transparent))}
+.relationship-nodes>g.pinned circle{stroke-dasharray:3 2;stroke-width:3}
+.relationship-nodes>g.collapsed circle{stroke-dasharray:1 3;stroke-width:3}
 .relationship-nodes .node-label{fill:var(--heading);font-size:8px;font-weight:800}
 .relationship-nodes .node-type{fill:var(--dim);font-size:7px}
 .relationship-nodes .type-domain-name circle{fill:color-mix(in srgb,var(--accent) 18%,var(--elevated))}
@@ -557,10 +610,9 @@ pre{font-size:12px;line-height:1.5}
 .graph-legend span{display:flex;align-items:center;gap:5px}
 .graph-legend i{display:block;width:18px;border-top:2px solid var(--line)}
 .graph-legend i.property{border-top-style:dashed}
+.graph-legend i.manual{border-top-color:var(--focus-ring);border-top-style:dotted;border-top-width:3px}
 .relationship-node-inventory{padding-top:4px;border-top:1px solid color-mix(in srgb,var(--line) 20%,transparent)}
 .relationship-node-inventory summary{cursor:pointer;color:var(--heading)}
-.graph-annotation{display:grid;grid-column:1/-1;gap:4px;color:var(--dim)}
-.graph-annotation textarea{min-height:72px;resize:vertical}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 main.max-artifact-field #artifact-field .artifact-list{display:none}
 
@@ -577,8 +629,6 @@ main.max-artifact-field #artifact-field .artifact-list{display:none}
   .flint-canvas{height:280px}
   .relationship-visualization svg{min-width:560px}
   .relationship-visualization{overflow:auto}
-  .graph-layout-controls{grid-template-columns:1fr 1fr}
-  .graph-layout-controls label{grid-column:1/-1}
 }
 
 /* Compact, presentation-only arcade mechanics vary by identity without changing analysis state. */
