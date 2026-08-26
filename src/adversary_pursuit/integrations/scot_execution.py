@@ -13,9 +13,14 @@ import httpx
 from pydantic import BaseModel, ConfigDict
 
 from adversary_pursuit.integrations.execution_journal import IntegrationExecutionJournal
+from adversary_pursuit.integrations.http_response import (
+    ResponseSizeLimitError,
+    read_bounded_response,
+)
 from adversary_pursuit.integrations.scot_publication import (
     ScotWriteOperation,
     ScotWritePlan,
+    validate_scot_write_plan,
 )
 
 _PATH_REFERENCE = re.compile(r"\{result:([A-Za-z0-9-]+):([A-Za-z0-9_-]+)\}")
@@ -81,6 +86,7 @@ def approve_scot_publication(
     now: datetime | None = None,
 ) -> ScotPublicationApproval:
     """Create a short-lived approval only after exact phrase confirmation."""
+    validate_scot_write_plan(plan)
     normalized_approver = approved_by.strip()
     if not normalized_approver or len(normalized_approver) > 254:
         raise ValueError("SCOT approval requires a bounded human identity")
@@ -105,6 +111,7 @@ def validate_scot_approval(
     now: datetime | None = None,
 ) -> datetime:
     """Validate that an approval is current and bound to this exact plan."""
+    validate_scot_write_plan(plan)
     current_time = now or datetime.now(UTC)
     if current_time.utcoffset() is None:
         raise ValueError("SCOT publication time must include a timezone")
@@ -189,7 +196,11 @@ class ScotRestPublisher:
         self.max_response_bytes = max_response_bytes
         self._client = httpx.Client(
             timeout=timeout_seconds,
-            headers={"Authorization": f"Bearer {api_key}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Accept": "application/json",
+                "Accept-Encoding": "identity",
+            },
             transport=transport,
         )
 
@@ -261,26 +272,31 @@ class ScotRestPublisher:
         url = f"{self.api_url}{path}"
         try:
             kwargs = {"json": body} if body is not None else {}
-            response = self._client.request(operation.method, url, **kwargs)
+            with self._client.stream(operation.method, url, **kwargs) as response:
+                if response.status_code not in operation.expected_status:
+                    raise RuntimeError(
+                        f"SCOT publication operation {operation.operation_id} returned "
+                        f"HTTP {response.status_code}"
+                    )
+                try:
+                    content = read_bounded_response(response, self.max_response_bytes)
+                except ResponseSizeLimitError:
+                    raise RuntimeError(
+                        "SCOT publication response exceeded the configured size limit"
+                    ) from None
+                status_code = response.status_code
         except httpx.HTTPError as exc:
             raise RuntimeError(
                 f"SCOT publication transport failed for {operation.operation_id} "
                 f"({type(exc).__name__})"
             ) from None
-        if response.status_code not in operation.expected_status:
-            raise RuntimeError(
-                f"SCOT publication operation {operation.operation_id} returned "
-                f"HTTP {response.status_code}"
-            )
-        if len(response.content) > self.max_response_bytes:
-            raise RuntimeError("SCOT publication response exceeded the configured size limit")
         try:
-            value = response.json()
-        except (json.JSONDecodeError, ValueError):
+            value = json.loads(content)
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
             raise RuntimeError("SCOT publication returned malformed JSON") from None
         if not isinstance(value, dict):
             raise RuntimeError("SCOT publication response was not an object")
-        return response.status_code, value
+        return status_code, value
 
 
 def _validated_api_url(url: str, *, allow_insecure_http: bool) -> str:

@@ -15,10 +15,13 @@ from adversary_pursuit.integrations.scot_execution import (
     approve_scot_publication,
     execute_scot_publication,
     scot_confirmation,
+    validate_scot_approval,
 )
 from adversary_pursuit.integrations.scot_publication import (
     ScotPublicationItem,
     ScotPublicationManifest,
+    ScotPublishedConnection,
+    ScotWriteOperation,
     compile_scot_write_plan,
 )
 
@@ -44,6 +47,21 @@ def _plan():
         digest_sha256="2" * 64,
     )
     return compile_scot_write_plan(manifest, owner="analyst")
+
+
+class _CountingStream(httpx.SyncByteStream):
+    def __init__(self, chunks: list[bytes]) -> None:
+        self.chunks = chunks
+        self.yielded = 0
+        self.closed = False
+
+    def __iter__(self):
+        for chunk in self.chunks:
+            self.yielded += 1
+            yield chunk
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def test_scot_publication_requires_exact_short_lived_approval_and_reconciles():
@@ -148,6 +166,149 @@ def test_scot_publication_fails_closed_when_readback_differs():
 def test_scot_publication_rejects_public_cleartext_api():
     with pytest.raises(ValueError, match="loopback"):
         ScotRestPublisher("http://scot.example/api/v1", "secret")
+
+
+def test_scot_publisher_stops_before_oversized_response_is_fully_buffered():
+    stream = _CountingStream([b"x" * 700, b"y" * 700, b"z" * 700])
+    operation = ScotWriteOperation(
+        operation_id="read-test",
+        phase="readback",
+        method="GET",
+        path_template="/event/42",
+        expected_status=(200,),
+        description="Read a bounded test response.",
+    )
+
+    with ScotRestPublisher(
+        "https://scot.test/api/v1",
+        "secret",
+        max_response_bytes=1_000,
+        transport=httpx.MockTransport(
+            lambda _request: httpx.Response(200, stream=stream)
+        ),
+    ) as publisher:
+        with pytest.raises(RuntimeError, match="size limit"):
+            publisher._request(operation, "/event/42", None)
+
+    assert stream.yielded == 2
+    assert stream.closed is True
+
+
+def test_scot_publisher_rejects_compressed_response_before_expansion():
+    stream = _CountingStream([b"compressed-body-must-not-be-read"])
+    operation = ScotWriteOperation(
+        operation_id="read-compressed-test",
+        phase="readback",
+        method="GET",
+        path_template="/event/42",
+        expected_status=(200,),
+        description="Reject an encoded test response.",
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["Accept-Encoding"] == "identity"
+        return httpx.Response(
+            200,
+            headers={"content-encoding": "gzip"},
+            stream=stream,
+        )
+
+    with ScotRestPublisher(
+        "https://scot.test/api/v1",
+        "secret",
+        max_response_bytes=1_000,
+        transport=httpx.MockTransport(handler),
+    ) as publisher:
+        with pytest.raises(RuntimeError, match="size limit"):
+            publisher._request(operation, "/event/42", None)
+
+    assert stream.yielded == 0
+    assert stream.closed is True
+
+
+def test_scot_link_operations_are_unique_for_distinct_connection_assertions():
+    event = ScotPublicationItem(
+        client_ref="scot-event:test",
+        object_type="event",
+        payload={"subject": "Pivotglass hunt: case", "status": "open", "tags": []},
+        provenance_refs=("observation-test",),
+    )
+    source = ScotPublicationItem(
+        client_ref="scot-entity:source",
+        object_type="entity",
+        parent_client_ref=event.client_ref,
+        payload={"value": "source.test", "type": "domain-name", "tags": []},
+        provenance_refs=("observation-source",),
+    )
+    target = ScotPublicationItem(
+        client_ref="scot-entity:target",
+        object_type="entity",
+        parent_client_ref=event.client_ref,
+        payload={"value": "198.51.100.42", "type": "ipv4-addr", "tags": []},
+        provenance_refs=("observation-target",),
+    )
+    connections = (
+        ScotPublishedConnection(
+            source_client_ref=source.client_ref,
+            target_client_ref=target.client_ref,
+            relationship="resolves-to",
+            truth_kind="observed",
+            provenance_refs=("observation-dns",),
+            rationale="A passive-DNS source reported the resolution.",
+        ),
+        ScotPublishedConnection(
+            source_client_ref=source.client_ref,
+            target_client_ref=target.client_ref,
+            relationship="resolves-to",
+            truth_kind="inferred",
+            provenance_refs=("assertion-review",),
+            rationale="An analyst inferred continuity across the time gap.",
+        ),
+    )
+    manifest = ScotPublicationManifest(
+        publication_id="scot-publication-links",
+        workspace="case",
+        source_snapshot_sha256="1" * 64,
+        items=(event, source, target),
+        connections=connections,
+        digest_sha256="2" * 64,
+    )
+
+    plan = compile_scot_write_plan(manifest, owner="analyst")
+    links = [operation for operation in plan.operations if operation.path_template == "/link/"]
+    readbacks = [
+        operation
+        for operation in plan.operations
+        if operation.phase == "readback" and operation.path_template.startswith("/link/")
+    ]
+
+    assert len(links) == 2
+    assert len({operation.operation_id for operation in links}) == 2
+    assert len(readbacks) == 2
+    assert {operation.depends_on[0] for operation in readbacks} == {
+        operation.operation_id for operation in links
+    }
+
+
+def test_scot_plan_rejects_duplicate_operation_identity_before_execution():
+    plan = _plan()
+    duplicate = plan.model_copy(update={"operations": (plan.operations[0], plan.operations[0])})
+
+    with pytest.raises(ValueError, match="duplicate operation IDs"):
+        approve_scot_publication(
+            duplicate,
+            approved_by="analyst",
+            confirmation=scot_confirmation(duplicate),
+        )
+
+    approval = approve_scot_publication(
+        plan,
+        approved_by="analyst",
+        confirmation=scot_confirmation(plan),
+    )
+
+    with pytest.raises(ValueError, match="duplicate operation IDs"):
+        validate_scot_approval(duplicate, approval)
 
 
 def test_scot_publication_journal_blocks_replay_across_processes(tmp_path):

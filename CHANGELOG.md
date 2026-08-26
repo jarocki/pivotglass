@@ -95,6 +95,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   structural citation preserves what was analyzed without treating a template
   match as proof that Nuclei generated the request.
 
+### Security
+
+- Restricted browser mutation endpoints to same-origin JSON requests while
+  preserving authenticated SCOT pivot intake and non-browser JSON clients.
+  Cross-site form posts can no longer dispatch approval-gated Synapse or SCOT
+  commands through the local cockpit.
+- Enforced MCP and SCOT REST response limits while streaming, before a remote
+  server can cause the complete response to be buffered in memory. Integration
+  clients request identity encoding and reject compressed responses before
+  decompression can exceed the decoded-byte budget.
+- Made inbound SCOT timestamp validation fail safely for unrepresentable epoch
+  values and made every compiled SCOT link/readback operation identity unique.
+  Duplicate operation identities are rejected again at the approval boundary.
+
 ## [0.8.5] — 2026-08-07
 
 ### Changed

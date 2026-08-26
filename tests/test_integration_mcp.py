@@ -8,7 +8,11 @@ import httpx
 import pytest
 
 from adversary_pursuit.integrations.mapping import synapse_lift
-from adversary_pursuit.integrations.mcp import StreamableHttpMcpClient, validated_mcp_url
+from adversary_pursuit.integrations.mcp import (
+    McpError,
+    StreamableHttpMcpClient,
+    validated_mcp_url,
+)
 from adversary_pursuit.integrations.scot import ScotMcpAdapter
 from adversary_pursuit.integrations.synapse import SynapseMcpAdapter
 
@@ -24,6 +28,21 @@ def _response(request: httpx.Request, result: dict | None = None) -> httpx.Respo
         headers={"content-type": "application/json", "Mcp-Session-Id": "session-1"},
         json={"jsonrpc": "2.0", "id": payload["id"], "result": result or {}},
     )
+
+
+class _CountingStream(httpx.SyncByteStream):
+    def __init__(self, chunks: list[bytes]) -> None:
+        self.chunks = chunks
+        self.yielded = 0
+        self.closed = False
+
+    def __iter__(self):
+        for chunk in self.chunks:
+            self.yielded += 1
+            yield chunk
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def test_mcp_url_rejects_credentials_and_public_cleartext():
@@ -52,6 +71,63 @@ def test_client_initializes_session_and_reads_structured_tool_result():
     assert requests[0]["method"] == "initialize"
     assert requests[1]["method"] == "notifications/initialized"
     assert requests[2]["params"]["name"] == "example"
+
+
+def test_client_stops_reading_before_oversized_response_is_fully_buffered():
+    stream = _CountingStream([b"x" * 700, b"y" * 700, b"z" * 700])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "application/json"},
+            stream=stream,
+        )
+
+    client = StreamableHttpMcpClient(
+        "https://synapse.test/api/v1/mcp",
+        max_response_bytes=1_000,
+        transport=httpx.MockTransport(handler),
+    )
+    try:
+        with pytest.raises(McpError, match="size limit"):
+            client.request("tools/list")
+    finally:
+        client.close()
+
+    assert stream.yielded == 2
+    assert stream.closed is True
+
+
+def test_client_rejects_compressed_response_before_expansion_and_cleans_session():
+    stream = _CountingStream([b"compressed-body-must-not-be-read"])
+    methods: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        methods.append(request.method)
+        if request.method == "DELETE":
+            return httpx.Response(204)
+        assert request.headers["Accept-Encoding"] == "identity"
+        return httpx.Response(
+            200,
+            headers={
+                "content-type": "application/json",
+                "content-encoding": "gzip",
+                "Mcp-Session-Id": "session-oversized",
+            },
+            stream=stream,
+        )
+
+    with pytest.raises(McpError, match="size limit"):
+        with StreamableHttpMcpClient(
+            "https://synapse.test/api/v1/mcp",
+            max_response_bytes=1_000,
+            transport=httpx.MockTransport(handler),
+        ):
+            pass
+
+    assert stream.yielded == 0
+    assert stream.closed is True
+    assert methods == ["POST", "DELETE"]
 
 
 def test_synapse_queries_are_validated_readonly_and_cancelled_at_budget():

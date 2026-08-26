@@ -10,6 +10,11 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
+from adversary_pursuit.integrations.http_response import (
+    ResponseSizeLimitError,
+    read_bounded_response,
+)
+
 
 class McpError(RuntimeError):
     """Sanitized MCP transport or protocol failure."""
@@ -51,6 +56,7 @@ class StreamableHttpMcpClient:
         self._max_response_bytes = max_response_bytes
         base_headers = {
             "Accept": "application/json, text/event-stream",
+            "Accept-Encoding": "identity",
             "Content-Type": "application/json",
         }
         base_headers.update(headers or {})
@@ -63,7 +69,11 @@ class StreamableHttpMcpClient:
         self._next_id = 1
 
     def __enter__(self) -> StreamableHttpMcpClient:
-        self.initialize()
+        try:
+            self.initialize()
+        except BaseException:
+            self.close()
+            raise
         return self
 
     def __exit__(self, *_exc: object) -> None:
@@ -130,10 +140,12 @@ class StreamableHttpMcpClient:
     def close(self) -> None:
         if self._session_id:
             try:
-                self._client.delete(
+                with self._client.stream(
+                    "DELETE",
                     self.url,
                     headers={"Mcp-Session-Id": self._session_id},
-                )
+                ):
+                    pass
             except httpx.HTTPError:
                 pass
         self._client.close()
@@ -141,34 +153,36 @@ class StreamableHttpMcpClient:
     def _post(self, payload: dict[str, Any], *, notification: bool = False) -> dict[str, Any]:
         headers = {"Mcp-Session-Id": self._session_id} if self._session_id else None
         try:
-            response = self._client.post(self.url, json=payload, headers=headers)
-            response.raise_for_status()
+            with self._client.stream("POST", self.url, json=payload, headers=headers) as response:
+                response.raise_for_status()
+                session_id = response.headers.get("Mcp-Session-Id")
+                if session_id:
+                    self._session_id = session_id
+                try:
+                    content = read_bounded_response(response, self._max_response_bytes)
+                except ResponseSizeLimitError:
+                    raise McpError("MCP response exceeded the configured size limit") from None
+                content_type = response.headers.get("content-type", "").casefold()
         except httpx.HTTPError as exc:
             raise McpError(f"MCP transport failed ({type(exc).__name__})") from None
-        session_id = response.headers.get("Mcp-Session-Id")
-        if session_id:
-            self._session_id = session_id
-        if len(response.content) > self._max_response_bytes:
-            raise McpError("MCP response exceeded the configured size limit")
-        if notification and not response.content.strip():
+        if notification and not content.strip():
             return {}
-        return _decode_response(response)
+        return _decode_response(content, content_type)
 
 
-def _decode_response(response: httpx.Response) -> dict[str, Any]:
-    content_type = response.headers.get("content-type", "").casefold()
+def _decode_response(content: bytes, content_type: str) -> dict[str, Any]:
     try:
         if "text/event-stream" in content_type:
-            for line in response.text.splitlines():
+            for line in content.decode("utf-8").splitlines():
                 if line.startswith("data:"):
                     value = json.loads(line[5:].strip())
                     if isinstance(value, dict):
                         return value
             raise ValueError("missing data event")
-        value = response.json()
+        value = json.loads(content)
         if isinstance(value, dict):
             return value
-    except (json.JSONDecodeError, ValueError):
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
         pass
     raise McpError("MCP server returned an invalid response")
 

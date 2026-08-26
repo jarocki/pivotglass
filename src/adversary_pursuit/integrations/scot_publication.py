@@ -392,6 +392,7 @@ def compile_scot_write_plan(
             connection.source_client_ref,
             connection.target_client_ref,
             connection.relationship,
+            _digest(connection.model_dump(mode="json")),
         )
         operations.append(
             ScotWriteOperation(
@@ -462,7 +463,7 @@ def compile_scot_write_plan(
         "owner": normalized_owner,
         "operations": [operation.model_dump(mode="json") for operation in operations],
     }
-    return ScotWritePlan(
+    plan = ScotWritePlan(
         publication_id=manifest.publication_id,
         workspace=manifest.workspace,
         manifest_digest_sha256=manifest.digest_sha256,
@@ -470,6 +471,15 @@ def compile_scot_write_plan(
         operations=tuple(operations),
         digest_sha256=_digest(content),
     )
+    validate_scot_write_plan(plan)
+    return plan
+
+
+def validate_scot_write_plan(plan: ScotWritePlan) -> None:
+    """Reject ambiguous operation identities before any approval or mutation."""
+    operation_ids = [operation.operation_id for operation in plan.operations]
+    if len(operation_ids) != len(set(operation_ids)):
+        raise ValueError("SCOT publication plan contains duplicate operation IDs")
 
 
 def validate_scot_pivot_request(

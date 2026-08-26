@@ -1,8 +1,11 @@
 """Tests for the loopback Pivotglass API adapter."""
 
 import json
+import threading
 import time
 from datetime import UTC, datetime
+from http.client import HTTPConnection
+from http.server import ThreadingHTTPServer
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,7 +19,7 @@ from adversary_pursuit.core.investigation import (
 )
 from adversary_pursuit.integrations.scot_pivot_intake import ScotPivotAuthenticationReceipt
 from adversary_pursuit.integrations.scot_publication import validate_scot_pivot_request
-from adversary_pursuit.web.server import WebCockpitService, _tool_failure
+from adversary_pursuit.web.server import WebCockpitService, _handler, _tool_failure
 
 
 def _service(tmp_path) -> WebCockpitService:
@@ -25,6 +28,109 @@ def _service(tmp_path) -> WebCockpitService:
         workspace_dir=tmp_path / "workspaces",
     )
     return WebCockpitService(ctx)
+
+
+def _post_json(
+    server: ThreadingHTTPServer,
+    path: str,
+    payload: dict,
+    *,
+    content_type: str = "application/json",
+    origin: str | None = None,
+    sec_fetch_site: str | None = None,
+) -> tuple[int, dict]:
+    body = json.dumps(payload).encode()
+    headers = {"Content-Type": content_type, "Content-Length": str(len(body))}
+    if origin is not None:
+        headers["Origin"] = origin
+    if sec_fetch_site is not None:
+        headers["Sec-Fetch-Site"] = sec_fetch_site
+    connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+    try:
+        connection.request("POST", path, body, headers)
+        response = connection.getresponse()
+        return response.status, json.loads(response.read())
+    finally:
+        connection.close()
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "integration synapse model-deploy-execute plan backup analyst | APPROVE",
+        "integration synapse shadow-execute parent plan backup analyst | APPROVE",
+        "integration scot publish-execute owner plan analyst | APPROVE",
+    ],
+)
+def test_browser_command_endpoint_rejects_cross_site_remote_mutations(tmp_path, command):
+    service = _service(tmp_path)
+    service.execute_command = MagicMock(return_value={"ok": True})
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(service, tmp_path))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    payload = {"command": command, "workspace": "default"}
+
+    try:
+        status, error = _post_json(
+            server,
+            "/api/command",
+            payload,
+            content_type="text/plain",
+            origin="https://attacker.example",
+        )
+        assert status == 415
+        assert error == {"error": "same-origin application/json required"}
+
+        status, error = _post_json(
+            server,
+            "/api/command",
+            payload,
+            origin="https://attacker.example",
+        )
+        assert status == 403
+        assert error == {"error": "same-origin application/json required"}
+
+        status, error = _post_json(
+            server,
+            "/api/command",
+            payload,
+            sec_fetch_site="cross-site",
+        )
+        assert status == 403
+        assert error == {"error": "same-origin application/json required"}
+        service.execute_command.assert_not_called()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_browser_command_endpoint_preserves_same_origin_and_native_json_clients(tmp_path):
+    service = _service(tmp_path)
+    service.execute_command = MagicMock(return_value={"ok": True})
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(service, tmp_path))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    payload = {"command": "model show", "workspace": "default"}
+
+    try:
+        status, result = _post_json(
+            server,
+            "/api/command",
+            payload,
+            origin=f"http://127.0.0.1:{server.server_port}",
+        )
+        assert status == 202
+        assert result == {"ok": True}
+
+        status, result = _post_json(server, "/api/command", payload)
+        assert status == 202
+        assert result == {"ok": True}
+        assert service.execute_command.call_count == 2
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
 
 
 def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):

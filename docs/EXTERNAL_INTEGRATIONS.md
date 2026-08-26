@@ -63,19 +63,31 @@ hunt session is published.
   `readonly=false` only together with the exact newly forked shadow-view ID;
   Pivotglass never writes a migration plan to the parent view.
 - Storm pages, returned records, elapsed time, and response size are bounded.
-  Pivotglass cancels the Synapse cursor when one of those limits is reached.
+  Pivotglass enforces the byte limit while streaming rather than after full
+  buffering. Integration clients request identity encoding and reject encoded
+  responses before decompression so expansion cannot bypass the memory budget.
+  Pivotglass cancels the Synapse cursor when one of the other limits is reached.
 - The SCOT4 MCP adapter exposes only object search, object detail, entries, and
   related entities. The separate REST publisher accepts only a freshly
   compiled plan, an exact short-lived human confirmation, and a configured
   publication endpoint.
 - The inbound SCOT pivot endpoint authenticates the exact request bytes with a
   separate environment-owned HMAC secret and a five-minute timestamp window.
+  Malformed, out-of-range, and unrepresentable timestamps fail with the same
+  secret-safe authentication response.
   Authentication creates a pending inbox item only. It never starts enrichment
   or mutates the graph without a named local analyst's acceptance and rationale.
 - Before its first SCOT mutation, the publisher atomically records a one-shot
   claim in the active workspace. A completed, in-progress, or uncertain claim
   blocks replay across process restarts. Every write is read back; Pivotglass
-  reports success only after every field reconciles.
+  reports success only after every field reconciles. Link identities include
+  the complete connection assertion, and duplicate operation identities are
+  rejected before approval or execution.
+- Browser mutation routes accept only `application/json` from the configured
+  same origin. This blocks cross-site form submission to approval-gated
+  Synapse and SCOT commands. Native JSON clients without an `Origin` header
+  remain supported; SCOT's separate exact-body HMAC endpoint retains its own
+  authentication boundary.
 - Receipts contain a digest of the request, timing, page and record counts,
   completion state, and the boundary that stopped an incomplete read. They do
   not contain the API key or raw Storm query.
@@ -323,7 +335,8 @@ JSON body bytes. The sender and Pivotglass must use the same body serialization.
 pivotglass-scot-pivot-v1\n<key-id>\n<timestamp>\n<nonce>\n<body-bytes>
 ```
 
-Pivotglass rejects malformed, altered, or more-than-five-minute-skewed requests.
+Pivotglass rejects malformed, altered, unrepresentable, or
+more-than-five-minute-skewed requests.
 It stores hashes of the body and nonce, not the shared secret, signature, or raw
 nonce. A valid retry returns the existing inbox item, so transport retries do
 not create duplicate work.

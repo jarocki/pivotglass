@@ -128,6 +128,46 @@ def test_scot_pivot_authentication_requires_a_strong_configured_secret():
             body=body,
             now=now,
         )
+
+
+def test_scot_pivot_authentication_rejects_unrepresentable_timestamp():
+    now = datetime(2026, 8, 25, 12, 0, tzinfo=UTC)
+    body = _body(now)
+
+    with pytest.raises(ScotPivotAuthenticationError, match="authentication failed"):
+        authenticate_scot_pivot_request(
+            _SECRET,
+            key_id=_KEY_ID,
+            timestamp="9" * 200,
+            nonce=_NONCE,
+            signature="sha256=" + "0" * 64,
+            body=body,
+            now=now,
+        )
+
+
+def test_scot_pivot_authentication_preserves_exact_fractional_clock_skew():
+    now = datetime(2026, 8, 25, 12, 0, 0, 999_999, tzinfo=UTC)
+    signed_at = int(datetime(2026, 8, 25, 11, 55, 0, tzinfo=UTC).timestamp())
+    body = _body(now)
+    signature = scot_pivot_signature(
+        _SECRET,
+        key_id=_KEY_ID,
+        timestamp=signed_at,
+        nonce=_NONCE,
+        body=body,
+    )
+
+    with pytest.raises(ScotPivotAuthenticationError, match="authentication failed"):
+        authenticate_scot_pivot_request(
+            _SECRET,
+            key_id=_KEY_ID,
+            timestamp=str(signed_at),
+            nonce=_NONCE,
+            signature=signature,
+            body=body,
+            now=now,
+        )
     with pytest.raises(ScotPivotAuthenticationError, match="at least 32 bytes"):
         scot_pivot_signature(
             "too-short",
@@ -178,6 +218,34 @@ def test_scot_pivot_endpoint_authenticates_and_records_without_enqueueing(
         error = json.loads(response.read())
         assert response.status == 401
         assert error == {"error": "SCOT pivot authentication failed"}
+
+        oversized_time_headers = {
+            **headers,
+            "X-Pivotglass-Timestamp": "9" * 200,
+            "X-Pivotglass-Signature": "sha256=" + "0" * 64,
+        }
+        connection.request(
+            "POST",
+            "/api/integrations/scot/pivot-request",
+            body,
+            oversized_time_headers,
+        )
+        response = connection.getresponse()
+        error = json.loads(response.read())
+        assert response.status == 401
+        assert error == {"error": "SCOT pivot authentication failed"}
+
+        valid_after_failure = _headers(body, now, signature=headers["X-Pivotglass-Signature"])
+        connection.request(
+            "POST",
+            "/api/integrations/scot/pivot-request",
+            body,
+            valid_after_failure,
+        )
+        response = connection.getresponse()
+        recovered = json.loads(response.read())
+        assert response.status == 200
+        assert recovered["created"] is False
 
         altered = json.loads(body)
         altered["request_id"] = "scot-pivot-000000000000000000000000"

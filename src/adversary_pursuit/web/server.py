@@ -1471,6 +1471,23 @@ def _handler(
                 host = raw_host.rsplit(":", 1)[0] if raw_host.count(":") == 1 else raw_host
             return host in host_allowlist
 
+        def _browser_mutation_allowed(self) -> bool:
+            if self.headers.get_content_type() != "application/json":
+                return False
+            if self.headers.get("Sec-Fetch-Site", "").strip().casefold() == "cross-site":
+                return False
+            raw_origin = self.headers.get("Origin", "").strip()
+            if not raw_origin:
+                return True
+            origin = urlparse(raw_origin)
+            raw_host = self.headers.get("Host", "").strip().casefold()
+            return (
+                origin.scheme.casefold() == "http"
+                and origin.netloc.casefold() == raw_host
+                and not origin.username
+                and not origin.password
+            )
+
         def do_GET(self) -> None:  # noqa: N802
             if not self._host_allowed():
                 self._json({"error": "configured host required"}, HTTPStatus.FORBIDDEN)
@@ -1577,6 +1594,17 @@ def _handler(
                 and not is_ack
             ):
                 self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
+                return
+            if (
+                parsed.path != "/api/integrations/scot/pivot-request"
+                and not self._browser_mutation_allowed()
+            ):
+                status = (
+                    HTTPStatus.UNSUPPORTED_MEDIA_TYPE
+                    if self.headers.get_content_type() != "application/json"
+                    else HTTPStatus.FORBIDDEN
+                )
+                self._json({"error": "same-origin application/json required"}, status)
                 return
             try:
                 length = int(self.headers.get("Content-Length", "0"))

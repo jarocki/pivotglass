@@ -77,8 +77,14 @@ def authenticate_scot_pivot_request(
     current_time = now or datetime.now(UTC)
     if current_time.utcoffset() is None:
         raise ValueError("SCOT pivot authentication time must include a timezone")
-    signed_at = datetime.fromtimestamp(signed_at_seconds, tz=UTC)
-    if abs((current_time - signed_at).total_seconds()) > maximum_clock_skew_seconds:
+    epoch = datetime(1970, 1, 1, tzinfo=UTC)
+    current_delta = current_time.astimezone(UTC) - epoch
+    current_microseconds = (
+        (current_delta.days * 86_400 + current_delta.seconds) * 1_000_000
+        + current_delta.microseconds
+    )
+    signed_microseconds = signed_at_seconds * 1_000_000
+    if abs(current_microseconds - signed_microseconds) > maximum_clock_skew_seconds * 1_000_000:
         raise ScotPivotAuthenticationError("SCOT pivot authentication failed")
     match = _SIGNATURE.fullmatch(signature.strip().casefold())
     if match is None:
@@ -90,6 +96,10 @@ def authenticate_scot_pivot_request(
     ).hexdigest()
     if not hmac.compare_digest(expected, match.group(1)):
         raise ScotPivotAuthenticationError("SCOT pivot authentication failed")
+    try:
+        signed_at = datetime.fromtimestamp(signed_at_seconds, tz=UTC)
+    except (OverflowError, OSError, ValueError):
+        raise ScotPivotAuthenticationError("SCOT pivot authentication failed") from None
     return ScotPivotAuthenticationReceipt(
         key_id=key_id,
         signed_at=signed_at,
