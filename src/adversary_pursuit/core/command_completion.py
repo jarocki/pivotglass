@@ -234,6 +234,9 @@ def command_completions(
             "layout list",
             "layout show ",
             "layout delete ",
+            "annotate ",
+            "annotations",
+            "annotations ",
         ]
     elif command == "autopivot":
         choices = ["on", "off"]

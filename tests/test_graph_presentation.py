@@ -236,6 +236,35 @@ def test_web_service_and_tui_share_layout_management(tmp_path) -> None:
     assert "graph layout list" in command_completions("graph layout l")
 
 
+def test_graph_node_annotations_reuse_workspace_notes_across_web_and_tui(tmp_path) -> None:
+    service = WebCockpitService(
+        ToolContext(config_dir=tmp_path / "config", workspace_dir=tmp_path / "workspaces")
+    )
+    service.ctx.workspace_mgr.store_stix_objects(
+        [{"type": "domain-name", "value": "annotated-node.example"}],
+        module_name="test/annotation",
+        target="annotated-node.example",
+    )
+    node_ref = next(iter(service._graph_presentation_scope()[0]))
+
+    saved = service.annotate_graph(
+        {"node_ref": node_ref, "text": "Review the passive-DNS history."}
+    )
+    assert saved["annotation"]["node_ref"] == node_ref
+    assert saved["annotation"]["content_class"] == "analyst_annotation"
+    assert saved["annotation"]["evidence"] is False
+    assert service.graph_annotations(node_ref)["annotations"] == [saved["annotation"]]
+
+    verb = parse_repl_verb(f"graph annotate {node_ref} | Compare certificate reuse")
+    assert verb is not None
+    rendered = dispatch_repl_verb(verb, None, None, service.ctx.workspace_mgr)
+    assert "Compare certificate reuse" in rendered
+    assert "graph annotate " in command_completions("graph ann")
+
+    with pytest.raises(ValueError, match="current graph"):
+        service.annotate_graph({"node_ref": "domain-name--missing", "text": "Invalid"})
+
+
 def test_graph_fingerprint_is_order_independent() -> None:
     assert graph_fingerprint({"b", "a"}, {"y", "x"}) == graph_fingerprint(
         {"a", "b"}, {"x", "y"}

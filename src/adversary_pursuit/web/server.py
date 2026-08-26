@@ -378,6 +378,29 @@ class WebCockpitService:
             current_edge_keys=edge_keys,
         )
 
+    def graph_annotations(self, node_ref: str | None = None) -> dict[str, Any]:
+        """Return analyst-authored notes attached to current graph nodes."""
+
+        node_refs, _edge_keys = self._graph_presentation_scope()
+        return {
+            "workspace": self.ctx.workspace_mgr.active,
+            "annotations": GraphPresentationAuthority(self.ctx.workspace_mgr).annotations(
+                current_node_refs=node_refs,
+                node_ref=node_ref,
+            ),
+        }
+
+    def annotate_graph(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Attach one analyst note to a current graph node."""
+
+        node_refs, _edge_keys = self._graph_presentation_scope()
+        annotation = GraphPresentationAuthority(self.ctx.workspace_mgr).annotate(
+            str(payload.get("node_ref", "")),
+            str(payload.get("text", "")),
+            current_node_refs=node_refs,
+        )
+        return {"saved": True, "annotation": annotation}
+
     def command_catalog(self) -> list[dict[str, str]]:
         """Return the shared analyst command surface exposed by Pivotglass."""
         return [
@@ -422,6 +445,10 @@ class WebCockpitService:
             {
                 "command": "graph layout list|show <name>|delete <name> --confirm <name>",
                 "purpose": "Manage presentation-only saved graph layouts",
+            },
+            {
+                "command": "graph annotate <node-id> | <text>",
+                "purpose": "Attach an analyst note to a real graph node without changing evidence",
             },
             {"command": "dossier", "purpose": "Show dossier details and intelligence gaps"},
             {"command": "timeline", "purpose": "Show the ordered collection timeline"},
@@ -766,6 +793,24 @@ class WebCockpitService:
                             "title": "Graph layout deleted",
                             "data": {"name": name, "deleted": authority.delete(name)},
                         }
+                if parts and parts[0].casefold() == "annotate":
+                    payload = rest.removeprefix(parts[0]).strip()
+                    node_ref, separator, text = payload.partition("|")
+                    if not separator:
+                        raise ValueError("usage: graph annotate <node-id> | <text>")
+                    return {
+                        "kind": "json",
+                        "title": "Graph annotation saved",
+                        "data": self.annotate_graph(
+                            {"node_ref": node_ref.strip(), "text": text.strip()}
+                        ),
+                    }
+                if parts and parts[0].casefold() == "annotations" and len(parts) <= 2:
+                    return {
+                        "kind": "json",
+                        "title": "Graph annotations",
+                        "data": self.graph_annotations(parts[1] if len(parts) == 2 else None),
+                    }
                 raise ValueError(
                     "usage: graph [layers|export <json|csv|gexf> [all|entity|epistemic|bridge]|layout list|layout show <name>|layout delete <name> --confirm <name>]"
                 )
@@ -1511,6 +1556,13 @@ def _handler(
                 except ValueError as exc:
                     self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
                 return
+            if parsed.path == "/api/graph-annotations":
+                node_ref = parse_qs(parsed.query).get("node_ref", [""])[0].strip()
+                try:
+                    self._json(service.graph_annotations(node_ref or None))
+                except ValueError as exc:
+                    self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
+                return
             if parsed.path == "/api/completions":
                 text = parse_qs(parsed.query).get("text", [""])[0]
                 self._json({"completions": service.completions(text)})
@@ -1588,6 +1640,7 @@ def _handler(
                     "/api/configuration/check",
                     "/api/configuration/update",
                     "/api/graph-layouts",
+                    "/api/graph-annotations",
                     "/api/integrations/scot/pivot-request",
                 }
                 and not is_cancel
@@ -1642,6 +1695,9 @@ def _handler(
                     return
                 if parsed.path == "/api/graph-layouts":
                     self._json(service.update_graph_layout(payload))
+                    return
+                if parsed.path == "/api/graph-annotations":
+                    self._json(service.annotate_graph(payload))
                     return
                 if parsed.path == "/api/mode":
                     name = str(payload.get("name", "")).strip()

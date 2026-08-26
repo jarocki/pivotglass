@@ -17,7 +17,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from adversary_pursuit.models.database import GraphPresentationLayout
+from adversary_pursuit.models.database import AnalystNote, GraphPresentationLayout
 
 _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$")
 _MAX_LAYOUTS = 20
@@ -165,6 +165,55 @@ class GraphPresentationAuthority:
             session.commit()
             return True
 
+    def annotate(
+        self,
+        node_ref: str,
+        content: str,
+        *,
+        current_node_refs: set[str],
+    ) -> dict[str, Any]:
+        """Attach an analyst note to a real graph node without changing graph truth."""
+
+        reference = str(node_ref).strip()
+        clean_content = str(content).strip()
+        if reference not in current_node_refs:
+            raise ValueError("graph annotation requires a node in the current graph")
+        if not clean_content:
+            raise ValueError("annotation text is required")
+        if len(clean_content) > 4_000:
+            raise ValueError("annotation text must be 4000 characters or fewer")
+        self.workspace_manager.add_note(clean_content, reference)
+        with self.workspace_manager.get_session() as session:
+            row = session.execute(
+                select(AnalystNote)
+                .where(AnalystNote.stix_object_id == reference)
+                .order_by(AnalystNote.id.desc())
+                .limit(1)
+            ).scalar_one()
+            return self._serialize_annotation(row)
+
+    def annotations(
+        self,
+        *,
+        current_node_refs: set[str],
+        node_ref: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return analyst notes attached to current graph nodes."""
+
+        reference = str(node_ref).strip() if node_ref is not None else None
+        if reference and reference not in current_node_refs:
+            raise ValueError("graph annotation requires a node in the current graph")
+        if not current_node_refs:
+            return []
+        with self.workspace_manager.get_session() as session:
+            statement = select(AnalystNote).where(
+                AnalystNote.stix_object_id.in_(sorted(current_node_refs))
+            )
+            if reference:
+                statement = statement.where(AnalystNote.stix_object_id == reference)
+            rows = session.execute(statement.order_by(AnalystNote.id)).scalars().all()
+            return [self._serialize_annotation(row) for row in rows]
+
     @staticmethod
     def _validate_name(name: str) -> str:
         normalized = str(name).strip()
@@ -256,4 +305,15 @@ class GraphPresentationAuthority:
             "created_by": row.created_by,
             "created_at": row.created_at,
             "updated_at": row.updated_at,
+        }
+
+    @staticmethod
+    def _serialize_annotation(row: AnalystNote) -> dict[str, Any]:
+        return {
+            "id": row.id,
+            "node_ref": row.stix_object_id,
+            "content": row.content,
+            "created_at": row.created_at,
+            "content_class": "analyst_annotation",
+            "evidence": False,
         }

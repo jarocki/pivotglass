@@ -366,9 +366,40 @@ def dispatch_repl_verb(
 
             deleted = GraphPresentationAuthority(_workspace_mgr).delete(layout_name)
             return json.dumps({"name": layout_name, "deleted": deleted}, indent=2)
+        if folded[0] == "annotate":
+            payload = " ".join(verb.args[1:])
+            node_ref, separator, content = payload.partition("|")
+            if not separator:
+                return "Usage: graph annotate <node-id> | <text>"
+            from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
+            from adversary_pursuit.core.graph_presentation import GraphPresentationAuthority
+
+            graph = RelationshipGraph()
+            graph.build_from_workspace(
+                _workspace_mgr.get_stix_objects(), persisted_relationships(_workspace_mgr)
+            )
+            current_refs = {str(node["id"]) for node in graph.to_dict().get("nodes", ())}
+            result = GraphPresentationAuthority(_workspace_mgr).annotate(
+                node_ref.strip(), content.strip(), current_node_refs=current_refs
+            )
+            return json.dumps(result, indent=2, default=str)
+        if folded[0] == "annotations" and len(verb.args) <= 2:
+            from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
+            from adversary_pursuit.core.graph_presentation import GraphPresentationAuthority
+
+            graph = RelationshipGraph()
+            graph.build_from_workspace(
+                _workspace_mgr.get_stix_objects(), persisted_relationships(_workspace_mgr)
+            )
+            current_refs = {str(node["id"]) for node in graph.to_dict().get("nodes", ())}
+            result = GraphPresentationAuthority(_workspace_mgr).annotations(
+                current_node_refs=current_refs,
+                node_ref=verb.args[1] if len(verb.args) == 2 else None,
+            )
+            return json.dumps(result, indent=2, default=str)
         return (
             "Usage: graph [layers|export <json|csv|gexf> [all|entity|epistemic|bridge]|layout list|layout show <name>|"
-            "layout delete <name> --confirm <name>]"
+            "layout delete <name> --confirm <name>|annotate <node-id> | <text>|annotations [node-id]]"
         )
 
     if name in {"search", "graph", "dossier", "gaps", "report", "hint", "challenges"}:

@@ -171,6 +171,10 @@ revision creates a new active assertion that links back to its predecessor; a
 retraction removes the edge from the active graph. Neither action deletes the
 former judgment or its required human reason.
 
+The selected-node panel can also save a plain analyst note. Node notes reuse
+the workspace annotation authority and never become evidence or a graph edge;
+the shared command is `graph annotate <node-id> | <text>`.
+
 Named graph presentations preserve node positions, viewport, and filters in
 the active workspace. They survive refreshes and portable exports, report
 topology drift when evidence changes, and cannot modify evidence or edges.

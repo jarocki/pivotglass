@@ -133,6 +133,25 @@ def test_browser_command_endpoint_preserves_same_origin_and_native_json_clients(
         thread.join(timeout=5)
 
 
+def test_graph_annotation_service_requires_current_node_and_preserves_truth_class(tmp_path):
+    service = _service(tmp_path)
+    service.ctx.workspace_mgr.store_stix_objects(
+        [{"type": "ipv4-addr", "value": "198.51.100.77"}],
+        module_name="test/graph-annotation",
+        target="198.51.100.77",
+    )
+    node_ref = next(iter(service._graph_presentation_scope()[0]))
+
+    result = service.annotate_graph(
+        {"node_ref": node_ref, "text": "Compare this address with prior incidents."}
+    )
+
+    assert result["saved"] is True
+    assert result["annotation"]["node_ref"] == node_ref
+    assert result["annotation"]["evidence"] is False
+    assert service.graph_annotations(node_ref)["annotations"] == [result["annotation"]]
+
+
 def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
     state = _service(tmp_path).state()
     assert state["workspace"] == "default"

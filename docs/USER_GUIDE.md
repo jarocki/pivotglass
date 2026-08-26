@@ -508,6 +508,8 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `graph layout list` | List presentation-only saved graph arrangements |
 | `graph layout show <name>` | Inspect a saved arrangement and current graph drift |
 | `graph layout delete <name> --confirm <name>` | Delete only a saved graph presentation after exact confirmation |
+| `graph annotate <node-id> \| <text>` | Attach human-authored context to a real graph node without changing evidence or relationships |
+| `graph annotations [node-id]` | List analyst notes attached to current graph nodes |
 | `analysis method start\|complete\|accept\|reject\|revise …` | Run and disposition a versioned Structured Analytic Technique |
 | `note <text>` | Add an analyst note |
 | `report` / `report generate` | Build the current Dossier report |

@@ -39,10 +39,17 @@ graph layers   # investigation-graph-1.0 entity + epistemic projection
 graph layout list
 graph layout show Analyst-view
 graph layout delete Analyst-view --confirm Analyst-view
+graph annotate <node-id> | <text>
+graph annotations [node-id]
 ```
 
 `graph layers` is deterministic and read-only. It does not invoke a model,
 infer a new relationship, or modify workspace state.
+
+`graph annotate` attaches an analyst note to a node already present in the
+current relationship graph. The note reuses the workspace analyst-note store;
+it is human-authored context, not evidence or a relationship. Pivotglass also
+offers the same action beside the selected node in the graph workspace.
 
 ## Saved presentations
 

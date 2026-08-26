@@ -922,6 +922,9 @@ function RelationshipGraph({
   const [relationAnnotation, setRelationAnnotation] = useState("");
   const [relationMessage, setRelationMessage] = useState("");
   const [relationBusy, setRelationBusy] = useState(false);
+  const [nodeAnnotation, setNodeAnnotation] = useState("");
+  const [nodeAnnotationMessage, setNodeAnnotationMessage] = useState("");
+  const [nodeAnnotationBusy, setNodeAnnotationBusy] = useState(false);
   const [relationCorrection, setRelationCorrection] = useState<{
     mode: "revise" | "retract";
     edge: VisualizationEdge;
@@ -1141,6 +1144,37 @@ function RelationshipGraph({
     if (mode === "revise") {
       setSelectedRefs([edge.source, edge.target]);
       setRelationPredicate(edge.relationship);
+    }
+  };
+
+  const saveNodeAnnotation = async () => {
+    if (!selectedNode || !nodeAnnotation.trim()) return;
+    setNodeAnnotationBusy(true);
+    setNodeAnnotationMessage("");
+    try {
+      const response = await fetch("/api/graph-annotations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          node_ref: selectedNode.reference,
+          text: nodeAnnotation.trim(),
+        }),
+      });
+      const result = await response.json() as {
+        annotation?: { id: number };
+        error?: string;
+      };
+      if (!response.ok || !result.annotation) {
+        throw new Error(result.error ?? "Unable to save graph annotation");
+      }
+      setNodeAnnotation("");
+      setNodeAnnotationMessage(
+        `Saved analyst note ${result.annotation.id}. Graph evidence was unchanged.`,
+      );
+    } catch (reason) {
+      setNodeAnnotationMessage(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setNodeAnnotationBusy(false);
     }
   };
 
@@ -1712,6 +1746,22 @@ function RelationshipGraph({
               }}
             />
           </label>
+          <label className="graph-node-annotation">
+            <span>Analyst note</span>
+            <textarea
+              value={nodeAnnotation}
+              maxLength={4000}
+              onChange={(event) => setNodeAnnotation(event.target.value)}
+              placeholder="Why does this node matter? This remains analyst-authored context."
+            />
+          </label>
+          <button
+            onClick={() => void saveNodeAnnotation()}
+            disabled={nodeAnnotationBusy || !nodeAnnotation.trim()}
+          >
+            SAVE NODE NOTE
+          </button>
+          {nodeAnnotationMessage && <small role="status">{nodeAnnotationMessage}</small>}
           {onOpenEvidence && (
             <button onClick={(event) => onOpenEvidence(selectedNode.reference, event.currentTarget)}>
               OPEN EVIDENCE

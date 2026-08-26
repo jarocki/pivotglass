@@ -566,6 +566,9 @@ pre{font-size:12px;line-height:1.5}
 .graph-display-label{display:grid;gap:3px;min-width:min(360px,100%)}
 .graph-display-label span{color:var(--dim);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
 .graph-display-label input{padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
+.graph-node-annotation{display:grid;gap:3px;min-width:min(420px,100%)}
+.graph-node-annotation span{color:var(--dim);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
+.graph-node-annotation textarea{min-height:72px;padding:7px 9px;resize:vertical;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
 .graph-zoom-controls{display:inline-flex;gap:4px}
 .graph-zoom-controls button{min-width:32px}
 .graph-history-controls{display:inline-flex;gap:4px}

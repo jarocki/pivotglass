@@ -82,6 +82,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added reason-required revision and retraction for manual graph judgments.
   Revisions create a linked replacement; retractions withdraw the active edge;
   both preserve the former assertion and append an auditable lifecycle event.
+- Preserved node-level graph annotations from the saved-workspace work merged
+  on `main`. Notes reuse the existing analyst-note authority, require a real
+  current graph node, and remain visibly separate from evidence and relations.
 - Added exact JSON, spreadsheet-safe CSV, and Gephi-ready GEXF exports for the
   full entity, epistemic, and bridge graph or an explicit layer. Exports retain
   every edge's truth class, provenance references, rationale, and direction.
