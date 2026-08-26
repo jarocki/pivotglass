@@ -28,6 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retain provenance; conservative property pivots remain labeled as derived
   navigation rather than observed relationships. Use `graph layers` in either
   interface to inspect the current projection.
+- Added workspace schema v6 and a single saved-graph-layout authority for named
+  positions, pins, filters, and viewport state. Pivotglass can save, reopen,
+  undo, and redo graph views without changing analytical truth.
+- Added shared graph layout and annotation commands. Graph annotations resolve
+  through a current node and reuse the analyst-note authority rather than
+  creating a second annotation or evidence store.
 
 ## [0.8.5] — 2026-08-07
 

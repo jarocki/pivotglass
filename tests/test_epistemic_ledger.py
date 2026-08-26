@@ -26,6 +26,7 @@ from adversary_pursuit.core.analytic_ledger import (
     Materiality,
 )
 from adversary_pursuit.core.command_completion import command_completions
+from adversary_pursuit.core.investigation_graph import GraphPresentationAuthority
 from adversary_pursuit.core.structured_analysis import (
     StructuredAnalysisWorkbench,
     StructuredTechnique,
@@ -65,6 +66,7 @@ def test_fresh_workspace_is_stamped_at_current_schema(tmp_path):
         "analytic_confidence_assessments",
         "likelihood_assessments",
         "analytic_contradictions",
+        "graph_presentation_layouts",
     }.issubset(tables)
     status = manager.get_workspace_schema_status()
     assert status["valid"] is True
@@ -452,15 +454,21 @@ def test_portable_export_and_merge_preserve_complete_analytic_record(tmp_path):
         module_name="osint/source",
         target="source.example",
     )
+    source_ref = manager.get_stix_objects()[0]["id"]
+    GraphPresentationAuthority(manager).save(
+        "Source view",
+        {"positions": {source_ref: {"x": 40, "y": 50}}, "pinned_refs": [source_ref]},
+    )
 
     payload = export_workspace(manager, "source")
-    assert payload["format"] == "pivotglass-workspace-v5"
+    assert payload["format"] == "pivotglass-workspace-v6"
     assert payload["schema_version"] == CURRENT_WORKSPACE_SCHEMA_VERSION
     assert payload["tables"]["investigation_questions"][0]["id"] == question_id
     assert payload["tables"]["analytic_investigations"][0]["primary_question_id"] == (question_id)
     assert payload["tables"]["evidence_observations"][0]["observed_blob"]["value"] == (
         "source.example"
     )
+    assert payload["tables"]["graph_presentation_layouts"][0]["name"] == "Source view"
 
     manager.switch("destination")
     manager.store_stix_objects(
@@ -473,6 +481,7 @@ def test_portable_export_and_merge_preserve_complete_analytic_record(tmp_path):
     assert counts["analytic_investigations"] == 1
     assert counts["analytic_lifecycle_items"] == 2
     assert counts["evidence_observations"] == 1
+    assert counts["graph_presentation_layouts"] == 1
 
     manager.switch("destination")
     merged = AnalyticLedger(manager).snapshot()

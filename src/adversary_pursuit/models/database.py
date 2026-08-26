@@ -175,6 +175,37 @@ class FrameworkMappingRecord(Base):
     )
 
 
+class GraphPresentationLayout(Base):
+    """Named graph view state kept strictly separate from analytic truth.
+
+    Node positions, pins, filters, and viewport transforms are conveniences for
+    returning to an analyst's visual workspace.  They never create, delete, or
+    modify an entity, observation, assertion, mapping, or relationship.
+    """
+
+    __tablename__ = "graph_presentation_layouts"
+    __table_args__ = (UniqueConstraint("name", name="uq_graph_presentation_layout_name"),)
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False, index=True)
+    graph_schema_version = Column(String, nullable=False)
+    positions = Column(JSON, nullable=False, default=dict)
+    pinned_refs = Column(JSON, nullable=False, default=list)
+    filters = Column(JSON, nullable=False, default=dict)
+    viewport = Column(JSON, nullable=False, default=dict)
+    created_by = Column(String, nullable=False, default="human")
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 class ModuleRun(Base):
     """Audit log of module executions within this workspace.
 

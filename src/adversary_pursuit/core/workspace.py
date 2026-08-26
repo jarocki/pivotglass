@@ -89,6 +89,7 @@ from adversary_pursuit.models.database import (
     EvidenceObservation,
     EvidenceObservationDisposition,
     EvidenceSource,
+    GraphPresentationLayout,
     HuntChallengeRecord,
     InvestigationQuestion,
     LikelihoodAssessment,
@@ -1318,6 +1319,7 @@ class WorkspaceManager:
             # Delete epistemic links before their targets. Explicit ordering keeps
             # this correct if foreign-key enforcement is enabled in a future schema.
             deleted["analytic_lifecycle_items"] = session.query(AnalyticLifecycleItem).delete()
+            deleted["graph_presentation_layouts"] = session.query(GraphPresentationLayout).delete()
             deleted["analytic_evidence_links"] = session.query(AnalyticEvidenceLink).delete()
             deleted["analytic_method_runs"] = session.query(AnalyticMethodRun).delete()
             deleted["analytic_contradictions"] = session.query(AnalyticContradiction).delete()
@@ -1346,6 +1348,10 @@ class WorkspaceManager:
             # DEC-WORKSPACE-DB-007: post-clear loud verification
             # Re-query each table; any non-zero count is a partial-clear bug
             remaining = {
+                "graph_presentation_layouts": session.execute(
+                    select(func.count(GraphPresentationLayout.id))
+                ).scalar()
+                or 0,
                 "analytic_lifecycle_items": session.execute(
                     select(func.count(AnalyticLifecycleItem.id))
                 ).scalar()
@@ -1498,6 +1504,10 @@ class WorkspaceManager:
         self._ensure_active()
         with Session(self._engine) as session:
             return {
+                "graph_presentation_layouts": session.execute(
+                    select(func.count(GraphPresentationLayout.id))
+                ).scalar()
+                or 0,
                 "analytic_investigations": session.execute(
                     select(func.count(AnalyticInvestigation.id))
                 ).scalar()

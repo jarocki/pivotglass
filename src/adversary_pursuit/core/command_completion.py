@@ -168,7 +168,16 @@ def command_completions(
             "navigator",
         ]
     elif command == "graph":
-        choices = ["layers"]
+        choices = [
+            "layers",
+            "layout list",
+            "layout show ",
+            "layout save ",
+            "layout delete ",
+            "annotate ",
+            "annotations",
+            "annotations ",
+        ]
     elif command == "autopivot":
         choices = ["on", "off"]
     elif command == "workspace":

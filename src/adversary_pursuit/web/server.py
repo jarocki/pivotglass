@@ -52,6 +52,7 @@ from adversary_pursuit.core.framework_perspectives import (
 )
 from adversary_pursuit.core.framework_projections import FrameworkProjectionAuthority
 from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
+from adversary_pursuit.core.graph_commands import execute_graph_command
 from adversary_pursuit.core.information_requirements import build_information_requirements
 from adversary_pursuit.core.investigation import (
     ContentClass,
@@ -60,7 +61,7 @@ from adversary_pursuit.core.investigation import (
     LifecycleState,
     utc_now,
 )
-from adversary_pursuit.core.investigation_graph import build_investigation_graph
+from adversary_pursuit.core.investigation_graph import GraphPresentationAuthority
 from adversary_pursuit.core.ioc_types import detect_ioc_type
 from adversary_pursuit.core.operational_status import build_authority_registry
 from adversary_pursuit.core.visualization import build_visualization_intents
@@ -340,6 +341,14 @@ class WebCockpitService:
                 "command": "graph layers",
                 "purpose": "Inspect entity and epistemic nodes with provenance-bearing edges",
             },
+            {
+                "command": "graph layout list|show|save|delete",
+                "purpose": "Preserve graph positions, pins, filters, and viewport without changing evidence",
+            },
+            {
+                "command": "graph annotate <node-id> | <text>",
+                "purpose": "Attach an analyst note to an existing graph node",
+            },
             {"command": "dossier", "purpose": "Show dossier details and intelligence gaps"},
             {"command": "timeline", "purpose": "Show the ordered collection timeline"},
             {"command": "note <text>", "purpose": "Save an analyst annotation"},
@@ -474,6 +483,42 @@ class WebCockpitService:
             workspace_names=self.ctx.workspace_mgr.list_workspaces(),
         )
 
+    def graph_layouts(self) -> dict[str, Any]:
+        """Return saved presentation state without graph evidence payloads."""
+
+        records = GraphPresentationAuthority(self.ctx.workspace_mgr).list()
+        return {
+            "workspace": self.ctx.workspace_mgr.active,
+            "layouts": [record.model_dump(mode="json") for record in records],
+        }
+
+    def save_graph_layout(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Validate and persist one presentation-only graph layout."""
+
+        name = str(payload.get("name", "")).strip()
+        if not name:
+            raise ValueError("graph layout name is required")
+        draft = {key: value for key, value in payload.items() if key != "name"}
+        record = GraphPresentationAuthority(self.ctx.workspace_mgr).save(name, draft)
+        return {"saved": True, "layout": record.model_dump(mode="json")}
+
+    def graph_annotations(self, node_id: str | None = None) -> dict[str, Any]:
+        """Return analyst-authored notes attached through graph nodes."""
+
+        records = GraphPresentationAuthority(self.ctx.workspace_mgr).annotations(node_id)
+        return {
+            "workspace": self.ctx.workspace_mgr.active,
+            "annotations": [record.model_dump(mode="json") for record in records],
+        }
+
+    def annotate_graph(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Attach one bounded analyst note to a current graph node."""
+
+        node_id = str(payload.get("node_id", "")).strip()
+        text = str(payload.get("text", "")).strip()
+        record = GraphPresentationAuthority(self.ctx.workspace_mgr).annotate(node_id, text)
+        return {"saved": True, "annotation": record.model_dump(mode="json")}
+
     def execute_command(self, text: str) -> dict[str, Any]:
         """Route Pivotglass input local-first, then to the configured model."""
         stripped = text.strip()
@@ -605,14 +650,11 @@ class WebCockpitService:
             }
         if command == "graph":
             if rest:
-                if rest.casefold() != "layers":
-                    raise ValueError("usage: graph [layers]")
+                result = execute_graph_command(tuple(rest.split()), self.ctx.workspace_mgr)
                 return {
                     "kind": "json",
-                    "title": "Entity and epistemic graph",
-                    "data": build_investigation_graph(
-                        self.ctx.workspace_mgr
-                    ).model_dump(mode="json"),
+                    "title": "Graph workspace",
+                    "data": result.get("graph", result),
                 }
             graph = RelationshipGraph()
             graph.build_from_workspace(
@@ -905,9 +947,7 @@ class WebCockpitService:
         """Return bounded event history and masked operational authority state."""
 
         events = [
-            event
-            for snapshot in self.investigations.snapshots()
-            for event in snapshot["events"]
+            event for snapshot in self.investigations.snapshots() for event in snapshot["events"]
         ]
         events.sort(key=lambda event: (str(event["created_at"]), str(event["event_id"])))
         events = events[-500:]
@@ -948,7 +988,9 @@ class WebCockpitService:
                 "category": str(entry.get("category") or "Unknown"),
                 "summary": str(entry.get("summary") or "No sanitized summary is available."),
                 "exception_type": str(entry.get("exc_type") or "Unknown"),
-                "component": context.get("tool") or context.get("component") or context.get("surface"),
+                "component": context.get("tool")
+                or context.get("component")
+                or context.get("surface"),
                 "detail_scope": (
                     "Sanitized browser detail. Raw exception text, traceback, credentials, "
                     "query strings, and private file contents remain local and are not returned."
@@ -1224,6 +1266,16 @@ def _handler(
                 text = parse_qs(parsed.query).get("text", [""])[0]
                 self._json({"completions": service.completions(text)})
                 return
+            if parsed.path == "/api/graph/layouts":
+                self._json(service.graph_layouts())
+                return
+            if parsed.path == "/api/graph/annotations":
+                node_id = parse_qs(parsed.query).get("node_id", [""])[0].strip()
+                try:
+                    self._json(service.graph_annotations(node_id or None))
+                except ValueError as exc:
+                    self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
+                return
             if parsed.path == "/api/configuration":
                 self._json(service.configuration())
                 return
@@ -1294,6 +1346,8 @@ def _handler(
                     "/api/mode",
                     "/api/command",
                     "/api/annotate",
+                    "/api/graph/layouts",
+                    "/api/graph/annotations",
                     "/api/configuration/check",
                     "/api/configuration/update",
                 }
@@ -1320,6 +1374,12 @@ def _handler(
                     if not name:
                         raise ValueError("mode name is required")
                     self._json(service.switch_mode(name))
+                    return
+                if parsed.path == "/api/graph/layouts":
+                    self._json(service.save_graph_layout(payload))
+                    return
+                if parsed.path == "/api/graph/annotations":
+                    self._json(service.annotate_graph(payload))
                     return
                 if parsed.path == "/api/command":
                     command = str(payload.get("command", "")).strip()

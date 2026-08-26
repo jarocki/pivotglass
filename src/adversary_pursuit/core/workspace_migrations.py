@@ -45,7 +45,7 @@ from adversary_pursuit.models.database import (
     WorkspaceSchemaVersion,
 )
 
-CURRENT_WORKSPACE_SCHEMA_VERSION = 5
+CURRENT_WORKSPACE_SCHEMA_VERSION = 6
 LEGACY_WORKSPACE_SCHEMA_VERSION = 1
 _VERSION_ROW_ID = 1
 
@@ -153,7 +153,8 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     v2 -> v3 step adds persisted hunt challenges and badge reward metadata. The
     v3 -> v4 step adds the scientific-investigation root and links existing
     analytic records and legacy predictions into one lifecycle. The v4 -> v5
-    step adds the append-only framework mapping authority.
+    step adds the append-only framework mapping authority. The v5 -> v6 step
+    adds presentation-only graph layouts without changing evidence.
     """
 
     tables = set(inspect(engine).get_table_names())
@@ -188,6 +189,9 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     if current == 4:  # noqa: PLR2004
         _migrate_v4_to_v5(engine)
         current = 5
+    if current == 5:  # noqa: PLR2004
+        _migrate_v5_to_v6(engine)
+        current = 6
 
     if current != CURRENT_WORKSPACE_SCHEMA_VERSION:
         raise RuntimeError(
@@ -220,7 +224,7 @@ def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
     current = _read_schema_version(engine, tables)
     if current == CURRENT_WORKSPACE_SCHEMA_VERSION:
         return MigrationPlan(current, current, False, True, None, ())
-    supported = current in {LEGACY_WORKSPACE_SCHEMA_VERSION, 2, 3, 4}
+    supported = current in {LEGACY_WORKSPACE_SCHEMA_VERSION, 2, 3, 4, 5}
     steps = ["create sibling backup"]
     if current == LEGACY_WORKSPACE_SCHEMA_VERSION:
         steps.extend(
@@ -251,6 +255,13 @@ def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
             (
                 "add append-only framework mapping records",
                 "write schema-version 5 receipt",
+            )
+        )
+    if current <= 5:  # noqa: PLR2004
+        steps.extend(
+            (
+                "add presentation-only graph layout records",
+                "write schema-version 6 receipt",
             )
         )
     return MigrationPlan(
@@ -536,6 +547,19 @@ def _migrate_v4_to_v5(engine: Engine) -> None:
         if row is None:
             raise RuntimeError("Schema v4 workspace is missing its version receipt.")
         row.version = 5
+        row.migrated_at = datetime.now(timezone.utc)
+        session.commit()
+
+
+def _migrate_v5_to_v6(engine: Engine) -> None:
+    """Add named graph presentation state without altering analytic records."""
+
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        row = session.get(WorkspaceSchemaVersion, _VERSION_ROW_ID)
+        if row is None:
+            raise RuntimeError("Schema v5 workspace is missing its version receipt.")
+        row.version = 6
         row.migrated_at = datetime.now(timezone.utc)
         session.commit()
 
