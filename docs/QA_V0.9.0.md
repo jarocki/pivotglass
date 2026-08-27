@@ -36,6 +36,9 @@ discipline
   `TOTAL_FINDINGS=0`. Focused tests confirm real assignments and
   credential-bearing non-test URLs remain detected.
 - Static diff hygiene: passed.
+- The tracked pre-push guard was exercised with an annotated `v0.9.0` tag
+  object and correctly resolved it to the checked-out release commit before
+  applying the tag/version contract.
 
 ## Capability receipts
 
