@@ -428,7 +428,7 @@ Pivotglass passes the JSON object to SCOT and preserves the resulting revision
 metadata. It does not infer that a returned object is current when the read was
 stopped by a budget.
 
-## Deliberately unfinished
+## Production integration gates
 
 The current slices establish transport, repository snapshots, Synapse desired
 state, parity, persistent extended model, approval-gated model deployment, and
@@ -437,7 +437,10 @@ previews, exact write plans, one-shot approval-gated execution, durable
 receipts, mandatory readback reconciliation, and pivot validation; go-roast
 OAST graph proposals; Nucleotide lookup/fingerprint previews; governed
 external-analysis proposal disposition; and protocol fixtures.
-Before either integration is release-complete, it still needs:
+Version 0.9 releases the guarded integration architecture, protocol fixtures,
+preview paths, approval gates, and fail-closed behavior. Before either external
+integration can be treated as production-validated or authorized for a backend
+cutover, it still needs:
 
 - disposable live-system round-trip tests;
 - live backup, recovery, reviewed shadow merge, and cutover gates;

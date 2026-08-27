@@ -7,9 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No changes yet.
+
+## [0.9.0] — 2026-08-26
+
+This early-availability minor release turns the 0.9 development line into a
+coherent public checkpoint. It adds evidence-backed framework perspectives, an
+editable two-layer investigation graph, question-first visual analysis, and
+governed Synapse, SCOT4, go-roast, and Nucleotide integration boundaries.
+External mutations remain previewed, explicitly approved, reconciled, and
+disabled when their required authority or live validation is absent.
+
 ### Added
 
-- Began the v0.9 framework projection authority with schema v5 mappings for
+- Completed the v0.9 framework projection authority with schema v5 mappings for
   ATT&CK, Cyber Kill Chain, and Diamond Model views. Mappings retain pinned
   content versions, evidence references, mapper provenance, confidence
   rationale, analyst disposition, and explicit gaps.
@@ -23,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a collapsed Framework Perspectives lens to Pivotglass. Background
   state contains only versions and disposition counts; evidence references and
   analytical rationale require an explicit command.
-- Began the W-090-03 two-layer graph with a read-only
+- Added the W-090-03 two-layer graph with a read-only
   `investigation-graph-1.0` projection. Entity, epistemic, and bridge edges all
   retain provenance; conservative property pivots remain labeled as derived
   navigation rather than observed relationships. Use `graph layers` in either
@@ -97,6 +108,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   immutable workspace observations and their source-dependence metadata. The
   structural citation preserves what was analyzed without treating a template
   match as proof that Nuclei generated the request.
+- Added a preventive release contract. Pull requests that change shipped
+  behavior must advance the semantic version, synchronize every manifest and
+  operator guide, and provide a dated changelog section. A tracked pre-push
+  guard applies the same check to direct `main` and release-tag pushes.
 
 ### Security
 
@@ -111,6 +126,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Made inbound SCOT timestamp validation fail safely for unrepresentable epoch
   values and made every compiled SCOT link/readback operation identity unique.
   Duplicate operation identities are rejected again at the approval boundary.
+- Updated the exact Nano ID override from 3.3.17 to 3.3.18 after the release
+  audit identified GHSA-2v37-7h3g-55p8. Production and full npm audits return
+  zero known vulnerabilities.
+- Tightened the redacted repository secret scanner so code references and
+  reserved `.test` credential fixtures do not mask real findings behind false
+  positives; real assignments and credential-bearing non-test URLs remain
+  covered by focused tests.
 
 ## [0.8.5] — 2026-08-07
 
@@ -801,7 +823,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.8.5...HEAD
+[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/jarocki/pivotglass/compare/v0.8.5...v0.9.0
 [0.8.5]: https://github.com/jarocki/pivotglass/compare/v0.8.0...v0.8.5
 [0.8.0]: https://github.com/jarocki/pivotglass/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/jarocki/pivotglass/compare/v0.5.2...v0.7.0

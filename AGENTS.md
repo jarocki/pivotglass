@@ -75,6 +75,21 @@ replace them.
   changes to it should be deliberate, explained, and preserve a visible history
   of what changed and why.
 
+## Release discipline
+
+- Feature-bearing changes must not reach `main` under an unchanged product
+  version. Every such pull request must advance the semantic version by at
+  least one patch release, synchronize all version surfaces, and add a dated
+  changelog section.
+- Significant capability work should advance the minor version. Patch releases
+  are reserved for compatible fixes and small improvements.
+- A release is complete only when the release commit is on public `main`, the
+  matching signed or annotated tag is public, the GitHub Release and artifacts
+  exist, and those public objects have been read back and verified.
+- The release-contract check and configured pre-push guard are required
+  evidence. A green build without a version advance does not authorize merging
+  feature-bearing code.
+
 ## Backlog discipline (DEC-BACKLOG-DISCIPLINE-001)
 
 Every newly filed GitHub issue must be scheduled or closed within 24 hours:
