@@ -20,7 +20,8 @@ while read -r local_ref local_sha remote_ref remote_sha; do
             python scripts/check_release_contract.py --base "$remote_sha"
             ;;
         refs/tags/v*)
-            if [ "$local_sha" != "$(git rev-parse HEAD)" ]; then
+            tag_commit=$(git rev-parse "${local_sha}^{commit}")
+            if [ "$tag_commit" != "$(git rev-parse HEAD)" ]; then
                 echo "release guard: release tag must point at the checked-out, verified HEAD" >&2
                 exit 1
             fi
