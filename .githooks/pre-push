@@ -1,0 +1,30 @@
+#!/bin/sh
+# Prevent direct publication of feature-bearing main changes under a stale
+# version, and prevent release tags from disagreeing with the release tree.
+
+set -eu
+
+zero=0000000000000000000000000000000000000000
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    case "$remote_ref" in
+        refs/heads/main)
+            if [ "$remote_sha" = "$zero" ]; then
+                echo "release guard: refusing to create main without a reviewable base" >&2
+                exit 1
+            fi
+            if [ "$local_sha" != "$(git rev-parse HEAD)" ]; then
+                echo "release guard: main push must use the checked-out, verified HEAD" >&2
+                exit 1
+            fi
+            python scripts/check_release_contract.py --base "$remote_sha"
+            ;;
+        refs/tags/v*)
+            if [ "$local_sha" != "$(git rev-parse HEAD)" ]; then
+                echo "release guard: release tag must point at the checked-out, verified HEAD" >&2
+                exit 1
+            fi
+            python scripts/check_release_contract.py --tag "${remote_ref#refs/tags/}"
+            ;;
+    esac
+done

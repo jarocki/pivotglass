@@ -6,9 +6,9 @@ preserves every result with provenance, connects only supported relationships,
 shows what remains unknown, and turns the investigation into a defensible
 report.
 
-The v0.9 development line adds version-pinned ATT&CK, Kill Chain, and Diamond
+Version 0.9 adds version-pinned ATT&CK, Kill Chain, and Diamond
 framework perspectives without creating a second evidence authority. The
-current branch verifies Enterprise ATT&CK 19.2 content and exports the exact
+release verifies Enterprise ATT&CK 19.2 content and exports the exact
 evidence-backed mapping as a Navigator layer.
 
 > An indicator is not the answer. It is the first node.
@@ -17,7 +17,7 @@ The installed command remains `ap` for compatibility with earlier releases.
 The Python distribution is `adversary-pursuit`, and local configuration and
 workspaces remain under `~/.ap/`.
 
-Current release: **v0.8.5 early availability**.
+Current release: **v0.9.0 early availability**.
 
 [![Watch the Pivotglass guided walkthrough](docs/media/pivotglass-guided-demo-poster.png)](docs/media/pivotglass-guided-demo-v0.7.0.mp4)
 
@@ -69,14 +69,14 @@ Pivotglass requires Python 3.12 or newer. The shortest source installation uses
 [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone --branch v0.8.5 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v0.9.0 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent
 uv run ap --version
 uv run ap
 ```
 
-`uv run ap --version` should report `adversary-pursuit 0.8.5`. Pivotglass opens
+`uv run ap --version` should report `adversary-pursuit 0.9.0`. Pivotglass opens
 at `http://127.0.0.1:8765` and listens only on the local computer by default.
 The committed release already contains the built web interface; Node.js is
 required only when changing that interface.

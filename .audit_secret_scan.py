@@ -11,7 +11,6 @@ import subprocess
 from collections import Counter
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parent
 MAX_BLOB = 5_000_000
 
@@ -58,6 +57,11 @@ PLACEHOLDER_PARTS = (
     b"getenv",
 )
 
+EXPRESSION_REFERENCE = re.compile(
+    rb"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+"
+)
+RESERVED_TEST_CREDENTIAL_HOSTS = (b"@example.test", b"@example.invalid")
+
 
 def entropy(value: bytes) -> float:
     if not value:
@@ -78,12 +82,20 @@ def scan_bytes(source: str, data: bytes) -> list[tuple[str, str, int, str]]:
             continue
         for category, pattern in PATTERNS.items():
             for match in pattern.finditer(line_data):
+                trailing_host = line_data[match.end() :].lower()
+                if category == "uri_credentials" and any(
+                    trailing_host.startswith(host.removeprefix(b"@"))
+                    for host in RESERVED_TEST_CREDENTIAL_HOSTS
+                ):
+                    continue
                 fingerprint = hashlib.sha256(match.group(0)).hexdigest()[:12]
                 findings.append((source, category, line_number, fingerprint))
         for match in ASSIGNMENT.finditer(line_data):
             candidate = match.group(1)
             lowered = candidate.lower()
             if any(part in lowered for part in PLACEHOLDER_PARTS):
+                continue
+            if EXPRESSION_REFERENCE.fullmatch(candidate):
                 continue
             if len(set(candidate)) < 7 or entropy(candidate) < 3.25:
                 continue

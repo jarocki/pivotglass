@@ -14,13 +14,24 @@ available publisher provenance:
    It loads no CDN scripts, fonts, telemetry, or remote UI code.
 7. The Python lockfile retains hashes for the analysis engine dependencies.
 
+## v0.9.0 release receipt
+
+Verification on 2026-08-26 covered 31 packages: all 31 had valid registry
+signatures, 17 had verified provenance attestations, and both production and
+full npm audits reported zero known vulnerabilities. The audit identified the
+new Nano ID custom-generator advisory in the former 3.3.17 override before
+release; the candidate now pins Nano ID 3.3.18 with registry SHA-512 integrity.
+The locked Next.js 16.3.0 production build, TypeScript check, and all web
+behavior suites passed after the update.
+
 ## v0.8.5 release receipt
 
 Verification on 2026-08-07 covered 31 packages: all 31 had valid registry
 signatures, 17 had verified provenance attestations, and both production and
-full npm audits reported zero known vulnerabilities. The release retains the
-Next.js 16.3.0 and PostCSS 8.5.23 fixes from v0.8.0 and pins nanoid 3.3.17
-through the package override to address the custom-generator advisory.
+full npm audits reported zero known vulnerabilities under the advisory data
+available that day. The release retained the Next.js 16.3.0 and PostCSS 8.5.23
+fixes from v0.8.0 and pinned Nano ID 3.3.17. Version 0.9.0 supersedes that pin
+with 3.3.18 after the advisory threshold changed.
 
 ## v0.8.0 release receipt
 
