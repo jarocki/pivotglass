@@ -9,6 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No changes yet.
 
+## [0.9.1] — 2026-08-30
+
+This analyst-flow release makes the cockpit calm by default without removing
+its expert capabilities. A deterministic Pursuit Brief now answers what is
+being investigated, what changed, what remains unresolved, and which single
+action would most reduce uncertainty. The interface keeps evidence,
+inference, progress, and character atmosphere visibly separate.
+
+### Added
+
+- Added a Python-owned, read-only Pursuit Brief projection with one ranked next
+  action, authoritative basis references, explicit permission class, and
+  confirmation requirements. Polling the brief performs no enrichment, write,
+  or network action.
+- Added four separate progress measures for Dossier coverage, scientific
+  lifecycle, active enrichment, and analyst review. Pivotglass does not blend
+  them into a persuasive but ambiguous investigation score.
+- Added first-view gap guidance for contradictions, pending reviews, failed or
+  queued enrichment, weak Dossier dimensions, missing competing hypotheses,
+  stop conditions, and recorded information requirements.
+- Added unit and web-state coverage for empty, contradictory, failed,
+  partially complete, and pending-review pursuits.
+
+### Changed
+
+- Reduced primary navigation to **Investigate**, **Evidence**, **Visualize**,
+  and **More**. Configuration, status, commands, themes, badges, and display
+  controls remain available under **More** and through keyboard commands.
+- Made the focused single-column investigation flow the default for the new UX
+  version. Evidence details open on demand; the complete Scientific Workbench
+  remains one action away.
+- Replaced global monospace presentation with a high-legibility system typeface
+  for prose and controls while preserving monospace for indicators, commands,
+  raw evidence, and technical values.
+- Simplified visible labels and raised mobile body-copy size while retaining
+  character atmosphere, semantic status colors, and every analytical
+  capability.
+
+### Safety
+
+- Next-action guidance is a deterministic projection, not evidence or an
+  autonomous decision maker. Remote enrichment, analyst assertions,
+  relationship creation, confidence changes, and external publication still
+  require their existing explicit authorities and approvals.
+
 ## [0.9.0] — 2026-08-26
 
 This early-availability minor release turns the 0.9 development line into a
@@ -823,7 +868,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/jarocki/pivotglass/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/jarocki/pivotglass/compare/v0.8.5...v0.9.0
 [0.8.5]: https://github.com/jarocki/pivotglass/compare/v0.8.0...v0.8.5
 [0.8.0]: https://github.com/jarocki/pivotglass/compare/v0.7.0...v0.8.0

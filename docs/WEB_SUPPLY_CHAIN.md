@@ -14,6 +14,13 @@ available publisher provenance:
    It loads no CDN scripts, fonts, telemetry, or remote UI code.
 7. The Python lockfile retains hashes for the analysis engine dependencies.
 
+## v0.9.1 release receipt
+
+Verification on 2026-08-30 covered 31 packages: all 31 had valid registry
+signatures, 17 had verified provenance attestations, and the full npm audit
+reported zero known vulnerabilities. The locked Next.js 16.3.0 production
+export, TypeScript check, and all available focused web behavior suites passed.
+
 ## v0.9.0 release receipt
 
 Verification on 2026-08-26 covered 31 packages: all 31 had valid registry

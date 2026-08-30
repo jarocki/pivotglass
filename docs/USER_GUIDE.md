@@ -48,6 +48,31 @@ local routing cannot answer them. Direct tools and stored evidence remain the
 source of observed facts. Character narration, music, effects, scores, and
 mini-games carry no analytical meaning.
 
+## The Pursuit Brief
+
+Pivotglass opens in a focused, single-column investigation view. The Pursuit
+Brief near the top of the page answers five questions without requiring the
+analyst to assemble status from several panels:
+
+- **Now** — the active target, question, or enrichment work;
+- **Next** — one deterministic action and why it matters;
+- **Progress** — separate measures for evidence coverage, scientific method,
+  live enrichment, and analyst review;
+- **Open work** — contradictions, knowledge gaps, pending reviews, weak Dossier
+  dimensions, failed work, and queued enrichment; and
+- **Recent change** — the latest evidence-backed advancement.
+
+The recommendation is navigation guidance, not evidence. It identifies its
+basis and permission class. Merely viewing or polling it never runs a remote
+query, creates a relationship, accepts an analytical proposal, changes
+confidence, attributes activity to an actor, or publishes externally.
+
+Primary navigation is deliberately limited to **Investigate**, **Evidence**,
+**Visualize**, and **More**. Evidence opens in an on-demand detail area.
+Configuration, system status, commands, themes, badges, and display controls
+remain under **More**. Choose **Open full workbench** when the complete
+scientific notebook and framework lenses are needed.
+
 ## Workspaces
 
 Each investigation has an isolated SQLite workspace under `~/.ap/`. Workspaces

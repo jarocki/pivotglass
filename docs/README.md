@@ -19,7 +19,8 @@ interface.
 
 - [Procedural music](PROCEDURAL_MUSIC.md) — composition, playback, and evidence boundary
 - [Web supply chain](WEB_SUPPLY_CHAIN.md) — dependency integrity and release checks
-- [v0.9.0 quality record](QA_V0.9.0.md) — current release verification
+- [v0.9.1 quality record](QA_V0.9.1.md) — current release verification
+- [v0.9.0 quality record](QA_V0.9.0.md) — prior release verification
 - [Release discipline](RELEASING.md) — version, changelog, verification, tag, and publication contract
 - [v0.8.5 quality record](QA_V0.8.5.md) — prior release verification
 - [v0.8.0 quality record](QA_V0.8.0.md) — prior release verification
@@ -38,6 +39,7 @@ have been superseded.
 - [v0.4.2 QA/UX plan](plans/V0.4.2_QA_UX_PLAN.md)
 - [v0.6 capability plan and disposition](plans/V0.6.0_PLAN.md)
 - [v0.8 through v1.0 approved roadmap](plans/V0.8_TO_1.0_ROADMAP.md)
+- [v0.9.1 through v1.0 burndown](plans/V0.9.1_TO_1.0_BURNDOWN.md)
 - [v0.6 arcade synthetic review](reviews/V0.6_ARCADE_SYNTHETIC_PLAYTEST.md)
 - [Development history](../MASTER_PLAN.md)
 - [Generated decision index](../DECISIONS.md)

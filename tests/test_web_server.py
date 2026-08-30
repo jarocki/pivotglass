@@ -181,6 +181,9 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
     assert state["analysis"]["information_requirements"]["requirements"] == []
     assert state["analysis"]["rigor"]["policy"]["id"] == "analytic-rigor-v1"
     assert state["analysis"]["rigor"]["contradiction_candidates"] == []
+    assert state["pursuit_brief"]["policy"]["id"] == "pivotglass-pursuit-brief-v1"
+    assert state["pursuit_brief"]["next_action"]["id"] == "frame_question"
+    assert state["pursuit_brief"]["progress"][0]["label"] == "Evidence coverage"
     assert len(state["modes"]) == 7
     assert {mode["display_name"] for mode in state["modes"]} == {
         "Default (Analyst)",

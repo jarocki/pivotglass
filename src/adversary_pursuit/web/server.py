@@ -66,6 +66,7 @@ from adversary_pursuit.core.investigation import (
 from adversary_pursuit.core.investigation_graph import build_investigation_graph
 from adversary_pursuit.core.ioc_types import detect_ioc_type
 from adversary_pursuit.core.operational_status import build_authority_registry
+from adversary_pursuit.core.pursuit_brief import build_pursuit_brief
 from adversary_pursuit.core.visualization import build_visualization_intents
 from adversary_pursuit.core.workspace_admin import (
     export_workspace,
@@ -239,12 +240,13 @@ class WebCockpitService:
             **analysis,
             "observations": self.ctx.workspace_mgr.get_observations(),
         }
+        investigation_snapshots = self.investigations.snapshots()
         visualizations = build_visualization_intents(
             workspace=self.ctx.workspace_mgr.active,
             objects=objects,
             dossier_slots=dossier_slots,
             graph=relationship_graph.to_dict(),
-            investigations=self.investigations.snapshots(),
+            investigations=investigation_snapshots,
             analysis=visualization_analysis,
         )
         graph_layouts = GraphPresentationAuthority(self.ctx.workspace_mgr).list()
@@ -266,6 +268,14 @@ class WebCockpitService:
         for mapping in framework_mappings:
             states = framework_counts.setdefault(mapping.framework.value, {})
             states[mapping.state.value] = states.get(mapping.state.value, 0) + 1
+        pursuit_brief = build_pursuit_brief(
+            analysis=analysis,
+            dossier_slots=dossier_slots,
+            framework_counts=framework_counts,
+            investigations=investigation_snapshots,
+            object_count=len(objects),
+            latest_target=latest_target,
+        )
         return {
             "workspace": self.ctx.workspace_mgr.active,
             "stats": self.ctx.workspace_mgr.get_workspace_stats(),
@@ -285,6 +295,7 @@ class WebCockpitService:
                 for layout in graph_layouts
             ],
             "analysis": analysis,
+            "pursuit_brief": pursuit_brief,
             "frameworks": {
                 "versions": {
                     "attack": ATTACK_ENTERPRISE_V19_2.version,
