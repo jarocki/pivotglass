@@ -12,8 +12,10 @@ manifest. No external state was changed while preparing this handoff.
 
 ## Release decision
 
-The candidate is ready for owner review as a truthful v0.9.5 early-availability
-checkpoint. It is not a completed public release. From this handoff forward,
+The candidate is frozen for owner review as a truthful v0.9.5
+early-availability checkpoint, but two newly discovered low-severity parser
+findings and two workspace-deletion correctness defects remain open. It is not
+a completed public release. From this handoff forward,
 the branch should accept only release hygiene, explicitly approved fixes for
 the open low-severity security findings, or a correction required by a failed
 gate. New capability belongs in a later version.
@@ -27,11 +29,11 @@ gate. New capability belongs in a later version.
 | Stable/preview/deferred boundary | `docs/COMPATIBILITY.md`, product text, data-safety guidance, and the quality record agree; SCOT4, Synapse, go-roast, Nucleotide, document preview, and model proposals do not silently become stable authorities |
 | Capacity | Reproducible 5,000-entity storage/export and 1,000-node graph receipts; overflow remains visible and stored evidence is not deleted |
 | Failure and recovery | Provider failure, retry, cooperative cancellation, stale assets, migration failure, hostile input, and integration outage paths preserve local work and expose next actions |
-| Python | One unrestricted complete replay passed **4,148 tests**, skipped 2 platform/availability cases, and emitted one known SQLite adapter deprecation warning |
+| Python | One unrestricted complete replay after the approved fixes passed **4,160 tests**, skipped 2 platform/availability cases, and emitted one known SQLite adapter deprecation warning |
 | Web and static checks | Python static analysis, TypeScript, advisor/arcade/visualization tests, production export, lock checks, and npm vulnerability/provenance gates passed as recorded in `docs/QA_V0.9.5.md` |
 | Browser interaction | Phone, laptop, and desktop replay verified no document overflow, local document/candidate preview, Help fit, Escape restoration, command focus, and Day/Night modes |
 | Package lifecycle | Clean archive and disposable installed-wheel checks cover version, packaged web root/health, offline learning fixture, upgrade from v0.9.0, and uninstall. The wheel resolved newer compatible dependencies, so the tagged source checkout with `uv sync --frozen` remains the supported exact-lock install |
-| Security diff | All **40 of 40** compact worklist rows derived from **402 changed files** completed; no critical, high, or medium finding; two reproducible high-confidence, low-severity findings remain open and visible |
+| Security diff | The fresh exact-`f25ea70` scan closed all **40 of 40** compact worklist rows derived from **402 changed files** with no deferred candidates; no critical, high, or medium finding; two newly discovered parser findings remain open and visible |
 | Release trust | The exact lockfiles generate a deterministic CycloneDX 1.5 SBOM and CSV inventory for **77 Python + 63 npm** components. An exact-commit candidate build produced a 140-component SBOM, 141 dependency records, zero missing license declarations, and four verified SHA-256 entries |
 
 ## Explicit release boundaries
@@ -57,26 +59,30 @@ v1.0 gates.
 
 ## Owner decisions and external gates
 
-1. **Security fix approval.** The final code-candidate diff scan at `7e6c31d`
-   found two
-   high-confidence, low-severity weaknesses: a negative `Content-Length`
-   reaches `read(-1)` until peer EOF, and spreadsheet-sensitive dependency
-   metadata reaches `THIRD_PARTY_LICENSES.csv` without formula neutralization.
-   The scan workflow requires explicit approval before patching validated
-   findings. If approved, reject negative lengths, make the human-reviewable
-   CSV spreadsheet-safe while preserving exact SBOM values, add both regression
-   groups, rerun focused/full tests, regenerate the trust bundle, and rerun the
-   final security diff scan.
-2. **Security policy.** GitHub private vulnerability reporting is currently
+1. **Security fix approval.** The two findings from `7e6c31d` are fixed in
+   `f25ea70`: request framing is rejected before body reads, and CSV cells are
+   neutralized only at the human-review boundary while exact SBOM values remain
+   unchanged. The fresh exact-HEAD scan found two new high-confidence,
+   low-severity variants of one root cause: deeply nested JSON and JSONL can
+   raise `RecursionError` before the configured depth policy and close one
+   preview request without a bounded response. The scan workflow requires
+   explicit approval before those parser findings are patched.
+2. **Workspace deletion correctness.** The same fresh scan reproduced that
+   workspace clear omits new v9-v11 record families and workspace delete leaves
+   the sibling raw-document content directory. These are not security findings
+   under the present single-user threat model, but they are real lifecycle
+   defects. Correct both operations, preserve loud deletion receipts, and add
+   rollback/targeting tests before calling v0.9.5 release-ready.
+3. **Security policy.** GitHub private vulnerability reporting is currently
    disabled and no owner-approved `SECURITY.md` route exists. Before v1.0, the
    owner must approve scope, supported versions, private contact, response and
    disclosure expectations, exclusions, and accepted risks; then enable and
    verify the selected private route.
-3. **Signing identity.** Select an owner-controlled signing key, verify its full
+4. **Signing identity.** Select an owner-controlled signing key, verify its full
    fingerprint, and publish the fingerprint through an independently
    controlled channel. No private key belongs in the repository or a model
    prompt.
-4. **Publication authority.** Merge, tag, push, GitHub Release creation, and
+5. **Publication authority.** Merge, tag, push, GitHub Release creation, and
    upload are external writes and were not performed by this overnight local
    burndown.
 

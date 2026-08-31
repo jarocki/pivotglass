@@ -9,7 +9,7 @@ pre-1.0 stable/preview/deferred closure
 
 ## Candidate verification
 
-- Complete Python suite: **4,148 passed, 2 skipped**. The one warning is the
+- Complete Python suite after the approved security fixes: **4,160 passed, 2 skipped**. The one warning is the
   existing Python 3.12+ SQLite datetime-adapter deprecation exercised by the
   schema-v7 presentation-layout reconciliation test; it is not a failure.
 - Repository-wide Python static analysis across `src/`, `tests/`, and
@@ -102,26 +102,37 @@ replay above is the completed product receipt.
 
 ## Security diff gate
 
-The final code-candidate Codex Security diff scan at `7e6c31d` reviewed all
+The fresh exact-candidate Codex Security diff scan at `f25ea70` reviewed all
 **40 of 40** compact worklist rows derived from **402 changed files** across the
-v0.9.1–v0.9.5 release train. Subsequent edits reconcile this release record and
-handoff only; no reviewed product code changed. The scan found no critical,
-high, or medium findings. Two high-confidence, low-severity findings remain
-open:
+v0.9.1–v0.9.5 release train. The scan sealed with complete coverage and no
+deferred candidates. It found no critical, high, or medium findings.
 
-- a negative `Content-Length` can bypass the upper-only request-size check and
-  hold one local/LAN request thread until the client disconnects; and
-- dependency metadata is written directly to `THIRD_PARTY_LICENSES.csv`
-  without neutralizing spreadsheet formula prefixes.
+The two findings from the earlier `7e6c31d` scan are fixed and independently
+verified:
 
-The real HTTP handler reproduced the request-thread behavior. A focused
-release-generator harness preserved a synthetic `=HYPERLINK(...)` cell, and
-the exact 140-row candidate inventory contains 41 benign `@`-prefixed npm
-package-name cells. Default loopback binding, rejection of wildcard binds,
-one-thread-per-connection isolation, reviewed lockfiles, and checksums constrain
-the two paths. The release's no-critical/high gate passes, but both findings
-must remain visible until explicitly approved patches, regression tests, and a
-fresh exact-HEAD security scan close them.
+- every POST route now rejects duplicate, signed, fractional, negative, and
+  non-ASCII `Content-Length` values before reading a body while accepting
+  standards-valid HTTP optional whitespace; and
+- every human-review CSV cell beginning with `=`, `+`, `-`, `@`, tab, carriage
+  return, or newline is emitted as inert text while the CycloneDX SBOM retains
+  the exact dependency metadata.
+
+The regenerated candidate contains **140 components**. Its CSV has no cell
+beginning with a guarded prefix; the SBOM retains the exact original values for
+all **42** guarded scoped-package names. All four artifact checksums verify.
+
+The fresh scan found two new high-confidence, low-severity variants of one
+document-parser root cause: deeply nested JSON and one deeply nested JSONL
+record can raise `RecursionError` before the configured depth policy takes
+effect, causing that preview request to close without a bounded response. Byte
+caps, loopback-by-default exposure, and request-thread isolation constrain the
+impact, but both findings remain open pending explicit remediation approval.
+
+The scan also reproduced two product lifecycle defects: workspace clear does
+not remove every new v9-v11 record family, and workspace delete leaves the
+sibling raw-document content directory. They were rejected as security
+findings under the current single-user/same-account threat model, but remain
+release-correctness work and must not be represented as complete deletion.
 
 ## Browser preview receipt
 
