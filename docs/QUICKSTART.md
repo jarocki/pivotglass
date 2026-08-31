@@ -466,6 +466,7 @@ The interface deliberately does not draw a persuasive but unsupported edge.
 - [Documentation index](README.md) — current guides and historical records
 - [Web supply chain](WEB_SUPPLY_CHAIN.md) — packaged interface verification
 - [Capacity envelope](CAPACITY.md) — qualified local scale and visible limits
+- [Failure and recovery](FAILURE_RECOVERY.md) — what remains usable and what to do next
 - [Procedural music](PROCEDURAL_MUSIC.md) — score behavior and safety boundary
 - [Changelog](../CHANGELOG.md) — release history
 - [Philosophy](../PHILOSOPHY.md) — evidence, judgment, and collaboration principles

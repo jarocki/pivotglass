@@ -57,6 +57,14 @@ pre-1.0 stable/preview/deferred closure
   completed in 1.543 seconds, kept 1,000 nodes and 999 edges in the bounded
   visualization, reported 1,000 omitted records, and retained every stored
   observation. The committed benchmark reads limits from product authorities.
+- The focused failure/recovery group passed 44 tests. It covered configuration
+  and keyless readiness, unavailable models, provider loss and retry, final-call
+  cancellation, stale browser assets, backup-first migrations, future-schema
+  rejection, hostile documents, parser exhaustion, MCP cleanup and budgets,
+  and terminal error recovery. An all-provider-failure run now ends `failed`
+  instead of `empty`; a cancellation received during the final active
+  enrichment now ends `cancelled` after that call returns. Existing evidence,
+  local notes, workspace export, cockpit state, and later retry remained usable.
 
 Fresh browser interaction passed against the frozen v0.9.5 candidate in
 headless Chrome at **390×844**, **1024×768**, and **1440×1000**. At every width,
@@ -128,7 +136,6 @@ completion by association.
 
 - SBOM, checksums, signed release artifacts, third-party license inventory,
   and public readback;
-- remaining failure-recovery receipts;
 - owner-reviewed repository security policy (the policy draft requires
   explicit scope and accepted-risk approval before it can be written);
 - explicit SCOT/Synapse stable-versus-preview release decision.

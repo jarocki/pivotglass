@@ -49,6 +49,10 @@ Batch-document intake, workspaces beyond 5,000 entities, and active-provider
 cancellation latency remain unqualified. Pivotglass must not silently omit data
 when a limit is exceeded.
 
+The [failure and recovery guide](FAILURE_RECOVERY.md) defines terminal-state,
+data-preservation, and next-action behavior for local and optional-provider
+failures.
+
 ## Release rule
 
 Preview means the truth and safety boundary is implemented and tested, but the

@@ -26,6 +26,9 @@ capacity boundaries explicit.
 - Added a reproducible offline capacity receipt and a published local envelope
   for 5,000 stored entities, 1,000-node connected relationship views, bounded
   Constellation rows, document parsing, and exports.
+- Added a focused failure/recovery contract for missing configuration,
+  provider loss, retry, cooperative cancellation, stale browser assets,
+  migration rejection, hostile documents, and preview-integration outages.
 - Added temporary exact-location entity candidates to the browser document
   preview. Each candidate exposes raw and normalized value, type, line/column,
   character and UTF-8 byte span, and extraction rule/version.
@@ -42,6 +45,9 @@ capacity boundaries explicit.
 - Dense relationship views now degrade to a deterministic, disclosed subset
   instead of failing the cockpit. Omitted nodes and edges remain stored, their
   exact count is shown, and complete graph export remains available.
+- All-provider-failure investigations now terminate as `failed`, not `empty`.
+  Cancellation received during the final active enrichment now terminates as
+  `cancelled` after the active call returns.
 - Browser document and candidate preview remains temporary and local. It makes
   no model/network request and writes no file, receipt, evidence, entity,
   relationship, framework mapping, graph node, verdict, or attribution.

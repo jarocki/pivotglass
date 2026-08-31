@@ -54,6 +54,10 @@ Large views keep an exact omission count and leave omitted evidence in the
 workspace. Use the complete export rather than treating a bounded browser view
 as the whole case. See the [capacity envelope](CAPACITY.md).
 
+Provider loss, cancellation, stale browser assets, hostile input, and
+integration outages do not authorize deletion or rewriting of local evidence.
+See the [failure and recovery guide](FAILURE_RECOVERY.md).
+
 ## Known v0.9.5 data-lifecycle gap
 
 Document-byte export and purge are deliberately not exposed. Because the

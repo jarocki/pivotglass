@@ -1328,6 +1328,7 @@ class WebCockpitService:
         with self._investigation_lock:
             self.investigations.transition(investigation_id, LifecycleState.RUNNING)
             any_results = False
+            any_failures = False
             for index, tool_name in enumerate(tools):
                 briefing = BRIEFINGS.get(tool_name)
                 source = briefing.source if briefing else tool_name
@@ -1392,6 +1393,7 @@ class WebCockpitService:
                     )
                     failure = _tool_failure(summary)
                     if failure is not None:
+                        any_failures = True
                         self.investigations.append(
                             investigation_id,
                             event_class=EventClass.SOURCE_FAULT,
@@ -1444,6 +1446,7 @@ class WebCockpitService:
                             summary=str(celebration),
                         )
                 except Exception as exc:  # noqa: BLE001
+                    any_failures = True
                     self.investigations.append(
                         investigation_id,
                         event_class=EventClass.SOURCE_FAULT,
@@ -1456,7 +1459,34 @@ class WebCockpitService:
                         retryable=True,
                         actions=("retry", "details"),
                     )
-            final_state = LifecycleState.SUCCEEDED if any_results else LifecycleState.EMPTY
+                if self.investigations.cancellation_requested(investigation_id):
+                    for skipped_tool in tools[index + 1 :]:
+                        skipped_briefing = BRIEFINGS.get(skipped_tool)
+                        self.investigations.append(
+                            investigation_id,
+                            event_class=EventClass.OPERATOR_ACTION,
+                            severity="info",
+                            lifecycle=LifecycleState.CANCELLED,
+                            content_class=ContentClass.SYSTEM,
+                            tool=skipped_tool,
+                            source=(skipped_briefing.source if skipped_briefing else skipped_tool),
+                            reason="operator cancellation",
+                        )
+                    self.investigations.transition(investigation_id, LifecycleState.CANCELLED)
+                    if origin_request_id:
+                        AnalyticLedger(self.ctx.workspace_mgr).transition_enrichment_request(
+                            origin_request_id,
+                            "cancelled",
+                            investigation_id=investigation_id,
+                        )
+                    return
+            final_state = (
+                LifecycleState.SUCCEEDED
+                if any_results
+                else LifecycleState.FAILED
+                if any_failures
+                else LifecycleState.EMPTY
+            )
             self.investigations.transition(investigation_id, final_state)
             if origin_request_id:
                 AnalyticLedger(self.ctx.workspace_mgr).transition_enrichment_request(
