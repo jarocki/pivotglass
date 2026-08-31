@@ -103,6 +103,7 @@ function histogramIntent(): VisualizationIntent {
       omitted_count: 0,
     },
     selection_rationale: "A histogram exposes the shape of one numeric distribution.",
+    reading_guide: "Read each bar as the count of values in its numeric range.",
     chart_properties: { binCount: 10 },
     caveats: [],
     export_filename: "case-degree.csv",
@@ -112,6 +113,10 @@ function histogramIntent(): VisualizationIntent {
 test("histogram intent permits only bounded Flint bin counts", () => {
   const intent = histogramIntent();
   assert.doesNotThrow(() => validateVisualizationIntent(intent));
+  assert.throws(
+    () => validateVisualizationIntent({ ...intent, reading_guide: "" }),
+    /missing its reading guide/,
+  );
   assert.throws(
     () => validateVisualizationIntent({ ...intent, chart_properties: { binCount: 51 } }),
     /integer from 5 to 50/,

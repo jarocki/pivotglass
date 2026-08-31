@@ -1,5 +1,6 @@
 """Tests for the loopback Pivotglass API adapter."""
 
+import base64
 import json
 import threading
 import time
@@ -131,6 +132,38 @@ def test_browser_command_endpoint_preserves_same_origin_and_native_json_clients(
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+def test_document_preview_endpoint_is_local_bounded_and_non_mutating(tmp_path):
+    service = _service(tmp_path)
+    html = b"<h1>Source report</h1><script>exfiltrate()</script><p>198.51.100.8</p>"
+
+    result = service.preview_document(
+        {
+            "filename": "../report.html",
+            "media_type": "text/html",
+            "content_base64": base64.b64encode(html).decode(),
+        }
+    )
+
+    assert result["filename"] == "report.html"
+    assert result["state"] == "parsed"
+    assert "198.51.100.8" in result["output_text"]
+    assert "exfiltrate" not in result["output_text"]
+    assert "not proof" in result["truth_boundary"]
+    assert service.ctx.workspace_mgr.get_workspace_table_counts()["document_occurrences"] == 0
+
+
+def test_document_preview_endpoint_rejects_invalid_base64(tmp_path):
+    service = _service(tmp_path)
+
+    with pytest.raises(ValueError, match="not valid base64"):
+        service.preview_document(
+            {
+                "filename": "report.txt",
+                "content_base64": "this is not base64",
+            }
+        )
 
 
 def test_graph_annotation_service_requires_current_node_and_preserves_truth_class(tmp_path):

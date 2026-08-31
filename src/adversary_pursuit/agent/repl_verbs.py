@@ -328,6 +328,14 @@ def dispatch_repl_verb(
 
             projection = build_investigation_graph(_workspace_mgr)
             return json.dumps(projection.model_dump(mode="json"), indent=2, default=str)
+        if folded == ("clusters",):
+            from adversary_pursuit.core.evidence_clusters import build_evidence_clusters
+
+            return json.dumps(
+                [cluster.model_dump(mode="json") for cluster in build_evidence_clusters(_workspace_mgr)],
+                indent=2,
+                default=str,
+            )
         if len(verb.args) >= 2 and folded[:2] == ("layout", "list"):
             from adversary_pursuit.core.graph_presentation import GraphPresentationAuthority
 
@@ -398,7 +406,7 @@ def dispatch_repl_verb(
             )
             return json.dumps(result, indent=2, default=str)
         return (
-            "Usage: graph [layers|export <json|csv|gexf> [all|entity|epistemic|bridge]|layout list|layout show <name>|"
+            "Usage: graph [layers|clusters|export <json|csv|gexf> [all|entity|epistemic|bridge]|layout list|layout show <name>|"
             "layout delete <name> --confirm <name>|annotate <node-id> | <text>|annotations [node-id]]"
         )
 

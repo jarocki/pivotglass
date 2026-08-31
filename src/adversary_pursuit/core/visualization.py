@@ -77,6 +77,7 @@ class VisualizationPolicy(BaseModel):
     renderer: VisualizationRenderer
     required_roles: tuple[str, ...]
     selection_reason: str
+    reading_guide: str
     guardrail: str
 
 
@@ -90,6 +91,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
             "A calendar heatmap makes concentrated activity and days without events visible "
             "without implying a continuous measurement."
         ),
+        reading_guide=(
+            "Scan for darker days and clusters; a zero is an observed day without activity, "
+            "not missing telemetry."
+        ),
         guardrail="Expose timezone and render missing days explicitly.",
     ),
     VisualizationQuestion.DOSSIER_COMPLETENESS: VisualizationPolicy(
@@ -99,6 +104,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         required_roles=("category", "value"),
         selection_reason=(
             "A radar view compares one dossier's bounded facet scores on the same scale."
+        ),
+        reading_guide=(
+            "Look for inward dents to find weak facets, then use the exact table before "
+            "comparing or reporting a value."
         ),
         guardrail="Render one dossier on a common 0-100 scale with an accessible table.",
     ),
@@ -111,6 +120,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
             "A histogram reveals the shape of one numeric distribution without implying "
             "time order or relationships between individual records."
         ),
+        reading_guide=(
+            "Read bar height as the number of values in each range; adjust the bins to test "
+            "whether an apparent pattern is stable."
+        ),
         guardrail="Show the sample count and expose the selected bin count.",
     ),
     VisualizationQuestion.ENTITY_RELATIONSHIPS: VisualizationPolicy(
@@ -122,6 +135,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
             "A force-directed relationship graph preserves entities as nodes and typed "
             "relationships as inspectable edges."
         ),
+        reading_guide=(
+            "Follow labeled edges, not spatial proximity; select a node to inspect its "
+            "admitted relationships and provenance."
+        ),
         guardrail="Never draw an edge without its evidence basis and provenance state.",
     ),
     VisualizationQuestion.HIERARCHY: VisualizationPolicy(
@@ -131,6 +148,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         required_roles=("parent", "child"),
         selection_reason=(
             "A dendrogram preserves parent-child structure and makes path depth explicit."
+        ),
+        reading_guide=(
+            "Read from the root toward the leaves; indentation expresses hierarchy, not "
+            "confidence or time."
         ),
         guardrail="Preserve path and depth in the visible table.",
     ),
@@ -143,6 +164,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
             "A scatter view exposes every numeric point and shows association or projected "
             "similarity without asserting a causal relationship."
         ),
+        reading_guide=(
+            "Nearby points have similar plotted measurements; inspect labels and explained "
+            "variance before treating a cluster as meaningful."
+        ),
         guardrail="Expose every plotted point and label explained variance for PCA projections.",
     ),
     VisualizationQuestion.COMPETING_HYPOTHESES: VisualizationPolicy(
@@ -153,6 +178,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         selection_reason=(
             "An ACH matrix places the same evidence against every competing hypothesis so "
             "support, contradiction, mixed assessments, and unassessed cells remain visible."
+        ),
+        reading_guide=(
+            "Compare evidence across each row and prioritize contradictions; an unassessed "
+            "cell means no judgment was recorded."
         ),
         guardrail=(
             "Show only analyst-recorded evidence stances; an unassessed cell is not neutral "
@@ -168,6 +197,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
             "Bounded interval bars show the probability range attached to each recorded "
             "likelihood term while keeping analytic confidence visibly separate."
         ),
+        reading_guide=(
+            "Read the bar as the recorded probability range, then read confidence and its "
+            "rationale separately below it."
+        ),
         guardrail=(
             "Never convert confidence into probability or combine the two measurements on "
             "one scale; expose both rationales and the recorded assessor."
@@ -179,8 +212,12 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         renderer=VisualizationRenderer.NATIVE,
         required_roles=("row", "column", "status"),
         selection_reason=(
-            "A matrix keeps every indicator aligned to the same investigation dimensions, "
-            "making gaps and uneven coverage directly comparable."
+            "A compact matrix aligns every indicator to the same investigation dimensions, "
+            "so repeated gaps and uneven coverage are visible in one scan."
+        ),
+        reading_guide=(
+            "Read across for one indicator or down for a shared gap; hover or focus any peg "
+            "for the full dimension name, state meaning, and evidence count."
         ),
         guardrail=(
             "Show all canonical dimensions and distinguish unavailable inference "
@@ -196,6 +233,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
             "A matrix preserves one authoritative job state per indicator and enrichment "
             "source while remaining readable at dense scale."
         ),
+        reading_guide=(
+            "Read across for one indicator or down for one enrichment source; select a cell "
+            "to inspect its latest authoritative lifecycle event."
+        ),
         guardrail="Pair color with text or shape and preserve authoritative lifecycle order.",
     ),
     VisualizationQuestion.METRIC_TREND: VisualizationPolicy(
@@ -206,6 +247,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         selection_reason=(
             "A line view is appropriate because the metric has an explicit order in time."
         ),
+        reading_guide=(
+            "Follow the ordered points from left to right; breaks remain breaks because "
+            "Pivotglass does not silently interpolate missing values."
+        ),
         guardrail="Do not interpolate missing values or create unreadable multi-series lines.",
     ),
     VisualizationQuestion.EVIDENCE_COMPOSITION: VisualizationPolicy(
@@ -215,6 +260,10 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
         required_roles=("category", "value"),
         selection_reason=(
             "A bar view supports direct comparison of discrete evidence-type counts."
+        ),
+        reading_guide=(
+            "Compare bar lengths to see which stored evidence types dominate; open the exact "
+            "table when a precise count matters."
         ),
         guardrail="Count only stored records in the stated workspace scope.",
     ),
@@ -317,6 +366,7 @@ class VisualizationIntent(BaseModel):
     table_columns: tuple[VisualizationTableColumn, ...]
     missing_data: VisualizationMissingData
     selection_rationale: str = Field(min_length=1)
+    reading_guide: str = Field(min_length=1)
     chart_properties: dict[str, int | float | str | bool] = Field(default_factory=dict)
     caveats: tuple[str, ...] = ()
     export_filename: str
@@ -378,6 +428,7 @@ def _intent(
         table_columns=table_columns,
         missing_data=missing_data,
         selection_rationale=policy.selection_reason,
+        reading_guide=policy.reading_guide,
         chart_properties=chart_properties or {},
         caveats=(policy.guardrail, *caveats),
         export_filename=f"{workspace}-{intent_id}.csv",

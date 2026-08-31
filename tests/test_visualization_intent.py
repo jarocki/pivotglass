@@ -34,6 +34,8 @@ from adversary_pursuit.core.visualization import (
 
 def test_every_supported_question_has_one_deterministic_policy():
     assert set(VISUALIZATION_POLICIES) == set(VisualizationQuestion)
+    assert all(policy.selection_reason for policy in VISUALIZATION_POLICIES.values())
+    assert all(policy.reading_guide for policy in VISUALIZATION_POLICIES.values())
     assert (
         visualization_policy(VisualizationQuestion.ACTIVITY_CONCENTRATION).view
         == VisualizationView.CALENDAR_HEATMAP
@@ -655,6 +657,7 @@ def test_relationship_degree_histogram_counts_only_admitted_edges():
     assert intent.renderer == VisualizationRenderer.FLINT_CHARTJS
     assert intent.chart_properties == {"binCount": 10}
     assert intent.selection_rationale
+    assert intent.reading_guide
     assert intent.data.rows == (
         {
             "indicator": "198.51.100.8",

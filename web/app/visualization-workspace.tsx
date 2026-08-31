@@ -35,6 +35,43 @@ const CONSTELLATION_COLUMN_LABELS: Readonly<Record<string, string>> = {
   denial: "DEN",
 };
 
+const CONSTELLATION_DIMENSION_HELP: Readonly<Record<string, string>> = {
+  identity: "Who or what is associated with this activity?",
+  ttps: "Which observed behaviors and techniques are supported?",
+  infrastructure: "Which systems, services, and hosting relationships are supported?",
+  timing: "When was the activity observed, and what timing pattern is supported?",
+  targeting: "Which victims, sectors, regions, or technologies are supported?",
+  capability: "What can the observed tooling or infrastructure demonstrably do?",
+  motivation: "What source-backed intent or objective is recorded?",
+  predictions: "Which testable expectations are recorded for future observation?",
+  denial: "Which evidence could contradict or falsify the current assessment?",
+};
+
+const VISUALIZATION_VIEW_LABELS: Readonly<Record<VisualizationIntent["view"], string>> = {
+  calendar_heatmap: "Calendar heatmap",
+  radar: "Radar chart",
+  histogram: "Histogram",
+  relationship_graph: "Force-directed graph",
+  dendrogram: "Dendrogram",
+  scatter: "Scatter plot",
+  task_matrix: "Matrix",
+  line: "Line chart",
+  bar: "Bar chart",
+  uncertainty_intervals: "Interval plot",
+};
+
+function constellationStatusHelp(status: string): string {
+  if (status === "filled") {
+    return "Filled: source-backed evidence meets the configured coverage threshold; coverage is not confidence or truth.";
+  }
+  if (status === "partial") return "Partial: some source-backed evidence exists, but material gaps remain.";
+  if (status === "deferred") {
+    return "Deferred: no applicable automated inference path exists; this is not an observed evidence gap.";
+  }
+  if (status === "empty") return "Empty: no supporting evidence is present in the admitted neighborhood.";
+  return `${status.replaceAll("_", " ")}: inspect the authoritative record for details.`;
+}
+
 function displayValue(value: unknown): string {
   if (value === null || value === undefined || value === "") return "Unavailable";
   if (typeof value === "object") return JSON.stringify(value);
@@ -418,6 +455,7 @@ export function TaskMatrix({
   liveRows?: VisualizationRow[];
 }) {
   const [selected, setSelected] = useState<VisualizationRow | null>(null);
+  const [previewed, setPreviewed] = useState<VisualizationRow | null>(null);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [completenessFilter, setCompletenessFilter] = useState("all");
@@ -425,6 +463,8 @@ export function TaskMatrix({
   const [firstSeenAfter, setFirstSeenAfter] = useState("");
   const [lastSeenBefore, setLastSeenBefore] = useState("");
   const [sortOrder, setSortOrder] = useState("last_desc");
+  const [gridFocus, setGridFocus] = useState({ row: 0, column: 0 });
+  const matrixWrap = useRef<HTMLDivElement>(null);
   const rowField = intent.fields.row;
   const rowIdField = intent.fields.row_id ?? rowField;
   const columnField = intent.fields.column;
@@ -554,112 +594,167 @@ export function TaskMatrix({
     ),
     [columnField, mergedRows, rowIdField],
   );
+  const activeCell = previewed ?? selected;
+
+  useEffect(() => {
+    setGridFocus((current) => ({
+      row: Math.min(current.row, Math.max(rowIds.length - 1, 0)),
+      column: Math.min(current.column, Math.max(columns.length - 1, 0)),
+    }));
+  }, [columns.length, rowIds.length]);
+
+  const focusGridCell = (row: number, column: number) => {
+    const next = {
+      row: Math.max(0, Math.min(row, rowIds.length - 1)),
+      column: Math.max(0, Math.min(column, columns.length - 1)),
+    };
+    setGridFocus(next);
+    requestAnimationFrame(() => {
+      matrixWrap.current
+        ?.querySelector<HTMLButtonElement>(
+          `[data-grid-row="${next.row}"][data-grid-column="${next.column}"]`,
+        )
+        ?.focus();
+    });
+  };
 
   if (mergedRows.length === 0) return <VisualizationEmpty intent={intent} />;
   return (
     <>
       {isConstellation && (
-        <div className="constellation-controls" aria-label="Constellation sort and filters">
-          <label>
-            <span>Find indicator</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="value contains…"
-            />
-          </label>
-          <label>
-            <span>IoC type</span>
-            <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
-              <option value="all">All types</option>
-              {types.map((type) => <option value={type} key={type}>{type}</option>)}
-            </select>
-          </label>
-          <label>
-            <span>Completeness</span>
-            <select
-              value={completenessFilter}
-              onChange={(event) => setCompletenessFilter(event.target.value)}
-            >
-              <option value="all">Any completeness</option>
-              <option value="mapped">Some mapping</option>
-              <option value="complete">100% mapped</option>
-              <option value="gaps">Has gaps</option>
-              <option value="unmapped">No mapping</option>
-            </select>
-          </label>
-          <label>
-            <span>Directly related to</span>
-            <select
-              value={relatedReference}
-              onChange={(event) => setRelatedReference(event.target.value)}
-            >
-              <option value="">Any indicator</option>
-              {[...metadata.entries()].map(([reference, row]) => (
-                <option value={reference} key={reference}>
-                  {String(row[rowField])} · {String(row.indicator_type)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>First seen on/after</span>
-            <input
-              type="date"
-              value={firstSeenAfter}
-              onChange={(event) => setFirstSeenAfter(event.target.value)}
-            />
-          </label>
-          <label>
-            <span>Last seen on/before</span>
-            <input
-              type="date"
-              value={lastSeenBefore}
-              onChange={(event) => setLastSeenBefore(event.target.value)}
-            />
-          </label>
-          <label>
-            <span>Sort</span>
-            <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
-              <option value="last_desc">Last seen · newest</option>
-              <option value="last_asc">Last seen · oldest</option>
-              <option value="first_desc">First seen · newest</option>
-              <option value="first_asc">First seen · oldest</option>
-              <option value="complete_desc">Completeness · high</option>
-              <option value="complete_asc">Completeness · low</option>
-              <option value="type">IoC type</option>
-              <option value="indicator">Indicator value</option>
-            </select>
-          </label>
-          <button
-            type="button"
-            onClick={() => {
-              setQuery("");
-              setTypeFilter("all");
-              setCompletenessFilter("all");
-              setRelatedReference("");
-              setFirstSeenAfter("");
-              setLastSeenBefore("");
-              setSortOrder("last_desc");
-            }}
-          >
-            RESET
-          </button>
-          <output>{rowIds.length} of {metadata.size} indicators</output>
-        </div>
+        <section className="constellation-tools" aria-label="Constellation sort and filters">
+          <div className="constellation-toolbar">
+            <label className="constellation-search">
+              <span>Find indicator</span>
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Indicator value…"
+              />
+            </label>
+            <label>
+              <span>Sort</span>
+              <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
+                <option value="last_desc">Last seen · newest</option>
+                <option value="last_asc">Last seen · oldest</option>
+                <option value="first_desc">First seen · newest</option>
+                <option value="first_asc">First seen · oldest</option>
+                <option value="complete_desc">Completeness · high</option>
+                <option value="complete_asc">Completeness · low</option>
+                <option value="type">IoC type</option>
+                <option value="indicator">Indicator value</option>
+              </select>
+            </label>
+            <output>{rowIds.length} / {metadata.size} indicators</output>
+          </div>
+          <details className="constellation-more">
+            <summary>FILTERS</summary>
+            <div className="constellation-controls">
+              <label>
+                <span>IoC type</span>
+                <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+                  <option value="all">All types</option>
+                  {types.map((type) => <option value={type} key={type}>{type}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Completeness</span>
+                <select
+                  value={completenessFilter}
+                  onChange={(event) => setCompletenessFilter(event.target.value)}
+                >
+                  <option value="all">Any completeness</option>
+                  <option value="mapped">Some mapping</option>
+                  <option value="complete">100% mapped</option>
+                  <option value="gaps">Has gaps</option>
+                  <option value="unmapped">No mapping</option>
+                </select>
+              </label>
+              <label>
+                <span>Directly related to</span>
+                <select
+                  value={relatedReference}
+                  onChange={(event) => setRelatedReference(event.target.value)}
+                >
+                  <option value="">Any indicator</option>
+                  {[...metadata.entries()].map(([reference, row]) => (
+                    <option value={reference} key={reference}>
+                      {String(row[rowField])} · {String(row.indicator_type)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>First seen on/after</span>
+                <input
+                  type="date"
+                  value={firstSeenAfter}
+                  onChange={(event) => setFirstSeenAfter(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Last seen on/before</span>
+                <input
+                  type="date"
+                  value={lastSeenBefore}
+                  onChange={(event) => setLastSeenBefore(event.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  setTypeFilter("all");
+                  setCompletenessFilter("all");
+                  setRelatedReference("");
+                  setFirstSeenAfter("");
+                  setLastSeenBefore("");
+                  setSortOrder("last_desc");
+                }}
+              >
+                RESET FILTERS
+              </button>
+            </div>
+          </details>
+        </section>
       )}
       {isConstellation && (
         <div className="lite-brite-legend" aria-label="Lite Brite Dossier status legend">
           {(["filled", "partial", "deferred", "empty"] as const).map((status) => (
             <span key={status}>
-              <LiteBritePeg status={status} label={`${status} Dossier status`} />
+              <LiteBritePeg compact status={status} label={`${status} Dossier status`} />
               <b>{status}</b>
             </span>
           ))}
         </div>
       )}
-      <div className="task-matrix-wrap">
+      {activeCell && (
+        <div className="visualization-selection" aria-live={selected ? "polite" : "off"}>
+          <b>{displayValue(activeCell[rowField])}</b>
+          <span>
+            {displayValue(activeCell[columnField])} · {displayValue(activeCell[statusField]).replaceAll("_", " ")}
+          </span>
+          <small>
+            {isConstellation
+              ? (
+                `${constellationStatusHelp(displayValue(activeCell[statusField]))} `
+                + `${displayValue(activeCell.evidence_count)} evidence records · `
+                + `first ${displayValue(activeCell.first_seen)} · last ${displayValue(activeCell.last_seen)}`
+              )
+              : isAch
+                ? `${displayValue(activeCell.source_kind)} · ${displayValue(activeCell.rationale)}`
+                : (
+                  `Event ${displayValue(activeCell.event_sequence)} · `
+                  + displayValue(activeCell.updated_at)
+                )}
+          </small>
+        </div>
+      )}
+      <div
+        className={`task-matrix-wrap ${isConstellation ? "constellation-matrix-wrap" : ""}`}
+        ref={matrixWrap}
+      >
         <table className={`task-matrix ${isConstellation ? "constellation-matrix" : ""}`}>
           <caption className="sr-only">{intent.question_text}</caption>
           <thead>
@@ -670,17 +765,25 @@ export function TaskMatrix({
                   scope="col"
                   key={column}
                   title={column.replaceAll("_", " ")}
-                  aria-label={column.replaceAll("_", " ")}
                 >
                   {isConstellation
-                    ? (CONSTELLATION_COLUMN_LABELS[column] ?? column.slice(0, 3).toUpperCase())
+                    ? (
+                      <button
+                        type="button"
+                        className="constellation-dimension-help"
+                        aria-label={`${column.replaceAll("_", " ")}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."}`}
+                        data-tooltip={`${column.replaceAll("_", " ")}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."}`}
+                      >
+                        {CONSTELLATION_COLUMN_LABELS[column] ?? column.slice(0, 3).toUpperCase()}
+                      </button>
+                    )
                     : column.replaceAll("_", " ")}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rowIds.map((rowId) => {
+            {rowIds.map((rowId, rowIndex) => {
               const row = metadata.get(rowId);
               if (!row) return null;
               const label = String(row[rowField]);
@@ -689,8 +792,11 @@ export function TaskMatrix({
                   <th scope="row" title={label}>
                     {onOpenEvidence && row.reference
                       ? (
-                        <button onClick={(event) => onOpenEvidence(String(row.reference), event.currentTarget)}>
-                          <b>{shortLabel(label, 42)}</b>
+                        <button
+                          data-tooltip={`${label} · ${displayValue(row.indicator_type)} · ${displayValue(row.completeness_percent)}% mapped. Open source evidence and provenance.`}
+                          onClick={(event) => onOpenEvidence(String(row.reference), event.currentTarget)}
+                        >
+                          <b>{shortLabel(label, isConstellation ? 30 : 42)}</b>
                           {isConstellation && (
                             <small>
                               {displayValue(row.indicator_type)} · {displayValue(row.completeness_percent)}%
@@ -700,28 +806,68 @@ export function TaskMatrix({
                       )
                       : shortLabel(label, 42)}
                   </th>
-                  {columns.map((column) => {
+                  {columns.map((column, columnIndex) => {
                     const cell = cells.get(`${rowId}\u0000${column}`);
                     if (!cell) return <td className="matrix-empty" key={column}>—</td>;
                     const status = String(cell[statusField]);
+                    const dimension = column.replaceAll("_", " ");
+                    const evidenceCount = displayValue(cell.evidence_count);
+                    const cellHelp = isConstellation
+                      ? `${dimension}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."} ${constellationStatusHelp(status)} ${evidenceCount} source-backed evidence records contribute.`
+                      : isAch
+                        ? `${column} · ${status.replaceAll("_", " ")} · ${displayValue(cell.rationale)}`
+                        : `${dimension} · ${status.replaceAll("_", " ")} · latest authoritative lifecycle state`;
+                    const isSelected = (
+                      selected?.[rowIdField] === cell[rowIdField]
+                      && selected?.[columnField] === cell[columnField]
+                    );
                     return (
                       <td key={column}>
                         <button
-                          className={`matrix-cell ${isConstellation ? "lite-brite-cell" : ""} state-${status}`}
+                          className={`matrix-cell ${isConstellation ? "lite-brite-cell" : ""} state-${status} ${isSelected ? "selected" : ""}`}
+                          data-tooltip={cellHelp}
+                          data-grid-row={rowIndex}
+                          data-grid-column={columnIndex}
+                          tabIndex={isConstellation
+                            ? (gridFocus.row === rowIndex && gridFocus.column === columnIndex ? 0 : -1)
+                            : 0}
+                          aria-pressed={isConstellation ? isSelected : undefined}
                           onClick={() => {
                             setSelected(cell);
                             onSelectCell?.(cell);
                           }}
-                          title={isAch
-                            ? `${column} · ${status.replaceAll("_", " ")} · ${displayValue(cell.rationale)}`
-                            : `${column.replaceAll("_", " ")} · ${status} · ${displayValue(cell.evidence_count)} evidence records`}
-                          aria-label={`${label}, ${column}, ${status}. RGB status ${rgbLabelForStatus(status)}`}
+                          onMouseEnter={() => setPreviewed(cell)}
+                          onMouseLeave={() => setPreviewed(null)}
+                          onFocus={() => {
+                            setPreviewed(cell);
+                            if (isConstellation) setGridFocus({ row: rowIndex, column: columnIndex });
+                          }}
+                          onBlur={() => setPreviewed(null)}
+                          onKeyDown={(event) => {
+                            if (!isConstellation) return;
+                            let nextRow = rowIndex;
+                            let nextColumn = columnIndex;
+                            if (event.key === "ArrowDown") nextRow += 1;
+                            else if (event.key === "ArrowUp") nextRow -= 1;
+                            else if (event.key === "ArrowRight") nextColumn += 1;
+                            else if (event.key === "ArrowLeft") nextColumn -= 1;
+                            else if (event.key === "Home") nextColumn = 0;
+                            else if (event.key === "End") nextColumn = columns.length - 1;
+                            else return;
+                            event.preventDefault();
+                            focusGridCell(nextRow, nextColumn);
+                          }}
+                          title={`${dimension} · ${status}`}
+                          aria-label={isConstellation
+                            ? `${label}. ${cellHelp}`
+                            : `${label}, ${column}, ${status}. RGB status ${rgbLabelForStatus(status)}`}
                         >
                           {isConstellation
                             ? (
                               <LiteBritePeg
+                                compact
                                 status={status}
-                                label={`${column.replaceAll("_", " ")}, ${status}`}
+                                label={`${dimension}, ${status}`}
                               />
                             )
                             : (
@@ -745,28 +891,6 @@ export function TaskMatrix({
         <div className="visualization-empty">
           <b>NO INDICATORS MATCH</b>
           <span>Adjust or reset the Constellation filters.</span>
-        </div>
-      )}
-      {selected && (
-        <div className="visualization-selection" aria-live="polite">
-          <b>{displayValue(selected[rowField])}</b>
-          <span>
-            {displayValue(selected[columnField])} · {displayValue(selected[statusField]).replaceAll("_", " ")}
-          </span>
-          <small>
-            {isConstellation
-              ? (
-                `${displayValue(selected.indicator_type)} · ${displayValue(selected.evidence_count)} `
-                + `evidence records · first ${displayValue(selected.first_seen)} · `
-                + `last ${displayValue(selected.last_seen)}`
-              )
-              : isAch
-                ? `${displayValue(selected.source_kind)} · ${displayValue(selected.rationale)}`
-              : (
-                `Event ${displayValue(selected.event_sequence)} · `
-                + displayValue(selected.updated_at)
-              )}
-          </small>
         </div>
       )}
     </>
@@ -1840,17 +1964,17 @@ export function VisualizationWorkspace({
 
   return (
     <section className="visualization-workspace" aria-label="Visual analysis">
-      <nav className="visualization-tabs" aria-label="Analyst questions">
-        {intents.map((intent) => (
-          <button
-            key={intent.intent_id}
-            aria-pressed={intent.intent_id === selected.intent_id}
-            onClick={() => setSelectedId(intent.intent_id)}
-          >
-            {intent.title}
-          </button>
-        ))}
-      </nav>
+      <div className="visualization-picker">
+        <label>
+          <span>CHOOSE AN ANALYST QUESTION</span>
+          <select value={selected.intent_id} onChange={(event) => setSelectedId(event.target.value)}>
+            {intents.map((intent) => (
+              <option key={intent.intent_id} value={intent.intent_id}>{intent.title}</option>
+            ))}
+          </select>
+        </label>
+        <small>{intents.length} evidence views · Pivotglass recommends the first applicable view.</small>
+      </div>
       <header className="visualization-header">
         <div>
           <span>ANALYST QUESTION</span>
@@ -1859,9 +1983,11 @@ export function VisualizationWorkspace({
             {selected.source_scope.description} · {selected.source_scope.record_count} records
             {selected.source_scope.timezone ? ` · ${selected.source_scope.timezone}` : ""}
           </small>
-          <small className="visualization-rationale">
-            <b>WHY THIS VIEW</b> {selected.selection_rationale}
-          </small>
+          <aside className="visualization-explainer" aria-label="Why Pivotglass selected this visualization">
+            <b>{VISUALIZATION_VIEW_LABELS[selected.view]}</b>
+            <p><strong>Why this fits</strong> {selected.selection_rationale}</p>
+            <p><strong>How to read it</strong> {selected.reading_guide}</p>
+          </aside>
         </div>
         <button onClick={() => downloadIntent(selected)}>EXPORT EXACT DATA</button>
       </header>

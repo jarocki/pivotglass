@@ -16,20 +16,20 @@ Pivotglass separate from the system Python.
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install "adversary-pursuit[agent] @ git+https://github.com/jarocki/pivotglass.git@v0.9.1"
+python -m pip install "adversary-pursuit[agent] @ git+https://github.com/jarocki/pivotglass.git@v0.9.2"
 ap --version
 ```
 
 The final command should report:
 
 ```text
-adversary-pursuit 0.9.1
+adversary-pursuit 0.9.2
 ```
 
 For a source checkout, use [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone --branch v0.9.1 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v0.9.2 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent
 uv run ap --version
@@ -166,7 +166,8 @@ indicators you are authorized to send to the enabled services.
 
 ## 5. Read the Investigation Constellation
 
-Open **VISUAL ANALYSIS**, then choose **Investigation Constellation**.
+Open **Visualize**, then choose **Investigation Constellation** from **Choose an
+analyst question**.
 
 Each row is a stored indicator. Each column is one of the nine Dossier
 dimensions. The newest indicators appear first. Filter or sort by value, type,
@@ -182,10 +183,24 @@ all nine Dossier dimensions remain scannable beside each indicator: a bright
 starburst is filled, a striped round peg is partial, a concentric octagonal peg
 is deferred, and a dark recessed peg is empty. Shape repeats color, and hover,
 keyboard focus, and selection expose the complete status and evidence count.
+Tab enters the matrix once. Use arrow keys to move between pegs and Enter or
+Space to pin the focused explanation above the matrix.
 
 > A blank cell is not missing interface. It is visible uncertainty.
 
-![Investigation Constellation](media/pivotglass-constellation-v0.7.0.png)
+![Compact Investigation Constellation with chart-selection guidance](media/pivotglass-constellation-v0.9.1.png)
+
+### Optional: preview a source document
+
+Open **Visualize**, expand **Preview a document**, and choose a supported local
+file. Version 0.9.2 previews text, Markdown, HTML, CSV, JSON, JSONL, and email;
+PDF input is recognized but its text and images are not yet extracted. The
+preview is local, temporary, and bounded to 10 MiB. It shows what was parsed,
+skipped, truncated, or rejected. It does not store the file, contact a model,
+extract admitted entities, or create evidence and relationships.
+
+Use this step to inspect source handling before the governed admission and
+entity-review workflow arrives in the later 0.9 releases.
 
 ## 6. Pivot to related evidence
 

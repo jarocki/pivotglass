@@ -14,6 +14,20 @@ available publisher provenance:
    It loads no CDN scripts, fonts, telemetry, or remote UI code.
 7. The Python lockfile retains hashes for the analysis engine dependencies.
 
+## v0.9.2 release receipt
+
+Flint is pinned to exactly 0.4.0 with registry SHA-512 integrity. The same
+seeded Pivotglass intents compiled under 0.3.0 and 0.4.0 retained analytical
+configuration parity for histogram, bar, line, scatter, and radar views after
+excluding Flint-owned typography and layout metadata. The 0.4.0 visualization
+tests, TypeScript check, production build, and vulnerability audit passed. An
+isolated 0.3.0 rollback rehearsal also passed visualization tests and the
+TypeScript check; Plotly and editable-office output remain unqualified.
+
+| Package | Version | Registry integrity/provenance |
+|---|---:|---|
+| Microsoft Flint | 0.4.0 | SHA-512 integrity |
+
 ## v0.9.1 release receipt
 
 Verification on 2026-08-30 covered 31 packages: all 31 had valid registry

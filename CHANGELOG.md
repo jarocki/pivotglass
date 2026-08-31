@@ -9,6 +9,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No changes yet.
 
+## [0.9.2] — 2026-08-31
+
+This evidence-organization release qualifies Flint 0.4 for Pivotglass's
+question-first visualizations, makes admitted graph neighborhoods readable as
+provenance-bearing clusters, and establishes a bounded document-preview path
+without automatically changing investigation truth.
+
+### Added
+
+- Added stable evidence-cluster summaries over connected components of edges
+  already admitted by the graph authority. Each summary exposes contributing
+  entities and edges, truth classes, provenance diversity, observed times,
+  mapped framework behavior, and Dossier gaps while explicitly refusing actor
+  or campaign attribution.
+- Added the shared `graph clusters` web/TUI command.
+- Added schema-v9 document content, occurrence, and parser-receipt records plus
+  a content-addressed local storage foundation with backup-first migration.
+- Added a preview-only browser intake for text, Markdown, HTML, CSV, JSON,
+  JSONL, RFC 5322 email, and recognized PDF input. It reports parsed, partial,
+  failed, truncated, and skipped content and performs no evidence admission,
+  entity extraction, relationship creation, model request, or network action.
+
+### Changed
+
+- Upgraded Microsoft Flint from 0.3.0 to exactly 0.4.0 after seeded intent
+  comparison, dependency review, production build verification, and an
+  isolated 0.3.0 rollback rehearsal.
+- Made visualization choice and interpretation more explicit with one
+  analyst-question selector, compact `Why this fits` and `How to read it`
+  notes, exact plotted-data access, and a denser keyboard-operable
+  Investigation Constellation.
+
+### Safety
+
+- Document parsing is local, bounded, and visibly distinct from evidence
+  admission. Active HTML is not run; email attachments and unqualified PDF
+  extraction are surfaced as skipped rather than silently omitted.
+- Evidence clusters are navigation summaries over existing graph truth. They
+  do not infer common control, campaign membership, actor identity, or
+  confidence.
+
 ## [0.9.1] — 2026-08-30
 
 This analyst-flow release makes the cockpit calm by default without removing
@@ -31,6 +72,9 @@ inference, progress, and character atmosphere visibly separate.
   stop conditions, and recorded information requirements.
 - Added unit and web-state coverage for empty, contradictory, failed,
   partially complete, and pending-review pursuits.
+- Added deterministic reading guidance to every visualization intent. The
+  selected view now names its chart family and explains both why it fits the
+  analyst question and how to read it without overstating the data.
 
 ### Changed
 
@@ -46,6 +90,15 @@ inference, progress, and character atmosphere visibly separate.
 - Simplified visible labels and raised mobile body-copy size while retaining
   character atmosphere, semantic status colors, and every analytical
   capability.
+- Compressed the Investigation Constellation into a dense Lite Brite matrix,
+  kept search and sort visible, collapsed secondary filters, and added
+  viewport-safe hover and keyboard-focus explainers for each Dossier dimension,
+  coverage state, and exact evidence count.
+- Bounded the Constellation vertically, added one-entry roving keyboard grid
+  navigation and a persistent selected-peg marker, and moved pinned detail
+  above the matrix.
+- Replaced the multi-row visualization button wall with one analyst-question
+  selector so the question, rationale, and evidence remain visually primary.
 
 ### Safety
 
@@ -868,7 +921,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/jarocki/pivotglass/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/jarocki/pivotglass/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/jarocki/pivotglass/compare/v0.8.5...v0.9.0
 [0.8.5]: https://github.com/jarocki/pivotglass/compare/v0.8.0...v0.8.5

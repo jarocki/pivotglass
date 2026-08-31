@@ -9,6 +9,7 @@ interface.
 - [Quick Start](QUICKSTART.md) — install Pivotglass and complete a first investigation
 - [User Guide](USER_GUIDE.md) — task guidance and command reference
 - [Analytic method](ANALYTIC_METHOD.md) — scientific workflow, structured techniques, confidence, and contradictions
+- [Visualization guide](VISUALIZATION_GUIDE.md) — deterministic chart selection, reading guidance, and analytical guardrails
 - [Framework projections](FRAMEWORK_PROJECTIONS.md) — evidence-backed ATT&CK, Kill Chain, and Diamond mapping contract
 - [Vertex Synapse and SCOT4 integrations](EXTERNAL_INTEGRATIONS.md) — governed MCP setup, approval gates, receipts, and authority boundaries
 - [Workspace migration and recovery](WORKSPACE_MIGRATIONS.md) — preview, backup, validation, and recovery
@@ -19,7 +20,8 @@ interface.
 
 - [Procedural music](PROCEDURAL_MUSIC.md) — composition, playback, and evidence boundary
 - [Web supply chain](WEB_SUPPLY_CHAIN.md) — dependency integrity and release checks
-- [v0.9.1 quality record](QA_V0.9.1.md) — current release verification
+- [v0.9.2 quality record](QA_V0.9.2.md) — current release verification
+- [v0.9.1 quality record](QA_V0.9.1.md) — prior release verification
 - [v0.9.0 quality record](QA_V0.9.0.md) — prior release verification
 - [Release discipline](RELEASING.md) — version, changelog, verification, tag, and publication contract
 - [v0.8.5 quality record](QA_V0.8.5.md) — prior release verification

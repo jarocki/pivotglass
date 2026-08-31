@@ -58,6 +58,7 @@ export type VisualizationIntent = {
     omitted_count: number;
   };
   selection_rationale: string;
+  reading_guide: string;
   chart_properties: Record<string, number | string | boolean>;
   caveats: string[];
   export_filename: string;
@@ -179,6 +180,9 @@ export function validateVisualizationIntent(intent: VisualizationIntent): void {
   }
   if (!intent.selection_rationale.trim()) {
     throw new Error("Visualization is missing its selection rationale");
+  }
+  if (!intent.reading_guide.trim()) {
+    throw new Error("Visualization is missing its reading guide");
   }
   validateChartProperties(intent.view, intent.chart_properties);
   if (intent.renderer === "flint_chartjs") {

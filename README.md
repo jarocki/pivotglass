@@ -11,10 +11,15 @@ framework perspectives without creating a second evidence authority. The
 release verifies Enterprise ATT&CK 19.2 content and exports the exact
 evidence-backed mapping as a Navigator layer.
 
-Version 0.9.1 adds a calm Pursuit Brief to the first viewport. It keeps four
+Version 0.9.1 added a calm Pursuit Brief to the first viewport. It keeps four
 honest progress measures separate, surfaces contradictions and investigation
 gaps, and recommends one deterministic next action with its basis and safety
 boundary. The full expert workbench remains one action away.
+
+Version 0.9.2 qualifies Flint 0.4 for the question-first visualization path,
+adds provenance-preserving evidence-cluster summaries, and introduces a
+bounded local document preview. Previewed text is not automatically admitted
+as evidence, an entity, or a relationship.
 
 > An indicator is not the answer. It is the first node.
 
@@ -22,7 +27,7 @@ The installed command remains `ap` for compatibility with earlier releases.
 The Python distribution is `adversary-pursuit`, and local configuration and
 workspaces remain under `~/.ap/`.
 
-Current release: **v0.9.1 early availability**.
+Current release: **v0.9.2 early availability**.
 
 [![Watch the Pivotglass guided walkthrough](docs/media/pivotglass-guided-demo-poster.png)](docs/media/pivotglass-guided-demo-v0.7.0.mp4)
 
@@ -74,14 +79,14 @@ Pivotglass requires Python 3.12 or newer. The shortest source installation uses
 [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone --branch v0.9.1 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v0.9.2 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent
 uv run ap --version
 uv run ap
 ```
 
-`uv run ap --version` should report `adversary-pursuit 0.9.1`. Pivotglass opens
+`uv run ap --version` should report `adversary-pursuit 0.9.2`. Pivotglass opens
 at `http://127.0.0.1:8765` and listens only on the local computer by default.
 The committed release already contains the built web interface; Node.js is
 required only when changing that interface.
@@ -116,15 +121,19 @@ mapped completeness, first or last seen, and direct graph relationship. A cell
 can be filled, partial, empty, or deferred. That state is navigation help—not a
 confidence score or malware verdict. Compact Lite Brite pegs keep all nine
 dimensions visible: starburst is filled, striped round is partial, concentric
-octagonal is deferred, and dark recessed is empty. Shape, hover text, keyboard
-focus, and selection repeat the color meaning. Enrichment Activity retains its
-three-channel RGB blocks for indicator enrichment jobs.
+octagonal is deferred, and dark recessed is empty. Search and sort remain
+visible while secondary filters stay collapsed. Shape, viewport-safe hover
+explainers, keyboard focus, and selection repeat the color meaning and expose
+the full dimension question and evidence count. One Tab enters the grid;
+arrow keys move between pegs, and a pinned peg stays visibly marked. Enrichment Activity retains
+its three-channel RGB blocks for indicator enrichment jobs.
 
-![Investigation Constellation](docs/media/pivotglass-constellation-v0.7.0.png)
+![Compact Investigation Constellation with chart-selection guidance](docs/media/pivotglass-constellation-v0.9.1.png)
 
 ### Visual Analysis and relationship graph
 
-Visual Analysis begins with an analyst question and chooses a view that fits
+Visual Analysis begins with an analyst question. A compact question selector
+chooses the evidence view that fits
 the stored data. Current views include evidence composition, Dossier radar,
 UTC activity calendar, enrichment activity, the Constellation, a
 force-directed relationship graph, connection-count distribution, a PCA view
@@ -132,7 +141,9 @@ of similarity among indicator evidence-coverage profiles, and an Analysis of
 Competing Hypotheses matrix. A collapsible investigation hierarchy preserves
 the path from workspace to investigation, question, hypothesis, and other
 scientific lifecycle items. Each view includes source scope, caveats, an
-accessible table, and export of the exact plotted data.
+accessible table, export of the exact plotted data, and compact **Why this
+fits** and **How to read it** guidance. The full deterministic selection policy
+is documented in the [Visualization guide](docs/VISUALIZATION_GUIDE.md).
 
 The uncertainty view draws the bounded probability interval associated with
 each recorded likelihood term. The latest analytic confidence assessment is

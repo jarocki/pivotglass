@@ -6,6 +6,8 @@ reimplementing tools or workspace behavior in JavaScript.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import csv
 import io
 import json
@@ -43,7 +45,9 @@ from adversary_pursuit.core.analytic_commands import execute_analysis_command
 from adversary_pursuit.core.analytic_ledger import AnalyticLedger
 from adversary_pursuit.core.analytic_rigor import build_analytic_rigor
 from adversary_pursuit.core.command_completion import command_completions
+from adversary_pursuit.core.document_ingestion import DocumentIntakeService, DocumentLimits
 from adversary_pursuit.core.error_interpreter import DEBUG_LOG_PATH
+from adversary_pursuit.core.evidence_clusters import build_evidence_clusters
 from adversary_pursuit.core.evidence_detail import evidence_ref, list_evidence, project_evidence
 from adversary_pursuit.core.framework_commands import execute_framework_command
 from adversary_pursuit.core.framework_perspectives import (
@@ -412,6 +416,30 @@ class WebCockpitService:
         )
         return {"saved": True, "annotation": annotation}
 
+    def preview_document(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Preview explicitly uploaded bytes locally without persisting them."""
+
+        encoded = payload.get("content_base64")
+        if not isinstance(encoded, str) or not encoded:
+            raise ValueError("document content is required")
+        limits = DocumentLimits(max_output_chars=100_000)
+        maximum_encoded_length = ((limits.max_bytes + 2) // 3) * 4
+        if len(encoded) > maximum_encoded_length:
+            raise ValueError("document content exceeds the configured preview limit")
+        try:
+            data = base64.b64decode(encoded, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError("document content is not valid base64") from exc
+        preview = DocumentIntakeService(self.ctx.workspace_mgr).preview_bytes(
+            data,
+            filename=str(payload.get("filename") or "document.bin"),
+            supplied_media_type=(
+                str(payload["media_type"]) if payload.get("media_type") else None
+            ),
+            limits=limits,
+        )
+        return preview.model_dump(mode="json")
+
     def command_catalog(self) -> list[dict[str, str]]:
         """Return the shared analyst command surface exposed by Pivotglass."""
         return [
@@ -448,6 +476,10 @@ class WebCockpitService:
             {
                 "command": "graph layers",
                 "purpose": "Inspect entity and epistemic nodes with provenance-bearing edges",
+            },
+            {
+                "command": "graph clusters",
+                "purpose": "Summarize connected evidence without implying common control or attribution",
             },
             {
                 "command": "graph export <json|csv|gexf> [all|entity|epistemic|bridge]",
@@ -758,6 +790,15 @@ class WebCockpitService:
                             mode="json"
                         ),
                     }
+                if rest.casefold() == "clusters":
+                    return {
+                        "kind": "json",
+                        "title": "Evidence clusters",
+                        "data": [
+                            cluster.model_dump(mode="json")
+                            for cluster in build_evidence_clusters(self.ctx.workspace_mgr)
+                        ],
+                    }
                 parts = rest.split()
                 if len(parts) in {2, 3} and parts[0].casefold() == "export":
                     from adversary_pursuit.core.investigation_graph_export import (
@@ -823,7 +864,7 @@ class WebCockpitService:
                         "data": self.graph_annotations(parts[1] if len(parts) == 2 else None),
                     }
                 raise ValueError(
-                    "usage: graph [layers|export <json|csv|gexf> [all|entity|epistemic|bridge]|layout list|layout show <name>|layout delete <name> --confirm <name>]"
+                    "usage: graph [layers|clusters|export <json|csv|gexf> [all|entity|epistemic|bridge]|layout list|layout show <name>|layout delete <name> --confirm <name>]"
                 )
             graph = RelationshipGraph()
             graph.build_from_workspace(
@@ -1652,6 +1693,7 @@ def _handler(
                     "/api/configuration/update",
                     "/api/graph-layouts",
                     "/api/graph-annotations",
+                    "/api/documents/preview",
                     "/api/integrations/scot/pivot-request",
                 }
                 and not is_cancel
@@ -1672,7 +1714,12 @@ def _handler(
                 return
             try:
                 length = int(self.headers.get("Content-Length", "0"))
-                if length > 16_384:
+                request_limit = (
+                    14 * 1024 * 1024
+                    if parsed.path == "/api/documents/preview"
+                    else 16_384
+                )
+                if length > request_limit:
                     raise ValueError("request too large")
                 raw_body = self.rfile.read(length) or b"{}"
                 if parsed.path == "/api/integrations/scot/pivot-request":
@@ -1709,6 +1756,9 @@ def _handler(
                     return
                 if parsed.path == "/api/graph-annotations":
                     self._json(service.annotate_graph(payload))
+                    return
+                if parsed.path == "/api/documents/preview":
+                    self._json(service.preview_document(payload))
                     return
                 if parsed.path == "/api/mode":
                     name = str(payload.get("name", "")).strip()

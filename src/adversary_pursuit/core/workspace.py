@@ -86,6 +86,9 @@ from adversary_pursuit.models.database import (
     AnalyticLifecycleItem,
     AnalyticMethodRun,
     BadgeEvent,
+    DocumentContent,
+    DocumentOccurrence,
+    DocumentParserReceipt,
     EvidenceObservation,
     EvidenceObservationDisposition,
     EvidenceSource,
@@ -1522,6 +1525,18 @@ class WorkspaceManager:
                 or 0,
                 "evidence_observation_dispositions": session.execute(
                     select(func.count(EvidenceObservationDisposition.id))
+                ).scalar()
+                or 0,
+                "document_contents": session.execute(
+                    select(func.count(DocumentContent.sha256))
+                ).scalar()
+                or 0,
+                "document_occurrences": session.execute(
+                    select(func.count(DocumentOccurrence.id))
+                ).scalar()
+                or 0,
+                "document_parser_receipts": session.execute(
+                    select(func.count(DocumentParserReceipt.id))
                 ).scalar()
                 or 0,
                 "investigation_questions": session.execute(

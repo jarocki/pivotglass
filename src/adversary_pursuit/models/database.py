@@ -265,6 +265,76 @@ class GraphPresentationLayout(Base):
     )
 
 
+class DocumentContent(Base):
+    """One immutable content-addressed document body within a workspace.
+
+    The database stores only an opaque ``sha256:`` reference. Original bytes
+    live in the workspace's bounded content store; paths never become evidence
+    identifiers or browser payloads.
+    """
+
+    __tablename__ = "document_contents"
+
+    sha256 = Column(String(64), primary_key=True)
+    size_bytes = Column(Integer, nullable=False)
+    detected_media_type = Column(String, nullable=False)
+    storage_ref = Column(String, nullable=False, unique=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class DocumentOccurrence(Base):
+    """A source-specific occurrence of immutable document content."""
+
+    __tablename__ = "document_occurrences"
+
+    id = Column(String, primary_key=True)
+    content_sha256 = Column(String(64), nullable=False, index=True)
+    filename = Column(Text, nullable=False)
+    source_kind = Column(String, nullable=False, index=True)
+    source_uri = Column(Text, nullable=True)
+    supplied_media_type = Column(String, nullable=True)
+    detected_media_type = Column(String, nullable=False)
+    operator = Column(String, nullable=False)
+    acquired_at = Column(DateTime, nullable=False)
+    parent_occurrence_id = Column(String, nullable=True, index=True)
+    handling_labels = Column(JSON, nullable=False, default=list)
+    lifecycle_state = Column(String, nullable=False, default="stored", index=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class DocumentParserReceipt(Base):
+    """Immutable receipt for one bounded parser execution."""
+
+    __tablename__ = "document_parser_receipts"
+
+    id = Column(String, primary_key=True)
+    occurrence_id = Column(String, nullable=False, index=True)
+    parser_name = Column(String, nullable=False)
+    parser_version = Column(String, nullable=False)
+    configuration_sha256 = Column(String(64), nullable=False)
+    output_sha256 = Column(String(64), nullable=False)
+    output_text = Column(Text, nullable=False)
+    warnings = Column(JSON, nullable=False, default=list)
+    errors = Column(JSON, nullable=False, default=list)
+    skipped = Column(JSON, nullable=False, default=list)
+    limits = Column(JSON, nullable=False)
+    elapsed_ms = Column(Integer, nullable=False)
+    state = Column(String, nullable=False, index=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
 class ScoreEvent(Base):
     """Individual scoring events from module discoveries.
 

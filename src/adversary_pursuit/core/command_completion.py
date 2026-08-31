@@ -225,6 +225,7 @@ def command_completions(
     elif command == "graph":
         choices = [
             "layers",
+            "clusters",
             "export json all",
             "export json entity",
             "export json epistemic",

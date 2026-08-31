@@ -37,6 +37,9 @@ from adversary_pursuit.models.database import (
     AnalyticLifecycleItem,
     AnalyticMethodRun,
     Base,
+    DocumentContent,
+    DocumentOccurrence,
+    DocumentParserReceipt,
     EvidenceObservation,
     EvidenceSource,
     GraphPresentationLayout,
@@ -48,7 +51,7 @@ from adversary_pursuit.models.database import (
     WorkspaceSchemaVersion,
 )
 
-CURRENT_WORKSPACE_SCHEMA_VERSION = 8
+CURRENT_WORKSPACE_SCHEMA_VERSION = 9
 LEGACY_WORKSPACE_SCHEMA_VERSION = 1
 _VERSION_ROW_ID = 1
 
@@ -159,7 +162,9 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     step adds the append-only framework mapping authority. The v5 -> v6 step
     adds restart-safe external-integration execution claims and receipts. The
     v6 -> v7 step adds presentation-only saved graph layouts. The v7 -> v8
-    step reconciles an earlier development-only layout shape and adds pins.
+    step reconciles an earlier development-only layout shape and adds pins. The
+    v8 -> v9 step adds immutable document content, occurrence, and parser
+    receipt authorities without rewriting existing evidence.
     """
 
     tables = set(inspect(engine).get_table_names())
@@ -203,6 +208,9 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     if current == 7:  # noqa: PLR2004
         _migrate_v7_to_v8(engine)
         current = 8
+    if current == 8:  # noqa: PLR2004
+        _migrate_v8_to_v9(engine)
+        current = 9
 
     if current != CURRENT_WORKSPACE_SCHEMA_VERSION:
         raise RuntimeError(
@@ -235,7 +243,7 @@ def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
     current = _read_schema_version(engine, tables)
     if current == CURRENT_WORKSPACE_SCHEMA_VERSION:
         return MigrationPlan(current, current, False, True, None, ())
-    supported = current in {LEGACY_WORKSPACE_SCHEMA_VERSION, 2, 3, 4, 5, 6, 7}
+    supported = current in {LEGACY_WORKSPACE_SCHEMA_VERSION, 2, 3, 4, 5, 6, 7, 8}
     steps = ["create sibling backup"]
     if current == LEGACY_WORKSPACE_SCHEMA_VERSION:
         steps.extend(
@@ -287,6 +295,14 @@ def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
             (
                 "reconcile legacy graph-layout shape and add saved pins",
                 "write schema-version 8 receipt",
+            )
+        )
+    if current <= 8:  # noqa: PLR2004
+        steps.extend(
+            (
+                "add immutable document content and occurrence records",
+                "add bounded parser execution receipts",
+                "write schema-version 9 receipt",
             )
         )
     return MigrationPlan(
@@ -704,6 +720,21 @@ def _migrate_v7_to_v8(engine: Engine) -> None:
             ),
             {"now": datetime.now(timezone.utc)},
         )
+
+
+def _migrate_v8_to_v9(engine: Engine) -> None:
+    """Add governed document intake records without altering prior evidence."""
+
+    DocumentContent.__table__.create(engine, checkfirst=True)
+    DocumentOccurrence.__table__.create(engine, checkfirst=True)
+    DocumentParserReceipt.__table__.create(engine, checkfirst=True)
+    with Session(engine) as session:
+        row = session.get(WorkspaceSchemaVersion, _VERSION_ROW_ID)
+        if row is None:
+            raise RuntimeError("Schema v8 workspace is missing its version receipt.")
+        row.version = 9
+        row.migrated_at = datetime.now(timezone.utc)
+        session.commit()
 
 
 def _decode_legacy_json(value: object, default: object) -> object:

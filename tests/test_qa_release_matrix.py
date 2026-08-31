@@ -198,6 +198,18 @@ def test_constellation_uses_compact_shape_redundant_lite_brite_pegs():
     assert 'className={`task-matrix ${isConstellation ? "constellation-matrix" : ""}`}' in workspace
     assert "<LiteBritePeg" in workspace
     assert "CONSTELLATION_COLUMN_LABELS" in workspace
+    assert "CONSTELLATION_DIMENSION_HELP" in workspace
+    assert "data-tooltip={cellHelp}" in workspace
+    assert "constellationStatusHelp(status)" in workspace
+    assert "coverage is not confidence or truth" in workspace
+    assert "<LiteBritePeg\n                                compact" in workspace
+    assert 'className="constellation-dimension-help"' in workspace
+    assert "`${label}. ${cellHelp}`" in workspace
+    assert "data-grid-row={rowIndex}" in workspace
+    assert "data-grid-column={columnIndex}" in workspace
+    assert 'event.key === "ArrowDown"' in workspace
+    assert 'event.key === "Home"' in workspace
+    assert "aria-pressed={isConstellation ? isSelected : undefined}" in workspace
     for motif in ('"filled"', '"partial"', '"deferred"', '"empty"'):
         assert motif in peg
     for selector in (
@@ -208,6 +220,41 @@ def test_constellation_uses_compact_shape_redundant_lite_brite_pegs():
     ):
         assert selector in styles
     assert ".constellation-matrix .lite-brite-cell" in styles
+    assert ".constellation-matrix .lite-brite-cell.selected" in styles
+    assert ".lite-brite-peg.compact" in styles
+    assert ".constellation-matrix-wrap" in styles
+
+
+def test_visualization_question_picker_keeps_the_analyst_question_primary():
+    workspace = Path("web/app/visualization-workspace.tsx").read_text()
+    styles = Path("web/app/pivotglass.css").read_text()
+
+    assert "CHOOSE AN ANALYST QUESTION" in workspace
+    assert '<select value={selected.intent_id}' in workspace
+    assert 'className="visualization-picker"' in workspace
+    assert ".visualization-picker" in styles
+    assert 'className="visualization-tabs"' not in workspace
+
+
+def test_every_selected_visualization_explains_choice_and_reading():
+    authority = Path("src/adversary_pursuit/core/visualization.py").read_text()
+    intent = Path("web/app/visualization-intent.ts").read_text()
+    workspace = Path("web/app/visualization-workspace.tsx").read_text()
+
+    assert "reading_guide: str" in authority
+    assert "reading_guide: string" in intent
+    assert "Why this fits" in workspace
+    assert "How to read it" in workspace
+    assert "VISUALIZATION_VIEW_LABELS[selected.view]" in workspace
+
+
+def test_visualize_route_wins_over_default_focus_view_hiding_rule():
+    styles = Path("web/app/pivotglass.css").read_text()
+
+    assert ".focus-view .right-stack.inspector-open.active-artifact-field>.instruments{display:none}" in styles
+    assert ".focus-view .right-stack.inspector-open.active-artifact-field>.chart-panel{display:block}" in styles
+    assert ".focus-view .cockpit-grid:has(.right-stack.inspector-open.active-artifact-field)>.feed-panel{display:none}" in styles
+    assert ".focus-view .right-stack.inspector-open.active-artifact-field{width:100%;min-width:0}" in styles
 
 
 def test_field_guidance_is_idle_gated_character_voiced_and_not_evidence():

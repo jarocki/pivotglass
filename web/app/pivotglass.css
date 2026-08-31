@@ -405,15 +405,21 @@ pre{font-size:12px;line-height:1.5}
 /* v0.6.0 semantic visualization workspace. Python owns intent and data;
    Flint owns supported chart compilation; these rules own presentation only. */
 .visualization-workspace{display:grid;gap:10px;padding:10px;min-width:0}
-.visualization-tabs{display:flex;flex-wrap:wrap;gap:5px}
-.visualization-tabs button,.visualization-header button{border:1px solid color-mix(in srgb,var(--line) 46%,transparent);background:var(--control);color:var(--ink);padding:7px 9px;cursor:pointer}
-.visualization-tabs button[aria-pressed="true"]{border-color:var(--focus-ring);background:color-mix(in srgb,var(--accent) 18%,var(--control));color:var(--heading)}
+.visualization-picker{display:flex;align-items:end;justify-content:space-between;gap:12px;padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);border-radius:8px;background:color-mix(in srgb,var(--surface) 92%,transparent)}
+.visualization-picker label{display:grid;gap:4px;min-width:min(440px,100%)}
+.visualization-picker label span{color:var(--accent);font-size:9px;font-weight:800;letter-spacing:.1em}
+.visualization-picker select{min-height:34px;padding:6px 34px 6px 8px;border:1px solid color-mix(in srgb,var(--line) 46%,transparent);border-radius:6px;background:var(--control);color:var(--heading);font-weight:750}
+.visualization-picker small{max-width:38ch;color:var(--dim);line-height:1.35;text-align:right}
+.visualization-header button{border:1px solid color-mix(in srgb,var(--line) 46%,transparent);background:var(--control);color:var(--ink);padding:7px 9px;cursor:pointer}
 .visualization-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-block:5px;border-bottom:1px solid color-mix(in srgb,var(--line) 30%,transparent)}
 .visualization-header>div{display:grid;gap:4px;min-width:0}
 .visualization-header span{color:var(--accent);font-weight:800;letter-spacing:.12em}
 .visualization-header h3{margin:0;color:var(--ink);font-size:13px;line-height:1.35}
 .visualization-header small{color:var(--dim);line-height:1.4}
-.visualization-rationale{max-width:78ch}.visualization-rationale b{color:var(--heading);letter-spacing:.08em}
+.visualization-explainer{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;max-width:88ch;margin-top:3px;padding:7px 9px;border-left:3px solid var(--accent);border-radius:0 8px 8px 0;background:color-mix(in srgb,var(--accent) 7%,var(--control))}
+.visualization-explainer>b{grid-row:1/3;align-self:start;padding:2px 7px;border:1px solid color-mix(in srgb,var(--accent) 48%,transparent);border-radius:999px;color:var(--heading);font-size:9px;letter-spacing:.04em;white-space:nowrap}
+.visualization-explainer p{margin:0;color:var(--dim);font-size:11px;line-height:1.42}
+.visualization-explainer strong{color:var(--ink);font-weight:750}
 .histogram-bins{display:flex;align-items:center;justify-content:flex-end;gap:8px;color:var(--dim);font-size:11px;font-weight:800;letter-spacing:.08em}.histogram-bins input{width:min(220px,45vw);accent-color:var(--accent)}.histogram-bins output{min-width:2ch;color:var(--heading)}
 .flint-canvas{position:relative;display:grid;grid-template-rows:auto minmax(0,1fr);min-height:280px;height:320px}
 .flint-canvas canvas{width:100%!important;height:100%!important;max-height:none;padding:0}
@@ -436,12 +442,19 @@ pre{font-size:12px;line-height:1.5}
 .calendar-day.padding{visibility:hidden}
 .calendar-day b{font-size:12px}
 .calendar-day span{font-size:8px}
-.constellation-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end;gap:7px;padding:8px;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);background:color-mix(in srgb,var(--surface) 92%,transparent)}
+.constellation-tools{display:grid;gap:5px;padding:6px 8px;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);border-radius:9px;background:color-mix(in srgb,var(--surface) 92%,transparent)}
+.constellation-toolbar{display:grid;grid-template-columns:minmax(180px,1fr) minmax(150px,.65fr) auto;align-items:end;gap:7px}
+.constellation-toolbar label{display:grid;gap:3px;min-width:0;color:var(--dim)}
+.constellation-toolbar input,.constellation-toolbar select{min-width:0;min-height:32px;padding:5px 7px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);border-radius:6px;background:var(--control);color:var(--ink)}
+.constellation-toolbar output{align-self:center;color:var(--accent);font-weight:800;white-space:nowrap}
+.constellation-more{border-top:1px solid color-mix(in srgb,var(--line) 22%,transparent);padding-top:4px}
+.constellation-more summary{width:max-content;color:var(--heading);font-size:9px;font-weight:800;letter-spacing:.08em;cursor:pointer}
+.constellation-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end;gap:7px;padding-top:7px}
 .constellation-controls label{display:grid;gap:3px;min-width:0;color:var(--dim)}
-.constellation-controls input,.constellation-controls select,.constellation-controls button{min-width:0;min-height:34px;padding:6px 8px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
+.constellation-controls input,.constellation-controls select,.constellation-controls button{min-width:0;min-height:32px;padding:5px 7px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);border-radius:6px;background:var(--control);color:var(--ink)}
 .constellation-controls button{color:var(--heading);cursor:pointer}
-.constellation-controls output{align-self:center;color:var(--accent);font-weight:800}
 .task-matrix-wrap{max-width:100%;overflow:auto;border:1px solid color-mix(in srgb,var(--line) 30%,transparent)}
+.constellation-matrix-wrap{width:max-content;max-width:100%;max-height:min(54dvh,480px);overscroll-behavior:contain;border-radius:8px;background:#030709;scrollbar-gutter:stable}
 .task-matrix{width:100%;min-width:520px;border-collapse:separate;border-spacing:0;color:var(--ink)}
 .task-matrix th,.task-matrix td{padding:5px;border-right:1px solid color-mix(in srgb,var(--line) 20%,transparent);border-bottom:1px solid color-mix(in srgb,var(--line) 20%,transparent);text-align:center}
 .task-matrix thead th{position:sticky;top:0;z-index:2;background:var(--elevated);color:var(--heading)}
@@ -478,10 +491,9 @@ pre{font-size:12px;line-height:1.5}
 .uncertainty-intervals footer{display:grid;grid-template-columns:minmax(110px,.25fr) minmax(0,1fr);gap:3px 10px}.uncertainty-intervals footer p{margin:0;color:var(--dim);font-size:8px;line-height:1.4}
 @media(max-width:600px){.uncertainty-intervals header{display:grid}.uncertainty-intervals footer{grid-template-columns:1fr}.uncertainty-track{margin-inline:16px}}
 @keyframes led-pulse{50%{filter:brightness(1.45)}}
-.lite-brite-legend{display:flex;align-items:center;gap:12px;width:max-content;max-width:100%;padding:5px 9px;border:2px solid #020304;border-radius:14px;background:#071014;box-shadow:inset 0 0 12px #000;overflow:auto}
-.lite-brite-legend>span{display:flex;align-items:center;gap:2px;color:#a8b7be;text-transform:uppercase;white-space:nowrap}
-.lite-brite-legend>span b{font-size:7px;letter-spacing:.08em}
-.lite-brite-legend .lite-brite-peg{margin:-3px;transform:scale(.7)}
+.lite-brite-legend{display:flex;align-items:center;gap:9px;width:max-content;max-width:100%;padding:3px 7px;border:1px solid #020304;border-radius:10px;background:#071014;box-shadow:inset 0 0 10px #000;overflow:auto}
+.lite-brite-legend>span{display:flex;align-items:center;gap:4px;color:#a8b7be;text-transform:uppercase;white-space:nowrap}
+.lite-brite-legend>span b{font-size:8px;letter-spacing:.06em}
 .lite-brite-peg{position:relative;display:inline-block;width:30px;height:30px;flex:none;filter:drop-shadow(0 2px 2px #000);isolation:isolate}
 .lite-brite-peg i{position:absolute;display:block;inset:0;margin:auto}
 .lite-brite-peg .peg-outer{width:30px;height:30px}
@@ -510,19 +522,32 @@ pre{font-size:12px;line-height:1.5}
 .lite-brite-peg.motif-failed .peg-middle,.lite-brite-peg.motif-failed .peg-inner{width:4px;height:23px;border-radius:3px;background:#190206;transform:rotate(45deg)}
 .lite-brite-peg.motif-failed .peg-inner{transform:rotate(-45deg)}
 .lite-brite-peg.motif-failed .peg-center{display:none}
-.constellation-matrix{width:min(760px,100%);min-width:620px;border-spacing:3px;background-color:#030709;background-image:radial-gradient(circle,#17252b 0 1px,transparent 1.5px);background-size:7px 7px;box-shadow:inset 0 0 24px #000}
-.constellation-matrix th,.constellation-matrix td{padding:2px;border:0}
-.constellation-matrix thead th{position:sticky;top:0;height:25px;padding:3px;background:#091317f2;color:#8dddea;font-size:8px;letter-spacing:.08em}
-.constellation-matrix thead th:first-child{width:220px;padding-left:8px;text-align:left}
-.constellation-matrix tbody th{width:220px;max-width:220px;height:38px;padding:2px 8px;background:#091317f2}
+.lite-brite-peg.compact{width:18px;height:18px;filter:drop-shadow(0 1px 2px #000)}
+.lite-brite-peg.compact .peg-outer{width:18px;height:18px}
+.lite-brite-peg.compact .peg-middle{width:14px;height:14px}
+.lite-brite-peg.compact .peg-inner{width:9px;height:9px}
+.lite-brite-peg.compact .peg-center{width:4px;height:4px}
+.lite-brite-peg.compact.motif-empty .peg-outer{border-width:2px}
+.lite-brite-peg.compact.motif-empty .peg-inner,.lite-brite-peg.compact.motif-empty .peg-center{width:2px;height:9px}
+.lite-brite-peg.compact.motif-partial .peg-outer{border-width:2px}
+.lite-brite-peg.compact.motif-partial .peg-inner{width:2px;height:12px;transform:translateX(-4px)}
+.lite-brite-peg.compact.motif-failed .peg-middle,.lite-brite-peg.compact.motif-failed .peg-inner{width:3px;height:14px}
+.constellation-matrix{width:min(520px,100%);min-width:468px;border-spacing:2px;background-color:#030709;background-image:radial-gradient(circle,#17252b 0 1px,transparent 1.4px);background-size:7px 7px;box-shadow:inset 0 0 20px #000}
+.constellation-matrix th,.constellation-matrix td{padding:1px;border:0}
+.constellation-matrix thead th{position:sticky;top:0;height:23px;padding:2px;background:#091317f2;color:#8dddea;font-size:8px;letter-spacing:.06em}
+.constellation-dimension-help{width:100%;min-width:0;padding:3px 1px;border:0;background:transparent;color:inherit;font:inherit;letter-spacing:inherit;cursor:help}
+.constellation-dimension-help:focus-visible{outline:2px solid var(--focus-ring);outline-offset:0}
+.constellation-matrix thead th:first-child{width:188px;padding-left:7px;text-align:left}
+.constellation-matrix tbody th{width:188px;max-width:188px;height:28px;padding:1px 7px;background:#091317f2}
 .constellation-matrix tbody th>button{padding:1px 2px}
-.constellation-matrix tbody th>button b{font-size:10px}
-.constellation-matrix tbody th>button small{font-size:7px}
-.constellation-matrix tbody td{width:42px;height:38px;background:#050b0e99}
-.constellation-matrix .lite-brite-cell{display:grid;place-items:center;width:36px;min-width:36px;min-height:34px;margin:auto;padding:1px;border:0;border-radius:50%;background:transparent}
-.constellation-matrix .lite-brite-cell:hover .lite-brite-peg{filter:brightness(1.18) drop-shadow(0 0 5px #fff8);transform:scale(1.08)}
+.constellation-matrix tbody th>button b{font-size:10px;line-height:1.1}
+.constellation-matrix tbody th>button small{font-size:8px;line-height:1.05}
+.constellation-matrix tbody td{width:29px;height:28px;background:#050b0e80}
+.constellation-matrix .lite-brite-cell{display:grid;place-items:center;width:26px;min-width:26px;min-height:26px;margin:auto;padding:1px;border:0;border-radius:50%;background:transparent}
+.constellation-matrix .lite-brite-cell:hover .lite-brite-peg{filter:brightness(1.2) drop-shadow(0 0 4px #fff8);transform:scale(1.12)}
 .constellation-matrix .lite-brite-cell:focus-visible{outline:2px solid var(--focus-ring);outline-offset:1px}
 .constellation-matrix .lite-brite-cell:focus-visible .lite-brite-peg{filter:brightness(1.2) drop-shadow(0 0 5px var(--focus-ring))}
+.constellation-matrix .lite-brite-cell.selected{outline:2px solid var(--accent);outline-offset:1px;background:color-mix(in srgb,var(--accent) 12%,transparent)}
 .matrix-empty{color:var(--dim)}
 .visualization-selection{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:8px;border-left:3px solid var(--accent);background:var(--control)}
 .visualization-selection b{overflow:hidden;text-overflow:ellipsis;color:var(--heading)}
@@ -617,13 +642,19 @@ pre{font-size:12px;line-height:1.5}
 main.max-artifact-field #artifact-field .artifact-list{display:none}
 
 @media(max-width:650px){
+  .visualization-picker{display:grid}.visualization-picker label{min-width:0}.visualization-picker small{text-align:left}
   .visualization-header{display:grid}
   .visualization-header button{justify-self:start}
+  .visualization-explainer{grid-template-columns:1fr}
+  .visualization-explainer>b{grid-row:auto;justify-self:start}
+  .constellation-toolbar{grid-template-columns:minmax(0,1fr) minmax(135px,.7fr)}
+  .constellation-toolbar output{grid-column:1/-1}
   .constellation-controls{grid-template-columns:1fr}
-  .constellation-matrix{min-width:540px}
-  .constellation-matrix thead th:first-child,.constellation-matrix tbody th{width:150px;max-width:150px}
-  .constellation-matrix tbody td{width:38px}
-  .constellation-matrix .lite-brite-cell{width:34px;min-width:34px}
+  .constellation-matrix{min-width:444px}
+  .constellation-matrix-wrap{max-height:min(50dvh,420px)}
+  .constellation-matrix thead th:first-child,.constellation-matrix tbody th{width:164px;max-width:164px}
+  .constellation-matrix tbody td{width:28px}
+  .constellation-matrix .lite-brite-cell{width:25px;min-width:25px}
   .calendar-day{min-height:34px}
   .calendar-day span{display:none}
   .flint-canvas{height:280px}
@@ -699,6 +730,8 @@ main.max-artifact-field #artifact-field .artifact-list{display:none}
 .focus-view .voice-strip,.focus-view .telemetry-rack{display:none}
 .focus-view .right-stack>.chart-panel,.focus-view .right-stack>.activity-panel,.focus-view .right-stack>.alert-panel{display:none}
 .focus-view .right-stack{grid-template-rows:auto}
+.focus-view .right-stack.inspector-open.active-artifact-field>.instruments{display:none}
+.focus-view .right-stack.inspector-open.active-artifact-field>.chart-panel{display:block}
 .focus-view .cockpit-grid{grid-template-columns:minmax(0,1fr) minmax(280px,.42fr)}
 .focus-view .feed{min-height:0}
 .focus-view .ambient-environment{opacity:.08}
@@ -959,6 +992,24 @@ main{padding:10px}
 .focus-view .right-stack:not(.inspector-open){display:none}
 .focus-view .cockpit-grid{grid-template-columns:minmax(0,1fr)}
 .focus-view .cockpit-grid:has(.right-stack.inspector-open){grid-template-columns:minmax(0,1fr) minmax(300px,.42fr)}
+.focus-view .cockpit-grid:has(.right-stack.inspector-open.active-artifact-field){grid-template-columns:minmax(0,1fr)}
+.focus-view .cockpit-grid:has(.right-stack.inspector-open.active-artifact-field)>.feed-panel{display:none}
+.focus-view .right-stack.inspector-open.active-artifact-field{width:100%;min-width:0}
+
+/* Document intake stays a small, explicit preview step. It does not compete
+   with the visualization canvas or imply that parsed text is admitted evidence. */
+.document-intake{display:grid;gap:9px;padding:12px 14px;border:1px solid color-mix(in srgb,var(--accent) 38%,transparent);border-radius:12px;background:color-mix(in srgb,var(--accent) 4%,var(--surface));box-shadow:0 12px 30px color-mix(in srgb,var(--shadow) 42%,transparent)}
+.document-intake>summary{color:var(--heading);font-size:10px;font-weight:750;letter-spacing:.1em;cursor:pointer}
+.document-intake>p{margin:0;color:var(--dim);font-size:11px;line-height:1.45}
+.document-intake-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px}
+.document-intake-controls input{min-width:0;max-width:100%;color:var(--dim);font-size:11px}
+.document-intake-controls button{min-height:34px;padding:7px 10px;border:1px solid color-mix(in srgb,var(--accent) 52%,transparent);border-radius:7px;background:var(--control);color:var(--heading);font-size:9px;font-weight:700;letter-spacing:.06em;cursor:pointer}
+.document-intake-controls button:disabled{opacity:.45;cursor:not-allowed}
+.document-preview{display:grid;gap:8px;margin-top:10px;padding:11px;border-left:3px solid var(--accent);border-radius:8px;background:var(--control)}
+.document-preview.state-partial{border-left-color:#f3a65a}.document-preview.state-failed{border-left-color:#f06464}
+.document-preview header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.document-preview header b{min-width:0;overflow:hidden;color:var(--ink);font-size:11px;text-overflow:ellipsis;white-space:nowrap}.document-preview header span{flex:none;color:var(--dim);font-size:9px}
+.document-preview p,.document-preview small{margin:0;color:var(--dim);font-size:10px;line-height:1.45}.document-preview .truth-note{padding:7px 8px;border-radius:6px;background:color-mix(in srgb,var(--accent) 6%,var(--surface));color:var(--ink)}
+.document-preview pre{max-height:240px;margin:0;padding:9px;overflow:auto;border:1px solid color-mix(in srgb,var(--line) 28%,transparent);border-radius:6px;background:var(--base);color:var(--ink);font-size:10px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
 
 .masthead,.pane-switcher,.voice-strip,.command-rail,.telemetry-rack,.pursuit-brief,.cockpit-grid,main>footer{width:min(1180px,100%);margin-inline:auto}
 .pursuit-brief{display:grid;gap:14px;padding:18px;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);border-radius:18px;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 5%,var(--surface)),var(--surface) 58%,color-mix(in srgb,var(--heading) 4%,var(--surface)));box-shadow:0 18px 50px color-mix(in srgb,var(--shadow) 55%,transparent)}
@@ -997,5 +1048,6 @@ main{padding:10px}
 .command-rail .prompt,.command-rail .command-hint{display:none}.command-rail{top:50px;padding:8px}.command-rail form{grid-template-columns:minmax(0,1fr) 48px;gap:6px}.command-rail form>.command-combobox{grid-column:1}.command-rail form>.command-combobox+button{min-width:48px;padding-inline:4px;font-size:0}.command-rail form>.command-combobox+button::after{content:"GO";font-size:12px;font-weight:800;letter-spacing:.08em}
 .command-rail input::placeholder{color:var(--dim);opacity:.82}
 .pursuit-brief{gap:10px;padding:13px;border-radius:14px}.pursuit-brief-heading{display:grid;gap:6px}.brief-state{justify-self:start;padding:4px 7px}.pursuit-brief-heading h2{font-size:20px}.pursuit-brief-heading p,.brief-now p,.brief-next p{font-size:14px}.pursuit-brief-core{grid-template-columns:1fr}.brief-now{grid-template-columns:auto 1fr;align-items:center;gap:3px 10px;padding:9px 11px}.brief-now>span{grid-row:1/3}.brief-now>b{font-size:16px}.brief-now p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brief-now small{display:none}.brief-next{padding:11px}.brief-next h3{font-size:18px}.brief-progress{grid-template-columns:1fr 1fr}.brief-progress b,.brief-progress header span,.brief-progress small{font-size:11px}.pursuit-brief-footer{grid-template-columns:1fr}.brief-recent-change{grid-column:auto;grid-row:auto}.brief-recent-change span{white-space:normal}.brief-workbench-link{justify-self:start;padding-left:0;font-size:11px}.full-workbench>summary small{font-size:12px}
+.document-intake{padding:11px}.document-intake-controls{align-items:stretch}.document-intake-controls button{width:100%}.document-preview header{display:grid}.document-preview header span{font-size:10px}
 }
 @media(max-width:390px){.brief-progress{grid-template-columns:1fr}.status-cluster .lamp{display:none}.system-state{font-size:9px}.help-button{padding-inline:8px}}

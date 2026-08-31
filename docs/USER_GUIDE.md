@@ -167,7 +167,8 @@ The Investigation Constellation is the persistent coverage table in Visual
 Analysis. Stored indicators form rows, and the nine Dossier dimensions form
 columns. The initial order is newest last-seen first.
 
-You can filter or sort by:
+Search and sort stay visible. Additional filters remain under **Filters** until
+needed, where you can filter or sort by:
 
 - indicator value;
 - indicator type;
@@ -184,19 +185,24 @@ the dimension state.
 Each Dossier state is a compact Lite Brite peg. A bright starburst is filled, a
 striped round peg is partial, a concentric octagonal peg is deferred, and a
 dark recessed peg is empty. The form makes each state recognizable without
-color; hover, keyboard focus, and selection expose the full dimension name,
-status, and evidence count. Enrichment Activity keeps the larger three-channel
-RGB blocks because those cells represent job lifecycles rather than Dossier
-coverage.
+color. Hover or keyboard focus opens a viewport-safe explainer with the full
+dimension question, state meaning, and exact evidence count; selection pins the
+same explanation above the matrix and visibly marks its peg. Tab enters the
+grid once; use the arrow keys to move, Home or End to reach the first or last
+dimension, and Enter or Space to pin the focused peg. Column headings are
+focusable and announce the full dimension question. Enrichment Activity keeps the larger
+three-channel RGB blocks because those cells represent job lifecycles rather
+than Dossier coverage.
 
 The overall mapped value is navigation help, not confidence or a verdict.
 
-![Investigation Constellation](media/pivotglass-constellation-v0.7.0.png)
+![Compact Investigation Constellation with chart-selection guidance](media/pivotglass-constellation-v0.9.1.png)
 
 ## Visual Analysis
 
 Visual Analysis starts with the analyst question rather than a preferred chart
-type. Pivotglass currently provides:
+type. Use **Choose an analyst question** to switch evidence views without
+crossing a wall of chart controls. Pivotglass currently provides:
 
 - stored evidence types, compiled through Flint as a bar chart;
 - one-Dossier completeness, compiled through Flint as a radar chart on an
@@ -212,10 +218,31 @@ type. Pivotglass currently provides:
   and
 - a likelihood-interval view with separate analytic confidence context.
 
-Every view states its source scope and missing-data policy. **View exact data
-and caveats** opens the accessible table behind the visual. **Export exact
-data** downloads the same plotted rows as CSV, or the complete relationship
-nodes and edges as JSON.
+Every selected view states its source scope and missing-data policy, names the
+visualization type, and provides two short notes: **Why this fits** explains the
+deterministic selection, while **How to read it** explains the intended visual
+comparison and its most important limit. **View exact data and caveats** opens
+the accessible table behind the visual. **Export exact data** downloads the
+same plotted rows as CSV, or the complete relationship nodes and edges as JSON.
+
+See the [Visualization guide](VISUALIZATION_GUIDE.md) for the complete
+question-to-view policy and the analytical guardrails for every chart family.
+
+### Preview a document locally
+
+Open **Visualize**, then expand **Preview a document** above the chart panel.
+The v0.9.2 preview accepts an explicitly selected file up to 10 MiB and has
+qualified parsers for text, Markdown, HTML, CSV, JSON, JSONL, and RFC 5322
+email. HTML scripts, styles, templates, and external references are not run.
+Email attachments are named as skipped rather than silently treated as parsed.
+PDF input is recognized and hashed, but text extraction and OCR remain
+unqualified and are reported as such.
+
+The preview returns the sanitized filename, media type, byte count, content
+hash, parser version, parse state, bounded text, warnings, errors, and skipped
+content. It is temporary and local: it creates no document record, evidence,
+entity, relationship, graph edge, or model request. Parsed text proves only
+what the selected source contained; it does not prove the source's claims.
 
 Deferred dimensions remain in the table but are omitted from the radar shape
 because they do not have an inference path. Radar values 0, 50, and 100 map to
@@ -529,6 +556,7 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `integration nucleotide fingerprint-history <actor-id>` | List persisted fingerprint windows and structural hashes for one analyst-grouped batch |
 | `integration nucleotide fingerprint-compare <left-proposal-id> <right-proposal-id>` | Run Nucleotide's exact field-by-field diff over two stored fingerprints, disclose lookup-corpus drift, and create no formal confidence or identity claim |
 | `graph layers` | Inspect the combined entity and epistemic graph, including edge provenance and truth type |
+| `graph clusters` | Summarize connected stored entities, admitted edge truth classes, provenance diversity, timing, mapped behavior, and Dossier gaps without implying common control or actor attribution |
 | `graph export <json\|csv\|gexf> [all\|entity\|epistemic\|bridge]` | Download the exact governed multi-layer graph; bridge scope includes both endpoint layers and every edge retains truth class, provenance, rationale, and direction |
 | `graph layout list` | List presentation-only saved graph arrangements |
 | `graph layout show <name>` | Inspect a saved arrangement and current graph drift |
@@ -565,8 +593,8 @@ palette. Use DECK controls for Day, Night, and contrast in Pivotglass.
 ### Why Pivotglass chose a visualization
 
 Each Visual Analysis view names the analyst question, source scope, record
-count, missing-data behavior, and the deterministic reason the chart or matrix
-was selected. The connection-count histogram is derived only from graph edges
+count, missing-data behavior, deterministic selection reason, and a concise
+reading guide. The connection-count histogram is derived only from graph edges
 already admitted by the relationship authority. Its **Bins** control changes
 the Flint rendering, not the underlying data. Zero-degree entities remain in
 the exact-data table, and connection count is not importance, maliciousness,

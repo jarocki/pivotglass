@@ -16,7 +16,15 @@ function motifForStatus(status: string): PegMotif {
   return "partial";
 }
 
-export function LiteBritePeg({ status, label }: { status: string; label: string }) {
+export function LiteBritePeg({
+  status,
+  label,
+  compact = false,
+}: {
+  status: string;
+  label: string;
+  compact?: boolean;
+}) {
   const [red, green, blue] = rgbForStatus(status);
   const motif = motifForStatus(status);
   const style = {
@@ -25,7 +33,7 @@ export function LiteBritePeg({ status, label }: { status: string; label: string 
 
   return (
     <span
-      className={`lite-brite-peg motif-${motif}`}
+      className={`lite-brite-peg motif-${motif}${compact ? " compact" : ""}`}
       style={style}
       data-status={status}
       data-rgb={`${red},${green},${blue}`}
