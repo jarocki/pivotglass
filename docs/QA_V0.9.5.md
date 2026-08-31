@@ -9,7 +9,8 @@ pre-1.0 stable/preview/deferred closure
 
 ## Candidate verification
 
-- Complete Python suite after the approved security fixes: **4,160 passed, 2 skipped**. The one warning is the
+- Complete Python suite after all four approved security fixes: **4,166 passed,
+  2 skipped**. The one warning is the
   existing Python 3.12+ SQLite datetime-adapter deprecation exercised by the
   schema-v7 presentation-layout reconciliation test; it is not a failure.
 - Repository-wide Python static analysis across `src/`, `tests/`, and
@@ -17,6 +18,10 @@ pre-1.0 stable/preview/deferred closure
 - Browser preview, document parser, and entity-extraction focused suite:
   **49 passed** before hostile-input additions; the frozen document-authority,
   hostile-input, workspace, and release-contract group passed **160 tests**.
+- The final JSON/JSONL and HTTP regression replay passed **60 tests**, including
+  both former recursion triggers, quote/escape-aware valid inputs, the outer
+  request-envelope recursion boundary, and a successful request after every
+  rejected hostile request.
 - TypeScript check and Next.js 16.3.0 production static export passed for the
   candidate-preview interface.
 - Five visualization behavior tests passed.
@@ -102,31 +107,35 @@ replay above is the completed product receipt.
 
 ## Security diff gate
 
-The fresh exact-candidate Codex Security diff scan at `f25ea70` reviewed all
+The final exact-candidate Codex Security diff scan at `444c8e9` reviewed all
 **40 of 40** compact worklist rows derived from **402 changed files** across the
-v0.9.1–v0.9.5 release train. The scan sealed with complete coverage and no
-deferred candidates. It found no critical, high, or medium findings.
+v0.9.1–v0.9.5 release train. Scan
+`f6b1b5ed-a64c-4b3b-aee5-acf8174aec82` sealed with complete coverage, no
+deferred candidates, and **zero findings**.
 
-The two findings from the earlier `7e6c31d` scan are fixed and independently
-verified:
+All four findings discovered by the earlier exact-candidate scans are fixed
+and independently verified:
 
 - every POST route now rejects duplicate, signed, fractional, negative, and
   non-ASCII `Content-Length` values before reading a body while accepting
   standards-valid HTTP optional whitespace; and
 - every human-review CSV cell beginning with `=`, `+`, `-`, `@`, tab, carriage
   return, or newline is emitted as inert text while the CycloneDX SBOM retains
-  the exact dependency metadata.
+  the exact dependency metadata; and
+- JSON and each nonblank JSONL record receive a quote/escape-aware source-depth
+  check before `json.loads`, followed by an iterative exact semantic-depth
+  check, while outer request-object decoder recursion becomes a sanitized
+  HTTP 400 response.
 
 The regenerated candidate contains **140 components**. Its CSV has no cell
 beginning with a guarded prefix; the SBOM retains the exact original values for
 all **42** guarded scoped-package names. All four artifact checksums verify.
 
-The fresh scan found two new high-confidence, low-severity variants of one
-document-parser root cause: deeply nested JSON and one deeply nested JSONL
-record can raise `RecursionError` before the configured depth policy takes
-effect, causing that preview request to close without a bounded response. Byte
-caps, loopback-by-default exposure, and request-thread isolation constrain the
-impact, but both findings remain open pending explicit remediation approval.
+The exact original JSON and JSONL proof inputs now produce a bounded failed
+preview with the configured nesting-limit message. They no longer raise
+`RecursionError`, and a valid request immediately afterward succeeds. The
+parser version is `pivotglass-bounded-preview-1.1` so receipts distinguish the
+remediated behavior.
 
 The scan also reproduced two product lifecycle defects: workspace clear does
 not remove every new v9-v11 record family, and workspace delete leaves the

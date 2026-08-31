@@ -13,12 +13,13 @@ manifest. No external state was changed while preparing this handoff.
 ## Release decision
 
 The candidate is frozen for owner review as a truthful v0.9.5
-early-availability checkpoint, but two newly discovered low-severity parser
-findings and two workspace-deletion correctness defects remain open. It is not
-a completed public release. From this handoff forward,
-the branch should accept only release hygiene, explicitly approved fixes for
-the open low-severity security findings, or a correction required by a failed
-gate. New capability belongs in a later version.
+early-availability checkpoint. All four approved security findings are fixed
+and the final exact-code scan reports zero findings; two workspace-deletion
+correctness defects remain open. It is not a completed public release. From
+this handoff forward,
+the branch should accept only release hygiene, an explicitly approved
+workspace-deletion correction, or a correction required by a failed gate. New
+capability belongs in a later version.
 
 ## Completed receipts
 
@@ -29,11 +30,11 @@ gate. New capability belongs in a later version.
 | Stable/preview/deferred boundary | `docs/COMPATIBILITY.md`, product text, data-safety guidance, and the quality record agree; SCOT4, Synapse, go-roast, Nucleotide, document preview, and model proposals do not silently become stable authorities |
 | Capacity | Reproducible 5,000-entity storage/export and 1,000-node graph receipts; overflow remains visible and stored evidence is not deleted |
 | Failure and recovery | Provider failure, retry, cooperative cancellation, stale assets, migration failure, hostile input, and integration outage paths preserve local work and expose next actions |
-| Python | One unrestricted complete replay after the approved fixes passed **4,160 tests**, skipped 2 platform/availability cases, and emitted one known SQLite adapter deprecation warning |
+| Python | One unrestricted complete replay after all approved fixes passed **4,166 tests**, skipped 2 platform/availability cases, and emitted one known SQLite adapter deprecation warning |
 | Web and static checks | Python static analysis, TypeScript, advisor/arcade/visualization tests, production export, lock checks, and npm vulnerability/provenance gates passed as recorded in `docs/QA_V0.9.5.md` |
 | Browser interaction | Phone, laptop, and desktop replay verified no document overflow, local document/candidate preview, Help fit, Escape restoration, command focus, and Day/Night modes |
 | Package lifecycle | Clean archive and disposable installed-wheel checks cover version, packaged web root/health, offline learning fixture, upgrade from v0.9.0, and uninstall. The wheel resolved newer compatible dependencies, so the tagged source checkout with `uv sync --frozen` remains the supported exact-lock install |
-| Security diff | The fresh exact-`f25ea70` scan closed all **40 of 40** compact worklist rows derived from **402 changed files** with no deferred candidates; no critical, high, or medium finding; two newly discovered parser findings remain open and visible |
+| Security diff | The final exact-`444c8e9` scan `f6b1b5ed-a64c-4b3b-aee5-acf8174aec82` closed all **40 of 40** compact worklist rows derived from **402 changed files** with no deferred candidates and **zero findings** |
 | Release trust | The exact lockfiles generate a deterministic CycloneDX 1.5 SBOM and CSV inventory for **77 Python + 63 npm** components. An exact-commit candidate build produced a 140-component SBOM, 141 dependency records, zero missing license declarations, and four verified SHA-256 entries |
 
 ## Explicit release boundaries
@@ -59,14 +60,14 @@ v1.0 gates.
 
 ## Owner decisions and external gates
 
-1. **Security fix approval.** The two findings from `7e6c31d` are fixed in
+1. **Security fixes complete.** The two findings from `7e6c31d` are fixed in
    `f25ea70`: request framing is rejected before body reads, and CSV cells are
    neutralized only at the human-review boundary while exact SBOM values remain
-   unchanged. The fresh exact-HEAD scan found two new high-confidence,
-   low-severity variants of one root cause: deeply nested JSON and JSONL can
-   raise `RecursionError` before the configured depth policy and close one
-   preview request without a bounded response. The scan workflow requires
-   explicit approval before those parser findings are patched.
+   unchanged. The two later JSON/JSONL recursion variants are fixed in
+   `444c8e9` with pre-deserialization depth enforcement, an iterative semantic
+   check, and a bounded outer request-decoder error. Independent review, 60
+   focused regressions, the 4,166-test suite, and the final exact-code security
+   scan all passed.
 2. **Workspace deletion correctness.** The same fresh scan reproduced that
    workspace clear omits new v9-v11 record families and workspace delete leaves
    the sibling raw-document content directory. These are not security findings
@@ -88,8 +89,8 @@ v1.0 gates.
 
 ## Publication sequence after approval
 
-1. Resolve or explicitly disposition both low security findings without hiding
-   them.
+1. Correct or explicitly disposition the two workspace-deletion lifecycle
+   defects without representing retained data as deleted.
 2. Run all gates from a clean archive of the final reviewed commit.
 3. Build the wheel and source archive into a new empty directory.
 4. Generate SBOM, license inventory, and checksums with
