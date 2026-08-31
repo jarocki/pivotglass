@@ -79,5 +79,7 @@ Version 0.9.1 does not claim that evidence clusters are actor identities or
 that unmatched behavior is a newly discovered TTP. The bounded path through
 v1.0 is recorded in
 [the v0.9.1 to v1.0 burndown](plans/V0.9.1_TO_1.0_BURNDOWN.md): evidence
-clusters, longitudinal tracking, candidate-behavior review, and final measured
-usability/accessibility closure remain separate verified releases.
+clusters, longitudinal tracking, candidate-behavior review, governed document
+ingestion, and final measured usability/accessibility closure remain separate
+verified releases. Document ingestion is scheduled for completion by v0.9.5
+under its [dedicated release plan](plans/V0.9.5_DOCUMENT_INGESTION.md).

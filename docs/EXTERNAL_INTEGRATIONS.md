@@ -26,6 +26,11 @@ Synapse and SCOT4 have different long-term roles:
   result, follow relationships, and request further pivots. Those requests
   return to Pivotglass for validation, queueing, collection, and persistence in
   Synapse.
+- **Pivotglass owns governed document ingestion.** Original bytes, acquisition
+  context, parser receipts, extracted spans, normalized entity candidates,
+  relationship proposals, contradictions, and analyst disposition remain one
+  auditable chain. SCOT4 Flair and Synapse scrape/ingest results are comparison
+  and exchange inputs; neither silently bypasses Pivotglass admission policy.
 
 ```mermaid
 flowchart LR
@@ -43,6 +48,10 @@ flowchart LR
     U --> D
     D --> H["Analyst disposition"]
     H --> P
+    X["Reports, email, feeds, and structured documents"] --> I["Bounded Pivotglass document intake"]
+    I --> T["Parsed text and exact source spans"]
+    T --> Q["Entity and relationship candidates"]
+    Q --> H
 ```
 
 This is a staged migration, not a dual-write shortcut. Until the Synapse
@@ -103,6 +112,14 @@ hunt session is published.
 - Nucleotide requires the analyst to group events before fingerprinting.
   Unique means unique within the configured template corpus, and generated
   Snort, Suricata, Sigma, or YARA content is never deployed by Pivotglass.
+- Document bytes and text are untrusted data. Intake is content-addressed and
+  bounded by type, size, expansion, page/row/member, time, CPU, and memory
+  limits. Active content never runs, URL retrieval is SSRF-resistant, and
+  document text cannot become a model or tool instruction.
+- SCOT Flair occurrences and Synapse scrape results retain remote IDs, rule or
+  parser context, and exact offsets when supplied. They are compared with
+  Pivotglass extraction and require the same analyst disposition as other
+  external proposals before graph admission.
 
 ## Configure
 
@@ -450,5 +467,8 @@ cutover, it still needs:
 - a disposable live-SCOT exercise of the authenticated pivot endpoint and its
   SCOT-side UI action; the receiving contract, local review inbox, acceptance,
   rejection, and idempotent execution path are implemented and locally tested.
+- the governed document-ingestion contract, same-corpus SCOT4/Synapse
+  extraction comparison, exact source-span round trip, and reviewed remote
+  document exchange scheduled for completion by v0.9.5.
 
 Unreviewed graph mutations and unapproved SCOT publication remain out of scope.

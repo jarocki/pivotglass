@@ -40,6 +40,7 @@ have been superseded.
 - [v0.6 capability plan and disposition](plans/V0.6.0_PLAN.md)
 - [v0.8 through v1.0 approved roadmap](plans/V0.8_TO_1.0_ROADMAP.md)
 - [v0.9.1 through v1.0 burndown](plans/V0.9.1_TO_1.0_BURNDOWN.md)
+- [v0.9.5 document-ingestion plan](plans/V0.9.5_DOCUMENT_INGESTION.md)
 - [v0.6 arcade synthetic review](reviews/V0.6_ARCADE_SYNTHETIC_PLAYTEST.md)
 - [Development history](../MASTER_PLAN.md)
 - [Generated decision index](../DECISIONS.md)
