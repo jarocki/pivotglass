@@ -10,14 +10,16 @@ graph review, and a report.
 
 ## 1. Install Pivotglass
 
-You need Python 3.12 or newer and Git. A dedicated virtual environment keeps
-Pivotglass separate from the system Python.
+You need Python 3.12 or newer, Git, and
+[uv](https://docs.astral.sh/uv/). The source tag plus its committed lockfile is
+the only supported pre-1.0 installation because it reproduces the dependency
+set used for release qualification.
 
 ```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install "adversary-pursuit[agent] @ git+https://github.com/jarocki/pivotglass.git@v0.9.5"
-ap --version
+git clone --branch v0.9.5 --depth 1 https://github.com/jarocki/pivotglass.git
+cd pivotglass
+uv sync --extra agent --frozen
+uv run ap --version
 ```
 
 The final command should report:
@@ -26,32 +28,34 @@ The final command should report:
 adversary-pursuit 0.9.5
 ```
 
-For a source checkout, use [uv](https://docs.astral.sh/uv/):
-
-```bash
-git clone --branch v0.9.5 --depth 1 https://github.com/jarocki/pivotglass.git
-cd pivotglass
-uv sync --extra agent
-uv run ap --version
-```
-
 The release contains the built browser interface. Node.js 20.9 or newer is
 needed only when changing or rebuilding that interface.
 
+The published wheel is verified as a package and packaged-web artifact, but its
+standard Python dependency metadata contains compatible version ranges. A
+standalone installer may therefore select dependencies newer than the exact
+release lock. That path is useful for compatibility testing, but it is not the
+supported reproducible installation. The release SBOM describes the qualified
+locked source environment.
+
 ### Update or remove Pivotglass
 
-Inside the virtual environment where Pivotglass is installed, update to this
-release with the same public package identity and an explicit version tag:
+From a clean source checkout, update to this release using its explicit tag and
+recreate the locked environment:
 
 ```bash
-python -m pip install --upgrade "adversary-pursuit[agent] @ git+https://github.com/jarocki/pivotglass.git@v0.9.5"
-ap --version
+git fetch --tags origin
+git checkout v0.9.5
+uv sync --extra agent --frozen
+uv run ap --version
 ```
 
-Remove the application package and its `ap` command with:
+If the checkout contains local changes, preserve them and install the release
+in a new directory instead of forcing a checkout. Remove the application and
+its `ap` command from this environment with:
 
 ```bash
-python -m pip uninstall adversary-pursuit
+uv pip uninstall adversary-pursuit
 ```
 
 The public product and repository are named **Pivotglass**. The Python
@@ -67,8 +71,8 @@ that user-owned data separately and deliberately.
 ap
 ```
 
-From a source checkout, use `uv run ap`. Pivotglass opens in the browser. If it
-does not open automatically, visit:
+Use `uv run ap`. Pivotglass opens in the browser. If it does not open
+automatically, visit:
 
 ```text
 http://127.0.0.1:8765

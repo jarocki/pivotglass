@@ -99,7 +99,7 @@ Pivotglass requires Python 3.12 or newer. The shortest source installation uses
 ```bash
 git clone --branch v0.9.5 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
-uv sync --extra agent
+uv sync --extra agent --frozen
 uv run ap --version
 uv run ap
 ```

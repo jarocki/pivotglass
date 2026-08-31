@@ -37,6 +37,9 @@ capacity boundaries explicit.
   vulnerability-reporting route remains an explicit owner-approval gate.
 - Added a frozen-candidate handoff that separates verified local receipts from
   owner decisions, external publication writes, and v1.0-only capabilities.
+- Defined the tagged source checkout with `uv sync --frozen` as the single
+  reproducible pre-1.0 installation. Wheel installation remains a verified
+  package-compatibility path, but no longer implies exact lockfile resolution.
 - Added temporary exact-location entity candidates to the browser document
   preview. Each candidate exposes raw and normalized value, type, line/column,
   character and UTF-8 byte span, and extraction rule/version.

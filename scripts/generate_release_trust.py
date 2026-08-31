@@ -419,6 +419,13 @@ def build_sbom(
             "properties": [
                 {"name": "pivotglass:lockfiles", "value": "uv.lock;web/package-lock.json"},
                 {"name": "pivotglass:inventory-count", "value": str(len(rows))},
+                {
+                    "name": "pivotglass:python-install-boundary",
+                    "value": (
+                        "qualified source installs use uv.lock; wheel metadata uses compatible "
+                        "version ranges and may resolve newer dependencies"
+                    ),
+                },
             ],
         },
         "components": [_component(row) for row in rows],

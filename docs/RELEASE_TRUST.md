@@ -11,6 +11,13 @@ This procedure does not claim that a dependency is safe merely because it is
 listed or signed. It establishes exactly what was built and whether the
 downloaded bytes match the owner's release decision.
 
+The SBOM describes the exact Python and npm lockfiles used to qualify the source
+release and build the packaged browser. Python wheel metadata intentionally
+uses compatible version ranges, so an unconstrained wheel installer can resolve
+newer dependencies. The supported pre-1.0 install is the tagged source checkout
+with `uv sync --frozen`; a standalone wheel install is a package-compatibility
+check, not a reproduction of the locked environment.
+
 ## Generated artifacts
 
 `scripts/generate_release_trust.py` reads `uv.lock` and

@@ -13,6 +13,11 @@ and security fixes. Older versions remain available for workspace recovery,
 but are not actively supported. Never open a valuable workspace with a newer
 release until its backup-first migration preview has been reviewed.
 
+The tagged source checkout plus `uv sync --frozen` is the only supported
+pre-1.0 installation. A wheel remains a verified release artifact, but ordinary
+Python wheel metadata expresses compatible ranges rather than the repository's
+exact lock; an independent installer can resolve a different dependency set.
+
 The stable, preview, and deferred boundaries for the latest source tree are in
 the [compatibility matrix](docs/COMPATIBILITY.md). The corresponding release
 quality record is the authority for what was actually verified.

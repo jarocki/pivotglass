@@ -27,10 +27,10 @@ gate. New capability belongs in a later version.
 | Stable/preview/deferred boundary | `docs/COMPATIBILITY.md`, product text, data-safety guidance, and the quality record agree; SCOT4, Synapse, go-roast, Nucleotide, document preview, and model proposals do not silently become stable authorities |
 | Capacity | Reproducible 5,000-entity storage/export and 1,000-node graph receipts; overflow remains visible and stored evidence is not deleted |
 | Failure and recovery | Provider failure, retry, cooperative cancellation, stale assets, migration failure, hostile input, and integration outage paths preserve local work and expose next actions |
-| Python | One unrestricted complete replay passed **4,147 tests**, skipped 2 platform/availability cases, and emitted one known SQLite adapter deprecation warning |
+| Python | One unrestricted complete replay passed **4,148 tests**, skipped 2 platform/availability cases, and emitted one known SQLite adapter deprecation warning |
 | Web and static checks | Python static analysis, TypeScript, advisor/arcade/visualization tests, production export, lock checks, and npm vulnerability/provenance gates passed as recorded in `docs/QA_V0.9.5.md` |
 | Browser interaction | Phone, laptop, and desktop replay verified no document overflow, local document/candidate preview, Help fit, Escape restoration, command focus, and Day/Night modes |
-| Package lifecycle | Clean archive and disposable installed-wheel checks cover version, packaged web root/health, upgrade from v0.9.0, and uninstall |
+| Package lifecycle | Clean archive and disposable installed-wheel checks cover version, packaged web root/health, offline learning fixture, upgrade from v0.9.0, and uninstall. The wheel resolved newer compatible dependencies, so the tagged source checkout with `uv sync --frozen` remains the supported exact-lock install |
 | Security diff | Every worklist row completed; no critical, high, or medium finding; one reproducible low local/LAN availability finding remains open and visible |
 | Release trust | The exact lockfiles generate a deterministic CycloneDX 1.5 SBOM and CSV inventory for **77 Python + 63 npm** components. An exact-commit candidate build produced a 140-component SBOM, 141 dependency records, zero missing license declarations, and four verified SHA-256 entries |
 

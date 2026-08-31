@@ -9,7 +9,7 @@ pre-1.0 stable/preview/deferred closure
 
 ## Candidate verification
 
-- Complete Python suite: **4,147 passed, 2 skipped**. The one warning is the
+- Complete Python suite: **4,148 passed, 2 skipped**. The one warning is the
   existing Python 3.12+ SQLite datetime-adapter deprecation exercised by the
   schema-v7 presentation-layout reconciliation test; it is not a failure.
 - Repository-wide Python static analysis across `src/`, `tests/`, and
@@ -37,8 +37,13 @@ pre-1.0 stable/preview/deferred closure
   reported `adversary-pursuit 0.9.0`, upgraded in place to the frozen v0.9.5
   wheel, reported `adversary-pursuit 0.9.5`, and served both the packaged
   cockpit root and `/api/health` from that installed wheel. Uninstall removed
-  the distribution, import, and `ap` entry point. This closes the supported
-  clean install, update, version-check, packaged launch, and removal receipt.
+  the distribution, import, and `ap` entry point. A later exact-candidate wheel
+  replay again reported 0.9.5, served the packaged root and health route, and
+  created the complete offline learning workspace under a socket-connect guard.
+  The wheel resolver selected newer compatible dependencies, confirming that
+  this is a package-compatibility receipt rather than the exact lock authority.
+  The tagged source checkout with `uv sync --frozen` remains the supported
+  reproducible clean install, update, version-check, launch, and removal path.
 - The no-key learning fixture passed deterministic core, browser command, TUI,
   chat-compatible grammar, and basic-console checks. A socket-connect guard
   proved fixture creation opens no network connection. Its portable export

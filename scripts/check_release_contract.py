@@ -111,8 +111,19 @@ def validate(*, base: str | None = None, tag: str | None = None) -> list[str]:
     changelog = ROOT.joinpath("CHANGELOG.md").read_text(encoding="utf-8")
     if f"Current release: **v{declared}" not in readme:
         errors.append(f"README.md does not identify v{declared} as the current release")
-    if f"@v{declared}" not in quickstart or f"adversary-pursuit {declared}" not in quickstart:
-        errors.append(f"docs/QUICKSTART.md does not install and verify v{declared}")
+    source_install = (
+        f"--branch v{declared}" in quickstart
+        and "uv sync --extra agent --frozen" in quickstart
+    )
+    package_install = f"@v{declared}" in quickstart
+    if (
+        not (source_install or package_install)
+        or f"adversary-pursuit {declared}" not in quickstart
+    ):
+        errors.append(
+            f"docs/QUICKSTART.md does not install and verify v{declared} "
+            "through a version-pinned path"
+        )
     if f"## [{declared}]" not in changelog:
         errors.append(f"CHANGELOG.md has no release section for {declared}")
 

@@ -58,6 +58,10 @@ def test_release_trust_bundle_covers_both_exact_lockfiles(tmp_path: Path) -> Non
     assert sbom["metadata"]["timestamp"] == TIMESTAMP
     assert sbom["metadata"]["component"]["version"] == "0.9.5"
     assert len(sbom["components"]) == 140
+    properties = {item["name"]: item["value"] for item in sbom["metadata"]["properties"]}
+    assert "wheel metadata uses compatible version ranges" in properties[
+        "pivotglass:python-install-boundary"
+    ]
     refs = {component["bom-ref"] for component in sbom["components"]}
     assert len(refs) == 140
     assert all(dependency["ref"] not in refs or set(dependency["dependsOn"]) <= refs for dependency in sbom["dependencies"])
@@ -139,3 +143,4 @@ def test_release_trust_and_support_guides_preserve_publication_boundaries() -> N
     assert "only the latest published release" in support
     assert "Do not place exploit details" in support
     assert "no owner-approved `SECURITY.md`" in support
+    assert "only supported pre-1.0 installation" in " ".join(support.split())
