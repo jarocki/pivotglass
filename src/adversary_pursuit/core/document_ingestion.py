@@ -21,7 +21,7 @@ from email import policy
 from email.parser import BytesParser
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Iterator, Literal
 from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -32,7 +32,7 @@ from adversary_pursuit.models.database import (
     DocumentParserReceipt,
 )
 
-PARSER_VERSION = "pivotglass-bounded-preview-1.0"
+PARSER_VERSION = "pivotglass-bounded-preview-1.1"
 
 
 class DocumentLimits(BaseModel):
@@ -178,12 +178,54 @@ def _decode_text(data: bytes, warnings: list[str]) -> str:
         return data.decode("utf-8", errors="replace")
 
 
-def _json_depth(value: Any, depth: int = 0) -> int:
-    if isinstance(value, dict):
-        return max([depth, *(_json_depth(item, depth + 1) for item in value.values())])
-    if isinstance(value, list):
-        return max([depth, *(_json_depth(item, depth + 1) for item in value)])
-    return depth
+def _enforce_json_source_depth(source: str, max_depth: int, *, label: str) -> None:
+    """Reject excessive container nesting before the JSON decoder sees it."""
+
+    depth = 0
+    in_string = False
+    escaped = False
+    # _json_depth historically counts an empty root container as depth zero.
+    # Allowing one additional source container preserves that public boundary;
+    # the exact post-parse check below still rejects populated values over the
+    # configured limit.
+    maximum_containers = max_depth + 1
+    for character in source:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            continue
+        if character == '"':
+            in_string = True
+        elif character in "[{":
+            depth += 1
+            if depth > maximum_containers:
+                raise ValueError(f"{label} exceeds the configured nesting-depth limit.")
+        elif character in "]}":
+            depth = max(0, depth - 1)
+
+
+def _json_depth(value: Any) -> int:
+    """Return historical JSON depth with O(nesting depth) auxiliary memory."""
+
+    maximum = 0
+    frames: list[tuple[Iterator[Any], int]] = [(iter((value,)), 0)]
+    while frames:
+        items, depth = frames[-1]
+        try:
+            item = next(items)
+        except StopIteration:
+            frames.pop()
+            continue
+        maximum = max(maximum, depth)
+        if isinstance(item, dict):
+            frames.append((iter(item.values()), depth + 1))
+        elif isinstance(item, list):
+            frames.append((iter(item), depth + 1))
+    return maximum
 
 
 def _parse_email(data: bytes, limits: DocumentLimits) -> tuple[str, list[str], list[str]]:
@@ -264,7 +306,13 @@ def preview_document(
                 rows.append([cell[:16_384] for cell in row[:1_024]])
             output = "\n".join("\t".join(row) for row in rows)
         elif media_type == "application/json":
-            value = json.loads(_decode_text(data, warnings))
+            source = _decode_text(data, warnings)
+            _enforce_json_source_depth(
+                source,
+                active_limits.max_json_depth,
+                label="JSON document",
+            )
+            value = json.loads(source)
             depth = _json_depth(value)
             if depth > active_limits.max_json_depth:
                 raise ValueError(
@@ -282,6 +330,11 @@ def preview_document(
                     break
                 if not line.strip():
                     continue
+                _enforce_json_source_depth(
+                    line,
+                    active_limits.max_json_depth,
+                    label="JSONL record",
+                )
                 value = json.loads(line)
                 if _json_depth(value) > active_limits.max_json_depth:
                     raise ValueError("JSONL record exceeds the configured nesting-depth limit.")

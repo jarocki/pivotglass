@@ -78,6 +78,42 @@ def test_parser_exhaustion_limits_fail_or_truncate_explicitly() -> None:
     assert any("truncated" in warning for warning in truncated.warnings)
 
 
+@pytest.mark.parametrize(
+    ("filename", "payload", "error_label"),
+    [
+        ("deep.json", b"[" * 512 + b"0" + b"]" * 512, "JSON document"),
+        ("deep.jsonl", b"[" * 512 + b"0" + b"]" * 512 + b"\n", "JSONL record"),
+    ],
+)
+def test_deep_json_inputs_fail_before_recursive_parser_exhaustion(
+    filename: str,
+    payload: bytes,
+    error_label: str,
+) -> None:
+    preview = preview_document(
+        payload,
+        filename=filename,
+        limits=DocumentLimits(max_json_depth=32),
+    )
+
+    assert preview.state == "failed"
+    assert preview.output_text == ""
+    assert preview.errors == (
+        f"{error_label} exceeds the configured nesting-depth limit.",
+    )
+
+
+def test_json_depth_guard_ignores_delimiters_inside_strings() -> None:
+    preview = preview_document(
+        b'{"literal":"[[{\\\"nested-looking\\\":true}]]","value":[[0]]}',
+        filename="ordinary.json",
+        limits=DocumentLimits(max_json_depth=3),
+    )
+
+    assert preview.state == "parsed"
+    assert "nested-looking" in preview.output_text
+
+
 def test_browser_preview_rejects_encoded_bodies_above_the_raw_limit(tmp_path) -> None:
     service = WebCockpitService(
         ToolContext(config_dir=tmp_path / "config", workspace_dir=tmp_path / "workspaces")

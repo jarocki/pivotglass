@@ -56,6 +56,25 @@ def _post_json(
         connection.close()
 
 
+def _post_raw_json(
+    server: ThreadingHTTPServer,
+    path: str,
+    body: bytes,
+) -> tuple[int, dict]:
+    connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+    try:
+        connection.request(
+            "POST",
+            path,
+            body,
+            {"Content-Type": "application/json", "Content-Length": str(len(body))},
+        )
+        response = connection.getresponse()
+        return response.status, json.loads(response.read())
+    finally:
+        connection.close()
+
+
 def _raw_post_status(
     server: ThreadingHTTPServer, *content_lengths: str, body: bytes = b""
 ) -> int:
@@ -221,6 +240,84 @@ def test_document_preview_endpoint_is_local_bounded_and_non_mutating(tmp_path):
     assert candidate["start_line"] == 2
     assert "not stored evidence" in result["entity_extraction"]["truth_boundary"]
     assert service.ctx.workspace_mgr.get_workspace_table_counts()["document_occurrences"] == 0
+
+
+@pytest.mark.parametrize("filename", ["deep.json", "deep.jsonl"])
+def test_document_preview_endpoint_bounds_deep_json_and_remains_available(
+    tmp_path, filename
+):
+    service = _service(tmp_path)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(service, tmp_path))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    deep_document = b"[" * 2_000 + b"0" + b"]" * 2_000
+
+    try:
+        status, result = _post_json(
+            server,
+            "/api/documents/preview",
+            {
+                "filename": filename,
+                "content_base64": base64.b64encode(deep_document).decode(),
+            },
+        )
+        assert status == 200
+        assert result["state"] == "failed"
+        assert result["output_text"] == ""
+        assert any("nesting-depth limit" in error for error in result["errors"])
+
+        status, control = _post_json(
+            server,
+            "/api/documents/preview",
+            {
+                "filename": "ordinary.json",
+                "content_base64": base64.b64encode(b'{"ip":"198.51.100.8"}').decode(),
+            },
+        )
+        assert status == 200
+        assert control["state"] == "parsed"
+        assert control["entity_extraction"]["candidate_count"] == 1
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_document_preview_endpoint_bounds_deep_request_envelope_and_recovers(tmp_path):
+    service = _service(tmp_path)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(service, tmp_path))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    # Python 3.14's JSON decoder tolerates substantially deeper input than
+    # earlier supported runtimes. This remains below the route's byte cap while
+    # crossing the decoder's own stack boundary on every supported runtime.
+    deep_envelope = (
+        b'{"unused":' + b"[" * 1_000_000 + b"0" + b"]" * 1_000_000 + b"}"
+    )
+
+    try:
+        status, error = _post_raw_json(
+            server,
+            "/api/documents/preview",
+            deep_envelope,
+        )
+        assert status == 400
+        assert error == {"error": "request JSON exceeds the supported nesting depth"}
+
+        status, control = _post_json(
+            server,
+            "/api/documents/preview",
+            {
+                "filename": "ordinary.json",
+                "content_base64": base64.b64encode(b'{"domain":"example.test"}').decode(),
+            },
+        )
+        assert status == 200
+        assert control["state"] == "parsed"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
 
 
 def test_document_preview_endpoint_rejects_invalid_base64(tmp_path):

@@ -1616,6 +1616,17 @@ class WebCockpitService:
             ),
         }
 
+def _request_json_object(raw_body: bytes) -> dict[str, Any]:
+    """Decode one bounded request body without leaking decoder recursion."""
+
+    try:
+        payload = json.loads(raw_body)
+    except RecursionError as exc:
+        raise ValueError("request JSON exceeds the supported nesting depth") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("request body must be an object")
+    return payload
+
 
 def _handler(
     service: WebCockpitService,
@@ -1837,18 +1848,14 @@ def _handler(
                         signature=self.headers.get("X-Pivotglass-Signature", ""),
                         body=raw_body,
                     )
-                    pivot_payload = json.loads(raw_body)
-                    if not isinstance(pivot_payload, dict):
-                        raise ValueError("request body must be an object")
+                    pivot_payload = _request_json_object(raw_body)
                     result = service.receive_scot_pivot_request(pivot_payload, authentication)
                     self._json(
                         result,
                         HTTPStatus.CREATED if result["created"] else HTTPStatus.OK,
                     )
                     return
-                payload = json.loads(raw_body)
-                if not isinstance(payload, dict):
-                    raise ValueError("request body must be an object")
+                payload = _request_json_object(raw_body)
                 if parsed.path == "/api/configuration/check":
                     self._json(service.check_configuration(payload))
                     return
