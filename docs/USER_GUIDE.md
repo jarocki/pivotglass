@@ -557,6 +557,9 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `integration nucleotide fingerprint-compare <left-proposal-id> <right-proposal-id>` | Run Nucleotide's exact field-by-field diff over two stored fingerprints, disclose lookup-corpus drift, and create no formal confidence or identity claim |
 | `graph layers` | Inspect the combined entity and epistemic graph, including edge provenance and truth type |
 | `graph clusters` | Summarize connected stored entities, admitted edge truth classes, provenance diversity, timing, mapped behavior, and Dossier gaps without implying common control or actor attribution |
+| `graph snapshot list` | List saved longitudinal graph-cluster checkpoints |
+| `graph snapshot capture <analyst>` | Save the current bounded graph and cluster presentation state without changing evidence |
+| `graph snapshot diff <before-id> <after-id>` | Show exact added, removed, reclassified, membership, and explicitly recorded contradiction changes between two checkpoints |
 | `graph export <json\|csv\|gexf> [all\|entity\|epistemic\|bridge]` | Download the exact governed multi-layer graph; bridge scope includes both endpoint layers and every edge retains truth class, provenance, rationale, and direction |
 | `graph layout list` | List presentation-only saved graph arrangements |
 | `graph layout show <name>` | Inspect a saved arrangement and current graph drift |

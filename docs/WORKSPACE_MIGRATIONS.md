@@ -72,6 +72,14 @@ store when an analyst explicitly admits a document; the v0.9.2 browser path is
 preview-only and creates none of these records. The backup is named
 `NAME.db.pre-v8-backup` when this is the first step required.
 
+The v9-to-v10 upgrade adds deterministic extraction receipts, exact-span
+entity candidates, and presentation-only evidence-cluster snapshots. A
+candidate retains parser-output character and UTF-8 byte offsets, line and
+column, context, normalization rule, and review state; it is not an admitted
+STIX object or graph node. Cluster snapshots record graph presentation state
+for longitudinal comparison and do not alter prior evidence. The backup is
+named `NAME.db.pre-v9-backup` when this is the first step required.
+
 ## Recovery
 
 If migration fails, Pivotglass leaves the prior active workspace selected and

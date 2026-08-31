@@ -94,7 +94,7 @@ is an explicit command action.
 
 ## Migration and exchange
 
-Fresh workspaces use schema v9. Existing workspaces migrate forward with the
+Fresh workspaces use schema v10. Existing workspaces migrate forward with the
 same backup-first migration process used by v0.8. The framework table and the
 v0.9.2 document-receipt tables are additive and do not rewrite observations or
 analytic records. `framework list` exports a secret-free envelope with schema

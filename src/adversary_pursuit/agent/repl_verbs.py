@@ -336,6 +336,35 @@ def dispatch_repl_verb(
                 indent=2,
                 default=str,
             )
+        if folded == ("snapshot", "list"):
+            from adversary_pursuit.core.evidence_cluster_history import (
+                EvidenceClusterHistory,
+            )
+
+            return json.dumps(
+                [
+                    item.model_dump(mode="json")
+                    for item in EvidenceClusterHistory(_workspace_mgr).list()
+                ],
+                indent=2,
+                default=str,
+            )
+        if len(verb.args) >= 3 and folded[:2] == ("snapshot", "capture"):
+            from adversary_pursuit.core.evidence_cluster_history import (
+                EvidenceClusterHistory,
+            )
+
+            result = EvidenceClusterHistory(_workspace_mgr).capture(
+                captured_by=" ".join(verb.args[2:])
+            )
+            return json.dumps(result.model_dump(mode="json"), indent=2, default=str)
+        if len(verb.args) == 4 and folded[:2] == ("snapshot", "diff"):
+            from adversary_pursuit.core.evidence_cluster_history import (
+                EvidenceClusterHistory,
+            )
+
+            result = EvidenceClusterHistory(_workspace_mgr).diff(verb.args[2], verb.args[3])
+            return json.dumps(result.model_dump(mode="json"), indent=2, default=str)
         if len(verb.args) >= 2 and folded[:2] == ("layout", "list"):
             from adversary_pursuit.core.graph_presentation import GraphPresentationAuthority
 
@@ -406,7 +435,7 @@ def dispatch_repl_verb(
             )
             return json.dumps(result, indent=2, default=str)
         return (
-            "Usage: graph [layers|clusters|export <json|csv|gexf> [all|entity|epistemic|bridge]|layout list|layout show <name>|"
+            "Usage: graph [layers|clusters|snapshot list|snapshot capture <analyst>|snapshot diff <before-id> <after-id>|export <json|csv|gexf> [all|entity|epistemic|bridge]|layout list|layout show <name>|"
             "layout delete <name> --confirm <name>|annotate <node-id> | <text>|annotations [node-id]]"
         )
 

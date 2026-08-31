@@ -20,7 +20,8 @@ interface.
 
 - [Procedural music](PROCEDURAL_MUSIC.md) — composition, playback, and evidence boundary
 - [Web supply chain](WEB_SUPPLY_CHAIN.md) — dependency integrity and release checks
-- [v0.9.2 quality record](QA_V0.9.2.md) — current release verification
+- [v0.9.3 quality record](QA_V0.9.3.md) — current release verification
+- [v0.9.2 quality record](QA_V0.9.2.md) — prior release verification
 - [v0.9.1 quality record](QA_V0.9.1.md) — prior release verification
 - [v0.9.0 quality record](QA_V0.9.0.md) — prior release verification
 - [Release discipline](RELEASING.md) — version, changelog, verification, tag, and publication contract

@@ -226,6 +226,9 @@ def command_completions(
         choices = [
             "layers",
             "clusters",
+            "snapshot list",
+            "snapshot capture ",
+            "snapshot diff ",
             "export json all",
             "export json entity",
             "export json epistemic",

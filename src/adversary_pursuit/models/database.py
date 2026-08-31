@@ -335,6 +335,93 @@ class DocumentParserReceipt(Base):
     )
 
 
+class DocumentExtractionReceipt(Base):
+    """Immutable receipt for one deterministic entity-extraction pass."""
+
+    __tablename__ = "document_extraction_receipts"
+
+    id = Column(String, primary_key=True)
+    parser_receipt_id = Column(String, nullable=False, index=True)
+    extractor_name = Column(String, nullable=False)
+    extractor_version = Column(String, nullable=False)
+    configuration_sha256 = Column(String(64), nullable=False)
+    input_sha256 = Column(String(64), nullable=False)
+    candidate_count = Column(Integer, nullable=False)
+    warnings = Column(JSON, nullable=False, default=list)
+    state = Column(String, nullable=False, index=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class DocumentEntityCandidate(Base):
+    """Reviewable entity candidate at an exact parser-output source span.
+
+    A row is not an admitted STIX entity or graph node. Its location and rule
+    receipt allow an analyst to reproduce and disposition the extraction.
+    """
+
+    __tablename__ = "document_entity_candidates"
+    __table_args__ = (
+        UniqueConstraint(
+            "parser_receipt_id",
+            "entity_type",
+            "start_char",
+            "end_char",
+            "normalized_value",
+            "rule_version",
+            name="uq_document_entity_candidate_span",
+        ),
+    )
+
+    id = Column(String, primary_key=True)
+    extraction_receipt_id = Column(String, nullable=False, index=True)
+    occurrence_id = Column(String, nullable=False, index=True)
+    parser_receipt_id = Column(String, nullable=False, index=True)
+    entity_type = Column(String, nullable=False, index=True)
+    raw_value = Column(Text, nullable=False)
+    normalized_value = Column(Text, nullable=False, index=True)
+    start_char = Column(Integer, nullable=False)
+    end_char = Column(Integer, nullable=False)
+    start_byte = Column(Integer, nullable=False)
+    end_byte = Column(Integer, nullable=False)
+    start_line = Column(Integer, nullable=False)
+    start_column = Column(Integer, nullable=False)
+    end_line = Column(Integer, nullable=False)
+    end_column = Column(Integer, nullable=False)
+    context = Column(Text, nullable=False)
+    rule_id = Column(String, nullable=False)
+    rule_version = Column(String, nullable=False)
+    normalization_note = Column(Text, nullable=True)
+    state = Column(String, nullable=False, default="candidate", index=True)
+    disposition = Column(String, nullable=True)
+    disposition_reason = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class EvidenceClusterSnapshot(Base):
+    """Presentation snapshot used to compare graph-cluster change over time."""
+
+    __tablename__ = "evidence_cluster_snapshots"
+
+    id = Column(String, primary_key=True)
+    graph_fingerprint = Column(String(64), nullable=False, index=True)
+    captured_by = Column(String, nullable=False)
+    snapshot = Column(JSON, nullable=False)
+    captured_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+
+
 class ScoreEvent(Base):
     """Individual scoring events from module discoveries.
 

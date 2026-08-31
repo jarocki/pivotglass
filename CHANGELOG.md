@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No changes yet.
 
+## [0.9.3] — 2026-08-31
+
+This longitudinal-analysis release makes document candidates reproducible and
+graph-cluster change inspectable without promoting extraction or presentation
+state into evidence.
+
+### Added
+
+- Added deterministic extraction for plain IPv4/IPv6 addresses, domains,
+  HTTP(S) URLs, email addresses, MD5/SHA-1/SHA-256 values, CVE identifiers, and
+  ATT&CK technique identifiers.
+- Added exact occurrence and parser-receipt provenance, raw and normalized
+  values, character and UTF-8 byte offsets, line and column, bounded context,
+  rule/version, normalization notes, and candidate review state.
+- Added idempotent extraction receipts and schema-v10 candidate persistence.
+  Running the same extractor configuration against the same parser output
+  reuses its receipt and creates no duplicate candidates.
+- Added bounded evidence-cluster snapshots and exact longitudinal diffs for
+  added, removed, reclassified, and cluster-membership changes.
+- Added shared `graph snapshot list`, `graph snapshot capture <analyst>`, and
+  `graph snapshot diff <before> <after>` commands.
+
+### Safety
+
+- Entity candidates create no STIX objects, evidence observations,
+  relationships, graph nodes, verdicts, or attribution.
+- Longitudinal output calls an edge a contradiction only when the governed
+  graph contains an explicitly recorded contradiction relation. Other changes
+  remain changes, not inferred conflict or confidence shifts.
+- Snapshot size limits fail before writing a partial record.
+
 ## [0.9.2] — 2026-08-31
 
 This evidence-organization release qualifies Flint 0.4 for Pivotglass's
@@ -921,7 +952,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/jarocki/pivotglass/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/jarocki/pivotglass/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/jarocki/pivotglass/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/jarocki/pivotglass/compare/v0.8.5...v0.9.0

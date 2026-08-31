@@ -47,6 +47,7 @@ from adversary_pursuit.core.analytic_rigor import build_analytic_rigor
 from adversary_pursuit.core.command_completion import command_completions
 from adversary_pursuit.core.document_ingestion import DocumentIntakeService, DocumentLimits
 from adversary_pursuit.core.error_interpreter import DEBUG_LOG_PATH
+from adversary_pursuit.core.evidence_cluster_history import EvidenceClusterHistory
 from adversary_pursuit.core.evidence_clusters import build_evidence_clusters
 from adversary_pursuit.core.evidence_detail import evidence_ref, list_evidence, project_evidence
 from adversary_pursuit.core.framework_commands import execute_framework_command
@@ -482,6 +483,10 @@ class WebCockpitService:
                 "purpose": "Summarize connected evidence without implying common control or attribution",
             },
             {
+                "command": "graph snapshot list|capture <analyst>|diff <before> <after>",
+                "purpose": "Record and compare exact graph-cluster change without rewriting evidence",
+            },
+            {
                 "command": "graph export <json|csv|gexf> [all|entity|epistemic|bridge]",
                 "purpose": "Download the exact governed graph with layer, truth type, provenance, and rationale",
             },
@@ -800,6 +805,39 @@ class WebCockpitService:
                         ],
                     }
                 parts = rest.split()
+                if [item.casefold() for item in parts] == ["snapshot", "list"]:
+                    return {
+                        "kind": "json",
+                        "title": "Evidence-cluster snapshots",
+                        "data": [
+                            item.model_dump(mode="json")
+                            for item in EvidenceClusterHistory(self.ctx.workspace_mgr).list()
+                        ],
+                    }
+                if len(parts) >= 3 and [item.casefold() for item in parts[:2]] == [
+                    "snapshot",
+                    "capture",
+                ]:
+                    result = EvidenceClusterHistory(self.ctx.workspace_mgr).capture(
+                        captured_by=" ".join(parts[2:])
+                    )
+                    return {
+                        "kind": "json",
+                        "title": "Evidence-cluster snapshot captured",
+                        "data": result.model_dump(mode="json"),
+                    }
+                if len(parts) == 4 and [item.casefold() for item in parts[:2]] == [
+                    "snapshot",
+                    "diff",
+                ]:
+                    result = EvidenceClusterHistory(self.ctx.workspace_mgr).diff(
+                        parts[2], parts[3]
+                    )
+                    return {
+                        "kind": "json",
+                        "title": "Evidence-cluster change",
+                        "data": result.model_dump(mode="json"),
+                    }
                 if len(parts) in {2, 3} and parts[0].casefold() == "export":
                     from adversary_pursuit.core.investigation_graph_export import (
                         export_investigation_graph,
