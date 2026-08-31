@@ -102,15 +102,26 @@ replay above is the completed product receipt.
 
 ## Security diff gate
 
-The completed Codex Security diff scan reviewed all **34 of 34** compact
-worklist rows across the v0.9.1–v0.9.5 release train. It found no critical,
-high, or medium findings. One low-severity availability weakness remains open:
-a negative `Content-Length` can bypass the upper-only request-size check and
-hold one local/LAN request thread until the client disconnects. The real HTTP
-handler reproduced the behavior. Default loopback binding, rejection of
-wildcard binds, and one-thread-per-connection isolation materially constrain
-exposure; the release's no-critical/high gate passes, but this low finding must
-remain visible until an explicitly approved patch and regression test close it.
+The final code-candidate Codex Security diff scan at `7e6c31d` reviewed all
+**40 of 40** compact worklist rows derived from **402 changed files** across the
+v0.9.1–v0.9.5 release train. Subsequent edits reconcile this release record and
+handoff only; no reviewed product code changed. The scan found no critical,
+high, or medium findings. Two high-confidence, low-severity findings remain
+open:
+
+- a negative `Content-Length` can bypass the upper-only request-size check and
+  hold one local/LAN request thread until the client disconnects; and
+- dependency metadata is written directly to `THIRD_PARTY_LICENSES.csv`
+  without neutralizing spreadsheet formula prefixes.
+
+The real HTTP handler reproduced the request-thread behavior. A focused
+release-generator harness preserved a synthetic `=HYPERLINK(...)` cell, and
+the exact 140-row candidate inventory contains 41 benign `@`-prefixed npm
+package-name cells. Default loopback binding, rejection of wildcard binds,
+one-thread-per-connection isolation, reviewed lockfiles, and checksums constrain
+the two paths. The release's no-critical/high gate passes, but both findings
+must remain visible until explicitly approved patches, regression tests, and a
+fresh exact-HEAD security scan close them.
 
 ## Browser preview receipt
 

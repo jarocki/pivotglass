@@ -14,8 +14,8 @@ manifest. No external state was changed while preparing this handoff.
 
 The candidate is ready for owner review as a truthful v0.9.5 early-availability
 checkpoint. It is not a completed public release. From this handoff forward,
-the branch should accept only release hygiene, an explicitly approved fix for
-the open low-severity security finding, or a correction required by a failed
+the branch should accept only release hygiene, explicitly approved fixes for
+the open low-severity security findings, or a correction required by a failed
 gate. New capability belongs in a later version.
 
 ## Completed receipts
@@ -31,7 +31,7 @@ gate. New capability belongs in a later version.
 | Web and static checks | Python static analysis, TypeScript, advisor/arcade/visualization tests, production export, lock checks, and npm vulnerability/provenance gates passed as recorded in `docs/QA_V0.9.5.md` |
 | Browser interaction | Phone, laptop, and desktop replay verified no document overflow, local document/candidate preview, Help fit, Escape restoration, command focus, and Day/Night modes |
 | Package lifecycle | Clean archive and disposable installed-wheel checks cover version, packaged web root/health, offline learning fixture, upgrade from v0.9.0, and uninstall. The wheel resolved newer compatible dependencies, so the tagged source checkout with `uv sync --frozen` remains the supported exact-lock install |
-| Security diff | Every worklist row completed; no critical, high, or medium finding; one reproducible low local/LAN availability finding remains open and visible |
+| Security diff | All **40 of 40** compact worklist rows derived from **402 changed files** completed; no critical, high, or medium finding; two reproducible high-confidence, low-severity findings remain open and visible |
 | Release trust | The exact lockfiles generate a deterministic CycloneDX 1.5 SBOM and CSV inventory for **77 Python + 63 npm** components. An exact-commit candidate build produced a 140-component SBOM, 141 dependency records, zero missing license declarations, and four verified SHA-256 entries |
 
 ## Explicit release boundaries
@@ -57,12 +57,16 @@ v1.0 gates.
 
 ## Owner decisions and external gates
 
-1. **Security fix approval.** The completed diff scan found one low-severity
-   request-thread availability weakness: a negative `Content-Length` reaches
-   `read(-1)` until peer EOF. The scan workflow requires explicit approval
-   before changing the reviewed diff. If approved, reject negative lengths,
-   add a raw-socket regression, rerun focused/full tests, and rerun the final
-   security diff scan.
+1. **Security fix approval.** The final code-candidate diff scan at `7e6c31d`
+   found two
+   high-confidence, low-severity weaknesses: a negative `Content-Length`
+   reaches `read(-1)` until peer EOF, and spreadsheet-sensitive dependency
+   metadata reaches `THIRD_PARTY_LICENSES.csv` without formula neutralization.
+   The scan workflow requires explicit approval before patching validated
+   findings. If approved, reject negative lengths, make the human-reviewable
+   CSV spreadsheet-safe while preserving exact SBOM values, add both regression
+   groups, rerun focused/full tests, regenerate the trust bundle, and rerun the
+   final security diff scan.
 2. **Security policy.** GitHub private vulnerability reporting is currently
    disabled and no owner-approved `SECURITY.md` route exists. Before v1.0, the
    owner must approve scope, supported versions, private contact, response and
@@ -78,8 +82,8 @@ v1.0 gates.
 
 ## Publication sequence after approval
 
-1. Resolve or explicitly disposition the low security finding without hiding
-   it.
+1. Resolve or explicitly disposition both low security findings without hiding
+   them.
 2. Run all gates from a clean archive of the final reviewed commit.
 3. Build the wheel and source archive into a new empty directory.
 4. Generate SBOM, license inventory, and checksums with
