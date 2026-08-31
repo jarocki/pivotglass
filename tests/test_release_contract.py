@@ -10,12 +10,12 @@ from scripts.check_release_contract import (
 
 def test_release_version_surfaces_and_operator_docs_are_consistent() -> None:
     versions = current_versions()
-    assert set(versions.values()) == {"0.9.4"}
+    assert set(versions.values()) == {"0.9.5"}
     assert validate() == []
 
 
 def test_semver_comparison_preserves_release_order() -> None:
-    assert parse_semver("0.9.4") > parse_semver("0.9.3")
+    assert parse_semver("0.9.5") > parse_semver("0.9.4")
 
 
 def test_feature_paths_cover_shipped_behavior_not_documentation() -> None:

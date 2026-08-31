@@ -244,6 +244,13 @@ content. It is temporary and local: it creates no document record, evidence,
 entity, relationship, graph edge, or model request. Parsed text proves only
 what the selected source contained; it does not prove the source's claims.
 
+Expand **Entity candidates** beneath the parser output to inspect temporary
+deterministic matches. Each candidate exposes its raw and normalized value,
+entity type, parser-output line/column, character and UTF-8 byte span, and
+rule/version. The browser bounds extraction at 2,000 candidates and renders the
+first 100 to keep the panel responsive. A candidate is not admitted evidence,
+a graph node, a verdict, or actor attribution.
+
 Deferred dimensions remain in the table but are omitted from the radar shape
 because they do not have an inference path. Radar values 0, 50, and 100 map to
 empty, partial, and filled; they are not confidence scores.

@@ -16,20 +16,20 @@ Pivotglass separate from the system Python.
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install "adversary-pursuit[agent] @ git+https://github.com/jarocki/pivotglass.git@v0.9.4"
+python -m pip install "adversary-pursuit[agent] @ git+https://github.com/jarocki/pivotglass.git@v0.9.5"
 ap --version
 ```
 
 The final command should report:
 
 ```text
-adversary-pursuit 0.9.4
+adversary-pursuit 0.9.5
 ```
 
 For a source checkout, use [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone --branch v0.9.4 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v0.9.5 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent
 uv run ap --version
@@ -198,6 +198,12 @@ PDF input is recognized but its text and images are not yet extracted. The
 preview is local, temporary, and bounded to 10 MiB. It shows what was parsed,
 skipped, truncated, or rejected. It does not store the file, contact a model,
 extract admitted entities, or create evidence and relationships.
+
+Expand **Entity candidates** to inspect deterministic text matches. Each match
+shows the raw and normalized value, entity type, line and column, character and
+UTF-8 byte span, and extraction rule/version. The browser displays at most the
+first 100 of up to 2,000 bounded candidates. They remain temporary candidates,
+not admitted evidence or graph nodes.
 
 Use this step to inspect source handling before the governed admission and
 entity-review workflow arrives in the later 0.9 releases.

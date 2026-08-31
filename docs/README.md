@@ -13,6 +13,8 @@ interface.
 - [Framework projections](FRAMEWORK_PROJECTIONS.md) — evidence-backed ATT&CK, Kill Chain, and Diamond mapping contract
 - [Vertex Synapse and SCOT4 integrations](EXTERNAL_INTEGRATIONS.md) — governed MCP setup, approval gates, receipts, and authority boundaries
 - [Workspace migration and recovery](WORKSPACE_MIGRATIONS.md) — preview, backup, validation, and recovery
+- [Compatibility and maturity](COMPATIBILITY.md) — stable, preview, deferred, and capacity boundaries
+- [Data ownership and safety](DATA_SAFETY.md) — storage, secrets, network actions, LAN exposure, backup, and recovery
 - [Guided video](media/pivotglass-guided-demo-v0.7.0.mp4) — two-minute visual walkthrough
 - [Video transcript](media/pivotglass-guided-demo-transcript.md) — accessible narration text
 
@@ -20,7 +22,8 @@ interface.
 
 - [Procedural music](PROCEDURAL_MUSIC.md) — composition, playback, and evidence boundary
 - [Web supply chain](WEB_SUPPLY_CHAIN.md) — dependency integrity and release checks
-- [v0.9.4 quality record](QA_V0.9.4.md) — current release verification
+- [v0.9.5 quality record](QA_V0.9.5.md) — current release verification
+- [v0.9.4 quality record](QA_V0.9.4.md) — prior release verification
 - [v0.9.3 quality record](QA_V0.9.3.md) — prior release verification
 - [v0.9.2 quality record](QA_V0.9.2.md) — prior release verification
 - [v0.9.1 quality record](QA_V0.9.1.md) — prior release verification

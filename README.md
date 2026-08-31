@@ -30,13 +30,22 @@ Version 0.9.4 adds immutable, span-grounded entity, relationship, and behavior
 proposals with append-only human dispositions. Unmatched behavior remains a
 candidate framework gap; it is not automatically labeled a new TTP.
 
+Version 0.9.5 closes the safe preview loop in the browser: bounded document
+text and temporary entity candidates appear together with exact locations and
+truth boundaries. It also publishes the stable/preview/deferred and local-data
+safety contracts required for an honest final pre-1.0 checkpoint.
+
 > An indicator is not the answer. It is the first node.
 
 The installed command remains `ap` for compatibility with earlier releases.
 The Python distribution is `adversary-pursuit`, and local configuration and
 workspaces remain under `~/.ap/`.
 
-Current release: **v0.9.4 early availability**.
+See the [compatibility and maturity matrix](docs/COMPATIBILITY.md) before using
+preview integrations or document formats, and [data ownership and
+safety](docs/DATA_SAFETY.md) before enabling providers or LAN access.
+
+Current release: **v0.9.5 early availability**.
 
 [![Watch the Pivotglass guided walkthrough](docs/media/pivotglass-guided-demo-poster.png)](docs/media/pivotglass-guided-demo-v0.7.0.mp4)
 
@@ -88,14 +97,14 @@ Pivotglass requires Python 3.12 or newer. The shortest source installation uses
 [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone --branch v0.9.4 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v0.9.5 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent
 uv run ap --version
 uv run ap
 ```
 
-`uv run ap --version` should report `adversary-pursuit 0.9.4`. Pivotglass opens
+`uv run ap --version` should report `adversary-pursuit 0.9.5`. Pivotglass opens
 at `http://127.0.0.1:8765` and listens only on the local computer by default.
 The committed release already contains the built web interface; Node.js is
 required only when changing that interface.

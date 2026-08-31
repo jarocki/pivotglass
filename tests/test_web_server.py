@@ -151,6 +151,11 @@ def test_document_preview_endpoint_is_local_bounded_and_non_mutating(tmp_path):
     assert "198.51.100.8" in result["output_text"]
     assert "exfiltrate" not in result["output_text"]
     assert "not proof" in result["truth_boundary"]
+    assert result["entity_extraction"]["candidate_count"] == 1
+    candidate = result["entity_extraction"]["candidates"][0]
+    assert candidate["normalized_value"] == "198.51.100.8"
+    assert candidate["start_line"] == 2
+    assert "not stored evidence" in result["entity_extraction"]["truth_boundary"]
     assert service.ctx.workspace_mgr.get_workspace_table_counts()["document_occurrences"] == 0
 
 

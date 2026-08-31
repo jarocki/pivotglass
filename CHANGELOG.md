@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No changes yet.
 
+## [0.9.5] — 2026-08-31
+
+This final pre-1.0 usability checkpoint joins bounded local document parsing
+and temporary exact-location entity candidates in the browser, strengthens
+hostile-input tests, and makes stable, preview, deferred, data-ownership, and
+capacity boundaries explicit.
+
+### Added
+
+- Added temporary exact-location entity candidates to the browser document
+  preview. Each candidate exposes raw and normalized value, type, line/column,
+  character and UTF-8 byte span, and extraction rule/version.
+- Added browser rendering bounds: extract at most 2,000 candidates and display
+  the first 100 in a scrollable disclosure.
+- Added hostile-input coverage for active HTML, external references, prompt
+  injection text, archives/binary input, encrypted/ordinary PDF recognition,
+  input/output exhaustion, oversized browser payloads, and filename traversal.
+- Added compatibility/maturity, capacity, and data
+  ownership/network/recovery documentation.
+
+### Safety
+
+- Browser document and candidate preview remains temporary and local. It makes
+  no model/network request and writes no file, receipt, evidence, entity,
+  relationship, framework mapping, graph node, verdict, or attribution.
+- Text that tells Pivotglass to ignore instructions remains source text; it is
+  never interpreted as authority.
+- Office parsing, archive expansion, OCR, PDF extraction, URL/RSS intake,
+  persistent browser admission, portable document export/purge, live model
+  proposal invocation, and stable SCOT/Synapse authority remain explicitly
+  deferred or preview.
+
 ## [0.9.4] — 2026-08-31
 
 This analytical-review release creates a durable boundary between extracted
@@ -984,7 +1016,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.9.4...HEAD
+[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.9.5...HEAD
+[0.9.5]: https://github.com/jarocki/pivotglass/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/jarocki/pivotglass/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/jarocki/pivotglass/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/jarocki/pivotglass/compare/v0.9.1...v0.9.2

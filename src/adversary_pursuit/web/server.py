@@ -45,6 +45,10 @@ from adversary_pursuit.core.analytic_commands import execute_analysis_command
 from adversary_pursuit.core.analytic_ledger import AnalyticLedger
 from adversary_pursuit.core.analytic_rigor import build_analytic_rigor
 from adversary_pursuit.core.command_completion import command_completions
+from adversary_pursuit.core.document_entity_extraction import (
+    EntityExtractionLimits,
+    extract_entity_candidates,
+)
 from adversary_pursuit.core.document_ingestion import DocumentIntakeService, DocumentLimits
 from adversary_pursuit.core.error_interpreter import DEBUG_LOG_PATH
 from adversary_pursuit.core.evidence_cluster_history import EvidenceClusterHistory
@@ -439,7 +443,26 @@ class WebCockpitService:
             ),
             limits=limits,
         )
-        return preview.model_dump(mode="json")
+        candidates = extract_entity_candidates(
+            preview.output_text,
+            occurrence_id=f"preview:{preview.content_sha256}",
+            parser_receipt_id=f"preview:{preview.output_sha256}",
+            input_sha256=preview.output_sha256,
+            limits=EntityExtractionLimits(max_candidates=2_000, context_chars=60),
+        )
+        return {
+            **preview.model_dump(mode="json"),
+            "entity_extraction": {
+                "state": candidates.state,
+                "warnings": list(candidates.warnings),
+                "candidate_count": len(candidates.candidates),
+                "candidates": [item.model_dump(mode="json") for item in candidates.candidates],
+                "truth_boundary": (
+                    "Candidates are temporary text matches. They are not stored evidence, "
+                    "admitted entities, graph nodes, relationships, verdicts, or attribution."
+                ),
+            },
+        }
 
     def command_catalog(self) -> list[dict[str, str]]:
         """Return the shared analyst command surface exposed by Pivotglass."""
