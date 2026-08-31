@@ -30,6 +30,7 @@ PYTHON_DISTRIBUTION = "adversary-pursuit"
 SBOM_FILENAME = "pivotglass.cdx.json"
 LICENSE_FILENAME = "THIRD_PARTY_LICENSES.csv"
 CHECKSUM_FILENAME = "SHA256SUMS"
+_SPREADSHEET_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r", "\n")
 
 # These packages are locked for platforms or interpreter configurations that
 # are not installed on every release host. The values are exact-version
@@ -85,6 +86,14 @@ class InventoryRow:
             "digest_algorithm": self.digest_algorithm,
             "digest": self.digest,
         }
+
+
+def _spreadsheet_safe_csv_row(row: dict[str, str]) -> dict[str, str]:
+    """Keep dependency metadata inert when the review CSV opens in a spreadsheet."""
+    return {
+        field: f"'{value}" if value.startswith(_SPREADSHEET_FORMULA_PREFIXES) else value
+        for field, value in row.items()
+    }
 
 
 def _canonical_name(name: str) -> str:
@@ -491,7 +500,7 @@ def generate(
         fieldnames = list(rows[0].csv_row())
         writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
-        writer.writerows(row.csv_row() for row in rows)
+        writer.writerows(_spreadsheet_safe_csv_row(row.csv_row()) for row in rows)
 
     checksum_inputs.extend([sbom_path.resolve(), license_path.resolve()])
     names = [path.name for path in checksum_inputs]

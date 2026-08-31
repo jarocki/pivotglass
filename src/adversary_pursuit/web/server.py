@@ -1813,7 +1813,13 @@ def _handler(
                 self._json({"error": "same-origin application/json required"}, status)
                 return
             try:
-                length = int(self.headers.get("Content-Length", "0"))
+                content_lengths = self.headers.get_all("Content-Length", [])
+                if len(content_lengths) > 1:
+                    raise ValueError("invalid Content-Length")
+                content_length = (content_lengths[0] if content_lengths else "0").strip(" \t")
+                if not content_length.isascii() or not content_length.isdecimal():
+                    raise ValueError("invalid Content-Length")
+                length = int(content_length)
                 request_limit = (
                     14 * 1024 * 1024 if parsed.path == "/api/documents/preview" else 16_384
                 )

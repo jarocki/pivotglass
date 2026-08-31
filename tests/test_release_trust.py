@@ -13,6 +13,7 @@ from scripts.generate_release_trust import (
     CHECKSUM_FILENAME,
     LICENSE_FILENAME,
     SBOM_FILENAME,
+    InventoryRow,
     generate,
 )
 
@@ -99,6 +100,43 @@ def test_release_trust_bundle_is_reproducible_for_same_inputs(tmp_path: Path) ->
 
     for name in (SBOM_FILENAME, LICENSE_FILENAME, CHECKSUM_FILENAME):
         assert (first / name).read_bytes() == (second / name).read_bytes()
+
+
+@pytest.mark.parametrize("prefix", ["=", "+", "-", "@", "\t", "\r", "\n"])
+def test_release_trust_csv_neutralizes_spreadsheet_formulas_without_rewriting_sbom(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, prefix: str
+) -> None:
+    artifact = _artifact(tmp_path / "artifact.whl", b"immutable")
+    value = f"{prefix}HYPERLINK(\"https://attacker.example\")"
+    row = InventoryRow(
+        ecosystem="npm",
+        name=value,
+        version="1.0.0",
+        scope="runtime",
+        license="MIT",
+        license_evidence="package-lock.json",
+        source="https://registry.npmjs.org/example/-/example-1.0.0.tgz",
+        bom_ref="pkg:npm/example@1.0.0",
+    )
+    monkeypatch.setattr("scripts.generate_release_trust.python_inventory", lambda _root: ([], {}, []))
+    monkeypatch.setattr(
+        "scripts.generate_release_trust.node_inventory",
+        lambda _root: ([row], {}, [row.bom_ref]),
+    )
+
+    generate(
+        project_root=ROOT,
+        output_dir=tmp_path / "trust",
+        artifacts=[artifact],
+        timestamp=TIMESTAMP,
+    )
+
+    with (tmp_path / "trust" / LICENSE_FILENAME).open(newline="", encoding="utf-8") as handle:
+        csv_name = next(csv.DictReader(handle))["name"]
+    sbom = json.loads((tmp_path / "trust" / SBOM_FILENAME).read_text(encoding="utf-8"))
+
+    assert csv_name == f"'{value}"
+    assert sbom["components"][0]["name"] == value
 
 
 def test_release_trust_bundle_rejects_missing_or_ambiguous_artifacts(tmp_path: Path) -> None:

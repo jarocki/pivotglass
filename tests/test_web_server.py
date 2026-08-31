@@ -2,6 +2,7 @@
 
 import base64
 import json
+import socket
 import threading
 import time
 from datetime import UTC, datetime
@@ -53,6 +54,27 @@ def _post_json(
         return response.status, json.loads(response.read())
     finally:
         connection.close()
+
+
+def _raw_post_status(
+    server: ThreadingHTTPServer, *content_lengths: str, body: bytes = b""
+) -> int:
+    length_headers = "".join(
+        f"Content-Length: {content_length}\r\n" for content_length in content_lengths
+    )
+    request = (
+        "POST /api/command HTTP/1.1\r\n"
+        f"Host: 127.0.0.1:{server.server_port}\r\n"
+        "Content-Type: application/json\r\n"
+        f"{length_headers}"
+        "Connection: close\r\n"
+        "\r\n"
+    ).encode("ascii")
+    with socket.create_connection(("127.0.0.1", server.server_port), timeout=2) as client:
+        client.settimeout(2)
+        client.sendall(request + body)
+        status_line = client.recv(256).split(b"\r\n", 1)[0]
+    return int(status_line.split()[1])
 
 
 @pytest.mark.parametrize(
@@ -128,6 +150,48 @@ def test_browser_command_endpoint_preserves_same_origin_and_native_json_clients(
         assert status == 202
         assert result == {"ok": True}
         assert service.execute_command.call_count == 2
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+@pytest.mark.parametrize("content_lengths", [("-1",), ("+1",), ("1.0",), ("0", "0")])
+def test_web_endpoint_rejects_invalid_content_length_without_waiting_for_eof(
+    tmp_path, content_lengths
+):
+    service = _service(tmp_path)
+    service.execute_command = MagicMock(return_value={"ok": True})
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(service, tmp_path))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    try:
+        assert _raw_post_status(server, *content_lengths) == 400
+        status, result = _post_json(
+            server,
+            "/api/command",
+            {"command": "model show", "workspace": "default"},
+        )
+        assert status == 202
+        assert result == {"ok": True}
+        service.execute_command.assert_called_once()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_web_endpoint_preserves_valid_content_length_with_optional_whitespace(tmp_path):
+    service = _service(tmp_path)
+    service.execute_command = MagicMock(return_value={"ok": True})
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(service, tmp_path))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    try:
+        assert _raw_post_status(server, "2 \t", body=b"{}") == 202
+        service.execute_command.assert_called_once_with("")
     finally:
         server.shutdown()
         server.server_close()
