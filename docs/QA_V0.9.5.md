@@ -147,3 +147,7 @@ completion by association.
 - owner-reviewed repository security policy (the policy draft requires
   explicit scope and accepted-risk approval before it can be written);
 - explicit SCOT/Synapse stable-versus-preview release decision.
+
+The frozen local-candidate state, public v0.9.0 readback, owner decisions, and
+ordered publication ceremony are consolidated in the [v0.9.5 release
+handoff](RELEASE_HANDOFF_V0.9.5.md).

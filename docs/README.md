@@ -34,6 +34,7 @@ interface.
 - [v0.9.1 quality record](QA_V0.9.1.md) — prior release verification
 - [v0.9.0 quality record](QA_V0.9.0.md) — prior release verification
 - [Release discipline](RELEASING.md) — version, changelog, verification, tag, and publication contract
+- [v0.9.5 release handoff](RELEASE_HANDOFF_V0.9.5.md) — frozen local candidate receipts, boundaries, owner gates, and publication sequence
 - [v0.8.5 quality record](QA_V0.8.5.md) — prior release verification
 - [v0.8.0 quality record](QA_V0.8.0.md) — prior release verification
 - [v0.8.5 UX redesign catalog](UX_V0.8.5.md) — clarity, workflow, and accessibility direction
