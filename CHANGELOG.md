@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No changes yet.
 
+## [0.9.4] — 2026-08-31
+
+This analytical-review release creates a durable boundary between extracted
+source text, optional model/tool proposals, human disposition, framework
+comparison, and materialized investigation truth.
+
+### Added
+
+- Added immutable entity, relationship, and behavior proposals that must cite
+  one or more exact document entity candidates and carry their complete source
+  spans.
+- Added secret-safe model receipts containing provider/model identifiers and
+  prompt/response SHA-256 digests without persisting raw model traffic.
+- Added syntax-checked ATT&CK candidate references pinned to the current 19.2
+  perspective. References remain visibly unverified until catalog and evidence
+  mapping review occurs.
+- Added explicit `unmatched_candidate_behavior` comparison state. An unmatched
+  description is a candidate behavior or framework gap, not an automatically
+  discovered TTP.
+- Added append-only human proposal dispositions with reason, admitted evidence
+  references, alternative explanations, formal confidence, and confidence
+  rationale.
+
+### Safety
+
+- A model cannot disposition its own proposal. Acceptance requires an explicit
+  human action, at least one real evidence-observation reference, at least one
+  alternative explanation, and a formal confidence level with rationale.
+- Proposal acceptance creates no STIX object, graph node, relationship,
+  framework mapping, control deployment, external publication, or actor
+  attribution.
+
 ## [0.9.3] — 2026-08-31
 
 This longitudinal-analysis release makes document candidates reproducible and
@@ -952,7 +984,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.9.3...HEAD
+[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.9.4...HEAD
+[0.9.4]: https://github.com/jarocki/pivotglass/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/jarocki/pivotglass/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/jarocki/pivotglass/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/jarocki/pivotglass/compare/v0.9.0...v0.9.1

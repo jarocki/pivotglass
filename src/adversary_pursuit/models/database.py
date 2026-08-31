@@ -422,6 +422,53 @@ class EvidenceClusterSnapshot(Base):
     )
 
 
+class DocumentAnalysisProposal(Base):
+    """Immutable entity, relationship, or behavior proposal grounded in spans."""
+
+    __tablename__ = "document_analysis_proposals"
+
+    id = Column(String, primary_key=True)
+    proposal_kind = Column(String, nullable=False, index=True)
+    statement = Column(Text, nullable=False)
+    candidate_ids = Column(JSON, nullable=False)
+    source_spans = Column(JSON, nullable=False)
+    payload = Column(JSON, nullable=False)
+    framework_comparison = Column(JSON, nullable=False)
+    proposed_by = Column(String, nullable=False)
+    model_provider = Column(String, nullable=True)
+    model_id = Column(String, nullable=True)
+    prompt_sha256 = Column(String(64), nullable=True)
+    response_sha256 = Column(String(64), nullable=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+
+
+class DocumentProposalDisposition(Base):
+    """Append-only human disposition for a document analysis proposal."""
+
+    __tablename__ = "document_proposal_dispositions"
+
+    id = Column(String, primary_key=True)
+    proposal_id = Column(String, nullable=False, index=True)
+    decision = Column(String, nullable=False, index=True)
+    decided_by = Column(String, nullable=False)
+    reason = Column(Text, nullable=False)
+    evidence_refs = Column(JSON, nullable=False, default=list)
+    alternative_explanations = Column(JSON, nullable=False, default=list)
+    confidence_level = Column(String, nullable=True)
+    confidence_rationale = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+
+
 class ScoreEvent(Base):
     """Individual scoring events from module discoveries.
 

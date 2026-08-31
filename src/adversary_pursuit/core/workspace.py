@@ -86,11 +86,13 @@ from adversary_pursuit.models.database import (
     AnalyticLifecycleItem,
     AnalyticMethodRun,
     BadgeEvent,
+    DocumentAnalysisProposal,
     DocumentContent,
     DocumentEntityCandidate,
     DocumentExtractionReceipt,
     DocumentOccurrence,
     DocumentParserReceipt,
+    DocumentProposalDisposition,
     EvidenceClusterSnapshot,
     EvidenceObservation,
     EvidenceObservationDisposition,
@@ -1552,6 +1554,14 @@ class WorkspaceManager:
                 or 0,
                 "evidence_cluster_snapshots": session.execute(
                     select(func.count(EvidenceClusterSnapshot.id))
+                ).scalar()
+                or 0,
+                "document_analysis_proposals": session.execute(
+                    select(func.count(DocumentAnalysisProposal.id))
+                ).scalar()
+                or 0,
+                "document_proposal_dispositions": session.execute(
+                    select(func.count(DocumentProposalDisposition.id))
                 ).scalar()
                 or 0,
                 "investigation_questions": session.execute(

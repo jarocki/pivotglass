@@ -14,6 +14,7 @@ from adversary_pursuit.core.document_entity_extraction import (
 )
 from adversary_pursuit.core.document_ingestion import DocumentIntakeService
 from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.core.workspace_migrations import CURRENT_WORKSPACE_SCHEMA_VERSION
 from adversary_pursuit.models.database import (
     DocumentEntityCandidate,
     DocumentExtractionReceipt,
@@ -156,5 +157,8 @@ def test_schema_v9_migrates_extraction_and_cluster_snapshot_tables_backup_first(
         "document_entity_candidates",
         "evidence_cluster_snapshots",
     } <= tables
-    assert migrated.get_workspace_schema_status()["to_version"] == 10
+    assert (
+        migrated.get_workspace_schema_status()["to_version"]
+        == CURRENT_WORKSPACE_SCHEMA_VERSION
+    )
     assert (tmp_path / "entity-documents.db.pre-v9-backup").is_file()

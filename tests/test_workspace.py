@@ -1375,6 +1375,8 @@ class TestWorkspaceStatusHelpers:
             "document_extraction_receipts",
             "document_entity_candidates",
             "evidence_cluster_snapshots",
+            "document_analysis_proposals",
+            "document_proposal_dispositions",
             "investigation_questions",
             "analytic_assertions",
             "analytic_hypotheses",

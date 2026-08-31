@@ -80,6 +80,13 @@ STIX object or graph node. Cluster snapshots record graph presentation state
 for longitudinal comparison and do not alter prior evidence. The backup is
 named `NAME.db.pre-v9-backup` when this is the first step required.
 
+The v10-to-v11 upgrade adds immutable, span-grounded entity, relationship, and
+behavior proposals plus append-only human dispositions. Model proposals retain
+provider/model identifiers and prompt/response hashes, not raw prompts or
+responses. An accepted disposition still does not materialize an entity,
+relationship, framework mapping, or publication. The backup is named
+`NAME.db.pre-v10-backup` when this is the first step required.
+
 ## Recovery
 
 If migration fails, Pivotglass leaves the prior active workspace selected and
