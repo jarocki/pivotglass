@@ -29,6 +29,12 @@ capacity boundaries explicit.
 - Added a focused failure/recovery contract for missing configuration,
   provider loss, retry, cooperative cancellation, stale browser assets,
   migration rejection, hostile documents, and preview-integration outages.
+- Added a deterministic release-trust generator that inventories every exact
+  Python and npm lockfile component into CycloneDX 1.5 and CSV, then binds the
+  final wheel, source archive, and inventories with a SHA-256 manifest.
+- Added an owner-key signing and clean public-readback ceremony plus clear
+  supported-version and safe issue-reporting guidance. The private
+  vulnerability-reporting route remains an explicit owner-approval gate.
 - Added temporary exact-location entity candidates to the browser document
   preview. Each candidate exposes raw and normalized value, type, line/column,
   character and UTF-8 byte span, and extraction rule/version.

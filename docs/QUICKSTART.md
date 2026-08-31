@@ -467,6 +467,8 @@ The interface deliberately does not draw a persuasive but unsupported edge.
 - [Web supply chain](WEB_SUPPLY_CHAIN.md) — packaged interface verification
 - [Capacity envelope](CAPACITY.md) — qualified local scale and visible limits
 - [Failure and recovery](FAILURE_RECOVERY.md) — what remains usable and what to do next
+- [Support](../SUPPORT.md) — supported versions and safe issue reporting
+- [Release trust](RELEASE_TRUST.md) — verify SBOM, licenses, checksums, and signatures
 - [Procedural music](PROCEDURAL_MUSIC.md) — score behavior and safety boundary
 - [Changelog](../CHANGELOG.md) — release history
 - [Philosophy](../PHILOSOPHY.md) — evidence, judgment, and collaboration principles

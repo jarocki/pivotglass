@@ -9,7 +9,7 @@ pre-1.0 stable/preview/deferred closure
 
 ## Candidate verification
 
-- Complete Python suite: **4,135 passed, 2 skipped**. The one warning is the
+- Complete Python suite: **4,147 passed, 2 skipped**. The one warning is the
   existing Python 3.12+ SQLite datetime-adapter deprecation exercised by the
   schema-v7 presentation-layout reconciliation test; it is not a failure.
 - Repository-wide Python static analysis across `src/`, `tests/`, and
@@ -65,6 +65,14 @@ pre-1.0 stable/preview/deferred closure
   instead of `empty`; a cancellation received during the final active
   enrichment now ends `cancelled` after that call returns. Existing evidence,
   local notes, workspace export, cockpit state, and later retry remained usable.
+- Four deterministic release-trust and support-boundary tests passed. They
+  generated a CycloneDX 1.5 SBOM and CSV license inventory for all **77 Python**
+  and **63 npm** locked
+  third-party components, rejected missing and ambiguous archives, reproduced
+  identical output for identical inputs, and verified every checksum in the
+  four-file unsigned manifest fixture. The publication ceremony requires the
+  final immutable wheel and source archive, an owner-controlled detached
+  signature, and clean public download verification.
 
 Fresh browser interaction passed against the frozen v0.9.5 candidate in
 headless Chrome at **390×844**, **1024×768**, and **1440×1000**. At every width,
@@ -132,10 +140,10 @@ The [compatibility matrix](COMPATIBILITY.md) and [data-safety guide](DATA_SAFETY
 carry the same boundary so the product, help, and release story do not imply
 completion by association.
 
-## Remaining v1.0 gates
+## Remaining publication and v1.0 gates
 
-- SBOM, checksums, signed release artifacts, third-party license inventory,
-  and public readback;
+- final-artifact SBOM/license/checksum generation, owner-key signature, and
+  clean public readback using the now-tested release-trust procedure;
 - owner-reviewed repository security policy (the policy draft requires
   explicit scope and accepted-risk approval before it can be written);
 - explicit SCOT/Synapse stable-versus-preview release decision.

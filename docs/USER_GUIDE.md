@@ -710,4 +710,7 @@ authority over pivots, publication, and other irreversible actions.
 
 For installation and troubleshooting, return to the
 [Quick Start](QUICKSTART.md). For the current documentation map, see the
-[documentation index](README.md).
+[documentation index](README.md). Before sharing a diagnostic or filing an
+issue, follow the privacy checklist in [Support](../SUPPORT.md). Release
+maintainers use the [release trust ceremony](RELEASE_TRUST.md) to bind and
+verify package archives, dependency inventories, checksums, and signatures.

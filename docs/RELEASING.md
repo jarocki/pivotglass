@@ -34,14 +34,19 @@ The following surfaces must agree:
 3. Run the release-contract check, lockfile checks, Python and web tests, static
    analysis, production builds, package builds, audits, and a real command/web
    smoke test.
-4. Record verified receipts and any explicit, bounded deferrals in the release
+4. Generate the SBOM, third-party license inventory, and checksums from the
+   final immutable archives; review and sign the checksum manifest using the
+   [release trust ceremony](RELEASE_TRUST.md).
+5. Record verified receipts and any explicit, bounded deferrals in the release
    quality record. A deferred external-system test must not be described as
    passed, and the affected capability must remain disabled or fail closed.
-5. Merge the release pull request into public `main`.
-6. Create `vX.Y.Z` at that exact merge commit, push it, and publish the GitHub
-   Release with its wheel and source archive.
-7. Read back public `main`, the tag target, release metadata, and downloadable
-   assets. The release is not complete until all four agree.
+6. Merge the release pull request into public `main`.
+7. Create `vX.Y.Z` at that exact merge commit, push it, and publish the GitHub
+   Release with the wheel, source archive, SBOM, license inventory, checksum
+   manifest, and detached signature.
+8. Read back public `main`, the tag target, release metadata, and all downloadable
+   assets. Verify the signature and checksums from the downloads. The release is
+   not complete until all four public authorities agree.
 
 ## Preventive enforcement
 
