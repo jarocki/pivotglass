@@ -16,6 +16,7 @@ interface.
 - [Workspace migration and recovery](WORKSPACE_MIGRATIONS.md) — preview, backup, validation, and recovery
 - [Compatibility and maturity](COMPATIBILITY.md) — stable, preview, deferred, and capacity boundaries
 - [Data ownership and safety](DATA_SAFETY.md) — storage, secrets, network actions, LAN exposure, backup, and recovery
+- [Capacity envelope](CAPACITY.md) — enforced limits, measured local scale, graceful overflow, and unqualified boundaries
 - [Guided video](media/pivotglass-guided-demo-v0.7.0.mp4) — two-minute visual walkthrough
 - [Video transcript](media/pivotglass-guided-demo-transcript.md) — accessible narration text
 

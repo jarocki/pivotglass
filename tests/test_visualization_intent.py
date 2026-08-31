@@ -11,6 +11,7 @@ from adversary_pursuit.core.investigation import (
     LifecycleState,
 )
 from adversary_pursuit.core.visualization import (
+    MAX_RELATIONSHIP_GRAPH_NODES,
     MAX_VISUALIZATION_ROWS,
     VISUALIZATION_POLICIES,
     VisualizationData,
@@ -336,16 +337,14 @@ def test_competing_hypotheses_matrix_shows_recorded_and_unassessed_stances():
     assert intent.view == VisualizationView.TASK_MATRIX
     assert intent.renderer == VisualizationRenderer.NATIVE
     assert len(intent.data.rows) == 4
-    cells = {
-        (row["source_id"], row["hypothesis_id"]): row for row in intent.data.rows
-    }
+    cells = {(row["source_id"], row["hypothesis_id"]): row for row in intent.data.rows}
     assert cells[("observation-one", "hypothesis-one")]["stance"] == "supports"
     assert cells[("observation-one", "hypothesis-two")]["stance"] == "not_assessed"
     assert cells[("assertion-one", "hypothesis-one")]["stance"] == "mixed"
     assert cells[("assertion-one", "hypothesis-one")]["link_count"] == 2
-    assert "No analyst-recorded assessment" in cells[
-        ("assertion-one", "hypothesis-two")
-    ]["rationale"]
+    assert (
+        "No analyst-recorded assessment" in cells[("assertion-one", "hypothesis-two")]["rationale"]
+    )
     assert "not treated as neutral" in intent.missing_data.explanation
     assert "not properties inferred" in intent.caveats[-2]
 
@@ -625,6 +624,59 @@ def test_relationship_graph_keeps_manual_assertions_visibly_distinct():
     assert intent.data.edges[0].annotation == "Analyst annotated shared control after review."
     assert "Analyst assertion assertion-manual" in intent.data.edges[0].provenance
     assert {row["connection_count"] for row in distribution.data.rows} == {1}
+
+
+def test_dense_relationship_graph_degrades_to_a_bounded_disclosed_view() -> None:
+    node_count = MAX_RELATIONSHIP_GRAPH_NODES + 100
+    nodes = [
+        {"id": f"domain-name--{index:04d}", "type": "domain-name", "value": f"n{index}.test"}
+        for index in range(node_count)
+    ]
+    edges = [
+        {
+            "source": "domain-name--0000"
+            if index < 100
+            else f"domain-name--{index % node_count:04d}",
+            "target": "domain-name--0001"
+            if index < 100
+            else f"domain-name--{(index * 7 + 1) % node_count:04d}",
+            "relationship": "related-to",
+            "basis": "explicit",
+        }
+        for index in range(3_000)
+    ]
+    analysis = {
+        "assertions": [
+            {
+                "id": "assertion-priority",
+                "statement": "A reviewed analyst relation must survive a dense-view cap.",
+                "status": "active",
+                "author_kind": "human",
+                "method": "manual-graph-relation",
+                "subject_ref": "domain-name--0000",
+                "predicate": "possibly-related-to",
+                "object_ref": "domain-name--0001",
+            }
+        ]
+    }
+
+    first = relationship_graph_intent("large", {"nodes": nodes, "edges": edges}, analysis)
+    second = relationship_graph_intent("large", {"nodes": nodes, "edges": edges}, analysis)
+    distribution = relationship_degree_distribution_intent(
+        "large", {"nodes": nodes, "edges": edges}, analysis
+    )
+
+    assert first == second
+    assert first.source_scope.record_count == node_count
+    assert len(first.data.nodes) == MAX_RELATIONSHIP_GRAPH_NODES
+    assert len(first.data.rows) + len(first.data.nodes) + len(first.data.edges) <= (
+        MAX_VISUALIZATION_ROWS
+    )
+    assert first.missing_data.policy == "omit_with_count"
+    assert first.missing_data.omitted_count > 0
+    assert any(edge.assertion_id == "assertion-priority" for edge in first.data.edges)
+    assert len(distribution.data.rows) == MAX_RELATIONSHIP_GRAPH_NODES
+    assert distribution.missing_data.omitted_count == 100
 
 
 def test_relationship_degree_histogram_counts_only_admitted_edges():

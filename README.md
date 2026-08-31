@@ -391,6 +391,7 @@ dependencies and integrity hashes are committed. See the
 ## Documentation
 
 - [Quick Start](docs/QUICKSTART.md) — installation through first report
+- [Capacity envelope](docs/CAPACITY.md) — measured local scale, enforced limits, and graceful overflow
 - [User Guide](docs/USER_GUIDE.md) — complete task and command reference
 - [Documentation index](docs/README.md) — current guides, design notes, QA, and historical plans
 - [Procedural music](docs/PROCEDURAL_MUSIC.md) — composition and safety boundary

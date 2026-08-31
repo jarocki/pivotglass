@@ -21,6 +21,7 @@ from adversary_pursuit.dossier.slot_inference import infer_dossier_state
 from adversary_pursuit.dossier.slots import DossierSlotName
 
 MAX_VISUALIZATION_ROWS = 5_000
+MAX_RELATIONSHIP_GRAPH_NODES = 1_000
 
 
 class VisualizationQuestion(StrEnum):
@@ -1006,13 +1007,7 @@ def competing_hypotheses_matrix_intent(
             target_id = str(hypothesis.get("id", ""))
             links = indexed_links.get((*source_key, target_id), [])
             stances = sorted({str(link.get("stance", "")) for link in links if link.get("stance")})
-            status = (
-                "not_assessed"
-                if not stances
-                else stances[0]
-                if len(stances) == 1
-                else "mixed"
-            )
+            status = "not_assessed" if not stances else stances[0] if len(stances) == 1 else "mixed"
             rationale = " | ".join(
                 sorted({str(link.get("rationale", "")) for link in links if link.get("rationale")})
             )
@@ -1147,9 +1142,9 @@ def scientific_investigation_hierarchy_intent(
     for item in lifecycle_items:
         if str(item.get("record_kind", "")) in {"question", "hypothesis"}:
             continue
-        lifecycle_by_investigation.setdefault(
-            str(item.get("investigation_id", "")), []
-        ).append(item)
+        lifecycle_by_investigation.setdefault(str(item.get("investigation_id", "")), []).append(
+            item
+        )
 
     for investigation in investigations:
         investigation_id = str(investigation.get("id", ""))
@@ -1401,16 +1396,11 @@ def _standardize_columns(matrix: list[list[float]]) -> list[list[float]]:
     column_count = len(matrix[0])
     means = [sum(row[column] for row in matrix) / row_count for column in range(column_count)]
     deviations = [
-        math.sqrt(
-            sum((row[column] - means[column]) ** 2 for row in matrix) / (row_count - 1)
-        )
+        math.sqrt(sum((row[column] - means[column]) ** 2 for row in matrix) / (row_count - 1))
         for column in range(column_count)
     ]
     return [
-        [
-            (row[column] - means[column]) / deviations[column]
-            for column in range(column_count)
-        ]
+        [(row[column] - means[column]) / deviations[column] for column in range(column_count)]
         for row in matrix
     ]
 
@@ -1419,10 +1409,7 @@ def _covariance_matrix(matrix: list[list[float]]) -> list[list[float]]:
     denominator = len(matrix) - 1
     width = len(matrix[0])
     return [
-        [
-            sum(row[left] * row[right] for row in matrix) / denominator
-            for right in range(width)
-        ]
+        [sum(row[left] * row[right] for row in matrix) / denominator for right in range(width)]
         for left in range(width)
     ]
 
@@ -1464,7 +1451,7 @@ def relationship_graph_intent(
 ) -> VisualizationIntent:
     """Build an indicator-first graph intent from the persisted graph authority."""
 
-    nodes = tuple(
+    all_nodes = tuple(
         VisualizationNode(
             reference=str(node.get("id", "")),
             label=str(node.get("value") or "unavailable"),
@@ -1473,8 +1460,8 @@ def relationship_graph_intent(
         for node in graph.get("nodes", ())
         if node.get("id")
     )
-    node_ids = {node.reference for node in nodes}
-    edges = [
+    all_node_ids = {node.reference for node in all_nodes}
+    all_edges = [
         VisualizationEdge(
             source=str(edge.get("source", "")),
             target=str(edge.get("target", "")),
@@ -1491,19 +1478,19 @@ def relationship_graph_intent(
             ),
         )
         for edge in graph.get("edges", ())
-        if edge.get("source") in node_ids and edge.get("target") in node_ids
+        if edge.get("source") in all_node_ids and edge.get("target") in all_node_ids
     ]
     for assertion in (analysis or {}).get("assertions", ()):
         if (
             assertion.get("method") != "manual-graph-relation"
             or assertion.get("status") != "active"
             or assertion.get("author_kind") != "human"
-            or assertion.get("subject_ref") not in node_ids
-            or assertion.get("object_ref") not in node_ids
+            or assertion.get("subject_ref") not in all_node_ids
+            or assertion.get("object_ref") not in all_node_ids
             or not assertion.get("predicate")
         ):
             continue
-        edges.append(
+        all_edges.append(
             VisualizationEdge(
                 source=str(assertion["subject_ref"]),
                 target=str(assertion["object_ref"]),
@@ -1517,7 +1504,41 @@ def relationship_graph_intent(
                 annotation=str(assertion.get("statement") or ""),
             )
         )
-    edges_tuple = tuple(edges)
+    degree = {node.reference: 0 for node in all_nodes}
+    for edge in all_edges:
+        degree[edge.source] += 1
+        degree[edge.target] += 1
+    nodes = all_nodes
+    if len(nodes) > MAX_RELATIONSHIP_GRAPH_NODES:
+        nodes = tuple(
+            sorted(
+                nodes,
+                key=lambda node: (
+                    -degree[node.reference],
+                    node.label.casefold(),
+                    node.entity_type,
+                    node.reference,
+                ),
+            )[:MAX_RELATIONSHIP_GRAPH_NODES]
+        )
+    node_ids = {node.reference for node in nodes}
+    edge_priority = {"manual": 0, "explicit": 1, "property": 2}
+    eligible_edges = [
+        edge for edge in all_edges if edge.source in node_ids and edge.target in node_ids
+    ]
+    edge_limit = max(0, (MAX_VISUALIZATION_ROWS - len(nodes)) // 2)
+    if len(eligible_edges) > edge_limit:
+        eligible_edges.sort(
+            key=lambda edge: (
+                edge_priority[edge.basis],
+                edge.source,
+                edge.target,
+                edge.relationship,
+                edge.assertion_id or "",
+            )
+        )
+    edges_tuple = tuple(eligible_edges[:edge_limit])
+    omitted = (len(all_nodes) - len(nodes)) + (len(all_edges) - len(edges_tuple))
     labels = {node.reference: node.label for node in nodes}
     rows = tuple(
         {
@@ -1538,7 +1559,7 @@ def relationship_graph_intent(
         question_text="Which stored entities relate, and why is each edge present?",
         workspace=workspace,
         description="Stored STIX objects, explicit relationships, and conservative property pivots.",
-        record_count=len(nodes),
+        record_count=len(all_nodes),
         data=VisualizationData(rows=rows, nodes=nodes, edges=edges_tuple),
         fields={"source": "source", "target": "target", "relationship": "relationship"},
         semantic_types={
@@ -1555,14 +1576,22 @@ def relationship_graph_intent(
             VisualizationTableColumn(key="provenance", label="Provenance state"),
         ),
         missing_data=VisualizationMissingData(
-            policy="show",
-            explanation="Unconnected stored entities remain visible as nodes.",
+            policy="omit_with_count" if omitted else "show",
+            explanation=(
+                "Unconnected stored entities remain visible within the bounded view. "
+                "When the graph exceeds the local rendering envelope, Pivotglass keeps "
+                "the most connected entities and prioritizes analyst, stored, then property "
+                "edges. Omitted records remain stored and available through graph export."
+            ),
+            omitted_count=omitted,
         ),
         caveats=(
             "Property pivots are navigation aids, not asserted STIX relationships.",
             "Manual edges are analyst-authored judgments with annotations, not observed facts.",
             "First/last seen and confidence remain unavailable until their persisted "
             "relationship fields exist; the visualization does not invent them.",
+            "The interactive relationship view is bounded to 1,000 entities and a total "
+            "of 5,000 node, edge, and exact-table records; graph export remains complete.",
         ),
     )
 
@@ -1590,10 +1619,11 @@ def relationship_degree_distribution_intent(
             "connection_count": degree[node_id],
         }
         for node_id in sorted(
-            graph_nodes,
+            degree,
             key=lambda item: (_indicator_value(graph_nodes[item]).casefold(), item),
         )
     )
+    omitted = max(0, len(graph_nodes) - len(rows))
     return _intent(
         intent_id="relationship-degree-distribution",
         title="Connection-count distribution",
@@ -1604,7 +1634,7 @@ def relationship_degree_distribution_intent(
             "Degree counts from the current relationship projection; each admitted edge "
             "contributes once to each endpoint."
         ),
-        record_count=len(rows),
+        record_count=len(graph_nodes),
         data=VisualizationData(rows=rows),
         fields={"value": "connection_count"},
         semantic_types={
@@ -1618,8 +1648,13 @@ def relationship_degree_distribution_intent(
             VisualizationTableColumn(key="connection_count", label="Admitted connections"),
         ),
         missing_data=VisualizationMissingData(
-            policy="show",
-            explanation="Unconnected entities are retained with a connection count of zero.",
+            policy="omit_with_count" if omitted else "show",
+            explanation=(
+                "Unconnected entities in the bounded relationship view are retained with a "
+                "connection count of zero. Entities outside that view remain stored and are "
+                "counted as omitted."
+            ),
+            omitted_count=omitted,
         ),
         chart_properties={"binCount": 10},
         caveats=(

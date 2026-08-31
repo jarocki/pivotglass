@@ -26,7 +26,8 @@ contains a supported Pivotglass path.
 
 ## Capacity envelope
 
-These limits are enforced and fail visibly:
+These limits are enforced and fail visibly or degrade to an explicitly bounded
+view:
 
 - browser document request: 14 MiB JSON envelope;
 - raw document preview: 10 MiB;
@@ -35,11 +36,18 @@ These limits are enforced and fail visibly:
   on each side;
 - internal parser output: 2,000,000 characters unless a lower limit is chosen;
 - internal extraction: 10,000 candidates unless a lower limit is chosen;
-- cluster snapshot: 50,000 nodes and 100,000 edges.
+- cluster snapshot: 50,000 nodes and 100,000 edges;
+- one visualization intent: 5,000 combined rows, nodes, and edges;
+- relationship visualization: 1,000 nodes within the combined record limit;
+- Investigation Constellation: 555 indicators / 4,995 dimension rows, with an
+  exact omitted count beyond that boundary;
+- force-layout canvas: 48 filtered nodes at a time.
 
-Large-scale graph rendering, workspace/database size, batch-document intake,
-cancellation latency, memory, and export-time envelopes still require measured
-v1.0 receipts. Pivotglass must not silently omit data when a limit is exceeded.
+The [capacity envelope](CAPACITY.md) records the reproducible 5,000-entity
+storage/export and 1,000-node connected-graph qualification measurements.
+Batch-document intake, workspaces beyond 5,000 entities, and active-provider
+cancellation latency remain unqualified. Pivotglass must not silently omit data
+when a limit is exceeded.
 
 ## Release rule
 

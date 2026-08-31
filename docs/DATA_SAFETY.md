@@ -50,6 +50,10 @@ portable export has been reviewed. If migration fails, preserve both files and
 open a copy of the backup with the older Pivotglass version; do not downgrade
 the upgraded database in place.
 
+Large views keep an exact omission count and leave omitted evidence in the
+workspace. Use the complete export rather than treating a bounded browser view
+as the whole case. See the [capacity envelope](CAPACITY.md).
+
 ## Known v0.9.5 data-lifecycle gap
 
 Document-byte export and purge are deliberately not exposed. Because the

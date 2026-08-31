@@ -49,6 +49,14 @@ pre-1.0 stable/preview/deferred closure
   and stop-condition records. A new manager reopened the database unchanged;
   a file-copy recovery under a second workspace directory produced the same
   deterministic export.
+- The reproducible offline capacity receipt qualified a 5,000-entity local
+  storage/export scenario and a 1,000-node/999-edge connected graph. On the
+  qualification host, complete cockpit state took 3.851 seconds / 28.5 MiB
+  traced Python allocation peak for the storage scenario and 1.113 seconds /
+  19.8 MiB for the connected graph. An explicit 1,500-node overflow rehearsal
+  completed in 1.543 seconds, kept 1,000 nodes and 999 edges in the bounded
+  visualization, reported 1,000 omitted records, and retained every stored
+  observation. The committed benchmark reads limits from product authorities.
 
 Fresh browser interaction passed against the frozen v0.9.5 candidate in
 headless Chrome at **390×844**, **1024×768**, and **1440×1000**. At every width,
@@ -109,8 +117,8 @@ These are not v0.9.5 stable capabilities:
 - browser review/materialization of model-assisted proposals;
 - SCOT4 or Synapse as a stable authority backend;
 - Plotly or editable-office Flint output;
-- measured large-workspace, graph-rendering, batch, memory, cancellation, and
-  export-time limits.
+- batch-document capacity, workspaces beyond 5,000 entities, graph rendering
+  beyond the bounded view, and active-provider cancellation latency.
 
 The [compatibility matrix](COMPATIBILITY.md) and [data-safety guide](DATA_SAFETY.md)
 carry the same boundary so the product, help, and release story do not imply
@@ -120,7 +128,7 @@ completion by association.
 
 - SBOM, checksums, signed release artifacts, third-party license inventory,
   and public readback;
-- measured capacity and failure-recovery receipts;
+- remaining failure-recovery receipts;
 - owner-reviewed repository security policy (the policy draft requires
   explicit scope and accepted-risk approval before it can be written);
 - explicit SCOT/Synapse stable-versus-preview release decision.
