@@ -332,7 +332,10 @@ def dispatch_repl_verb(
             from adversary_pursuit.core.evidence_clusters import build_evidence_clusters
 
             return json.dumps(
-                [cluster.model_dump(mode="json") for cluster in build_evidence_clusters(_workspace_mgr)],
+                [
+                    cluster.model_dump(mode="json")
+                    for cluster in build_evidence_clusters(_workspace_mgr)
+                ],
                 indent=2,
                 default=str,
             )
@@ -547,6 +550,13 @@ def dispatch_repl_verb(
                 _workspace_mgr.create(verb.args[1])
             _workspace_mgr.switch(verb.args[1])
             return f"Workspace active: {verb.args[1]}"
+        if sub == "learn" and len(verb.args) == 2:
+            from adversary_pursuit.core.learning_workspace import create_learning_workspace
+
+            return json.dumps(
+                create_learning_workspace(_workspace_mgr, verb.args[1]),
+                indent=2,
+            )
         if sub == "export" and len(verb.args) == 2:
             from adversary_pursuit.core.workspace_admin import export_workspace
 
@@ -578,7 +588,7 @@ def dispatch_repl_verb(
             _workspace_mgr.delete(verb.args[1])
             return f"Workspace deleted: {verb.args[1]}"
         return (
-            "Usage: workspace list|create <name>|switch <name>|schema [name]|export <name>|"
+            "Usage: workspace list|learn <name>|create <name>|switch <name>|schema [name]|export <name>|"
             "merge <source> <destination>|delete <name> --confirm <name>"
         )
 

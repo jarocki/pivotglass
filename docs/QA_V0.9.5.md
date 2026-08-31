@@ -33,10 +33,55 @@ pre-1.0 stable/preview/deferred closure
   tests.
 - The clean archive served the built cockpit root and `/api/health` over an
   ephemeral loopback port; both returned the expected v0.9.5 content.
+- A disposable Python 3.14 environment installed the published v0.9.0 wheel,
+  reported `adversary-pursuit 0.9.0`, upgraded in place to the frozen v0.9.5
+  wheel, reported `adversary-pursuit 0.9.5`, and served both the packaged
+  cockpit root and `/api/health` from that installed wheel. Uninstall removed
+  the distribution, import, and `ap` entry point. This closes the supported
+  clean install, update, version-check, packaged launch, and removal receipt.
+- The no-key learning fixture passed deterministic core, browser command, TUI,
+  chat-compatible grammar, and basic-console checks. A socket-connect guard
+  proved fixture creation opens no network connection. Its portable export
+  retained four entities, three relationships, eight immutable observations,
+  source digests and dependence groups, two competing hypotheses, eight
+  evidence links, distinct confidence and likelihood assessments, one open
+  high-materiality contradiction, and explicit gap, collection, prediction,
+  and stop-condition records. A new manager reopened the database unchanged;
+  a file-copy recovery under a second workspace directory produced the same
+  deterministic export.
 
-The fresh browser-interaction gate remains open until run against the frozen
-v0.9.5 candidate. An attempted in-app browser session could not attach a new
-webview, so it is recorded as an environment failure, not a product pass.
+Fresh browser interaction passed against the frozen v0.9.5 candidate in
+headless Chrome at **390×844**, **1024×768**, and **1440×1000**. At every width,
+the document width equaled the viewport width and the primary Investigate,
+Evidence, Visualize, More, and Investigation Activity controls remained
+present. The intentional blurred fog band extends beyond the viewport inside
+the clipped main surface; it does not create document overflow. Small internal
+lifecycle labels can overflow their own bounded cards by a few pixels, but do
+not clip controls or enlarge the document.
+
+The same browser replay selected a local text file, invoked the explicit
+**Preview locally** action, displayed both exact entity candidates and the
+source/candidate truth boundaries, and preserved zero horizontal document
+overflow. The Help dialog fit entirely inside the 390×844 viewport; Escape
+closed it and restored focus to its opener. The `/` shortcut restored focus to
+the investigation command, and both Day and Night controls applied their
+corresponding display modes.
+
+An earlier in-app browser session could not attach a new webview. That attempt
+remains recorded as an environment failure; the independent Chrome DevTools
+replay above is the completed product receipt.
+
+## Security diff gate
+
+The completed Codex Security diff scan reviewed all **34 of 34** compact
+worklist rows across the v0.9.1–v0.9.5 release train. It found no critical,
+high, or medium findings. One low-severity availability weakness remains open:
+a negative `Content-Length` can bypass the upper-only request-size check and
+hold one local/LAN request thread until the client disconnects. The real HTTP
+handler reproduced the behavior. Default loopback binding, rejection of
+wildcard binds, and one-thread-per-connection isolation materially constrain
+exposure; the release's no-critical/high gate passes, but this low finding must
+remain visible until an explicitly approved patch and regression test close it.
 
 ## Browser preview receipt
 
@@ -73,15 +118,9 @@ completion by association.
 
 ## Remaining v1.0 gates
 
-- no-key synthetic golden-path workspace and recovery walkthrough;
-- fresh browser QA for document file selection, candidate disclosure, phone,
-  laptop, Day/Night, keyboard, focus restoration, and no overflow;
-- supported clean-machine install/update/uninstall (clean archive launch is
-  verified above);
 - SBOM, checksums, signed release artifacts, third-party license inventory,
   and public readback;
 - measured capacity and failure-recovery receipts;
-- security diff scan with no unresolved critical/high findings;
 - owner-reviewed repository security policy (the policy draft requires
   explicit scope and accepted-risk approval before it can be written);
 - explicit SCOT/Synapse stable-versus-preview release decision.

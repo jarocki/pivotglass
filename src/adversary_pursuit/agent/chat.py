@@ -85,6 +85,7 @@ def _chat_handle_workspace(stripped: str, runner: object, console: Console) -> N
 
         workspace                   → list workspaces
         workspace list              → list workspaces
+        workspace learn <name>      → create an offline learning investigation
         workspace create <name>     → create workspace
         workspace switch <name>     → switch active workspace
         workspace delete <name>     → delete with y/N confirmation
@@ -112,7 +113,7 @@ def _chat_handle_workspace(stripped: str, runner: object, console: Console) -> N
 
     # Detect legacy single-arg switch shorthand: "workspace <name>" where
     # <name> is not a recognised subcommand — DEC-WORKSPACE-DB-003.
-    _KNOWN_SUBS = {"list", "create", "switch", "delete", "clear"}
+    _KNOWN_SUBS = {"list", "learn", "create", "switch", "delete", "clear"}
     if len(parts) == 2 and sub not in _KNOWN_SUBS:
         # Legacy path: "workspace apt41" treated as "workspace switch apt41"
         console.print(
@@ -151,6 +152,18 @@ def _chat_handle_workspace(stripped: str, runner: object, console: Console) -> N
         try:
             workspace_mgr.create(arg)
             console.print(f"[green]Workspace '{arg}' created.[/green]")
+        except ValueError as e:
+            console.print(f"[yellow]{e}[/yellow]")
+
+    elif sub == "learn":
+        if not arg:
+            console.print("[yellow]Usage: workspace learn <name>[/yellow]")
+            return
+        from adversary_pursuit.core.learning_workspace import create_learning_workspace
+
+        try:
+            receipt = create_learning_workspace(workspace_mgr, arg)
+            console.print_json(data=receipt)
         except ValueError as e:
             console.print(f"[yellow]{e}[/yellow]")
 
@@ -209,7 +222,7 @@ def _chat_handle_workspace(stripped: str, runner: object, console: Console) -> N
 
     else:
         console.print(f"[yellow]Unknown workspace subcommand: '{sub}'[/yellow]")
-        console.print("[dim]Usage: workspace [list|create|switch|delete|clear] [name][/dim]")
+        console.print("[dim]Usage: workspace [list|learn|create|switch|delete|clear] [name][/dim]")
 
 
 def run_chat() -> None:
@@ -408,9 +421,7 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
             console.print(table)
             from adversary_pursuit.gamification.modes import display_mode_name
 
-            console.print(
-                f"\n[dim]Active: [bold]{display_mode_name(current.name)}[/bold][/dim]"
-            )
+            console.print(f"\n[dim]Active: [bold]{display_mode_name(current.name)}[/bold][/dim]")
             continue
 
         if lower.startswith("mode "):

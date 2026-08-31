@@ -59,6 +59,7 @@ from rich.table import Table
 from adversary_pursuit.core.config import ConfigManager
 from adversary_pursuit.core.error_interpreter import interpret, render_interactive
 from adversary_pursuit.core.graph import RelationshipGraph
+from adversary_pursuit.core.learning_workspace import create_learning_workspace
 from adversary_pursuit.core.plugin_mgr import PluginManager
 from adversary_pursuit.core.streak import StreakManager
 from adversary_pursuit.core.workspace import WorkspaceManager
@@ -1046,6 +1047,7 @@ class APConsole(cmd2.Cmd):
         Usage:
             workspace              -- list workspaces
             workspace list         -- list workspaces
+            workspace learn <name> -- create an offline learning investigation
             workspace create <name>
             workspace switch <name>
             workspace delete <name>
@@ -1058,6 +1060,8 @@ class APConsole(cmd2.Cmd):
 
         if sub in ("list", ""):
             self._workspace_list()
+        elif sub == "learn":
+            self._workspace_learn(name)
         elif sub == "create":
             self._workspace_create(name)
         elif sub == "switch":
@@ -1068,7 +1072,17 @@ class APConsole(cmd2.Cmd):
             self._workspace_clear(name if name else None)
         else:
             self.poutput(f"Unknown workspace subcommand: '{sub}'")
-            self.poutput("Usage: workspace [list|create|switch|delete|clear] [name]")
+            self.poutput("Usage: workspace [list|learn|create|switch|delete|clear] [name]")
+
+    def _workspace_learn(self, name: str) -> None:
+        if not name:
+            self.poutput("Usage: workspace learn <name>")
+            return
+        try:
+            receipt = create_learning_workspace(self.workspace_mgr, name)
+            self.poutput(json.dumps(receipt, indent=2))
+        except ValueError as exc:
+            self.poutput(f"Error: {exc}")
 
     def _workspace_list(self) -> None:
         names = self.workspace_mgr.list_workspaces()

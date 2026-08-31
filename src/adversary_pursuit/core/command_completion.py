@@ -247,6 +247,7 @@ def command_completions(
     elif command == "workspace":
         subcommands = [
             "list",
+            "learn ",
             "create ",
             "switch ",
             "schema",

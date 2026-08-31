@@ -74,6 +74,7 @@ from adversary_pursuit.core.investigation import (
 )
 from adversary_pursuit.core.investigation_graph import build_investigation_graph
 from adversary_pursuit.core.ioc_types import detect_ioc_type
+from adversary_pursuit.core.learning_workspace import create_learning_workspace
 from adversary_pursuit.core.operational_status import build_authority_registry
 from adversary_pursuit.core.pursuit_brief import build_pursuit_brief
 from adversary_pursuit.core.visualization import build_visualization_intents
@@ -438,9 +439,7 @@ class WebCockpitService:
         preview = DocumentIntakeService(self.ctx.workspace_mgr).preview_bytes(
             data,
             filename=str(payload.get("filename") or "document.bin"),
-            supplied_media_type=(
-                str(payload["media_type"]) if payload.get("media_type") else None
-            ),
+            supplied_media_type=(str(payload["media_type"]) if payload.get("media_type") else None),
             limits=limits,
         )
         candidates = extract_entity_candidates(
@@ -749,6 +748,16 @@ class WebCockpitService:
                     "text": f"Workspace active: {parts[1]}",
                     "state": self.state(),
                 }
+            if sub == "learn" and len(parts) == 2:
+                if self.investigations.active_count():
+                    raise ValueError("cannot change workspace while an investigation is active")
+                receipt = create_learning_workspace(self.ctx.workspace_mgr, parts[1])
+                return {
+                    "kind": "json",
+                    "title": "Offline learning investigation ready",
+                    "data": receipt,
+                    "state": self.state(),
+                }
             if sub == "schema" and len(parts) <= 2:
                 workspace_name = parts[1] if len(parts) == 2 else None
                 return {
@@ -786,7 +795,7 @@ class WebCockpitService:
                 self.ctx.workspace_mgr.delete(parts[1])
                 return {"kind": "text", "title": "Workspace deleted", "text": parts[1]}
             raise ValueError(
-                "usage: workspace list|create <name>|switch <name>|schema [name]|export <name>|merge <source> <destination>|delete <name> --confirm <name>"
+                "usage: workspace list|learn <name>|create <name>|switch <name>|schema [name]|export <name>|merge <source> <destination>|delete <name> --confirm <name>"
             )
         if command in {"status", "show"} and (command == "status" or rest in {"", "status"}):
             summary, *_ = execute_tool(self.ctx, "get_workspace_summary", {})
@@ -853,9 +862,7 @@ class WebCockpitService:
                     "snapshot",
                     "diff",
                 ]:
-                    result = EvidenceClusterHistory(self.ctx.workspace_mgr).diff(
-                        parts[2], parts[3]
-                    )
+                    result = EvidenceClusterHistory(self.ctx.workspace_mgr).diff(parts[2], parts[3])
                     return {
                         "kind": "json",
                         "title": "Evidence-cluster change",
@@ -1565,9 +1572,7 @@ class WebCockpitService:
                 raise ValueError(f"SCOT pivot {field} does not match the validated request")
         if request.workspace != self.ctx.workspace_mgr.active:
             raise ValueError("SCOT pivot workspace does not match the active workspace")
-        inbox_item, created = AnalyticLedger(
-            self.ctx.workspace_mgr
-        ).record_scot_pivot_request(
+        inbox_item, created = AnalyticLedger(self.ctx.workspace_mgr).record_scot_pivot_request(
             canonical,
             authentication=authentication.model_dump(mode="json"),
         )
@@ -1664,7 +1669,11 @@ def _handler(
                         self._json(service.graph_layout(name))
                     else:
                         self._json(
-                            {"layouts": GraphPresentationAuthority(service.ctx.workspace_mgr).list()}
+                            {
+                                "layouts": GraphPresentationAuthority(
+                                    service.ctx.workspace_mgr
+                                ).list()
+                            }
                         )
                 except ValueError as exc:
                     self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
@@ -1776,9 +1785,7 @@ def _handler(
             try:
                 length = int(self.headers.get("Content-Length", "0"))
                 request_limit = (
-                    14 * 1024 * 1024
-                    if parsed.path == "/api/documents/preview"
-                    else 16_384
+                    14 * 1024 * 1024 if parsed.path == "/api/documents/preview" else 16_384
                 )
                 if length > request_limit:
                     raise ValueError("request too large")

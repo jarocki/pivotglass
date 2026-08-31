@@ -38,6 +38,29 @@ uv run ap --version
 The release contains the built browser interface. Node.js 20.9 or newer is
 needed only when changing or rebuilding that interface.
 
+### Update or remove Pivotglass
+
+Inside the virtual environment where Pivotglass is installed, update to this
+release with the same public package identity and an explicit version tag:
+
+```bash
+python -m pip install --upgrade "adversary-pursuit[agent] @ git+https://github.com/jarocki/pivotglass.git@v0.9.5"
+ap --version
+```
+
+Remove the application package and its `ap` command with:
+
+```bash
+python -m pip uninstall adversary-pursuit
+```
+
+The public product and repository are named **Pivotglass**. The Python
+distribution remains `adversary-pursuit`, and the installed compatibility
+command remains `ap`; changing either before 1.0 would break existing installs
+and scripts. Uninstalling the package does not silently delete workspaces or
+configuration in the user's application-data directory. Back up or remove
+that user-owned data separately and deliberately.
+
 ## 2. Start the browser interface
 
 ```bash
@@ -127,23 +150,37 @@ read results are previews until an analyst deliberately imports or cites them.
 
 ## 4. Create a learning workspace
 
+No account, API key, model, or network service is required for the first case.
 In the Pivotglass command field, enter:
 
 ```text
-workspace create quickstart
+workspace learn quickstart
 ```
 
-Now enter the documentation domain:
+This creates and activates a real, persistent investigation populated with
+reserved synthetic data. Its receipt reports zero model and network requests.
+The case includes source hashes and handling markings, four connected entities,
+two competing hypotheses, a high-materiality contradiction, formal confidence,
+separate likelihood, a knowledge gap, a collection requirement, a prediction,
+and a stop condition.
+
+Inspect the scientific workflow:
 
 ```text
-example.com
+analysis lifecycle
+analysis contradictions
+analysis priorities
 ```
 
-`example.com` is reserved for examples. Enabled services may still receive the
-value, so review their terms and data handling first. Results are not
-guaranteed; empty results are valid.
+The fixture intentionally does not resolve the contradiction. Topology can be
+consistent with common control or shared infrastructure, so the open gap asks
+for contemporaneous ownership or tenancy evidence. This is visible uncertainty,
+not a broken tutorial.
 
-Submitting the first indicator starts the applicable enrichment work. The
+For an exact evidence, graph, report, export, restart, and recovery walkthrough,
+continue with the [offline learning investigation](LEARNING_WORKSPACE.md).
+
+In a real workspace, submitting the first indicator starts the applicable enrichment work. The
 activity feed shows each job moving through planned, queued, running, and a
 terminal state such as succeeded, empty, failed, skipped, or canceled. These
 states describe the enrichment job—not whether the indicator is malicious.
@@ -159,7 +196,7 @@ Run `challenges` to see source-grounded goals for the current pursuit and
 their shapes identify the achievement family and their labeled color tier marks
 common, uncommon, rare, epic, or legendary awards.
 
-For meaningful research, create a separate workspace and submit only
+For real research, create a separate workspace and submit only
 indicators you are authorized to send to the enabled services.
 
 > An indicator is not the answer. It is the first node.

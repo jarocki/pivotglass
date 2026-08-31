@@ -7,6 +7,7 @@ interface.
 ## Start here
 
 - [Quick Start](QUICKSTART.md) — install Pivotglass and complete a first investigation
+- [Offline learning investigation](LEARNING_WORKSPACE.md) — complete the evidence-to-report loop with no key or network service
 - [User Guide](USER_GUIDE.md) — task guidance and command reference
 - [Analytic method](ANALYTIC_METHOD.md) — scientific workflow, structured techniques, confidence, and contradictions
 - [Visualization guide](VISUALIZATION_GUIDE.md) — deterministic chart selection, reading guidance, and analytical guardrails

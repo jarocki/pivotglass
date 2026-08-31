@@ -109,6 +109,17 @@ at `http://127.0.0.1:8765` and listens only on the local computer by default.
 The committed release already contains the built web interface; Node.js is
 required only when changing that interface.
 
+After launch, enter `workspace learn first-case` for a complete synthetic
+investigation that uses no API key, model, account, or network service. The
+[offline learning investigation](docs/LEARNING_WORKSPACE.md) follows its
+evidence, provenance, contradiction, graph, report, export, restart, and
+recovery paths.
+
+The repository and product are **Pivotglass**; the retained Python distribution
+name is `adversary-pursuit` and the installed command is `ap` for compatibility.
+The [Quick Start](docs/QUICKSTART.md#update-or-remove-pivotglass) defines the
+single supported install, update, version-check, and uninstall lifecycle.
+
 For the complete first investigation, configuration, graph, and reporting
 walkthrough, follow the **[Pivotglass Quick Start](docs/QUICKSTART.md)**.
 

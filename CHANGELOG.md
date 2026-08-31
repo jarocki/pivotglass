@@ -18,6 +18,11 @@ capacity boundaries explicit.
 
 ### Added
 
+- Added `workspace learn <name>` across Pivotglass, TUI, chat, and basic
+  console surfaces. It creates a source-marked, offline synthetic investigation
+  spanning immutable provenance, connected evidence, competing hypotheses,
+  confidence, likelihood, contradiction, gaps, report, export, restart, and
+  file-level recovery without a key, model, account, or network request.
 - Added temporary exact-location entity candidates to the browser document
   preview. Each candidate exposes raw and normalized value, type, line/column,
   character and UTF-8 byte span, and extraction rule/version.

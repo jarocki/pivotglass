@@ -81,6 +81,7 @@ badges, and Dossier state.
 
 ```text
 workspace list
+workspace learn <name>
 workspace create <name>
 workspace switch <name>
 workspace export <name>
@@ -88,7 +89,11 @@ workspace merge <source> <destination>
 workspace delete <name> --confirm <name>
 ```
 
-Creating a workspace also switches to it. A merge adds evidence to the
+`workspace learn` creates and switches to a source-marked synthetic case using
+no account, key, model, or network request. It exercises the real provenance,
+graph, analytic-ledger, report, export, restart, and recovery paths; see the
+[offline learning investigation](LEARNING_WORKSPACE.md). Creating a workspace
+also switches to it. A merge adds evidence to the
 destination without deleting either source. Deletion requires the exact
 workspace name and cannot remove the active workspace; switch first.
 
@@ -472,6 +477,7 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | Command | Purpose |
 | --- | --- |
 | `workspace list` | List workspaces |
+| `workspace learn <name>` | Create and switch to a complete offline synthetic investigation |
 | `workspace create <name>` | Create and switch to a workspace |
 | `workspace switch <name>` | Switch workspaces |
 | `workspace schema [name]` | Validate integrity and preview a migration without changing data |
