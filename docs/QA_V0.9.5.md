@@ -24,14 +24,19 @@ pre-1.0 stable/preview/deferred closure
   **31 packages** had verified registry signatures and **17** had verified
   provenance attestations.
 - Release-contract version synchronization and static diff hygiene passed.
-- Wheel and source archive built successfully:
-  - `adversary_pursuit-0.9.5.tar.gz` — SHA-256
-    `bfb00cf45b3e0285da5b5df669b96c52e394c74b450b7423383277e627f75d5e`
-  - `adversary_pursuit-0.9.5-py3-none-any.whl` — SHA-256
-    `c5d5db49d2a5e960183c3e9f2456b4232331590f53f305209f7413e14153479c`
+- Wheel and source archive built successfully. Publication-time checksums are
+  deliberately not embedded in a file included by the source archive: changing
+  this record would change that archive. The release publication receipt must
+  publish checksums calculated from the final immutable artifacts.
+- A clean `git archive` export synchronized successfully, reported
+  `adversary-pursuit 0.9.5`, and passed all **38** release-contract and web-server
+  tests.
+- The clean archive served the built cockpit root and `/api/health` over an
+  ephemeral loopback port; both returned the expected v0.9.5 content.
 
-The clean-checkout and fresh browser-interaction gates remain open until run
-against the frozen v0.9.5 candidate.
+The fresh browser-interaction gate remains open until run against the frozen
+v0.9.5 candidate. An attempted in-app browser session could not attach a new
+webview, so it is recorded as an environment failure, not a product pass.
 
 ## Browser preview receipt
 
@@ -71,7 +76,8 @@ completion by association.
 - no-key synthetic golden-path workspace and recovery walkthrough;
 - fresh browser QA for document file selection, candidate disclosure, phone,
   laptop, Day/Night, keyboard, focus restoration, and no overflow;
-- supported clean-machine install/update/uninstall and clean-checkout launch;
+- supported clean-machine install/update/uninstall (clean archive launch is
+  verified above);
 - SBOM, checksums, signed release artifacts, third-party license inventory,
   and public readback;
 - measured capacity and failure-recovery receipts;
