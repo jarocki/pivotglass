@@ -9,7 +9,8 @@ pre-1.0 stable/preview/deferred closure
 
 ## Candidate verification
 
-- Complete Python suite after all four approved security fixes: **4,166 passed,
+- Complete Python suite after all four approved security fixes and the approved
+  workspace lifecycle correction: **4,172 passed,
   2 skipped**. The one warning is the
   existing Python 3.12+ SQLite datetime-adapter deprecation exercised by the
   schema-v7 presentation-layout reconciliation test; it is not a failure.
@@ -22,6 +23,9 @@ pre-1.0 stable/preview/deferred closure
   both former recursion triggers, quote/escape-aware valid inputs, the outer
   request-envelope recursion boundary, and a successful request after every
   rejected hostile request.
+- The document/workspace/UI lifecycle suite passed **289 tests**. A second
+  focused confirmation after receipt wording and exact-scope refinements passed
+  **265 tests**.
 - TypeScript check and Next.js 16.3.0 production static export passed for the
   candidate-preview interface.
 - Five visualization behavior tests passed.
@@ -137,11 +141,15 @@ preview with the configured nesting-limit message. They no longer raise
 parser version is `pivotglass-bounded-preview-1.1` so receipts distinguish the
 remediated behavior.
 
-The scan also reproduced two product lifecycle defects: workspace clear does
-not remove every new v9-v11 record family, and workspace delete leaves the
-sibling raw-document content directory. They were rejected as security
-findings under the current single-user/same-account threat model, but remain
-release-correctness work and must not be represented as complete deletion.
+The scan also reproduced two product lifecycle defects: workspace clear did
+not remove the approved v9-v11 document/proposal/snapshot record families, and
+workspace delete left the sibling raw-document content directory. They were
+rejected as security findings under the current single-user/same-account threat
+model and corrected as release-blocking product behavior. Regression coverage
+now proves that clear removes those records and raw bytes while preserving an
+empty valid workspace, delete removes the workspace database and raw bytes,
+failures produce no success receipt, and neither operation touches another
+workspace.
 
 ## Browser preview receipt
 

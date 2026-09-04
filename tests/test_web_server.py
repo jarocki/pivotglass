@@ -900,6 +900,10 @@ def test_workspace_commands_create_export_merge_and_confirm_delete(tmp_path):
     assert merged["data"]["inserted"]["stix_objects"] == 1
     assert "merge.test" in exported["content"]
     assert deleted["title"] == "Workspace deleted"
+    assert deleted["data"] == {
+        "workspace": "source",
+        "deleted": {"sqlite_files": 1, "raw_document_files": 0},
+    }
 
 
 def test_workspace_switch_is_blocked_while_investigation_is_active(tmp_path):

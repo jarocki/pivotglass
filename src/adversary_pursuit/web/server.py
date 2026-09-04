@@ -792,8 +792,12 @@ class WebCockpitService:
             ):
                 if parts[1] == self.ctx.workspace_mgr.active:
                     raise ValueError("cannot delete the active workspace; switch first")
-                self.ctx.workspace_mgr.delete(parts[1])
-                return {"kind": "text", "title": "Workspace deleted", "text": parts[1]}
+                deleted = self.ctx.workspace_mgr.delete(parts[1])
+                return {
+                    "kind": "json",
+                    "title": "Workspace deleted",
+                    "data": {"workspace": parts[1], "deleted": deleted},
+                }
             raise ValueError(
                 "usage: workspace list|learn <name>|create <name>|switch <name>|schema [name]|export <name>|merge <source> <destination>|delete <name> --confirm <name>"
             )

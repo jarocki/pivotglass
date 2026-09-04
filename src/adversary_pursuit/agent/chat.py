@@ -181,13 +181,20 @@ def _chat_handle_workspace(stripped: str, runner: object, console: Console) -> N
         if not arg:
             console.print("[yellow]Usage: workspace delete <name>[/yellow]")
             return
-        if not _confirm(f"Delete workspace '{arg}'? This cannot be undone."):
+        if not _confirm(
+            f"Delete workspace '{arg}' and all stored investigation data, including "
+            "uploaded source documents? This cannot be undone."
+        ):
             console.print("[dim]Delete cancelled.[/dim]")
             return
         try:
-            workspace_mgr.delete(arg)
-            console.print(f"[green]Workspace '{arg}' deleted.[/green]")
-        except ValueError as e:
+            deleted = workspace_mgr.delete(arg)
+            console.print(
+                f"[green]Workspace '{arg}' deleted. "
+                f"{deleted['sqlite_files']} SQLite file(s) and "
+                f"{deleted['raw_document_files']} raw document file(s) removed.[/green]"
+            )
+        except (ValueError, RuntimeError) as e:
             console.print(f"[yellow]{e}[/yellow]")
 
     elif sub == "clear":
@@ -203,19 +210,30 @@ def _chat_handle_workspace(stripped: str, runner: object, console: Console) -> N
                     "[yellow]No active workspace. Use 'workspace switch <name>' first.[/yellow]"
                 )
                 return
-        if not _confirm(f"Clear ALL data from workspace '{display_name}'? This cannot be undone."):
+        if not _confirm(
+            f"Reset investigation data in workspace '{display_name}'? This permanently "
+            "removes evidence, indicators, relationships, collection history, notes, "
+            "analytic records, badges and challenges, saved graph layouts, uploaded "
+            "documents, and their parser, extraction, proposal, and snapshot records. "
+            "The empty workspace and schema remain. This cannot be undone."
+        ):
             console.print("[dim]Clear cancelled.[/dim]")
             return
         try:
             deleted = workspace_mgr.clear(name=name_to_clear)
-            total = sum(deleted.values())
+            raw_document_files = deleted["raw_document_files"]
+            table_counts = {
+                key: value for key, value in deleted.items() if key != "raw_document_files"
+            }
+            total = sum(table_counts.values())
             detail = (
-                ", ".join(f"{v} {k}" for k, v in deleted.items() if v > 0)
+                ", ".join(f"{value} {key}" for key, value in table_counts.items() if value > 0)
                 or "all tables were already empty"
             )
             console.print(
                 f"[green]Workspace '{display_name}' cleared. "
-                f"{total} row(s) removed ({detail}).[/green]"
+                f"{total} database row(s) removed ({detail}); "
+                f"{raw_document_files} raw document file(s) removed.[/green]"
             )
         except (ValueError, RuntimeError) as e:
             console.print(f"[yellow]{e}[/yellow]")

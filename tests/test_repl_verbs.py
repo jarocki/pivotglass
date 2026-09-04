@@ -389,7 +389,9 @@ class TestWorkspaceCommandParity:
 
         assert '"stix_objects": 1' in merged
         assert "merge.test" in exported
-        assert deleted == "Workspace deleted: source"
+        assert '"workspace": "source"' in deleted
+        assert '"sqlite_files": 1' in deleted
+        assert '"raw_document_files": 0' in deleted
         assert "source" not in manager.list_workspaces()
 
     def test_delete_requires_exact_confirmation_and_rejects_active(self, tmp_path):

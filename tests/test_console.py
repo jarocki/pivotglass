@@ -258,12 +258,26 @@ def test_workspace_switch(console):
     assert "error" not in out.lower()
 
 
-def test_workspace_delete(console):
-    """workspace delete removes a workspace."""
+def test_workspace_delete(console, monkeypatch):
+    """workspace delete confirms and reports complete runtime-data removal."""
     run_cmd(console, "workspace create deleteme")
-    run_cmd(console, "workspace delete deleteme")
+    monkeypatch.setattr("adversary_pursuit.core.console._confirm", lambda prompt: True)
+    deleted = run_cmd(console, "workspace delete deleteme")
     out = run_cmd(console, "workspace list")
     assert "deleteme" not in out
+    assert "1 SQLite file(s)" in deleted
+    assert "0 raw document file(s)" in deleted
+
+
+def test_workspace_delete_cancel_preserves_workspace(console, monkeypatch):
+    """The classic console uses the same safe confirmation posture."""
+
+    run_cmd(console, "workspace create keepme")
+    monkeypatch.setattr("adversary_pursuit.core.console._confirm", lambda prompt: False)
+    deleted = run_cmd(console, "workspace delete keepme")
+
+    assert "cancelled" in deleted.lower()
+    assert "keepme" in run_cmd(console, "workspace list")
 
 
 def test_workspace_create_duplicate_shows_error(console):

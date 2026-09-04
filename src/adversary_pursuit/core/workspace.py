@@ -57,6 +57,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import shutil
 import uuid
 import warnings
 from contextlib import contextmanager
@@ -109,6 +110,44 @@ from adversary_pursuit.models.database import (
     Relationship as RelationshipModel,
 )
 from adversary_pursuit.models.stix import dict_to_stix
+
+# One authority for the tables managed by the workspace-clear lifecycle.
+# Child/derived records come before the records they reference so clear remains
+# valid if SQLite foreign-key enforcement is enabled in a future schema. Schema
+# receipts are deliberately absent: resetting a workspace preserves an empty,
+# openable database. Framework-mapping and external-integration execution
+# receipts retain their pre-existing lifecycle pending a separate owner decision.
+_WORKSPACE_DATA_MODELS: tuple[tuple[str, type], ...] = (
+    ("document_proposal_dispositions", DocumentProposalDisposition),
+    ("document_analysis_proposals", DocumentAnalysisProposal),
+    ("document_entity_candidates", DocumentEntityCandidate),
+    ("document_extraction_receipts", DocumentExtractionReceipt),
+    ("document_parser_receipts", DocumentParserReceipt),
+    ("document_occurrences", DocumentOccurrence),
+    ("document_contents", DocumentContent),
+    ("evidence_cluster_snapshots", EvidenceClusterSnapshot),
+    ("analytic_lifecycle_items", AnalyticLifecycleItem),
+    ("analytic_evidence_links", AnalyticEvidenceLink),
+    ("analytic_method_runs", AnalyticMethodRun),
+    ("analytic_contradictions", AnalyticContradiction),
+    ("analytic_confidence_assessments", AnalyticConfidenceAssessment),
+    ("likelihood_assessments", LikelihoodAssessment),
+    ("analytic_hypotheses", AnalyticHypothesis),
+    ("analytic_assertions", AnalyticAssertion),
+    ("investigation_questions", InvestigationQuestion),
+    ("analytic_investigations", AnalyticInvestigation),
+    ("evidence_observation_dispositions", EvidenceObservationDisposition),
+    ("evidence_observations", EvidenceObservation),
+    ("evidence_sources", EvidenceSource),
+    ("stix_objects", StixObject),
+    ("relationships", RelationshipModel),
+    ("module_runs", ModuleRun),
+    ("score_events", ScoreEvent),
+    ("analyst_notes", AnalystNote),
+    ("badge_events", BadgeEvent),
+    ("hunt_challenges", HuntChallengeRecord),
+    ("graph_presentation_layouts", GraphPresentationLayout),
+)
 
 # @decision DEC-WORKSPACE-DB-001
 # @title Confirmation lives at UI surface only — WorkspaceManager.clear() is unconditional
@@ -262,8 +301,8 @@ class WorkspaceManager:
         initialize_workspace_schema(engine)
         engine.dispose()
 
-    def delete(self, name: str) -> None:
-        """Delete a workspace and its SQLite database file.
+    def delete(self, name: str) -> dict[str, int]:
+        """Delete a workspace database and its raw-document content store.
 
         Parameters
         ----------
@@ -283,7 +322,38 @@ class WorkspaceManager:
             self._engine.dispose()
             self._engine = None
             self._active = None
-        db_path.unlink()
+        raw_document_files = self._remove_content_store(name)
+        sqlite_files = 0
+        try:
+            for path in (db_path, Path(f"{db_path}-wal"), Path(f"{db_path}-shm")):
+                if path.exists() or path.is_symlink():
+                    path.unlink()
+                    sqlite_files += 1
+        except OSError as exc:
+            raise RuntimeError(
+                f"Workspace deletion is incomplete: failed to remove '{path}'. "
+                "No success receipt was issued."
+            ) from exc
+
+        remaining = [
+            str(path)
+            for path in (
+                db_path,
+                Path(f"{db_path}-wal"),
+                Path(f"{db_path}-shm"),
+                self._content_store_path(name),
+            )
+            if path.exists() or path.is_symlink()
+        ]
+        if remaining:
+            raise RuntimeError(
+                "Workspace deletion verification failed; paths remain: "
+                f"{remaining}. No success receipt was issued."
+            )
+        return {
+            "sqlite_files": sqlite_files,
+            "raw_document_files": raw_document_files,
+        }
 
     def list_workspaces(self) -> list[str]:
         """List all workspace names in the workspace directory.
@@ -1260,8 +1330,10 @@ class WorkspaceManager:
     def clear(self, name: str | None = None) -> dict[str, int]:
         """Clear all data tables in the named workspace (or active if None).
 
-        Deletes all operational and epistemic investigation records. The SQLite
-        file, schema, and schema-version receipt are preserved.
+        Deletes the clear-managed operational, epistemic, document, proposal,
+        and snapshot records plus the workspace's raw-document content store.
+        The SQLite file, schema, schema-version receipt, framework-mapping
+        records, and external-integration execution receipts are preserved.
 
         Sentinel rows stored in ``score_events`` (``_milestone_sentinel``,
         ``_dossier_state_snapshot``, ``_predictions_log``) are cleared by
@@ -1272,9 +1344,11 @@ class WorkspaceManager:
         the UI surface only (cmd2 ``_workspace_clear`` / chat workspace handler).
         There is no ``confirm_token`` parameter (DEC-WORKSPACE-DB-001).
 
-        After committing the bulk DELETEs, each table is re-queried; if any
-        count != 0 a ``RuntimeError`` is raised immediately (DEC-WORKSPACE-DB-007,
-        Sacred Practice 5 — loud failure over silent fallback).
+        After committing the bulk DELETEs, every clear-managed table and the
+        raw-document content path are verified absent or empty. Any incomplete
+        cleanup raises ``RuntimeError`` without issuing a success receipt
+        (DEC-WORKSPACE-DB-007, Sacred Practice 5 — loud failure over silent
+        fallback).
 
         Parameters
         ----------
@@ -1284,16 +1358,8 @@ class WorkspaceManager:
         Returns
         -------
         dict[str, int]
-            Counts of rows deleted per table::
-
-                {
-                    "stix_objects": N,
-                    "relationships": N,
-                    "module_runs": N,
-                    "score_events": N,
-                    "analyst_notes": N,
-                    "badge_events": N,
-                }
+            Counts of rows deleted per clear-managed table plus the number of
+            raw document files removed under ``raw_document_files``.
 
         Raises
         ------
@@ -1304,7 +1370,8 @@ class WorkspaceManager:
         RuntimeError
             If post-clear verification finds any data table still non-empty.
         """
-        if name is not None:
+        owns_engine = name is not None
+        if owns_engine:
             # Named workspace — validate existence without switching active session
             db_path = self._db_path(name)
             if not db_path.exists():
@@ -1312,131 +1379,37 @@ class WorkspaceManager:
             from sqlalchemy import create_engine as _ce
 
             target_engine = _ce(f"sqlite:///{db_path}")
+            resolved_name = name
         else:
             # Active workspace — use the `active` property which raises RuntimeError
             # when no workspace has been switched to (DEC-WORKSPACE-DB-001: clear is an
             # intentional destructive operation; auto-creating 'default' and immediately
             # clearing it would silently wipe a workspace the user may not have intended
             # to target — different semantics from read methods that auto-init).
-            _ = self.active  # raises RuntimeError if no active workspace
+            resolved_name = self.active  # raises RuntimeError if no active workspace
             target_engine = self._engine
 
-        deleted: dict[str, int] = {}
+        try:
+            with Session(target_engine) as session:
+                deleted = {
+                    table_name: session.query(model).delete()
+                    for table_name, model in _WORKSPACE_DATA_MODELS
+                }
+                session.commit()
 
-        with Session(target_engine) as session:
-            # Delete epistemic links before their targets. Explicit ordering keeps
-            # this correct if foreign-key enforcement is enabled in a future schema.
-            deleted["analytic_lifecycle_items"] = session.query(AnalyticLifecycleItem).delete()
-            deleted["analytic_evidence_links"] = session.query(AnalyticEvidenceLink).delete()
-            deleted["analytic_method_runs"] = session.query(AnalyticMethodRun).delete()
-            deleted["analytic_contradictions"] = session.query(AnalyticContradiction).delete()
-            deleted["analytic_confidence_assessments"] = session.query(
-                AnalyticConfidenceAssessment
-            ).delete()
-            deleted["likelihood_assessments"] = session.query(LikelihoodAssessment).delete()
-            deleted["analytic_hypotheses"] = session.query(AnalyticHypothesis).delete()
-            deleted["analytic_assertions"] = session.query(AnalyticAssertion).delete()
-            deleted["investigation_questions"] = session.query(InvestigationQuestion).delete()
-            deleted["analytic_investigations"] = session.query(AnalyticInvestigation).delete()
-            deleted["evidence_observation_dispositions"] = session.query(
-                EvidenceObservationDisposition
-            ).delete()
-            deleted["evidence_observations"] = session.query(EvidenceObservation).delete()
-            deleted["evidence_sources"] = session.query(EvidenceSource).delete()
-            deleted["stix_objects"] = session.query(StixObject).delete()
-            deleted["relationships"] = session.query(RelationshipModel).delete()
-            deleted["module_runs"] = session.query(ModuleRun).delete()
-            deleted["score_events"] = session.query(ScoreEvent).delete()
-            deleted["analyst_notes"] = session.query(AnalystNote).delete()
-            deleted["badge_events"] = session.query(BadgeEvent).delete()
-            deleted["hunt_challenges"] = session.query(HuntChallengeRecord).delete()
-            deleted["graph_presentation_layouts"] = session.query(
-                GraphPresentationLayout
-            ).delete()
-            session.commit()
+                remaining = self._table_counts(session)
+                non_empty = {table: count for table, count in remaining.items() if count}
+                if non_empty:
+                    raise RuntimeError(
+                        "Workspace clear verification failed — tables still non-empty: "
+                        f"{non_empty}. No success receipt was issued."
+                    )
 
-            # DEC-WORKSPACE-DB-007: post-clear loud verification
-            # Re-query each table; any non-zero count is a partial-clear bug
-            remaining = {
-                "analytic_lifecycle_items": session.execute(
-                    select(func.count(AnalyticLifecycleItem.id))
-                ).scalar()
-                or 0,
-                "analytic_evidence_links": session.execute(
-                    select(func.count(AnalyticEvidenceLink.id))
-                ).scalar()
-                or 0,
-                "analytic_method_runs": session.execute(
-                    select(func.count(AnalyticMethodRun.id))
-                ).scalar()
-                or 0,
-                "analytic_contradictions": session.execute(
-                    select(func.count(AnalyticContradiction.id))
-                ).scalar()
-                or 0,
-                "analytic_confidence_assessments": session.execute(
-                    select(func.count(AnalyticConfidenceAssessment.id))
-                ).scalar()
-                or 0,
-                "likelihood_assessments": session.execute(
-                    select(func.count(LikelihoodAssessment.id))
-                ).scalar()
-                or 0,
-                "analytic_hypotheses": session.execute(
-                    select(func.count(AnalyticHypothesis.id))
-                ).scalar()
-                or 0,
-                "analytic_assertions": session.execute(
-                    select(func.count(AnalyticAssertion.id))
-                ).scalar()
-                or 0,
-                "investigation_questions": session.execute(
-                    select(func.count(InvestigationQuestion.id))
-                ).scalar()
-                or 0,
-                "analytic_investigations": session.execute(
-                    select(func.count(AnalyticInvestigation.id))
-                ).scalar()
-                or 0,
-                "evidence_observation_dispositions": session.execute(
-                    select(func.count(EvidenceObservationDisposition.id))
-                ).scalar()
-                or 0,
-                "evidence_observations": session.execute(
-                    select(func.count(EvidenceObservation.id))
-                ).scalar()
-                or 0,
-                "evidence_sources": session.execute(select(func.count(EvidenceSource.id))).scalar()
-                or 0,
-                "stix_objects": session.execute(select(func.count(StixObject.id))).scalar() or 0,
-                "relationships": session.execute(select(func.count(RelationshipModel.id))).scalar()
-                or 0,
-                "module_runs": session.execute(select(func.count(ModuleRun.id))).scalar() or 0,
-                "score_events": session.execute(select(func.count(ScoreEvent.id))).scalar() or 0,
-                "analyst_notes": session.execute(select(func.count(AnalystNote.id))).scalar() or 0,
-                "badge_events": session.execute(select(func.count(BadgeEvent.id))).scalar() or 0,
-                "hunt_challenges": session.execute(
-                    select(func.count(HuntChallengeRecord.id))
-                ).scalar()
-                or 0,
-                "graph_presentation_layouts": session.execute(
-                    select(func.count(GraphPresentationLayout.id))
-                ).scalar()
-                or 0,
-            }
-
-        non_empty = {t: c for t, c in remaining.items() if c != 0}
-        if non_empty:
-            raise RuntimeError(
-                f"Workspace clear verification failed — tables still non-empty: "
-                f"{non_empty}. This is a bug; report to maintainers."
-            )
-
-        # Dispose named-workspace engine (it was created only for this call)
-        if name is not None:
-            target_engine.dispose()
-
-        return deleted
+            deleted["raw_document_files"] = self._remove_content_store(resolved_name)
+            return deleted
+        finally:
+            if owns_engine:
+                target_engine.dispose()
 
     # ------------------------------------------------------------------
     # Status helpers (DEC-WORKSPACE-DB-004, DEC-WORKSPACE-DB-005)
@@ -1507,111 +1480,11 @@ class WorkspaceManager:
         Returns
         -------
         dict[str, int]
-            Keys: ``stix_objects``, ``relationships``, ``module_runs``,
-            ``score_events``, ``analyst_notes``, ``badge_events``.
-            All values are non-negative integers.
+            One non-negative count for every model managed by workspace clear.
         """
         self._ensure_active()
         with Session(self._engine) as session:
-            return {
-                "analytic_investigations": session.execute(
-                    select(func.count(AnalyticInvestigation.id))
-                ).scalar()
-                or 0,
-                "analytic_lifecycle_items": session.execute(
-                    select(func.count(AnalyticLifecycleItem.id))
-                ).scalar()
-                or 0,
-                "evidence_sources": session.execute(select(func.count(EvidenceSource.id))).scalar()
-                or 0,
-                "evidence_observations": session.execute(
-                    select(func.count(EvidenceObservation.id))
-                ).scalar()
-                or 0,
-                "evidence_observation_dispositions": session.execute(
-                    select(func.count(EvidenceObservationDisposition.id))
-                ).scalar()
-                or 0,
-                "document_contents": session.execute(
-                    select(func.count(DocumentContent.sha256))
-                ).scalar()
-                or 0,
-                "document_occurrences": session.execute(
-                    select(func.count(DocumentOccurrence.id))
-                ).scalar()
-                or 0,
-                "document_parser_receipts": session.execute(
-                    select(func.count(DocumentParserReceipt.id))
-                ).scalar()
-                or 0,
-                "document_extraction_receipts": session.execute(
-                    select(func.count(DocumentExtractionReceipt.id))
-                ).scalar()
-                or 0,
-                "document_entity_candidates": session.execute(
-                    select(func.count(DocumentEntityCandidate.id))
-                ).scalar()
-                or 0,
-                "evidence_cluster_snapshots": session.execute(
-                    select(func.count(EvidenceClusterSnapshot.id))
-                ).scalar()
-                or 0,
-                "document_analysis_proposals": session.execute(
-                    select(func.count(DocumentAnalysisProposal.id))
-                ).scalar()
-                or 0,
-                "document_proposal_dispositions": session.execute(
-                    select(func.count(DocumentProposalDisposition.id))
-                ).scalar()
-                or 0,
-                "investigation_questions": session.execute(
-                    select(func.count(InvestigationQuestion.id))
-                ).scalar()
-                or 0,
-                "analytic_assertions": session.execute(
-                    select(func.count(AnalyticAssertion.id))
-                ).scalar()
-                or 0,
-                "analytic_hypotheses": session.execute(
-                    select(func.count(AnalyticHypothesis.id))
-                ).scalar()
-                or 0,
-                "analytic_evidence_links": session.execute(
-                    select(func.count(AnalyticEvidenceLink.id))
-                ).scalar()
-                or 0,
-                "analytic_method_runs": session.execute(
-                    select(func.count(AnalyticMethodRun.id))
-                ).scalar()
-                or 0,
-                "analytic_confidence_assessments": session.execute(
-                    select(func.count(AnalyticConfidenceAssessment.id))
-                ).scalar()
-                or 0,
-                "likelihood_assessments": session.execute(
-                    select(func.count(LikelihoodAssessment.id))
-                ).scalar()
-                or 0,
-                "analytic_contradictions": session.execute(
-                    select(func.count(AnalyticContradiction.id))
-                ).scalar()
-                or 0,
-                "stix_objects": session.execute(select(func.count(StixObject.id))).scalar() or 0,
-                "relationships": session.execute(select(func.count(RelationshipModel.id))).scalar()
-                or 0,
-                "module_runs": session.execute(select(func.count(ModuleRun.id))).scalar() or 0,
-                "score_events": session.execute(select(func.count(ScoreEvent.id))).scalar() or 0,
-                "analyst_notes": session.execute(select(func.count(AnalystNote.id))).scalar() or 0,
-                "badge_events": session.execute(select(func.count(BadgeEvent.id))).scalar() or 0,
-                "hunt_challenges": session.execute(
-                    select(func.count(HuntChallengeRecord.id))
-                ).scalar()
-                or 0,
-                "graph_presentation_layouts": session.execute(
-                    select(func.count(GraphPresentationLayout.id))
-                ).scalar()
-                or 0,
-            }
+            return self._table_counts(session)
 
     def get_last_event_timestamps(self) -> dict:
         """Return the most recent event data for key activity categories.
@@ -1712,6 +1585,53 @@ class WorkspaceManager:
         if name in {".", ".."}:
             raise ValueError("Workspace name must not be a path segment.")
         return self._workspace_dir / f"{name}.db"
+
+    def _content_store_path(self, name: str) -> Path:
+        """Return the exact sibling content-store path for a workspace."""
+
+        return self._db_path(name).with_suffix(".content")
+
+    def _remove_content_store(self, name: str) -> int:
+        """Remove one workspace's raw-document store and verify its absence."""
+
+        store_root = self._content_store_path(name)
+        if not store_root.exists() and not store_root.is_symlink():
+            return 0
+        if store_root.is_symlink() or store_root.is_file():
+            raw_document_files = 1
+            try:
+                store_root.unlink()
+            except OSError as exc:
+                raise RuntimeError(
+                    f"Raw-document cleanup failed at '{store_root}'. "
+                    "No success receipt was issued."
+                ) from exc
+        else:
+            raw_document_files = sum(
+                1 for path in store_root.rglob("*") if path.is_file() or path.is_symlink()
+            )
+            try:
+                shutil.rmtree(store_root)
+            except OSError as exc:
+                raise RuntimeError(
+                    f"Raw-document cleanup failed at '{store_root}'. "
+                    "No success receipt was issued."
+                ) from exc
+        if store_root.exists() or store_root.is_symlink():
+            raise RuntimeError(
+                f"Raw-document cleanup verification failed at '{store_root}'. "
+                "No success receipt was issued."
+            )
+        return raw_document_files
+
+    @staticmethod
+    def _table_counts(session: Session) -> dict[str, int]:
+        """Count every table managed by the workspace-clear authority."""
+
+        return {
+            name: session.execute(select(func.count()).select_from(model)).scalar_one()
+            for name, model in _WORKSPACE_DATA_MODELS
+        }
 
     def _ensure_active(self) -> None:
         """Auto-create and switch to 'default' if no active workspace."""

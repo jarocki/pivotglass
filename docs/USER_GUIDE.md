@@ -86,6 +86,7 @@ workspace create <name>
 workspace switch <name>
 workspace export <name>
 workspace merge <source> <destination>
+workspace clear [name]
 workspace delete <name> --confirm <name>
 ```
 
@@ -96,6 +97,18 @@ graph, analytic-ledger, report, export, restart, and recovery paths; see the
 also switches to it. A merge adds evidence to the
 destination without deleting either source. Deletion requires the exact
 workspace name and cannot remove the active workspace; switch first.
+
+`workspace clear [name]` resets the investigation while preserving its empty
+database, schema, and schema-version receipt. After confirmation it permanently
+removes stored evidence, relationships, notes, analysis records, the approved
+v9-v11 document/proposal/snapshot records, and uploaded document bytes. It does
+not delete repository documentation, product plans, source code, or deferred
+features. Framework-mapping records and external-integration execution receipts
+retain their pre-existing lifecycle and are not newly included in clear by this
+v0.9.5 correction. `workspace delete` permanently removes the workspace database,
+SQLite sidecars, and uploaded-document content directory. Both commands report
+what they removed and fail loudly rather than claiming success after incomplete
+cleanup.
 
 ## Enrichment and lifecycle state
 
@@ -483,6 +496,7 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `workspace schema [name]` | Validate integrity and preview a migration without changing data |
 | `workspace export <name>` | Export a portable workspace archive |
 | `workspace merge <source> <destination>` | Add source evidence to a destination |
+| `workspace clear [name]` | Permanently reset investigation data and uploaded documents while preserving the empty workspace schema |
 | `workspace delete <name> --confirm <name>` | Delete after exact confirmation |
 | `mode list` / `mode <public name>` | List or select a character |
 | `use <indicator>` | Set the current target |

@@ -428,7 +428,7 @@ class DocumentIntakeService:
         if preview.state == "failed":
             raise ValueError("Document parser failed: " + "; ".join(preview.errors))
         workspace = self._workspace.active
-        store_root = self._workspace._db_path(workspace).with_suffix(".content")  # noqa: SLF001
+        store_root = self._workspace._content_store_path(workspace)  # noqa: SLF001
         content_path = store_root / "sha256" / preview.content_sha256[:2] / preview.content_sha256
         content_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         reused = content_path.exists()

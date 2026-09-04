@@ -1126,10 +1126,19 @@ class APConsole(cmd2.Cmd):
         if not name:
             self.poutput("Usage: workspace delete <name>")
             return
+        if not _confirm(
+            f"Delete workspace '{name}' and all stored investigation data, "
+            "including uploaded source documents? This cannot be undone."
+        ):
+            self.poutput("Delete cancelled.")
+            return
         try:
-            self.workspace_mgr.delete(name)
-            self.poutput(f"Workspace '{name}' deleted.")
-        except ValueError as exc:
+            deleted = self.workspace_mgr.delete(name)
+            self.poutput(
+                f"Workspace '{name}' deleted. {deleted['sqlite_files']} SQLite file(s) "
+                f"and {deleted['raw_document_files']} raw document file(s) removed."
+            )
+        except (ValueError, RuntimeError) as exc:
             self.poutput(f"Error: {exc}")
 
     def _workspace_clear(self, name: str | None) -> None:
@@ -1155,16 +1164,27 @@ class APConsole(cmd2.Cmd):
                 self.poutput("Error: no active workspace. Use 'workspace switch <name>' first.")
                 return
 
-        if not _confirm(f"Clear ALL data from workspace '{display_name}'? This cannot be undone."):
+        if not _confirm(
+            f"Reset investigation data in workspace '{display_name}'? This permanently "
+            "removes evidence, indicators, relationships, collection history, notes, "
+            "analytic records, badges and challenges, saved graph layouts, uploaded "
+            "documents, and their parser, extraction, proposal, and snapshot records. "
+            "The empty workspace and schema remain. This cannot be undone."
+        ):
             self.poutput("Clear cancelled.")
             return
 
         try:
             deleted = self.workspace_mgr.clear(name=name)
-            total = sum(deleted.values())
+            raw_document_files = deleted["raw_document_files"]
+            table_counts = {
+                key: value for key, value in deleted.items() if key != "raw_document_files"
+            }
+            total = sum(table_counts.values())
             self.poutput(
-                f"Workspace '{display_name}' cleared. {total} row(s) removed "
-                f"({', '.join(f'{v} {k}' for k, v in deleted.items() if v > 0) or 'all tables were already empty'})."
+                f"Workspace '{display_name}' cleared. {total} database row(s) removed "
+                f"({', '.join(f'{value} {key}' for key, value in table_counts.items() if value > 0) or 'all tables were already empty'}); "
+                f"{raw_document_files} raw document file(s) removed."
             )
         except (ValueError, RuntimeError) as exc:
             self.poutput(f"Error: {exc}")

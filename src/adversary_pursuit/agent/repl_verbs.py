@@ -585,8 +585,11 @@ def dispatch_repl_verb(
         ):
             if verb.args[1] == _workspace_mgr.active:
                 return "Cannot delete the active workspace; switch first."
-            _workspace_mgr.delete(verb.args[1])
-            return f"Workspace deleted: {verb.args[1]}"
+            deleted = _workspace_mgr.delete(verb.args[1])
+            return json.dumps(
+                {"workspace": verb.args[1], "deleted": deleted},
+                indent=2,
+            )
         return (
             "Usage: workspace list|learn <name>|create <name>|switch <name>|schema [name]|export <name>|"
             "merge <source> <destination>|delete <name> --confirm <name>"

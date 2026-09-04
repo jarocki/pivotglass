@@ -28,7 +28,15 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.core.document_analysis_proposals import (
+    DocumentAnalysisProposalAuthority,
+)
+from adversary_pursuit.core.document_entity_extraction import (
+    DocumentEntityExtractionService,
+)
+from adversary_pursuit.core.document_ingestion import DocumentIntakeService
+from adversary_pursuit.core.evidence_cluster_history import EvidenceClusterHistory
+from adversary_pursuit.core.workspace import _WORKSPACE_DATA_MODELS, WorkspaceManager
 from adversary_pursuit.models.database import (
     AnalystNote,
     Base,
@@ -300,14 +308,54 @@ class TestWorkspaceManagerCRUD:
     def test_delete_removes_db_file(self, tmp_path):
         wm = WorkspaceManager(workspace_dir=tmp_path)
         wm.create("alpha")
+        content_file = tmp_path / "alpha.content" / "sha256" / "aa" / ("a" * 64)
+        content_file.parent.mkdir(parents=True)
+        content_file.write_bytes(b"raw investigation document")
         assert (tmp_path / "alpha.db").exists()
-        wm.delete("alpha")
+        deleted = wm.delete("alpha")
         assert not (tmp_path / "alpha.db").exists()
+        assert not (tmp_path / "alpha.content").exists()
+        assert deleted == {"sqlite_files": 1, "raw_document_files": 1}
+
+    def test_delete_targets_only_named_workspace_content(self, tmp_path):
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("alpha")
+        wm.create("beta")
+        alpha_content = tmp_path / "alpha.content" / "raw.bin"
+        beta_content = tmp_path / "beta.content" / "raw.bin"
+        alpha_content.parent.mkdir()
+        beta_content.parent.mkdir()
+        alpha_content.write_bytes(b"delete")
+        beta_content.write_bytes(b"preserve")
+
+        wm.delete("alpha")
+
+        assert not alpha_content.parent.exists()
+        assert beta_content.read_bytes() == b"preserve"
+        assert (tmp_path / "beta.db").is_file()
 
     def test_delete_nonexistent_raises(self, tmp_path):
         wm = WorkspaceManager(workspace_dir=tmp_path)
         with pytest.raises(ValueError, match="does not exist"):
             wm.delete("ghost")
+
+    def test_delete_stops_before_database_removal_when_content_cleanup_fails(
+        self, tmp_path, monkeypatch
+    ):
+        """A raw-content cleanup failure leaves the workspace DB available for retry."""
+
+        wm = WorkspaceManager(workspace_dir=tmp_path)
+        wm.create("alpha")
+
+        def fail_cleanup(name):
+            raise RuntimeError(f"Raw-document cleanup failed for {name}; no success receipt")
+
+        monkeypatch.setattr(wm, "_remove_content_store", fail_cleanup)
+        with pytest.raises(RuntimeError, match="no success receipt"):
+            wm.delete("alpha")
+
+        assert (tmp_path / "alpha.db").is_file()
+        assert "alpha" in wm.list_workspaces()
 
     def test_default_workspace_auto_created_on_get_session(self, tmp_path):
         """First call to get_session() on a fresh WorkspaceManager creates 'default'."""
@@ -1189,7 +1237,7 @@ class TestWorkspaceClear:
     """Tests for WorkspaceManager.clear() (Phase 17P).
 
     Covers DEC-WORKSPACE-DB-001 (no confirm_token on manager method),
-    DEC-WORKSPACE-DB-002 (6 tables cleared; sentinel rows by side effect),
+    DEC-WORKSPACE-DB-002 (all investigation tables and raw content cleared),
     and DEC-WORKSPACE-DB-007 (post-clear RuntimeError on partial clear).
     """
 
@@ -1199,38 +1247,28 @@ class TestWorkspaceClear:
         wm.switch("default")
         return wm
 
+    def test_clear_authority_covers_document_proposal_and_snapshot_tables(self):
+        """Approved v9-v11 lifecycle families cannot silently escape clear()."""
+
+        cleared_tables = {model.__tablename__ for _name, model in _WORKSPACE_DATA_MODELS}
+        approved_lifecycle_tables = {
+            table_name
+            for table_name in Base.metadata.tables
+            if table_name.startswith("document_") or table_name == "evidence_cluster_snapshots"
+        }
+        assert approved_lifecycle_tables <= cleared_tables
+
     def test_clear_active_empty_workspace_is_noop(self, tmp_path):
         """clear() on an empty workspace returns zero for every data table."""
         wm = self._make_wm(tmp_path)
         deleted = wm.clear()
-        assert deleted == {
-            "analytic_lifecycle_items": 0,
-            "analytic_investigations": 0,
-            "analytic_evidence_links": 0,
-            "analytic_method_runs": 0,
-            "analytic_contradictions": 0,
-            "analytic_confidence_assessments": 0,
-            "likelihood_assessments": 0,
-            "analytic_hypotheses": 0,
-            "analytic_assertions": 0,
-            "investigation_questions": 0,
-            "evidence_observation_dispositions": 0,
-            "evidence_observations": 0,
-            "evidence_sources": 0,
-            "stix_objects": 0,
-            "relationships": 0,
-            "module_runs": 0,
-            "score_events": 0,
-            "analyst_notes": 0,
-            "badge_events": 0,
-            "hunt_challenges": 0,
-            "graph_presentation_layouts": 0,
-        }
+        assert set(deleted) == {*wm.get_workspace_table_counts(), "raw_document_files"}
+        assert all(count == 0 for count in deleted.values())
 
-    def test_clear_populated_workspace_zeros_six_tables(self, tmp_path):
-        """clear() removes all rows from all 6 tables and returns counts."""
+    def test_clear_populated_workspace_zeros_all_tables(self, tmp_path):
+        """clear() removes all rows from every investigation-data table."""
         wm = self._make_wm(tmp_path)
-        # Populate each of the 6 tables
+        # Populate the original operational tables.
         wm.store_stix_objects(
             [{"type": "ipv4-addr", "value": "1.2.3.4"}],
             module_name="test/m",
@@ -1249,13 +1287,85 @@ class TestWorkspaceClear:
         assert deleted["score_events"] >= 1
         assert deleted["badge_events"] >= 1
 
-        # Post-clear: all 6 tables should be empty
+        # Post-clear: every table in the shared lifecycle authority is empty.
         counts = wm.get_workspace_table_counts()
         assert all(v == 0 for v in counts.values()), f"Tables still have rows: {counts}"
 
         # Data methods should return empty results
         assert wm.get_stix_objects() == []
         assert wm.get_module_runs() == []
+
+    def test_clear_removes_v9_v11_records_and_raw_document_store(self, tmp_path):
+        """clear() removes document/proposal/snapshot records and original bytes."""
+
+        wm = self._make_wm(tmp_path)
+        intake = DocumentIntakeService(wm).store_bytes(
+            b"Observed 198.51.100.17 at evidence.example.",
+            filename="evidence.txt",
+            operator="analyst",
+        )
+        extraction = DocumentEntityExtractionService(wm).extract_parser_receipt(
+            intake.parser_receipt_id
+        )
+        authority = DocumentAnalysisProposalAuthority(wm)
+        proposal = authority.propose(
+            proposal_kind="entity",
+            statement="Review this extracted infrastructure candidate.",
+            candidate_ids=(extraction.candidates[0].id,),
+            payload={"role": "candidate infrastructure"},
+            proposed_by="human",
+        )
+        authority.review(
+            proposal.id,
+            decision="rejected",
+            decided_by="analyst",
+            reason="Synthetic lifecycle test data.",
+            human_decision=True,
+        )
+        EvidenceClusterHistory(wm).capture(captured_by="analyst")
+
+        content_root = tmp_path / "default.content"
+        assert content_root.is_dir()
+        before = wm.get_workspace_table_counts()
+        new_tables = {
+            "document_contents",
+            "document_occurrences",
+            "document_parser_receipts",
+            "document_extraction_receipts",
+            "document_entity_candidates",
+            "evidence_cluster_snapshots",
+            "document_analysis_proposals",
+            "document_proposal_dispositions",
+        }
+        assert all(before[table] > 0 for table in new_tables)
+
+        deleted = wm.clear()
+
+        assert all(deleted[table] == before[table] for table in new_tables)
+        assert deleted["raw_document_files"] == 1
+        assert not content_root.exists()
+        assert all(count == 0 for count in wm.get_workspace_table_counts().values())
+        assert (tmp_path / "default.db").is_file()
+        assert wm.get_workspace_schema_status()["valid"] is True
+
+    def test_clear_reports_raw_content_cleanup_failure_without_success(self, tmp_path, monkeypatch):
+        """A filesystem cleanup failure is loud and cannot yield a success receipt."""
+
+        wm = self._make_wm(tmp_path)
+        wm.store_stix_objects(
+            [{"type": "domain-name", "value": "failure.example"}],
+            module_name="test/lifecycle",
+            target="failure.example",
+        )
+
+        def fail_cleanup(name):
+            raise RuntimeError(f"Raw-document cleanup failed for {name}; no success receipt")
+
+        monkeypatch.setattr(wm, "_remove_content_store", fail_cleanup)
+        with pytest.raises(RuntimeError, match="no success receipt"):
+            wm.clear()
+
+        assert all(count == 0 for count in wm.get_workspace_table_counts().values())
 
     def test_clear_named_non_active_workspace(self, tmp_path):
         """clear(name='other') clears a non-active workspace without touching active."""
@@ -1270,6 +1380,9 @@ class TestWorkspaceClear:
             module_name="t",
             target="keep.com",
         )
+        active_content = tmp_path / "active.content" / "raw.bin"
+        active_content.parent.mkdir()
+        active_content.write_bytes(b"preserve")
 
         # Populate other
         wm.switch("other")
@@ -1278,6 +1391,9 @@ class TestWorkspaceClear:
             module_name="t",
             target="9.9.9.9",
         )
+        other_content = tmp_path / "other.content" / "raw.bin"
+        other_content.parent.mkdir()
+        other_content.write_bytes(b"clear")
 
         # Switch back to active and clear 'other' by name
         wm.switch("active")
@@ -1287,6 +1403,8 @@ class TestWorkspaceClear:
         # Active workspace data untouched
         assert len(wm.get_stix_objects()) == 1
         assert wm.active == "active"
+        assert active_content.read_bytes() == b"preserve"
+        assert not other_content.parent.exists()
 
     def test_clear_no_active_no_name_raises_runtime_error(self, tmp_path):
         """clear(name=None) with no active workspace raises RuntimeError."""
