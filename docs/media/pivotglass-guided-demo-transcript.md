@@ -1,47 +1,74 @@
-# Pivotglass guided walkthrough transcript
+# Pivotglass v0.9.5 guided walkthrough transcript
 
-**Runtime:** 2 minutes, 12 seconds
-**Release:** v0.7.0 early availability
+**Runtime:** 2 minutes, 2 seconds<br>
+**Release:** v0.9.5 early availability<br>
+**Data:** reserved synthetic training data only
 
-The demonstration uses synthetic indicators and a local mock model provider.
-No real API key or external service is shown.
+The demonstration uses `workspace learn release-tour`, an isolated offline
+learning workspace. It makes no API call or model request and shows no real
+credential or live indicator. Character voice, music, and visual treatment
+remain presentation; they do not change evidence or analytical state.
 
-This is Pivotglass: a local, AI-augmented interface for threat investigation.
+## 00:00 — Start locally
 
-Starting Pivotglass opens the Default Analyst workspace. The command field
-remains the fastest path, while the surrounding panels keep evidence, status,
-and analytical context visible.
+This is Pivotglass version 0.9.5: a local, evidence-first workspace that helps
+threat analysts move from one clue to a defensible investigation.
 
-Configuration is available without leaving the investigation. Credentials stay
-masked by default. Here, a clearly labeled demonstration key is provisioned and
-tested locally.
+Start Pivotglass with one command. For this tour, `workspace learn
+release-tour` creates a complete synthetic case without an API key, model
+request, account, or network connection. Every value is reserved training data.
 
-The model catalog shows what the selected provider actually offers, including
-each model's recorded strengths and limitations. The reasoning model is
-selected, and Pivotglass confirms the authoritative setting.
+## 00:17 — Keep the next decision visible
 
-Now an indicator is entered. Pivotglass normalizes the target and schedules
-enrichment. The activity feed distinguishes completed work from pending work,
-and evidence from interpretation.
+The Pursuit Brief keeps the next decision visible. Separate measures track
+evidence coverage, the scientific process, enrichment work, and analyst review.
+Here, Pivotglass surfaces a contradiction and the information needed to resolve
+it.
 
-The Investigation Constellation keeps every indicator visible as a row. Each
-Dossier dimension becomes a status cell, with sorting and filtering available
-for type, completeness, time, and relationship.
+Open the scientific workbench to compare explanations instead of settling for
+the first coherent story. Questions, hypotheses, predictions, source-backed
+assertions, confidence, likelihood, contradictions, gaps, collection
+requirements, and stopping rules remain separate records.
 
-The relationship view shows indicators as nodes and source-backed
-relationships as directed edges. Selecting a node reveals its immediate
-neighborhood. From there, the analyst can pivot directly into the evidence and
-provenance that justify the relationship.
+## 00:40 — Preview source material safely
 
-Reporting uses the same stored evidence. The report command produces a
-deterministic investigation summary that can be reviewed and exported, without
-asking a model to invent missing facts.
+Version 0.9.5 can preview a bounded local document before ingestion. Active
+content is never run. Candidate entities retain exact locations, but remain
+temporary text matches—not evidence, graph nodes, relationships, verdicts, or
+attribution.
 
-Pivotglass can change character without changing analytical truth. Default
-Analyst is quiet and direct. Sherlock Holmes uses a Victorian casebook, warm
-brass tones, and deduction-first language. Neuromancer becomes a colder Sprawl
-interface, with dark cyberpunk atmosphere and a more driving score.
+## 00:52 — Choose the visual that answers the question
 
-Across every mode, the workflow stays consistent: start locally, provision
-safely, choose the right model, enrich through explicit services, pivot through
-evidence, graph relationships, and produce a report the analyst can defend.
+Visual Analysis begins with an analyst question. Flint compiles the semantic
+chart specification, and Pivotglass explains why the selected view fits. The
+compact constellation aligns every indicator with the same nine Dossier
+dimensions, making gaps visible at a glance.
+
+The force-directed relationship graph uses actual indicators as nodes and
+admitted, typed relationships as edges. Follow the labels and provenance—not
+spatial proximity. Dragging, filtering, collapsing, and saving a layout change
+presentation only, never stored truth.
+
+## 01:16 — Report what the evidence supports
+
+Reporting uses the same stored evidence and analytical ledger. The
+deterministic dossier records competing hypotheses, evidence tests,
+contradictions, confidence basis, open requirements, and knowledge gaps, then
+supports printing and structured export.
+
+Configuration stays inside the cockpit. Credentials are masked, provider
+checks run only when requested, and local or hosted model choices are explicit.
+Raw secrets never enter logs, exports, page attributes, analytics, or model
+prompts.
+
+## 01:39 — Change atmosphere, not truth
+
+Character themes change atmosphere, voice, and original generative music
+without changing evidence. Sherlock Holmes emphasizes deduction and a
+Victorian casebook. Neuromancer brings a darker Sprawl interface and driving
+cyber-noir score. Analytical truth remains identical.
+
+The same focused workflow fits a phone, laptop, or full workstation. Start with
+a question, preserve provenance, challenge the hypothesis, fill the gaps,
+pivot through supported connections, and produce a report you can defend. That
+is Pivotglass.

@@ -136,7 +136,7 @@ config show
 config repair
 ```
 
-![Model selection and capability notes](media/pivotglass-model-catalog-v0.7.0.png)
+![Model and API configuration with masked credential state](media/pivotglass-configuration-v0.9.5.png)
 
 ### Optional Synapse and SCOT4 integration
 
@@ -245,6 +245,8 @@ shows the raw and normalized value, entity type, line and column, character and
 UTF-8 byte span, and extraction rule/version. The browser displays at most the
 first 100 of up to 2,000 bounded candidates. They remain temporary candidates,
 not admitted evidence or graph nodes.
+
+![Bounded local document preview with temporary entity candidates](media/pivotglass-document-preview-v0.9.5.png)
 
 Use this step to inspect source handling before the governed admission and
 entity-review workflow arrives in the later 0.9 releases.

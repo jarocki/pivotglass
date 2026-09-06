@@ -51,15 +51,20 @@ safety](docs/DATA_SAFETY.md) before enabling providers or LAN access.
 
 Current release: **v0.9.5 early availability**.
 
-[![Watch the Pivotglass guided walkthrough](docs/media/pivotglass-guided-demo-poster.png)](docs/media/pivotglass-guided-demo-v0.7.0.mp4)
+[![Watch the Pivotglass guided walkthrough](docs/media/pivotglass-guided-demo-poster.png)](docs/media/pivotglass-guided-demo-v0.9.5.mp4)
 
-**[Watch or download the two-minute guided walkthrough](docs/media/pivotglass-guided-demo-v0.7.0.mp4)** ·
+**[Watch or download the two-minute guided walkthrough](docs/media/pivotglass-guided-demo-v0.9.5.mp4)** ·
+**[Captions](docs/media/pivotglass-guided-demo-v0.9.5.vtt)** ·
 **[Read the transcript](docs/media/pivotglass-guided-demo-transcript.md)**
 
-The walkthrough uses synthetic indicators and a local mock model provider. It
-shows startup, safe credential setup, model discovery and selection,
-enrichment, the Investigation Constellation, graph pivots, reporting, and the
-Default Analyst, Sherlock Holmes, and Neuromancer modes.
+The walkthrough uses only the offline synthetic learning workspace. It shows
+the Pursuit Brief, scientific notebook, contradiction and gap handling, local
+document preview, the Investigation Constellation, relationship graph,
+deterministic reporting, sanitized configuration, responsive layout, and the
+Default Analyst, Sherlock Holmes, and Neuromancer modes. No credential, model
+request, provider account, or live indicator is used.
+
+![Current Pivotglass Pursuit Brief](docs/media/pivotglass-cockpit-v0.9.5.png)
 
 ## The investigation model
 
@@ -247,7 +252,7 @@ Provider checks are explicit. The model catalog reports account-visible models
 and local capability notes when available, while stating what a catalog cannot
 prove: quota, latency, quality, and suitability for a particular case.
 
-![Model catalog with strengths and limitations](docs/media/pivotglass-model-catalog-v0.7.0.png)
+![Model and API configuration center](docs/media/pivotglass-configuration-v0.9.5.png)
 
 ### Reports and exports
 
@@ -255,7 +260,7 @@ Reports are built from the active workspace rather than a model's memory. The
 same evidence can be exported as JSON, CSV, STIX, or GEXF. Visual Analysis can
 also export the exact rows, nodes, and edges behind the current view.
 
-![Source-grounded Dossier report](docs/media/pivotglass-report-v0.7.0.png)
+![Source-grounded Dossier report](docs/media/pivotglass-report-v0.9.5.png)
 
 ## Commands
 

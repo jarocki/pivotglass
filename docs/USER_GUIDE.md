@@ -7,9 +7,10 @@ module-control console share the same underlying workspaces and evidence.
 
 Start with the [Quick Start](QUICKSTART.md) if this is your first session.
 
-[![Watch the guided workflow](media/pivotglass-guided-demo-poster.png)](media/pivotglass-guided-demo-v0.7.0.mp4)
+[![Watch the guided workflow](media/pivotglass-guided-demo-poster.png)](media/pivotglass-guided-demo-v0.9.5.mp4)
 
-[Watch or download the walkthrough](media/pivotglass-guided-demo-v0.7.0.mp4) ·
+[Watch or download the walkthrough](media/pivotglass-guided-demo-v0.9.5.mp4) ·
+[Captions](media/pivotglass-guided-demo-v0.9.5.vtt) ·
 [Read the transcript](media/pivotglass-guided-demo-transcript.md)
 
 ## Choose an interface
@@ -67,11 +68,15 @@ basis and permission class. Merely viewing or polling it never runs a remote
 query, creates a relationship, accepts an analytical proposal, changes
 confidence, attributes activity to an actor, or publishes externally.
 
+![Current Pursuit Brief with separate progress and open-work measures](media/pivotglass-cockpit-v0.9.5.png)
+
 Primary navigation is deliberately limited to **Investigate**, **Evidence**,
 **Visualize**, and **More**. Evidence opens in an on-demand detail area.
 Configuration, system status, commands, themes, badges, and display controls
 remain under **More**. Choose **Open full workbench** when the complete
 scientific notebook and framework lenses are needed.
+
+![Scientific workbench with competing hypotheses and open gaps](media/pivotglass-analysis-v0.9.5.png)
 
 ## Workspaces
 
@@ -272,6 +277,8 @@ rule/version. The browser bounds extraction at 2,000 candidates and renders the
 first 100 to keep the panel responsive. A candidate is not admitted evidence,
 a graph node, a verdict, or actor attribution.
 
+![Local document preview with explicit truth boundary](media/pivotglass-document-preview-v0.9.5.png)
+
 Deferred dimensions remain in the table but are omitted from the radar shape
 because they do not have an inference path. Radar values 0, 50, and 100 map to
 empty, partial, and filled; they are not confidence scores.
@@ -373,7 +380,7 @@ structured exchange. GEXF supports graph tools such as Gephi. Exports can
 contain raw indicators and provider-derived information; review them before
 sharing.
 
-![Dossier report](media/pivotglass-report-v0.7.0.png)
+![Dossier report](media/pivotglass-report-v0.9.5.png)
 
 ## Configuration and models
 
@@ -387,6 +394,8 @@ explicit local save/test request. Stored secrets are not returned by routine
 polling or repopulated into the form. Environment-owned credentials remain
 read-only. Secrets must not enter command history, notes, exports, screenshots,
 or model prompts.
+
+![Model and intelligence-service configuration with masked credential state](media/pivotglass-configuration-v0.9.5.png)
 
 The model catalog combines a provider's availability response with local
 LiteLLM capability metadata when available. Strengths and limitations are
@@ -717,6 +726,10 @@ controls. Terminal equivalents are:
 AP_TUI_COLOR_SCHEME=light ap tui
 AP_TUI_HIGH_CONTRAST=1 ap tui
 ```
+
+![Sherlock Holmes and Neuromancer presentation themes over the same evidence](media/pivotglass-themes-v0.9.5.png)
+
+![Focused Pivotglass workflow at phone width](media/pivotglass-mobile-v0.9.5.png)
 
 ## Safety boundary
 

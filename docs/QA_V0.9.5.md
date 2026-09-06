@@ -113,6 +113,31 @@ An earlier in-app browser session could not attach a new webview. That attempt
 remains recorded as an environment failure; the independent Chrome DevTools
 replay above is the completed product receipt.
 
+## Release media verification
+
+The release screenshots and guided video were recaptured from the committed
+v0.9.5 static export against an isolated `ToolContext`. The capture used
+`workspace learn release-tour`; the receipt recorded four reserved synthetic
+entities, three source-backed relationships, eight observations, zero network
+requests, and zero model requests. Every supported credential environment
+variable was removed from the capture process before the Configuration screen
+was recorded. No real key value or live indicator appears in the media.
+
+The screenshot set covers the current Pursuit Brief, scientific notebook,
+local document preview and temporary entity candidates, compact Investigation
+Constellation, evidence relationship graph, deterministic report,
+Configuration center, Sherlock and Neuromancer themes, and 390-by-844 mobile
+layout. The mobile capture again measured `scrollWidth == clientWidth == 390`.
+
+The replacement walkthrough is 121.7 seconds at 1440 by 900. It contains H.264
+video, 48 kHz AAC narration/music, embedded English captions, a matching WebVTT
+sidecar, and an accessible transcript. Integrated program loudness measured
+-16.2 LUFS with a -0.8 dBFS true peak. Representative encoded frames at every
+chapter boundary were extracted and OCR-checked for the intended current
+feature label. The underscore was rendered from the current deterministic
+Default, Sherlock, and Neuromancer score engines; it carries no analytical
+meaning and remains beneath the narration.
+
 ## Security diff gate
 
 The final exact-candidate Codex Security diff scan at `444c8e9` reviewed all

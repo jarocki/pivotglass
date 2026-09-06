@@ -20,7 +20,8 @@ interface.
 - [Failure and recovery](FAILURE_RECOVERY.md) — provider loss, cancellation, migrations, stale assets, hostile input, and integration outages
 - [Support](../SUPPORT.md) — supported-version boundary, safe issue reporting, and the open private security-route gate
 - [Release trust](RELEASE_TRUST.md) — SBOM, licenses, checksums, signing, publication, and public readback
-- [Guided video](media/pivotglass-guided-demo-v0.7.0.mp4) — two-minute visual walkthrough
+- [Guided video](media/pivotglass-guided-demo-v0.9.5.mp4) — current two-minute v0.9.5 walkthrough
+- [Guided-video captions](media/pivotglass-guided-demo-v0.9.5.vtt) — English WebVTT captions
 - [Video transcript](media/pivotglass-guided-demo-transcript.md) — accessible narration text
 
 ## Current design and assurance

@@ -50,8 +50,14 @@ capacity boundaries explicit.
   input/output exhaustion, oversized browser payloads, and filename traversal.
 - Added compatibility/maturity, capacity, and data
   ownership/network/recovery documentation.
-- Added current synthetic-data cockpit, compact-mobile, Investigation
-  Constellation, and relationship-graph screenshots to the operator guides.
+- Added current synthetic-data screenshots for the Pursuit Brief, scientific
+  workbench, local document preview, compact-mobile layout, Investigation
+  Constellation, relationship graph, configuration center, character themes,
+  and deterministic report.
+- Replaced the v0.7 walkthrough with a 2:02 v0.9.5 guided video using the
+  offline learning workspace, current interface, English captions, accessible
+  transcript, and the product's original Default, Sherlock, and Neuromancer
+  scores.
 
 ### Fixed
 
