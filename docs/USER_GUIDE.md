@@ -86,7 +86,7 @@ workspace create <name>
 workspace switch <name>
 workspace export <name>
 workspace merge <source> <destination>
-workspace clear [name]
+workspace clear <name> --confirm <name>
 workspace delete <name> --confirm <name>
 ```
 
@@ -98,7 +98,7 @@ also switches to it. A merge adds evidence to the
 destination without deleting either source. Deletion requires the exact
 workspace name and cannot remove the active workspace; switch first.
 
-`workspace clear [name]` resets the investigation while preserving its empty
+`workspace clear <name> --confirm <name>` resets the investigation while preserving its empty
 database, schema, and schema-version receipt. After confirmation it permanently
 removes stored evidence, relationships, notes, analysis records, the approved
 v9-v11 document/proposal/snapshot records, and uploaded document bytes. It does
@@ -108,7 +108,10 @@ retain their pre-existing lifecycle and are not newly included in clear by this
 v0.9.5 correction. `workspace delete` permanently removes the workspace database,
 SQLite sidecars, and uploaded-document content directory. Both commands report
 what they removed and fail loudly rather than claiming success after incomplete
-cleanup.
+cleanup. The browser and full-screen terminal require the repeated name shown
+above. The direct `ap basic` console and legacy chat-compatible terminal use a
+default-no interactive confirmation and allow `workspace clear` without a name
+to mean the active workspace.
 
 ## Enrichment and lifecycle state
 
@@ -214,7 +217,7 @@ than Dossier coverage.
 
 The overall mapped value is navigation help, not confidence or a verdict.
 
-![Compact Investigation Constellation with chart-selection guidance](media/pivotglass-constellation-v0.9.1.png)
+![Compact Investigation Constellation with chart-selection guidance](media/pivotglass-visualize-v0.9.5.png)
 
 ## Visual Analysis
 
@@ -348,7 +351,7 @@ connections. Use `Command/Control+Z` and `Shift+Command/Control+Z` when focus is
 in the graph rather than a text field. Analytic evidence, relations, assertions,
 and correction history are intentionally outside this undo boundary.
 
-![Evidence-backed relationship graph](media/pivotglass-graph-v0.7.0.png)
+![Evidence-backed relationship graph](media/pivotglass-graph-v0.9.5.png)
 
 ## Reports and exports
 
@@ -496,7 +499,7 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `workspace schema [name]` | Validate integrity and preview a migration without changing data |
 | `workspace export <name>` | Export a portable workspace archive |
 | `workspace merge <source> <destination>` | Add source evidence to a destination |
-| `workspace clear [name]` | Permanently reset investigation data and uploaded documents while preserving the empty workspace schema |
+| `workspace clear <name> --confirm <name>` | Permanently reset investigation data and uploaded documents while preserving the empty workspace schema |
 | `workspace delete <name> --confirm <name>` | Delete after exact confirmation |
 | `mode list` / `mode <public name>` | List or select a character |
 | `use <indicator>` | Set the current target |

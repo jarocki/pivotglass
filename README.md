@@ -32,8 +32,12 @@ candidate framework gap; it is not automatically labeled a new TTP.
 
 Version 0.9.5 closes the safe preview loop in the browser: bounded document
 text and temporary entity candidates appear together with exact locations and
-truth boundaries. It also publishes the stable/preview/deferred and local-data
-safety contracts required for an honest final pre-1.0 checkpoint.
+truth boundaries. The refreshed release also keeps workspace clear/delete
+behavior consistent across interfaces, refuses active-workspace deletion,
+prevents clean-checkout timestamp skew from blocking the packaged web cockpit,
+restores an overlay's opener after Escape, and hardens the compact mobile
+layout. It publishes the stable/preview/deferred and local-data-safety
+contracts required for an honest final pre-1.0 checkpoint.
 
 > An indicator is not the answer. It is the first node.
 
@@ -157,7 +161,7 @@ the full dimension question and evidence count. One Tab enters the grid;
 arrow keys move between pegs, and a pinned peg stays visibly marked. Enrichment Activity retains
 its three-channel RGB blocks for indicator enrichment jobs.
 
-![Compact Investigation Constellation with chart-selection guidance](docs/media/pivotglass-constellation-v0.9.1.png)
+![Compact Investigation Constellation with chart-selection guidance](docs/media/pivotglass-visualize-v0.9.5.png)
 
 ### Visual Analysis and relationship graph
 
@@ -228,7 +232,7 @@ governed multi-layer graph. Each edge retains its layer, truth class,
 provenance references, rationale, and direction; bridge-only exports include
 both endpoint layers so the exported edges remain usable.
 
-![Pivotglass relationship graph](docs/media/pivotglass-graph-v0.7.0.png)
+![Pivotglass relationship graph](docs/media/pivotglass-graph-v0.9.5.png)
 
 ### Configuration and models
 

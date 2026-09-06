@@ -68,7 +68,7 @@ cannot hold evidence or relationships. The backup is named
 The v8-to-v9 upgrade adds content, occurrence, and parser-receipt tables for
 governed document intake. It does not extract entities, create relationships,
 or alter existing evidence. Original bytes use a separate content-addressed
-store when an analyst explicitly admits a document; the v0.9.2 browser path is
+store when an analyst explicitly admits a document; the v0.9.5 browser path is
 preview-only and creates none of these records. The backup is named
 `NAME.db.pre-v8-backup` when this is the first step required.
 
@@ -112,11 +112,14 @@ workspace and exported its investigation record.
 - Clearing a workspace removes investigation content but retains the schema
   receipt and external-publication audit receipts. The latter prevent a
   cleared or restarted workspace from silently repeating remote side effects.
+- Clear and delete do not remove sibling `*.pre-vN-backup` files or generated
+  `<workspace>-report.md` files. Those are separate recovery/publication
+  artifacts and remain under explicit operator control.
 - Portable JSON exports include scientific lifecycle roots, links,
   framework mapping records, secret-safe integration execution receipts, and
   presentation-only graph layouts; model proposals retain their pending
   analyst disposition. Document bytes and document-receipt tables are not yet
-  portable in v0.9.2, so persistent document admission remains an internal
+  portable in v0.9.5, so persistent document admission remains an internal
   foundation rather than a supported browser action.
 
 Migration support is forward-only. Downgrading an upgraded workspace in place

@@ -181,6 +181,14 @@ def _chat_handle_workspace(stripped: str, runner: object, console: Console) -> N
         if not arg:
             console.print("[yellow]Usage: workspace delete <name>[/yellow]")
             return
+        try:
+            if arg == workspace_mgr.active:
+                console.print(
+                    "[yellow]Switch away from the active workspace before deleting it.[/yellow]"
+                )
+                return
+        except RuntimeError:
+            pass
         if not _confirm(
             f"Delete workspace '{arg}' and all stored investigation data, including "
             "uploaded source documents? This cannot be undone."

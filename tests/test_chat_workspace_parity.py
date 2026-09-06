@@ -148,6 +148,25 @@ def test_chat_workspace_delete_prompts_then_calls(tmp_path, monkeypatch):
     assert "todelete" in out.lower() or "deleted" in out.lower()
 
 
+def test_chat_workspace_delete_rejects_active_workspace(tmp_path, monkeypatch):
+    """The active workspace cannot be deleted from the chat terminal."""
+    wm = WorkspaceManager(workspace_dir=tmp_path)
+    wm.create("active-delete")
+    wm.switch("active-delete")
+    runner = _StubRunner(wm)
+    con, buf = _make_console()
+
+    def unexpected_confirmation(prompt):
+        raise AssertionError(f"confirmation should not be requested: {prompt}")
+
+    monkeypatch.setattr("adversary_pursuit.agent.chat._confirm", unexpected_confirmation)
+
+    _chat_handle_workspace("workspace delete active-delete", runner, con)
+
+    assert "switch away" in buf.getvalue().lower()
+    assert "active-delete" in wm.list_workspaces()
+
+
 # ---------------------------------------------------------------------------
 # Clear
 # ---------------------------------------------------------------------------

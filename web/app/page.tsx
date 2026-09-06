@@ -547,9 +547,16 @@ export default function Cockpit() {
     setConfigurationAdvisory(null);
   }
 
-  function closeOverlays() { if (detail) closeDetail(); setPalette(false); setHelp(false); setAlertsOpen(false); setDojo(false); setConfigurationOpen(false); setUtilityOpen(false); setMenu(false); requestAnimationFrame(() => overlayOrigin.current?.focus()); }
+  function restoreOverlayFocus() {
+    const origin = overlayOrigin.current;
+    window.setTimeout(() => {
+      if (origin?.isConnected) origin.focus({ preventScroll: true });
+      else cockpitRef.current?.focus({ preventScroll: true });
+    }, 0);
+  }
+  function closeOverlays() { if (detail) closeDetail(); setPalette(false); setHelp(false); setAlertsOpen(false); setDojo(false); setConfigurationOpen(false); setUtilityOpen(false); setMenu(false); restoreOverlayFocus(); }
   function openOverlay(kind: "help" | "palette" | "alerts" | "dojo" | "configuration", origin?: HTMLElement) { overlayOrigin.current = origin ?? document.activeElement as HTMLElement; setHelp(kind === "help"); setPalette(kind === "palette"); setAlertsOpen(kind === "alerts"); setDojo(kind === "dojo"); setConfigurationOpen(kind === "configuration"); setMenu(false); }
-  function closeCommandResult() { if (!commandResult) return; setCommandResult(null); requestAnimationFrame(() => overlayOrigin.current?.focus()); }
+  function closeCommandResult() { if (!commandResult) return; setCommandResult(null); restoreOverlayFocus(); }
   function togglePane(id: PaneId) { setCollapsed((current) => { const next = { ...current, [id]: !current[id] }; window.localStorage.setItem("pivotglass.panes", JSON.stringify(next)); return next; }); }
   function toggleMaximize(id: PaneId) { setActivePane(id); setMaximized((current) => current === id ? null : id); }
   function followGuidance(idea: CharacterGuidance) {

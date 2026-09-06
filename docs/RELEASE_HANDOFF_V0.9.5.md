@@ -1,25 +1,25 @@
-# Pivotglass v0.9.5 release handoff
+# Pivotglass v0.9.5 release record
 
-**Candidate branch:** `codex/v0.9.5-closure`
+**Release branch:** `codex/v0.9.5-release-refresh`
 
-**Candidate state:** locally frozen; not merged, tagged, pushed, signed, or
-published
+**Release state:** requalified source candidate; the owner authorized merge,
+replacement of the earlier `v0.9.5` tag, and public publication
 
-**Public readback at 2026-08-31 02:05 MDT:** public `main` is
-`f50864ff864863689ed10b04e24e0ee56bbc2abb`; the latest GitHub Release is
-`v0.9.0`, published 2026-08-26, with its wheel, source archive, and checksum
-manifest. No external state was changed while preparing this handoff.
+**Public state at refresh start:** `origin/main` and the existing `v0.9.5`
+tag both resolved to `aa14eb7b410f075794860997c3897654cf82fbd7`. GitHub had no
+v0.9.5 Release object, so v0.9.0 was still marked Latest. The final public
+commit, refreshed tag object, artifacts, and download verification are recorded
+in the GitHub Release after the source commit is frozen.
 
 ## Release decision
 
-The candidate is frozen for owner review as a truthful v0.9.5
-early-availability checkpoint. All four approved security findings are fixed
-and the final exact-code scan reports zero findings; two workspace-deletion
-correctness defects remain open. It is not a completed public release. From
-this handoff forward,
-the branch should accept only release hygiene, an explicitly approved
-workspace-deletion correction, or a correction required by a failed gate. New
-capability belongs in a later version.
+This is a corrective completion of v0.9.5, not v0.9.6. It keeps the documented
+capability boundary while repairing launch reliability, workspace-command
+parity, active-workspace deletion safety, overlay focus restoration, fog
+compositing, mobile flow, documentation, and release packaging. The permanent
+release guard still requires a higher version for future feature-bearing
+changes; this same-version tag replacement is a one-time, explicitly
+owner-authorized exception.
 
 ## Completed receipts
 
@@ -30,11 +30,11 @@ capability belongs in a later version.
 | Stable/preview/deferred boundary | `docs/COMPATIBILITY.md`, product text, data-safety guidance, and the quality record agree; SCOT4, Synapse, go-roast, Nucleotide, document preview, and model proposals do not silently become stable authorities |
 | Capacity | Reproducible 5,000-entity storage/export and 1,000-node graph receipts; overflow remains visible and stored evidence is not deleted |
 | Failure and recovery | Provider failure, retry, cooperative cancellation, stale assets, migration failure, hostile input, and integration outage paths preserve local work and expose next actions |
-| Python | One unrestricted complete replay after all approved fixes passed **4,172 tests**, skipped 2 platform/availability cases, and emitted one known SQLite adapter deprecation warning |
+| Python | One unrestricted complete replay after all approved fixes passed **4,178 tests**, skipped 2 platform/availability cases, and emitted one known SQLite adapter deprecation warning |
 | Web and static checks | Python static analysis, TypeScript, advisor/arcade/visualization tests, production export, lock checks, and npm vulnerability/provenance gates passed as recorded in `docs/QA_V0.9.5.md` |
 | Browser interaction | Phone, laptop, and desktop replay verified no document overflow, local document/candidate preview, Help fit, Escape restoration, command focus, and Day/Night modes |
 | Package lifecycle | Clean archive and disposable installed-wheel checks cover version, packaged web root/health, offline learning fixture, upgrade from v0.9.0, and uninstall. The wheel resolved newer compatible dependencies, so the tagged source checkout with `uv sync --frozen` remains the supported exact-lock install |
-| Security diff | The final exact-`444c8e9` scan `f6b1b5ed-a64c-4b3b-aee5-acf8174aec82` closed all **40 of 40** compact worklist rows derived from **402 changed files** with no deferred candidates and **zero findings** |
+| Security diff | The prior exact-`444c8e9` scan `f6b1b5ed-a64c-4b3b-aee5-acf8174aec82` closed all **40 of 40** compact worklist rows derived from **402 changed files** with no deferred candidates and **zero findings** |
 | Release trust | The exact lockfiles generate a deterministic CycloneDX 1.5 SBOM and CSV inventory for **77 Python + 63 npm** components. An exact-commit candidate build produced a 140-component SBOM, 141 dependency records, zero missing license declarations, and four verified SHA-256 entries |
 
 ## Explicit release boundaries
@@ -86,11 +86,11 @@ v1.0 gates.
    fingerprint, and publish the fingerprint through an independently
    controlled channel. No private key belongs in the repository or a model
    prompt.
-5. **Publication authority.** Merge, tag, push, GitHub Release creation, and
-   upload are external writes and were not performed by this overnight local
-   burndown.
+5. **Publication authority.** The owner explicitly authorized merge, push,
+   replacement of the existing v0.9.5 tag, GitHub Release creation, artifact
+   upload, and public readback for this corrective release.
 
-## Publication sequence after approval
+## Authorized publication sequence
 
 1. Run all gates from a clean archive of the final reviewed commit.
 2. Build the wheel and source archive into a new empty directory.

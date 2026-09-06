@@ -89,6 +89,15 @@ def test_analyst_advisor_waits_for_extended_inactivity_and_resets_on_work():
     assert "setInterval(present, 120_000)" not in page
 
 
+def test_web_overlay_focus_restoration_waits_for_modal_teardown():
+    page = Path("web/app/page.tsx").read_text()
+
+    assert "function restoreOverlayFocus()" in page
+    assert "window.setTimeout(() => {" in page
+    assert "origin.focus({ preventScroll: true })" in page
+    assert "cockpitRef.current?.focus({ preventScroll: true })" in page
+
+
 def test_scientific_workbench_exposes_conflicts_without_auto_promoting_them():
     workbench = Path("web/app/scientific-workbench.tsx").read_text()
     rigor = Path("src/adversary_pursuit/core/analytic_rigor.py").read_text()

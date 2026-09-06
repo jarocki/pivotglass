@@ -280,6 +280,22 @@ def test_workspace_delete_cancel_preserves_workspace(console, monkeypatch):
     assert "keepme" in run_cmd(console, "workspace list")
 
 
+def test_workspace_delete_rejects_active_workspace(console, monkeypatch):
+    """The active workspace cannot be deleted from the classic console."""
+
+    run_cmd(console, "workspace create active-delete")
+    run_cmd(console, "workspace switch active-delete")
+
+    def unexpected_confirmation(prompt):
+        raise AssertionError(f"confirmation should not be requested: {prompt}")
+
+    monkeypatch.setattr("adversary_pursuit.core.console._confirm", unexpected_confirmation)
+    deleted = run_cmd(console, "workspace delete active-delete")
+
+    assert "switch away" in deleted.lower()
+    assert "active-delete" in run_cmd(console, "workspace list")
+
+
 def test_workspace_create_duplicate_shows_error(console):
     """workspace create with existing name shows error."""
     run_cmd(console, "workspace create dup")

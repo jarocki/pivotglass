@@ -254,12 +254,14 @@ def command_completions(
             "schema ",
             "export ",
             "merge ",
+            "clear ",
             "delete ",
         ]
         choices = list(subcommands)
         for action in ("switch", "schema", "export"):
             choices.extend(f"{action} {name}" for name in workspace_names)
         choices.extend(f"merge {name} " for name in workspace_names)
+        choices.extend(f"clear {name} --confirm {name}" for name in workspace_names)
         choices.extend(f"delete {name} --confirm {name}" for name in workspace_names)
     else:
         return []

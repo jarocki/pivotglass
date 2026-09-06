@@ -906,6 +906,26 @@ def test_workspace_commands_create_export_merge_and_confirm_delete(tmp_path):
     }
 
 
+def test_workspace_clear_requires_exact_confirmation_and_preserves_workspace(tmp_path):
+    service = _service(tmp_path)
+    service.ctx.workspace_mgr.store_stix_objects(
+        [{"type": "domain-name", "value": "clear.test"}],
+        module_name="osint/test",
+        target="clear.test",
+    )
+
+    with pytest.raises(ValueError, match="clear <name> --confirm <name>"):
+        service.execute_command("workspace clear default")
+
+    result = service.execute_command("workspace clear default --confirm default")
+
+    assert result["title"] == "Workspace cleared"
+    assert result["data"]["workspace"] == "default"
+    assert result["data"]["cleared"]["stix_objects"] == 1
+    assert service.ctx.workspace_mgr.list_workspaces() == ["default"]
+    assert service.ctx.workspace_mgr.get_stix_objects() == []
+
+
 def test_workspace_switch_is_blocked_while_investigation_is_active(tmp_path):
     service = _service(tmp_path)
     service.ctx.workspace_mgr.create("other")

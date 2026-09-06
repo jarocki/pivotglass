@@ -499,6 +499,10 @@ class WebCockpitService:
                 "purpose": "Merge evidence transactionally without changing the source",
             },
             {
+                "command": "workspace clear <name> --confirm <name>",
+                "purpose": "Reset investigation data while preserving the workspace",
+            },
+            {
                 "command": "workspace delete <name> --confirm <name>",
                 "purpose": "Delete an inactive workspace after explicit confirmation",
             },
@@ -792,6 +796,18 @@ class WebCockpitService:
                     "data": {"source": parts[1], "destination": parts[2], "inserted": counts},
                 }
             if (
+                sub == "clear"
+                and len(parts) == 4
+                and parts[2] == "--confirm"
+                and parts[1] == parts[3]
+            ):
+                cleared = self.ctx.workspace_mgr.clear(name=parts[1])
+                return {
+                    "kind": "json",
+                    "title": "Workspace cleared",
+                    "data": {"workspace": parts[1], "cleared": cleared},
+                }
+            if (
                 sub == "delete"
                 and len(parts) == 4
                 and parts[2] == "--confirm"
@@ -806,7 +822,7 @@ class WebCockpitService:
                     "data": {"workspace": parts[1], "deleted": deleted},
                 }
             raise ValueError(
-                "usage: workspace list|learn <name>|create <name>|switch <name>|schema [name]|export <name>|merge <source> <destination>|delete <name> --confirm <name>"
+                "usage: workspace list|learn <name>|create <name>|switch <name>|schema [name]|export <name>|merge <source> <destination>|clear <name> --confirm <name>|delete <name> --confirm <name>"
             )
         if command in {"status", "show"} and (command == "status" or rest in {"", "status"}):
             summary, *_ = execute_tool(self.ctx, "get_workspace_summary", {})

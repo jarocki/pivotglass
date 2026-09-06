@@ -19,11 +19,11 @@ main.contrast-high button,main.contrast-high input,main.contrast-high textarea{f
 .display-choice{grid-template-columns:repeat(2,1fr)}
 main>*:not(.ambient-environment):not(.fog-band){position:relative;z-index:1}
 main::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.12;background:repeating-linear-gradient(90deg,transparent 0 80px,color-mix(in srgb,var(--line) 15%,transparent) 81px),repeating-linear-gradient(0deg,transparent 0 80px,color-mix(in srgb,var(--line) 12%,transparent) 81px)}
-.fog-band{position:fixed;z-index:0;top:0;left:-8vw;right:-8vw;height:clamp(76px,14vh,156px);pointer-events:none;opacity:.14;filter:blur(16px);will-change:transform;background:
-radial-gradient(ellipse 34% 72% at 16% 50%,color-mix(in srgb,var(--line) 24%,transparent),transparent 72%),
-radial-gradient(ellipse 42% 64% at 54% 46%,color-mix(in srgb,var(--heading) 18%,transparent),transparent 74%),
-radial-gradient(ellipse 30% 76% at 86% 55%,color-mix(in srgb,var(--accent) 14%,transparent),transparent 76%),
-linear-gradient(to bottom,transparent 2%,color-mix(in srgb,var(--line) 7%,transparent) 28%,color-mix(in srgb,var(--heading) 13%,transparent) 50%,color-mix(in srgb,var(--line) 6%,transparent) 72%,transparent 98%);animation:fog-sweep 14s linear infinite}
+.fog-band{position:fixed;z-index:0;top:0;left:-8vw;right:-8vw;height:clamp(76px,14vh,156px);pointer-events:none;opacity:.11;background:
+radial-gradient(ellipse 38% 84% at 16% 50%,color-mix(in srgb,var(--line) 20%,transparent),transparent 76%),
+radial-gradient(ellipse 46% 78% at 54% 46%,color-mix(in srgb,var(--heading) 15%,transparent),transparent 78%),
+radial-gradient(ellipse 34% 86% at 86% 55%,color-mix(in srgb,var(--accent) 12%,transparent),transparent 80%),
+linear-gradient(to bottom,transparent 0,color-mix(in srgb,var(--line) 5%,transparent) 24%,color-mix(in srgb,var(--heading) 10%,transparent) 50%,color-mix(in srgb,var(--line) 5%,transparent) 76%,transparent 100%);animation:fog-sweep 14s linear infinite}
 @keyframes fog-sweep{from{transform:translate3d(0,-110%,0)}
 to{transform:translate3d(0,calc(100vh + 110%),0)}
 }
@@ -1046,8 +1046,9 @@ main{padding:10px}
 @media(max-width:650px){
 .primary-flow{position:sticky;top:0;display:grid;grid-template-columns:repeat(4,1fr);gap:0}.primary-flow button{min-width:0;min-height:42px;padding:8px 4px;font-size:11px}
 .primary-flow button:nth-of-type(4){display:block}
-.command-rail .prompt,.command-rail .command-hint{display:none}.command-rail{top:50px;padding:8px}.command-rail form{grid-template-columns:minmax(0,1fr) 48px;gap:6px}.command-rail form>.command-combobox{grid-column:1}.command-rail form>.command-combobox+button{min-width:48px;padding-inline:4px;font-size:0}.command-rail form>.command-combobox+button::after{content:"GO";font-size:12px;font-weight:800;letter-spacing:.08em}
+.command-rail .prompt,.command-rail .command-hint{display:none}.command-rail{position:relative;top:auto;padding:8px}.command-rail form{grid-template-columns:minmax(0,1fr) 48px;gap:6px}.command-rail form>.command-combobox{grid-column:1}.command-rail form>.command-combobox+button{min-width:48px;padding-inline:4px;font-size:0}.command-rail form>.command-combobox+button::after{content:"GO";font-size:12px;font-weight:800;letter-spacing:.08em}
 .command-rail input::placeholder{color:var(--dim);opacity:.82}
+.fog-band,.ambient-environment{display:none}
 .pursuit-brief{gap:10px;padding:13px;border-radius:14px}.pursuit-brief-heading{display:grid;gap:6px}.brief-state{justify-self:start;padding:4px 7px}.pursuit-brief-heading h2{font-size:20px}.pursuit-brief-heading p,.brief-now p,.brief-next p{font-size:14px}.pursuit-brief-core{grid-template-columns:1fr}.brief-now{grid-template-columns:auto 1fr;align-items:center;gap:3px 10px;padding:9px 11px}.brief-now>span{grid-row:1/3}.brief-now>b{font-size:16px}.brief-now p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brief-now small{display:none}.brief-next{padding:11px}.brief-next h3{font-size:18px}.brief-progress{grid-template-columns:1fr 1fr}.brief-progress b,.brief-progress header span,.brief-progress small{font-size:11px}.pursuit-brief-footer{grid-template-columns:1fr}.brief-recent-change{grid-column:auto;grid-row:auto}.brief-recent-change span{white-space:normal}.brief-workbench-link{justify-self:start;padding-left:0;font-size:11px}.full-workbench>summary small{font-size:12px}
 .document-intake{padding:11px}.document-intake-controls{align-items:stretch}.document-intake-controls button{width:100%}.document-preview header{display:grid}.document-preview header span{font-size:10px}
 }

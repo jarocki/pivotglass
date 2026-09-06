@@ -16,8 +16,10 @@ explicit commands or workflows.
   selected file, parsed text, candidates, evidence, relationships, or model
   prompts.
 - The internal document authority has a content-addressed `<workspace>.content`
-  store and database receipts, but admission, portable export, retention, and
-  purge are not a supported browser workflow in v0.9.5.
+  store and database receipts. Persistent browser admission and portable
+  document-byte export remain deferred. Exact-confirmed `workspace clear` and
+  `workspace delete` do remove any existing internal raw-document bytes and
+  their managed database records.
 - Logs and browser diagnostics are sanitized, but an operator should still
   review support artifacts before sharing them.
 
@@ -46,7 +48,10 @@ finished, and do not treat HTTP as encrypted transport.
 
 Run `workspace schema` before opening a valuable older workspace. Keep its
 `pre-vN-backup` file until the migrated workspace passes integrity checks and a
-portable export has been reviewed. If migration fails, preserve both files and
+portable export has been reviewed. Clear and delete deliberately do not remove
+sibling `*.pre-vN-backup` migration backups or generated `<workspace>-report.md`
+files; those are separate recovery and publication artifacts. Review and manage
+them explicitly after the workspace operation. If migration fails, preserve both files and
 open a copy of the backup with the older Pivotglass version; do not downgrade
 the upgraded database in place.
 
@@ -58,9 +63,12 @@ Provider loss, cancellation, stale browser assets, hostile input, and
 integration outages do not authorize deletion or rewriting of local evidence.
 See the [failure and recovery guide](FAILURE_RECOVERY.md).
 
-## Known v0.9.5 data-lifecycle gap
+## v0.9.5 document-lifecycle boundary
 
-Document-byte export and purge are deliberately not exposed. Because the
-public UI is preview-only, ordinary users cannot create this internal document
-state. This gap must close before persistent browser admission can be called
-stable.
+Document-byte export and persistent browser admission are deliberately not
+exposed. The public intake UI remains preview-only, so selecting a document
+there creates no stored document state. Existing internal document state can be
+purged only through an explicit, confirmed workspace clear or delete; neither
+operation removes separately generated reports or migration backups. Persistent
+browser admission must add its own visible retention, export, and purge controls
+before it can be called stable.

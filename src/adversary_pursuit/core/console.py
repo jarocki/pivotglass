@@ -1126,6 +1126,12 @@ class APConsole(cmd2.Cmd):
         if not name:
             self.poutput("Usage: workspace delete <name>")
             return
+        try:
+            if name == self.workspace_mgr.active:
+                self.poutput("Error: switch away from the active workspace before deleting it.")
+                return
+        except RuntimeError:
+            pass
         if not _confirm(
             f"Delete workspace '{name}' and all stored investigation data, "
             "including uploaded source documents? This cannot be undone."

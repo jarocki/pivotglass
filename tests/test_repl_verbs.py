@@ -418,6 +418,37 @@ class TestWorkspaceCommandParity:
         assert active == "Cannot delete the active workspace; switch first."
         assert manager.list_workspaces() == ["case"]
 
+    def test_clear_requires_exact_confirmation_and_preserves_workspace(self, tmp_path):
+        from adversary_pursuit.core.workspace import WorkspaceManager
+
+        manager = WorkspaceManager(tmp_path / "workspaces")
+        manager.create("case")
+        manager.switch("case")
+        manager.store_stix_objects(
+            [{"type": "domain-name", "value": "clear.test"}],
+            module_name="osint/test",
+            target="clear.test",
+        )
+
+        usage = dispatch_repl_verb(
+            ReplVerb(name="workspace", args=("clear", "case")),
+            ctx=None,
+            mode_mgr=None,
+            workspace_mgr=manager,
+        )
+        cleared = dispatch_repl_verb(
+            ReplVerb(name="workspace", args=("clear", "case", "--confirm", "case")),
+            ctx=None,
+            mode_mgr=None,
+            workspace_mgr=manager,
+        )
+
+        assert usage.startswith("Usage: workspace")
+        assert '"workspace": "case"' in cleared
+        assert '"stix_objects": 1' in cleared
+        assert manager.list_workspaces() == ["case"]
+        assert manager.get_stix_objects() == []
+
 
 class TestThemeCommand:
     @pytest.mark.parametrize(

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No changes yet.
 
-## [0.9.5] — 2026-08-31
+## [0.9.5] — 2026-09-06
 
 This final pre-1.0 usability checkpoint joins bounded local document parsing
 and temporary exact-location entity candidates in the browser, strengthens
@@ -50,6 +50,22 @@ capacity boundaries explicit.
   input/output exhaustion, oversized browser payloads, and filename traversal.
 - Added compatibility/maturity, capacity, and data
   ownership/network/recovery documentation.
+- Added current synthetic-data cockpit, compact-mobile, Investigation
+  Constellation, and relationship-graph screenshots to the operator guides.
+
+### Fixed
+
+- Prevented harmless sub-second Git checkout timestamp skew from misclassifying
+  the committed web export as stale while retaining detection of genuinely old
+  assets.
+- Added exact-confirmed workspace clear parity to Pivotglass and the full-screen
+  terminal, and made every interface reject deletion of the active workspace.
+- Restored focus to the exact overlay opener after Escape, including when a
+  browser throttles animation frames in a background tab.
+- Replaced the compositor-sensitive blurred scan band with a diffuse gradient
+  fog treatment and disabled decorative compositor layers at phone widths.
+- Kept the mobile command rail in document flow so it cannot cover the Pursuit
+  Brief or hide the next analyst action.
 
 ### Safety
 

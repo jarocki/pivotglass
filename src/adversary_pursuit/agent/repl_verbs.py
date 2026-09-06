@@ -578,6 +578,17 @@ def dispatch_repl_verb(
                 indent=2,
             )
         if (
+            sub == "clear"
+            and len(verb.args) == 4
+            and verb.args[2] == "--confirm"
+            and verb.args[1] == verb.args[3]
+        ):
+            cleared = _workspace_mgr.clear(name=verb.args[1])
+            return json.dumps(
+                {"workspace": verb.args[1], "cleared": cleared},
+                indent=2,
+            )
+        if (
             sub == "delete"
             and len(verb.args) == 4
             and verb.args[2] == "--confirm"
@@ -592,7 +603,8 @@ def dispatch_repl_verb(
             )
         return (
             "Usage: workspace list|learn <name>|create <name>|switch <name>|schema [name]|export <name>|"
-            "merge <source> <destination>|delete <name> --confirm <name>"
+            "merge <source> <destination>|clear <name> --confirm <name>|"
+            "delete <name> --confirm <name>"
         )
 
     if name == "autopivot":

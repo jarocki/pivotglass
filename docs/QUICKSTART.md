@@ -229,7 +229,7 @@ Space to pin the focused explanation above the matrix.
 
 > A blank cell is not missing interface. It is visible uncertainty.
 
-![Compact Investigation Constellation with chart-selection guidance](media/pivotglass-constellation-v0.9.1.png)
+![Compact Investigation Constellation with chart-selection guidance](media/pivotglass-visualize-v0.9.5.png)
 
 ### Optional: preview a source document
 
@@ -299,7 +299,7 @@ judgments appear as manual graph edges.
 
 > The graph is useful because it refuses to connect what the evidence does not.
 
-![Evidence-backed relationship graph](media/pivotglass-graph-v0.7.0.png)
+![Evidence-backed relationship graph](media/pivotglass-graph-v0.9.5.png)
 
 The `graph` command opens the deterministic graph summary:
 

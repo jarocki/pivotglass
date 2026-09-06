@@ -1,17 +1,17 @@
 # Pivotglass v0.9.5 quality record
 
-**Release date:** 2026-08-31
+**Release date:** 2026-09-06
 
-**Release branch:** `codex/v0.9.5-closure`
+**Release branch:** `codex/v0.9.5-release-refresh`
 
-**Focus:** browser document/candidate preview, hostile-input boundaries, and
+**Focus:** browser document/candidate preview, hostile-input boundaries,
+workspace lifecycle parity, responsive presentation, launch reliability, and
 pre-1.0 stable/preview/deferred closure
 
 ## Candidate verification
 
-- Complete Python suite after all four approved security fixes and the approved
-  workspace lifecycle correction: **4,172 passed,
-  2 skipped**. The one warning is the
+- Complete Python suite after the release refresh and workspace lifecycle
+  parity corrections: **4,178 passed, 2 skipped**. The one warning is the
   existing Python 3.12+ SQLite datetime-adapter deprecation exercised by the
   schema-v7 presentation-layout reconciliation test; it is not a failure.
 - Repository-wide Python static analysis across `src/`, `tests/`, and
@@ -27,8 +27,9 @@ pre-1.0 stable/preview/deferred closure
   focused confirmation after receipt wording and exact-scope refinements passed
   **265 tests**.
 - TypeScript check and Next.js 16.3.0 production static export passed for the
-  candidate-preview interface.
-- Five visualization behavior tests passed.
+  candidate-preview interface. The committed export contains the exact refreshed
+  application source.
+- Two advisor-idle, six arcade, and five visualization behavior tests passed.
 - Production npm vulnerability audit reported zero known vulnerabilities; all
   **31 packages** had verified registry signatures and **17** had verified
   provenance attestations.
@@ -88,22 +89,25 @@ pre-1.0 stable/preview/deferred closure
   final immutable wheel and source archive, an owner-controlled detached
   signature, and clean public download verification.
 
-Fresh browser interaction passed against the frozen v0.9.5 candidate in
-headless Chrome at **390×844**, **1024×768**, and **1440×1000**. At every width,
-the document width equaled the viewport width and the primary Investigate,
-Evidence, Visualize, More, and Investigation Activity controls remained
-present. The intentional blurred fog band extends beyond the viewport inside
-the clipped main surface; it does not create document overflow. Small internal
-lifecycle labels can overflow their own bounded cards by a few pixels, but do
-not clip controls or enlarge the document.
+Fresh browser interaction passed against the refreshed v0.9.5 candidate in
+headless Chrome at phone, laptop, and desktop widths: **390 by 844**,
+**1024 by 768**, and **1440 by 1000**. At every width, the document width
+equaled the viewport width and the primary Investigate, Evidence, Visualize,
+More, and Investigation Activity controls remained present. The diffuse fog
+gradient stays behind content at desktop widths and creates no document
+overflow. Decorative fog and ambient compositor layers are disabled at phone
+width, where the command rail remains in document flow and cannot cover the
+Pursuit Brief.
 
 The same browser replay selected a local text file, invoked the explicit
 **Preview locally** action, displayed both exact entity candidates and the
 source/candidate truth boundaries, and preserved zero horizontal document
-overflow. The Help dialog fit entirely inside the 390×844 viewport; Escape
-closed it and restored focus to its opener. The `/` shortcut restored focus to
-the investigation command, and both Day and Night controls applied their
-corresponding display modes.
+overflow. The Help dialog fit entirely inside the viewport; Escape closed it,
+restored focus to the exact Help button, and changed the focus status from
+Dialog to Cockpit. The slash shortcut restored focus to the investigation
+command. Day and Night modes, normal and high contrast, and reduced effects
+were exercised. The command-completion list remained inside the viewport and
+was the top hit-tested layer above the Systems and Intelligence panes.
 
 An earlier in-app browser session could not attach a new webview. That attempt
 remains recorded as an environment failure; the independent Chrome DevTools
@@ -184,14 +188,14 @@ The [compatibility matrix](COMPATIBILITY.md) and [data-safety guide](DATA_SAFETY
 carry the same boundary so the product, help, and release story do not imply
 completion by association.
 
-## Remaining publication and v1.0 gates
+## Publication and v1.0 boundary
 
-- final-artifact SBOM/license/checksum generation, owner-key signature, and
-  clean public readback using the now-tested release-trust procedure;
-- owner-reviewed repository security policy (the policy draft requires
-  explicit scope and accepted-risk approval before it can be written);
-- explicit SCOT/Synapse stable-versus-preview release decision.
+Final artifact generation, owner-key signing when an approved key is available,
+GitHub Release creation, and clean public readback happen only after the source
+commit is frozen; their receipts belong to the GitHub Release rather than this
+source-archive member. Before v1.0, Pivotglass still requires an owner-reviewed
+security policy and an explicit SCOT/Synapse stable-versus-preview decision.
 
-The frozen local-candidate state, public v0.9.0 readback, owner decisions, and
-ordered publication ceremony are consolidated in the [v0.9.5 release
-handoff](RELEASE_HANDOFF_V0.9.5.md).
+The ordered publication ceremony and the one-time, owner-authorized replacement
+of the earlier v0.9.5 tag are consolidated in the [v0.9.5 release
+record](RELEASE_HANDOFF_V0.9.5.md).
