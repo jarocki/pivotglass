@@ -20,14 +20,31 @@ def test_editable_checkout_rejects_export_older_than_source(tmp_path, monkeypatc
     exported = output_dir / "index.html"
     source.write_text("current source")
     exported.write_text("old export")
-    os.utime(exported, ns=(1_000_000, 1_000_000))
-    os.utime(source, ns=(2_000_000, 2_000_000))
+    os.utime(exported, ns=(1_000_000_000, 1_000_000_000))
+    os.utime(source, ns=(3_000_000_000, 3_000_000_000))
     monkeypatch.setattr(web_server, "_SOURCE_WEB_DIR", tmp_path)
     monkeypatch.setattr(web_server, "_SOURCE_WEB_ROOT", output_dir)
 
     assert web_server._source_web_build_is_stale(output_dir) is True
 
-    os.utime(exported, ns=(3_000_000, 3_000_000))
+    os.utime(exported, ns=(4_000_000_000, 4_000_000_000))
+    assert web_server._source_web_build_is_stale(output_dir) is False
+
+
+def test_editable_checkout_ignores_subsecond_git_restore_skew(tmp_path, monkeypatch):
+    app_dir = tmp_path / "app"
+    output_dir = tmp_path / "out"
+    app_dir.mkdir()
+    output_dir.mkdir()
+    source = app_dir / "page.tsx"
+    exported = output_dir / "index.html"
+    source.write_text("source and export from the same commit")
+    exported.write_text("matching export")
+    os.utime(exported, ns=(1_000_000_000, 1_000_000_000))
+    os.utime(source, ns=(1_010_000_000, 1_010_000_000))
+    monkeypatch.setattr(web_server, "_SOURCE_WEB_DIR", tmp_path)
+    monkeypatch.setattr(web_server, "_SOURCE_WEB_ROOT", output_dir)
+
     assert web_server._source_web_build_is_stale(output_dir) is False
 
 

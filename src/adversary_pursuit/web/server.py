@@ -154,6 +154,11 @@ def _source_web_build_is_stale(web_root: Path) -> bool:
     if not index.is_file():
         return True
     exported_at = index.stat().st_mtime_ns
+    # Git restores tracked source and export files sequentially during checkout.
+    # Their timestamps can therefore differ by a few milliseconds even though
+    # they came from the same commit. Ignore sub-second restoration skew while
+    # continuing to reject source files that were edited after the export.
+    checkout_mtime_skew_ns = 1_000_000_000
     source_files = (
         *(_SOURCE_WEB_DIR / "app").glob("**/*.ts"),
         *(_SOURCE_WEB_DIR / "app").glob("**/*.tsx"),
@@ -163,7 +168,9 @@ def _source_web_build_is_stale(web_root: Path) -> bool:
         _SOURCE_WEB_DIR / "package.json",
     )
     return any(
-        source.is_file() and source.stat().st_mtime_ns > exported_at for source in source_files
+        source.is_file()
+        and source.stat().st_mtime_ns > exported_at + checkout_mtime_skew_ns
+        for source in source_files
     )
 
 
