@@ -455,7 +455,6 @@ export function TaskMatrix({
   liveRows?: VisualizationRow[];
 }) {
   const [selected, setSelected] = useState<VisualizationRow | null>(null);
-  const [previewed, setPreviewed] = useState<VisualizationRow | null>(null);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [completenessFilter, setCompletenessFilter] = useState("all");
@@ -594,7 +593,7 @@ export function TaskMatrix({
     ),
     [columnField, mergedRows, rowIdField],
   );
-  const activeCell = previewed ?? selected;
+  const activeCell = selected;
 
   useEffect(() => {
     setGridFocus((current) => ({
@@ -836,13 +835,9 @@ export function TaskMatrix({
                             setSelected(cell);
                             onSelectCell?.(cell);
                           }}
-                          onMouseEnter={() => setPreviewed(cell)}
-                          onMouseLeave={() => setPreviewed(null)}
                           onFocus={() => {
-                            setPreviewed(cell);
                             if (isConstellation) setGridFocus({ row: rowIndex, column: columnIndex });
                           }}
-                          onBlur={() => setPreviewed(null)}
                           onKeyDown={(event) => {
                             if (!isConstellation) return;
                             let nextRow = rowIndex;

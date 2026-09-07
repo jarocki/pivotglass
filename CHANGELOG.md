@@ -61,6 +61,10 @@ capacity boundaries explicit.
 
 ### Fixed
 
+- Stopped Enrichment Activity and Investigation Constellation rows from
+  oscillating under the pointer. Hover explanations no longer insert layout
+  content or repeatedly redraw while the pointer crosses text inside one cell;
+  clicking still pins the detailed selection.
 - Prevented harmless sub-second Git checkout timestamp skew from misclassifying
   the committed web export as stale while retaining detection of genuinely old
   assets.

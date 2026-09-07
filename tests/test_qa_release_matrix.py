@@ -199,6 +199,21 @@ def test_enrichment_and_constellation_share_literal_rgb_led_status_blocks():
         assert mapping in led
 
 
+def test_dense_visualization_hover_does_not_mutate_matrix_layout():
+    page = Path("web/app/page.tsx").read_text()
+    workspace = Path("web/app/visualization-workspace.tsx").read_text()
+    styles = Path("web/app/pivotglass.css").read_text()
+
+    assert "const activeCell = selected;" in workspace
+    assert "setPreviewed" not in workspace
+    assert "activeTooltipElement === element" in page
+    assert "from.contains(to)" in page
+    hover_rule = styles.split(
+        ".constellation-matrix .lite-brite-cell:hover .lite-brite-peg{", 1
+    )[1].split("}", 1)[0]
+    assert "transform" not in hover_rule
+
+
 def test_constellation_uses_compact_shape_redundant_lite_brite_pegs():
     workspace = Path("web/app/visualization-workspace.tsx").read_text()
     peg = Path("web/app/lite-brite-peg.tsx").read_text()

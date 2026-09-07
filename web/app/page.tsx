@@ -365,22 +365,33 @@ export default function Cockpit() {
     };
   }, []);
   useEffect(() => {
+    let activeTooltipElement: HTMLElement | null = null;
     const show = (element: HTMLElement) => {
+      if (activeTooltipElement === element) return;
       const text = element.dataset.tooltip;
       if (!text) return;
+      activeTooltipElement = element;
       const rect = element.getBoundingClientRect();
       const width = Math.min(320, window.innerWidth - 24);
       const left = Math.min(window.innerWidth - width / 2 - 12, Math.max(width / 2 + 12, rect.left + rect.width / 2));
       const below = rect.top < 100;
       setTooltip({ text, left, top: below ? rect.bottom + 10 : rect.top - 10, below });
     };
-    const enter = (event: Event) => { const element = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-tooltip]"); if (element) show(element); };
+    const enter = (event: Event) => {
+      const element = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-tooltip]");
+      if (element) show(element);
+    };
     const leave = (event: Event) => {
       const from = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-tooltip]");
-      const to = (event as FocusEvent).relatedTarget as HTMLElement | null;
-      if (from && !to?.closest("[data-tooltip]")?.isSameNode(from)) setTooltip(null);
+      const to = (event as FocusEvent).relatedTarget as Node | null;
+      if (!from || (to && from.contains(to))) return;
+      if (activeTooltipElement === from) activeTooltipElement = null;
+      setTooltip(null);
     };
-    const clear = () => setTooltip(null);
+    const clear = () => {
+      activeTooltipElement = null;
+      setTooltip(null);
+    };
     document.addEventListener("pointerover", enter);
     document.addEventListener("pointerout", leave);
     document.addEventListener("focusin", enter);

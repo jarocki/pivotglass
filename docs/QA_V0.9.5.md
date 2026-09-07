@@ -194,6 +194,18 @@ workspace.
   attribution.
 - Routine workspace polling remains free of parser output and candidate text.
 
+## Dense visualization hover receipt
+
+- Enrichment Activity and Investigation Constellation use the same stable
+  matrix interaction: hover shows a viewport-fixed explainer without inserting
+  content above the grid; click or Enter pins the detailed selection.
+- Repeated real pointer movement across an indicator label and a Lite Brite
+  status cell produced one stable tooltip, no hover-only selection panel, and
+  identical top, left, width, and height measurements in all 16 samples.
+- Pointer movement between child text nodes inside one indicator no longer
+  schedules redundant whole-cockpit tooltip updates, and the status peg no
+  longer changes scale on hover.
+
 ## Explicit deferred closures
 
 These are not v0.9.5 stable capabilities:

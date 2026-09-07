@@ -544,7 +544,7 @@ pre{font-size:12px;line-height:1.5}
 .constellation-matrix tbody th>button small{font-size:8px;line-height:1.05}
 .constellation-matrix tbody td{width:29px;height:28px;background:#050b0e80}
 .constellation-matrix .lite-brite-cell{display:grid;place-items:center;width:26px;min-width:26px;min-height:26px;margin:auto;padding:1px;border:0;border-radius:50%;background:transparent}
-.constellation-matrix .lite-brite-cell:hover .lite-brite-peg{filter:brightness(1.2) drop-shadow(0 0 4px #fff8);transform:scale(1.12)}
+.constellation-matrix .lite-brite-cell:hover .lite-brite-peg{filter:brightness(1.2) drop-shadow(0 0 4px #fff8)}
 .constellation-matrix .lite-brite-cell:focus-visible{outline:2px solid var(--focus-ring);outline-offset:1px}
 .constellation-matrix .lite-brite-cell:focus-visible .lite-brite-peg{filter:brightness(1.2) drop-shadow(0 0 5px var(--focus-ring))}
 .constellation-matrix .lite-brite-cell.selected{outline:2px solid var(--accent);outline-offset:1px;background:color-mix(in srgb,var(--accent) 12%,transparent)}
