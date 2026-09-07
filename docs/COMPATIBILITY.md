@@ -4,21 +4,23 @@ This matrix separates the supported local core from qualified previews and
 planned work. A dependency being installed does not make every capability it
 contains a supported Pivotglass path.
 
-| Surface | v0.9.5 status | Supported boundary |
+| Surface | v0.9.6 status | Supported boundary |
 |---|---|---|
 | Python | Stable core | Python 3.12 or newer; tested release gates use the locked environment |
 | Browser cockpit | Stable local core | Static Next.js export served by Pivotglass on loopback by default |
 | Terminal interfaces | Stable local core | `ap tui` and `ap basic` share workspaces and deterministic command authorities |
-| Workspace schema | Stable forward migration | Schema v11, backup-first; in-place downgrade is not supported |
+| Workspace schema | Stable forward migration | Schema v12, backup-first; in-place downgrade is not supported |
 | Flint | Qualified core | Exactly 0.4.0 for current bar, line, scatter, histogram, and radar intent paths |
 | Plotly / editable Office charts | Not qualified | Presence in Flint 0.4 does not enable these backends |
-| Text, Markdown, HTML | Qualified preview | Explicit local file, 10 MiB maximum, active HTML not run |
-| CSV, JSON, JSONL | Qualified preview | Bounded rows, nesting, text output, and exact skipped/error state |
-| RFC 5322 email | Qualified preview | Message text and headers; attachments are named but not parsed |
+| Text, Markdown, HTML | Qualified local intake | Preview first; explicit admission up to 10 MiB; active HTML not run |
+| CSV, JSON, JSONL | Qualified local intake | Bounded rows, nesting, text output, exact skipped/error state, persistent receipt |
+| RFC 5322 email | Qualified local intake | Message text and headers; attachments are named but not parsed |
 | PDF | Recognition preview | Type/hash only; no text extraction or OCR claim |
 | Office documents, images, archives | Deferred | No qualified parser, macro execution, archive expansion, or OCR |
 | URL and RSS intake | Deferred | No browser document-preview network retrieval or SSRF surface |
-| Entity candidates | Qualified preview | Deterministic exact spans; temporary browser output and internal persistence authority only |
+| Entity candidates | Qualified review input | Deterministic exact spans; admission persists candidates but never auto-promotes them to evidence |
+| Document library | Qualified local core | Display-safe inventory, content hashes, parser/extraction receipts, verified workspace merge; raw bytes stay local |
+| Pivot trail | Qualified local core | Append-only workflow history and timeline; never presented as a threat relationship |
 | Model-assisted proposals | Internal authority | Span-grounded immutable records and human review exist; live browser/model workflow is deferred |
 | SCOT4 | Preview integration | Governed read/publication planning; stable status requires disposable live round-trip and recovery |
 | Vertex Synapse | Preview integration | Governed MCP/model/view planning; not the v1.0 primary graph backend yet |

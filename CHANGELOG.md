@@ -9,6 +9,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No changes yet.
 
+## [0.9.6] — 2026-09-07
+
+This patch release completes the governed local-document workflow and makes
+the investigation path visible without confusing navigation with threat
+evidence. It also fixes the Constellation's embedded dark palette in Day mode.
+
+### Added
+
+- Added explicit **Ingest into workspace** after local preview. Admission
+  verifies that the selected bytes still match the preview hash, then stores
+  the content-addressed original, occurrence, parser and extraction receipts,
+  exact-span entity candidates, and a visible admission receipt.
+- Added a persistent, display-safe document library that survives browser
+  refresh and application restart without returning original bytes to ordinary
+  browser state.
+- Added schema-v12 append-only pivot events and a **Chronological trail**
+  visualization. `timeline pivots` provides the same workflow history in
+  Pivotglass and the terminal interface.
+- Projected admitted document occurrences and candidates into the governed
+  layered investigation graph. Candidate/entity bridges require an exact
+  normalized match to independently admitted evidence and remain explicitly
+  non-validating.
+- Added document metadata, receipts, candidates, and pivot history to portable
+  workspace exports. Workspace merge now copies original document bytes only
+  after verifying their content hash.
+
+### Fixed
+
+- Replaced the Constellation's hard-coded dark shell, headers, row labels, and
+  cells with character-palette surfaces so all seven themes remain legible in
+  Day and Night modes.
+- Retained stable-size hover explanations and selection behavior so
+  Constellation and Enrichment Activity rows do not redraw under the pointer.
+
+### Safety
+
+- Preview remains non-persistent. Admission is a separate explicit action.
+- A stored candidate remains a text match—not an admitted entity, threat
+  relationship, verdict, or attribution. A pivot edge records analyst workflow,
+  not adversary activity.
+- Workspace clear/delete removes admitted document records and managed source
+  bytes only after exact confirmation. Migration backups and generated reports
+  remain separately recoverable.
+
 ## [0.9.5] — 2026-09-06
 
 This final pre-1.0 usability checkpoint joins bounded local document parsing
@@ -1070,7 +1114,8 @@ per-workspace SQLite storage, gamification engine (parabolic decay scoring, chal
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.9.5...HEAD
+[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.9.6...HEAD
+[0.9.6]: https://github.com/jarocki/pivotglass/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/jarocki/pivotglass/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/jarocki/pivotglass/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/jarocki/pivotglass/compare/v0.9.2...v0.9.3

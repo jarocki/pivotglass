@@ -405,6 +405,35 @@ class DocumentEntityCandidate(Base):
     )
 
 
+class PivotTrailEvent(Base):
+    """Append-only record of how an analyst moved through an investigation.
+
+    These records describe workflow navigation, not a threat relationship.  A
+    projection may draw them as explicitly labelled navigation edges, but they
+    never become observed evidence merely because the analyst followed them.
+    """
+
+    __tablename__ = "pivot_trail_events"
+
+    id = Column(String, primary_key=True)
+    from_kind = Column(String, nullable=True, index=True)
+    from_ref = Column(String, nullable=True, index=True)
+    from_label = Column(Text, nullable=True)
+    to_kind = Column(String, nullable=False, index=True)
+    to_ref = Column(String, nullable=False, index=True)
+    to_label = Column(Text, nullable=False)
+    action = Column(String, nullable=False, index=True)
+    basis = Column(Text, nullable=False)
+    provenance_refs = Column(JSON, nullable=False, default=list)
+    created_by = Column(String, nullable=False, default="human")
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+
+
 class EvidenceClusterSnapshot(Base):
     """Presentation snapshot used to compare graph-cluster change over time."""
 

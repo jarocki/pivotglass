@@ -16,7 +16,7 @@ the only supported pre-1.0 installation because it reproduces the dependency
 set used for release qualification.
 
 ```bash
-git clone --branch v0.9.5 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v0.9.6 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent --frozen
 uv run ap --version
@@ -25,7 +25,7 @@ uv run ap --version
 The final command should report:
 
 ```text
-adversary-pursuit 0.9.5
+adversary-pursuit 0.9.6
 ```
 
 The release contains the built browser interface. Node.js 20.9 or newer is
@@ -45,7 +45,7 @@ recreate the locked environment:
 
 ```bash
 git fetch --tags origin
-git checkout v0.9.5
+git checkout v0.9.6
 uv sync --extra agent --frozen
 uv run ap --version
 ```
@@ -229,16 +229,16 @@ Space to pin the focused explanation above the matrix.
 
 > A blank cell is not missing interface. It is visible uncertainty.
 
-![Compact Investigation Constellation with chart-selection guidance](media/pivotglass-visualize-v0.9.5.png)
+![Theme-aware Investigation Constellation with fixed hover guidance](media/pivotglass-visualize-v0.9.6.png)
 
-### Optional: preview a source document
+### Optional: preview and ingest a source document
 
 Open **Visualize**, expand **Preview a document**, and choose a supported local
-file. Version 0.9.2 previews text, Markdown, HTML, CSV, JSON, JSONL, and email;
-PDF input is recognized but its text and images are not yet extracted. The
-preview is local, temporary, and bounded to 10 MiB. It shows what was parsed,
-skipped, truncated, or rejected. It does not store the file, contact a model,
-extract admitted entities, or create evidence and relationships.
+file. Version 0.9.6 previews text, Markdown, HTML, CSV, JSON, JSONL, and email;
+PDF input is recognized but its text and images are not yet extracted. Preview
+is local, temporary, and bounded to 10 MiB. It shows what was parsed, skipped,
+truncated, or rejected. Preview alone stores nothing and creates no evidence,
+entity, or relationship.
 
 Expand **Entity candidates** to inspect deterministic text matches. Each match
 shows the raw and normalized value, entity type, line and column, character and
@@ -246,10 +246,21 @@ UTF-8 byte span, and extraction rule/version. The browser displays at most the
 first 100 of up to 2,000 bounded candidates. They remain temporary candidates,
 not admitted evidence or graph nodes.
 
-![Bounded local document preview with temporary entity candidates](media/pivotglass-document-preview-v0.9.5.png)
+After reviewing the digest, parser receipt, and candidates, choose **Ingest this
+document**. Pivotglass binds admission to the exact preview SHA-256, stores the
+source occurrence and exact bytes in the active workspace, and displays a loud
+admission receipt. The persistent **Source library** lists admitted occurrences
+after refresh or restart. Candidates remain candidates until independently
+admitted; ingestion does not convert text claims into analytical facts.
 
-Use this step to inspect source handling before the governed admission and
-entity-review workflow arrives in the later 0.9 releases.
+![Explicit document admission and persistent source library](media/pivotglass-document-library-v0.9.6.png)
+
+Open **Visualize** and choose **Pivot trail** to see the chronological sequence
+of document, indicator, and entity navigation. This trail explains how the
+analyst arrived at the current position; it is a workflow record, not evidence
+that two threat entities are related.
+
+![Chronological analyst pivot trail](media/pivotglass-pivot-timeline-v0.9.6.png)
 
 ## 6. Pivot to related evidence
 

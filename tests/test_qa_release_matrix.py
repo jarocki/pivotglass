@@ -223,7 +223,10 @@ def test_constellation_uses_compact_shape_redundant_lite_brite_pegs():
     assert "<LiteBritePeg" in workspace
     assert "CONSTELLATION_COLUMN_LABELS" in workspace
     assert "CONSTELLATION_DIMENSION_HELP" in workspace
-    assert "data-tooltip={cellHelp}" in workspace
+    assert "onPointerEnter={(event) => showHoverTip(event, cellHelp)}" in workspace
+    assert 'className="matrix-hover-tooltip"' in workspace
+    assert ".matrix-hover-tooltip{position:fixed" in styles
+    assert "pointer-events:none" in styles
     assert "constellationStatusHelp(status)" in workspace
     assert "coverage is not confidence or truth" in workspace
     assert "<LiteBritePeg\n                                compact" in workspace

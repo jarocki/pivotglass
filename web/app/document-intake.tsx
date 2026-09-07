@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type DocumentPreview = {
+  content_sha256: string;
   filename: string;
   size_bytes: number;
   detected_media_type: string;
@@ -37,6 +38,31 @@ type DocumentPreview = {
   };
 };
 
+type DocumentLibraryRecord = {
+  occurrence_id: string;
+  filename: string;
+  source_kind: string;
+  source_uri?: string | null;
+  detected_media_type: string;
+  size_bytes: number;
+  content_sha256: string;
+  parser_state: string;
+  candidate_count: number;
+  acquired_at: string;
+  operator: string;
+  reused_content: boolean;
+};
+
+type AdmissionReceipt = {
+  admitted: boolean;
+  receipt: {
+    candidate_count: number;
+    truth_boundary: string;
+    intake: { occurrence_id: string; reused_content: boolean };
+  };
+  library: DocumentLibraryRecord[];
+};
+
 function asDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -46,11 +72,23 @@ function asDataUrl(file: File): Promise<string> {
   });
 }
 
-export function DocumentIntake() {
+export function DocumentIntake({ onChanged }: { onChanged?: () => Promise<void> | void }) {
   const [file, setFile] = useState<File | null>(null);
+  const [contentBase64, setContentBase64] = useState("");
   const [preview, setPreview] = useState<DocumentPreview | null>(null);
+  const [library, setLibrary] = useState<DocumentLibraryRecord[]>([]);
+  const [receipt, setReceipt] = useState<AdmissionReceipt["receipt"] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const loadLibrary = async () => {
+    const response = await fetch("/api/documents", { cache: "no-store" });
+    const result = await response.json() as { documents?: DocumentLibraryRecord[]; error?: string };
+    if (!response.ok || result.error) throw new Error(result.error ?? "Document library failed.");
+    setLibrary(result.documents ?? []);
+  };
+
+  useEffect(() => { void loadLibrary().catch(() => undefined); }, []);
 
   const inspect = async () => {
     if (!file) return;
@@ -65,17 +103,19 @@ export function DocumentIntake() {
       const dataUrl = await asDataUrl(file);
       const marker = dataUrl.indexOf(",");
       if (marker < 0) throw new Error("The browser did not produce a valid file preview.");
+      const encoded = dataUrl.slice(marker + 1);
       const response = await fetch("/api/documents/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           filename: file.name,
           media_type: file.type || null,
-          content_base64: dataUrl.slice(marker + 1),
+          content_base64: encoded,
         }),
       });
       const result = await response.json() as DocumentPreview & { error?: string };
       if (!response.ok || result.error) throw new Error(result.error ?? "Document preview failed.");
+      setContentBase64(encoded);
       setPreview(result);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Document preview failed.");
@@ -84,12 +124,42 @@ export function DocumentIntake() {
     }
   };
 
+  const ingest = async () => {
+    if (!file || !preview || !contentBase64) return;
+    setBusy(true);
+    setError("");
+    setReceipt(null);
+    try {
+      const response = await fetch("/api/documents/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          media_type: file.type || null,
+          content_base64: contentBase64,
+          expected_sha256: preview.content_sha256,
+          operator: "local analyst",
+        }),
+      });
+      const result = await response.json() as AdmissionReceipt & { error?: string };
+      if (!response.ok || result.error) throw new Error(result.error ?? "Document ingestion failed.");
+      setLibrary(result.library);
+      setReceipt(result.receipt);
+      await onChanged?.();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Document ingestion failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <details className="document-intake">
-      <summary>PREVIEW A DOCUMENT</summary>
+      <summary>DOCUMENT INTAKE &amp; LIBRARY · {library.length} STORED</summary>
       <p>
-        Inspect selected bytes locally before ingestion. Preview creates no evidence, entities,
-        relationships, or model request.
+        1. Choose a file. 2. Preview and review extracted candidates locally. 3. Select
+        <b> INGEST INTO WORKSPACE</b> to store the source, parser receipt, and candidate provenance.
+        Preview alone changes nothing.
       </p>
       <div className="document-intake-controls">
         <input
@@ -98,6 +168,8 @@ export function DocumentIntake() {
           onChange={(event) => {
             setFile(event.target.files?.[0] ?? null);
             setPreview(null);
+            setContentBase64("");
+            setReceipt(null);
             setError("");
           }}
           aria-label="Choose a document to preview locally"
@@ -149,9 +221,39 @@ export function DocumentIntake() {
               <small>Showing the first 100 candidates. The local preview receipt counted {preview.entity_extraction.candidate_count}.</small>
             )}
           </details>
-          <small>Preview is temporary. Admission and storage controls arrive in the governed ingestion workflow.</small>
+          <small>Preview is temporary until you explicitly choose INGEST INTO WORKSPACE.</small>
+          <div className="document-admission">
+            <p>
+              Ingestion stores the exact source bytes by SHA-256, this parser receipt, and the
+              candidates above. It does not declare those candidates malicious or true.
+            </p>
+            <button type="button" disabled={busy || preview.state === "failed" || Boolean(receipt)} onClick={() => void ingest()}>
+              {busy ? "INGESTING…" : receipt ? "✓ INGESTED" : "INGEST INTO WORKSPACE"}
+            </button>
+          </div>
         </section>
       )}
+      {receipt && (
+        <p className="document-receipt" role="status">
+          <b>INGESTION RECEIPT</b> {receipt.candidate_count} candidates stored with source
+          provenance. {receipt.truth_boundary}
+        </p>
+      )}
+      <section className="document-library" aria-label="Stored document library">
+        <header><b>DOCUMENT LIBRARY</b><span>{library.length} source occurrence{library.length === 1 ? "" : "s"}</span></header>
+        {library.length ? (
+          <ol>
+            {library.map((item) => (
+              <li key={item.occurrence_id}>
+                <div><b title={item.filename}>{item.filename}</b><span>{item.parser_state} · {item.detected_media_type}</span></div>
+                <small>{item.candidate_count} candidates · {item.size_bytes} bytes · ingested {new Date(item.acquired_at).toLocaleString()}</small>
+                <code title={item.content_sha256}>SHA-256 {item.content_sha256.slice(0, 12)}…</code>
+              </li>
+            ))}
+          </ol>
+        ) : <p>No documents have been ingested into this workspace.</p>}
+        <small>Library entries are persistent workspace records. Raw source bytes never enter the DOM after ingestion.</small>
+      </section>
     </details>
   );
 }

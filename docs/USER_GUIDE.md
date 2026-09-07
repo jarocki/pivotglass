@@ -68,7 +68,7 @@ basis and permission class. Merely viewing or polling it never runs a remote
 query, creates a relationship, accepts an analytical proposal, changes
 confidence, attributes activity to an actor, or publishes externally.
 
-![Current Pursuit Brief with separate progress and open-work measures](media/pivotglass-cockpit-v0.9.5.png)
+![Current Pursuit Brief with separate progress and open-work measures](media/pivotglass-cockpit-v0.9.6.png)
 
 Primary navigation is deliberately limited to **Investigate**, **Evidence**,
 **Visualize**, and **More**. Evidence opens in an on-demand detail area.
@@ -222,7 +222,7 @@ than Dossier coverage.
 
 The overall mapped value is navigation help, not confidence or a verdict.
 
-![Compact Investigation Constellation with chart-selection guidance](media/pivotglass-visualize-v0.9.5.png)
+![Theme-aware Investigation Constellation with chart-selection guidance](media/pivotglass-visualize-v0.9.6.png)
 
 ## Visual Analysis
 
@@ -254,30 +254,50 @@ same plotted rows as CSV, or the complete relationship nodes and edges as JSON.
 See the [Visualization guide](VISUALIZATION_GUIDE.md) for the complete
 question-to-view policy and the analytical guardrails for every chart family.
 
-### Preview a document locally
+### Preview, ingest, and revisit a document
 
-Open **Visualize**, then expand **Preview a document** above the chart panel.
-The v0.9.2 preview accepts an explicitly selected file up to 10 MiB and has
-qualified parsers for text, Markdown, HTML, CSV, JSON, JSONL, and RFC 5322
-email. HTML scripts, styles, templates, and external references are not run.
-Email attachments are named as skipped rather than silently treated as parsed.
-PDF input is recognized and hashed, but text extraction and OCR remain
-unqualified and are reported as such.
+Open **Visualize**, then expand **Document intake & library** above the chart
+panel. The workflow is deliberately two-step:
+
+1. Choose a file and select **Preview locally**. This creates no stored state.
+2. Review the parser result and candidates, then select **Ingest into
+   workspace**. A visible receipt confirms the stored occurrence, content hash,
+   parser receipt, candidate count, and pivot event.
+
+The library remains beneath the intake controls after refresh and restart. It
+shows display-safe metadata rather than returning the original bytes to the
+browser. The content-addressed original lives beside the active workspace
+database and is removed only by an exact-confirmed workspace clear or delete.
+
+The intake accepts an explicitly selected file up to 10 MiB and has qualified
+parsers for text, Markdown, HTML, CSV, JSON, JSONL, and RFC 5322 email. HTML
+scripts, styles, templates, and external references are not run. Email
+attachments are named as skipped rather than silently treated as parsed. PDF
+input is recognized and hashed, but text extraction and OCR remain unqualified
+and are reported as such.
 
 The preview returns the sanitized filename, media type, byte count, content
 hash, parser version, parse state, bounded text, warnings, errors, and skipped
-content. It is temporary and local: it creates no document record, evidence,
-entity, relationship, graph edge, or model request. Parsed text proves only
-what the selected source contained; it does not prove the source's claims.
+content. Until **Ingest into workspace** is selected, it is temporary and
+local: it creates no document record, evidence, entity, relationship, graph
+edge, or model request. Parsed text proves only what the selected source
+contained; it does not prove the source's claims.
 
-Expand **Entity candidates** beneath the parser output to inspect temporary
-deterministic matches. Each candidate exposes its raw and normalized value,
-entity type, parser-output line/column, character and UTF-8 byte span, and
-rule/version. The browser bounds extraction at 2,000 candidates and renders the
-first 100 to keep the panel responsive. A candidate is not admitted evidence,
-a graph node, a verdict, or actor attribution.
+Expand **Entity candidates** beneath the parser output to inspect deterministic
+matches. Each candidate exposes its raw and normalized value, entity type,
+parser-output line/column, character and UTF-8 byte span, and rule/version. The
+browser bounds extraction at 2,000 candidates and renders the first 100 to keep
+the panel responsive. Admission stores those candidates for review but does
+not promote them to STIX evidence, a verdict, or actor attribution.
 
-![Local document preview with explicit truth boundary](media/pivotglass-document-preview-v0.9.5.png)
+The layered investigation graph adds an epistemic node for each stored
+document and candidate, a structural `contains-candidate` edge, and—only when
+the exact normalized value already exists as admitted evidence—a labeled
+bridge to that entity. These are provenance and review aids, not evidence that
+the document's claim is true. `timeline pivots` and the **Chronological trail**
+visualization show the append-only analyst path among documents and indicators.
+
+![Document preview, explicit admission, and persistent library](media/pivotglass-document-library-v0.9.6.png)
 
 Deferred dimensions remain in the table but are omitted from the radar shape
 because they do not have an inference path. Radar values 0, 50, and 100 map to

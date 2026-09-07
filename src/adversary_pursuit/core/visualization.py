@@ -39,6 +39,7 @@ class VisualizationQuestion(StrEnum):
     TASK_STATUS = "which_indicator_enrichment_work_is_pending"
     METRIC_TREND = "how_does_this_metric_change"
     EVIDENCE_COMPOSITION = "which_evidence_types_are_stored"
+    PIVOT_TRAIL = "how_did_the_analyst_reach_the_current_pivot"
 
 
 class VisualizationView(StrEnum):
@@ -54,6 +55,7 @@ class VisualizationView(StrEnum):
     LINE = "line"
     BAR = "bar"
     UNCERTAINTY_INTERVALS = "uncertainty_intervals"
+    TIMELINE = "timeline"
 
 
 class VisualizationRenderer(StrEnum):
@@ -267,6 +269,21 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
             "table when a precise count matters."
         ),
         guardrail="Count only stored records in the stated workspace scope.",
+    ),
+    VisualizationQuestion.PIVOT_TRAIL: VisualizationPolicy(
+        question=VisualizationQuestion.PIVOT_TRAIL,
+        view=VisualizationView.TIMELINE,
+        renderer=VisualizationRenderer.NATIVE,
+        required_roles=("time", "event"),
+        selection_reason=(
+            "A chronological trail preserves the order of document admissions and analyst "
+            "pivots, making the route into the current investigation easy to retrace."
+        ),
+        reading_guide=(
+            "Read from oldest to newest; each arrow is an analyst workflow transition, not "
+            "an observed relationship between threats."
+        ),
+        guardrail="Keep workflow navigation visibly separate from evidence and threat edges.",
     ),
 }
 
@@ -796,6 +813,76 @@ def task_matrix_intent(workspace: str, investigations: list[dict[str, Any]]) -> 
             explanation=(
                 "A blank cell means that enrichment has no authoritative job for the indicator."
             ),
+        ),
+    )
+
+
+def pivot_trail_intent(
+    workspace: str, pivot_events: list[dict[str, Any]]
+) -> VisualizationIntent:
+    """Render append-only analyst navigation in chronological order."""
+
+    visible = pivot_events[-MAX_VISUALIZATION_ROWS:]
+    omitted = max(0, len(pivot_events) - len(visible))
+    rows = tuple(
+        {
+            "event_id": str(item.get("id", "")),
+            "timestamp": str(item.get("created_at", "")),
+            "from_kind": str(item.get("from_kind") or "start"),
+            "from_ref": str(item.get("from_ref") or ""),
+            "from_label": str(item.get("from_label") or "Investigation start"),
+            "to_kind": str(item.get("to_kind", "unknown")),
+            "to_ref": str(item.get("to_ref", "")),
+            "to_label": str(item.get("to_label", "unavailable")),
+            "action": str(item.get("action", "pivoted")),
+            "basis": str(item.get("basis", "")),
+            "created_by": str(item.get("created_by", "human")),
+        }
+        for item in visible
+    )
+    return _intent(
+        intent_id="pivot-trail",
+        title="Investigation pivot trail",
+        question=VisualizationQuestion.PIVOT_TRAIL,
+        question_text="How did I reach the current document or indicator?",
+        workspace=workspace,
+        description=(
+            "Append-only analyst navigation and explicit document-admission events in the "
+            "active workspace."
+        ),
+        record_count=len(rows),
+        data=VisualizationData(rows=rows),
+        fields={"time": "timestamp", "event": "action"},
+        semantic_types={
+            "event_id": "Identifier",
+            "timestamp": "DateTime",
+            "from_kind": "Category",
+            "from_label": "Name",
+            "to_kind": "Category",
+            "to_label": "Name",
+            "action": "Status",
+            "basis": "Text",
+            "created_by": "Name",
+        },
+        table_columns=(
+            VisualizationTableColumn(key="timestamp", label="Time"),
+            VisualizationTableColumn(key="from_label", label="From"),
+            VisualizationTableColumn(key="action", label="Action"),
+            VisualizationTableColumn(key="to_label", label="To"),
+            VisualizationTableColumn(key="basis", label="Workflow basis"),
+            VisualizationTableColumn(key="created_by", label="Recorded by"),
+        ),
+        missing_data=VisualizationMissingData(
+            policy="omit_with_count" if omitted else "show",
+            explanation=(
+                "Only explicit analyst navigation and document-admission actions are shown. "
+                "Absence of an event does not imply absence of a threat relationship."
+            ),
+            omitted_count=omitted,
+        ),
+        timezone="UTC",
+        caveats=(
+            "Pivot-trail arrows describe analyst workflow, never adversary causality or attribution.",
         ),
     )
 
@@ -1678,6 +1765,7 @@ def build_visualization_intents(
     constellation = indicator_constellation_intent(workspace, objects, graph)
     return (
         constellation,
+        pivot_trail_intent(workspace, (analysis or {}).get("pivot_trail", [])),
         evidence_composition_intent(workspace, objects),
         dossier_completeness_intent(workspace, dossier_slots),
         activity_concentration_intent(workspace, investigations),

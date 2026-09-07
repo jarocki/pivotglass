@@ -39,6 +39,16 @@ restores an overlay's opener after Escape, and hardens the compact mobile
 layout. It publishes the stable/preview/deferred and local-data-safety
 contracts required for an honest final pre-1.0 checkpoint.
 
+Version 0.9.6 turns that preview into an explicit, governed admission path.
+The analyst previews first, then chooses **Ingest into workspace** to preserve
+the exact bytes, content hash, parser receipt, and exact-span candidates in a
+persistent document library. Documents and candidate-to-entity bridges appear
+in the governed layered graph without promoting document claims to facts. An
+append-only pivot trail records how the analyst moved among documents,
+indicators, and entities and can be read as a chronological visualization.
+The Investigation Constellation now uses each character's Day/Night palette
+instead of embedding a dark panel inside light themes.
+
 > An indicator is not the answer. It is the first node.
 
 The installed command remains `ap` for compatibility with earlier releases.
@@ -49,7 +59,7 @@ See the [compatibility and maturity matrix](docs/COMPATIBILITY.md) before using
 preview integrations or document formats, and [data ownership and
 safety](docs/DATA_SAFETY.md) before enabling providers or LAN access.
 
-Current release: **v0.9.5 early availability**.
+Current release: **v0.9.6 early availability**.
 
 [![Watch the Pivotglass guided walkthrough](docs/media/pivotglass-guided-demo-poster.png)](docs/media/pivotglass-guided-demo-v0.9.5.mp4)
 
@@ -57,14 +67,15 @@ Current release: **v0.9.5 early availability**.
 **[Captions](docs/media/pivotglass-guided-demo-v0.9.5.vtt)** ·
 **[Read the transcript](docs/media/pivotglass-guided-demo-transcript.md)**
 
-The walkthrough uses only the offline synthetic learning workspace. It shows
+The v0.9.5 walkthrough remains a short tour of the core workflow. It uses only
+the offline synthetic learning workspace and shows
 the Pursuit Brief, scientific notebook, contradiction and gap handling, local
 document preview, the Investigation Constellation, relationship graph,
 deterministic reporting, sanitized configuration, responsive layout, and the
 Default Analyst, Sherlock Holmes, and Neuromancer modes. No credential, model
 request, provider account, or live indicator is used.
 
-![Current Pivotglass Pursuit Brief](docs/media/pivotglass-cockpit-v0.9.5.png)
+![Current Pivotglass Pursuit Brief](docs/media/pivotglass-cockpit-v0.9.6.png)
 
 ## The investigation model
 
@@ -106,14 +117,14 @@ Pivotglass requires Python 3.12 or newer. The shortest source installation uses
 [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone --branch v0.9.5 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v0.9.6 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent --frozen
 uv run ap --version
 uv run ap
 ```
 
-`uv run ap --version` should report `adversary-pursuit 0.9.5`. Pivotglass opens
+`uv run ap --version` should report `adversary-pursuit 0.9.6`. Pivotglass opens
 at `http://127.0.0.1:8765` and listens only on the local computer by default.
 The committed release already contains the built web interface; Node.js is
 required only when changing that interface.
@@ -166,7 +177,7 @@ the full dimension question and evidence count. One Tab enters the grid;
 arrow keys move between pegs, and a pinned peg stays visibly marked. Enrichment Activity retains
 its three-channel RGB blocks for indicator enrichment jobs.
 
-![Compact Investigation Constellation with chart-selection guidance](docs/media/pivotglass-visualize-v0.9.5.png)
+![Theme-aware Investigation Constellation with chart-selection guidance](docs/media/pivotglass-visualize-v0.9.6.png)
 
 ### Visual Analysis and relationship graph
 
@@ -174,7 +185,8 @@ Visual Analysis begins with an analyst question. A compact question selector
 chooses the evidence view that fits
 the stored data. Current views include evidence composition, Dossier radar,
 UTC activity calendar, enrichment activity, the Constellation, a
-force-directed relationship graph, connection-count distribution, a PCA view
+force-directed relationship graph, chronological analyst pivot trail,
+connection-count distribution, a PCA view
 of similarity among indicator evidence-coverage profiles, and an Analysis of
 Competing Hypotheses matrix. A collapsible investigation hierarchy preserves
 the path from workspace to investigation, question, hypothesis, and other
@@ -236,6 +248,26 @@ Use `graph export <json|csv|gexf> [all|entity|epistemic|bridge]` to download the
 governed multi-layer graph. Each edge retains its layer, truth class,
 provenance references, rationale, and direction; bridge-only exports include
 both endpoint layers so the exported edges remain usable.
+
+In v0.9.6, `graph layers` also includes stored document occurrences,
+exact-span document candidates, conservative bridges to separately admitted
+entities with the same normalized value, and navigation-only pivot edges.
+Those edge classes are labeled separately: a pivot is workflow history, not a
+claim that two threat entities are operationally related. Use `timeline pivots`
+or select **Chronological trail** in Visual Analysis to reconstruct the path.
+
+![Chronological analyst pivot trail](docs/media/pivotglass-pivot-timeline-v0.9.6.png)
+
+### Document intake and library
+
+Open **Visualize**, expand **Document intake & library**, choose a supported
+local file, and select **Preview locally**. Preview is non-persistent. After
+reviewing the parser output and exact-span candidates, select **Ingest into
+workspace**. The visible receipt and persistent library make that state change
+unambiguous. Ingestion preserves source bytes and provenance; it does not make
+the document's claims true or automatically admit its candidates as entities.
+
+![Explicit document admission and persistent library](docs/media/pivotglass-document-library-v0.9.6.png)
 
 ![Pivotglass relationship graph](docs/media/pivotglass-graph-v0.9.5.png)
 
@@ -404,7 +436,8 @@ dependencies and integrity hashes are committed. See the
 - [Failure and recovery](docs/FAILURE_RECOVERY.md) — truthful failure states, preserved evidence, and safe next actions
 - [Support](SUPPORT.md) — supported versions, safe issue reporting, and security-route status
 - [Release trust](docs/RELEASE_TRUST.md) — SBOM, licenses, checksums, signing, and public readback
-- [v0.9.5 release handoff](docs/RELEASE_HANDOFF_V0.9.5.md) — candidate receipts, boundaries, and remaining owner gates
+- [v0.9.6 release record](docs/RELEASE_HANDOFF_V0.9.6.md) — verification receipts, capability boundaries, and publication readback
+- [v0.9.6 quality record](docs/QA_V0.9.6.md) — automated, browser, accessibility, and security gates
 - [User Guide](docs/USER_GUIDE.md) — complete task and command reference
 - [Documentation index](docs/README.md) — current guides, design notes, QA, and historical plans
 - [Procedural music](docs/PROCEDURAL_MUSIC.md) — composition and safety boundary

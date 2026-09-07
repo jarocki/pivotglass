@@ -50,6 +50,10 @@ from adversary_pursuit.core.document_entity_extraction import (
     extract_entity_candidates,
 )
 from adversary_pursuit.core.document_ingestion import DocumentIntakeService, DocumentLimits
+from adversary_pursuit.core.document_library import (
+    DocumentLibraryService,
+    PivotTrailAuthority,
+)
 from adversary_pursuit.core.error_interpreter import DEBUG_LOG_PATH
 from adversary_pursuit.core.evidence_cluster_history import EvidenceClusterHistory
 from adversary_pursuit.core.evidence_clusters import build_evidence_clusters
@@ -253,6 +257,8 @@ class WebCockpitService:
         analysis["enrichment_queue"] = ledger.enrichment_requests()
         analysis["information_requirements"] = build_information_requirements(analysis)
         analysis["rigor"] = build_analytic_rigor(analysis)
+        pivot_trail = PivotTrailAuthority(self.ctx.workspace_mgr).list()
+        analysis["pivot_trail"] = pivot_trail
         visualization_analysis = {
             **analysis,
             "observations": self.ctx.workspace_mgr.get_observations(),
@@ -311,6 +317,11 @@ class WebCockpitService:
                 }
                 for layout in graph_layouts
             ],
+            "documents": [
+                item.model_dump(mode="json")
+                for item in DocumentLibraryService(self.ctx.workspace_mgr).list()
+            ],
+            "pivot_trail": pivot_trail,
             "analysis": analysis,
             "pursuit_brief": pursuit_brief,
             "frameworks": {
@@ -470,6 +481,69 @@ class WebCockpitService:
             },
         }
 
+    @staticmethod
+    def _document_bytes(payload: dict[str, Any]) -> tuple[bytes, DocumentLimits]:
+        encoded = payload.get("content_base64")
+        if not isinstance(encoded, str) or not encoded:
+            raise ValueError("document content is required")
+        limits = DocumentLimits(max_output_chars=100_000)
+        maximum_encoded_length = ((limits.max_bytes + 2) // 3) * 4
+        if len(encoded) > maximum_encoded_length:
+            raise ValueError("document content exceeds the configured ingestion limit")
+        try:
+            return base64.b64decode(encoded, validate=True), limits
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError("document content is not valid base64") from exc
+
+    def ingest_document(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Persist bytes only after an explicit preview-bound analyst action."""
+
+        data, _limits = self._document_bytes(payload)
+        expected_sha256 = str(payload.get("expected_sha256", "")).strip().casefold()
+        operator = str(payload.get("operator", "local analyst")).strip()
+        receipt = DocumentLibraryService(self.ctx.workspace_mgr).ingest_bytes(
+            data,
+            filename=str(payload.get("filename") or "document.bin"),
+            operator=operator,
+            expected_sha256=expected_sha256,
+            supplied_media_type=(
+                str(payload["media_type"]) if payload.get("media_type") else None
+            ),
+        )
+        return {
+            "admitted": True,
+            "receipt": receipt.model_dump(mode="json"),
+            "library": [
+                item.model_dump(mode="json")
+                for item in DocumentLibraryService(self.ctx.workspace_mgr).list()
+            ],
+        }
+
+    def document_library(self) -> dict[str, Any]:
+        return {
+            "workspace": self.ctx.workspace_mgr.active,
+            "documents": [
+                item.model_dump(mode="json")
+                for item in DocumentLibraryService(self.ctx.workspace_mgr).list()
+            ],
+            "truth_boundary": (
+                "Library entries prove which source bytes were stored and how they were "
+                "parsed; extracted candidates are not automatically admitted as threat facts."
+            ),
+        }
+
+    def document_detail(self, occurrence_id: str) -> dict[str, Any]:
+        return DocumentLibraryService(self.ctx.workspace_mgr).detail(occurrence_id)
+
+    def pivot_trail(self) -> dict[str, Any]:
+        return {
+            "workspace": self.ctx.workspace_mgr.active,
+            "events": PivotTrailAuthority(self.ctx.workspace_mgr).list(),
+            "truth_boundary": (
+                "The pivot trail records analyst workflow, not adversary relationships."
+            ),
+        }
+
     def command_catalog(self) -> list[dict[str, str]]:
         """Return the shared analyst command surface exposed by Pivotglass."""
         return [
@@ -533,6 +607,10 @@ class WebCockpitService:
             },
             {"command": "dossier", "purpose": "Show dossier details and intelligence gaps"},
             {"command": "timeline", "purpose": "Show the ordered collection timeline"},
+            {
+                "command": "timeline pivots",
+                "purpose": "Show how the analyst moved among documents, indicators, and entities",
+            },
             {"command": "note <text>", "purpose": "Save an analyst annotation"},
             {"command": "report", "purpose": "Generate the evidence-grounded Markdown report"},
             {
@@ -971,6 +1049,14 @@ class WebCockpitService:
             summary, *_ = execute_tool(self.ctx, "get_dossier_state", {})
             return {"kind": "json", "title": "Dossier and intelligence gaps", "data": summary}
         if command == "timeline":
+            if rest.casefold() in {"pivot", "pivots"}:
+                return {
+                    "kind": "json",
+                    "title": "Pivot timeline",
+                    "data": PivotTrailAuthority(self.ctx.workspace_mgr).list(),
+                }
+            if rest:
+                raise ValueError("usage: timeline [pivots]")
             return {
                 "kind": "json",
                 "title": "Collection timeline",
@@ -1208,6 +1294,7 @@ class WebCockpitService:
         origin_request_id: str | None = None,
     ) -> dict[str, Any]:
         """Start an investigation and return immediately with a resumable cursor."""
+        PivotTrailAuthority(self.ctx.workspace_mgr).record_indicator(target)
         target_type, tools = self.plan(target)
         record = self.investigations.create(target, target_type)
         self.investigations.append(
@@ -1730,6 +1817,21 @@ def _handler(
             if parsed.path == "/api/state":
                 self._json(service.state())
                 return
+            if parsed.path == "/api/documents":
+                self._json(service.document_library())
+                return
+            if parsed.path.startswith("/api/documents/"):
+                try:
+                    occurrence_id = parsed.path.removeprefix("/api/documents/").strip()
+                    if not occurrence_id:
+                        raise ValueError("document reference is required")
+                    self._json(service.document_detail(occurrence_id))
+                except ValueError as exc:
+                    self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
+                return
+            if parsed.path == "/api/pivots":
+                self._json(service.pivot_trail())
+                return
             if parsed.path == "/api/graph-layouts":
                 name = parse_qs(parsed.query).get("name", [""])[0].strip()
                 try:
@@ -1832,6 +1934,7 @@ def _handler(
                     "/api/graph-layouts",
                     "/api/graph-annotations",
                     "/api/documents/preview",
+                    "/api/documents/ingest",
                     "/api/integrations/scot/pivot-request",
                 }
                 and not is_cancel
@@ -1859,7 +1962,9 @@ def _handler(
                     raise ValueError("invalid Content-Length")
                 length = int(content_length)
                 request_limit = (
-                    14 * 1024 * 1024 if parsed.path == "/api/documents/preview" else 16_384
+                    14 * 1024 * 1024
+                    if parsed.path in {"/api/documents/preview", "/api/documents/ingest"}
+                    else 16_384
                 )
                 if length > request_limit:
                     raise ValueError("request too large")
@@ -1897,6 +2002,9 @@ def _handler(
                     return
                 if parsed.path == "/api/documents/preview":
                     self._json(service.preview_document(payload))
+                    return
+                if parsed.path == "/api/documents/ingest":
+                    self._json(service.ingest_document(payload), HTTPStatus.CREATED)
                     return
                 if parsed.path == "/api/mode":
                     name = str(payload.get("name", "")).strip()

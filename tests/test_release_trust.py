@@ -28,8 +28,8 @@ def _artifact(path: Path, content: bytes) -> Path:
 
 
 def test_release_trust_bundle_covers_both_exact_lockfiles(tmp_path: Path) -> None:
-    wheel = _artifact(tmp_path / "adversary_pursuit-0.9.5-py3-none-any.whl", b"wheel")
-    source = _artifact(tmp_path / "adversary_pursuit-0.9.5.tar.gz", b"source")
+    wheel = _artifact(tmp_path / "adversary_pursuit-0.9.6-py3-none-any.whl", b"wheel")
+    source = _artifact(tmp_path / "adversary_pursuit-0.9.6.tar.gz", b"source")
     output = tmp_path / "trust"
 
     receipt = generate(
@@ -39,7 +39,7 @@ def test_release_trust_bundle_covers_both_exact_lockfiles(tmp_path: Path) -> Non
         timestamp=TIMESTAMP,
     )
 
-    assert receipt["version"] == "0.9.5"
+    assert receipt["version"] == "0.9.6"
     assert receipt["python_components"] == 77
     assert receipt["node_components"] == 63
     assert receipt["total_components"] == 140
@@ -57,7 +57,7 @@ def test_release_trust_bundle_covers_both_exact_lockfiles(tmp_path: Path) -> Non
     assert sbom["bomFormat"] == "CycloneDX"
     assert sbom["specVersion"] == "1.5"
     assert sbom["metadata"]["timestamp"] == TIMESTAMP
-    assert sbom["metadata"]["component"]["version"] == "0.9.5"
+    assert sbom["metadata"]["component"]["version"] == "0.9.6"
     assert len(sbom["components"]) == 140
     properties = {item["name"]: item["value"] for item in sbom["metadata"]["properties"]}
     assert "wheel metadata uses compatible version ranges" in properties[

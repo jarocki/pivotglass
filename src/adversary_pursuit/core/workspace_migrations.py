@@ -50,13 +50,14 @@ from adversary_pursuit.models.database import (
     GraphPresentationLayout,
     IntegrationExecution,
     InvestigationQuestion,
+    PivotTrailEvent,
     Relationship,
     ScoreEvent,
     StixObject,
     WorkspaceSchemaVersion,
 )
 
-CURRENT_WORKSPACE_SCHEMA_VERSION = 11
+CURRENT_WORKSPACE_SCHEMA_VERSION = 12
 LEGACY_WORKSPACE_SCHEMA_VERSION = 1
 _VERSION_ROW_ID = 1
 
@@ -173,7 +174,8 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     step adds exact-span entity candidates, extraction receipts, and
     presentation-only evidence-cluster snapshots. The v10 -> v11 step adds
     immutable span-grounded analysis proposals and append-only human
-    dispositions.
+    dispositions. The v11 -> v12 step adds an append-only analyst pivot trail;
+    those workflow links remain distinct from observed threat relationships.
     """
 
     tables = set(inspect(engine).get_table_names())
@@ -226,6 +228,9 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     if current == 10:  # noqa: PLR2004
         _migrate_v10_to_v11(engine)
         current = 11
+    if current == 11:  # noqa: PLR2004
+        _migrate_v11_to_v12(engine)
+        current = 12
 
     if current != CURRENT_WORKSPACE_SCHEMA_VERSION:
         raise RuntimeError(
@@ -269,6 +274,7 @@ def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
         8,
         9,
         10,
+        11,
     }
     steps = ["create sibling backup"]
     if current == LEGACY_WORKSPACE_SCHEMA_VERSION:
@@ -345,6 +351,13 @@ def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
                 "add immutable span-grounded entity, relationship, and behavior proposals",
                 "add append-only human proposal dispositions",
                 "write schema-version 11 receipt",
+            )
+        )
+    if current <= 11:  # noqa: PLR2004
+        steps.extend(
+            (
+                "add append-only analyst pivot trail records",
+                "write schema-version 12 receipt",
             )
         )
     return MigrationPlan(
@@ -804,6 +817,19 @@ def _migrate_v10_to_v11(engine: Engine) -> None:
         if row is None:
             raise RuntimeError("Schema v10 workspace is missing its version receipt.")
         row.version = 11
+        row.migrated_at = datetime.now(timezone.utc)
+        session.commit()
+
+
+def _migrate_v11_to_v12(engine: Engine) -> None:
+    """Add workflow pivot history without changing evidence or relationships."""
+
+    PivotTrailEvent.__table__.create(engine, checkfirst=True)
+    with Session(engine) as session:
+        row = session.get(WorkspaceSchemaVersion, _VERSION_ROW_ID)
+        if row is None:
+            raise RuntimeError("Schema v11 workspace is missing its version receipt.")
+        row.version = 12
         row.migrated_at = datetime.now(timezone.utc)
         session.commit()
 

@@ -51,7 +51,7 @@ must contain only the final candidate output; do not reuse a historical
 `dist/` directory.
 
 ```bash
-PIVOTGLASS_VERSION=0.9.5
+PIVOTGLASS_VERSION=0.9.6
 PIVOTGLASS_BUNDLE="$(mktemp -d)"
 
 uv lock --check
@@ -131,7 +131,7 @@ is not a completed release.
 
 ## Current boundary
 
-The v0.9.5 source tree contains the generator, deterministic tests, support
+The v0.9.6 source tree contains the generator, deterministic tests, support
 guidance, and this manual ceremony because release workflows are intentionally
 kept out of the public repository. The final signature and public readback can
 exist only after the immutable candidate is approved and published. Until then,

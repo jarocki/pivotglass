@@ -5,7 +5,7 @@ must keep omitted evidence stored and exportable. A fast benchmark on one
 computer is not a universal promise, so this guide separates enforced limits,
 qualified release sizes, measured examples, and work that remains unqualified.
 
-## Qualified v0.9.5 local envelope
+## Qualified v0.9.6 local envelope
 
 The stable local cockpit is qualified for:
 
@@ -20,8 +20,8 @@ The stable local cockpit is qualified for:
 - a force-layout canvas showing **48 filtered entities at a time**, while the
   bounded inventory, exact-data view, and complete graph export remain
   available;
-- one explicitly selected local document up to **10 MiB** through the v0.9.5
-  preview path.
+- one explicitly selected local document up to **10 MiB** through the v0.9.6
+  preview-and-admit path.
 
 Larger workspaces are not deleted or rewritten. The relationship view keeps up
 to 1,000 of the most connected entities and prioritizes analyst judgments,
@@ -93,7 +93,7 @@ These measurements are evidence about one run, not a latency service-level
 agreement. Disk speed, Python build, browser, graph density, annotations,
 observation count, and concurrent enrichment change the result.
 
-## Not qualified in v0.9.5
+## Not qualified in v0.9.6
 
 - batch document admission and aggregate batch memory;
 - interactive graph rendering beyond the bounded 1,000-node intent or 48-node
@@ -106,5 +106,5 @@ observation count, and concurrent enrichment change the result.
 Cancellation is cooperative: Pivotglass acknowledges the request immediately,
 lets the active enrichment return safely, then cancels remaining work. Its
 worst-case time therefore depends on the active provider's timeout. A bounded
-interruptible provider contract is a v1.0 gate; v0.9.5 does not advertise a
+interruptible provider contract is a v1.0 gate; v0.9.6 does not advertise a
 fixed cancellation latency.

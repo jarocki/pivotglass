@@ -103,6 +103,7 @@ from adversary_pursuit.models.database import (
     InvestigationQuestion,
     LikelihoodAssessment,
     ModuleRun,
+    PivotTrailEvent,
     ScoreEvent,
     StixObject,
 )
@@ -118,6 +119,7 @@ from adversary_pursuit.models.stix import dict_to_stix
 # openable database. Framework-mapping and external-integration execution
 # receipts retain their pre-existing lifecycle pending a separate owner decision.
 _WORKSPACE_DATA_MODELS: tuple[tuple[str, type], ...] = (
+    ("pivot_trail_events", PivotTrailEvent),
     ("document_proposal_dispositions", DocumentProposalDisposition),
     ("document_analysis_proposals", DocumentAnalysisProposal),
     ("document_entity_candidates", DocumentEntityCandidate),

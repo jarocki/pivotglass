@@ -20,7 +20,7 @@ interface.
 - [Failure and recovery](FAILURE_RECOVERY.md) — provider loss, cancellation, migrations, stale assets, hostile input, and integration outages
 - [Support](../SUPPORT.md) — supported-version boundary, safe issue reporting, and the open private security-route gate
 - [Release trust](RELEASE_TRUST.md) — SBOM, licenses, checksums, signing, publication, and public readback
-- [Guided video](media/pivotglass-guided-demo-v0.9.5.mp4) — current two-minute v0.9.5 walkthrough
+- [Guided video](media/pivotglass-guided-demo-v0.9.5.mp4) — two-minute core-workflow tour from v0.9.5
 - [Guided-video captions](media/pivotglass-guided-demo-v0.9.5.vtt) — English WebVTT captions
 - [Video transcript](media/pivotglass-guided-demo-transcript.md) — accessible narration text
 
@@ -28,14 +28,16 @@ interface.
 
 - [Procedural music](PROCEDURAL_MUSIC.md) — composition, playback, and evidence boundary
 - [Web supply chain](WEB_SUPPLY_CHAIN.md) — dependency integrity and release checks
-- [v0.9.5 quality record](QA_V0.9.5.md) — current release verification
+- [v0.9.6 quality record](QA_V0.9.6.md) — current release verification
+- [v0.9.5 quality record](QA_V0.9.5.md) — prior release verification
 - [v0.9.4 quality record](QA_V0.9.4.md) — prior release verification
 - [v0.9.3 quality record](QA_V0.9.3.md) — prior release verification
 - [v0.9.2 quality record](QA_V0.9.2.md) — prior release verification
 - [v0.9.1 quality record](QA_V0.9.1.md) — prior release verification
 - [v0.9.0 quality record](QA_V0.9.0.md) — prior release verification
 - [Release discipline](RELEASING.md) — version, changelog, verification, tag, and publication contract
-- [v0.9.5 release record](RELEASE_HANDOFF_V0.9.5.md) — final receipts, boundaries, artifacts, and public readback
+- [v0.9.6 release record](RELEASE_HANDOFF_V0.9.6.md) — final receipts, boundaries, artifacts, and public readback
+- [v0.9.5 release record](RELEASE_HANDOFF_V0.9.5.md) — prior release receipts and boundaries
 - [v0.8.5 quality record](QA_V0.8.5.md) — prior release verification
 - [v0.8.0 quality record](QA_V0.8.0.md) — prior release verification
 - [v0.8.5 UX redesign catalog](UX_V0.8.5.md) — clarity, workflow, and accessibility direction

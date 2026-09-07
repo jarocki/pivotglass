@@ -68,8 +68,7 @@ cannot hold evidence or relationships. The backup is named
 The v8-to-v9 upgrade adds content, occurrence, and parser-receipt tables for
 governed document intake. It does not extract entities, create relationships,
 or alter existing evidence. Original bytes use a separate content-addressed
-store when an analyst explicitly admits a document; the v0.9.5 browser path is
-preview-only and creates none of these records. The backup is named
+store when an analyst explicitly admits a document. The backup is named
 `NAME.db.pre-v8-backup` when this is the first step required.
 
 The v9-to-v10 upgrade adds deterministic extraction receipts, exact-span
@@ -86,6 +85,12 @@ provider/model identifiers and prompt/response hashes, not raw prompts or
 responses. An accepted disposition still does not materialize an entity,
 relationship, framework mapping, or publication. The backup is named
 `NAME.db.pre-v10-backup` when this is the first step required.
+
+The v11-to-v12 upgrade adds the append-only `pivot_trail_events` table. These
+records explain how an analyst navigated among documents, indicators, and
+entities. They are workflow provenance, not observed threat relationships, and
+do not alter any evidence record. The backup is named
+`NAME.db.pre-v11-backup` when this is the first step required.
 
 ## Recovery
 
@@ -117,10 +122,10 @@ workspace and exported its investigation record.
   artifacts and remain under explicit operator control.
 - Portable JSON exports include scientific lifecycle roots, links,
   framework mapping records, secret-safe integration execution receipts, and
-  presentation-only graph layouts; model proposals retain their pending
-  analyst disposition. Document bytes and document-receipt tables are not yet
-  portable in v0.9.5, so persistent document admission remains an internal
-  foundation rather than a supported browser action.
+  presentation-only graph layouts, document metadata and receipts, exact-span
+  candidates, and pivot history; model proposals retain their pending analyst
+  disposition. Raw document bytes remain in the sibling content store and are
+  hash-verified when workspaces are merged; they are not embedded in JSON.
 
 Migration support is forward-only. Downgrading an upgraded workspace in place
 is not supported; use the preserved backup with the older release instead.

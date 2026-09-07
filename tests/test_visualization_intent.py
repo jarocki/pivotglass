@@ -24,6 +24,7 @@ from adversary_pursuit.core.visualization import (
     evidence_composition_intent,
     indicator_constellation_intent,
     indicator_coverage_pca_intent,
+    pivot_trail_intent,
     recorded_uncertainty_intent,
     relationship_degree_distribution_intent,
     relationship_graph_intent,
@@ -148,6 +149,31 @@ def test_task_matrix_keeps_one_latest_lifecycle_per_indicator_enrichment():
     assert intent.data.rows[0]["enrichment"] == "virustotal_lookup"
     assert intent.data.rows[0]["status"] == "succeeded"
     assert intent.data.rows[0]["event_sequence"] == 2
+
+
+def test_pivot_trail_is_chronological_and_explicitly_non_evidentiary():
+    intent = pivot_trail_intent(
+        "default",
+        [
+            {
+                "id": "pivot-1",
+                "created_at": "2026-09-07T01:00:00+00:00",
+                "from_kind": None,
+                "from_ref": None,
+                "from_label": None,
+                "to_kind": "document",
+                "to_ref": "document-1",
+                "to_label": "report.txt",
+                "action": "document_ingested",
+                "basis": "Explicit admission.",
+                "created_by": "human",
+            }
+        ],
+    )
+
+    assert intent.view == VisualizationView.TIMELINE
+    assert intent.data.rows[0]["from_label"] == "Investigation start"
+    assert "workflow" in intent.caveats[-1]
 
 
 def test_indicator_constellation_is_persistent_newest_first_and_relation_aware():

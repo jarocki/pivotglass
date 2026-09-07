@@ -1511,6 +1511,7 @@ class TestWorkspaceStatusHelpers:
             "badge_events",
             "hunt_challenges",
             "graph_presentation_layouts",
+            "pivot_trail_events",
         }
         assert set(counts.keys()) == expected_keys
         # Fresh workspace: all counts are zero

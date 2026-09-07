@@ -14,10 +14,16 @@ from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 
 from adversary_pursuit.core.analytic_ledger import AnalyticLedger
 from adversary_pursuit.core.framework_projections import FrameworkProjectionAuthority
 from adversary_pursuit.core.graph import RelationshipGraph, persisted_relationships
+from adversary_pursuit.models.database import (
+    DocumentEntityCandidate,
+    DocumentOccurrence,
+    PivotTrailEvent,
+)
 
 
 class GraphLayer(StrEnum):
@@ -84,6 +90,28 @@ def build_investigation_graph(workspace_manager: Any) -> InvestigationGraphProje
     observations = workspace_manager.get_observations()
     analysis = AnalyticLedger(workspace_manager).snapshot()
     mappings = FrameworkProjectionAuthority(workspace_manager).list()
+    with workspace_manager.get_session() as session:
+        document_occurrences = list(
+            session.execute(
+                select(DocumentOccurrence).order_by(
+                    DocumentOccurrence.acquired_at, DocumentOccurrence.id
+                )
+            ).scalars()
+        )
+        document_candidates = list(
+            session.execute(
+                select(DocumentEntityCandidate).order_by(
+                    DocumentEntityCandidate.created_at, DocumentEntityCandidate.id
+                )
+            ).scalars()
+        )
+        pivot_events = list(
+            session.execute(
+                select(PivotTrailEvent).order_by(
+                    PivotTrailEvent.created_at, PivotTrailEvent.id
+                )
+            ).scalars()
+        )
 
     nodes: dict[str, InvestigationGraphNode] = {}
     edges: dict[str, InvestigationGraphEdge] = {}
@@ -107,6 +135,127 @@ def build_investigation_graph(workspace_manager: Any) -> InvestigationGraphProje
             ),
             record_ref=record_ref,
             attributes={"source_module": item.get("x_ap_source_module")},
+        )
+
+    entity_by_type_value: dict[tuple[str, str], str] = {}
+    for item in objects:
+        record_ref = str(item.get("id", ""))
+        if not record_ref:
+            continue
+        entity_type = str(item.get("type", "unknown"))
+        value = str(item.get("value", item.get("x_indicator_value", "")))
+        if value:
+            entity_by_type_value[(entity_type, value.casefold())] = record_ref
+
+    for occurrence in document_occurrences:
+        node_id = _epistemic_node_id("document", occurrence.id)
+        nodes[node_id] = InvestigationGraphNode(
+            id=node_id,
+            layer=GraphLayer.EPISTEMIC,
+            kind="document",
+            label=occurrence.filename,
+            record_ref=occurrence.id,
+            state=occurrence.lifecycle_state,
+            attributes={
+                "source_kind": occurrence.source_kind,
+                "media_type": occurrence.detected_media_type,
+                "acquired_at": occurrence.acquired_at.isoformat(),
+                "truth_kind": "source-content",
+            },
+        )
+
+    for candidate in document_candidates:
+        candidate_node = _epistemic_node_id("document_candidate", candidate.id)
+        nodes[candidate_node] = InvestigationGraphNode(
+            id=candidate_node,
+            layer=GraphLayer.EPISTEMIC,
+            kind="document_candidate",
+            label=candidate.normalized_value,
+            record_ref=candidate.id,
+            state=candidate.state,
+            attributes={
+                "entity_type": candidate.entity_type,
+                "line": candidate.start_line,
+                "column": candidate.start_column,
+                "rule_id": candidate.rule_id,
+                "truth_kind": "deterministic-text-candidate",
+            },
+        )
+        document_node = _epistemic_node_id("document", candidate.occurrence_id)
+        if document_node in nodes:
+            _put_edge(
+                edges,
+                layer=GraphLayer.EPISTEMIC,
+                source=document_node,
+                target=candidate_node,
+                relationship="contains-candidate",
+                truth_kind=GraphTruthKind.STRUCTURAL,
+                provenance_refs=(candidate.parser_receipt_id, candidate.id),
+                rationale=(
+                    "Exact-span deterministic extraction from stored parser output; "
+                    "the candidate is not admitted threat evidence."
+                ),
+            )
+        candidate_type = (
+            "file" if candidate.entity_type.startswith("file-hash-") else candidate.entity_type
+        )
+        admitted_ref = entity_by_type_value.get(
+            (candidate_type, candidate.normalized_value.casefold())
+        )
+        admitted_node = _entity_node_id(admitted_ref) if admitted_ref else ""
+        if admitted_node in nodes:
+            _put_edge(
+                edges,
+                layer=GraphLayer.BRIDGE,
+                source=candidate_node,
+                target=admitted_node,
+                relationship="matches-admitted-entity",
+                truth_kind=GraphTruthKind.STRUCTURAL,
+                provenance_refs=(candidate.id, admitted_ref),
+                rationale=(
+                    "The normalized candidate value and type match an independently "
+                    "admitted entity; this link does not validate the document's claim."
+                ),
+            )
+
+    def pivot_node(kind: str | None, record_ref: str | None, label: str | None) -> str:
+        if not kind or not record_ref:
+            return ""
+        if kind == "indicator" and _entity_node_id(record_ref) in nodes:
+            return _entity_node_id(record_ref)
+        if kind == "document" and _epistemic_node_id("document", record_ref) in nodes:
+            return _epistemic_node_id("document", record_ref)
+        node_id = _epistemic_node_id("pivot_target", record_ref)
+        nodes.setdefault(
+            node_id,
+            InvestigationGraphNode(
+                id=node_id,
+                layer=GraphLayer.EPISTEMIC,
+                kind=f"pivot_{kind}",
+                label=label or record_ref,
+                record_ref=record_ref,
+                state="workflow",
+                attributes={"truth_kind": "analyst-navigation"},
+            ),
+        )
+        return node_id
+
+    for event in pivot_events:
+        source = pivot_node(event.from_kind, event.from_ref, event.from_label)
+        target = pivot_node(event.to_kind, event.to_ref, event.to_label)
+        if not source or not target or source == target:
+            continue
+        _put_edge(
+            edges,
+            layer=GraphLayer.EPISTEMIC,
+            source=source,
+            target=target,
+            relationship="pivoted-to",
+            truth_kind=GraphTruthKind.DERIVED_NAVIGATION,
+            provenance_refs=(event.id, *tuple(event.provenance_refs or ())),
+            rationale=(
+                f"{event.basis} Workflow navigation is not a threat relationship."
+            ),
         )
 
     explicit_keys: set[tuple[str, str, str]] = set()
@@ -428,6 +577,7 @@ def build_investigation_graph(workspace_manager: Any) -> InvestigationGraphProje
         counts={"nodes": node_counts, "edges": edge_counts},
         caveats=(
             "Derived navigation edges are typed pivots, not observed relationships.",
+            "Document candidates remain text-extraction candidates until separately admitted.",
             "Moving or filtering a node changes presentation only, never evidence.",
             "No model-generated edge is authoritative without analyst disposition.",
         ),

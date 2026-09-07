@@ -463,6 +463,21 @@ def dispatch_repl_verb(
     if name == "timeline":
         if _workspace_mgr is None:
             return "Workspace unavailable."
+        if verb.args and verb.args[0].casefold() in {"pivot", "pivots"}:
+            if len(verb.args) != 1:
+                return "Usage: timeline [pivots]"
+            from adversary_pursuit.core.document_library import PivotTrailAuthority
+
+            events = PivotTrailAuthority(_workspace_mgr).list()
+            if not events:
+                return "No analyst pivots in the active workspace."
+            return "\n".join(
+                f"{event['created_at']} · {event.get('from_label') or 'START'} → "
+                f"{event['to_label']} · {event['action']}"
+                for event in events
+            )
+        if verb.args:
+            return "Usage: timeline [pivots]"
         runs = _workspace_mgr.get_module_runs()
         if not runs:
             return "No collection events in the active workspace."

@@ -10,7 +10,8 @@ export type VisualizationView =
   | "task_matrix"
   | "line"
   | "bar"
-  | "uncertainty_intervals";
+  | "uncertainty_intervals"
+  | "timeline";
 
 export type VisualizationRow = Record<string, unknown>;
 

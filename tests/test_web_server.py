@@ -242,6 +242,33 @@ def test_document_preview_endpoint_is_local_bounded_and_non_mutating(tmp_path):
     assert service.ctx.workspace_mgr.get_workspace_table_counts()["document_occurrences"] == 0
 
 
+def test_document_ingestion_requires_preview_hash_and_populates_library(tmp_path):
+    service = _service(tmp_path)
+    data = b"Observed 198.51.100.81 in source reporting."
+    encoded = base64.b64encode(data).decode()
+    preview = service.preview_document(
+        {"filename": "report.txt", "content_base64": encoded}
+    )
+
+    admitted = service.ingest_document(
+        {
+            "filename": "report.txt",
+            "content_base64": encoded,
+            "expected_sha256": preview["content_sha256"],
+            "operator": "analyst",
+        }
+    )
+
+    assert admitted["admitted"] is True
+    assert admitted["receipt"]["candidate_count"] == 1
+    assert admitted["library"][0]["filename"] == "report.txt"
+    assert "output_text" not in admitted["library"][0]
+    state = service.state()
+    assert state["documents"][0]["filename"] == "report.txt"
+    assert state["pivot_trail"][0]["action"] == "document_ingested"
+    assert any(item["intent_id"] == "pivot-trail" for item in state["visualizations"])
+
+
 @pytest.mark.parametrize("filename", ["deep.json", "deep.jsonl"])
 def test_document_preview_endpoint_bounds_deep_json_and_remains_available(
     tmp_path, filename
@@ -371,8 +398,9 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
         "which_evidence_supports_or_contradicts_hypotheses",
         "which_evidence_types_are_stored",
         "which_entities_relate",
-        "which_indicator_enrichment_work_is_pending",
-    }
+            "which_indicator_enrichment_work_is_pending",
+            "how_did_the_analyst_reach_the_current_pivot",
+        }
     assert all(intent["schema_version"] == "1.0" for intent in state["visualizations"])
     assert state["analysis"]["information_requirements"]["policy"]["id"] == (
         "pivotglass-information-value-v1"
@@ -800,11 +828,31 @@ def test_web_command_router_accepts_iocs_commands_and_workspace_queries(tmp_path
         "graph",
         "dossier",
         "timeline",
+        "timeline pivots",
         "export <json|csv|stix|gexf>",
     }
     assert any(item["command"].startswith("framework show") for item in help_result["commands"])
     assert any(item["command"].startswith("framework require") for item in help_result["commands"])
     assert any(item["command"] == "framework gaps" for item in help_result["commands"])
+
+
+def test_web_pivot_timeline_command_is_workflow_history(tmp_path):
+    service = _service(tmp_path)
+    service.ctx.workspace_mgr.store_stix_objects(
+        [{"type": "domain-name", "value": "pivot.example"}],
+        module_name="osint/test",
+        target="pivot.example",
+    )
+    from adversary_pursuit.core.document_library import PivotTrailAuthority
+
+    PivotTrailAuthority(service.ctx.workspace_mgr).record_indicator("pivot.example")
+    result = service.execute_command("timeline pivots")
+
+    assert result["title"] == "Pivot timeline"
+    assert result["data"][0]["to_label"] == "pivot.example"
+    assert result["data"][0]["basis"].startswith("Explicit analyst")
+    with pytest.raises(ValueError, match=r"timeline \[pivots\]"):
+        service.execute_command("timeline evidence")
 
 
 def test_web_command_router_saves_linkable_notes_and_exports_csv(tmp_path):

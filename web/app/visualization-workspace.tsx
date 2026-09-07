@@ -58,6 +58,7 @@ const VISUALIZATION_VIEW_LABELS: Readonly<Record<VisualizationIntent["view"], st
   line: "Line chart",
   bar: "Bar chart",
   uncertainty_intervals: "Interval plot",
+  timeline: "Chronological trail",
 };
 
 function constellationStatusHelp(status: string): string {
@@ -307,6 +308,29 @@ function CalendarHeatmap({ intent }: { intent: VisualizationIntent }) {
   );
 }
 
+function PivotTrail({ intent }: { intent: VisualizationIntent }) {
+  if (!intent.data.rows.length) return <VisualizationEmpty intent={intent} />;
+  return (
+    <ol className="pivot-trail" aria-label="Chronological investigation pivot trail">
+      {intent.data.rows.map((row, index) => (
+        <li key={String(row.event_id ?? index)}>
+          <time>{displayValue(row.timestamp)}</time>
+          <div>
+            <small>{displayValue(row.from_kind).replaceAll("_", " ")}</small>
+            <b>{shortLabel(displayValue(row.from_label), 48)}</b>
+          </div>
+          <span aria-hidden="true">→</span>
+          <div>
+            <small>{displayValue(row.to_kind).replaceAll("_", " ")}</small>
+            <b>{shortLabel(displayValue(row.to_label), 48)}</b>
+          </div>
+          <p><strong>{displayValue(row.action).replaceAll("_", " ")}</strong> · {displayValue(row.basis)}</p>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 type HierarchyNode = {
   id: string;
   label: string;
@@ -455,6 +479,7 @@ export function TaskMatrix({
   liveRows?: VisualizationRow[];
 }) {
   const [selected, setSelected] = useState<VisualizationRow | null>(null);
+  const [hoverTip, setHoverTip] = useState<{ text: string; left: number; top: number } | null>(null);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [completenessFilter, setCompletenessFilter] = useState("all");
@@ -594,6 +619,14 @@ export function TaskMatrix({
     [columnField, mergedRows, rowIdField],
   );
   const activeCell = selected;
+  const showHoverTip = (event: React.PointerEvent<HTMLElement>, text: string) => {
+    const width = Math.min(360, Math.max(220, window.innerWidth - 24));
+    setHoverTip({
+      text,
+      left: Math.max(12, Math.min(event.clientX + 12, window.innerWidth - width - 12)),
+      top: Math.max(12, Math.min(event.clientY + 12, window.innerHeight - 104)),
+    });
+  };
 
   useEffect(() => {
     setGridFocus((current) => ({
@@ -750,6 +783,15 @@ export function TaskMatrix({
           </small>
         </div>
       )}
+      {hoverTip && (
+        <div
+          className="matrix-hover-tooltip"
+          role="tooltip"
+          style={{ left: hoverTip.left, top: hoverTip.top }}
+        >
+          {hoverTip.text}
+        </div>
+      )}
       <div
         className={`task-matrix-wrap ${isConstellation ? "constellation-matrix-wrap" : ""}`}
         ref={matrixWrap}
@@ -771,7 +813,8 @@ export function TaskMatrix({
                         type="button"
                         className="constellation-dimension-help"
                         aria-label={`${column.replaceAll("_", " ")}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."}`}
-                        data-tooltip={`${column.replaceAll("_", " ")}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."}`}
+                        onPointerEnter={(event) => showHoverTip(event, `${column.replaceAll("_", " ")}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."}`)}
+                        onPointerLeave={() => setHoverTip(null)}
                       >
                         {CONSTELLATION_COLUMN_LABELS[column] ?? column.slice(0, 3).toUpperCase()}
                       </button>
@@ -792,7 +835,8 @@ export function TaskMatrix({
                     {onOpenEvidence && row.reference
                       ? (
                         <button
-                          data-tooltip={`${label} · ${displayValue(row.indicator_type)} · ${displayValue(row.completeness_percent)}% mapped. Open source evidence and provenance.`}
+                          onPointerEnter={(event) => showHoverTip(event, `${label} · ${displayValue(row.indicator_type)} · ${displayValue(row.completeness_percent)}% mapped. Open source evidence and provenance.`)}
+                          onPointerLeave={() => setHoverTip(null)}
                           onClick={(event) => onOpenEvidence(String(row.reference), event.currentTarget)}
                         >
                           <b>{shortLabel(label, isConstellation ? 30 : 42)}</b>
@@ -824,7 +868,8 @@ export function TaskMatrix({
                       <td key={column}>
                         <button
                           className={`matrix-cell ${isConstellation ? "lite-brite-cell" : ""} state-${status} ${isSelected ? "selected" : ""}`}
-                          data-tooltip={cellHelp}
+                          onPointerEnter={(event) => showHoverTip(event, cellHelp)}
+                          onPointerLeave={() => setHoverTip(null)}
                           data-grid-row={rowIndex}
                           data-grid-column={columnIndex}
                           tabIndex={isConstellation
@@ -1992,6 +2037,8 @@ export function VisualizationWorkspace({
           ? <FlintCanvas intent={selected} theme={theme} />
           : selected.view === "calendar_heatmap"
             ? <CalendarHeatmap intent={selected} />
+            : selected.view === "timeline"
+              ? <PivotTrail intent={selected} />
             : selected.view === "task_matrix"
               ? <TaskMatrix intent={selected} onOpenEvidence={onOpenEvidence} />
               : selected.view === "dendrogram"

@@ -17,6 +17,7 @@ from adversary_pursuit.core.document_entity_extraction import (
 )
 from adversary_pursuit.core.document_ingestion import DocumentIntakeService
 from adversary_pursuit.core.workspace import WorkspaceManager
+from adversary_pursuit.core.workspace_migrations import CURRENT_WORKSPACE_SCHEMA_VERSION
 from adversary_pursuit.models.database import (
     DocumentAnalysisProposal,
     DocumentProposalDisposition,
@@ -222,5 +223,5 @@ def test_schema_v10_migrates_proposal_tables_backup_first(tmp_path) -> None:
     migrated.switch("proposals")
     tables = set(inspect(migrated._engine).get_table_names())
     assert {"document_analysis_proposals", "document_proposal_dispositions"} <= tables
-    assert migrated.get_workspace_schema_status()["to_version"] == 11
+    assert migrated.get_workspace_schema_status()["to_version"] == CURRENT_WORKSPACE_SCHEMA_VERSION
     assert (tmp_path / "proposals.db.pre-v10-backup").is_file()

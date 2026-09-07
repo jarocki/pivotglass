@@ -12,12 +12,12 @@ explicit commands or workflows.
 - Workspaces are SQLite databases beneath `~/.ap/workspaces/` by default.
 - Workspace migrations create a sibling pre-migration backup before the first
   schema change.
-- The v0.9.5 browser document path is temporary preview. It does not store the
-  selected file, parsed text, candidates, evidence, relationships, or model
-  prompts.
-- The internal document authority has a content-addressed `<workspace>.content`
-  store and database receipts. Persistent browser admission and portable
-  document-byte export remain deferred. Exact-confirmed `workspace clear` and
+- The v0.9.6 browser document path previews first and stores only after the
+  analyst selects **Ingest into workspace**. Preview alone stores nothing.
+- Explicit admission writes original bytes to the content-addressed
+  `<workspace>.content` store and writes occurrence, parser, extraction, and
+  candidate receipts to the workspace database. Ordinary browser state and
+  library polling never return the original bytes. Exact-confirmed `workspace clear` and
   `workspace delete` do remove any existing internal raw-document bytes and
   their managed database records.
 - Logs and browser diagnostics are sanitized, but an operator should still
@@ -63,12 +63,14 @@ Provider loss, cancellation, stale browser assets, hostile input, and
 integration outages do not authorize deletion or rewriting of local evidence.
 See the [failure and recovery guide](FAILURE_RECOVERY.md).
 
-## v0.9.5 document-lifecycle boundary
+## v0.9.6 document-lifecycle boundary
 
-Document-byte export and persistent browser admission are deliberately not
-exposed. The public intake UI remains preview-only, so selecting a document
-there creates no stored document state. Existing internal document state can be
-purged only through an explicit, confirmed workspace clear or delete; neither
-operation removes separately generated reports or migration backups. Persistent
-browser admission must add its own visible retention, export, and purge controls
-before it can be called stable.
+Persistent browser admission is explicit and produces a visible receipt.
+Selecting or previewing a file still creates no stored state. Admitted source
+bytes and their database records are purged only through an explicit, confirmed
+workspace clear or delete; neither operation removes separately generated
+reports or migration backups. Workspace merge verifies each content hash before
+copying original bytes. Portable JSON export contains document metadata,
+parser/extraction receipts, candidates, and pivot events, but not raw source
+bytes; preserve or merge the sibling content store when exact originals must
+move with the investigation.

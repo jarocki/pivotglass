@@ -7,7 +7,9 @@ files without weakening its deliberately small public contract.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import shutil
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -44,6 +46,15 @@ _EXPORT_TABLES = (
     "framework_mapping_records",
     "integration_executions",
     "graph_presentation_layouts",
+    "document_contents",
+    "document_occurrences",
+    "document_parser_receipts",
+    "document_extraction_receipts",
+    "document_entity_candidates",
+    "document_analysis_proposals",
+    "document_proposal_dispositions",
+    "evidence_cluster_snapshots",
+    "pivot_trail_events",
 )
 _JSON_COLUMNS = {
     "json_blob",
@@ -61,6 +72,18 @@ _JSON_COLUMNS = {
     "pinned_refs",
     "viewport",
     "labels",
+    "handling_labels",
+    "warnings",
+    "errors",
+    "skipped",
+    "limits",
+    "candidate_ids",
+    "source_spans",
+    "payload",
+    "framework_comparison",
+    "alternative_explanations",
+    "snapshot",
+    "provenance_refs",
 }
 _STRING_KEY_TABLES = (
     "stix_objects",
@@ -80,6 +103,15 @@ _STRING_KEY_TABLES = (
     "evidence_observation_dispositions",
     "hunt_challenges",
     "graph_presentation_layouts",
+    "document_contents",
+    "document_occurrences",
+    "document_parser_receipts",
+    "document_extraction_receipts",
+    "document_entity_candidates",
+    "document_analysis_proposals",
+    "document_proposal_dispositions",
+    "evidence_cluster_snapshots",
+    "pivot_trail_events",
 )
 
 
@@ -100,7 +132,7 @@ def export_workspace(manager: Any, name: str) -> dict[str, Any]:
     finally:
         engine.dispose()
     result: dict[str, Any] = {
-        "format": "pivotglass-workspace-v8",
+        "format": "pivotglass-workspace-v12",
         "workspace": name,
         "schema_version": schema_version,
         "tables": {},
@@ -115,6 +147,36 @@ def export_workspace(manager: Any, name: str) -> dict[str, Any]:
                         row[column] = json.loads(row[column])
             result["tables"][table] = rows
     return result
+
+
+def _copy_document_content(manager: Any, source: str, destination: str) -> int:
+    """Copy and verify content-addressed bytes before merging their metadata."""
+
+    source_db = _path(manager, source)
+    source_root = manager._content_store_path(source)  # noqa: SLF001
+    destination_root = manager._content_store_path(destination)  # noqa: SLF001
+    with sqlite3.connect(source_db) as db:
+        digests = [str(row[0]) for row in db.execute("SELECT sha256 FROM document_contents")]
+    copied = 0
+    for digest in digests:
+        source_path = source_root / "sha256" / digest[:2] / digest
+        destination_path = destination_root / "sha256" / digest[:2] / digest
+        if not source_path.is_file():
+            raise RuntimeError(f"document content is missing for sha256:{digest}")
+        source_bytes = source_path.read_bytes()
+        if hashlib.sha256(source_bytes).hexdigest() != digest:
+            raise RuntimeError(f"document content failed integrity verification: sha256:{digest}")
+        destination_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if destination_path.exists():
+            if hashlib.sha256(destination_path.read_bytes()).hexdigest() != digest:
+                raise RuntimeError(
+                    f"destination document content failed integrity verification: sha256:{digest}"
+                )
+            continue
+        shutil.copy2(source_path, destination_path)
+        destination_path.chmod(0o600)
+        copied += 1
+    return copied
 
 
 def merge_workspaces(manager: Any, source: str, destination: str) -> dict[str, int]:
@@ -139,7 +201,9 @@ def merge_workspaces(manager: Any, source: str, destination: str) -> dict[str, i
         finally:
             engine.dispose()
 
-    counts: dict[str, int] = {}
+    counts: dict[str, int] = {
+        "raw_document_files": _copy_document_content(manager, source, destination)
+    }
     with sqlite3.connect(destination_path) as db:
         db.execute("ATTACH DATABASE ? AS source_workspace", (str(source_path),))
         try:

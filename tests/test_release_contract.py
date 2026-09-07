@@ -10,7 +10,7 @@ from scripts.check_release_contract import (
 
 def test_release_version_surfaces_and_operator_docs_are_consistent() -> None:
     versions = current_versions()
-    assert set(versions.values()) == {"0.9.5"}
+    assert set(versions.values()) == {"0.9.6"}
     assert validate() == []
 
 
@@ -30,5 +30,5 @@ def test_quickstart_uses_the_frozen_source_release_path() -> None:
     from scripts.check_release_contract import ROOT
 
     quickstart = ROOT.joinpath("docs/QUICKSTART.md").read_text(encoding="utf-8")
-    assert "git clone --branch v0.9.5" in quickstart
+    assert "git clone --branch v0.9.6" in quickstart
     assert "uv sync --extra agent --frozen" in quickstart
