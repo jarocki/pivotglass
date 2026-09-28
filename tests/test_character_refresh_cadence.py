@@ -12,8 +12,8 @@
 
 from __future__ import annotations
 
-from adversary_pursuit.agent.tui.events import EventBus
-from adversary_pursuit.agent.tui.live_pane import _REFRESH_HZ, LivePane
+from pivotglass.agent.tui.events import EventBus
+from pivotglass.agent.tui.live_pane import _REFRESH_HZ, LivePane
 
 # ---------------------------------------------------------------------------
 # _REFRESH_HZ table values

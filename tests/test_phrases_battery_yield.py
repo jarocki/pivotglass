@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.gamification.modes import DEFAULT_MODES
-from adversary_pursuit.gamification.phrases import pick
+from pivotglass.gamification.modes import DEFAULT_MODES
+from pivotglass.gamification.phrases import pick
 
 # All characters active in the product
 ALL_CHARACTERS = list(DEFAULT_MODES.keys())

@@ -28,9 +28,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.core.plugin_mgr import PluginManager
-from adversary_pursuit.modules.base import PursuitModule, RateLimitError
-from adversary_pursuit.modules.cti.threatfox import ThreatFox, _build_common_fields, _build_sco
+from pivotglass.core.plugin_mgr import PluginManager
+from pivotglass.modules.base import PursuitModule, RateLimitError
+from pivotglass.modules.cti.threatfox import ThreatFox, _build_common_fields, _build_sco
 
 # ---------------------------------------------------------------------------
 # Sample API responses
@@ -141,7 +141,7 @@ def _patched_client(body: dict) -> Any:
     mock_resp = _make_mock_response(200, body)
     mock_client = _make_mock_client(mock_resp)
     return patch(
-        "adversary_pursuit.modules.cti.threatfox.httpx.AsyncClient",
+        "pivotglass.modules.cti.threatfox.httpx.AsyncClient",
         return_value=mock_client,
     )
 
@@ -152,7 +152,7 @@ def mock_ip_port():
     mock_resp = _make_mock_response(200, _IP_PORT_RESPONSE)
     mock_client = _make_mock_client(mock_resp)
     with patch(
-        "adversary_pursuit.modules.cti.threatfox.httpx.AsyncClient",
+        "pivotglass.modules.cti.threatfox.httpx.AsyncClient",
         return_value=mock_client,
     ):
         yield mock_client
@@ -164,7 +164,7 @@ def mock_no_results():
     mock_resp = _make_mock_response(200, _NO_RESULTS_RESPONSE)
     mock_client = _make_mock_client(mock_resp)
     with patch(
-        "adversary_pursuit.modules.cti.threatfox.httpx.AsyncClient",
+        "pivotglass.modules.cti.threatfox.httpx.AsyncClient",
         return_value=mock_client,
     ):
         yield mock_client
@@ -180,7 +180,7 @@ def mock_429():
     )
     mock_client = _make_mock_client(mock_resp)
     with patch(
-        "adversary_pursuit.modules.cti.threatfox.httpx.AsyncClient",
+        "pivotglass.modules.cti.threatfox.httpx.AsyncClient",
         return_value=mock_client,
     ):
         yield mock_client
@@ -192,7 +192,7 @@ def mock_429_no_header():
     mock_resp = _make_mock_response(429, {}, headers={})
     mock_client = _make_mock_client(mock_resp)
     with patch(
-        "adversary_pursuit.modules.cti.threatfox.httpx.AsyncClient",
+        "pivotglass.modules.cti.threatfox.httpx.AsyncClient",
         return_value=mock_client,
     ):
         yield mock_client
@@ -574,17 +574,17 @@ class TestThreatFoxDiscovery:
 
 
 class TestNoProvenance:
-    """DEC-61-MODULES-EMIT-NO-PROVENANCE-001: modules emit no x_ap_* fields.
+    """DEC-61-MODULES-EMIT-NO-PROVENANCE-001: modules emit no x_pivotglass_* fields.
 
     Provenance augmentation is workspace.store_stix_objects's authority (F59).
     Modules must not duplicate it.
     """
 
-    def test_module_emits_no_x_ap_provenance_fields(self, mock_ip_port):
-        """hunt() must not emit any key starting with 'x_ap_' on any SCO.
+    def test_module_emits_no_x_pivotglass_provenance_fields(self, mock_ip_port):
+        """hunt() must not emit any key starting with 'x_pivotglass_' on any SCO.
 
         Per DEC-61-MODULES-EMIT-NO-PROVENANCE-001, provenance stamping
-        (x_ap_source, x_ap_retrieved_at, etc.) belongs exclusively to
+        (x_pivotglass_source, x_pivotglass_retrieved_at, etc.) belongs exclusively to
         workspace.store_stix_objects (F59). Modules that pre-populate these
         fields would create duplicate authority and cause silent data drift.
         """
@@ -594,8 +594,8 @@ class TestNoProvenance:
         assert len(results) > 0, "Expected non-empty results for this fixture"
         for sco in results:
             for key in sco:
-                assert not key.startswith("x_ap_"), (
-                    f"Module emitted forbidden x_ap_* field '{key}' in SCO {sco.get('id')}. "
+                assert not key.startswith("x_pivotglass_"), (
+                    f"Module emitted forbidden x_pivotglass_* field '{key}' in SCO {sco.get('id')}. "
                     f"Provenance is workspace.store_stix_objects's authority "
                     f"(DEC-61-MODULES-EMIT-NO-PROVENANCE-001)."
                 )

@@ -7,7 +7,140 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No changes yet.
+## [0.9.8] - 2026-09-27
+
+- Patch locked Python and browser dependencies following advisory audits; repeat
+  qualification against the updated locks.
+
+### Release preparation
+
+- Renamed the command, distribution, Python package, plugin namespace, and
+  configuration environment to Pivotglass; explicit stopped-home migration
+  preserves prior data and legacy serialized provenance remains readable.
+- Reworked the Markdown story, task guides, architecture diagrams, scientific
+  process, SAT walkthroughs, visualization examples, and analyst learning path
+  through experienced-analysis and newcomer editorial review roles.
+- Organized dated release records under `docs/releases/`, detailed planning under
+  `docs/plans/`, and the generated decision registry under `docs/development/`.
+- Added navigation/anchor checks and migration/CLI regression coverage; ran every
+  Python and browser test and recorded exact release qualification results.
+- Updated pinned Next.js, sharp, and browser-mapping dependencies after current
+  advisory checks; preserved exact dependency lock and signature verification.
+- Recorded the owner-directed 0.9.9 enablement scope and the separate final quality
+  pass and owner approval required before version 1.0.0.
+
+### Added
+
+- Novice investigative-question Q&A with provenance coaching, explicit unknowns,
+  editable questions, individual notebook saves, workspace-scoped local drafts,
+  reflection, and rotating OJT practice lessons. Guidance levels now change only
+  by analyst choice; participation counts do not imply expertise.
+
+### Fixed
+
+- Synchronized Code Rain's fast violin and glass-harp parts with its percussion;
+  late browser scheduling skips missed attacks and drums bypass melodic reverb.
+
+- Wrapped full indicator values in evidence, queue, candidate, coverage, and graph displays.
+- Separated intake search/sort controls from selection and admission actions.
+
+- Restored command/deck focus after interacting with Investigation Activity;
+  the DECK menu now remains above cockpit panes.
+- Added persistent-source review so stored documents can be reopened, checked,
+  and used for later candidate admission without duplicate storage.
+- Display the complete source SHA-256 in the library and review panel.
+- Centered command-result, evidence-detail, and utilities dialogs in the
+  visible viewport, with bounded internal scrolling for long content.
+
+### Added
+
+- Developed original yearning strings for Code Rain, occasional spacious organ
+  interludes for Deep Orbit, organ and detuned pub piano for Sleuth, and martial
+  synth/dance/drum gestures for Ironclad; preserved the approved Analyst and Nightgrid.
+
+- Refined Nightgrid with 1980s new-wave synths and a rave build, Analyst with
+  quieter ambient EDM, and Rascal with original comic accordion and bassoon fills.
+
+- Added a direct provenance history graph and persisted analyst promotion groups,
+  shown as analyst-grouped edges without claiming observed threat relationships.
+- Reworked Nightgrid and Code Rain with electronic synth voices and dance drums;
+  made Deep Orbit sparse and quieter with radar pings and low drones.
+
+- Deterministic defanging for common IP, URL, domain, and email spellings,
+  while preserving raw spans and normalization notes.
+- Export choices for preserving or defanging typed indicator values via
+  `export FORMAT --defang yes|no`.
+- Added candidate filtering and sorting, select-visible/select-all-matches,
+  Shift-click range selection, and explicit removal from the admission set.
+  Stored-source admission now returns a visible receipt instead of silently
+  clearing the selection.
+- Added filtering and sorting for stored sources, plus filtered, paginated
+  multiselect when reviewing candidates from a saved source.
+- Added optional AI-generated Advisor speech through an already configured
+  OpenAI key, with device speech fallback and explicit disclosure in the UI.
+- Replaced public character labels with Ironclad, Rascal, Sleuth, and Nightgrid;
+  historical internal identifiers remain compatible.
+- Gave Code Rain a four-on-floor kick, backbeat snare, offbeat accents, and
+  synth-bass motion in its original procedural score.
+
+## [0.9.7] — 2026-09-08
+
+This patch release makes intake the first-class beginning of an investigation,
+closes the candidate-to-entity admission gap, and introduces guidance that
+reduces as each analyst becomes familiar with Pivotglass workflows.
+
+### Added
+
+- Added explicit larger-text and optional attention-spotlight preferences, plus
+  **Quiet workspace** in Help and More. Quiet mode turns off presentation
+  distractions without suppressing work, errors, or manual Help.
+- Added visible report/export routes, candidate review pagination, library
+  failure/retry feedback, and a post-admission indicator-to-command handoff.
+- Added a documented mock usability review, distinct from real user research.
+
+- Simplified the Indicator Constellation with readable dimension names,
+  familiar shape-and-color coverage marks, source-labelled country flags,
+  keyboard-accessible viewport tooltips, and stable details below the grid.
+  Coverage remains explicitly separate from confidence and threat verdicts.
+
+- Added explicit check-box selection for document and indicator-list candidates.
+  The source may be stored by itself, or stored together with only the entities
+  the analyst selected.
+- Added stable preview-selection keys bound to source SHA-256, exact parser span,
+  normalized value, extraction rule, and rule version. Tampered or stale
+  selections fail before the source or any entity is stored.
+- Added candidate admission through the existing STIX and immutable-observation
+  authority, with document hash, parser transformation, raw-artifact reference,
+  source-dependence group, and analyst pivot receipts.
+- Added persisted Novice, Adept, and Expert guidance. New users receive a
+  five-step walkthrough; unsolicited tips become less frequent after completed
+  workflows and stop at Expert. Analysts can pin a level or reset the tutorial.
+- Added optional delayed pointer/focus spotlight. It is off by default; pointer
+  hovering never moves keyboard focus. Walkthrough highlighting remains separate
+  and dismissible.
+
+### Changed
+
+- Utilities uses the shared modal focus trap and restores its opener on close.
+  TUI Help fits the terminal, scrolls, and restores command/history position.
+- Document writes validate the originating workspace before mutation, and late
+  library responses cannot replace a newer workspace or ingestion result.
+- Tutorial actions now locate the actual preview control and admitted indicators.
+
+- Moved **Add indicators & reports** from Visualize into Investigate, immediately
+  after the Pursuit Brief and alongside manual indicator entry.
+- Preserved analyst-facing values for admitted vulnerabilities and ATT&CK
+  techniques in the shared entity store.
+
+### Safety
+
+- Preview is non-persistent. Extracted strings remain candidates until explicit
+  source admission and explicit selection.
+- Candidate admission records the analyst's decision and provenance; it does
+  not validate a report, assign maliciousness, create a threat relationship, or
+  attribute an actor.
+- Guidance and focus effects are presentation-only. They never change evidence,
+  analytical confidence, or investigation state.
 
 ## [0.9.6] — 2026-09-07
 
@@ -600,7 +733,7 @@ checkpoints into one verified minor release.
 - Added deterministic arcade-engine tests covering content variation and 800
   generated Neuromancer maps, each verified to retain a route to the exit.
 - Made the editable-checkout web launcher reject stale static exports and
-  disabled browser caching for exported assets so `ap` cannot silently serve
+  disabled browser caching for exported assets so `pivotglass` cannot silently serve
   an older cockpit after source changes.
 
 #### Security
@@ -703,7 +836,7 @@ checkpoints into one verified minor release.
 ### Verified
 
 - Release verification is recorded in
-  [`docs/QA_V0.5.2.md`](docs/QA_V0.5.2.md).
+  [`docs/QA_V0.5.2.md`](docs/releases/v0.5.2/QA_V0.5.2.md).
 
 ## [0.5.1] — 2026-07-21
 
@@ -949,9 +1082,9 @@ checkpoints into one verified minor release.
   their exact name, unknown modes receive one stable error with valid choices,
   and local state-changing commands are serialized to prevent rapid-input
   races. Mode catalogue completion and the in-deck help expose the command.
-- **Pivotglass web cockpit is now primary**: bare `ap` serves a static
-  React/Next.js cockpit on loopback; `ap web` is explicit, `ap chat` / `ap tui`
-  retain the terminal cyberdeck, and `ap basic` / `ap repl` retain direct
+- **Pivotglass web cockpit is now primary**: bare `pivotglass` serves a static
+  React/Next.js cockpit on loopback; `pivotglass web` is explicit, `pivotglass chat` / `pivotglass tui`
+  retain the terminal cyberdeck, and `pivotglass basic` / `pivotglass repl` retain direct
   control. Microsoft Flint compiles the first evidence-distribution
   visualization. The browser layer calls existing Python authorities rather
   than duplicating investigation logic.
@@ -986,9 +1119,9 @@ checkpoints into one verified minor release.
   configuration, architecture, personas, and project governance. Historical
   roadmap language is now explicitly subordinate to the current implementation
   checkpoint.
-- **AI-first launch + storyboard deck hierarchy**: bare `ap` now opens the
+- **AI-first launch + storyboard deck hierarchy**: bare `pivotglass` now opens the
   AI-augmented cyberdeck; the classic Metasploit-like console remains available
-  as `ap basic` and `ap repl` (`ap chat` remains compatible). The full-screen
+  as `pivotglass basic` and `pivotglass repl` (`pivotglass chat` remains compatible). The full-screen
   interface now follows the storyboard hierarchy with explicit intelligence,
   command-deck, and multi-color analyst-instrument regions.
 
@@ -1018,15 +1151,15 @@ checkpoints into one verified minor release.
   visibly deprecated classic; the earlier removal confused deprecation with deletion.
   Mode viewport names now describe each character's world (`THE MATRIX`, `THE SPRAWL`,
   `DEEP SPACE`, `THE ARENA`, and others) rather than repeating “Pursuit.”
-- **AP #76**: `.gitignore` enhancement + committed 5 reckoning artifacts. Blocked ~5 days by AP #100 eval-race in the Claude Code harness; landed after AP #100 fix shipped 2026-07-01.
-- **AP #97/#98/#99**: `hunt <ioc>` config initializer chain — Config dataclass bug in Phase 17R fleet dispatch, resolved by extracting a shared credential resolver (`core/module_credentials.py`).
-- **AP #84**: 4 M-9 invariant tests referenced a removed worktree path; replaced with `Path(__file__).resolve().parents[1]` (Phase 17U).
+- **Pivotglass #76**: `.gitignore` enhancement + committed 5 reckoning artifacts. Blocked ~5 days by Pivotglass #100 eval-race in the Claude Code harness; landed after Pivotglass #100 fix shipped 2026-07-01.
+- **Pivotglass #97/#98/#99**: `hunt <ioc>` config initializer chain — Config dataclass bug in Phase 17R fleet dispatch, resolved by extracting a shared credential resolver (`core/module_credentials.py`).
+- **Pivotglass #84**: 4 M-9 invariant tests referenced a removed worktree path; replaced with `Path(__file__).resolve().parents[1]` (Phase 17U).
 
 ### Added
 - **Protected visual design context**: added persona cyberdeck studies and a
   UX-team assessment as durable local inputs to future interface work. Those
   private project artifacts are no longer published with the repository.
-- **Shared operating philosophy**: added `PHILOSOPHY.md` as AP's durable
+- **Shared operating philosophy**: added `PHILOSOPHY.md` as Pivotglass's durable
   judgment framework for evidence, human–computational collaboration,
   optionality, stewardship, and long-horizon decisions. Project guidance now
   applies it through tool-neutral `AGENTS.md` repository governance where no
@@ -1038,9 +1171,9 @@ checkpoints into one verified minor release.
   tool-neutral `AGENTS.md` on 2026-07-18.
 - **Phase 18 "Orchestrator Stability" roadmap** (umbrella issue #102): drain queue for 18 harness/runtime bugs.
 
-### Harness (Claude Code side; not shipped with adversary-pursuit but affects the delivery chain)
-- AP #75: Guardian completion auto-transitions in_progress work_items to `landed` — DEC-WORKITEM-AUTO-LAND-001 in `runtime/core/decision_work_registry.py`.
-- AP #100 (Phase 18 Slice 1): `git stash`, `status`, `log`, and other non-mutating git subcommands no longer trigger post-bash source-mutation eval invalidation. New helper `git_subcommand_for_classify` in `hooks/context-lib.sh` delegates to canonical Python parser (DEC-CLASSIFY-001).
+### Harness (Claude Code side; not shipped with Pivotglass but affects the delivery chain)
+- Pivotglass #75: Guardian completion auto-transitions in_progress work_items to `landed` — DEC-WORKITEM-AUTO-LAND-001 in `runtime/core/decision_work_registry.py`.
+- Pivotglass #100 (Phase 18 Slice 1): `git stash`, `status`, `log`, and other non-mutating git subcommands no longer trigger post-bash source-mutation eval invalidation. New helper `git_subcommand_for_classify` in `hooks/context-lib.sh` delegates to canonical Python parser (DEC-CLASSIFY-001).
 - 06-29 reckoning Confront #7: Pre-merge integration-test gate in `agents/reviewer.md` (`DEC-REVIEWER-INTEGRATION-GATE-001`).
 
 ## [0.4.0] — 2026-06-29
@@ -1064,7 +1197,7 @@ fourth major roadmap milestone completed since the initial cut.
   small-font variant.
 - **Phase 17P: Workspace clear + chat workspace parity** — `workspace clear` drops the
   6 SQLite tables for a workspace with loud-fail verification (DEC-WORKSPACE-DB-007);
-  `ap chat` now has full workspace command parity (list/create/switch/delete/clear) plus
+  `pivotglass chat` now has full workspace command parity (list/create/switch/delete/clear) plus
   enhanced `db_status` showing DB file path, humanised file size, per-table row counts,
   total score, and last-event timestamps. Both surfaces share a single
   `_render_db_status_table` helper (DEC-WORKSPACE-DB-005).
@@ -1083,38 +1216,39 @@ fourth major roadmap milestone completed since the initial cut.
 
 ### Fixed
 
-- `hunt <ioc>` initializer regression (AP #97 Phase 17S → AP #98 Phase 17T): the
+- `hunt <ioc>` initializer regression (Pivotglass #97 Phase 17S → Pivotglass #98 Phase 17T): the
   fleet-dispatch path in Phase 17R passed the raw Pydantic `Config` dataclass to
   `module.initialize()` instead of the `ConfigManager`. Phase 17S extracted a shared
   `_initialize_module` helper; Phase 17T replaced it with a shared credential resolver
   (`core/module_credentials.py`) that both chat and REPL now call identically.
 - Four invariant tests (`TestF59Invariant`, `TestF64Invariants`) referenced a removed
   M-9 worktree path in `cwd=` arguments; replaced with `Path(__file__).resolve()
-  .parents[1]` (AP #84, Phase 17U). Full suite: 2735 passed, 0 failed, 1 skipped.
+  .parents[1]` (Pivotglass #84, Phase 17U). Full suite: 2735 passed, 0 failed, 1 skipped.
 - ThreatFox 401 (and similar API failures) no longer leak stack traces to stderr;
-  presented as a one-line summary panel via `ErrorInterpreter` (AP #84 + Phase 17O).
+  presented as a one-line summary panel via `ErrorInterpreter` (Pivotglass #84 + Phase 17O).
 
 ### Internal
 
 - Phase 17U: Test fixture path hardcode fix — four test files use `_REPO_ROOT` derived
   from `Path(__file__).resolve().parents[1]` instead of a hardcoded worktree path.
-- Phase 17S: AP #97 follow-up — `_initialize_module` shared helper to prevent
+- Phase 17S: Pivotglass #97 follow-up — `_initialize_module` shared helper to prevent
   chat/REPL module-init divergence (superseded by Phase 17T shared resolver).
-- `scripts/regen_decisions.py` added: DECISIONS.md regeneration tooling (AP #72).
-- 7 closed harness/dispatch bugs (AP #86, #91, #92, #93, #94, #95) shipped on the
+- `scripts/regen_decisions.py` added: DECISIONS.md regeneration tooling (Pivotglass #72).
+- 7 closed harness/dispatch bugs (Pivotglass #86, #91, #92, #93, #94, #95) shipped on the
   Claude Code harness side; listed for completeness because they affect the dispatch
   chain that builds this project.
 
 ## [0.1.0] — 2026-05-19
 
-Initial stable release. Core REPL (`ap`, cmd2-based), conversational AI agent
-(`ap chat`, litellm-driven, 21 LLM tools), 10 OSINT/CTI modules (Shodan, VirusTotal,
+Initial stable release. Core REPL (`pivotglass`, cmd2-based), conversational AI agent
+(`pivotglass chat`, litellm-driven, 21 LLM tools), 10 OSINT/CTI modules (Shodan, VirusTotal,
 AbuseIPDB, HIBP, OTX, URLScan, Censys, PassiveTotal, DNS, WHOIS), STIX 2.1 data model,
 per-workspace SQLite storage, gamification engine (parabolic decay scoring, challenges,
 badges, hints), 6 initial character modes, graph export (GEXF + STIX bundle), and
 interview-based report generation.
 
-[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.9.6...HEAD
+[Unreleased]: https://github.com/jarocki/pivotglass/compare/v0.9.7...HEAD
+[0.9.7]: https://github.com/jarocki/pivotglass/compare/v0.9.6...v0.9.7
 [0.9.6]: https://github.com/jarocki/pivotglass/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/jarocki/pivotglass/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/jarocki/pivotglass/compare/v0.9.3...v0.9.4

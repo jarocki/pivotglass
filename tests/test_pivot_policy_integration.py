@@ -33,8 +33,8 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock
 
-from adversary_pursuit.core.config import AutoPivotPolicyConfig
-from adversary_pursuit.core.event_bus import EventBus, PivotConfig
+from pivotglass.core.config import AutoPivotPolicyConfig
+from pivotglass.core.event_bus import EventBus, PivotConfig
 
 # ---------------------------------------------------------------------------
 # Helpers

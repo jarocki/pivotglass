@@ -22,9 +22,9 @@ from io import StringIO
 from rich.console import Console
 from rich.panel import Panel
 
-from adversary_pursuit.dossier.panel import render
-from adversary_pursuit.dossier.slot_inference import infer_dossier_state
-from adversary_pursuit.dossier.slots import DossierSlotName
+from pivotglass.dossier.panel import render
+from pivotglass.dossier.slot_inference import infer_dossier_state
+from pivotglass.dossier.slots import DossierSlotName
 
 # ---------------------------------------------------------------------------
 # Helper: export panel text via rich Console recording

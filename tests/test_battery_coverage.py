@@ -17,13 +17,13 @@ contribute evidence." Also verifies synthesis_battery sentinel properties
 
 from __future__ import annotations
 
-from adversary_pursuit.agent.battery_registry import (
+from pivotglass.agent.battery_registry import (
     _SYNTHESIS_TRIGGER_THRESHOLD,
     DEFAULT_BATTERIES,
     dispatch_batteries,
 )
-from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
-from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+from pivotglass.dossier.slot_inference import DossierState, SlotState
+from pivotglass.dossier.slots import DossierSlotName, SlotStatus
 
 # ---------------------------------------------------------------------------
 # C-3 acceptance: every slot has ≥1 battery

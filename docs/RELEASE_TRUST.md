@@ -51,7 +51,7 @@ must contain only the final candidate output; do not reuse a historical
 `dist/` directory.
 
 ```bash
-PIVOTGLASS_VERSION=0.9.6
+PIVOTGLASS_VERSION=0.9.8
 PIVOTGLASS_BUNDLE="$(mktemp -d)"
 
 uv lock --check
@@ -60,17 +60,15 @@ uv run pytest -q
 uv run ruff check src tests scripts
 npm --prefix web ci
 npm --prefix web run lint
-npm --prefix web run test:advisor
-npm --prefix web run test:arcade
-npm --prefix web run test:visualization
+npm --prefix web test
 npm --prefix web run build
 npm --prefix web audit --audit-level=moderate
 uv build --out-dir "$PIVOTGLASS_BUNDLE"
 
 uv run python scripts/generate_release_trust.py \
   --output-dir "$PIVOTGLASS_BUNDLE" \
-  --artifact "$PIVOTGLASS_BUNDLE/adversary_pursuit-${PIVOTGLASS_VERSION}-py3-none-any.whl" \
-  --artifact "$PIVOTGLASS_BUNDLE/adversary_pursuit-${PIVOTGLASS_VERSION}.tar.gz"
+  --artifact "$PIVOTGLASS_BUNDLE/pivotglass-${PIVOTGLASS_VERSION}-py3-none-any.whl" \
+  --artifact "$PIVOTGLASS_BUNDLE/pivotglass-${PIVOTGLASS_VERSION}.tar.gz"
 ```
 
 Review the generated component counts, every non-standard license declaration,
@@ -83,7 +81,17 @@ to the exact [Colorama](https://pypi.org/project/colorama/0.4.6/),
 [pyreadline3](https://pypi.org/project/pyreadline3/3.5.4/) upstream package
 metadata in the generated inventory.
 
+## Release signing identity
+
+The owner supplied signing fingerprint
+`4CB08BD1D0B3281613DD15DB1DCCDF47FEEDEEEF` (John Jarocki,
+`john@jarocki.org`; expires 2027-09-28). The [public key](releases/RELEASE_SIGNING_KEY.asc)
+is included for verification. Confirm this fingerprint through an independently
+controlled owner channel before treating it as authenticated identity.
+
 ## Sign the immutable manifest
+
+If the owner has no signing key yet, follow [owner-controlled key setup](development/SIGNING_KEY.md) before the final ceremony.
 
 Use an owner-controlled signing key whose full fingerprint is published through
 an independently controlled channel. Never place a private key or passphrase in
@@ -131,7 +139,7 @@ is not a completed release.
 
 ## Current boundary
 
-The v0.9.6 source tree contains the generator, deterministic tests, support
+The v0.9.8 source tree contains the generator, deterministic tests, support
 guidance, and this manual ceremony because release workflows are intentionally
 kept out of the public repository. The final signature and public readback can
 exist only after the immutable candidate is approved and published. Until then,

@@ -25,7 +25,7 @@ from unittest.mock import Mock  # @mock-exempt: ConfigManager is external I/O bo
 
 import pytest
 
-from adversary_pursuit.core.module_credentials import (
+from pivotglass.core.module_credentials import (
     CREDENTIAL_BUILDERS,
     SERVICE_NAMES,
     ServiceDisabledError,
@@ -132,7 +132,7 @@ class TestResolveModuleCredentials:
         This is the exact access pattern modules use inside initialize():
             self._config.get("api_key", "")
         ConfigManager.get() raises KeyError on miss; the dict must support 2-arg get.
-        This test guards against AP #97 / AP #98 regression class.
+        This test guards against Pivotglass #97 / Pivotglass #98 regression class.
         """
         # @mock-exempt: ConfigManager is external I/O boundary
         cfg = Mock()

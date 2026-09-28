@@ -17,11 +17,11 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.agent.battery import BatteryRun
-from adversary_pursuit.agent.battery_registry import DEFAULT_BATTERIES, dispatch_batteries
-from adversary_pursuit.agent.tools import ToolContext, create_tools
-from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
-from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+from pivotglass.agent.battery import BatteryRun
+from pivotglass.agent.battery_registry import DEFAULT_BATTERIES, dispatch_batteries
+from pivotglass.agent.tools import ToolContext, create_tools
+from pivotglass.dossier.slot_inference import DossierState, SlotState
+from pivotglass.dossier.slots import DossierSlotName, SlotStatus
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -219,7 +219,7 @@ def test_dispatch_matrix(target_type: str, battery_name: str, expected: bool):
 
 def test_battery_run_fires_events():
     """BatteryRun fires BatteryStarted, BatteryToolStarted, BatteryToolFinished, BatteryFinished."""
-    from adversary_pursuit.agent.tui.events import (
+    from pivotglass.agent.tui.events import (
         BatteryFinished,
         BatteryStarted,
         BatteryToolFinished,

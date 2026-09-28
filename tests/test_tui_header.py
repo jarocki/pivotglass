@@ -27,10 +27,10 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit import __version__
-from adversary_pursuit.agent.tui.events import EventBus, TargetChanged
-from adversary_pursuit.agent.tui.header import HeaderPane, HeaderState, render_header
-from adversary_pursuit.agent.tui.themes import theme_for
+from pivotglass import __version__
+from pivotglass.agent.tui.events import EventBus, TargetChanged
+from pivotglass.agent.tui.header import HeaderPane, HeaderState, render_header
+from pivotglass.agent.tui.themes import theme_for
 
 # ---------------------------------------------------------------------------
 # Pure renderer tests
@@ -76,11 +76,11 @@ class TestRenderHeaderContent:
         state = HeaderState()
         assert state.version == f"v{__version__}"
 
-    def test_row1_contains_adversary_pursuit(self) -> None:
+    def test_row1_contains_pivotglass(self) -> None:
         state = HeaderState()
         theme = theme_for("default")
         rows = render_header(state, theme)
-        assert "ADVERSARY PURSUIT" in rows[0]
+        assert "PIVOTGLASS" in rows[0]
 
     def test_row1_contains_current_target(self) -> None:
         state = HeaderState(current_target="evil.example.com")

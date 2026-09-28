@@ -27,9 +27,9 @@ import io
 
 import pytest
 
-from adversary_pursuit.core.console import APConsole
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.gamification.scoring import (
+from pivotglass.core.console import PivotglassConsole
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.gamification.scoring import (
     DEFAULT_RULES,
     ScoringEngine,
     ScoringRule,
@@ -60,14 +60,14 @@ def workspace(tmp_path):
 
 @pytest.fixture
 def console(tmp_path, monkeypatch):
-    """APConsole with isolated temp dirs."""
+    """PivotglassConsole with isolated temp dirs."""
     async def _mock_hunt(self, target, options):
         return [{"type": "domain-name", "value": target, "x_registrar": "Test Registrar"}]
 
     monkeypatch.setattr(
-        "adversary_pursuit.modules.osint.whois_lookup.WhoisLookup.hunt", _mock_hunt
+        "pivotglass.modules.osint.whois_lookup.WhoisLookup.hunt", _mock_hunt
     )
-    app = APConsole(
+    app = PivotglassConsole(
         config_dir=tmp_path / "config",
         workspace_dir=tmp_path / "workspaces",
     )
@@ -75,7 +75,7 @@ def console(tmp_path, monkeypatch):
     return app
 
 
-def run_cmd(app: APConsole, cmd: str) -> str:
+def run_cmd(app: PivotglassConsole, cmd: str) -> str:
     """Run a console command and return combined poutput + Rich output."""
     app.stdout = io.StringIO()
     app.rich_console = app._make_rich_console()
@@ -344,7 +344,7 @@ class TestScoringEngineScoreResults:
         assert pts_fresh == 1, f"M-3 re-tune: fresh new_ip must be 1; got {pts_fresh}"
         assert pts_saturated == 1, f"M-3 re-tune: saturated new_ip must be 1; got {pts_saturated}"
         # Verify the formula still works with non-baseline rules (v1 values)
-        from adversary_pursuit.gamification.scoring import ScoringEngine, ScoringRule
+        from pivotglass.gamification.scoring import ScoringEngine, ScoringRule
 
         v1_engine = ScoringEngine(
             rules=[ScoringRule("new_ip", initial=100, minimum=10, decay=10, description="v1")]
@@ -848,7 +848,7 @@ class TestM4SentinelRowScoreIsolation:
         """Write a sentinel row (points=0, JSON payload) via the public get_session() API."""
         import json
 
-        from adversary_pursuit.models.database import ScoreEvent
+        from pivotglass.models.database import ScoreEvent
 
         with wm.get_session() as sess:
             sess.add(

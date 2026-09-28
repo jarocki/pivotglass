@@ -4,7 +4,7 @@ import json
 import tomllib
 from pathlib import Path
 
-from adversary_pursuit import __version__
+from pivotglass import __version__
 
 ROOT = Path(__file__).resolve().parents[1]
 

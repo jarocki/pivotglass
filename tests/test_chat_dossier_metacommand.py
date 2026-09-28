@@ -27,9 +27,9 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.dossier.panel import render
-from adversary_pursuit.dossier.slot_inference import infer_dossier_state
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.dossier.panel import render
+from pivotglass.dossier.slot_inference import infer_dossier_state
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -113,7 +113,7 @@ class TestDossierMetaCommand:
         """
         import inspect
 
-        from adversary_pursuit.dossier import panel as panel_module
+        from pivotglass.dossier import panel as panel_module
 
         # render() must be a pure function - inspect it has no runner/chat dependencies
         source = inspect.getsource(panel_module)
@@ -158,10 +158,10 @@ class TestDossierMetaCommand:
         """
         import pathlib
 
-        # Find chat.py relative to the adversary_pursuit package on sys.path
-        import adversary_pursuit
+        # Find chat.py relative to the pivotglass package on sys.path
+        import pivotglass
 
-        pkg_root = pathlib.Path(adversary_pursuit.__file__).parent
+        pkg_root = pathlib.Path(pivotglass.__file__).parent
         chat_src = (pkg_root / "agent" / "chat.py").read_text(encoding="utf-8")
 
         # The help table must reference 'dossier' as a command
@@ -194,7 +194,7 @@ class TestNoteMetaCommand:
 
     def test_note_command_calls_add_note_and_persists(self, tmp_path: Path):
         """note <text> calls workspace_mgr.add_note(text) and the note is retrievable."""
-        from adversary_pursuit.agent.tools import _read_analyst_notes
+        from pivotglass.agent.tools import _read_analyst_notes
 
         wm = _make_workspace(tmp_path)
         wm.add_note("actor uses sandbox evasion technique")
@@ -212,9 +212,9 @@ class TestNoteMetaCommand:
         """
         import pathlib
 
-        import adversary_pursuit
+        import pivotglass
 
-        pkg_root = pathlib.Path(adversary_pursuit.__file__).parent
+        pkg_root = pathlib.Path(pivotglass.__file__).parent
         chat_src = (pkg_root / "agent" / "chat.py").read_text(encoding="utf-8")
 
         # Handler must detect 'note' prefix
@@ -237,9 +237,9 @@ class TestNoteMetaCommand:
         3. infer_dossier_state_full() feeds notes to _extract_denial().
         4. Slot 9 returns PARTIAL (1 category: note_keyword).
         """
-        from adversary_pursuit.agent.tools import _read_analyst_notes
-        from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full
-        from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+        from pivotglass.agent.tools import _read_analyst_notes
+        from pivotglass.dossier.slot_inference import infer_dossier_state_full
+        from pivotglass.dossier.slots import DossierSlotName, SlotStatus
 
         wm = _make_workspace(tmp_path)
         wm.add_note("actor uses domain generation algorithm for evasion")

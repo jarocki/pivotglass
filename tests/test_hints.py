@@ -29,7 +29,7 @@ Production sequence tested:
 @title HintProvider receives score balance at call time, not stored state
 @status accepted
 @rationale The HintProvider does not hold a live database connection. Score
-           deduction is performed by the caller (APConsole) via
+           deduction is performed by the caller (PivotglassConsole) via
            WorkspaceManager.store_score_events(). Tests verify the cost returned
            by buy_hint and that the caller can interpret it correctly. This mirrors
            DEC-BADGE-001 (pure dataclass pattern) and keeps HintProvider testable
@@ -40,8 +40,8 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.core.console import APConsole
-from adversary_pursuit.gamification.hints import (
+from pivotglass.core.console import PivotglassConsole
+from pivotglass.gamification.hints import (
     Hint,
     HintProvider,
     HintResult,
@@ -53,11 +53,11 @@ from adversary_pursuit.gamification.hints import (
 # ---------------------------------------------------------------------------
 
 
-def _make_console(tmp_path) -> APConsole:
-    """Create an APConsole with isolated tmp_path directories."""
+def _make_console(tmp_path) -> PivotglassConsole:
+    """Create an PivotglassConsole with isolated tmp_path directories."""
     import io
 
-    console = APConsole(
+    console = PivotglassConsole(
         config_dir=tmp_path / "config",
         workspace_dir=tmp_path / "workspaces",
     )
@@ -69,7 +69,7 @@ def _make_console(tmp_path) -> APConsole:
     return console
 
 
-def _rich_output(console: APConsole) -> str:
+def _rich_output(console: PivotglassConsole) -> str:
     """Extract text from the console's stdout buffer (Rich + poutput unified)."""
     return console.stdout.getvalue()
 
@@ -324,7 +324,7 @@ class TestDefaultHints:
 class TestConsoleHintCommand:
     def test_hint_command_exists(self, tmp_path):
         console = _make_console(tmp_path)
-        assert hasattr(console, "do_hint"), "APConsole must have do_hint method"
+        assert hasattr(console, "do_hint"), "PivotglassConsole must have do_hint method"
 
     def test_hint_no_args_shows_hint(self, tmp_path):
         console = _make_console(tmp_path)
@@ -352,7 +352,7 @@ class TestConsoleHintCommand:
         console.do_hint("invalid_sub")
         output = _rich_output(console)
         # Should contain usage info — check either rich or poutput
-        # APConsole may route to poutput; just ensure no exception
+        # PivotglassConsole may route to poutput; just ensure no exception
         assert output is not None
 
     def test_hint_free_with_active_module(self, tmp_path):

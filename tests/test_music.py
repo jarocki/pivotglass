@@ -7,10 +7,11 @@ import wave
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from adversary_pursuit.core.music import (
+from pivotglass.core.music import (
     _PERFORMED_CONTRACTS,
     _THEMES,
     ProceduralMusicController,
+    _plan_score,
     _score_id,
 )
 
@@ -67,7 +68,7 @@ def test_next_tui_cycle_is_prerendered_while_current_cycle_plays(tmp_path: Path)
             return 0
 
     controller._render = render  # type: ignore[method-assign]
-    with patch("adversary_pursuit.core.music.subprocess.Popen", return_value=FakeProcess()):
+    with patch("pivotglass.core.music.subprocess.Popen", return_value=FakeProcess()):
         controller._play_loop()
     assert rendered_cycles == [0, 1]
 
@@ -121,7 +122,7 @@ def test_character_identity_lives_in_score_not_only_rendering(tmp_path: Path):
 def test_score_has_form_memory_and_transformation(tmp_path: Path):
     score = ProceduralMusicController(tmp_path, mode="sherlock_holmes")._score()
     lead = [event for event in score if event.voice == _THEMES["sherlock_holmes"].lead_voice]
-    answers = [event for event in score if event.voice == "answer"]
+    answers = [event for event in score if event.voice == "pub_piano"]
     section = 60 / _THEMES["sherlock_holmes"].tempo * 6 * 2
 
     assert any(event.start < section for event in lead)
@@ -162,12 +163,12 @@ def test_public_score_bibles_have_distinct_compositional_grammar():
     assert len(signatures) == len(names)
     assert {spec.public_identity for spec in specs} == {
         "Default (Analyst)",
-        "Chuck Norris",
-        "Troll",
-        "HAL9000",
-        "Sherlock Holmes",
-        "Neuromancer",
-        "The Matrix",
+        "Ironclad",
+        "Rascal",
+        "Deep Orbit",
+        "Sleuth",
+        "Nightgrid",
+        "Code Rain",
     }
     synthetic_tokens = {"machine", "code", "packet", "signal", "pulse", "square"}
     for spec in specs:
@@ -178,17 +179,30 @@ def test_public_score_bibles_have_distinct_compositional_grammar():
 
 def test_public_scores_keep_their_characteristic_ensembles():
     expected = {
-        "default": ("piano", "cello", "strings", "timpani"),
-        "chuck_norris": ("french_horn", "baritone_guitar", "strings", "timpani"),
-        "full_troll": ("bass_clarinet", "pizzicato_strings", "muted_strings", "woodblock"),
-        "hal9000": ("glass_harmonica", "cello", "choir", "frame_drum"),
-        "sherlock_holmes": ("solo_violin", "bassoon", "chamber_strings", "woodblock"),
-        "neuromancer": ("electric_cello", "synth_bass", "analog_strings", "gated_snare"),
-        "the_matrix": ("string_ostinato", "low_strings", "brass_choir", "taiko"),
+        "default": ("glass_harp", "synth_bass", "analog_strings", "electronic_kick"),
+        "chuck_norris": ("rave_stab", "synth_bass", "strings", "electronic_kick"),
+        "full_troll": ("accordion", "pizzicato_strings", "muted_strings", "woodblock"),
+        "hal9000": ("radar_ping", "space_drone", "choir", "space_drone"),
+        "sherlock_holmes": ("solo_violin", "bassoon", "organ", "woodblock"),
+        "neuromancer": ("rave_stab", "synth_bass", "analog_strings", "electronic_kick"),
+        "the_matrix": ("solo_violin", "synth_bass", "strings", "electronic_kick"),
     }
     for name, ensemble in expected.items():
         theme = _THEMES[name]
         assert (theme.lead_voice, theme.bass_voice, theme.pad_voice, theme.pulse_voice) == ensemble
+
+
+def test_code_rain_has_four_on_floor_and_offbeat_percussion(tmp_path: Path):
+    theme = _THEMES["the_matrix"]
+    score = ProceduralMusicController(tmp_path, mode="m4tr1x")._score()
+    beat = 60 / theme.tempo
+    first_bar = [event for event in score if event.start < beat * 4]
+    kicks = [event for event in first_bar if event.voice == "electronic_kick"]
+    snares = [event for event in first_bar if event.voice == "gated_snare"]
+    hats = [event for event in first_bar if event.voice == "woodblock"]
+    assert [round(event.start / beat, 2) for event in kicks] == [0, 1, 2, 3]
+    assert [round(event.start / beat, 2) for event in snares] == [1, 3]
+    assert [round(event.start / beat, 2) for event in hats] == [0.5, 1.5, 2.5, 3.5]
 
 
 def test_preserved_internal_ids_resolve_to_requested_public_scores():
@@ -223,7 +237,7 @@ def test_all_public_scores_render_pairwise_distinct_event_timelines(tmp_path: Pa
                 for event in score
             )
         )
-        assert len({event.voice for event in score}) >= 4
+        assert len({event.voice for event in score}) >= (3 if name == "hal9000" else 4)
     assert len(signatures) == len(names)
 
 
@@ -253,11 +267,11 @@ def test_tui_identity_fields_match_web_score_authority_contract():
     expected = {
         "default": (45, 108, 4, 4, (0, 2, 4, 5, 7, 9, 10), (0, 1, 3, 2, 4)),
         "chuck_norris": (38, 132, 4, 4, (0, 2, 4, 5, 7, 9, 10), (0, 4, 3, 5, 2)),
-        "full_troll": (43, 118, 7, 2, (0, 2, 4, 6, 7, 9, 10), (0, 3, 1, 4, 2, 1)),
-        "hal9000": (36, 76, 5, 2, (0, 2, 4, 6, 8, 10), (0, 3, 2, 4, 1)),
-        "sherlock_holmes": (38, 96, 6, 2, (0, 2, 3, 5, 7, 8, 11), (0, 5, 4, 2, 3, 1)),
+        "full_troll": (43, 126, 4, 2, (0, 2, 4, 6, 7, 9, 10), (0, 3, 1, 4, 2, 1)),
+        "hal9000": (36, 78, 4, 2, (0, 2, 4, 6, 8, 10), (0, 3, 2, 4, 1)),
+        "sherlock_holmes": (38, 104, 6, 2, (0, 2, 3, 5, 7, 8, 11), (0, 5, 4, 2, 3, 1)),
         "neuromancer": (31, 132, 4, 4, (0, 2, 3, 5, 7, 8, 10), (0, 0, 4, 3, 6, 5, 3, 2)),
-        "the_matrix": (36, 126, 4, 4, (0, 1, 3, 5, 7, 8, 10), (0, 0, 4, 2, 0, 5, 4, 2)),
+        "the_matrix": (36, 134, 4, 4, (0, 1, 3, 5, 7, 8, 10), (0, 0, 4, 2, 0, 5, 4, 2)),
     }
     for name, identity in expected.items():
         theme = _THEMES[name]
@@ -292,7 +306,7 @@ def test_renderer_has_headroom_and_faded_loop_edges(tmp_path: Path):
     assert 29_000 <= max(abs(sample) for sample in samples) <= 30_000
 
 
-def test_volume_remains_linear_and_reaches_useful_maximum(tmp_path: Path):
+def test_volume_remains_linear_with_quieter_analyst_mix(tmp_path: Path):
     quiet = tmp_path / "quiet.wav"
     loud = tmp_path / "loud.wav"
     ProceduralMusicController(tmp_path, mode="default", volume=20)._render(quiet)
@@ -305,8 +319,9 @@ def test_volume_remains_linear_and_reaches_useful_maximum(tmp_path: Path):
             )
         return max(abs(sample) for sample in samples)
 
-    assert 5_800 <= peak(quiet) <= 6_000
-    assert 29_000 <= peak(loud) <= 30_000
+    assert 3_000 <= peak(quiet) <= 4_000
+    assert 15_000 <= peak(loud) <= 20_000
+    assert abs(peak(loud) / peak(quiet) - 5) < .01
 
 
 def test_enabled_state_survives_theme_change(tmp_path: Path):
@@ -343,3 +358,27 @@ def test_mode_and_volume_are_clamped_without_starting_audio(tmp_path: Path):
     assert controller.mode == "the_sprawl"
     assert controller.status.volume == 100
     assert controller.status.muted is True
+
+
+def test_deep_orbit_has_sparse_pings_and_no_regular_percussion():
+    score = _plan_score(_THEMES["hal9000"])
+    assert len([event for event in score if event.voice == "radar_ping"]) == 4
+    assert not any(event.voice in {"gated_snare", "woodblock", "electronic_kick"} for event in score)
+
+
+def test_code_rain_melody_and_percussion_share_sixteenth_grid(tmp_path):
+    theme = _THEMES["the_matrix"]
+    events = ProceduralMusicController(tmp_path, mode="m4tr1x")._score()
+    tick = 60 / theme.tempo / 4
+    assert all(abs(event.start / tick - round(event.start / tick)) < 1e-8 for event in events)
+    assert any(event.voice == "glass_harp" for event in events)
+    assert any(event.voice == "solo_violin" and event.frequency >= 261 for event in events)
+    assert _THEMES["default"].mix_gain < _THEMES["the_matrix"].mix_gain
+
+
+def test_orbit_interlude_is_occasional_and_sleuth_has_struck_piano():
+    orbit = _THEMES["hal9000"]
+    assert len([e for e in _plan_score(orbit, 0) if e.voice == "organ"]) == 6
+    assert not any(e.voice == "organ" for e in _plan_score(orbit, 1))
+    assert any(e.voice == "pub_piano" for e in _plan_score(_THEMES["sherlock_holmes"]))
+    assert any(e.voice == "bamboo_flute" for e in _plan_score(_THEMES["chuck_norris"]))

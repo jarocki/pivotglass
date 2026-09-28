@@ -15,7 +15,7 @@ command. Tests exercise this full sequence including mixed states.
 @title Keep integration fixtures honest about reserved test domains
 @status accepted
 @rationale example.com is an IANA-reserved documentation fixture, never live
-           adversary infrastructure. AP must not issue direct DNS queries;
+           adversary infrastructure. Pivotglass must not issue direct DNS queries;
            domain metadata comes from explicit intelligence-service APIs.
 """
 
@@ -23,15 +23,15 @@ import asyncio
 
 import pytest
 
-from adversary_pursuit.core.plugin_mgr import PluginManager
-from adversary_pursuit.modules.base import (
+from pivotglass.core.plugin_mgr import PluginManager
+from pivotglass.modules.base import (
     AuthenticationError,
     BaseModule,
     ModuleError,
     PursuitModule,
     RateLimitError,
 )
-from adversary_pursuit.modules.osint.whois_lookup import WhoisLookup
+from pivotglass.modules.osint.whois_lookup import WhoisLookup
 
 # ---------------------------------------------------------------------------
 # Protocol / base class tests

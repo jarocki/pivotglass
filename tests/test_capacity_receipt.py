@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from adversary_pursuit.core.visualization import (
+from pivotglass.core.visualization import (
     MAX_RELATIONSHIP_GRAPH_NODES,
     MAX_VISUALIZATION_ROWS,
 )

@@ -24,7 +24,7 @@ import io
 import pytest
 from rich.console import Console
 
-from adversary_pursuit.agent.banner import StatusBar
+from pivotglass.agent.banner import StatusBar
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -249,52 +249,52 @@ class TestStatusSlugForTool:
 
     def test_virustotal_lookup_maps_to_virustotal(self):
         """virustotal_lookup -> 'virustotal'."""
-        from adversary_pursuit.agent.runner import _status_slug_for_tool
+        from pivotglass.agent.runner import _status_slug_for_tool
 
         assert _status_slug_for_tool("virustotal_lookup") == "virustotal"
 
     def test_whois_lookup_maps_to_whois(self):
         """whois_lookup -> 'whois'."""
-        from adversary_pursuit.agent.runner import _status_slug_for_tool
+        from pivotglass.agent.runner import _status_slug_for_tool
 
         assert _status_slug_for_tool("whois_lookup") == "whois"
 
     def test_shodan_host_lookup_maps_to_shodan(self):
         """shodan_host_lookup -> 'shodan'."""
-        from adversary_pursuit.agent.runner import _status_slug_for_tool
+        from pivotglass.agent.runner import _status_slug_for_tool
 
         assert _status_slug_for_tool("shodan_host_lookup") == "shodan"
 
     def test_otx_threat_intel_maps_to_otx(self):
         """otx_threat_intel -> 'otx'."""
-        from adversary_pursuit.agent.runner import _status_slug_for_tool
+        from pivotglass.agent.runner import _status_slug_for_tool
 
         assert _status_slug_for_tool("otx_threat_intel") == "otx"
 
     def test_threatfox_lookup_maps_to_threatfox(self):
         """threatfox_lookup -> 'threatfox'."""
-        from adversary_pursuit.agent.runner import _status_slug_for_tool
+        from pivotglass.agent.runner import _status_slug_for_tool
 
         assert _status_slug_for_tool("threatfox_lookup") == "threatfox"
 
     def test_removed_dns_resolve_is_not_a_known_activity(self):
         """Removed direct-DNS tooling receives the neutral fallback slug."""
-        from adversary_pursuit.agent.runner import _status_slug_for_tool
+        from pivotglass.agent.runner import _status_slug_for_tool
 
         assert _status_slug_for_tool("dns_resolve") == "default_tool"
 
     def test_unknown_tool_returns_default_tool(self):
         """Unknown tool returns 'default_tool' with no crash."""
-        from adversary_pursuit.agent.runner import _status_slug_for_tool
+        from pivotglass.agent.runner import _status_slug_for_tool
 
         assert _status_slug_for_tool("completely_unknown_tool_xyz") == "default_tool"
 
     def test_all_registered_tools_covered(self):
         """Every tool name in create_tools() maps to a non-empty slug (no silent gaps)."""
-        from adversary_pursuit.agent.runner import _status_slug_for_tool
-        from adversary_pursuit.agent.tools import ToolContext, create_tools
+        from pivotglass.agent.runner import _status_slug_for_tool
+        from pivotglass.agent.tools import ToolContext, create_tools
 
-        ctx = ToolContext(config_dir="/tmp/ap_test_slug", workspace_dir="/tmp/ap_test_slug")
+        ctx = ToolContext(config_dir="/tmp/pivotglass_test_slug", workspace_dir="/tmp/pivotglass_test_slug")
         tool_defs = create_tools(ctx)
         for td in tool_defs:
             name = td["function"]["name"]
@@ -314,7 +314,7 @@ class TestNullStatusHook:
 
     def test_set_activity_no_crash(self):
         """NullStatusHook.set_activity() does not crash."""
-        from adversary_pursuit.agent.runner import NullStatusHook
+        from pivotglass.agent.runner import NullStatusHook
 
         hook = NullStatusHook()
         hook.set_activity("virustotal")
@@ -322,7 +322,7 @@ class TestNullStatusHook:
 
     def test_is_singleton(self):
         """_NULL_STATUS_HOOK is the default NullStatusHook instance."""
-        from adversary_pursuit.agent.runner import _NULL_STATUS_HOOK, NullStatusHook
+        from pivotglass.agent.runner import _NULL_STATUS_HOOK, NullStatusHook
 
         assert isinstance(_NULL_STATUS_HOOK, NullStatusHook)
 
@@ -385,9 +385,9 @@ class TestRunnerChatStatusBarWiring:
 
         from rich.console import Console
 
-        from adversary_pursuit.agent.banner import StatusBar
-        from adversary_pursuit.agent.runner import AgentRunner
-        from adversary_pursuit.agent.tools import ToolContext
+        from pivotglass.agent.banner import StatusBar
+        from pivotglass.agent.runner import AgentRunner
+        from pivotglass.agent.tools import ToolContext
 
         # Track set_activity call sequence
         activity_calls: list = []
@@ -413,7 +413,7 @@ class TestRunnerChatStatusBarWiring:
                 return self._make_tool_use_response("virustotal_lookup")
             return self._make_text_response("All done.")
 
-        import adversary_pursuit.agent.runner as _runner_module
+        import pivotglass.agent.runner as _runner_module
 
         monkeypatch.setattr(_runner_module.AgentRunner, "_call_llm", fake_call_llm)
         # HAS_LITELLM may be False in the test env (litellm is optional).
@@ -453,13 +453,13 @@ class TestRunnerChatStatusBarWiring:
 
     def test_chat_without_status_bar_still_works(self, tmp_path, monkeypatch):
         """runner.chat() without status_bar= kwarg runs without error (default NullStatusHook)."""
-        from adversary_pursuit.agent.runner import AgentRunner
-        from adversary_pursuit.agent.tools import ToolContext
+        from pivotglass.agent.runner import AgentRunner
+        from pivotglass.agent.tools import ToolContext
 
         ctx = ToolContext(config_dir=str(tmp_path), workspace_dir=str(tmp_path))
         runner = AgentRunner(model="ollama/test", tool_context=ctx)
 
-        import adversary_pursuit.agent.runner as _runner_module
+        import pivotglass.agent.runner as _runner_module
 
         monkeypatch.setattr(
             _runner_module.AgentRunner,
@@ -477,8 +477,8 @@ class TestRunnerChatStatusBarWiring:
         Directly tests that StatusBar._render_bar() with activity='virustotal' and
         mode_name='the_computer' uses the the_computer activity:virustotal phrase bucket.
         """
-        from adversary_pursuit.agent.banner import StatusBar
-        from adversary_pursuit.gamification.phrases import PHRASES
+        from pivotglass.agent.banner import StatusBar
+        from pivotglass.gamification.phrases import PHRASES
 
         console = make_console()
         bar = StatusBar(console, mode_name="the_computer", model_display="test")

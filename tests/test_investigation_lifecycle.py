@@ -1,6 +1,6 @@
 """Tests for the shared investigation lifecycle authority."""
 
-from adversary_pursuit.core.investigation import (
+from pivotglass.core.investigation import (
     ContentClass,
     EventClass,
     InvestigationStore,

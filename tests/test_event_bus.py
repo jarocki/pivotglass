@@ -24,14 +24,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from adversary_pursuit.core.config import AutoPivotPolicyConfig
-from adversary_pursuit.core.event_bus import (
+from pivotglass.core.config import AutoPivotPolicyConfig
+from pivotglass.core.event_bus import (
     DEFAULT_SUBSCRIPTIONS,
     EventBus,
     PivotConfig,
     PivotEvent,
 )
-from adversary_pursuit.core.pivot_policy import PivotPolicy
+from pivotglass.core.pivot_policy import PivotPolicy
 
 # ---------------------------------------------------------------------------
 # Fixtures

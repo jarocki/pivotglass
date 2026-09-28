@@ -6,9 +6,9 @@ import threading
 import time
 from unittest.mock import patch
 
-from adversary_pursuit.agent.tools import ToolContext
-from adversary_pursuit.core.workspace_admin import export_workspace
-from adversary_pursuit.web.server import WebCockpitService
+from pivotglass.agent.tools import ToolContext
+from pivotglass.core.workspace_admin import export_workspace
+from pivotglass.web.server import WebCockpitService
 
 
 def _service(tmp_path) -> WebCockpitService:
@@ -39,9 +39,9 @@ def test_network_failure_is_failed_retryable_and_does_not_damage_local_evidence(
     battery = type("Battery", (), {"tools": ("virustotal_lookup",)})()
 
     with (
-        patch("adversary_pursuit.web.server.dispatch_batteries", return_value=[battery]),
+        patch("pivotglass.web.server.dispatch_batteries", return_value=[battery]),
         patch(
-            "adversary_pursuit.web.server.execute_tool",
+            "pivotglass.web.server.execute_tool",
             side_effect=ConnectionError("provider network unavailable"),
         ),
     ):
@@ -67,9 +67,9 @@ def test_network_failure_is_failed_retryable_and_does_not_damage_local_evidence(
     assert service.state()["workspace"] == "default"
 
     with (
-        patch("adversary_pursuit.web.server.dispatch_batteries", return_value=[battery]),
+        patch("pivotglass.web.server.dispatch_batteries", return_value=[battery]),
         patch(
-            "adversary_pursuit.web.server.execute_tool",
+            "pivotglass.web.server.execute_tool",
             return_value=("No new provider artifacts", None, [], []),
         ),
     ):
@@ -90,8 +90,8 @@ def test_cancellation_during_final_active_enrichment_finishes_cancelled(tmp_path
         return "No new provider artifacts", None, [], []
 
     with (
-        patch("adversary_pursuit.web.server.dispatch_batteries", return_value=[battery]),
-        patch("adversary_pursuit.web.server.execute_tool", side_effect=controlled_enrichment),
+        patch("pivotglass.web.server.dispatch_batteries", return_value=[battery]),
+        patch("pivotglass.web.server.execute_tool", side_effect=controlled_enrichment),
     ):
         started = service.start_investigation("198.51.100.45")
         assert active.wait(timeout=5)

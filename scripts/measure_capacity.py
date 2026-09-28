@@ -21,15 +21,15 @@ from typing import Any
 
 from stix2 import DomainName, Relationship
 
-from adversary_pursuit.agent.tools import ToolContext
-from adversary_pursuit.core.document_entity_extraction import EntityExtractionLimits
-from adversary_pursuit.core.document_ingestion import DocumentLimits
-from adversary_pursuit.core.visualization import (
+from pivotglass.agent.tools import ToolContext
+from pivotglass.core.document_entity_extraction import EntityExtractionLimits
+from pivotglass.core.document_ingestion import DocumentLimits
+from pivotglass.core.visualization import (
     MAX_RELATIONSHIP_GRAPH_NODES,
     MAX_VISUALIZATION_ROWS,
 )
-from adversary_pursuit.core.workspace_admin import export_workspace
-from adversary_pursuit.web.server import WebCockpitService
+from pivotglass.core.workspace_admin import export_workspace
+from pivotglass.web.server import WebCockpitService
 
 
 def _measure(operation: Callable[[], Any]) -> tuple[Any, dict[str, float]]:

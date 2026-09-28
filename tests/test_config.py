@@ -4,7 +4,7 @@
 @title Test-first contract for ConfigManager
 @status accepted
 @rationale Tests define the public API contract before implementation.
-           Using tmp_path fixture throughout ensures the real ~/.ap/ directory
+           Using tmp_path fixture throughout ensures the real ~/.pivotglass/ directory
            is never touched during testing. monkeypatch isolates env vars per test.
 
 Tests cover:
@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from adversary_pursuit.core.config import Config, ConfigManager
+from pivotglass.core.config import Config, ConfigManager
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -220,88 +220,88 @@ class TestDottedKeys:
 
 class TestEnvVarOverride:
     def test_integration_urls_and_keys_resolve_from_environment(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_SYNAPSE_MCP_URL", "https://synapse.test/api/v1/mcp")
-        monkeypatch.setenv("AP_SYNAPSE_API_KEY", "synapse-env")
+        monkeypatch.setenv("PIVOTGLASS_SYNAPSE_MCP_URL", "https://synapse.test/api/v1/mcp")
+        monkeypatch.setenv("PIVOTGLASS_SYNAPSE_API_KEY", "synapse-env")
         mgr = make_manager(tmp_path)
         assert mgr.get_integration_url("synapse") == "https://synapse.test/api/v1/mcp"
         assert mgr.get_api_key("synapse") == "synapse-env"
 
     def test_scot_publication_url_resolves_from_environment(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_SCOT_API_URL", "https://scot.test/api/v1")
+        monkeypatch.setenv("PIVOTGLASS_SCOT_API_URL", "https://scot.test/api/v1")
         assert make_manager(tmp_path).get_scot_api_url() == "https://scot.test/api/v1"
 
     def test_scot_pivot_intake_secret_is_environment_only(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_SCOT_PIVOT_SECRET", "secret-owned-by-the-environment")
+        monkeypatch.setenv("PIVOTGLASS_SCOT_PIVOT_SECRET", "secret-owned-by-the-environment")
         manager = make_manager(tmp_path)
 
         assert manager.get_scot_pivot_secret() == "secret-owned-by-the-environment"
         assert manager.get_scot_pivot_secret_source() == "environment"
         assert "secret-owned-by-the-environment" not in repr(manager.load().model_dump())
 
-    def test_shodan_ap_env_resolves_via_get_api_key(self, tmp_path, monkeypatch):
-        """AP_SHODAN_API_KEY resolves via get_api_key() when no config is set."""
-        monkeypatch.setenv("AP_SHODAN_API_KEY", "env-key")
+    def test_shodan_pivotglass_env_resolves_via_get_api_key(self, tmp_path, monkeypatch):
+        """PIVOTGLASS_SHODAN_API_KEY resolves via get_api_key() when no config is set."""
+        monkeypatch.setenv("PIVOTGLASS_SHODAN_API_KEY", "env-key")
         monkeypatch.delenv("SHODAN_API_KEY", raising=False)
         assert make_manager(tmp_path).get_api_key("shodan") == "env-key"
 
-    def test_virustotal_legacy_ap_env_resolves(self, tmp_path, monkeypatch):
-        """Legacy AP_VT_API_KEY resolves via get_api_key() when no config is set."""
-        monkeypatch.setenv("AP_VT_API_KEY", "vt-env")
-        monkeypatch.delenv("AP_VIRUSTOTAL_API_KEY", raising=False)
+    def test_virustotal_legacy_pivotglass_env_resolves(self, tmp_path, monkeypatch):
+        """Legacy PIVOTGLASS_VT_API_KEY resolves via get_api_key() when no config is set."""
+        monkeypatch.setenv("PIVOTGLASS_VT_API_KEY", "vt-env")
+        monkeypatch.delenv("PIVOTGLASS_VIRUSTOTAL_API_KEY", raising=False)
         monkeypatch.delenv("VIRUSTOTAL_API_KEY", raising=False)
         assert make_manager(tmp_path).get_api_key("virustotal") == "vt-env"
 
-    def test_abuseipdb_ap_env_resolves(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_ABUSEIPDB_API_KEY", "abuse-env")
+    def test_abuseipdb_pivotglass_env_resolves(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PIVOTGLASS_ABUSEIPDB_API_KEY", "abuse-env")
         monkeypatch.delenv("ABUSEIPDB_API_KEY", raising=False)
         assert make_manager(tmp_path).get_api_key("abuseipdb") == "abuse-env"
 
-    def test_censys_id_ap_env_resolves(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_CENSYS_ID", "censys-id-env")
-        monkeypatch.delenv("AP_CENSYS_API_ID", raising=False)
+    def test_censys_id_pivotglass_env_resolves(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PIVOTGLASS_CENSYS_ID", "censys-id-env")
+        monkeypatch.delenv("PIVOTGLASS_CENSYS_API_ID", raising=False)
         monkeypatch.delenv("CENSYS_API_ID", raising=False)
         assert make_manager(tmp_path).get_api_key("censys_id") == "censys-id-env"
 
-    def test_censys_secret_ap_env_resolves(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_CENSYS_SECRET", "censys-secret-env")
-        monkeypatch.delenv("AP_CENSYS_API_SECRET", raising=False)
+    def test_censys_secret_pivotglass_env_resolves(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PIVOTGLASS_CENSYS_SECRET", "censys-secret-env")
+        monkeypatch.delenv("PIVOTGLASS_CENSYS_API_SECRET", raising=False)
         monkeypatch.delenv("CENSYS_API_SECRET", raising=False)
         assert make_manager(tmp_path).get_api_key("censys_secret") == "censys-secret-env"
 
-    def test_urlscan_ap_env_resolves(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_URLSCAN_API_KEY", "urlscan-env")
+    def test_urlscan_pivotglass_env_resolves(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PIVOTGLASS_URLSCAN_API_KEY", "urlscan-env")
         monkeypatch.delenv("URLSCAN_API_KEY", raising=False)
         assert make_manager(tmp_path).get_api_key("urlscan") == "urlscan-env"
 
-    def test_hibp_ap_env_resolves(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_HIBP_API_KEY", "hibp-env")
+    def test_hibp_pivotglass_env_resolves(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PIVOTGLASS_HIBP_API_KEY", "hibp-env")
         monkeypatch.delenv("HIBP_API_KEY", raising=False)
         assert make_manager(tmp_path).get_api_key("hibp") == "hibp-env"
 
-    def test_otx_ap_env_resolves(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_OTX_API_KEY", "otx-env")
+    def test_otx_pivotglass_env_resolves(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PIVOTGLASS_OTX_API_KEY", "otx-env")
         monkeypatch.delenv("OTX_API_KEY", raising=False)
         assert make_manager(tmp_path).get_api_key("otx") == "otx-env"
 
-    def test_passivetotal_user_ap_env_resolves(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_PASSIVETOTAL_USER", "pt-user-env")
-        monkeypatch.delenv("AP_PT_USER", raising=False)
+    def test_passivetotal_user_pivotglass_env_resolves(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PIVOTGLASS_PASSIVETOTAL_USER", "pt-user-env")
+        monkeypatch.delenv("PIVOTGLASS_PT_USER", raising=False)
         monkeypatch.delenv("PT_USERNAME", raising=False)
         assert make_manager(tmp_path).get_api_key("passivetotal_user") == "pt-user-env"
 
-    def test_passivetotal_key_ap_env_resolves(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_PASSIVETOTAL_KEY", "pt-key-env")
-        monkeypatch.delenv("AP_PT_API_KEY", raising=False)
+    def test_passivetotal_key_pivotglass_env_resolves(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PIVOTGLASS_PASSIVETOTAL_KEY", "pt-key-env")
+        monkeypatch.delenv("PIVOTGLASS_PT_API_KEY", raising=False)
         monkeypatch.delenv("PT_API_KEY", raising=False)
         assert make_manager(tmp_path).get_api_key("passivetotal_key") == "pt-key-env"
 
     def test_load_does_not_apply_env_to_config_object(self, tmp_path, monkeypatch):
         """load() returns raw config — env vars are NOT applied (DEC-CONFIG-003).
 
-        Setting AP_SHODAN_API_KEY must NOT mutate cfg.api_keys.shodan returned
+        Setting PIVOTGLASS_SHODAN_API_KEY must NOT mutate cfg.api_keys.shodan returned
         by load(). The config object always reflects only what is on disk.
         """
-        monkeypatch.setenv("AP_SHODAN_API_KEY", "env-key")
+        monkeypatch.setenv("PIVOTGLASS_SHODAN_API_KEY", "env-key")
         mgr = make_manager(tmp_path)
         cfg = mgr.load()
         # Disk has no shodan key — load() must return the default empty string,
@@ -310,7 +310,7 @@ class TestEnvVarOverride:
 
     def test_env_absent_returns_file_value(self, tmp_path, monkeypatch):
         """When env var is not set, get_api_key() returns the file value."""
-        monkeypatch.delenv("AP_SHODAN_API_KEY", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_SHODAN_API_KEY", raising=False)
         monkeypatch.delenv("SHODAN_API_KEY", raising=False)
         mgr = make_manager(tmp_path)
         cfg = mgr.load()
@@ -326,34 +326,34 @@ class TestEnvVarOverride:
 
 class TestGetApiKey:
     def test_returns_none_when_not_set(self, tmp_path, monkeypatch):
-        monkeypatch.delenv("AP_SHODAN_API_KEY", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_SHODAN_API_KEY", raising=False)
         mgr = make_manager(tmp_path)
         result = mgr.get_api_key("shodan")
         assert result is None or result == ""
 
     def test_returns_env_var_value(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_SHODAN_API_KEY", "env-shodan")
+        monkeypatch.setenv("PIVOTGLASS_SHODAN_API_KEY", "env-shodan")
         mgr = make_manager(tmp_path)
         assert mgr.get_api_key("shodan") == "env-shodan"
 
     def test_config_wins_over_env_var(self, tmp_path, monkeypatch):
         """Config-stored value takes precedence over env var (DEC-AGENT-CONFIG-KEY-RESOLUTION-001).
 
-        The old (wrong) behaviour allowed AP_SHODAN_API_KEY to silently
+        The old (wrong) behaviour allowed PIVOTGLASS_SHODAN_API_KEY to silently
         override a wizard-saved config value. The correct precedence is:
-        config.toml > AP_<SERVICE>_API_KEY > <SERVICE>_API_KEY > None.
+        config.toml > PIVOTGLASS_<SERVICE>_API_KEY > <SERVICE>_API_KEY > None.
         """
         mgr = make_manager(tmp_path)
         cfg = mgr.load()
         cfg.api_keys.shodan = "config-value"
         mgr.save(cfg)
 
-        monkeypatch.setenv("AP_SHODAN_API_KEY", "env-value")
+        monkeypatch.setenv("PIVOTGLASS_SHODAN_API_KEY", "env-value")
         # Config wins — "config-value" must be returned, not "env-value"
         assert mgr.get_api_key("shodan") == "config-value"
 
     def test_falls_back_to_config_when_env_absent(self, tmp_path, monkeypatch):
-        monkeypatch.delenv("AP_SHODAN_API_KEY", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_SHODAN_API_KEY", raising=False)
         mgr = make_manager(tmp_path)
         cfg = mgr.load()
         cfg.api_keys.shodan = "config-shodan"
@@ -361,11 +361,11 @@ class TestGetApiKey:
         assert mgr.get_api_key("shodan") == "config-shodan"
 
     def test_virustotal_via_get_api_key(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_VT_API_KEY", "vt-via-env")
+        monkeypatch.setenv("PIVOTGLASS_VT_API_KEY", "vt-via-env")
         assert make_manager(tmp_path).get_api_key("virustotal") == "vt-via-env"
 
     def test_abuseipdb_via_get_api_key(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_ABUSEIPDB_API_KEY", "abuse-via-env")
+        monkeypatch.setenv("PIVOTGLASS_ABUSEIPDB_API_KEY", "abuse-via-env")
         assert make_manager(tmp_path).get_api_key("abuseipdb") == "abuse-via-env"
 
     def test_unknown_service_returns_none(self, tmp_path):
@@ -384,7 +384,7 @@ class TestPydanticValidation:
         """auto_pivot_depth must be a positive integer."""
         from pydantic import ValidationError
 
-        from adversary_pursuit.core.config import GeneralConfig
+        from pivotglass.core.config import GeneralConfig
 
         with pytest.raises(ValidationError):
             GeneralConfig(auto_pivot_depth=-1)
@@ -393,7 +393,7 @@ class TestPydanticValidation:
         """theme must be 'dark' or 'light'."""
         from pydantic import ValidationError
 
-        from adversary_pursuit.core.config import GeneralConfig
+        from pivotglass.core.config import GeneralConfig
 
         with pytest.raises(ValidationError):
             GeneralConfig(theme="neon-rainbow")
@@ -406,7 +406,7 @@ class TestPydanticValidation:
 
 class TestDirCreation:
     def test_creates_config_dir_on_save(self, tmp_path):
-        config_dir = tmp_path / "nested" / "ap"
+        config_dir = tmp_path / "nested" / "pivotglass"
         mgr = ConfigManager(config_dir=config_dir)
         cfg = mgr.load()
         mgr.save(cfg)
@@ -513,7 +513,7 @@ class TestAgentProviderFields:
 
     def test_agent_model_default_none_in_general_config(self, tmp_path):
         """GeneralConfig defaults agent_provider and agent_model to None."""
-        from adversary_pursuit.core.config import GeneralConfig
+        from pivotglass.core.config import GeneralConfig
 
         g = GeneralConfig()
         assert g.agent_provider is None
@@ -521,7 +521,7 @@ class TestAgentProviderFields:
 
     def test_api_keys_config_has_agent_fields(self, tmp_path):
         """ApiKeysConfig has agent_anthropic, agent_openai, etc. defaulting to None."""
-        from adversary_pursuit.core.config import ApiKeysConfig
+        from pivotglass.core.config import ApiKeysConfig
 
         k = ApiKeysConfig()
         assert k.agent_anthropic is None
@@ -536,37 +536,37 @@ class TestAgentProviderFields:
 
 
 class TestThreeLayerPrecedence:
-    """Verify the full config > AP_env > vendor_env > None chain for get_api_key()."""
+    """Verify the full config > PIVOTGLASS_env > vendor_env > None chain for get_api_key()."""
 
     def test_config_wins_over_both_env_layers(self, tmp_path, monkeypatch):
-        """Config-stored value beats AP_* env and vendor env simultaneously."""
+        """Config-stored value beats PIVOTGLASS_* env and vendor env simultaneously."""
         mgr = make_manager(tmp_path)
         cfg = mgr.load()
         cfg.api_keys.shodan = "config-stored"
         mgr.save(cfg)
 
-        monkeypatch.setenv("AP_SHODAN_API_KEY", "ap-env")
+        monkeypatch.setenv("PIVOTGLASS_SHODAN_API_KEY", "pivotglass-env")
         monkeypatch.setenv("SHODAN_API_KEY", "vendor-env")
 
         assert mgr.get_api_key("shodan") == "config-stored"
 
-    def test_ap_prefixed_env_wins_over_vendor_env(self, tmp_path, monkeypatch):
-        """AP_<SERVICE>_API_KEY beats the vendor-convention env var."""
-        monkeypatch.setenv("AP_SHODAN_API_KEY", "ap_val")
+    def test_pivotglass_prefixed_env_wins_over_vendor_env(self, tmp_path, monkeypatch):
+        """PIVOTGLASS_<SERVICE>_API_KEY beats the vendor-convention env var."""
+        monkeypatch.setenv("PIVOTGLASS_SHODAN_API_KEY", "pivotglass_val")
         monkeypatch.setenv("SHODAN_API_KEY", "vendor_val")
 
-        assert make_manager(tmp_path).get_api_key("shodan") == "ap_val"
+        assert make_manager(tmp_path).get_api_key("shodan") == "pivotglass_val"
 
-    def test_vendor_env_used_when_no_config_no_ap_prefix(self, tmp_path, monkeypatch):
+    def test_vendor_env_used_when_no_config_no_pivotglass_prefix(self, tmp_path, monkeypatch):
         """Vendor env var (SHODAN_API_KEY) is the last non-None layer."""
-        monkeypatch.delenv("AP_SHODAN_API_KEY", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_SHODAN_API_KEY", raising=False)
         monkeypatch.setenv("SHODAN_API_KEY", "vendor_only")
 
         assert make_manager(tmp_path).get_api_key("shodan") == "vendor_only"
 
     def test_returns_none_when_all_layers_empty(self, tmp_path, monkeypatch):
-        """None is returned when config, AP_ env, and vendor env are all absent."""
-        monkeypatch.delenv("AP_SHODAN_API_KEY", raising=False)
+        """None is returned when config, PIVOTGLASS_ env, and vendor env are all absent."""
+        monkeypatch.delenv("PIVOTGLASS_SHODAN_API_KEY", raising=False)
         monkeypatch.delenv("SHODAN_API_KEY", raising=False)
 
         result = make_manager(tmp_path).get_api_key("shodan")
@@ -580,11 +580,11 @@ class TestThreeLayerPrecedence:
         cfg.api_keys.censys_id = "stored-id"
         mgr.save(cfg)
 
-        monkeypatch.delenv("AP_CENSYS_ID", raising=False)
-        monkeypatch.delenv("AP_CENSYS_API_ID", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_CENSYS_ID", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_CENSYS_API_ID", raising=False)
         monkeypatch.delenv("CENSYS_API_ID", raising=False)
-        monkeypatch.setenv("AP_CENSYS_SECRET", "env-secret")
-        monkeypatch.delenv("AP_CENSYS_API_SECRET", raising=False)
+        monkeypatch.setenv("PIVOTGLASS_CENSYS_SECRET", "env-secret")
+        monkeypatch.delenv("PIVOTGLASS_CENSYS_API_SECRET", raising=False)
         monkeypatch.delenv("CENSYS_API_SECRET", raising=False)
 
         assert mgr.get_api_key("censys_id") == "stored-id"
@@ -597,11 +597,11 @@ class TestThreeLayerPrecedence:
         cfg.api_keys.passivetotal_user = "stored-user"
         mgr.save(cfg)
 
-        monkeypatch.delenv("AP_PASSIVETOTAL_USER", raising=False)
-        monkeypatch.delenv("AP_PT_USER", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_PASSIVETOTAL_USER", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_PT_USER", raising=False)
         monkeypatch.delenv("PT_USERNAME", raising=False)
-        monkeypatch.setenv("AP_PASSIVETOTAL_KEY", "env-key")
-        monkeypatch.delenv("AP_PT_API_KEY", raising=False)
+        monkeypatch.setenv("PIVOTGLASS_PASSIVETOTAL_KEY", "env-key")
+        monkeypatch.delenv("PIVOTGLASS_PT_API_KEY", raising=False)
         monkeypatch.delenv("PT_API_KEY", raising=False)
 
         assert mgr.get_api_key("passivetotal_user") == "stored-user"
@@ -612,71 +612,71 @@ class TestThreeLayerPrecedence:
         mgr = make_manager(tmp_path)
         mgr.set_provider_api_key("anthropic", "sk-ant-stored")
 
-        monkeypatch.setenv("AP_ANTHROPIC_API_KEY", "ap-env-val")
+        monkeypatch.setenv("PIVOTGLASS_ANTHROPIC_API_KEY", "pivotglass-env-val")
         monkeypatch.setenv("ANTHROPIC_API_KEY", "vendor-env-val")
 
         # Layer 1 (stored config) wins
         assert mgr.get_provider_api_key("anthropic") == "sk-ant-stored"
 
     @pytest.mark.parametrize(
-        "provider_id,ap_var,ap_value,vendor_var,vendor_value",
+        "provider_id,project_var,pivotglass_value,vendor_var,vendor_value",
         [
-            ("anthropic", "AP_ANTHROPIC_API_KEY", "ap-ant-key", "ANTHROPIC_API_KEY", "ant-vendor"),
-            ("openai", "AP_OPENAI_API_KEY", "ap-oai-key", "OPENAI_API_KEY", "oai-vendor"),
-            ("openrouter", "AP_OPENROUTER_API_KEY", "ap-or-key", "OPENROUTER_API_KEY", "or-vendor"),
-            ("google", "AP_GOOGLE_API_KEY", "ap-gg-key", "GOOGLE_API_KEY", "gg-vendor"),
+            ("anthropic", "PIVOTGLASS_ANTHROPIC_API_KEY", "pivotglass-ant-key", "ANTHROPIC_API_KEY", "ant-vendor"),
+            ("openai", "PIVOTGLASS_OPENAI_API_KEY", "pivotglass-oai-key", "OPENAI_API_KEY", "oai-vendor"),
+            ("openrouter", "PIVOTGLASS_OPENROUTER_API_KEY", "pivotglass-or-key", "OPENROUTER_API_KEY", "or-vendor"),
+            ("google", "PIVOTGLASS_GOOGLE_API_KEY", "pivotglass-gg-key", "GOOGLE_API_KEY", "gg-vendor"),
         ],
     )
-    def test_get_provider_api_key_uses_ap_env_when_no_config(
+    def test_get_provider_api_key_uses_pivotglass_env_when_no_config(
         self,
         tmp_path,
         monkeypatch,
         provider_id,
-        ap_var,
-        ap_value,
+        project_var,
+        pivotglass_value,
         vendor_var,
         vendor_value,
     ):
-        """Layer 2 (AP_<PROVIDER>_API_KEY) is honoured when no config is stored.
+        """Layer 2 (PIVOTGLASS_<PROVIDER>_API_KEY) is honoured when no config is stored.
 
         Regression guard for the bug where get_provider_api_key() only read the
         stored config field and silently returned None when no wizard config existed,
-        even if the user had AP_ANTHROPIC_API_KEY (or equivalent) set in their shell.
+        even if the user had PIVOTGLASS_ANTHROPIC_API_KEY (or equivalent) set in their shell.
         """
         mgr = make_manager(tmp_path)
         # No stored config — both env layers should be reachable
-        monkeypatch.setenv(ap_var, ap_value)
+        monkeypatch.setenv(project_var, pivotglass_value)
         monkeypatch.setenv(vendor_var, vendor_value)
 
-        # AP_* layer wins over vendor layer
-        assert mgr.get_provider_api_key(provider_id) == ap_value
+        # PIVOTGLASS_* layer wins over vendor layer
+        assert mgr.get_provider_api_key(provider_id) == pivotglass_value
 
     @pytest.mark.parametrize(
-        "provider_id,ap_var,vendor_var,vendor_value",
+        "provider_id,project_var,vendor_var,vendor_value",
         [
-            ("anthropic", "AP_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY", "ant-vendor-only"),
-            ("openai", "AP_OPENAI_API_KEY", "OPENAI_API_KEY", "oai-vendor-only"),
-            ("openrouter", "AP_OPENROUTER_API_KEY", "OPENROUTER_API_KEY", "or-vendor-only"),
-            ("google", "AP_GOOGLE_API_KEY", "GOOGLE_API_KEY", "gg-vendor-only"),
+            ("anthropic", "PIVOTGLASS_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY", "ant-vendor-only"),
+            ("openai", "PIVOTGLASS_OPENAI_API_KEY", "OPENAI_API_KEY", "oai-vendor-only"),
+            ("openrouter", "PIVOTGLASS_OPENROUTER_API_KEY", "OPENROUTER_API_KEY", "or-vendor-only"),
+            ("google", "PIVOTGLASS_GOOGLE_API_KEY", "GOOGLE_API_KEY", "gg-vendor-only"),
         ],
     )
-    def test_get_provider_api_key_uses_vendor_env_when_no_config_no_ap(
+    def test_get_provider_api_key_uses_vendor_env_when_no_config_no_pivotglass(
         self,
         tmp_path,
         monkeypatch,
         provider_id,
-        ap_var,
+        project_var,
         vendor_var,
         vendor_value,
     ):
-        """Layer 3 (vendor env var) is honoured when no config and no AP_ env var.
+        """Layer 3 (vendor env var) is honoured when no config and no PIVOTGLASS_ env var.
 
         Ensures that ANTHROPIC_API_KEY (and equivalents) already exported in the
-        user's shell are picked up without requiring AP_* duplication.
+        user's shell are picked up without requiring PIVOTGLASS_* duplication.
         """
         mgr = make_manager(tmp_path)
-        # No stored config; AP_ var absent; vendor var present
-        monkeypatch.delenv(ap_var, raising=False)
+        # No stored config; PIVOTGLASS_ var absent; vendor var present
+        monkeypatch.delenv(project_var, raising=False)
         monkeypatch.setenv(vendor_var, vendor_value)
 
         assert mgr.get_provider_api_key(provider_id) == vendor_value
@@ -688,8 +688,8 @@ class TestThreeLayerPrecedence:
         substitution inside load() which silently inverted the precedence. load()
         must return exactly what is on disk — no env-var mutation.
         """
-        monkeypatch.setenv("AP_SHODAN_API_KEY", "injected-by-env")
-        monkeypatch.setenv("AP_VIRUSTOTAL_API_KEY", "vt-injected")
+        monkeypatch.setenv("PIVOTGLASS_SHODAN_API_KEY", "injected-by-env")
+        monkeypatch.setenv("PIVOTGLASS_VIRUSTOTAL_API_KEY", "vt-injected")
 
         mgr = make_manager(tmp_path)
         cfg = mgr.load()
@@ -701,12 +701,12 @@ class TestThreeLayerPrecedence:
     def test_vendor_env_var_names_are_honoured(self, tmp_path, monkeypatch):
         """Spot-check: vendor env vars with non-obvious names work correctly."""
         # Censys uses CENSYS_API_ID / CENSYS_API_SECRET (not CENSYS_ID_API_KEY)
-        monkeypatch.delenv("AP_CENSYS_ID", raising=False)
-        monkeypatch.delenv("AP_CENSYS_API_ID", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_CENSYS_ID", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_CENSYS_API_ID", raising=False)
         monkeypatch.setenv("CENSYS_API_ID", "censys-vendor-id")
 
-        monkeypatch.delenv("AP_PASSIVETOTAL_USER", raising=False)
-        monkeypatch.delenv("AP_PT_USER", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_PASSIVETOTAL_USER", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_PT_USER", raising=False)
         monkeypatch.setenv("PT_USERNAME", "pt-vendor-user")
 
         mgr = make_manager(tmp_path)
@@ -724,7 +724,7 @@ class TestCensysPat:
 
     def test_ApiKeysConfig_has_censys_pat_field(self, tmp_path):
         """ApiKeysConfig includes censys_pat as a nullable field."""
-        from adversary_pursuit.core.config import ApiKeysConfig
+        from pivotglass.core.config import ApiKeysConfig
 
         cfg = ApiKeysConfig()
         assert hasattr(cfg, "censys_pat")
@@ -742,15 +742,15 @@ class TestCensysPat:
         assert cfg2.api_keys.censys_pat == "test-pat-value"
 
     def test_get_censys_pat_returns_none_when_not_configured(self, tmp_path, monkeypatch):
-        """get_censys_pat() returns None when no config, AP env, or vendor env is set."""
-        monkeypatch.delenv("AP_CENSYS_PAT", raising=False)
+        """get_censys_pat() returns None when no config, Pivotglass env, or vendor env is set."""
+        monkeypatch.delenv("PIVOTGLASS_CENSYS_PAT", raising=False)
         monkeypatch.delenv("CENSYS_PAT", raising=False)
         mgr = make_manager(tmp_path)
         assert mgr.get_censys_pat() is None
 
     def test_get_censys_pat_layer1_config_value(self, tmp_path, monkeypatch):
         """Layer 1: stored config value takes highest precedence."""
-        monkeypatch.setenv("AP_CENSYS_PAT", "env-pat-layer2")
+        monkeypatch.setenv("PIVOTGLASS_CENSYS_PAT", "env-pat-layer2")
         monkeypatch.setenv("CENSYS_PAT", "env-pat-layer3")
 
         mgr = make_manager(tmp_path)
@@ -761,33 +761,33 @@ class TestCensysPat:
         # Config layer wins over both env layers
         assert mgr.get_censys_pat() == "config-pat-layer1"
 
-    def test_get_censys_pat_layer2_ap_env_var(self, tmp_path, monkeypatch):
-        """Layer 2: AP_CENSYS_PAT env var used when config has no value."""
-        monkeypatch.setenv("AP_CENSYS_PAT", "ap-env-pat")
+    def test_get_censys_pat_layer2_pivotglass_env_var(self, tmp_path, monkeypatch):
+        """Layer 2: PIVOTGLASS_CENSYS_PAT env var used when config has no value."""
+        monkeypatch.setenv("PIVOTGLASS_CENSYS_PAT", "pivotglass-env-pat")
         monkeypatch.delenv("CENSYS_PAT", raising=False)
 
         mgr = make_manager(tmp_path)
-        assert mgr.get_censys_pat() == "ap-env-pat"
+        assert mgr.get_censys_pat() == "pivotglass-env-pat"
 
     def test_get_censys_pat_layer3_vendor_env_var(self, tmp_path, monkeypatch):
         """Layer 3: CENSYS_PAT vendor env var used as final fallback."""
-        monkeypatch.delenv("AP_CENSYS_PAT", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_CENSYS_PAT", raising=False)
         monkeypatch.setenv("CENSYS_PAT", "vendor-env-pat")
 
         mgr = make_manager(tmp_path)
         assert mgr.get_censys_pat() == "vendor-env-pat"
 
     def test_get_censys_pat_3_layer_chain_precedence(self, tmp_path, monkeypatch):
-        """Full 3-layer chain: config > AP_CENSYS_PAT > CENSYS_PAT."""
+        """Full 3-layer chain: config > PIVOTGLASS_CENSYS_PAT > CENSYS_PAT."""
         # Start with only vendor env — should return it
-        monkeypatch.delenv("AP_CENSYS_PAT", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_CENSYS_PAT", raising=False)
         monkeypatch.setenv("CENSYS_PAT", "vendor-only")
         mgr = make_manager(tmp_path)
         assert mgr.get_censys_pat() == "vendor-only"
 
-        # Add AP env — should win over vendor
-        monkeypatch.setenv("AP_CENSYS_PAT", "ap-env-wins")
-        assert mgr.get_censys_pat() == "ap-env-wins"
+        # Add Pivotglass env — should win over vendor
+        monkeypatch.setenv("PIVOTGLASS_CENSYS_PAT", "pivotglass-env-wins")
+        assert mgr.get_censys_pat() == "pivotglass-env-wins"
 
         # Add config value — should win over both env layers
         cfg = mgr.load()
@@ -806,7 +806,7 @@ class TestGreyNoiseApiKey:
 
     Tests mirror the shodan/abuseipdb patterns so all module keys have symmetric
     coverage. The env var names follow the convention declared in config.py:
-      AP_GREYNOISE_API_KEY (layer 2) and GREYNOISE_API_KEY (layer 3).
+      PIVOTGLASS_GREYNOISE_API_KEY (layer 2) and GREYNOISE_API_KEY (layer 3).
     """
 
     def test_greynoise_api_key_resolution_from_toml(self, tmp_path):
@@ -820,32 +820,32 @@ class TestGreyNoiseApiKey:
         assert mgr.get_api_key("greynoise") == "gn-config-key"
 
     def test_greynoise_api_key_resolution_from_env(self, tmp_path, monkeypatch):
-        """AP_GREYNOISE_API_KEY env var resolves via get_api_key() when no config is set.
+        """PIVOTGLASS_GREYNOISE_API_KEY env var resolves via get_api_key() when no config is set.
 
-        This exercises layer 2 of the 3-layer precedence chain (AP_<SERVICE>_API_KEY).
+        This exercises layer 2 of the 3-layer precedence chain (PIVOTGLASS_<SERVICE>_API_KEY).
         No key is written to the TOML file so the env var must be the winning source.
         """
-        monkeypatch.setenv("AP_GREYNOISE_API_KEY", "gn-env-key")
+        monkeypatch.setenv("PIVOTGLASS_GREYNOISE_API_KEY", "gn-env-key")
         monkeypatch.delenv("GREYNOISE_API_KEY", raising=False)
         assert make_manager(tmp_path).get_api_key("greynoise") == "gn-env-key"
 
     def test_greynoise_default_is_empty_string(self, tmp_path, monkeypatch):
         """ApiKeysConfig.greynoise defaults to '' when no config file and no env var."""
-        monkeypatch.delenv("AP_GREYNOISE_API_KEY", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_GREYNOISE_API_KEY", raising=False)
         monkeypatch.delenv("GREYNOISE_API_KEY", raising=False)
         cfg = make_manager(tmp_path).load()
         assert cfg.api_keys.greynoise == ""
 
     def test_greynoise_config_wins_over_env(self, tmp_path, monkeypatch):
-        """Stored config beats AP_GREYNOISE_API_KEY env var (layer 1 > layer 2)."""
+        """Stored config beats PIVOTGLASS_GREYNOISE_API_KEY env var (layer 1 > layer 2)."""
         mgr = make_manager(tmp_path)
         mgr.set("api_keys.greynoise", "gn-stored")
-        monkeypatch.setenv("AP_GREYNOISE_API_KEY", "gn-env-value")
+        monkeypatch.setenv("PIVOTGLASS_GREYNOISE_API_KEY", "gn-env-value")
         assert mgr.get_api_key("greynoise") == "gn-stored"
 
     def test_greynoise_vendor_env_var_resolves(self, tmp_path, monkeypatch):
         """GREYNOISE_API_KEY vendor env var is the layer-3 fallback."""
-        monkeypatch.delenv("AP_GREYNOISE_API_KEY", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_GREYNOISE_API_KEY", raising=False)
         monkeypatch.setenv("GREYNOISE_API_KEY", "gn-vendor-key")
         assert make_manager(tmp_path).get_api_key("greynoise") == "gn-vendor-key"
 
@@ -860,7 +860,7 @@ class TestDossierAwareRankingConfig:
 
     def test_dossier_aware_ranking_defaults_to_true(self, tmp_path):
         """AutoPivotPolicyConfig.dossier_aware_ranking defaults to True (M-6 ON by default)."""
-        from adversary_pursuit.core.config import AutoPivotPolicyConfig
+        from pivotglass.core.config import AutoPivotPolicyConfig
 
         cfg = AutoPivotPolicyConfig()
         assert cfg.dossier_aware_ranking is True
@@ -869,7 +869,7 @@ class TestDossierAwareRankingConfig:
         """TOML round-trip: writing dossier_aware_ranking=false and reading back preserves it."""
         import tomllib
 
-        from adversary_pursuit.core.config import AutoPivotPolicyConfig
+        from pivotglass.core.config import AutoPivotPolicyConfig
 
         mgr = make_manager(tmp_path)
         cfg = mgr.load()

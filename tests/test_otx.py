@@ -32,13 +32,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from adversary_pursuit.core.plugin_mgr import PluginManager
-from adversary_pursuit.modules.base import (
+from pivotglass.core.plugin_mgr import PluginManager
+from pivotglass.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
-from adversary_pursuit.modules.cti.otx import AlienVaultOTX
+from pivotglass.modules.cti.otx import AlienVaultOTX
 
 # ---------------------------------------------------------------------------
 # Sample API responses
@@ -153,7 +153,7 @@ def mock_ip_success():
         _make_mock_response(200, SAMPLE_IP_PASSIVE_DNS),
     ]
     mock_client = _make_client(responses)
-    with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -164,7 +164,7 @@ def mock_ip_no_dns():
         _make_mock_response(200, SAMPLE_IP_GENERAL),
     ]
     mock_client = _make_client(responses)
-    with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -176,7 +176,7 @@ def mock_ip_empty_passive_dns():
         _make_mock_response(200, SAMPLE_EMPTY_PASSIVE_DNS),
     ]
     mock_client = _make_client(responses)
-    with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -193,7 +193,7 @@ def mock_domain_success():
         _make_mock_response(200, SAMPLE_DOMAIN_PASSIVE_DNS),
     ]
     mock_client = _make_client(responses)
-    with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -209,7 +209,7 @@ def mock_401():
         _make_mock_response(401, {"detail": "Authentication failed."}),
     ]
     mock_client = _make_client(responses)
-    with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -220,7 +220,7 @@ def mock_429():
         _make_mock_response(429, {"detail": "Rate limit exceeded."}, headers={"Retry-After": "60"}),
     ]
     mock_client = _make_client(responses)
-    with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -247,7 +247,7 @@ class TestOTXMetadata:
 
     def test_module_author(self):
         mod = AlienVaultOTX()
-        assert mod.author == "Adversary Pursuit"
+        assert mod.author == "Pivotglass"
 
     def test_description_non_empty(self):
         mod = AlienVaultOTX()
@@ -669,7 +669,7 @@ class TestOTXTimeoutRegression:
         import asyncio
 
         with patch(
-            "adversary_pursuit.modules.cti.otx.httpx.AsyncClient",
+            "pivotglass.modules.cti.otx.httpx.AsyncClient",
         ) as mock_cls:
             mock_cls.return_value = mock_ip_success
             mod = AlienVaultOTX()
@@ -746,7 +746,7 @@ class TestOTXTimeoutOption:
     def test_timeout_option_honored_when_overridden(self, mock_ip_success):
         """TIMEOUT override is propagated as float to httpx.AsyncClient(timeout=...)."""
         with patch(
-            "adversary_pursuit.modules.cti.otx.httpx.AsyncClient",
+            "pivotglass.modules.cti.otx.httpx.AsyncClient",
         ) as mock_cls:
             mock_cls.return_value = mock_ip_success
             mod = AlienVaultOTX()
@@ -793,7 +793,7 @@ class TestOTXReadTimeoutBehavior:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+        with patch("pivotglass.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
             mod = AlienVaultOTX()
             mod.initialize({"api_key": "test-key"})
             results = asyncio.run(mod.hunt("1.2.3.4", {}))
@@ -808,7 +808,7 @@ class TestOTXReadTimeoutBehavior:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+        with patch("pivotglass.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
             mod = AlienVaultOTX()
             mod.initialize({"api_key": "test-key"})
             results = asyncio.run(mod.hunt("8.8.8.8", {}))
@@ -822,7 +822,7 @@ class TestOTXReadTimeoutBehavior:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+        with patch("pivotglass.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
             mod = AlienVaultOTX()
             mod.initialize({"api_key": "test-key"})
             results = asyncio.run(mod.hunt("1.2.3.4", {}))
@@ -836,7 +836,7 @@ class TestOTXReadTimeoutBehavior:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+        with patch("pivotglass.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
             mod = AlienVaultOTX()
             mod.initialize({"api_key": "test-key"})
             results = asyncio.run(mod.hunt("evil.example.com", {}))
@@ -868,7 +868,7 @@ class TestOTXReadTimeoutBehavior:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("adversary_pursuit.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
+        with patch("pivotglass.modules.cti.otx.httpx.AsyncClient", return_value=mock_client):
             mod = AlienVaultOTX()
             mod.initialize({"api_key": "test-key"})
             results = asyncio.run(mod.hunt("1.2.3.4", {}))

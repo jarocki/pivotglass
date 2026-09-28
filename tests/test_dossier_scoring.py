@@ -43,12 +43,12 @@ from __future__ import annotations
 
 import logging
 
-from adversary_pursuit.dossier.scoring import (
+from pivotglass.dossier.scoring import (
     emit_dossier_prediction_validated_event,
     emit_dossier_slot_filled_events,
 )
-from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
-from adversary_pursuit.dossier.slots import DossierSlotName, PredictionRecord, SlotStatus
+from pivotglass.dossier.slot_inference import DossierState, SlotState
+from pivotglass.dossier.slots import DossierSlotName, PredictionRecord, SlotStatus
 
 # ---------------------------------------------------------------------------
 # Helper factories — build minimal DossierState objects without live workspace
@@ -296,7 +296,7 @@ class TestDeferredToRealDefensiveGuard:
         pre = DossierState(slots=pre_slots, total_sco_count=0)
         post = DossierState(slots=post_slots, total_sco_count=1)
 
-        with caplog.at_level(logging.DEBUG, logger="adversary_pursuit.dossier.scoring"):
+        with caplog.at_level(logging.DEBUG, logger="pivotglass.dossier.scoring"):
             events = emit_dossier_slot_filled_events(pre, post)
 
         assert events == [], "deferred->real must produce zero events in M-3"
@@ -502,7 +502,7 @@ class TestM4PredictionEventEmission:
     """
 
     def _make_prediction(self, pid: str = "pred-00000001", text: str = "Actor pivots to .ru"):
-        from adversary_pursuit.dossier.predictions import ExpectedEvidence, PersistedPrediction
+        from pivotglass.dossier.predictions import ExpectedEvidence, PersistedPrediction
 
         return PersistedPrediction(
             prediction_id=pid,
@@ -515,7 +515,7 @@ class TestM4PredictionEventEmission:
 
     def test_ds1_confirmed_prediction_fires_prediction_validated_event(self):
         """DS1: confirmed validation => dossier_prediction_validated event at points=4."""
-        from adversary_pursuit.dossier.predictions import _to_m2_record
+        from pivotglass.dossier.predictions import _to_m2_record
 
         pred = self._make_prediction()
         event = emit_dossier_prediction_validated_event(_to_m2_record(pred))
@@ -527,7 +527,7 @@ class TestM4PredictionEventEmission:
 
     def test_ds2_prediction_event_alongside_slot_fill_events(self):
         """DS2: slot-fill events + prediction events can coexist in the same hunt."""
-        from adversary_pursuit.dossier.predictions import _to_m2_record
+        from pivotglass.dossier.predictions import _to_m2_record
 
         # Simulate a hunt that fills Identity slot AND confirms a prediction
         pre = _all_empty_state()
@@ -545,7 +545,7 @@ class TestM4PredictionEventEmission:
 
     def test_ds3_no_prediction_event_when_zero_confirmations(self):
         """DS3: validate_predictions returns 0 confirmations => no prediction events."""
-        from adversary_pursuit.dossier.predictions import validate_predictions
+        from pivotglass.dossier.predictions import validate_predictions
 
         pred = self._make_prediction()
         new_scos = [{"type": "ipv4-addr", "value": "1.2.3.4", "id": "ipv4-addr--1.2.3.4"}]
@@ -619,12 +619,12 @@ class TestEmitDossierPredictionFalsifiedEvent:
 
     def test_falsified_event_shape(self):
         """emit_dossier_prediction_falsified_event returns dict with correct keys and values."""
-        from adversary_pursuit.dossier.predictions import (
+        from pivotglass.dossier.predictions import (
             ExpectedEvidence,
             FalsificationEvidence,
             PersistedPrediction,
         )
-        from adversary_pursuit.dossier.scoring import emit_dossier_prediction_falsified_event
+        from pivotglass.dossier.scoring import emit_dossier_prediction_falsified_event
 
         pred = PersistedPrediction(
             prediction_id="pred-3f19d55c",
@@ -650,11 +650,11 @@ class TestEmitDossierPredictionFalsifiedEvent:
 
     def test_falsified_event_fires_alongside_slot_fill_events(self):
         """Falsification event and slot-fill event can both be emitted in the same hunt."""
-        from adversary_pursuit.dossier.predictions import (
+        from pivotglass.dossier.predictions import (
             ExpectedEvidence,
             PersistedPrediction,
         )
-        from adversary_pursuit.dossier.scoring import (
+        from pivotglass.dossier.scoring import (
             emit_dossier_prediction_falsified_event,
             emit_dossier_slot_filled_events,
         )

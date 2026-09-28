@@ -151,5 +151,5 @@ dmypy.json
 /storyboard/
 /tm/
 
-# Separate nested project — never include its files in AP changes or commits.
+# Separate nested project — never include its files in Pivotglass changes or commits.
 /career-narrative/

@@ -7,17 +7,17 @@ import sqlite3
 import pytest
 from sqlalchemy import inspect
 
-from adversary_pursuit.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
-from adversary_pursuit.agent.tools import ToolContext
-from adversary_pursuit.core.command_completion import command_completions
-from adversary_pursuit.core.graph_presentation import (
+from pivotglass.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
+from pivotglass.agent.tools import ToolContext
+from pivotglass.core.command_completion import command_completions
+from pivotglass.core.graph_presentation import (
     GraphPresentationAuthority,
     graph_fingerprint,
 )
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.core.workspace_admin import export_workspace, merge_workspaces
-from adversary_pursuit.core.workspace_migrations import CURRENT_WORKSPACE_SCHEMA_VERSION
-from adversary_pursuit.web.server import WebCockpitService
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.core.workspace_admin import export_workspace, merge_workspaces
+from pivotglass.core.workspace_migrations import CURRENT_WORKSPACE_SCHEMA_VERSION
+from pivotglass.web.server import WebCockpitService
 
 
 def _workspace(tmp_path) -> WorkspaceManager:

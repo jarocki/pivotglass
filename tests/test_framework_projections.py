@@ -4,18 +4,18 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.agent.repl_verbs import parse_repl_verb
-from adversary_pursuit.core.analytic_ledger import ConfidenceLevel
-from adversary_pursuit.core.command_completion import command_completions
-from adversary_pursuit.core.framework_projections import (
+from pivotglass.agent.repl_verbs import parse_repl_verb
+from pivotglass.core.analytic_ledger import ConfidenceLevel
+from pivotglass.core.command_completion import command_completions
+from pivotglass.core.framework_projections import (
     Framework,
     FrameworkMapping,
     FrameworkProjectionAuthority,
     MappingOrigin,
     MappingState,
 )
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.core.workspace_migrations import (
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.core.workspace_migrations import (
     CURRENT_WORKSPACE_SCHEMA_VERSION,
     get_workspace_schema_version,
 )

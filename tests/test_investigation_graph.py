@@ -4,25 +4,25 @@ from __future__ import annotations
 
 from stix2 import DomainName, IPv4Address, Relationship
 
-from adversary_pursuit.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
-from adversary_pursuit.core.analytic_ledger import (
+from pivotglass.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
+from pivotglass.core.analytic_ledger import (
     AnalyticLedger,
     AssertionType,
     ConfidenceLevel,
     EvidenceStance,
 )
-from adversary_pursuit.core.command_completion import command_completions
-from adversary_pursuit.core.framework_projections import (
+from pivotglass.core.command_completion import command_completions
+from pivotglass.core.framework_projections import (
     Framework,
     FrameworkProjectionAuthority,
     MappingOrigin,
 )
-from adversary_pursuit.core.investigation_graph import (
+from pivotglass.core.investigation_graph import (
     GraphLayer,
     GraphTruthKind,
     build_investigation_graph,
 )
-from adversary_pursuit.core.workspace import WorkspaceManager
+from pivotglass.core.workspace import WorkspaceManager
 
 
 def _workspace(tmp_path) -> WorkspaceManager:

@@ -37,7 +37,7 @@ editable install (main src/). See DEC-P18S4-TEST-PYTHONPATH-001.
            is correct for regression testing unchanged code. But tests that verify
            specific worktree fixes (like logger.debug downgrade) must use
            PYTHONPATH=<worktree>/src to import the edited modules. This is the
-           standard AP worktree testing split: existing suite (no PYTHONPATH) +
+           standard Pivotglass worktree testing split: existing suite (no PYTHONPATH) +
            slice-specific tests (with PYTHONPATH) both pass before landing.
 """
 
@@ -59,9 +59,9 @@ class TestBug1LoggingDowngrade:
         """asyncio.TimeoutError during whois lookup must not emit a WARNING record."""
         import asyncio
 
-        from adversary_pursuit.modules.osint.whois_lookup import _run_whois
+        from pivotglass.modules.osint.whois_lookup import _run_whois
 
-        with caplog.at_level(logging.DEBUG, logger="adversary_pursuit.modules.osint.whois_lookup"):
+        with caplog.at_level(logging.DEBUG, logger="pivotglass.modules.osint.whois_lookup"):
             # @mock-exempt: asyncio.create_subprocess_exec spawns an OS-level whois process
             with patch("asyncio.create_subprocess_exec", side_effect=asyncio.TimeoutError()):
                 result = asyncio.run(_run_whois("8.8.8.8"))
@@ -76,9 +76,9 @@ class TestBug1LoggingDowngrade:
         """OSError during whois lookup must not emit a WARNING record."""
         import asyncio
 
-        from adversary_pursuit.modules.osint.whois_lookup import _run_whois
+        from pivotglass.modules.osint.whois_lookup import _run_whois
 
-        with caplog.at_level(logging.DEBUG, logger="adversary_pursuit.modules.osint.whois_lookup"):
+        with caplog.at_level(logging.DEBUG, logger="pivotglass.modules.osint.whois_lookup"):
             with patch("asyncio.create_subprocess_exec", side_effect=OSError("no whois")):
                 result = asyncio.run(_run_whois("8.8.8.8"))
 
@@ -153,7 +153,7 @@ class TestBug3HonestFallback:
         from pathlib import Path
 
         runner_src = (
-            Path(__file__).parent.parent / "src" / "adversary_pursuit" / "agent" / "runner.py"
+            Path(__file__).parent.parent / "src" / "pivotglass" / "agent" / "runner.py"
         ).read_text()
         assert "None of the queried services returned data" in runner_src, (
             "Bug 3 fix string not found in runner.py"
@@ -191,7 +191,7 @@ class TestBug4NotFoundClassification:
 
     def test_not_found_is_info_severity(self):
         """_is_not_found_error + _interpret_not_found must return severity='info'."""
-        from adversary_pursuit.core.error_interpreter import (
+        from pivotglass.core.error_interpreter import (
             _interpret_not_found,
             _is_not_found_error,
         )
@@ -200,7 +200,7 @@ class TestBug4NotFoundClassification:
         # @mock-exempt: _is_httpx_http_status_error checks httpx import chain; mocked here
         # so we can test the not-found logic without requiring httpx class hierarchy.
         with patch(
-            "adversary_pursuit.core.error_interpreter._is_httpx_http_status_error",
+            "pivotglass.core.error_interpreter._is_httpx_http_status_error",
             return_value=True,
         ):
             assert _is_not_found_error(exc) is True
@@ -212,29 +212,29 @@ class TestBug4NotFoundClassification:
 
     def test_not_found_not_matched_for_401(self):
         """_is_not_found_error must return False for 401 errors."""
-        from adversary_pursuit.core.error_interpreter import _is_not_found_error
+        from pivotglass.core.error_interpreter import _is_not_found_error
 
         exc = self._make_404_exc(401)
         with patch(
-            "adversary_pursuit.core.error_interpreter._is_httpx_http_status_error",
+            "pivotglass.core.error_interpreter._is_httpx_http_status_error",
             return_value=True,
         ):
             assert _is_not_found_error(exc) is False
 
     def test_not_found_not_matched_for_429(self):
         """_is_not_found_error must return False for 429 rate-limit errors."""
-        from adversary_pursuit.core.error_interpreter import _is_not_found_error
+        from pivotglass.core.error_interpreter import _is_not_found_error
 
         exc = self._make_404_exc(429)
         with patch(
-            "adversary_pursuit.core.error_interpreter._is_httpx_http_status_error",
+            "pivotglass.core.error_interpreter._is_httpx_http_status_error",
             return_value=True,
         ):
             assert _is_not_found_error(exc) is False
 
     def test_catalog_order_404_before_generic(self):
         """_is_not_found_error must appear before _is_http_status_error_generic in _CATALOG."""
-        from adversary_pursuit.core.error_interpreter import (
+        from pivotglass.core.error_interpreter import (
             _CATALOG,
             _is_http_status_error_generic,
             _is_not_found_error,
@@ -254,7 +254,7 @@ class TestBug4NotFoundClassification:
 
         from rich.console import Console
 
-        from adversary_pursuit.core.error_interpreter import ErrorInterpretation, render_interactive
+        from pivotglass.core.error_interpreter import ErrorInterpretation, render_interactive
 
         interp = ErrorInterpretation(
             severity="info",
@@ -286,7 +286,7 @@ class TestBug5SmallTierBodyText:
 
     def test_nice_find_has_body_text(self):
         """'Nice find!' art must include a description line below the ASCII box."""
-        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
+        from pivotglass.gamification.celebrations import CELEBRATION_ART
 
         small_arts = CELEBRATION_ART["small"]
         nice_find = next((s for s in small_arts if "Nice find" in s), None)
@@ -302,7 +302,7 @@ class TestBug5SmallTierBodyText:
 
     def test_target_acquired_has_body_text(self):
         """'Target acquired' art must include a description line below the ASCII box."""
-        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
+        from pivotglass.gamification.celebrations import CELEBRATION_ART
 
         small_arts = CELEBRATION_ART["small"]
         target_acq = next((s for s in small_arts if "Target acquired" in s), None)
@@ -318,7 +318,7 @@ class TestBug5SmallTierBodyText:
 
     def test_celebrate_small_returns_body_text(self):
         """CelebrationEngine.celebrate() with <50 points must return art with body text."""
-        from adversary_pursuit.gamification.celebrations import CelebrationEngine
+        from pivotglass.gamification.celebrations import CelebrationEngine
 
         engine = CelebrationEngine()
         # collect all possible small-tier results (random, so sample many)
@@ -377,7 +377,7 @@ class TestBug6AchievementDedup:
         from pathlib import Path
 
         src = (
-            Path(__file__).parent.parent / "src" / "adversary_pursuit" / "agent" / "runner.py"
+            Path(__file__).parent.parent / "src" / "pivotglass" / "agent" / "runner.py"
         ).read_text()
         assert "_turn_seen_celebrations" in src, (
             "Bug 6 fix: _turn_seen_celebrations set not found in runner.py"
@@ -388,8 +388,8 @@ class TestBug6AchievementDedup:
 
     def test_runner_chat_deduplicates_repeated_celebration(self, tmp_path):
         """AgentRunner.chat() must not add the same celebration twice to last_celebrations."""
-        from adversary_pursuit.agent.runner import AgentRunner
-        from adversary_pursuit.agent.tools import ToolContext
+        from pivotglass.agent.runner import AgentRunner
+        from pivotglass.agent.tools import ToolContext
 
         # Build a real ToolContext so we don't mock internal objects
         ctx = ToolContext(
@@ -433,10 +433,10 @@ class TestBug6AchievementDedup:
             patch.object(runner, "_call_llm", side_effect=fake_call_llm),
             # @mock-exempt: execute_tool is the LLM tool-dispatch external boundary;
             # it calls live modules/HTTP APIs. Must be patched in runner's namespace
-            # because runner.py does `from adversary_pursuit.agent.tools import execute_tool`,
+            # because runner.py does `from pivotglass.agent.tools import execute_tool`,
             # binding the name into the runner module's namespace.
             patch(
-                "adversary_pursuit.agent.runner.execute_tool",
+                "pivotglass.agent.runner.execute_tool",
                 return_value=("summary", celebration_art, [], []),
             ),
         ):
@@ -495,7 +495,7 @@ class TestBug7HuntSuccessGate:
         from pathlib import Path
 
         src = (
-            Path(__file__).parent.parent / "src" / "adversary_pursuit" / "agent" / "tools.py"
+            Path(__file__).parent.parent / "src" / "pivotglass" / "agent" / "tools.py"
         ).read_text()
         assert "_hunt_succeeded" in src, "Bug 7 fix: _hunt_succeeded not found in tools.py"
         assert "total > 0 and _hunt_succeeded" in src, (
@@ -507,7 +507,7 @@ class TestBug7HuntSuccessGate:
 
     def test_no_celebration_on_bare_domain_name_result(self, tmp_path):
         """run_module() must not produce a celebration for a bare domain-name-only hunt result."""
-        from adversary_pursuit.agent.tools import ToolContext
+        from pivotglass.agent.tools import ToolContext
 
         ctx = ToolContext(
             config_dir=tmp_path / "config",
@@ -536,7 +536,7 @@ class TestBug7HuntSuccessGate:
 
     def test_celebration_present_on_real_hunt_result(self, tmp_path):
         """run_module() must produce a celebration when hunt returns a real IP result."""
-        from adversary_pursuit.agent.tools import ToolContext
+        from pivotglass.agent.tools import ToolContext
 
         ctx = ToolContext(
             config_dir=tmp_path / "config",

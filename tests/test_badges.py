@@ -14,7 +14,7 @@ Covers:
 - Console checks badges after run (integration flow)
 
 Production sequence tested:
-  After each `run`, APConsole calls badge_mgr.check_all(workspace_stats).
+  After each `run`, PivotglassConsole calls badge_mgr.check_all(workspace_stats).
   This test suite exercises the real flow: WorkspaceManager.get_workspace_stats()
   produces the stats dict, BadgeManager.check_all evaluates conditions, newly
   awarded badges are persisted via store_badge_event and displayed to the user.
@@ -24,7 +24,7 @@ Production sequence tested:
 @status accepted
 @rationale Badge.check_award receives a plain stats dict (same pattern as
            Challenge.check_completion). Keys: total_indicators, domain_count,
-           ip_count, module_run_count, total_score, note_count. APConsole
+           ip_count, module_run_count, total_score, note_count. PivotglassConsole
            assembles this via WorkspaceManager.get_workspace_stats() before
            calling BadgeManager.check_all(). Tests verify both the contract
            and the assembly. Mirrors DEC-CHALLENGE-001 for consistency.
@@ -37,9 +37,9 @@ from pathlib import Path
 
 import pytest
 
-from adversary_pursuit.core.console import APConsole
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.gamification.badges import (
+from pivotglass.core.console import PivotglassConsole
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.gamification.badges import (
     AwardedBadge,
     Badge,
     BadgeManager,
@@ -60,7 +60,7 @@ def _make_stats(
     total_score: int = 0,
     note_count: int = 0,
 ) -> dict:
-    """Build a workspace_stats dict matching what APConsole passes to check_all."""
+    """Build a workspace_stats dict matching what PivotglassConsole passes to check_all."""
     return {
         "total_indicators": total_indicators,
         "domain_count": domain_count,
@@ -495,7 +495,7 @@ class TestGetWorkspaceStats:
 
 @pytest.fixture
 def console(tmp_path):
-    app = APConsole(
+    app = PivotglassConsole(
         config_dir=tmp_path / "config",
         workspace_dir=tmp_path / "workspaces",
     )
@@ -503,7 +503,7 @@ def console(tmp_path):
     return app
 
 
-def run_cmd(app: APConsole, cmd: str) -> str:
+def run_cmd(app: PivotglassConsole, cmd: str) -> str:
     """Run a console command, return combined stdout + Rich output."""
     app.stdout = io.StringIO()
     app.rich_console = app._make_rich_console()
@@ -526,13 +526,13 @@ class TestConsoleBadgesCommand:
         )
 
     def test_console_has_badge_manager(self, console):
-        """APConsole has a badge_mgr attribute after __init__."""
+        """PivotglassConsole has a badge_mgr attribute after __init__."""
         assert hasattr(console, "badge_mgr")
         assert isinstance(console.badge_mgr, BadgeManager)
 
     def test_badges_command_shows_earned_badge(self, tmp_path):
         """After earning a badge via workspace store, badges command shows it."""
-        app = APConsole(
+        app = PivotglassConsole(
             config_dir=tmp_path / "config",
             workspace_dir=tmp_path / "workspaces",
         )

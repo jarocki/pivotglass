@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from adversary_pursuit.agent.tui.events import (
+from pivotglass.agent.tui.events import (
     BatteryFinished,
     BatteryStarted,
     BatteryToolFinished,
@@ -24,7 +24,7 @@ from adversary_pursuit.agent.tui.events import (
     TargetChanged,
     YieldReceived,
 )
-from adversary_pursuit.agent.tui.live_pane import LivePane
+from pivotglass.agent.tui.live_pane import LivePane
 
 # ---------------------------------------------------------------------------
 # Helper
@@ -87,7 +87,7 @@ def test_persona_identity_uses_world_title_not_generic_emoji():
 
     identity = pane.render()[0]
 
-    assert "NEUROMANCER // THE SPRAWL" in identity
+    assert "NIGHTGRID // NIGHTGRID" in identity
     assert "🕵" not in identity
 
 
@@ -296,7 +296,7 @@ def test_live_pane_uses_real_phrase_cache():
     This is the real-path integration test: real EventBus, real LivePane,
     real phrase cache — no mocks.
     """
-    from adversary_pursuit.gamification.phrases import pick
+    from pivotglass.gamification.phrases import pick
 
     pane, bus = _make_pane(mode_name="default")
     bus.publish(
@@ -328,8 +328,8 @@ def test_live_pane_uses_real_phrase_cache():
 
 def test_live_pane_dossier_strip_reflects_state():
     """inject a DossierState and verify the strip in row 4 updates."""
-    from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
-    from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+    from pivotglass.dossier.slot_inference import DossierState, SlotState
+    from pivotglass.dossier.slots import DossierSlotName, SlotStatus
 
     pane, bus = _make_pane()
 

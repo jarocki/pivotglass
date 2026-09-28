@@ -33,13 +33,13 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.core.dossier_pivot import (
+from pivotglass.core.dossier_pivot import (
     STATUS_MULTIPLIERS,
     compute_slot_fill_score,
     make_dossier_pivot_ranker,
 )
-from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
-from adversary_pursuit.dossier.slots import (
+from pivotglass.dossier.slot_inference import DossierState, SlotState
+from pivotglass.dossier.slots import (
     SLOT_WEIGHTS,
     DossierSlotName,
     SlotStatus,
@@ -142,7 +142,7 @@ class TestComputeSlotFillScore:
         The ranker must be robust to multi-slot mappings whether or not any
         current type exercises them.
         """
-        from adversary_pursuit.dossier import slots as slots_mod
+        from pivotglass.dossier import slots as slots_mod
 
         # Temporarily add a two-slot mapping
         original = slots_mod.SLOT_EVIDENCE_TYPES.get("test-multi-sco")

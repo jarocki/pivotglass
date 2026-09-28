@@ -1,12 +1,18 @@
 # Pivotglass Quick Start
 
-Threat investigations rarely fail because no data exists. They fail because
-evidence arrives as disconnected facts. Pivotglass keeps each result with its
+Threat investigations often begin with disconnected reports, logs, and indicators.
+A useful judgment needs a question, traceable evidence, and a way to test
+competing explanations. Pivotglass keeps each result with its
 source and time, connects only what the evidence supports, and leaves
 unanswered questions visible.
 
 This guide takes you from a clean installation to a small investigation, a
 graph review, and a report.
+
+Prefer a calmer display? Open **Help → Reading & attention** for larger text
+and **Quiet workspace**. Dimming is optional and off by default. Help also has
+direct routes to create a report or choose an export format. These presentation
+choices do not change your evidence or suppress error alerts.
 
 ## 1. Install Pivotglass
 
@@ -16,16 +22,16 @@ the only supported pre-1.0 installation because it reproduces the dependency
 set used for release qualification.
 
 ```bash
-git clone --branch v0.9.6 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v0.9.8 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent --frozen
-uv run ap --version
+uv run pivotglass --version
 ```
 
 The final command should report:
 
 ```text
-adversary-pursuit 0.9.6
+pivotglass 0.9.8
 ```
 
 The release contains the built browser interface. Node.js 20.9 or newer is
@@ -45,33 +51,54 @@ recreate the locked environment:
 
 ```bash
 git fetch --tags origin
-git checkout v0.9.6
+git checkout v0.9.8
 uv sync --extra agent --frozen
-uv run ap --version
+uv run pivotglass --version
 ```
 
 If the checkout contains local changes, preserve them and install the release
 in a new directory instead of forcing a checkout. Remove the application and
-its `ap` command from this environment with:
+its `pivotglass` command from this environment with:
 
 ```bash
-uv pip uninstall adversary-pursuit
+uv pip uninstall pivotglass
 ```
 
-The public product and repository are named **Pivotglass**. The Python
-distribution remains `adversary-pursuit`, and the installed compatibility
-command remains `ap`; changing either before 1.0 would break existing installs
-and scripts. Uninstalling the package does not silently delete workspaces or
-configuration in the user's application-data directory. Back up or remove
-that user-owned data separately and deliberately.
+The product, command, Python distribution, and import package now use
+`pivotglass`. User-owned configuration and workspaces live under
+`~/.pivotglass/`. Uninstalling the package does not remove those files. Back
+up or remove investigation data separately and deliberately. Before upgrading
+an existing installation, follow [Workspace migration and recovery](WORKSPACE_MIGRATIONS.md)
+and preserve a backup; a successful version check alone does not establish
+that a valuable workspace has migrated correctly.
+
+### Preserve data from an earlier installation
+
+The v0.9.8 name change does not implicitly select an older data directory.
+Stop all Pivotglass processes using your old directory and back it up. Before
+starting v0.9.8, copy that directory into a **new, absent** destination with:
+
+```bash
+uv run pivotglass migrate-home --from /absolute/path/to/previous-data --confirm-stopped
+```
+
+The command copies into `~/.pivotglass/`, preserves the source, refuses an
+existing destination or symbolic links, and publishes the destination only
+when the copy has completed. To use a different destination, add
+`--to /absolute/path/to/new-data`; this changes only where the copy is written,
+not the default application directory. This is a local data copy, separate from
+workspace schema migration. Review the receipt and follow the
+[workspace validation and recovery procedure](WORKSPACE_MIGRATIONS.md)
+before using valuable investigation data. Update scripts, environment variables,
+and launchers to the new `pivotglass` command and `PIVOTGLASS_*` names.
 
 ## 2. Start the browser interface
 
 ```bash
-ap
+pivotglass
 ```
 
-Use `uv run ap`. Pivotglass opens in the browser. If it does not open
+Use `uv run pivotglass`. Pivotglass opens in the browser. If it does not open
 automatically, visit:
 
 ```text
@@ -83,10 +110,10 @@ The server listens only on the local computer by default.
 Other interfaces remain available:
 
 ```text
-ap tui      Full-screen terminal interface
-ap chat     Alias for the terminal interface
-ap basic    Direct module-control console
-ap repl     Alias for the direct console
+pivotglass tui      Full-screen terminal interface
+pivotglass chat     Alias for the terminal interface
+pivotglass basic    Direct module-control console
+pivotglass repl     Alias for the direct console
 ```
 
 ## 3. Configure intelligence and AI services
@@ -205,6 +232,27 @@ indicators you are authorized to send to the enabled services.
 
 > An indicator is not the answer. It is the first node.
 
+### Frame your question before collecting more
+
+In a separate workspace for your own case, choose **BUILD INVESTIGATIVE
+QUESTIONS · Q&A** or **Help → Build Investigative Questions**. Novice guidance
+asks about your sources, the event, its possible origin, affected scope, the
+decision you need to support, and alternatives.
+
+Answer one prompt at a time; use **I DON'T KNOW YET** for a knowledge gap.
+Review the three suggested questions, edit them into bounded, testable
+questions, and choose **SAVE THIS QUESTION** only for the ones you need.
+Saving writes a question to the notebook; it does not validate your reported
+context or run enrichment. Drafts and reflections stay in this browser,
+scoped by workspace. They are separate from saved questions and exports.
+
+Try: “Between 10:00 and 11:00 UTC, did the proxy connections from this host
+reflect expected administration or unauthorized activity, and what evidence
+would distinguish them?” This is an example of question structure, not a
+finding about your workspace. See the
+[guided first investigation](USER_GUIDE.md#walkthrough-from-reported-context-to-a-question)
+for a complete exercise.
+
 ## 5. Read the Investigation Constellation
 
 Open **Visualize**, then choose **Investigation Constellation** from **Choose an
@@ -219,43 +267,61 @@ Select an indicator to open its evidence. Select a cell to see why that
 dimension is filled, partial, empty, or deferred. The overall mapped value is a
 navigation aid, not confidence or a verdict.
 
-The Constellation compresses those states into a child's Lite Brite motif so
-all nine Dossier dimensions remain scannable beside each indicator: a bright
-starburst is filled, a striped round peg is partial, a concentric octagonal peg
-is deferred, and a dark recessed peg is empty. Shape repeats color, and hover,
+The Constellation keeps all nine dimensions aligned beside each indicator:
+green check = **Coverage met**, amber half-circle = **Some evidence**, open
+circle = **No evidence**, dash = **No automated path**. Coverage is not
+confidence or safety. Source-reported country flags describe infrastructure
+location, never attacker origin. Shape repeats color, and hover,
 keyboard focus, and selection expose the complete status and evidence count.
 Tab enters the matrix once. Use arrow keys to move between pegs and Enter or
-Space to pin the focused explanation above the matrix.
+Space to pin the focused explanation below the matrix. Select **Open evidence
+& provenance** to inspect the records behind that indicator.
 
 > A blank cell is not missing interface. It is visible uncertainty.
 
-![Theme-aware Investigation Constellation with fixed hover guidance](media/pivotglass-visualize-v0.9.6.png)
+![Current constellation with familiar coverage marks and country labels](media/pivotglass-constellation-night-v0.9.7.png)
 
-### Optional: preview and ingest a source document
+### Add a report or indicator list
 
-Open **Visualize**, expand **Preview a document**, and choose a supported local
-file. Version 0.9.6 previews text, Markdown, HTML, CSV, JSON, JSONL, and email;
+Open **Investigate**, expand **Add indicators & reports**, and choose a supported
+local file. Pivotglass previews text, Markdown, HTML, CSV, JSON, JSONL, and email;
 PDF input is recognized but its text and images are not yet extracted. Preview
 is local, temporary, and bounded to 10 MiB. It shows what was parsed, skipped,
 truncated, or rejected. Preview alone stores nothing and creates no evidence,
 entity, or relationship.
 
+JSON recognition uses content, extension, and structured MIME types rather than
+trusting a browser label alone. It supports UTF-8/16/32 signatures and strict
+JSONL records found in a `.json` file. Duplicate keys and malformed records are
+shown only as bounded raw text with an explicit warning; they are not silently
+repaired. Non-finite values and excessive nesting fail closed.
+
 Expand **Entity candidates** to inspect deterministic text matches. Each match
 shows the raw and normalized value, entity type, line and column, character and
-UTF-8 byte span, and extraction rule/version. The browser displays at most the
-first 100 of up to 2,000 bounded candidates. They remain temporary candidates,
+UTF-8 byte span, and extraction rule/version. Review up to 2,000 bounded candidates
+in pages of 50 using **Previous** and **Next**. **Select this page** adds only the
+current page to your selection; selections on other pages remain checked.
+They remain temporary candidates,
 not admitted evidence or graph nodes.
 
-After reviewing the digest, parser receipt, and candidates, choose **Ingest this
-document**. Pivotglass binds admission to the exact preview SHA-256, stores the
-source occurrence and exact bytes in the active workspace, and displays a loud
-admission receipt. The persistent **Source library** lists admitted occurrences
-after refresh or restart. Candidates remain candidates until independently
-admitted; ingestion does not convert text claims into analytical facts.
+After reviewing the digest, parser receipt, and candidates, check only the
+entities you intend to add. Choose **Ingest source + add entities** to bind the
+selection to the source SHA-256, exact parser span, normalized value, and
+extractor rule, store the source occurrence, and admit those selected entities
+through the workspace evidence authority. Choose **Ingest source only** when the
+report belongs in the library but none of its candidate strings should become
+entities. Neither path assigns maliciousness, validates the report's claims,
+creates a threat relationship, or attributes an actor.
+
+If the source receipt appears but entity admission is interrupted, choose
+**Retry entity admission**. The retry is idempotent against the stored source:
+it does not upload a second copy or duplicate an already admitted entity.
+
+![JSON recognized from content with task-relative candidate guidance](media/pivotglass-json-intake-v0.9.7.png)
 
 ![Explicit document admission and persistent source library](media/pivotglass-document-library-v0.9.6.png)
 
-Open **Visualize** and choose **Pivot trail** to see the chronological sequence
+Open **Visualize → Provenance History** to see the recorded path
 of document, indicator, and entity navigation. This trail explains how the
 analyst arrived at the current position; it is a workflow record, not evidence
 that two threat entities are related.
@@ -312,7 +378,7 @@ judgments appear as manual graph edges.
 
 > The graph is useful because it refuses to connect what the evidence does not.
 
-![Evidence-backed relationship graph](media/pivotglass-graph-v0.9.5.png)
+![Pivotglass v0.9.8 relationship graph in a synthetic workspace](media/pivotglass-graph-v0.9.8.png)
 
 The `graph` command opens the deterministic graph summary:
 
@@ -399,8 +465,8 @@ narration, and music. You can also use:
 ```text
 mode list
 mode Default (Analyst)
-mode Sherlock Holmes
-mode Neuromancer
+mode Sleuth
+mode Nightgrid
 ```
 
 Music begins off. If enabled, the choice persists when the character changes.
@@ -419,8 +485,9 @@ the top of the current viewport, never steals focus, and is always labeled
 **Narration, not evidence**. Its artwork combines the active character with the
 kind of advice being offered. Choose its action, select **Read Aloud**, dismiss
 it, or turn Narration off from **DECK**. Automatic Advisor voice audio is a
-separate opt-in setting; it uses a browser or operating-system voice with
-character-specific pacing and pitch, not a cloned actor or character voice.
+separate opt-in setting. Configured OpenAI speech synthesis receives the
+narrated text, with browser or operating-system speech as a fallback. Music
+is local, and no actor or character voice is cloned.
 
 In the terminal interface, `Alt-M` toggles music immediately.
 
@@ -429,11 +496,11 @@ In the terminal interface, `Alt-M` toggles music immediately.
 ### The wrong version starts
 
 ```bash
-command -v ap
-ap --version
+command -v pivotglass
+pivotglass --version
 ```
 
-From a source checkout, `uv run ap --version` bypasses an older global
+From a source checkout, `uv run pivotglass --version` bypasses an older global
 installation.
 
 ### The browser interface is missing or stale
@@ -445,7 +512,7 @@ cd web
 npm ci
 npm run build
 cd ..
-uv run ap
+uv run pivotglass
 ```
 
 ### A model or intelligence service does not work

@@ -31,25 +31,25 @@ def version_from_pyproject(content: str) -> str:
 def current_versions(root: Path = ROOT) -> dict[str, str]:
     """Read every release-bearing machine manifest."""
     pyproject = root.joinpath("pyproject.toml").read_text(encoding="utf-8")
-    init_text = root.joinpath("src/adversary_pursuit/__init__.py").read_text(
+    init_text = root.joinpath("src/pivotglass/__init__.py").read_text(
         encoding="utf-8"
     )
     init_match = re.search(r'^__version__\s*=\s*"([^"]+)"', init_text, re.MULTILINE)
     if init_match is None:
-        raise ValueError("src/adversary_pursuit/__init__.py has no __version__")
+        raise ValueError("src/pivotglass/__init__.py has no __version__")
     web_package = json.loads(root.joinpath("web/package.json").read_text(encoding="utf-8"))
     web_lock = json.loads(
         root.joinpath("web/package-lock.json").read_text(encoding="utf-8")
     )
     uv_lock = root.joinpath("uv.lock").read_text(encoding="utf-8")
     uv_match = re.search(
-        r'(?ms)^name = "adversary-pursuit"\nversion = "([^"]+)"', uv_lock
+        r'(?ms)^name = "pivotglass"\nversion = "([^"]+)"', uv_lock
     )
     if uv_match is None:
-        raise ValueError("uv.lock has no adversary-pursuit version")
+        raise ValueError("uv.lock has no pivotglass version")
     return {
         "pyproject.toml": version_from_pyproject(pyproject),
-        "src/adversary_pursuit/__init__.py": init_match.group(1),
+        "src/pivotglass/__init__.py": init_match.group(1),
         "uv.lock": uv_match.group(1),
         "web/package.json": str(web_package["version"]),
         "web/package-lock.json": str(web_lock["version"]),
@@ -118,7 +118,7 @@ def validate(*, base: str | None = None, tag: str | None = None) -> list[str]:
     package_install = f"@v{declared}" in quickstart
     if (
         not (source_install or package_install)
-        or f"adversary-pursuit {declared}" not in quickstart
+        or f"pivotglass {declared}" not in quickstart
     ):
         errors.append(
             f"docs/QUICKSTART.md does not install and verify v{declared} "

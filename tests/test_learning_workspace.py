@@ -10,16 +10,16 @@ from types import SimpleNamespace
 
 from rich.console import Console
 
-from adversary_pursuit.agent.chat import _chat_handle_workspace
-from adversary_pursuit.agent.repl_verbs import ReplVerb, dispatch_repl_verb
-from adversary_pursuit.agent.tools import ToolContext
-from adversary_pursuit.core.analytic_ledger import AnalyticLedger
-from adversary_pursuit.core.command_completion import command_completions
-from adversary_pursuit.core.console import APConsole
-from adversary_pursuit.core.learning_workspace import create_learning_workspace
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.core.workspace_admin import export_workspace
-from adversary_pursuit.web.server import WebCockpitService
+from pivotglass.agent.chat import _chat_handle_workspace
+from pivotglass.agent.repl_verbs import ReplVerb, dispatch_repl_verb
+from pivotglass.agent.tools import ToolContext
+from pivotglass.core.analytic_ledger import AnalyticLedger
+from pivotglass.core.command_completion import command_completions
+from pivotglass.core.console import PivotglassConsole
+from pivotglass.core.learning_workspace import create_learning_workspace
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.core.workspace_admin import export_workspace
+from pivotglass.web.server import WebCockpitService
 
 
 def test_learning_workspace_is_offline_source_grounded_and_complete(tmp_path, monkeypatch) -> None:
@@ -151,7 +151,7 @@ def test_learning_workspace_command_has_web_tui_basic_and_completion_parity(tmp_
     assert '"synthetic": true' in chat_output.getvalue()
     assert chat_manager.active == "chat-learning"
 
-    basic = APConsole(
+    basic = PivotglassConsole(
         config_dir=tmp_path / "basic-config",
         workspace_dir=tmp_path / "basic-workspaces",
     )

@@ -91,7 +91,11 @@ export function CharacterAdvisorArtwork({
   );
 }
 
-export function speakCharacterNarration(character: string, message: string): boolean {
+let voiceRequest: AbortController | null = null;
+let spokenAudio: HTMLAudioElement | null = null;
+let voiceGeneration = 0;
+
+function speakDeviceNarration(character: string, message: string): boolean {
   if (typeof window === "undefined" || !("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return false;
   const identity = advisorIdentity(character);
   const profile = VOICE_PROFILES[identity] ?? VOICE_PROFILES.default;
@@ -111,6 +115,43 @@ export function speakCharacterNarration(character: string, message: string): boo
   return true;
 }
 
+export async function speakCharacterNarration(character: string, message: string): Promise<boolean> {
+  stopCharacterNarration();
+  const generation = voiceGeneration;
+  const request = new AbortController();
+  voiceRequest = request;
+  try {
+    const response = await fetch("/api/advisor/voice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ character, message }),
+      signal: request.signal,
+    });
+    if (!response.ok) throw new Error("AI voice unavailable");
+    const blob = await response.blob();
+    if (generation !== voiceGeneration) return false;
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    spokenAudio = audio;
+    audio.addEventListener("ended", () => { URL.revokeObjectURL(url); if (spokenAudio === audio) spokenAudio = null; }, { once: true });
+    await audio.play();
+    return true;
+  } catch {
+    if (generation !== voiceGeneration) return false;
+    return speakDeviceNarration(character, message);
+  } finally {
+    if (voiceRequest === request) voiceRequest = null;
+  }
+}
+
 export function stopCharacterNarration() {
+  voiceGeneration += 1;
+  voiceRequest?.abort();
+  voiceRequest = null;
+  if (spokenAudio) {
+    spokenAudio.pause();
+    URL.revokeObjectURL(spokenAudio.src);
+    spokenAudio = null;
+  }
   if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
 }

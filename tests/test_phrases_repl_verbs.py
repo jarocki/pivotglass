@@ -24,8 +24,8 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.gamification.modes import DEFAULT_MODES
-from adversary_pursuit.gamification.phrases import pick
+from pivotglass.gamification.modes import DEFAULT_MODES
+from pivotglass.gamification.phrases import pick
 
 # All active characters
 ALL_CHARACTERS = list(DEFAULT_MODES.keys())
@@ -82,7 +82,7 @@ def test_target_set_acknowledged_has_target_placeholder(character: str):
     dispatch_repl_verb calls phrase.format(target=...) so every phrase in this
     category must be a valid format string with {target}.
     """
-    from adversary_pursuit.gamification.phrases import PHRASES
+    from pivotglass.gamification.phrases import PHRASES
 
     # Check all phrases for this character (or default fallback)
     pool = PHRASES.get((character, "target_set:acknowledged")) or PHRASES.get(
@@ -110,7 +110,7 @@ def test_unknown_mode_has_name_placeholder(character: str):
     dispatch_repl_verb calls phrase.format(name=...) so every phrase in this
     category must be a valid format string with {name}.
     """
-    from adversary_pursuit.gamification.phrases import PHRASES
+    from pivotglass.gamification.phrases import PHRASES
 
     pool = PHRASES.get((character, "unknown_mode")) or PHRASES.get(("default", "unknown_mode"))
     assert pool, f"No phrases found for ({character!r}, 'unknown_mode')"
@@ -138,7 +138,7 @@ def test_default_farewell_is_non_empty():
 
 
 def test_hal9000_farewell_mentions_dave():
-    from adversary_pursuit.gamification.phrases import PHRASES
+    from pivotglass.gamification.phrases import PHRASES
 
     pool = PHRASES.get(("hal9000", "farewell"))
     assert pool, "hal9000 farewell phrases missing"
@@ -150,7 +150,7 @@ def test_hal9000_farewell_mentions_dave():
 
 
 def test_hal9000_target_set_acknowledged_has_dave():
-    from adversary_pursuit.gamification.phrases import PHRASES
+    from pivotglass.gamification.phrases import PHRASES
 
     pool = PHRASES.get(("hal9000", "target_set:acknowledged"))
     assert pool, "hal9000 target_set:acknowledged phrases missing"
@@ -161,7 +161,7 @@ def test_hal9000_target_set_acknowledged_has_dave():
 
 
 def test_hal9000_status_intro_has_dave():
-    from adversary_pursuit.gamification.phrases import PHRASES
+    from pivotglass.gamification.phrases import PHRASES
 
     pool = PHRASES.get(("hal9000", "status_intro"))
     assert pool, "hal9000 status_intro phrases missing"
@@ -173,7 +173,7 @@ def test_hal9000_status_intro_has_dave():
 
 def test_deckard_farewell_is_terse():
     """Deckard's farewell should be short (film-noir terse style)."""
-    from adversary_pursuit.gamification.phrases import PHRASES
+    from pivotglass.gamification.phrases import PHRASES
 
     pool = PHRASES.get(("deckard", "farewell"))
     assert pool, "deckard farewell phrases missing"
@@ -185,7 +185,7 @@ def test_deckard_farewell_is_terse():
 
 def test_ninja_phrases_use_dim_markup():
     """Ninja zero-arg categories should use [dim]...[/dim] Rich markup."""
-    from adversary_pursuit.gamification.phrases import PHRASES
+    from pivotglass.gamification.phrases import PHRASES
 
     for cat in ["farewell", "status_intro"]:
         pool = PHRASES.get(("ninja", cat))

@@ -2,12 +2,12 @@
 
 from pathlib import Path
 
-from adversary_pursuit.agent.tui.themes import (
+from pivotglass.agent.tui.themes import (
     COCKPIT_PROFILES,
     DEFAULT_THEMES,
     PRESENTATION_CONTRACTS,
 )
-from adversary_pursuit.gamification.modes import DEFAULT_MODES
+from pivotglass.gamification.modes import DEFAULT_MODES
 
 
 def test_every_selectable_mode_has_one_complete_presentation_contract():
@@ -100,7 +100,7 @@ def test_web_overlay_focus_restoration_waits_for_modal_teardown():
 
 def test_scientific_workbench_exposes_conflicts_without_auto_promoting_them():
     workbench = Path("web/app/scientific-workbench.tsx").read_text()
-    rigor = Path("src/adversary_pursuit/core/analytic_rigor.py").read_text()
+    rigor = Path("src/pivotglass/core/analytic_rigor.py").read_text()
 
     assert "CONFIDENCE &amp; CONTRADICTION REVIEW" in workbench
     assert "RECORD CONTRADICTION" in workbench
@@ -168,7 +168,7 @@ def test_command_completion_has_an_explicit_top_level_stacking_contract():
 
 def test_constellation_defaults_to_persistent_indicator_dimension_status():
     workspace = Path("web/app/visualization-workspace.tsx").read_text()
-    authority = Path("src/adversary_pursuit/core/visualization.py").read_text()
+    authority = Path("src/pivotglass/core/visualization.py").read_text()
 
     assert 'intent.intent_id === "indicator-constellation"' in workspace
     assert 'useState("last_desc")' in workspace
@@ -231,7 +231,12 @@ def test_constellation_uses_compact_shape_redundant_lite_brite_pegs():
     assert "coverage is not confidence or truth" in workspace
     assert "<LiteBritePeg\n                                compact" in workspace
     assert 'className="constellation-dimension-help"' in workspace
-    assert "`${label}. ${cellHelp}`" in workspace
+    assert "? cellHelp" in workspace
+    assert ".matrix-cell>span:last-child:not(.lite-brite-peg)" in styles
+    assert "table-layout:fixed" in styles
+    assert "hoverTip?.anchor.id ===" in workspace
+    assert "onPointerLeave={scheduleHideHoverTip}" in workspace
+    assert "grid-template-columns:1fr;gap:0;place-items:center" in styles
     assert "data-grid-row={rowIndex}" in workspace
     assert "data-grid-column={columnIndex}" in workspace
     assert 'event.key === "ArrowDown"' in workspace
@@ -264,7 +269,7 @@ def test_visualization_question_picker_keeps_the_analyst_question_primary():
 
 
 def test_every_selected_visualization_explains_choice_and_reading():
-    authority = Path("src/adversary_pursuit/core/visualization.py").read_text()
+    authority = Path("src/pivotglass/core/visualization.py").read_text()
     intent = Path("web/app/visualization-intent.ts").read_text()
     workspace = Path("web/app/visualization-workspace.tsx").read_text()
 
@@ -340,9 +345,9 @@ def test_product_uses_enrichment_and_reserves_connection_for_graph_relations():
     product_files = (
         Path("README.md"),
         Path("docs/USER_GUIDE.md"),
-        Path("src/adversary_pursuit/web/server.py"),
-        Path("src/adversary_pursuit/agent/tui/application.py"),
-        Path("src/adversary_pursuit/core/visualization.py"),
+        Path("src/pivotglass/web/server.py"),
+        Path("src/pivotglass/agent/tui/application.py"),
+        Path("src/pivotglass/core/visualization.py"),
         Path("web/app/page.tsx"),
         Path("web/app/visualization-workspace.tsx"),
     )
@@ -352,3 +357,95 @@ def test_product_uses_enrichment_and_reserves_connection_for_graph_relations():
     assert retired_active_contact_term not in combined
     assert "enrichment" in combined
     assert "a connection is an evidence-backed relationship between graph nodes" in combined
+
+
+def test_investigate_owns_source_intake_and_selected_entity_admission():
+    page = Path("web/app/page.tsx").read_text()
+    intake = Path("web/app/document-intake.tsx").read_text()
+
+    intake_position = page.index('id="investigate-intake"')
+    activity_position = page.index('className="cockpit-grid"')
+    visualize_position = page.index('id="artifact-field"')
+    assert intake_position < activity_position < visualize_position
+    assert 'hidden={activePane !== "intelligence"}' in page
+    assert "candidate_keys: [...selectedCandidates]" in intake
+    assert "INGEST SOURCE + ADD" in intake
+    assert "INGEST SOURCE ONLY" in intake
+    assert "source-admission action below" in intake
+    assert "It does not declare a candidate malicious" in intake
+    assert "visibleCandidates.map" in intake
+    assert "SELECT PAGE (" in intake
+    assert "SELECT ALL MATCHES" in intake
+    assert "it never selects unseen pages" in intake
+    assert "expected_workspace: workspace" in intake
+    assert "RETRY LIBRARY" in intake
+    assert 'data-action="use-admitted-indicator"' in intake
+    assert 'key={state.workspace}' in page
+    assert "candidate_admission_error" in intake
+    assert "RETRY ENTITY ADMISSION" in intake
+    assert "/api/documents/candidates/admit" in intake
+    assert "It does not store a second copy" in intake
+
+
+def test_guidance_is_persisted_graduated_and_presentation_only():
+    page = Path("web/app/page.tsx").read_text()
+    profile = Path("web/app/guidance-profile.ts").read_text()
+    guidance = Path("web/app/graduated-help.tsx").read_text()
+    styles = Path("web/app/pivotglass.css").read_text()
+
+    assert 'pivotglass.guidance.v1' in page
+    assert 'completedWorkflows >= 3' in profile
+    assert 'completedWorkflows >= 12' in profile
+    assert 'type GuidanceLevel = "novice" | "adept" | "expert"' in profile
+    assert "Workflow guidance is presentation, not evidence." in guidance
+    assert "RESET WALKTHROUGH" in page
+    assert 'data-tutorial-focus' in page
+    assert '.guided-focus-active [data-focus-context]' in styles
+    assert 'placeGuidance(' in page
+    # A tutorial reveals only the destination's ancestors, not every panel.
+    assert 'intakeTargetFor(action)' in page
+    assert 'querySelectorAll<HTMLDetailsElement>("details")' not in page
+    navigation = Path("web/app/guidance-navigation.ts").read_text()
+    assert 'data-action=\'preview-document\'' in navigation
+    assert 'data-action=\'use-admitted-indicator\'' in navigation
+    assert 'aria-live="polite"' in guidance
+    assert 'main>.guided-help-layer{position:fixed' in styles
+    assert ':not(.guided-help-layer){position:relative' in styles
+    assert 'max-height:calc(100vh - 24px)' in styles
+    assert '.guided-help-layer{top:auto' not in styles
+    assert 'border:3px solid var(--focus-ring)' in styles
+    assert 'GUIDED NEXT STEP' in guidance
+    assert '.guide-kicker{' in styles
+    assert '@media(prefers-reduced-motion:reduce)' in styles
+
+
+def test_help_workflow_routes_do_not_schedule_competing_opener_restoration():
+    page = Path("web/app/page.tsx").read_text()
+    help_markup = page.split('{help && <div', 1)[1].split('{palette &&', 1)[0]
+    assert 'setHelp(false); followGuidedAction("focus_command")' in help_markup
+    assert 'setHelp(false); followGuidedAction("focus_intake")' in help_markup
+    assert 'closeOverlays(); openOverlay("palette")' not in help_markup
+    assert 'closeOverlays(); document.querySelector' not in help_markup
+
+
+def test_viewport_dialogs_are_not_nested_under_a_filter_containing_block():
+    styles = Path("web/app/pivotglass.css").read_text()
+    assert "main.contrast-soft{filter:" not in styles
+    assert ".modal-backdrop{position:fixed" in styles
+    assert ".utility-backdrop{position:fixed" in styles
+    assert ".detail-backdrop{position:fixed" in styles
+
+
+def test_quiet_workspace_suppresses_nonessential_motion_without_hiding_status():
+    page = Path("web/app/page.tsx").read_text()
+    styles = Path("web/app/pivotglass.css").read_text()
+    quiet = page.split('function quietWorkspace()', 1)[1].split('function stopMusic', 1)[0]
+    for choice in ('spotlight: false', 'setEffectsPreference("off")',
+                   'setNarrationPreference("off")', 'setVoiceAudioPreference(false)',
+                   'stopMusic()'):
+        assert choice in quiet
+    override = '.effects-off :is(.system-state.pulse,.rgb-led,.graduated-help)'
+    assert override in styles
+    rule = styles.split(override, 1)[1].split('}', 1)[0]
+    assert 'animation:none!important' in rule
+    assert 'display:none' not in rule

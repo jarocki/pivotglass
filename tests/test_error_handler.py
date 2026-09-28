@@ -31,7 +31,7 @@ from unittest.mock import MagicMock, patch
 
 from rich.console import Console
 
-from adversary_pursuit.agent.error_handler import (
+from pivotglass.agent.error_handler import (
     _CANNED_FALLBACK,
     FriendlyError,
     classify_error,
@@ -178,19 +178,19 @@ class TestClassifyErrorRateLimit:
 
 
 class TestClassifyErrorFileSystem:
-    def test_file_not_found_in_ap_dir(self):
+    def test_file_not_found_in_pivotglass_dir(self):
         exc = FileNotFoundError(
-            2, "No such file or directory", str(Path_home() / ".ap" / "config.toml")
+            2, "No such file or directory", str(Path_home() / ".pivotglass" / "config.toml")
         )
         result = classify_error(exc)
         # May or may not classify depending on path — just verify no crash
         # The path check is internal; verify the call doesn't raise
         assert result is None or isinstance(result, FriendlyError)
 
-    def test_permission_error_on_ap_dir(self, tmp_path):
-        exc = PermissionError(13, "Permission denied", str(tmp_path / ".ap" / "chat_history"))
+    def test_permission_error_on_pivotglass_dir(self, tmp_path):
+        exc = PermissionError(13, "Permission denied", str(tmp_path / ".pivotglass" / "chat_history"))
         result = classify_error(exc)
-        # classify_error checks for ".ap" in the path — this path doesn't contain ".ap"
+        # classify_error checks for ".pivotglass" in the path — this path doesn't contain ".pivotglass"
         # so it should return None for the tmp_path version
         assert result is None or isinstance(result, FriendlyError)
 
@@ -235,7 +235,7 @@ class TestDebugLLMExplain:
             "Problem: The value was out of range.\nFix: Check your input parameters."
         )
         # @mock-exempt: litellm.completion is external LLM API
-        with patch("adversary_pursuit.agent.error_handler.litellm") as mock_litellm:
+        with patch("pivotglass.agent.error_handler.litellm") as mock_litellm:
             mock_litellm.completion.return_value = mock_resp
             result = debug_llm_explain(exc, model="ollama/qwen2.5:8b", api_key=None)
 
@@ -249,7 +249,7 @@ class TestDebugLLMExplain:
             "Problem: The connection pool is full.\nFix: Restart the service."
         )
         # @mock-exempt: litellm.completion is external LLM API
-        with patch("adversary_pursuit.agent.error_handler.litellm") as mock_litellm:
+        with patch("pivotglass.agent.error_handler.litellm") as mock_litellm:
             mock_litellm.completion.return_value = mock_resp
             result = debug_llm_explain(exc, model="test/model", api_key="key123")
 
@@ -259,7 +259,7 @@ class TestDebugLLMExplain:
     def test_falls_back_to_canned_when_llm_raises(self):
         exc = ValueError("some error")
         # @mock-exempt: litellm.completion is external LLM API
-        with patch("adversary_pursuit.agent.error_handler.litellm") as mock_litellm:
+        with patch("pivotglass.agent.error_handler.litellm") as mock_litellm:
             mock_litellm.completion.side_effect = RuntimeError("LLM is also down")
             result = debug_llm_explain(exc, model="ollama/qwen2.5:8b", api_key=None)
 
@@ -272,7 +272,7 @@ class TestDebugLLMExplain:
         exc = ValueError("some error")
         # Simulate litellm not installed by setting the module-level attribute to None
         # @mock-exempt: patching module-level litellm to simulate missing optional dep
-        import adversary_pursuit.agent.error_handler as eh
+        import pivotglass.agent.error_handler as eh
 
         monkeypatch.setattr(eh, "litellm", None)
         result = debug_llm_explain(exc, model="ollama/qwen2.5:8b", api_key=None)
@@ -285,9 +285,9 @@ class TestDebugLLMExplain:
 
         exc = ValueError("slow error")
         # @mock-exempt: litellm.completion is external LLM API
-        with patch("adversary_pursuit.agent.error_handler.litellm"):
+        with patch("pivotglass.agent.error_handler.litellm"):
             with patch(
-                "adversary_pursuit.agent.error_handler.concurrent.futures.ThreadPoolExecutor"
+                "pivotglass.agent.error_handler.concurrent.futures.ThreadPoolExecutor"
             ) as mock_exec:
                 mock_future = MagicMock()
                 mock_future.result.side_effect = concurrent.futures.TimeoutError()
@@ -351,7 +351,7 @@ class TestHandleError:
         )
         # @mock-exempt: debug_llm_explain calls external LLM API
         with patch(
-            "adversary_pursuit.agent.error_handler.debug_llm_explain",
+            "pivotglass.agent.error_handler.debug_llm_explain",
             return_value=mock_friendly,
         ):
             result = handle_error(exc, console, runner, config_mgr)
@@ -466,7 +466,7 @@ class TestHandleErrorEndToEnd:
 
         # LLM is down → canned fallback
         # @mock-exempt: litellm.completion is external LLM API
-        with patch("adversary_pursuit.agent.error_handler.litellm") as mock_litellm:
+        with patch("pivotglass.agent.error_handler.litellm") as mock_litellm:
             mock_litellm.completion.side_effect = Exception("LLM unavailable")
             recoverable = handle_error(exc, console, runner, config_mgr)
 
@@ -499,8 +499,8 @@ class TestClassifyErrorDelegation:
         Verify: result summary/suggestion matches what interpret() returns,
         confirming the delegation path ran (not a parallel inline catalog).
         """
-        from adversary_pursuit.core.error_interpreter import interpret
-        from adversary_pursuit.modules.base import RateLimitError
+        from pivotglass.core.error_interpreter import interpret
+        from pivotglass.modules.base import RateLimitError
 
         exc = RateLimitError("Rate limited", retry_after=5)
 
@@ -516,10 +516,10 @@ class TestClassifyErrorDelegation:
 
     def test_auth_error_from_modules_base_delegates_to_core(self):
         """AuthenticationError (modules.base) routes through core catalog."""
-        from adversary_pursuit.core.error_interpreter import interpret
-        from adversary_pursuit.modules.base import AuthenticationError
+        from pivotglass.core.error_interpreter import interpret
+        from pivotglass.modules.base import AuthenticationError
 
-        exc = AuthenticationError("AP_SHODAN_API_KEY not configured")
+        exc = AuthenticationError("PIVOTGLASS_SHODAN_API_KEY not configured")
 
         result = classify_error(exc)
         core_interp = interpret(exc)
@@ -534,7 +534,7 @@ class TestClassifyErrorDelegation:
 
         This ensures stage 2 (debug_llm_explain) still fires for unrecognised errors.
         """
-        from adversary_pursuit.core.error_interpreter import interpret
+        from pivotglass.core.error_interpreter import interpret
 
         exc = ValueError("some completely unexpected thing")
         core_interp = interpret(exc)
@@ -546,7 +546,7 @@ class TestClassifyErrorDelegation:
 
     def test_friendly_error_adapter_shape_preserved(self):
         """Adapted FriendlyError has summary, suggestion, and recoverable fields."""
-        from adversary_pursuit.modules.base import RateLimitError
+        from pivotglass.modules.base import RateLimitError
 
         exc = RateLimitError("Too many requests")
         result = classify_error(exc)

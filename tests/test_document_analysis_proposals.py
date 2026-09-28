@@ -8,17 +8,17 @@ import pytest
 from sqlalchemy import inspect, select
 from stix2 import DomainName
 
-from adversary_pursuit.core.analytic_ledger import ConfidenceLevel
-from adversary_pursuit.core.document_analysis_proposals import (
+from pivotglass.core.analytic_ledger import ConfidenceLevel
+from pivotglass.core.document_analysis_proposals import (
     DocumentAnalysisProposalAuthority,
 )
-from adversary_pursuit.core.document_entity_extraction import (
+from pivotglass.core.document_entity_extraction import (
     DocumentEntityExtractionService,
 )
-from adversary_pursuit.core.document_ingestion import DocumentIntakeService
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.core.workspace_migrations import CURRENT_WORKSPACE_SCHEMA_VERSION
-from adversary_pursuit.models.database import (
+from pivotglass.core.document_ingestion import DocumentIntakeService
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.core.workspace_migrations import CURRENT_WORKSPACE_SCHEMA_VERSION
+from pivotglass.models.database import (
     DocumentAnalysisProposal,
     DocumentProposalDisposition,
 )

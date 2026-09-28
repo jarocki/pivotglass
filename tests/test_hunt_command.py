@@ -18,13 +18,13 @@ import io
 
 import pytest
 
-from adversary_pursuit.core.console import APConsole
-from adversary_pursuit.modules.base import BaseModule
+from pivotglass.core.console import PivotglassConsole
+from pivotglass.modules.base import BaseModule
 
 
 @pytest.fixture
 def console(tmp_path):
-    app = APConsole(
+    app = PivotglassConsole(
         config_dir=tmp_path / "config",
         workspace_dir=tmp_path / "workspaces",
     )
@@ -32,7 +32,7 @@ def console(tmp_path):
     return app
 
 
-def run_cmd(app: APConsole, cmd: str) -> str:
+def run_cmd(app: PivotglassConsole, cmd: str) -> str:
     app.stdout = io.StringIO()
     app.rich_console = app._make_rich_console()
     app.onecmd_plus_hooks(cmd)
@@ -100,7 +100,7 @@ class TestHuntCommand:
         """hunt 8.8.8.8 calls all modules whose accepts includes 'ipv4'."""
         # Register fake module, clear real ones from the query
         # We will use a fresh plugin_mgr so only our fake module is in play
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         pm = PluginManager()
         pm.register_module("test/fake_ip", FakeIPv4Module)
@@ -112,7 +112,7 @@ class TestHuntCommand:
 
     def test_hunt_summary_table_shows_per_module_status(self, console):
         """Summary table lists each module with OK status when successful."""
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         pm = PluginManager()
         pm.register_module("test/fake_ip", FakeIPv4Module)
@@ -124,7 +124,7 @@ class TestHuntCommand:
 
     def test_hunt_per_module_failure_does_not_abort_whole_hunt(self, console):
         """One module fails, another succeeds — both appear in summary table."""
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         pm = PluginManager()
         pm.register_module("test/fake_ip", FakeIPv4Module)
@@ -138,7 +138,7 @@ class TestHuntCommand:
 
     def test_hunt_stores_results_in_workspace(self, console):
         """Successful hunt stores STIX objects in the active workspace."""
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         pm = PluginManager()
         pm.register_module("test/fake_ip", FakeIPv4Module)
@@ -171,17 +171,17 @@ class TestHuntCommand:
 
 
 class TestHuntFleetInitialization:
-    """AP #97 / AP #98: hunt <ioc> must initialize modules with a credential dict, not ConfigManager.
+    """Pivotglass #97 / Pivotglass #98: hunt <ioc> must initialize modules with a credential dict, not ConfigManager.
 
-    AP #97 regression: passing self.config_mgr.config (raw Config dataclass) to
+    Pivotglass #97 regression: passing self.config_mgr.config (raw Config dataclass) to
     module.initialize() — the dataclass has no .get() method.
 
-    AP #98 regression: passing self.config_mgr (ConfigManager) to module.initialize()
+    Pivotglass #98 regression: passing self.config_mgr (ConfigManager) to module.initialize()
     — modules' base contract is initialize(self, config: dict[str, Any]) and every
     module calls self._config.get("api_key", "") with a 2-arg dict.get() signature.
     ConfigManager.get() takes one arg and raises KeyError on miss.
 
-    After AP #98: _initialize_module calls resolve_module_credentials() to produce
+    After Pivotglass #98: _initialize_module calls resolve_module_credentials() to produce
     a plain dict. Both call sites (fleet path and legacy run path) go through the
     shared resolver (DEC-MODULE-CREDS-SHARED-001).
     """
@@ -189,11 +189,11 @@ class TestHuntFleetInitialization:
     def _make_capturing_module_cls(self, recorded: dict):
         """Return a PursuitModule subclass that records the init arg and calls .get().
 
-        After AP #98: initialize() always receives a plain dict (not ConfigManager).
+        After Pivotglass #98: initialize() always receives a plain dict (not ConfigManager).
         The module exercises the real dict.get("api_key", "") access pattern inside
         initialize() so the test fails immediately if a wrong type is passed.
         """
-        from adversary_pursuit.modules.base import BaseModule
+        from pivotglass.modules.base import BaseModule
 
         class CapturingModule(BaseModule):
             """Records what was passed to initialize() and exercises dict.get() on it.
@@ -205,7 +205,7 @@ class TestHuntFleetInitialization:
             """
 
             name = "test/capturing"
-            description = "Records init arg for AP #97/AP #98 regression detection"
+            description = "Records init arg for Pivotglass #97/Pivotglass #98 regression detection"
             module_type = "test"
             accepts = ("ipv4",)
             options = {"TARGET": {"required": True, "description": "test"}}
@@ -214,7 +214,7 @@ class TestHuntFleetInitialization:
                 recorded["init_arg"] = config
                 # Exercise the exact 2-arg dict.get pattern real modules use.
                 # On a plain dict this succeeds; on ConfigManager or raw Config it
-                # raises — catching both AP #97 and AP #98 regression classes.
+                # raises — catching both Pivotglass #97 and Pivotglass #98 regression classes.
                 recorded["resolved_key"] = config.get("api_key", "<missing>")
 
             async def hunt(self, target: str, options: dict) -> list[dict]:
@@ -223,28 +223,28 @@ class TestHuntFleetInitialization:
         return CapturingModule
 
     def test_hunt_initializes_api_key_module_with_dict(self, tmp_path):
-        """End-to-end: hunt <ioc> must pass a plain dict to module.initialize() (AP #98).
+        """End-to-end: hunt <ioc> must pass a plain dict to module.initialize() (Pivotglass #98).
 
         Production sequence: do_hunt("8.8.8.8") → _hunt_ioc() →
         _initialize_module(module, path) → resolve_module_credentials(path, config_mgr) →
         module.initialize(dict). This is the compound-interaction test: it crosses
-        APConsole → PluginManager → resolve_module_credentials → CapturingModule.initialize()
+        PivotglassConsole → PluginManager → resolve_module_credentials → CapturingModule.initialize()
         in one call, verifying all internal seams are wired correctly.
 
         Failure modes caught:
-        - AP #97: config was raw Config dataclass (no .get() at all)
-        - AP #98: config was ConfigManager (1-arg .get(), raises on 2-arg call)
+        - Pivotglass #97: config was raw Config dataclass (no .get() at all)
+        - Pivotglass #98: config was ConfigManager (1-arg .get(), raises on 2-arg call)
         - Any future regression that passes a non-dict to initialize()
         """
         import io
 
-        from adversary_pursuit.core.console import APConsole
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.console import PivotglassConsole
+        from pivotglass.core.plugin_mgr import PluginManager
 
         recorded: dict = {}
         CapturingModule = self._make_capturing_module_cls(recorded)
 
-        app = APConsole(
+        app = PivotglassConsole(
             config_dir=tmp_path / "config",
             workspace_dir=tmp_path / "workspaces",
         )
@@ -267,7 +267,7 @@ class TestHuntFleetInitialization:
         assert isinstance(recorded["init_arg"], dict), (
             f"hunt fleet must initialize modules with a plain dict, "
             f"got {type(recorded['init_arg']).__name__!r}. "
-            "AP #98: _initialize_module must call resolve_module_credentials() "
+            "Pivotglass #98: _initialize_module must call resolve_module_credentials() "
             "and pass the resulting dict, not the ConfigManager."
         )
         assert "api_key" in recorded["init_arg"], (
@@ -278,26 +278,26 @@ class TestHuntFleetInitialization:
         resolved_key = recorded["init_arg"].get("api_key", "<missing>")
         assert resolved_key != "<missing>", (
             "dict.get('api_key', '') must not raise — 2-arg get is the real modules' "
-            "access pattern (AP #97 / AP #98 regression guard)."
+            "access pattern (Pivotglass #97 / Pivotglass #98 regression guard)."
         )
 
     def test_initialize_module_passes_dict_not_config_manager(self, tmp_path):
         """Direct unit test on _initialize_module — single helper, central invariant.
 
-        Verifies that APConsole._initialize_module(module, module_path) passes a
+        Verifies that PivotglassConsole._initialize_module(module, module_path) passes a
         plain dict (produced by resolve_module_credentials) to module.initialize(),
         NOT the ConfigManager and NOT the raw Config dataclass.
 
-        Fast inner loop for AP #97 / AP #98 regression: one console, one module, one assert.
+        Fast inner loop for Pivotglass #97 / Pivotglass #98 regression: one console, one module, one assert.
         """
         import io
 
-        from adversary_pursuit.core.console import APConsole
+        from pivotglass.core.console import PivotglassConsole
 
         recorded: dict = {}
         CapturingModule = self._make_capturing_module_cls(recorded)
 
-        app = APConsole(
+        app = PivotglassConsole(
             config_dir=tmp_path / "config",
             workspace_dir=tmp_path / "workspaces",
         )
@@ -311,7 +311,7 @@ class TestHuntFleetInitialization:
         assert isinstance(recorded["init_arg"], dict), (
             f"_initialize_module must pass a plain dict to module.initialize(), "
             f"got {type(recorded['init_arg']).__name__!r}. "
-            "AP #98: resolver must return dict, not ConfigManager."
+            "Pivotglass #98: resolver must return dict, not ConfigManager."
         )
         # dict.get("api_key", "") must work — this is what real modules call
         assert recorded["init_arg"].get("api_key", "") == recorded["resolved_key"], (

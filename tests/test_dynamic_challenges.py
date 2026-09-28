@@ -2,9 +2,9 @@
 
 import sqlite3
 
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.gamification.challenges import ChallengeManager
-from adversary_pursuit.gamification.dynamic_challenges import (
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.gamification.challenges import ChallengeManager
+from pivotglass.gamification.dynamic_challenges import (
     generate_hunt_challenges,
     refresh_hunt_challenges,
 )

@@ -8,9 +8,9 @@ import sqlite3
 import pytest
 from sqlalchemy import inspect, text
 
-from adversary_pursuit.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
-from adversary_pursuit.core.analytic_commands import execute_analysis_command
-from adversary_pursuit.core.analytic_ledger import (
+from pivotglass.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
+from pivotglass.core.analytic_commands import execute_analysis_command
+from pivotglass.core.analytic_ledger import (
     AnalystDisposition,
     AnalyticLedger,
     AssertionType,
@@ -25,14 +25,14 @@ from adversary_pursuit.core.analytic_ledger import (
     LikelihoodTerm,
     Materiality,
 )
-from adversary_pursuit.core.command_completion import command_completions
-from adversary_pursuit.core.structured_analysis import (
+from pivotglass.core.command_completion import command_completions
+from pivotglass.core.structured_analysis import (
     StructuredAnalysisWorkbench,
     StructuredTechnique,
 )
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.core.workspace_admin import export_workspace, merge_workspaces
-from adversary_pursuit.core.workspace_migrations import (
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.core.workspace_admin import export_workspace, merge_workspaces
+from pivotglass.core.workspace_migrations import (
     CURRENT_WORKSPACE_SCHEMA_VERSION,
     get_workspace_schema_version,
 )
@@ -107,10 +107,10 @@ def test_legacy_workspace_migrates_with_backup_and_observation_backfill(tmp_path
         "type": "domain-name",
         "id": "domain-name--legacy",
         "value": "legacy.example",
-        "x_ap_source_module": "osint/legacy",
-        "x_ap_source_url": "https://user:secret@example.test/v1?q=token",
-        "x_ap_api_version": "v1",
-        "x_ap_fetched_at": "2025-01-01T00:00:00Z",
+        "x_pivotglass_source_module": "osint/legacy",
+        "x_pivotglass_source_url": "https://user:secret@example.test/v1?q=token",
+        "x_pivotglass_api_version": "v1",
+        "x_pivotglass_fetched_at": "2025-01-01T00:00:00Z",
     }
     connection.execute(
         "INSERT INTO stix_objects VALUES (?, ?, ?, ?, ?)",
@@ -264,7 +264,7 @@ def test_duplicate_entity_preserves_every_observation_and_source(tmp_path):
         "https://api-a.example/v1/lookup",
         "https://api-b.example/v2/lookup",
     }
-    assert entities[0]["x_ap_source_url"] == "https://api-a.example/v1/lookup"
+    assert entities[0]["x_pivotglass_source_url"] == "https://api-a.example/v1/lookup"
     assert "secret" not in json.dumps(entities)
 
 
@@ -332,7 +332,7 @@ def test_malformed_source_endpoint_is_omitted_and_raw_paths_are_rejected(tmp_pat
         source_url="https://[malformed?secret=key",
     )
     entity = manager.get_stix_objects()[0]
-    assert "x_ap_source_url" not in entity
+    assert "x_pivotglass_source_url" not in entity
     assert manager.get_observations()[0]["source_endpoint"] is None
 
     with pytest.raises(ValueError, match="opaque artifact"):

@@ -28,13 +28,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.core.plugin_mgr import PluginManager
-from adversary_pursuit.modules.base import (
+from pivotglass.core.plugin_mgr import PluginManager
+from pivotglass.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
-from adversary_pursuit.modules.osint.abuseipdb import AbuseIPDB, _build_results
+from pivotglass.modules.osint.abuseipdb import AbuseIPDB, _build_results
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -95,7 +95,7 @@ def mock_success():
     mock_client.get = AsyncMock(return_value=mock_resp)
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
-    with patch("adversary_pursuit.modules.osint.abuseipdb.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.abuseipdb.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -107,7 +107,7 @@ def mock_success_no_domain():
     mock_client.get = AsyncMock(return_value=mock_resp)
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
-    with patch("adversary_pursuit.modules.osint.abuseipdb.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.abuseipdb.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -119,7 +119,7 @@ def mock_401():
     mock_client.get = AsyncMock(return_value=mock_resp)
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
-    with patch("adversary_pursuit.modules.osint.abuseipdb.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.abuseipdb.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -135,7 +135,7 @@ def mock_429():
     mock_client.get = AsyncMock(return_value=mock_resp)
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
-    with patch("adversary_pursuit.modules.osint.abuseipdb.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.abuseipdb.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -151,7 +151,7 @@ def mock_429_no_retry_after():
     mock_client.get = AsyncMock(return_value=mock_resp)
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
-    with patch("adversary_pursuit.modules.osint.abuseipdb.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.abuseipdb.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -177,7 +177,7 @@ class TestAbuseIPDBMetadata:
 
     def test_module_author(self):
         mod = AbuseIPDB()
-        assert mod.author == "Adversary Pursuit"
+        assert mod.author == "Pivotglass"
 
     def test_description_non_empty(self):
         mod = AbuseIPDB()

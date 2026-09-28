@@ -4,8 +4,8 @@ Covers:
 - Every mode in DEFAULT_MODES has a matching theme in DEFAULT_THEMES
 - theme_for() returns correct theme for known characters
 - theme_for() falls back to "default" theme for unknown characters
-- AP_TUI_HIGH_CONTRAST=1 → resolved_border_color returns high_contrast_border
-- AP_TUI_HIGH_CONTRAST=0 / unset → returns normal border_color
+- PIVOTGLASS_TUI_HIGH_CONTRAST=1 → resolved_border_color returns high_contrast_border
+- PIVOTGLASS_TUI_HIGH_CONTRAST=0 / unset → returns normal border_color
 - All theme color values are hex strings (DEC-TUI-PTK-COLOR-COMPAT-001)
 
 @decision DEC-TEST-TUI-THEMES-001
@@ -25,14 +25,14 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.agent.tui.themes import (
+from pivotglass.agent.tui.themes import (
     DEFAULT_THEMES,
     CharacterTheme,
     is_high_contrast_mode,
     resolved_border_color,
     theme_for,
 )
-from adversary_pursuit.gamification.modes import DEFAULT_MODES
+from pivotglass.gamification.modes import DEFAULT_MODES
 
 
 class TestThemeCoverage:
@@ -141,37 +141,37 @@ class TestThemeFor:
 
 
 class TestHighContrastMode:
-    """AP_TUI_HIGH_CONTRAST=1 env var switches border to high_contrast_border."""
+    """PIVOTGLASS_TUI_HIGH_CONTRAST=1 env var switches border to high_contrast_border."""
 
     def test_high_contrast_env_1_returns_high_contrast_border(self, monkeypatch) -> None:
-        """AP_TUI_HIGH_CONTRAST=1 → resolved_border_color returns high_contrast_border."""
-        monkeypatch.setenv("AP_TUI_HIGH_CONTRAST", "1")
+        """PIVOTGLASS_TUI_HIGH_CONTRAST=1 → resolved_border_color returns high_contrast_border."""
+        monkeypatch.setenv("PIVOTGLASS_TUI_HIGH_CONTRAST", "1")
         theme = theme_for("the_sprawl")
         result = resolved_border_color(theme)
         assert result == theme.high_contrast_border
 
     def test_high_contrast_env_0_returns_normal_border(self, monkeypatch) -> None:
-        """AP_TUI_HIGH_CONTRAST=0 → resolved_border_color returns border_color."""
-        monkeypatch.setenv("AP_TUI_HIGH_CONTRAST", "0")
+        """PIVOTGLASS_TUI_HIGH_CONTRAST=0 → resolved_border_color returns border_color."""
+        monkeypatch.setenv("PIVOTGLASS_TUI_HIGH_CONTRAST", "0")
         theme = theme_for("the_sprawl")
         result = resolved_border_color(theme)
         assert result == theme.border_color
 
     def test_high_contrast_env_unset_returns_normal_border(self, monkeypatch) -> None:
-        """Unset AP_TUI_HIGH_CONTRAST → resolved_border_color returns border_color."""
-        monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
+        """Unset PIVOTGLASS_TUI_HIGH_CONTRAST → resolved_border_color returns border_color."""
+        monkeypatch.delenv("PIVOTGLASS_TUI_HIGH_CONTRAST", raising=False)
         theme = theme_for("the_computer")
         result = resolved_border_color(theme)
         assert result == theme.border_color
 
     def test_is_high_contrast_mode_true_when_set(self, monkeypatch) -> None:
-        """is_high_contrast_mode() returns True when AP_TUI_HIGH_CONTRAST=1."""
-        monkeypatch.setenv("AP_TUI_HIGH_CONTRAST", "1")
+        """is_high_contrast_mode() returns True when PIVOTGLASS_TUI_HIGH_CONTRAST=1."""
+        monkeypatch.setenv("PIVOTGLASS_TUI_HIGH_CONTRAST", "1")
         assert is_high_contrast_mode() is True
 
     def test_is_high_contrast_mode_false_when_unset(self, monkeypatch) -> None:
-        """is_high_contrast_mode() returns False when AP_TUI_HIGH_CONTRAST is not set."""
-        monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
+        """is_high_contrast_mode() returns False when PIVOTGLASS_TUI_HIGH_CONTRAST is not set."""
+        monkeypatch.delenv("PIVOTGLASS_TUI_HIGH_CONTRAST", raising=False)
         assert is_high_contrast_mode() is False
 
     def test_high_contrast_border_is_white_hex_for_all_themes(self) -> None:

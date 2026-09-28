@@ -29,13 +29,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.core.plugin_mgr import PluginManager
-from adversary_pursuit.modules.base import (
+from pivotglass.core.plugin_mgr import PluginManager
+from pivotglass.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
-from adversary_pursuit.modules.osint.hibp import HIBP
+from pivotglass.modules.osint.hibp import HIBP
 
 # ---------------------------------------------------------------------------
 # Sample API response data
@@ -113,7 +113,7 @@ def mock_success():
     mock_client.get = AsyncMock(return_value=mock_resp)
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
-    with patch("adversary_pursuit.modules.osint.hibp.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.hibp.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -125,7 +125,7 @@ def mock_success_single():
     mock_client.get = AsyncMock(return_value=mock_resp)
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
-    with patch("adversary_pursuit.modules.osint.hibp.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.hibp.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -137,7 +137,7 @@ def mock_404():
     mock_client.get = AsyncMock(return_value=mock_resp)
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
-    with patch("adversary_pursuit.modules.osint.hibp.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.hibp.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -149,7 +149,7 @@ def mock_401():
     mock_client.get = AsyncMock(return_value=mock_resp)
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
-    with patch("adversary_pursuit.modules.osint.hibp.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.hibp.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -165,7 +165,7 @@ def mock_429():
     mock_client.get = AsyncMock(return_value=mock_resp)
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
-    with patch("adversary_pursuit.modules.osint.hibp.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.hibp.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -181,7 +181,7 @@ def mock_429_no_retry_after():
     mock_client.get = AsyncMock(return_value=mock_resp)
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
     mock_client.__aexit__ = AsyncMock(return_value=False)
-    with patch("adversary_pursuit.modules.osint.hibp.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.hibp.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -207,7 +207,7 @@ class TestHIBPMetadata:
 
     def test_module_author(self):
         mod = HIBP()
-        assert mod.author == "Adversary Pursuit"
+        assert mod.author == "Pivotglass"
 
     def test_description_non_empty(self):
         mod = HIBP()
@@ -442,13 +442,13 @@ class TestHIBPRequestMechanics:
 
     def test_user_agent_header_is_set(self, mock_success):
         """user-agent header tracks the canonical runtime version."""
-        from adversary_pursuit import __version__
+        from pivotglass import __version__
 
         mod = HIBP()
         mod.initialize({"api_key": "test-key"})
         asyncio.run(mod.hunt("victim@example.com", {}))
         headers = mock_success.get.call_args.kwargs.get("headers", {})
-        assert headers.get("user-agent") == f"adversary-pursuit/{__version__}"
+        assert headers.get("user-agent") == f"pivotglass/{__version__}"
 
     def test_truncate_false_omits_query_param(self, mock_success):
         """Default TRUNCATE=false does not send truncateResponse param."""

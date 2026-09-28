@@ -5,6 +5,9 @@ competing and falsifiable explanations, identify what would support or weaken
 them, collect evidence, retain contradictions, and revise the judgment. The
 software structures this work; it does not decide attribution for the analyst.
 
+For the narrative walkthrough, see [Investigating with disciplined reasoning](analysis/README.md).
+The [worked example](analysis/WORKED_EXAMPLE.md) practices this method offline.
+
 ## Records that must remain distinct
 
 - **Observation:** immutable output accepted from a named source at a recorded
@@ -115,6 +118,11 @@ outputs. The initial workbench includes:
 - Devil's Advocacy;
 - Premortem Analysis;
 - Chronology and Timeline Analysis.
+
+These protocols persist analyst-authored work and validate required field
+presence. They do not automatically evaluate source credibility, compute an
+ACH winner, validate every identifier inside the submitted JSON, or prove that
+the technique was performed correctly. Review the semantic adequacy of each run.
 
 Every method run records its protocol version, inputs, outputs, author, state,
 and analyst disposition. This makes the method reviewable even if the model or

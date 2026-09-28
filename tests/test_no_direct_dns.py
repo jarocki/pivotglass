@@ -1,15 +1,15 @@
 """Repository invariants for service-backed domain intelligence.
 
-AP must never resolve indicators directly from the operator host. Domain
+Pivotglass must never resolve indicators directly from the operator host. Domain
 evidence is acquired through explicit intelligence-service modules instead.
 """
 
 from pathlib import Path
 
-from adversary_pursuit.agent.battery_registry import dispatch_batteries
-from adversary_pursuit.agent.tools import ToolContext, create_tools
+from pivotglass.agent.battery_registry import dispatch_batteries
+from pivotglass.agent.tools import ToolContext, create_tools
 
-SOURCE_ROOT = Path(__file__).parents[1] / "src" / "adversary_pursuit"
+SOURCE_ROOT = Path(__file__).parents[1] / "src" / "pivotglass"
 
 
 def test_production_source_contains_no_direct_dns_calls():

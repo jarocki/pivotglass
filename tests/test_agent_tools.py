@@ -36,7 +36,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.agent.tools import (
+from pivotglass.agent.tools import (
     _CREDENTIAL_BUILDERS,
     _MODULE_MAP,
     ToolContext,
@@ -960,7 +960,7 @@ class TestCelebrationWiring:
 
     def test_tool_context_has_celebration_engine(self, tmp_ctx):
         """ToolContext.__init__ creates a CelebrationEngine instance."""
-        from adversary_pursuit.gamification.celebrations import CelebrationEngine
+        from pivotglass.gamification.celebrations import CelebrationEngine
 
         assert hasattr(tmp_ctx, "celebration")
         assert isinstance(tmp_ctx.celebration, CelebrationEngine)
@@ -1058,7 +1058,7 @@ class TestCelebrationWiring:
         bypass quiet-start migration, then trigger a scoring event that pushes total
         >= 100 so the first milestone fires.
         """
-        from adversary_pursuit.gamification.celebrations import MILESTONES
+        from pivotglass.gamification.celebrations import MILESTONES
 
         # Seed workspace with 99 pts by storing a synthetic score event
         tmp_ctx.workspace_mgr.store_score_events(
@@ -1196,7 +1196,7 @@ class TestBadgeWiring:
 
     def test_tool_context_has_badge_manager(self, tmp_ctx):
         """ToolContext.__init__ creates a BadgeManager instance."""
-        from adversary_pursuit.gamification.badges import BadgeManager
+        from pivotglass.gamification.badges import BadgeManager
 
         assert hasattr(tmp_ctx, "badge_mgr")
         assert isinstance(tmp_ctx.badge_mgr, BadgeManager)
@@ -1234,7 +1234,7 @@ class TestBadgeWiring:
         Seeds workspace to 99 score points, then triggers a scoring event that
         pushes total to 100, crossing the 'Century' badge threshold (100 pts).
         """
-        from adversary_pursuit.gamification.badges import Badge
+        from pivotglass.gamification.badges import Badge
 
         ctx = self._make_high_score_ctx(tmp_path)
         assert ctx.workspace_mgr.get_total_score() == 99
@@ -1393,7 +1393,7 @@ class TestBadgeWiring:
         assert isinstance(badges, list)
 
         # 5. If badges were earned, they are Badge objects with rarity metadata
-        from adversary_pursuit.gamification.badges import Badge, BadgeRarity
+        from pivotglass.gamification.badges import Badge, BadgeRarity
 
         for badge in badges:
             assert isinstance(badge, Badge)
@@ -1418,13 +1418,13 @@ class TestAgentRunnerImport:
 
     def test_agent_runner_importable(self):
         """AgentRunner module can be imported without litellm."""
-        from adversary_pursuit.agent import runner
+        from pivotglass.agent import runner
 
         assert hasattr(runner, "AgentRunner")
 
     def test_agent_runner_instantiable_with_ctx(self, tmp_ctx):
         """AgentRunner can be instantiated with a ToolContext."""
-        from adversary_pursuit.agent.runner import AgentRunner
+        from pivotglass.agent.runner import AgentRunner
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
@@ -1432,7 +1432,7 @@ class TestAgentRunnerImport:
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""
-        from adversary_pursuit.agent.runner import AgentRunner
+        from pivotglass.agent.runner import AgentRunner
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert len(r.conversation) == 1
@@ -1440,7 +1440,7 @@ class TestAgentRunnerImport:
 
     def test_agent_runner_reset_clears_history(self, tmp_ctx):
         """AgentRunner.reset() clears conversation to just system prompt."""
-        from adversary_pursuit.agent.runner import AgentRunner
+        from pivotglass.agent.runner import AgentRunner
 
         r = AgentRunner(tool_context=tmp_ctx)
         r.conversation.append({"role": "user", "content": "hello"})
@@ -1450,7 +1450,7 @@ class TestAgentRunnerImport:
 
     def test_chat_raises_without_litellm(self, tmp_ctx):
         """AgentRunner.chat() raises ImportError when litellm is not available."""
-        from adversary_pursuit.agent.runner import HAS_LITELLM, AgentRunner
+        from pivotglass.agent.runner import HAS_LITELLM, AgentRunner
 
         if HAS_LITELLM:
             pytest.skip("litellm is installed — ImportError path not tested")
@@ -1460,56 +1460,56 @@ class TestAgentRunnerImport:
 
 
 # ---------------------------------------------------------------------------
-# AP_MODEL env-var override tests (DEC-AGENT-MODEL-ENV-001)
+# PIVOTGLASS_MODEL env-var override tests (DEC-AGENT-MODEL-ENV-001)
 # ---------------------------------------------------------------------------
 
 
 class TestAgentRunnerModelResolution:
-    """Verify AP_MODEL env-var precedence: explicit arg > AP_MODEL > DEFAULT_MODEL.
+    """Verify PIVOTGLASS_MODEL env-var precedence: explicit arg > PIVOTGLASS_MODEL > DEFAULT_MODEL.
 
-    Production sequence: AgentRunner.__init__ is called (via `ap chat` or
+    Production sequence: AgentRunner.__init__ is called (via `pivotglass chat` or
     directly) and resolves self.model from three possible sources.  These
     tests exercise all three precedence paths plus the edge-case of an empty
     env var, covering the full state-transition space of the `or` chain.
     """
 
     def test_default_model_when_no_arg_no_env(self, tmp_ctx, monkeypatch):
-        """Falls through to DEFAULT_MODEL when neither arg nor AP_MODEL is set."""
-        from adversary_pursuit.agent.runner import AgentRunner
+        """Falls through to DEFAULT_MODEL when neither arg nor PIVOTGLASS_MODEL is set."""
+        from pivotglass.agent.runner import AgentRunner
 
-        monkeypatch.delenv("AP_MODEL", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_MODEL", raising=False)
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.model == AgentRunner.DEFAULT_MODEL
 
     def test_env_var_overrides_default(self, tmp_ctx, monkeypatch):
-        """AP_MODEL env var is used when no explicit model= arg is given."""
-        from adversary_pursuit.agent.runner import AgentRunner
+        """PIVOTGLASS_MODEL env var is used when no explicit model= arg is given."""
+        from pivotglass.agent.runner import AgentRunner
 
-        monkeypatch.setenv("AP_MODEL", "foo/bar")
+        monkeypatch.setenv("PIVOTGLASS_MODEL", "foo/bar")
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.model == "foo/bar"
 
     def test_explicit_arg_overrides_env_var(self, tmp_ctx, monkeypatch):
-        """Explicit model= arg takes priority over AP_MODEL env var."""
-        from adversary_pursuit.agent.runner import AgentRunner
+        """Explicit model= arg takes priority over PIVOTGLASS_MODEL env var."""
+        from pivotglass.agent.runner import AgentRunner
 
-        monkeypatch.setenv("AP_MODEL", "foo/bar")
+        monkeypatch.setenv("PIVOTGLASS_MODEL", "foo/bar")
         r = AgentRunner(model="baz/qux", tool_context=tmp_ctx)
         assert r.model == "baz/qux"
 
     def test_explicit_arg_overrides_default_when_no_env(self, tmp_ctx, monkeypatch):
-        """Explicit model= arg is used even when AP_MODEL is absent."""
-        from adversary_pursuit.agent.runner import AgentRunner
+        """Explicit model= arg is used even when PIVOTGLASS_MODEL is absent."""
+        from pivotglass.agent.runner import AgentRunner
 
-        monkeypatch.delenv("AP_MODEL", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_MODEL", raising=False)
         r = AgentRunner(model="x/y", tool_context=tmp_ctx)
         assert r.model == "x/y"
 
     def test_empty_env_var_falls_through_to_default(self, tmp_ctx, monkeypatch):
-        """Empty AP_MODEL string is falsy — runner falls through to DEFAULT_MODEL."""
-        from adversary_pursuit.agent.runner import AgentRunner
+        """Empty PIVOTGLASS_MODEL string is falsy — runner falls through to DEFAULT_MODEL."""
+        from pivotglass.agent.runner import AgentRunner
 
-        monkeypatch.setenv("AP_MODEL", "")
+        monkeypatch.setenv("PIVOTGLASS_MODEL", "")
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.model == AgentRunner.DEFAULT_MODEL
 
@@ -1551,7 +1551,7 @@ class TestModeWiring:
 
     def test_tool_context_has_mode_manager(self, tmp_ctx):
         """ToolContext.__init__ creates a ModeManager instance."""
-        from adversary_pursuit.gamification.modes import ModeManager
+        from pivotglass.gamification.modes import ModeManager
 
         assert hasattr(tmp_ctx, "mode_mgr")
         assert isinstance(tmp_ctx.mode_mgr, ModeManager)
@@ -1571,7 +1571,7 @@ class TestModeWiring:
 
     def test_mode_switch_returns_character_mode(self, tmp_ctx):
         """ModeManager.switch() returns the newly-activated CharacterMode."""
-        from adversary_pursuit.gamification.modes import CharacterMode
+        from pivotglass.gamification.modes import CharacterMode
 
         result = tmp_ctx.mode_mgr.switch("strategist")
         assert isinstance(result, CharacterMode)
@@ -1603,7 +1603,7 @@ class TestModeWiring:
         needed.  Phase 18 Slice 5: drunken_master retired, detective + the_computer
         added.  Phase 18 Slice 7A: the_sprawl added.
         """
-        from adversary_pursuit.gamification.modes import DEFAULT_MODES
+        from pivotglass.gamification.modes import DEFAULT_MODES
 
         modes = tmp_ctx.mode_mgr.list_modes()
         names = {m["name"] for m in modes}
@@ -1621,7 +1621,7 @@ class TestModeWiring:
 
     def test_set_character_updates_system_prompt(self, tmp_ctx):
         """AgentRunner.set_character(mode) updates self.system_prompt."""
-        from adversary_pursuit.agent.runner import AgentRunner
+        from pivotglass.agent.runner import AgentRunner
 
         r = AgentRunner(tool_context=tmp_ctx)
         original_prompt = r.system_prompt
@@ -1640,7 +1640,7 @@ class TestModeWiring:
         (DEC-DRUNKEN-MASTER-RETIRED-001). sensei inherits the carrier role:
         same llm_profile=None invariant, same v1-composition semantics.
         """
-        from adversary_pursuit.agent.runner import AgentRunner
+        from pivotglass.agent.runner import AgentRunner
 
         r = AgentRunner(tool_context=tmp_ctx)
         sensei_mode = tmp_ctx.mode_mgr.switch("sensei")
@@ -1650,7 +1650,7 @@ class TestModeWiring:
 
     def test_set_character_updates_conversation_system_slot(self, tmp_ctx):
         """AgentRunner.set_character() updates conversation[0] system message."""
-        from adversary_pursuit.agent.runner import AgentRunner
+        from pivotglass.agent.runner import AgentRunner
 
         r = AgentRunner(tool_context=tmp_ctx)
         sensei_mode = tmp_ctx.mode_mgr.switch("sensei")
@@ -1661,7 +1661,7 @@ class TestModeWiring:
 
     def test_set_character_preserves_conversation_history_length(self, tmp_ctx):
         """set_character() only modifies conversation[0], does not append or truncate."""
-        from adversary_pursuit.agent.runner import AgentRunner
+        from pivotglass.agent.runner import AgentRunner
 
         r = AgentRunner(tool_context=tmp_ctx)
         # Manually add a user message to simulate mid-conversation mode switch
@@ -1684,7 +1684,7 @@ class TestModeWiring:
             result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
 
         assert result["total_points"] > 0
-        from adversary_pursuit.gamification.phrases import PHRASES
+        from pivotglass.gamification.phrases import PHRASES
 
         expected_lines = {
             phrase.text.format(points=result["total_points"])
@@ -1701,7 +1701,7 @@ class TestModeWiring:
             result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
 
         assert result["total_points"] > 0
-        from adversary_pursuit.gamification.phrases import PHRASES
+        from pivotglass.gamification.phrases import PHRASES
 
         expected_lines = {
             phrase.text.format(points=result["total_points"])
@@ -1718,7 +1718,7 @@ class TestModeWiring:
             result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
 
         assert result["total_points"] > 0
-        from adversary_pursuit.gamification.phrases import PHRASES
+        from pivotglass.gamification.phrases import PHRASES
 
         expected_lines = {
             phrase.text.format(points=result["total_points"])
@@ -1745,7 +1745,7 @@ class TestModeWiring:
         (the v2 voice field) rather than personality (the v1 field). The score_celebration
         template (a static voice field, not the LLM profile) is unchanged by the upgrade.
         """
-        from adversary_pursuit.agent.runner import AgentRunner
+        from pivotglass.agent.runner import AgentRunner
 
         # 1. Create runner sharing the same ToolContext
         r = AgentRunner(tool_context=tmp_ctx)
@@ -1768,7 +1768,7 @@ class TestModeWiring:
         assert result["total_points"] > 0
 
         # 5. Celebration must contain one reviewed strategist phrase.
-        from adversary_pursuit.gamification.phrases import PHRASES
+        from pivotglass.gamification.phrases import PHRASES
 
         expected_lines = {
             phrase.text.format(points=result["total_points"])
@@ -1788,7 +1788,7 @@ class TestModeWiring:
 
 # Minimal deterministic hint catalogue for tests — avoids coupling to
 # _DEFAULT_HINTS order or count.
-from adversary_pursuit.gamification.hints import Hint as _Hint  # noqa: E402
+from pivotglass.gamification.hints import Hint as _Hint  # noqa: E402
 
 _FREE_HINT_GENERAL = _Hint(id="test-free-001", text="Free general hint text.", cost=0, module=None)
 _FREE_HINT_DNS = _Hint(
@@ -1864,7 +1864,7 @@ class TestHintWiring:
 
     def test_tool_context_has_hint_provider(self, hint_ctx):
         """ToolContext.__init__ creates a HintProvider instance on .hint_mgr."""
-        from adversary_pursuit.gamification.hints import HintProvider
+        from pivotglass.gamification.hints import HintProvider
 
         assert hasattr(hint_ctx, "hint_mgr")
         assert isinstance(hint_ctx.hint_mgr, HintProvider)
@@ -1884,7 +1884,7 @@ class TestHintWiring:
         The second call reveals the paid hint — NOT a 'no more' message, because
         HintProvider.get_next_hint() covers all hints (free and paid), free first.
         """
-        from adversary_pursuit.agent.tools import _execute_get_next_hint
+        from pivotglass.agent.tools import _execute_get_next_hint
 
         result1 = _execute_get_next_hint(hint_ctx, module=None)
         result2 = _execute_get_next_hint(hint_ctx, module=None)
@@ -1908,7 +1908,7 @@ class TestHintWiring:
 
     def test_get_next_hint_dns_module_surfaces_dns_specific_hint(self, hint_ctx):
         """After general free hint revealed, next get_next_hint for dns_resolve is DNS-specific."""
-        from adversary_pursuit.agent.tools import _execute_get_next_hint
+        from pivotglass.agent.tools import _execute_get_next_hint
 
         # dns_resolve pool ordered by cost: [free-general(0), free-dns(0), paid-general(10), paid-dns(15)]
         # First call reveals free-general
@@ -1926,7 +1926,7 @@ class TestHintWiring:
         get_next_hint covers free AND paid (free first). After both are revealed,
         the third call returns the 'no more' message.
         """
-        from adversary_pursuit.agent.tools import _execute_get_next_hint
+        from pivotglass.agent.tools import _execute_get_next_hint
 
         # Reveal hint 1: free-general
         _execute_get_next_hint(hint_ctx, module=None)
@@ -2109,7 +2109,7 @@ class TestAutopivotWiring:
 
     def test_tool_context_has_event_bus(self, tmp_ctx):
         """ToolContext.__init__ creates an EventBus instance on .event_bus."""
-        from adversary_pursuit.core.event_bus import EventBus
+        from pivotglass.core.event_bus import EventBus
 
         assert hasattr(tmp_ctx, "event_bus")
         assert isinstance(tmp_ctx.event_bus, EventBus)
@@ -2216,8 +2216,8 @@ class TestAutopivotWiring:
         flow control replaces it: max_per_cascade=0 exhausts immediately so no
         callbacks are invoked.
         """
-        from adversary_pursuit.core.config import AutoPivotPolicyConfig
-        from adversary_pursuit.core.event_bus import EventBus, PivotConfig
+        from pivotglass.core.config import AutoPivotPolicyConfig
+        from pivotglass.core.event_bus import EventBus, PivotConfig
 
         config_dir = tmp_path / "config"
         workspace_dir = tmp_path / "workspaces"
@@ -2271,13 +2271,13 @@ class TestAutopivotWiring:
 
         # Reset the event bus with a whitelist that allows NO module from DEFAULT_SUBSCRIPTIONS.
         # This simulates a restrictive whitelist — all cascade subscriptions are excluded.
-        from adversary_pursuit.core.event_bus import EventBus, PivotConfig
+        from pivotglass.core.event_bus import EventBus, PivotConfig
 
         ctx.event_bus = EventBus(
             config=PivotConfig(enabled=True, module_whitelist=["nonexistent/module"])
         )
         # Re-register subscriptions with the new whitelist — all should be filtered out
-        from adversary_pursuit.core.event_bus import DEFAULT_SUBSCRIPTIONS
+        from pivotglass.core.event_bus import DEFAULT_SUBSCRIPTIONS
 
         for module_path, stix_types in DEFAULT_SUBSCRIPTIONS.items():
             callback = ctx._make_cascade_callback(module_path)
@@ -2353,7 +2353,7 @@ class TestAutopivotWiring:
         This crosses ModeManager, EventBus, ToolContext, and WorkspaceManager
         boundaries in the real production call sequence.
         """
-        from adversary_pursuit.agent.runner import AgentRunner
+        from pivotglass.agent.runner import AgentRunner
 
         # (a) Switch to ninja mode (as chat.py 'mode ninja' would do)
         runner = AgentRunner(tool_context=tmp_ctx)
@@ -2394,7 +2394,7 @@ class TestAutopivotWiring:
         assert "Auto-pivoted" in result["summary"]
 
         # Ninja mode celebration phrase bank used
-        from adversary_pursuit.gamification.phrases import PHRASES
+        from pivotglass.gamification.phrases import PHRASES
 
         expected_lines = {
             phrase.text.format(points=result["total_points"])
@@ -2433,7 +2433,7 @@ class TestChallengeWiring:
 
     def test_toolcontext_has_challenge_mgr(self, tmp_ctx):
         """ToolContext.challenge_mgr is a ChallengeManager instance."""
-        from adversary_pursuit.gamification.challenges import ChallengeManager
+        from pivotglass.gamification.challenges import ChallengeManager
 
         assert hasattr(tmp_ctx, "challenge_mgr")
         assert isinstance(tmp_ctx.challenge_mgr, ChallengeManager)
@@ -2965,7 +2965,7 @@ class TestRunChatHelp:
         """Run run_chat() with canned console inputs, returning captured output.
 
         # @mock-exempt: AgentRunner connects to LLM backends (litellm / Ollama).
-        # Patching at the source module (adversary_pursuit.agent.runner.AgentRunner)
+        # Patching at the source module (pivotglass.agent.runner.AgentRunner)
         # replaces the class before the lazy 'from ... import AgentRunner' inside
         # run_chat() binds it — the only way to inject a test double without a live
         # LLM endpoint. Console is mocked to capture Rich output in-memory and to
@@ -2976,11 +2976,11 @@ class TestRunChatHelp:
         # ChatPromptSession is mocked because it wraps a blocking PTY call.
 
         Patch strategy:
-          - adversary_pursuit.agent.runner.AgentRunner → mock class whose call
+          - pivotglass.agent.runner.AgentRunner → mock class whose call
             returns mock_runner (chat.py does 'from ... import AgentRunner; AgentRunner()')
-          - adversary_pursuit.agent.chat.ConfigManager → mock class returning a
-            pre-configured mock_cfg_mgr (prevents wizard trigger when AP_MODEL unset)
-          - adversary_pursuit.agent.chat.ChatPromptSession → mock whose .prompt()
+          - pivotglass.agent.chat.ConfigManager → mock class returning a
+            pre-configured mock_cfg_mgr (prevents wizard trigger when PIVOTGLASS_MODEL unset)
+          - pivotglass.agent.chat.ChatPromptSession → mock whose .prompt()
             reads from the canned input sequence (replaces blocking PTY call)
           - Console (rich.console.Console) → in-memory StringIO console so Rich
             output can be inspected without a real terminal.
@@ -2989,7 +2989,7 @@ class TestRunChatHelp:
 
         from rich.console import Console
 
-        from adversary_pursuit.agent.chat import run_chat
+        from pivotglass.agent.chat import run_chat
 
         mock_runner = TestRunChatHelp._make_runner_mock(tmp_ctx, model)
         mock_cfg_mgr = TestRunChatHelp._make_config_mgr_mock(model)
@@ -3016,19 +3016,19 @@ class TestRunChatHelp:
 
         with (
             patch(
-                "adversary_pursuit.agent.runner.AgentRunner",
+                "pivotglass.agent.runner.AgentRunner",
                 mock_agent_runner_class,
             ),
             patch(
-                "adversary_pursuit.agent.chat.ConfigManager",
+                "pivotglass.agent.chat.ConfigManager",
                 mock_config_mgr_class,
             ),
             patch(
-                "adversary_pursuit.agent.chat.ChatPromptSession",
+                "pivotglass.agent.chat.ChatPromptSession",
                 mock_prompt_session_class,
             ),
-            patch("adversary_pursuit.agent.chat.Console", return_value=test_console),
-            patch("adversary_pursuit.agent.chat.render_boot_banner"),
+            patch("pivotglass.agent.chat.Console", return_value=test_console),
+            patch("pivotglass.agent.chat.render_boot_banner"),
         ):
             run_chat()
 
@@ -3111,7 +3111,7 @@ class TestRunChatHelp:
 
 
 # @mock-exempt: AgentRunner is an external LLM network boundary (litellm calls to
-# Anthropic/OpenAI/Ollama). ConfigManager reads/writes ~/.ap/config.toml (external
+# Anthropic/OpenAI/Ollama). ConfigManager reads/writes ~/.pivotglass/config.toml (external
 # filesystem boundary — real path would create side-effects on developer machines).
 # Console.input is an interactive TTY boundary. run_provider_wizard makes HTTP calls
 # to provider endpoints. All mocks in this class are for external I/O, not internal
@@ -3133,7 +3133,7 @@ class TestModelMetaCommands:
     @rationale 'model show' and 'model select' are handled locally in chat.py
                before LLM dispatch, matching the pattern of other meta-commands.
                ConfigManager is mocked to control which model/provider is
-               "configured" without touching ~/.ap. run_provider_wizard is mocked
+               "configured" without touching ~/.pivotglass. run_provider_wizard is mocked
                to avoid interactive prompts and HTTP calls in the test suite.
                Both mocks are at external I/O boundaries (config file, HTTP + TTY).
     """
@@ -3154,13 +3154,13 @@ class TestModelMetaCommands:
         tmp_ctx,
         model: str = "configured-model",
         provider: str = "anthropic",
-        ap_model_env: str | None = None,
+        pivotglass_model_env: str | None = None,
         wizard_return: str = "wizard-chosen-model",
     ):
         """Run run_chat() with model meta-command inputs, return (output, mock_runner, mock_cfg_mgr).
 
         Patches: AgentRunner, ConfigManager, run_provider_wizard, Console.
-        AP_MODEL env var is injected/cleared via monkeypatching os.environ.
+        PIVOTGLASS_MODEL env var is injected/cleared via monkeypatching os.environ.
         """
         import os
         from io import StringIO
@@ -3168,7 +3168,7 @@ class TestModelMetaCommands:
 
         from rich.console import Console
 
-        from adversary_pursuit.agent.chat import run_chat
+        from pivotglass.agent.chat import run_chat
 
         mock_runner = TestModelMetaCommands._make_runner_mock(tmp_ctx, model)
         mock_cfg_mgr = MagicMock()
@@ -3199,29 +3199,29 @@ class TestModelMetaCommands:
         mock_config_mgr_class = MagicMock(return_value=mock_cfg_mgr)
 
         env_overrides: dict[str, str] = {}
-        if ap_model_env is not None:
-            env_overrides["AP_MODEL"] = ap_model_env
+        if pivotglass_model_env is not None:
+            env_overrides["PIVOTGLASS_MODEL"] = pivotglass_model_env
 
         with (
             patch(
-                "adversary_pursuit.agent.runner.AgentRunner",
+                "pivotglass.agent.runner.AgentRunner",
                 mock_agent_runner_class,
             ),
-            patch("adversary_pursuit.agent.chat.ConfigManager", mock_config_mgr_class),
+            patch("pivotglass.agent.chat.ConfigManager", mock_config_mgr_class),
             patch(
-                "adversary_pursuit.agent.chat.run_provider_wizard",
+                "pivotglass.agent.chat.run_provider_wizard",
                 return_value=wizard_return,
             ),
             patch(
-                "adversary_pursuit.agent.chat.ChatPromptSession",
+                "pivotglass.agent.chat.ChatPromptSession",
                 mock_prompt_session_class,
             ),
             patch.dict(os.environ, env_overrides, clear=False),
-            patch("adversary_pursuit.agent.chat.Console", return_value=test_console),
-            patch("adversary_pursuit.agent.chat.render_boot_banner"),
+            patch("pivotglass.agent.chat.Console", return_value=test_console),
+            patch("pivotglass.agent.chat.render_boot_banner"),
         ):
-            if ap_model_env is None:
-                os.environ.pop("AP_MODEL", None)
+            if pivotglass_model_env is None:
+                os.environ.pop("PIVOTGLASS_MODEL", None)
             run_chat()
 
         return buf.getvalue(), mock_runner, mock_cfg_mgr
@@ -3247,15 +3247,15 @@ class TestModelMetaCommands:
         )
         assert "openai" in output
 
-    def test_model_show_reports_env_source_when_ap_model_set(self, tmp_ctx):
-        """'model show' labels the source as 'AP_MODEL env var' when env is set."""
+    def test_model_show_reports_env_source_when_pivotglass_model_set(self, tmp_ctx):
+        """'model show' labels the source as 'PIVOTGLASS_MODEL env var' when env is set."""
         output, _runner, _cfg = self._run_chat_model_cmd(
             ["model show"],
             tmp_ctx,
             model="config-model",
-            ap_model_env="env-override-model",
+            pivotglass_model_env="env-override-model",
         )
-        assert "env-override-model" in output or "AP_MODEL" in output
+        assert "env-override-model" in output or "PIVOTGLASS_MODEL" in output
 
     # ------------------------------------------------------------------
     # model select
@@ -3305,7 +3305,7 @@ class TestModelMetaCommands:
 
         from rich.console import Console
 
-        from adversary_pursuit.agent.chat import run_chat
+        from pivotglass.agent.chat import run_chat
 
         mock_runner = self._make_runner_mock(tmp_ctx)
         mock_cfg_mgr = MagicMock()
@@ -3332,16 +3332,16 @@ class TestModelMetaCommands:
         mock_config_mgr_class = MagicMock(return_value=mock_cfg_mgr)
 
         with (
-            patch("adversary_pursuit.agent.runner.AgentRunner", mock_agent_runner_class),
-            patch("adversary_pursuit.agent.chat.ConfigManager", mock_config_mgr_class),
+            patch("pivotglass.agent.runner.AgentRunner", mock_agent_runner_class),
+            patch("pivotglass.agent.chat.ConfigManager", mock_config_mgr_class),
             patch(
-                "adversary_pursuit.agent.chat.ChatPromptSession",
+                "pivotglass.agent.chat.ChatPromptSession",
                 mock_prompt_session_class,
             ),
-            patch("adversary_pursuit.agent.chat.Console", return_value=test_console),
-            patch("adversary_pursuit.agent.chat.render_boot_banner"),
+            patch("pivotglass.agent.chat.Console", return_value=test_console),
+            patch("pivotglass.agent.chat.render_boot_banner"),
         ):
-            os.environ.pop("AP_MODEL", None)
+            os.environ.pop("PIVOTGLASS_MODEL", None)
             run_chat()
 
         output = buf.getvalue()
@@ -3366,23 +3366,23 @@ class TestServiceNameMap:
     # path-tail ("shodan_ip" instead of "shodan").
     """
 
-    from adversary_pursuit.agent.tools import _SERVICE_NAMES  # noqa: PLC0415
+    from pivotglass.agent.tools import _SERVICE_NAMES  # noqa: PLC0415
 
     def test_service_names_map_has_shodan_fix(self):
         """_SERVICE_NAMES maps 'osint/shodan_ip' -> 'shodan' (not 'shodan_ip')."""
-        from adversary_pursuit.agent.tools import _SERVICE_NAMES
+        from pivotglass.agent.tools import _SERVICE_NAMES
 
         assert _SERVICE_NAMES.get("osint/shodan_ip") == "shodan"
 
     def test_service_names_map_dns_is_none(self):
         """dns_resolve maps to None — no API key required."""
-        from adversary_pursuit.agent.tools import _SERVICE_NAMES
+        from pivotglass.agent.tools import _SERVICE_NAMES
 
         assert _SERVICE_NAMES.get("osint/dns_resolve") is None
 
     def test_service_names_map_whois_is_none(self):
         """whois_lookup maps to None — no API key required."""
-        from adversary_pursuit.agent.tools import _SERVICE_NAMES
+        from pivotglass.agent.tools import _SERVICE_NAMES
 
         assert _SERVICE_NAMES.get("osint/whois_lookup") is None
 
@@ -3435,11 +3435,11 @@ class TestServiceNameMap:
         mock_mod.initialize.assert_called_once_with({})
 
     def test_credential_builders_env_fallback_censys(self, tmp_ctx, monkeypatch):
-        """Censys credential builder falls back to AP_CENSYS_PAT env var (resolves #45)."""
-        monkeypatch.setenv("AP_CENSYS_PAT", "censys-env-pat")
+        """Censys credential builder falls back to PIVOTGLASS_CENSYS_PAT env var (resolves #45)."""
+        monkeypatch.setenv("PIVOTGLASS_CENSYS_PAT", "censys-env-pat")
         monkeypatch.delenv("CENSYS_PAT", raising=False)
 
-        from adversary_pursuit.agent.tools import _CREDENTIAL_BUILDERS
+        from pivotglass.agent.tools import _CREDENTIAL_BUILDERS
 
         builder = _CREDENTIAL_BUILDERS["osint/censys_host"]
         config = builder(tmp_ctx.config_mgr)
@@ -3450,14 +3450,14 @@ class TestServiceNameMap:
 
     def test_credential_builders_env_fallback_passivetotal(self, tmp_ctx, monkeypatch):
         """PassiveTotal credential builder falls back to vendor env vars when config is empty."""
-        monkeypatch.delenv("AP_PASSIVETOTAL_USER", raising=False)
-        monkeypatch.delenv("AP_PT_USER", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_PASSIVETOTAL_USER", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_PT_USER", raising=False)
         monkeypatch.setenv("PT_USERNAME", "pt-vendor-user")
-        monkeypatch.delenv("AP_PASSIVETOTAL_KEY", raising=False)
-        monkeypatch.delenv("AP_PT_API_KEY", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_PASSIVETOTAL_KEY", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_PT_API_KEY", raising=False)
         monkeypatch.setenv("PT_API_KEY", "pt-vendor-key")
 
-        from adversary_pursuit.agent.tools import _CREDENTIAL_BUILDERS
+        from pivotglass.agent.tools import _CREDENTIAL_BUILDERS
 
         builder = _CREDENTIAL_BUILDERS["cti/passivetotal"]
         config = builder(tmp_ctx.config_mgr)
@@ -3474,7 +3474,7 @@ class TestServiceNameMap:
         """
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        monkeypatch.delenv("AP_SHODAN_API_KEY", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_SHODAN_API_KEY", raising=False)
         monkeypatch.setenv("SHODAN_API_KEY", "shodan-from-vendor-env")
 
         mock_mod = MagicMock()
@@ -3511,7 +3511,7 @@ class TestServiceNameMap:
         import asyncio
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        monkeypatch.delenv("AP_SHODAN_API_KEY", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_SHODAN_API_KEY", raising=False)
         monkeypatch.setenv("SHODAN_API_KEY", "shodan-cascade-key")
 
         mock_mod = MagicMock()
@@ -3528,7 +3528,7 @@ class TestServiceNameMap:
 
         with patch.object(tmp_ctx.config_mgr, "get_api_key", side_effect=recording_get_api_key):
             with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-                from adversary_pursuit.core.event_bus import PivotEvent
+                from pivotglass.core.event_bus import PivotEvent
 
                 callback = tmp_ctx._make_cascade_callback("osint/shodan_ip")
                 asyncio.run(
@@ -3584,7 +3584,7 @@ class TestCensysPATCredentialBuilder:
 
     def test_credential_builders_censys_reads_from_env_var(self, tmp_ctx, monkeypatch):
         """Builder picks up CENSYS_PAT env var via the 3-layer config chain."""
-        monkeypatch.delenv("AP_CENSYS_PAT", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_CENSYS_PAT", raising=False)
         monkeypatch.setenv("CENSYS_PAT", "env-pat-value")
         builder = _CREDENTIAL_BUILDERS["osint/censys_host"]
         config = builder(tmp_ctx.config_mgr)
@@ -3658,7 +3658,7 @@ class TestGreyNoiseLookupTool:
         A Rich panel is rendered to ctx.console; no raw traceback reaches the user.
         """
         # @mock-exempt: hunt() is the external HTTP boundary (DEC-TEST-AGENT-001).
-        from adversary_pursuit.modules.base import AuthenticationError as AuthErr
+        from pivotglass.modules.base import AuthenticationError as AuthErr
 
         mock_mod = MagicMock()
         mock_mod.hunt = AsyncMock(side_effect=AuthErr("GreyNoise API key invalid/revoked."))
@@ -3680,7 +3680,7 @@ class TestGreyNoiseLookupTool:
         universal interpreter and returns '[USER_SAW_PANEL] [Rate limit] ...' to the LLM.
         """
         # @mock-exempt: hunt() is the external HTTP boundary (DEC-TEST-AGENT-001).
-        from adversary_pursuit.modules.base import RateLimitError as RLErr
+        from pivotglass.modules.base import RateLimitError as RLErr
 
         mock_mod = MagicMock()
         mock_mod.hunt = AsyncMock(
@@ -3811,7 +3811,7 @@ class TestExecuteToolRunFailWiring:
         no '[bold red]', no run_fail content at all.
         """
         # @mock-exempt: hunt() is the external HTTP boundary (DEC-TEST-AGENT-001).
-        from adversary_pursuit.gamification.modes import DEFAULT_MODES
+        from pivotglass.gamification.modes import DEFAULT_MODES
 
         tmp_ctx.mode_mgr.switch("full_troll")
         assert tmp_ctx.mode_mgr.active == DEFAULT_MODES["full_troll"]
@@ -3897,7 +3897,7 @@ class TestRunModuleFirstBloodWiring:
 
     def test_strip_rich_markup_helper_removes_all_tags(self):
         """_strip_rich_markup removes Rich markup tags from arbitrary strings."""
-        from adversary_pursuit.agent.tools import _strip_rich_markup
+        from pivotglass.agent.tools import _strip_rich_markup
 
         assert _strip_rich_markup("[bold red]BRUH.[/bold red]") == "BRUH."
         assert _strip_rich_markup("[dim]Missed. Regroup.[/dim]") == "Missed. Regroup."
@@ -4119,7 +4119,7 @@ class TestF64LLMPanelSeparation:
         This guarantees stale challenges from a previous turn never bleed into
         the current turn's panel rendering.
         """
-        from adversary_pursuit.agent.runner import AgentRunner
+        from pivotglass.agent.runner import AgentRunner
 
         runner = AgentRunner(model="test/model")
 
@@ -4141,7 +4141,7 @@ class TestF64LLMPanelSeparation:
 
         # @mock-exempt: hunt() and litellm.completion are external boundaries.
         """
-        from adversary_pursuit.agent.runner import AgentRunner
+        from pivotglass.agent.runner import AgentRunner
 
         runner = AgentRunner(model="test/model", tool_context=tmp_ctx)
         runner.last_celebrations = []
@@ -4155,7 +4155,7 @@ class TestF64LLMPanelSeparation:
         ch2.id = "ch-002"
 
         with patch(
-            "adversary_pursuit.agent.runner.execute_tool",
+            "pivotglass.agent.runner.execute_tool",
             side_effect=[
                 ("Found 1 indicators: ...", None, [], [ch1]),
                 ("Found 1 indicators: ...", None, [], [ch2]),
@@ -4266,8 +4266,8 @@ class TestM3DossierScoringIntegration:
         events fire on first evidence, seed an EMPTY snapshot (as if a previous
         hunt ran and found nothing), so the transition is EMPTY→PARTIAL.
         """
-        from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full
-        from adversary_pursuit.dossier.state import save_dossier_state
+        from pivotglass.dossier.slot_inference import infer_dossier_state_full
+        from pivotglass.dossier.state import save_dossier_state
 
         empty_state = infer_dossier_state_full([], module_runs=[], notes=None)
         save_dossier_state(ctx.workspace_mgr, empty_state)
@@ -4458,9 +4458,9 @@ class TestM3MilestoneGate:
         Without the snapshot, pre-state defaults to DEFERRED and the transition is
         skipped (plan §3.4 defensive guard — one-time migration silence on first hunt).
         """
-        from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full
-        from adversary_pursuit.dossier.state import save_dossier_state
-        from adversary_pursuit.gamification.celebrations import MILESTONES
+        from pivotglass.dossier.slot_inference import infer_dossier_state_full
+        from pivotglass.dossier.state import save_dossier_state
+        from pivotglass.gamification.celebrations import MILESTONES
 
         config_dir = tmp_path / "config"
         workspace_dir = tmp_path / "workspaces"
@@ -4591,8 +4591,8 @@ class TestM4PersistentDossierState:
 
     def test_at2_create_dossier_prediction_persists_and_returns_id(self, tmp_path):
         """AT2: create_dossier_prediction execution persists prediction and returns prediction_id."""
-        from adversary_pursuit.agent.tools import execute_tool
-        from adversary_pursuit.dossier.predictions import load_predictions_log
+        from pivotglass.agent.tools import execute_tool
+        from pivotglass.dossier.predictions import load_predictions_log
 
         ctx = self._make_ctx(tmp_path)
         result_text, *_ = execute_tool(
@@ -4620,7 +4620,7 @@ class TestM4PersistentDossierState:
 
     def test_at3_hunt_with_matching_prediction_fires_validated_event(self, tmp_path):
         """AT3: hunt that surfaces SCO matching persisted prediction fires dossier_prediction_validated."""
-        from adversary_pursuit.dossier.predictions import (
+        from pivotglass.dossier.predictions import (
             ExpectedEvidence,
             PersistedPrediction,
             save_predictions_log,
@@ -4659,7 +4659,7 @@ class TestM4PersistentDossierState:
 
     def test_at4_prediction_validated_event_absent_from_llm_summary(self, tmp_path):
         """AT4: F64 gate — prediction-validated event text absent from result['summary']."""
-        from adversary_pursuit.dossier.predictions import (
+        from pivotglass.dossier.predictions import (
             ExpectedEvidence,
             PersistedPrediction,
             save_predictions_log,
@@ -4696,8 +4696,8 @@ class TestM4PersistentDossierState:
         infer_dossier_state_full with a direct 'from ... import' — patching
         the source module's attribute alone does not intercept already-bound names.
         """
-        import adversary_pursuit.agent.tools as tools_module
-        from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full as real_fn
+        import pivotglass.agent.tools as tools_module
+        from pivotglass.dossier.slot_inference import infer_dossier_state_full as real_fn
 
         ctx = self._make_ctx(tmp_path)
         call_count = 0
@@ -4724,10 +4724,10 @@ class TestM4PersistentDossierState:
 
     def test_at6_get_dossier_state_reads_persistent_snapshot(self, tmp_path):
         """get_dossier_state reads persistent snapshot when present; no fresh inference."""
-        from adversary_pursuit.agent.tools import execute_tool
-        from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
-        from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
-        from adversary_pursuit.dossier.state import save_dossier_state
+        from pivotglass.agent.tools import execute_tool
+        from pivotglass.dossier.slot_inference import DossierState, SlotState
+        from pivotglass.dossier.slots import DossierSlotName, SlotStatus
+        from pivotglass.dossier.state import save_dossier_state
 
         ctx = self._make_ctx(tmp_path)
 
@@ -4748,7 +4748,7 @@ class TestM4PersistentDossierState:
 
     def test_at7_create_prediction_empty_evidence_returns_error_json(self, tmp_path):
         """create_dossier_prediction with empty expected_evidence returns JSON error."""
-        from adversary_pursuit.agent.tools import execute_tool
+        from pivotglass.agent.tools import execute_tool
 
         ctx = self._make_ctx(tmp_path)
         import json
@@ -4790,7 +4790,7 @@ class TestM5AgentTools:
         workspace_dir = tmp_path / "workspaces"
         config_dir.mkdir()
         workspace_dir.mkdir()
-        from adversary_pursuit.agent.tools import ToolContext
+        from pivotglass.agent.tools import ToolContext
 
         ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
         ctx.workspace_mgr.create("default")
@@ -4799,7 +4799,7 @@ class TestM5AgentTools:
 
     def test_m5t1_create_dossier_note_schema_present(self, tmp_path):
         """M5T1: create_dossier_note tool schema is in create_tools() output."""
-        from adversary_pursuit.agent.tools import create_tools
+        from pivotglass.agent.tools import create_tools
 
         ctx = self._make_ctx(tmp_path)
         tools = create_tools(ctx)
@@ -4810,7 +4810,7 @@ class TestM5AgentTools:
         """M5T2: create_dossier_note calls add_note(); note is retrievable via get_notes()."""
         import json
 
-        from adversary_pursuit.agent.tools import execute_tool
+        from pivotglass.agent.tools import execute_tool
 
         ctx = self._make_ctx(tmp_path)
         result_text, *_ = execute_tool(
@@ -4821,7 +4821,7 @@ class TestM5AgentTools:
         assert "error" not in result, f"Unexpected error in response: {result}"
 
         # Note must be retrievable via the same _read_analyst_notes path used in production
-        from adversary_pursuit.agent.tools import _read_analyst_notes
+        from pivotglass.agent.tools import _read_analyst_notes
 
         notes = _read_analyst_notes(ctx.workspace_mgr)
         contents = [n["content"] for n in notes]
@@ -4831,7 +4831,7 @@ class TestM5AgentTools:
 
     def test_m5t3_falsify_dossier_prediction_schema_present(self, tmp_path):
         """M5T3: falsify_dossier_prediction tool schema is in create_tools() output."""
-        from adversary_pursuit.agent.tools import create_tools
+        from pivotglass.agent.tools import create_tools
 
         ctx = self._make_ctx(tmp_path)
         tools = create_tools(ctx)
@@ -4842,8 +4842,8 @@ class TestM5AgentTools:
         """M5T4: falsify_dossier_prediction on a pending prediction -> falsified + event + persisted."""
         import json
 
-        from adversary_pursuit.agent.tools import execute_tool
-        from adversary_pursuit.dossier.predictions import (
+        from pivotglass.agent.tools import execute_tool
+        from pivotglass.dossier.predictions import (
             ExpectedEvidence,
             PersistedPrediction,
             save_predictions_log,
@@ -4878,7 +4878,7 @@ class TestM5AgentTools:
         assert "error" not in result, f"Unexpected error in response: {result}"
 
         # Prediction must now be falsified in persistence
-        from adversary_pursuit.dossier.predictions import load_predictions_log
+        from pivotglass.dossier.predictions import load_predictions_log
 
         updated = load_predictions_log(ctx.workspace_mgr)
         assert len(updated) == 1
@@ -4888,8 +4888,8 @@ class TestM5AgentTools:
         """M5T5: falsify_dossier_prediction on already-falsified prediction -> idempotent no-op."""
         import json
 
-        from adversary_pursuit.agent.tools import execute_tool
-        from adversary_pursuit.dossier.predictions import (
+        from pivotglass.agent.tools import execute_tool
+        from pivotglass.dossier.predictions import (
             ExpectedEvidence,
             PersistedPrediction,
             save_predictions_log,
@@ -4922,7 +4922,7 @@ class TestM5AgentTools:
 
     def test_m5t6_create_prediction_schema_includes_falsification_evidence(self, tmp_path):
         """M5T6: create_dossier_prediction schema has optional falsification_evidence property."""
-        from adversary_pursuit.agent.tools import create_tools
+        from pivotglass.agent.tools import create_tools
 
         ctx = self._make_ctx(tmp_path)
         tools = create_tools(ctx)
@@ -4943,10 +4943,10 @@ class TestM5AgentTools:
         """
         import pathlib
 
-        import adversary_pursuit
+        import pivotglass
 
         tools_src = (
-            pathlib.Path(adversary_pursuit.__file__).parent / "agent" / "tools.py"
+            pathlib.Path(pivotglass.__file__).parent / "agent" / "tools.py"
         ).read_text(encoding="utf-8")
         assert "dossier_prediction_falsified" in tools_src, (
             "F64: _DOSSIER_ACTIONS in agent/tools.py must include 'dossier_prediction_falsified' "
@@ -5096,7 +5096,7 @@ class TestM6RankerWiring:
 
         load_call_count: list = []
         original_load = __import__(
-            "adversary_pursuit.dossier.state", fromlist=["load_dossier_state"]
+            "pivotglass.dossier.state", fromlist=["load_dossier_state"]
         ).load_dossier_state
 
         def _counting_load(wm):
@@ -5119,7 +5119,7 @@ class TestM6RankerWiring:
             ),
             patch.object(ctx.event_bus, "process_results", side_effect=_noop_process),
             patch(
-                "adversary_pursuit.agent.tools.load_dossier_state",
+                "pivotglass.agent.tools.load_dossier_state",
                 side_effect=_counting_load,
             ),
         ):
@@ -5204,8 +5204,8 @@ class TestM8StageC:
         novelty detection operates on. Mirrors _seed_empty_snapshot in
         TestM3DossierScoringIntegration.
         """
-        from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full
-        from adversary_pursuit.dossier.state import save_dossier_state
+        from pivotglass.dossier.slot_inference import infer_dossier_state_full
+        from pivotglass.dossier.state import save_dossier_state
 
         empty_state = infer_dossier_state_full([], module_runs=[], notes=None)
         save_dossier_state(ctx.workspace_mgr, empty_state)
@@ -5219,9 +5219,9 @@ class TestM8StageC:
         detect_novelty() returns True -> dossier_novelty_recognized appended ->
         store_score_events persists it -> appears in result['score_events'].
         """
-        import adversary_pursuit.dossier.novelty as _novelty_mod
+        import pivotglass.dossier.novelty as _novelty_mod
 
-        monkeypatch.delenv("AP_NO_NOVELTY", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_NO_NOVELTY", raising=False)
         novelty_path = tmp_path / "novelty.sqlite"
         monkeypatch.setattr(_novelty_mod, "_DEFAULT_CACHE_PATH", novelty_path)
 
@@ -5249,9 +5249,9 @@ class TestM8StageC:
         Both runs write to the same sqlite file (_DEFAULT_CACHE_PATH redirected to tmp_path)
         so the first run records the hash and the second run hits the cache and skips emission.
         """
-        import adversary_pursuit.dossier.novelty as _novelty_mod
+        import pivotglass.dossier.novelty as _novelty_mod
 
-        monkeypatch.delenv("AP_NO_NOVELTY", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_NO_NOVELTY", raising=False)
         novelty_path = tmp_path / "novelty.sqlite"
         monkeypatch.setattr(_novelty_mod, "_DEFAULT_CACHE_PATH", novelty_path)
 
@@ -5280,10 +5280,10 @@ class TestM8StageC:
         """
         import pathlib
 
-        import adversary_pursuit
+        import pivotglass
 
         tools_src = (
-            pathlib.Path(adversary_pursuit.__file__).parent / "agent" / "tools.py"
+            pathlib.Path(pivotglass.__file__).parent / "agent" / "tools.py"
         ).read_text(encoding="utf-8")
         assert "dossier_novelty_recognized" in tools_src, (
             "F64: _DOSSIER_ACTIONS in agent/tools.py must include 'dossier_novelty_recognized' "
@@ -5293,13 +5293,13 @@ class TestM8StageC:
         assert "dossier_prediction_validated" in tools_src
         assert "dossier_prediction_falsified" in tools_src
 
-    def test_run_module_ap_no_novelty_disables_detection(self, tmp_path, monkeypatch):
-        """Stage C-4: AP_NO_NOVELTY=1 suppresses dossier_novelty_recognized events.
+    def test_run_module_pivotglass_no_novelty_disables_detection(self, tmp_path, monkeypatch):
+        """Stage C-4: PIVOTGLASS_NO_NOVELTY=1 suppresses dossier_novelty_recognized events.
 
         DEC-M8-NOVELTY-008: opt-out. Home is redirected to tmp_path so any default-path
-        writes land in tmp_path/.ap/ — lets us assert no sqlite file was created.
+        writes land in tmp_path/.pivotglass/ — lets us assert no sqlite file was created.
         """
-        monkeypatch.setenv("AP_NO_NOVELTY", "1")
+        monkeypatch.setenv("PIVOTGLASS_NO_NOVELTY", "1")
         fake_home = tmp_path / "home"
         fake_home.mkdir()
         monkeypatch.setattr("pathlib.Path.home", lambda: fake_home)
@@ -5315,11 +5315,11 @@ class TestM8StageC:
             e for e in result["score_events"] if e["action"] == "dossier_novelty_recognized"
         ]
         assert len(novelty_events) == 0, (
-            f"AP_NO_NOVELTY=1 must suppress all novelty events; got {novelty_events!r}"
+            f"PIVOTGLASS_NO_NOVELTY=1 must suppress all novelty events; got {novelty_events!r}"
         )
-        novelty_file = fake_home / ".ap" / "dossier_novelty.sqlite"
+        novelty_file = fake_home / ".pivotglass" / "dossier_novelty.sqlite"
         assert not novelty_file.exists(), (
-            "AP_NO_NOVELTY=1 must prevent creation of the novelty cache file"
+            "PIVOTGLASS_NO_NOVELTY=1 must prevent creation of the novelty cache file"
         )
 
     def test_run_module_novelty_event_not_narrated(self, tmp_path, monkeypatch):
@@ -5328,9 +5328,9 @@ class TestM8StageC:
         DEC-M8-NOVELTY-009 / DEC-64-LLM-PANEL-SEPARATION-001: the event must appear
         in result['score_events'] but must NOT appear in result['summary'].
         """
-        import adversary_pursuit.dossier.novelty as _novelty_mod
+        import pivotglass.dossier.novelty as _novelty_mod
 
-        monkeypatch.delenv("AP_NO_NOVELTY", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_NO_NOVELTY", raising=False)
         novelty_path = tmp_path / "novelty.sqlite"
         monkeypatch.setattr(_novelty_mod, "_DEFAULT_CACHE_PATH", novelty_path)
 

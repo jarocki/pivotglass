@@ -7,8 +7,8 @@ import json
 
 import pytest
 
-from adversary_pursuit.core.analytic_ledger import ConfidenceLevel
-from adversary_pursuit.core.framework_perspectives import (
+from pivotglass.core.analytic_ledger import ConfidenceLevel
+from pivotglass.core.framework_perspectives import (
     AttackCatalog,
     AttackContentManifest,
     DiamondMetaFeature,
@@ -21,13 +21,13 @@ from adversary_pursuit.core.framework_perspectives import (
     build_diamond_event,
     build_kill_chain_perspective,
 )
-from adversary_pursuit.core.framework_projections import (
+from pivotglass.core.framework_projections import (
     Framework,
     FrameworkProjectionAuthority,
     MappingOrigin,
     MappingState,
 )
-from adversary_pursuit.core.workspace import WorkspaceManager
+from pivotglass.core.workspace import WorkspaceManager
 
 
 def _workspace(tmp_path) -> WorkspaceManager:

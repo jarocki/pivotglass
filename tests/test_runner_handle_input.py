@@ -51,9 +51,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.agent.runner import AgentRunner
-from adversary_pursuit.agent.tui.application import TuiApplication
-from adversary_pursuit.agent.tui.events import EventBus
+from pivotglass.agent.runner import AgentRunner
+from pivotglass.agent.tui.application import TuiApplication
+from pivotglass.agent.tui.events import EventBus
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -87,11 +87,11 @@ class TestHandleInputYieldRouting:
         #               isolate the routing decision from gamification sub-system setup.
         with (
             patch(
-                "adversary_pursuit.agent.runner.AgentRunner.chat",
+                "pivotglass.agent.runner.AgentRunner.chat",
                 return_value="llm response",
             ) as patched_chat,
             patch(
-                "adversary_pursuit.agent.yield_commands.dispatch_yield",
+                "pivotglass.agent.yield_commands.dispatch_yield",
                 return_value="acknowledged",
             ) as mock_dispatch,
         ):
@@ -116,11 +116,11 @@ class TestHandleInputYieldRouting:
         # @mock-exempt: dispatch_yield → phrase cache + EventBus; mocked for routing isolation
         with (
             patch(
-                "adversary_pursuit.agent.runner.AgentRunner.chat",
+                "pivotglass.agent.runner.AgentRunner.chat",
                 return_value="llm response",
             ) as patched_chat,
             patch(
-                "adversary_pursuit.agent.yield_commands.dispatch_yield",
+                "pivotglass.agent.yield_commands.dispatch_yield",
                 return_value="focusing",
             ) as mock_dispatch,
         ):
@@ -153,11 +153,11 @@ class TestHandleInputChatRouting:
         # @mock-exempt: dispatch_yield → phrase cache + EventBus; mocked for routing isolation
         with (
             patch(
-                "adversary_pursuit.agent.runner.AgentRunner.chat",
+                "pivotglass.agent.runner.AgentRunner.chat",
                 return_value="8.8.8.8 is Google DNS",
             ) as mock_chat,
             patch(
-                "adversary_pursuit.agent.yield_commands.dispatch_yield",
+                "pivotglass.agent.yield_commands.dispatch_yield",
             ) as mock_dispatch,
         ):
             result = runner.handle_input("who is 8.8.8.8?")
@@ -175,7 +175,7 @@ class TestHandleInputChatRouting:
 
         # @mock-exempt: AgentRunner.chat → litellm.completion() (external LLM API boundary)
         with patch(
-            "adversary_pursuit.agent.runner.AgentRunner.chat",
+            "pivotglass.agent.runner.AgentRunner.chat",
             return_value="response with hook",
         ) as mock_chat:
             result = runner.handle_input("query something", status_bar=fake_hook)
@@ -205,11 +205,11 @@ class TestHandleInputMalformedYield:
         # @mock-exempt: dispatch_yield → phrase cache + EventBus; mocked for routing isolation
         with (
             patch(
-                "adversary_pursuit.agent.runner.AgentRunner.chat",
+                "pivotglass.agent.runner.AgentRunner.chat",
                 return_value="I'm not sure what to focus on",
             ) as mock_chat,
             patch(
-                "adversary_pursuit.agent.yield_commands.dispatch_yield",
+                "pivotglass.agent.yield_commands.dispatch_yield",
             ) as mock_dispatch,
         ):
             # Must not raise
@@ -226,7 +226,7 @@ class TestHandleInputMalformedYield:
         # @mock-exempt: AgentRunner.chat → litellm.completion() (external LLM API boundary)
         with (
             patch(
-                "adversary_pursuit.agent.runner.AgentRunner.chat",
+                "pivotglass.agent.runner.AgentRunner.chat",
                 return_value="what do you want to add?",
             ) as mock_chat,
         ):
@@ -242,7 +242,7 @@ class TestHandleInputMalformedYield:
         # @mock-exempt: AgentRunner.chat → litellm.completion() (external LLM API boundary)
         with (
             patch(
-                "adversary_pursuit.agent.runner.AgentRunner.chat",
+                "pivotglass.agent.runner.AgentRunner.chat",
                 return_value="I can't stop that person",
             ) as mock_chat,
         ):
@@ -264,7 +264,7 @@ class TestHandleInputReturnType:
         runner = _make_runner()
         # @mock-exempt: dispatch_yield → phrase cache + EventBus; mocked for routing isolation
         with patch(
-            "adversary_pursuit.agent.yield_commands.dispatch_yield",
+            "pivotglass.agent.yield_commands.dispatch_yield",
             return_value="ok",
         ):
             result = runner.handle_input("stop")
@@ -274,7 +274,7 @@ class TestHandleInputReturnType:
         runner = _make_runner()
         # @mock-exempt: AgentRunner.chat → litellm.completion() (external LLM API boundary)
         with patch(
-            "adversary_pursuit.agent.runner.AgentRunner.chat",
+            "pivotglass.agent.runner.AgentRunner.chat",
             return_value="llm answer",
         ):
             result = runner.handle_input("hello")
@@ -285,7 +285,7 @@ class TestHandleInputReturnType:
         runner = _make_runner()
         # @mock-exempt: AgentRunner.chat → litellm.completion() (external LLM API boundary)
         with patch(
-            "adversary_pursuit.agent.runner.AgentRunner.chat",
+            "pivotglass.agent.runner.AgentRunner.chat",
             return_value="",
         ):
             result = runner.handle_input("mystery input")
@@ -296,7 +296,7 @@ class TestHandleInputReturnType:
         runner = _make_runner()
         # @mock-exempt: AgentRunner.chat → litellm.completion() (external LLM API boundary)
         with patch(
-            "adversary_pursuit.agent.runner.AgentRunner.chat",
+            "pivotglass.agent.runner.AgentRunner.chat",
             return_value="chat fallback",
         ):
             result = runner.handle_input("focus")

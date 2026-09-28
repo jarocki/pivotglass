@@ -22,7 +22,7 @@ block waiting for a real terminal).  We test the Completer and ChatPromptSession
 construction logic directly.
 
 @decision DEC-TEST-REPL-INPUT-001
-@title Test APCompleter and ChatPromptSession without blocking terminal I/O
+@title Test PivotglassCompleter and ChatPromptSession without blocking terminal I/O
 @status accepted
 @rationale prompt_toolkit's PromptSession.prompt() is a blocking terminal call
            unsuitable for unit tests.  We test the Completer's get_completions()
@@ -39,29 +39,29 @@ from unittest.mock import MagicMock, patch
 
 from prompt_toolkit.document import Document
 
-from adversary_pursuit.agent.repl_input import (
+from pivotglass.agent.repl_input import (
     _MODE_NAMES,
     _TOP_LEVEL_COMMANDS,
     HISTORY_PATH,
-    APCompleter,
     ChatPromptSession,
+    PivotglassCompleter,
     _strip_rich_markup,
     prompt_user,
 )
 
 # ---------------------------------------------------------------------------
-# APCompleter — top-level command completion
+# PivotglassCompleter — top-level command completion
 # ---------------------------------------------------------------------------
 
 
 def _completions(text: str) -> list[str]:
-    """Helper: run APCompleter on *text* and return completion strings."""
-    completer = APCompleter()
+    """Helper: run PivotglassCompleter on *text* and return completion strings."""
+    completer = PivotglassCompleter()
     doc = Document(text, cursor_position=len(text))
     return [c.text for c in completer.get_completions(doc, MagicMock())]
 
 
-class TestAPCompleterTopLevel:
+class TestPivotglassCompleterTopLevel:
     def test_tui_power_commands_are_discoverable(self):
         results = _completions("")
         for command in ("use", "status", "clear", "stop", "focus", "add", "skip"):
@@ -116,16 +116,16 @@ class TestAPCompleterTopLevel:
 
 
 # ---------------------------------------------------------------------------
-# APCompleter — mode sub-command completion
+# PivotglassCompleter — mode sub-command completion
 # ---------------------------------------------------------------------------
 
 
-class TestAPCompleterModeSubcommand:
-    def test_neuromancer_mode_is_discoverable(self):
-        assert "Neuromancer" in _completions("mode neuro")
+class TestPivotglassCompleterModeSubcommand:
+    def test_nightgrid_mode_is_discoverable(self):
+        assert "Nightgrid" in _completions("mode night")
 
-    def test_matrix_public_name_is_discoverable(self):
-        assert "The Matrix" in _completions("mode the")
+    def test_code_rain_public_name_is_discoverable(self):
+        assert "Code Rain" in _completions("mode code")
 
     def test_mode_space_suggests_all_modes(self):
         results = _completions("mode ")
@@ -133,14 +133,14 @@ class TestAPCompleterModeSubcommand:
         for mode in _MODE_NAMES:
             assert mode in results
 
-    def test_mode_chuck_partial_suggests_public_name(self):
-        results = _completions("mode chu")
-        assert "Chuck Norris" in results
+    def test_mode_ironclad_partial_suggests_public_name(self):
+        results = _completions("mode iron")
+        assert "Ironclad" in results
         assert "Default (Analyst)" not in results
 
-    def test_mode_troll_partial_suggests_public_name(self):
-        results = _completions("mode tro")
-        assert "Troll" in results
+    def test_mode_rascal_partial_suggests_public_name(self):
+        results = _completions("mode ras")
+        assert "Rascal" in results
 
     def test_mode_space_does_not_suggest_top_level(self):
         results = _completions("mode ")
@@ -149,11 +149,11 @@ class TestAPCompleterModeSubcommand:
 
 
 # ---------------------------------------------------------------------------
-# APCompleter — export sub-command completion
+# PivotglassCompleter — export sub-command completion
 # ---------------------------------------------------------------------------
 
 
-class TestAPCompleterExportSubcommand:
+class TestPivotglassCompleterExportSubcommand:
     def test_export_space_suggests_all_shared_formats(self):
         results = _completions("export ")
         assert {"json", "csv", "gexf", "stix"} <= set(results)
@@ -168,11 +168,11 @@ class TestAPCompleterExportSubcommand:
 
 
 # ---------------------------------------------------------------------------
-# APCompleter — hint sub-command completion
+# PivotglassCompleter — hint sub-command completion
 # ---------------------------------------------------------------------------
 
 
-class TestAPCompleterHintSubcommand:
+class TestPivotglassCompleterHintSubcommand:
     def test_hint_space_suggests_modules_and_buy(self):
         results = _completions("hint ")
         assert "buy" in results
@@ -185,11 +185,11 @@ class TestAPCompleterHintSubcommand:
 
 
 # ---------------------------------------------------------------------------
-# APCompleter — model sub-command completion
+# PivotglassCompleter — model sub-command completion
 # ---------------------------------------------------------------------------
 
 
-class TestAPCompleterModelSubcommand:
+class TestPivotglassCompleterModelSubcommand:
     def test_model_space_suggests_show_and_select(self):
         results = _completions("model ")
         assert "show" in results
@@ -202,11 +202,11 @@ class TestAPCompleterModelSubcommand:
 
 
 # ---------------------------------------------------------------------------
-# APCompleter — report sub-command completion
+# PivotglassCompleter — report sub-command completion
 # ---------------------------------------------------------------------------
 
 
-class TestAPCompleterReportSubcommand:
+class TestPivotglassCompleterReportSubcommand:
     def test_report_space_suggests_answer_and_generate(self):
         results = _completions("report ")
         assert "answer" in results
@@ -214,11 +214,11 @@ class TestAPCompleterReportSubcommand:
 
 
 # ---------------------------------------------------------------------------
-# APCompleter — autopivot sub-command completion
+# PivotglassCompleter — autopivot sub-command completion
 # ---------------------------------------------------------------------------
 
 
-class TestAPCompleterAutopivotSubcommand:
+class TestPivotglassCompleterAutopivotSubcommand:
     def test_autopivot_space_suggests_on_off(self):
         results = _completions("autopivot ")
         assert "on" in results
@@ -232,7 +232,7 @@ class TestAPCompleterAutopivotSubcommand:
 
 class TestStripRichMarkup:
     def test_strips_bold_cyan(self):
-        assert _strip_rich_markup("[bold cyan]ap>[/bold cyan] ") == "ap> "
+        assert _strip_rich_markup("[bold cyan]pivotglass>[/bold cyan] ") == "pivotglass> "
 
     def test_strips_dim(self):
         assert _strip_rich_markup("[dim]hello[/dim]") == "hello"
@@ -241,9 +241,9 @@ class TestStripRichMarkup:
         assert _strip_rich_markup("plain text") == "plain text"
 
     def test_strips_emoji_prefix_tag(self):
-        # e.g. "🥷[bold cyan]ap>[/bold cyan] "
-        result = _strip_rich_markup("🥷[bold cyan]ap>[/bold cyan] ")
-        assert result == "🥷ap> "
+        # e.g. "🥷[bold cyan]pivotglass>[/bold cyan] "
+        result = _strip_rich_markup("🥷[bold cyan]pivotglass>[/bold cyan] ")
+        assert result == "🥷pivotglass> "
 
     def test_strips_colour_with_hash(self):
         result = _strip_rich_markup("[#ff0000]red[/#ff0000]")
@@ -267,19 +267,19 @@ class TestChatPromptSessionConstruction:
         assert session.editing_mode == "emacs"
 
     def test_env_var_overrides_argument(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_EDITING_MODE", "emacs")
+        monkeypatch.setenv("PIVOTGLASS_EDITING_MODE", "emacs")
         session = ChatPromptSession(history_path=tmp_path / "hist", editing_mode="vi")
         assert session.editing_mode == "emacs"
 
     def test_env_var_vi_overrides_emacs_arg(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_EDITING_MODE", "vi")
+        monkeypatch.setenv("PIVOTGLASS_EDITING_MODE", "vi")
         session = ChatPromptSession(
             history_path=tmp_path / "hist", editing_mode="emacs"
         )
         assert session.editing_mode == "vi"
 
     def test_invalid_env_var_falls_back_to_argument(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_EDITING_MODE", "dvorak")
+        monkeypatch.setenv("PIVOTGLASS_EDITING_MODE", "dvorak")
         session = ChatPromptSession(
             history_path=tmp_path / "hist", editing_mode="emacs"
         )
@@ -296,7 +296,7 @@ class TestChatPromptSessionConstruction:
         assert session.history_path == hist_path
 
     def test_default_history_path_constant(self):
-        assert HISTORY_PATH == Path.home() / ".ap" / "chat_history"
+        assert HISTORY_PATH == Path.home() / ".pivotglass" / "chat_history"
 
     def test_history_dir_created_automatically(self, tmp_path):
         nested = tmp_path / "a" / "b" / "chat_history"
@@ -318,7 +318,7 @@ class TestChatPromptSessionPrompt:
         # @mock-exempt: blocking terminal PTY call
         session._session = MagicMock()
         session._session.prompt.return_value = "hello world"
-        result = session.prompt("[bold cyan]ap>[/bold cyan] ")
+        result = session.prompt("[bold cyan]pivotglass>[/bold cyan] ")
         assert result == "hello world"
         # The argument passed to the underlying session should be plain text
         call_arg = session._session.prompt.call_args[0][0]
@@ -337,17 +337,17 @@ class TestPromptUser:
         # @mock-exempt: blocking terminal PTY call
         session._session = MagicMock()
         session._session.prompt.return_value = "test input"
-        result = prompt_user("ap> ", _session=session)
+        result = prompt_user("pivotglass> ", _session=session)
         assert result == "test input"
 
     def test_creates_session_when_not_provided(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("AP_NO_BANNER", "1")
+        monkeypatch.setenv("PIVOTGLASS_NO_BANNER", "1")
         # @mock-exempt: ChatPromptSession wraps blocking PTY I/O
         with patch(
-            "adversary_pursuit.agent.repl_input.ChatPromptSession"
+            "pivotglass.agent.repl_input.ChatPromptSession"
         ) as MockSession:
             mock_instance = MagicMock()
             mock_instance.prompt.return_value = "from new session"
             MockSession.return_value = mock_instance
-            result = prompt_user("ap> ", editing_mode="vi")
+            result = prompt_user("pivotglass> ", editing_mode="vi")
         assert result == "from new session"

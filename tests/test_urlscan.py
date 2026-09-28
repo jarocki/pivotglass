@@ -51,13 +51,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.core.plugin_mgr import PluginManager
-from adversary_pursuit.modules.base import (
+from pivotglass.core.plugin_mgr import PluginManager
+from pivotglass.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
-from adversary_pursuit.modules.osint.urlscan import URLScan
+from pivotglass.modules.osint.urlscan import URLScan
 
 # ---------------------------------------------------------------------------
 # Shared test data
@@ -158,7 +158,7 @@ class TestURLScanMetadata:
 
     def test_module_author(self):
         mod = URLScan()
-        assert mod.author == "Adversary Pursuit"
+        assert mod.author == "Pivotglass"
 
     def test_description_non_empty(self):
         mod = URLScan()
@@ -215,7 +215,7 @@ class TestURLScanErrors:
         submit_resp = _make_mock_response(401, {"message": "Not authorized"})
         mock_client = _make_client(submit_resp, MagicMock())
         with patch(
-            "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+            "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
             return_value=mock_client,
         ):
             mod = URLScan()
@@ -232,7 +232,7 @@ class TestURLScanErrors:
         )
         mock_client = _make_client(submit_resp, MagicMock())
         with patch(
-            "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+            "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
             return_value=mock_client,
         ):
             mod = URLScan()
@@ -249,7 +249,7 @@ class TestURLScanErrors:
         )
         mock_client = _make_client(submit_resp, MagicMock())
         with patch(
-            "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+            "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
             return_value=mock_client,
         ):
             mod = URLScan()
@@ -267,7 +267,7 @@ class TestURLScanErrors:
         )
         mock_client = _make_client(submit_resp, MagicMock())
         with patch(
-            "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+            "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
             return_value=mock_client,
         ):
             mod = URLScan()
@@ -284,7 +284,7 @@ class TestURLScanErrors:
         submit_resp = _make_mock_response(403, {"message": "Forbidden"})
         mock_client = _make_client(submit_resp, MagicMock())
         with patch(
-            "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+            "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
             return_value=mock_client,
         ):
             mod = URLScan()
@@ -309,10 +309,10 @@ class TestURLScanHuntResults:
 
         with (
             patch(
-                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
                 return_value=mock_client,
             ),
-            patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+            patch("pivotglass.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
             mod.initialize({"api_key": "test-key"})
@@ -440,10 +440,10 @@ class TestURLScanPollBehavior:
 
         with (
             patch(
-                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
                 return_value=mock_client,
             ),
-            patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+            patch("pivotglass.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
             mod.initialize({"api_key": "test-key"})
@@ -466,10 +466,10 @@ class TestURLScanPollBehavior:
 
         with (
             patch(
-                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
                 return_value=mock_client,
             ),
-            patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+            patch("pivotglass.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
             mod.initialize({"api_key": "test-key"})
@@ -488,10 +488,10 @@ class TestURLScanPollBehavior:
         sleep_mock = AsyncMock()
         with (
             patch(
-                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
                 return_value=mock_client,
             ),
-            patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", sleep_mock),
+            patch("pivotglass.modules.osint.urlscan.asyncio.sleep", sleep_mock),
         ):
             mod = URLScan()
             mod.initialize({"api_key": "test-key"})
@@ -507,10 +507,10 @@ class TestURLScanPollBehavior:
 
         with (
             patch(
-                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
                 return_value=mock_client,
             ),
-            patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+            patch("pivotglass.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
             mod.initialize({"api_key": "test-key"})
@@ -528,10 +528,10 @@ class TestURLScanPollBehavior:
 
         with (
             patch(
-                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
                 return_value=mock_client,
             ),
-            patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+            patch("pivotglass.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
             mod.initialize({"api_key": "my-secret-urlscan-key"})
@@ -548,10 +548,10 @@ class TestURLScanPollBehavior:
 
         with (
             patch(
-                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
                 return_value=mock_client,
             ),
-            patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+            patch("pivotglass.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
             mod.initialize({"api_key": "test-key"})
@@ -571,10 +571,10 @@ class TestURLScanPollBehavior:
 
         with (
             patch(
-                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
                 return_value=mock_client,
             ),
-            patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+            patch("pivotglass.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
             mod.initialize({"api_key": "my-secret-urlscan-key"})
@@ -598,10 +598,10 @@ class TestURLScanPollBehavior:
 
         with (
             patch(
-                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
                 return_value=mock_client,
             ),
-            patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+            patch("pivotglass.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
             mod.initialize({"api_key": "test-key"})
@@ -634,10 +634,10 @@ class TestURLScanListsCap:
 
         with (
             patch(
-                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
                 return_value=mock_client,
             ),
-            patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+            patch("pivotglass.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
             mod.initialize({"api_key": "test-key"})
@@ -661,10 +661,10 @@ class TestURLScanListsCap:
 
         with (
             patch(
-                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
                 return_value=mock_client,
             ),
-            patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+            patch("pivotglass.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
             mod.initialize({"api_key": "test-key"})
@@ -699,10 +699,10 @@ class TestURLScanRequestShape:
 
         with (
             patch(
-                "adversary_pursuit.modules.osint.urlscan.httpx.AsyncClient",
+                "pivotglass.modules.osint.urlscan.httpx.AsyncClient",
                 return_value=mock_client,
             ),
-            patch("adversary_pursuit.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+            patch("pivotglass.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
         ):
             mod = URLScan()
             mod.initialize({"api_key": "test-key"})

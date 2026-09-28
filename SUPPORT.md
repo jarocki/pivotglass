@@ -28,8 +28,8 @@ Use [GitHub Issues](https://github.com/jarocki/pivotglass/issues) for ordinary
 defects, installation problems, documentation gaps, and feature requests.
 Search existing issues first. Include:
 
-- the exact `ap --version` output and operating system;
-- the interface used: Pivotglass browser, `ap tui`, or `ap basic`;
+- the exact `pivotglass --version` output and operating system;
+- the interface used: Pivotglass browser, `pivotglass tui`, or `pivotglass basic`;
 - the smallest repeatable steps, expected result, and observed result;
 - a diagnostic ID or the downloaded **sanitized** Activity & Errors record,
   after reviewing it locally; and
@@ -43,7 +43,7 @@ case data.
 ## Security reports
 
 Do not place exploit details or sensitive vulnerability information in a
-public issue. As of 2026-08-31, GitHub private vulnerability reporting is not
+public issue. Verified on 2026-09-27, GitHub private vulnerability reporting is not
 enabled for this repository and no owner-approved `SECURITY.md` reporting route
 exists. That is an explicit open v1.0 release gate, not an invitation to use a
 public channel. The repository owner must approve a private contact route,

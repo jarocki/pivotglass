@@ -4,11 +4,11 @@ This matrix separates the supported local core from qualified previews and
 planned work. A dependency being installed does not make every capability it
 contains a supported Pivotglass path.
 
-| Surface | v0.9.6 status | Supported boundary |
+| Surface | v0.9.8 status | Supported boundary |
 |---|---|---|
 | Python | Stable core | Python 3.12 or newer; tested release gates use the locked environment |
 | Browser cockpit | Stable local core | Static Next.js export served by Pivotglass on loopback by default |
-| Terminal interfaces | Stable local core | `ap tui` and `ap basic` share workspaces and deterministic command authorities |
+| Terminal interfaces | Stable local core | `pivotglass tui` and `pivotglass basic` share workspaces and deterministic command authorities |
 | Workspace schema | Stable forward migration | Schema v12, backup-first; in-place downgrade is not supported |
 | Flint | Qualified core | Exactly 0.4.0 for current bar, line, scatter, histogram, and radar intent paths |
 | Plotly / editable Office charts | Not qualified | Presence in Flint 0.4 does not enable these backends |
@@ -18,7 +18,7 @@ contains a supported Pivotglass path.
 | PDF | Recognition preview | Type/hash only; no text extraction or OCR claim |
 | Office documents, images, archives | Deferred | No qualified parser, macro execution, archive expansion, or OCR |
 | URL and RSS intake | Deferred | No browser document-preview network retrieval or SSRF surface |
-| Entity candidates | Qualified review input | Deterministic exact spans; admission persists candidates but never auto-promotes them to evidence |
+| Entity candidates | Qualified review and admission input | Deterministic exact spans; only analyst-selected candidates become workspace entities, bound to the reviewed source and rule |
 | Document library | Qualified local core | Display-safe inventory, content hashes, parser/extraction receipts, verified workspace merge; raw bytes stay local |
 | Pivot trail | Qualified local core | Append-only workflow history and timeline; never presented as a threat relationship |
 | Model-assisted proposals | Internal authority | Span-grounded immutable records and human review exist; live browser/model workflow is deferred |

@@ -2,8 +2,8 @@
 
 import pytest
 
-from adversary_pursuit.core.evidence_detail import evidence_ref, list_evidence, project_evidence
-from adversary_pursuit.models.stix import dict_to_stix
+from pivotglass.core.evidence_detail import evidence_ref, list_evidence, project_evidence
+from pivotglass.models.stix import dict_to_stix
 
 
 def _object() -> dict:
@@ -11,8 +11,8 @@ def _object() -> dict:
         "id": "domain-name--f5b40ef5-66af-4f96-8fe3-b1e45a69b92b",
         "type": "domain-name",
         "value": "suspect.test",
-        "x_ap_fetched_at": "2026-07-21T10:00:00+00:00",
-        "x_ap_source_url": "https://service.test/domain/suspect.test",
+        "x_pivotglass_fetched_at": "2026-07-21T10:00:00+00:00",
+        "x_pivotglass_source_url": "https://service.test/domain/suspect.test",
         "attributes": {"api_token": "do-not-render", "score": 7},
     }
 
@@ -79,7 +79,7 @@ def test_list_projection_only_marks_source_backed_geo_and_malware():
         "country_code": "JP",
         "latitude": 35.68,
         "longitude": 139.76,
-        "x_ap_known_malware": True,
+        "x_pivotglass_known_malware": True,
     }
 
     card = list_evidence([obj])[0]
@@ -104,7 +104,7 @@ def test_vendor_summary_surfaces_urlscan_links_before_raw_record():
         **_object(),
         "type": "url",
         "value": "https://suspect.test/",
-        "x_ap_source_module": "osint/urlscan",
+        "x_pivotglass_source_module": "osint/urlscan",
         "x_scan_uuid": "scan-1",
         "x_result_url": "https://urlscan.io/result/scan-1/",
         "x_screenshot_url": "https://urlscan.io/screenshots/scan-1.png",

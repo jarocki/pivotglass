@@ -33,8 +33,8 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.dossier.predictions import (
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.dossier.predictions import (
     PREDICTIONS_LOG_SENTINEL_ACTION,
     ExpectedEvidence,
     FalsificationEvidence,
@@ -172,7 +172,7 @@ class TestSentinelUniqueness:
         from sqlalchemy import select
         from sqlalchemy.orm import Session
 
-        from adversary_pursuit.models.database import ScoreEvent
+        from pivotglass.models.database import ScoreEvent
 
         wm = _make_workspace(tmp_path)
         for i in range(4):
@@ -203,7 +203,7 @@ class TestSentinelUniqueness:
         from sqlalchemy import select
         from sqlalchemy.orm import Session
 
-        from adversary_pursuit.models.database import ScoreEvent
+        from pivotglass.models.database import ScoreEvent
 
         wm = _make_workspace(tmp_path)
         save_predictions_log(wm, [_pred()])
@@ -465,7 +465,7 @@ class TestCreatePredictionValidation:
         """Deserialization of schema_version != 1 raises RuntimeError."""
         import json
 
-        from adversary_pursuit.dossier.predictions import _deserialize_predictions
+        from pivotglass.dossier.predictions import _deserialize_predictions
 
         bad = json.dumps({"schema_version": 99, "predictions": []})
         with pytest.raises(RuntimeError, match="schema version 99"):

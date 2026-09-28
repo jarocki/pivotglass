@@ -6,7 +6,7 @@
 @rationale The production call chain (module.hunt() → store_stix_objects → get_stix_objects)
            is tested end-to-end in TestProductionSequence. This prevents the failure mode
            where unit tests pass but the integrated flow is broken. All workspace tests
-           use tmp_path to avoid touching ~/.ap/.
+           use tmp_path to avoid touching ~/.pivotglass/.
 
 Tests verify:
 - STIX helper layer (stix.py): creation of each SCO type, relationships, bundles
@@ -28,20 +28,20 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.core.document_analysis_proposals import (
+from pivotglass.core.document_analysis_proposals import (
     DocumentAnalysisProposalAuthority,
 )
-from adversary_pursuit.core.document_entity_extraction import (
+from pivotglass.core.document_entity_extraction import (
     DocumentEntityExtractionService,
 )
-from adversary_pursuit.core.document_ingestion import DocumentIntakeService
-from adversary_pursuit.core.evidence_cluster_history import EvidenceClusterHistory
-from adversary_pursuit.core.workspace import _WORKSPACE_DATA_MODELS, WorkspaceManager
-from adversary_pursuit.models.database import (
+from pivotglass.core.document_ingestion import DocumentIntakeService
+from pivotglass.core.evidence_cluster_history import EvidenceClusterHistory
+from pivotglass.core.workspace import _WORKSPACE_DATA_MODELS, WorkspaceManager
+from pivotglass.models.database import (
     AnalystNote,
     Base,
 )
-from adversary_pursuit.models.stix import (
+from pivotglass.models.stix import (
     create_bundle,
     create_domain,
     create_email,
@@ -802,7 +802,7 @@ class TestWorkspaceBindRegression:
         """get_stix_objects() must not raise UnboundExecutionError on a fresh WorkspaceManager.
 
         Regression for M-3's pre-hunt SCO id capture (tools.py:443-445) which calls
-        get_stix_objects() BEFORE store_stix_objects() on a brand-new ap chat session.
+        get_stix_objects() BEFORE store_stix_objects() on a brand-new pivotglass chat session.
         Previously self._engine was None at that point -> UnboundExecutionError crash.
         Fix: _ensure_active() added at the top of get_stix_objects() (DEC-WS-006).
         """
@@ -892,11 +892,11 @@ class TestProvenanceAugmentation:
     """Tests for store_stix_objects() provenance kwargs (Evaluation Contract #59).
 
     Covers:
-    - Evaluation Contract test 6: test_workspace_rejects_caller_supplied_x_ap_fields
+    - Evaluation Contract test 6: test_workspace_rejects_caller_supplied_x_pivotglass_fields
     - Provenance kwargs persist into json_blob
-    - x_ap_fetched_at always populated (even without kwargs)
+    - x_pivotglass_fetched_at always populated (even without kwargs)
     - Calls without optional vendor kwargs still record collection module and time
-    - Caller-supplied x_ap_* keys stripped with a warning (DEC-59-STIX-PROVENANCE-001)
+    - Caller-supplied x_pivotglass_* keys stripped with a warning (DEC-59-STIX-PROVENANCE-001)
     """
 
     def _make_wm(self, tmp_path):
@@ -921,13 +921,13 @@ class TestProvenanceAugmentation:
         objects = wm.get_stix_objects()
         assert len(objects) == 1
         obj = objects[0]
-        assert obj["x_ap_source_url"] == "https://api.example/ip/1.2.3.4"
-        assert obj["x_ap_api_version"] == "v2"
-        assert obj["x_ap_response_sha256"] == "d" * 64
-        assert obj["x_ap_fetched_at"] == "2025-01-15T09:00:00Z"
+        assert obj["x_pivotglass_source_url"] == "https://api.example/ip/1.2.3.4"
+        assert obj["x_pivotglass_api_version"] == "v2"
+        assert obj["x_pivotglass_response_sha256"] == "d" * 64
+        assert obj["x_pivotglass_fetched_at"] == "2025-01-15T09:00:00Z"
 
-    def test_x_ap_fetched_at_always_populated(self, tmp_path):
-        """x_ap_fetched_at is always present even when no kwargs supplied."""
+    def test_x_pivotglass_fetched_at_always_populated(self, tmp_path):
+        """x_pivotglass_fetched_at is always present even when no kwargs supplied."""
         wm = self._make_wm(tmp_path)
         wm.store_stix_objects(
             [{"type": "domain-name", "value": "always-ts.example.com"}],
@@ -936,10 +936,10 @@ class TestProvenanceAugmentation:
         )
         objects = wm.get_stix_objects()
         assert len(objects) == 1
-        assert "x_ap_fetched_at" in objects[0]
-        assert objects[0]["x_ap_fetched_at"] is not None
+        assert "x_pivotglass_fetched_at" in objects[0]
+        assert objects[0]["x_pivotglass_fetched_at"] is not None
         # Must be a non-empty string ending in Z (RFC 3339)
-        ts = objects[0]["x_ap_fetched_at"]
+        ts = objects[0]["x_pivotglass_fetched_at"]
         assert isinstance(ts, str) and ts.endswith("Z")
 
     def test_legacy_call_records_minimum_workspace_provenance(self, tmp_path):
@@ -952,18 +952,18 @@ class TestProvenanceAugmentation:
         )
         obj = wm.get_stix_objects()[0]
         # fetched_at is always present
-        assert "x_ap_fetched_at" in obj
-        assert obj["x_ap_source_module"] == "test/legacy"
+        assert "x_pivotglass_fetched_at" in obj
+        assert obj["x_pivotglass_source_module"] == "test/legacy"
         # The other three must be absent (not null — absent from dict entirely)
-        assert "x_ap_source_url" not in obj
-        assert "x_ap_api_version" not in obj
-        assert "x_ap_response_sha256" not in obj
+        assert "x_pivotglass_source_url" not in obj
+        assert "x_pivotglass_api_version" not in obj
+        assert "x_pivotglass_response_sha256" not in obj
 
-    def test_workspace_rejects_caller_supplied_x_ap_fields(self, tmp_path):
-        """Evaluation Contract test 6: caller-supplied x_ap_* keys are stripped.
+    def test_workspace_rejects_caller_supplied_x_pivotglass_fields(self, tmp_path):
+        """Evaluation Contract test 6: caller-supplied x_pivotglass_* keys are stripped.
 
-        DEC-59-STIX-PROVENANCE-001: the workspace is the sole x_ap_* authority.
-        When a module dict contains x_ap_* keys, the workspace strips them and
+        DEC-59-STIX-PROVENANCE-001: the workspace is the sole x_pivotglass_* authority.
+        When a module dict contains x_pivotglass_* keys, the workspace strips them and
         emits a UserWarning. The stored object uses the workspace-supplied
         provenance values, not the caller's.
         """
@@ -972,14 +972,14 @@ class TestProvenanceAugmentation:
         bad_dict = {
             "type": "ipv4-addr",
             "value": "9.8.7.6",
-            "x_ap_source_url": "https://caller-injected.bad/endpoint",
-            "x_ap_api_version": "evil-v999",
-            "x_ap_response_sha256": "e" * 64,
-            "x_ap_fetched_at": "1970-01-01T00:00:00Z",
+            "x_pivotglass_source_url": "https://caller-injected.bad/endpoint",
+            "x_pivotglass_api_version": "evil-v999",
+            "x_pivotglass_response_sha256": "e" * 64,
+            "x_pivotglass_fetched_at": "1970-01-01T00:00:00Z",
         }
 
         # The workspace must emit a UserWarning about the stripped keys
-        with pytest.warns(UserWarning, match="x_ap_"):
+        with pytest.warns(UserWarning, match="x_pivotglass_"):
             wm.store_stix_objects(
                 [bad_dict],
                 module_name="osint/bad_module",
@@ -995,36 +995,36 @@ class TestProvenanceAugmentation:
         obj = objects[0]
 
         # The caller's injected values must NOT appear in the stored blob
-        assert obj.get("x_ap_source_url") != "https://caller-injected.bad/endpoint", (
-            "Caller-injected x_ap_source_url was not stripped"
+        assert obj.get("x_pivotglass_source_url") != "https://caller-injected.bad/endpoint", (
+            "Caller-injected x_pivotglass_source_url was not stripped"
         )
-        assert obj.get("x_ap_api_version") != "evil-v999", (
-            "Caller-injected x_ap_api_version was not stripped"
+        assert obj.get("x_pivotglass_api_version") != "evil-v999", (
+            "Caller-injected x_pivotglass_api_version was not stripped"
         )
-        assert obj.get("x_ap_response_sha256") != "e" * 64, (
-            "Caller-injected x_ap_response_sha256 was not stripped"
+        assert obj.get("x_pivotglass_response_sha256") != "e" * 64, (
+            "Caller-injected x_pivotglass_response_sha256 was not stripped"
         )
 
         # The workspace-supplied provenance must appear
-        assert obj.get("x_ap_source_url") == "https://workspace-real.example/endpoint"
-        assert obj.get("x_ap_api_version") == "v1"
-        assert obj.get("x_ap_response_sha256") == "f" * 64
+        assert obj.get("x_pivotglass_source_url") == "https://workspace-real.example/endpoint"
+        assert obj.get("x_pivotglass_api_version") == "v1"
+        assert obj.get("x_pivotglass_response_sha256") == "f" * 64
 
-    def test_caller_supplied_x_ap_without_workspace_kwargs(self, tmp_path):
-        """Caller-supplied x_ap_* stripped even when workspace supplies no kwargs.
+    def test_caller_supplied_x_pivotglass_without_workspace_kwargs(self, tmp_path):
+        """Caller-supplied x_pivotglass_* stripped even when workspace supplies no kwargs.
 
         The warning is still emitted; the stored blob gets only the workspace
-        default x_ap_fetched_at (not the caller's injected timestamp).
+        default x_pivotglass_fetched_at (not the caller's injected timestamp).
         """
         wm = self._make_wm(tmp_path)
 
         bad_dict = {
             "type": "domain-name",
             "value": "stripped-only.example.com",
-            "x_ap_fetched_at": "1970-01-01T00:00:00Z",  # injected by caller
+            "x_pivotglass_fetched_at": "1970-01-01T00:00:00Z",  # injected by caller
         }
 
-        with pytest.warns(UserWarning, match="x_ap_"):
+        with pytest.warns(UserWarning, match="x_pivotglass_"):
             wm.store_stix_objects(
                 [bad_dict],
                 module_name="test/bad",
@@ -1034,11 +1034,11 @@ class TestProvenanceAugmentation:
 
         obj = wm.get_stix_objects()[0]
         # The workspace-default fetched_at must NOT be the caller's epoch value
-        assert obj["x_ap_fetched_at"] != "1970-01-01T00:00:00Z", (
-            "Caller-injected x_ap_fetched_at was not replaced by workspace default"
+        assert obj["x_pivotglass_fetched_at"] != "1970-01-01T00:00:00Z", (
+            "Caller-injected x_pivotglass_fetched_at was not replaced by workspace default"
         )
-        # But x_ap_fetched_at must still be present (workspace default)
-        assert obj["x_ap_fetched_at"] is not None
+        # But x_pivotglass_fetched_at must still be present (workspace default)
+        assert obj["x_pivotglass_fetched_at"] is not None
 
     def test_fetched_at_caller_override_accepted(self, tmp_path):
         """Caller-supplied fetched_at kwarg overrides the workspace default."""
@@ -1051,7 +1051,7 @@ class TestProvenanceAugmentation:
             fetched_at=custom_ts,
         )
         obj = wm.get_stix_objects()[0]
-        assert obj["x_ap_fetched_at"] == custom_ts
+        assert obj["x_pivotglass_fetched_at"] == custom_ts
 
 
 # ---------------------------------------------------------------------------
@@ -1141,7 +1141,7 @@ class TestReservedActionsFilter:
 
     def test_dossier_state_snapshot_excluded_from_recent_scores(self, tmp_path):
         """W1: _dossier_state_snapshot rows are excluded from get_recent_scores()."""
-        from adversary_pursuit.dossier.state import (
+        from pivotglass.dossier.state import (
             DOSSIER_STATE_SENTINEL_ACTION,
             default_deferred_state,
             save_dossier_state,
@@ -1158,7 +1158,7 @@ class TestReservedActionsFilter:
 
     def test_predictions_log_excluded_from_recent_scores(self, tmp_path):
         """W2: _predictions_log rows are excluded from get_recent_scores()."""
-        from adversary_pursuit.dossier.predictions import (
+        from pivotglass.dossier.predictions import (
             PREDICTIONS_LOG_SENTINEL_ACTION,
             ExpectedEvidence,
             PersistedPrediction,
@@ -1204,12 +1204,12 @@ class TestReservedActionsFilter:
 
     def test_total_score_unaffected_by_sentinel_rows(self, tmp_path):
         """All sentinel rows have points=0 so get_total_score() is not inflated."""
-        from adversary_pursuit.dossier.predictions import (
+        from pivotglass.dossier.predictions import (
             ExpectedEvidence,
             PersistedPrediction,
             save_predictions_log,
         )
-        from adversary_pursuit.dossier.state import default_deferred_state, save_dossier_state
+        from pivotglass.dossier.state import default_deferred_state, save_dossier_state
 
         wm = self._make_wm(tmp_path)
         wm.store_score_events([{"action": "new_ip", "points": 42, "indicator": "1.2.3.4"}])
@@ -1422,7 +1422,7 @@ class TestWorkspaceClear:
 
     def test_clear_drops_dossier_sentinel_rows(self, tmp_path):
         """clear() removes score_events rows including sentinel rows (DEC-WORKSPACE-DB-002)."""
-        from adversary_pursuit.dossier.state import default_deferred_state, save_dossier_state
+        from pivotglass.dossier.state import default_deferred_state, save_dossier_state
 
         wm = self._make_wm(tmp_path)
         # Store a real score event and a dossier-state sentinel

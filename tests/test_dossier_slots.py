@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import dataclasses
 
-from adversary_pursuit.dossier.slots import (
+from pivotglass.dossier.slots import (
     SLOT_WEIGHTS,
     DenialStrategyRecord,
     DossierSlotName,

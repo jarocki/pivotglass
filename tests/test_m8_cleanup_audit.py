@@ -31,7 +31,7 @@ import pytest
 
 # Root is two levels up from tests/
 _REPO_ROOT = Path(__file__).parent.parent
-_SRC_ROOT = _REPO_ROOT / "src" / "adversary_pursuit"
+_SRC_ROOT = _REPO_ROOT / "src" / "pivotglass"
 
 
 # ---------------------------------------------------------------------------
@@ -43,7 +43,7 @@ class TestDeletedFiles:
     """Verify the four files mandated for deletion are absent."""
 
     def test_classic_report_file_deleted(self):
-        """src/adversary_pursuit/core/report.py must not exist (DEC-M8-CLEANUP-003)."""
+        """src/pivotglass/core/report.py must not exist (DEC-M8-CLEANUP-003)."""
         assert not (_SRC_ROOT / "core" / "report.py").exists(), (
             "core/report.py still exists — classic shim was not removed at M-8."
         )
@@ -132,7 +132,7 @@ class TestNoClassicSourceReferences:
 @pytest.fixture
 def tmp_ctx(tmp_path):
     """Minimal ToolContext for create_tools() calls."""
-    from adversary_pursuit.agent.tools import ToolContext
+    from pivotglass.agent.tools import ToolContext
 
     return ToolContext(workspace_dir=tmp_path / "workspaces")
 
@@ -142,7 +142,7 @@ class TestToolCatalogPostM8:
 
     def test_tool_count_is_28(self, tmp_ctx):
         """The historical M-9 catalog minus the forbidden direct-DNS tool is 29."""
-        from adversary_pursuit.agent.tools import create_tools
+        from pivotglass.agent.tools import create_tools
 
         tools = create_tools(tmp_ctx)
         assert len(tools) == 29, (
@@ -153,7 +153,7 @@ class TestToolCatalogPostM8:
 
     def test_generate_dossier_report_parameterless(self, tmp_ctx):
         """generate_dossier_report tool has empty properties and empty required."""
-        from adversary_pursuit.agent.tools import create_tools
+        from pivotglass.agent.tools import create_tools
 
         tools = create_tools(tmp_ctx)
         tool = next(t for t in tools if t["function"]["name"] == "generate_dossier_report")
@@ -167,7 +167,7 @@ class TestToolCatalogPostM8:
 
     def test_classic_tools_absent_from_catalog(self, tmp_ctx):
         """start_report_interview, answer_report_question, generate_report not in tool list."""
-        from adversary_pursuit.agent.tools import create_tools
+        from pivotglass.agent.tools import create_tools
 
         tools = create_tools(tmp_ctx)
         names = {t["function"]["name"] for t in tools}
@@ -178,7 +178,7 @@ class TestToolCatalogPostM8:
 
     def test_tool_schema_is_json_serializable(self, tmp_ctx):
         """Tool list serialises to JSON and back with 30 entries (M-9: +2 tools)."""
-        from adversary_pursuit.agent.tools import create_tools
+        from pivotglass.agent.tools import create_tools
 
         tools = create_tools(tmp_ctx)
         roundtripped = json.loads(json.dumps(tools))
@@ -186,7 +186,7 @@ class TestToolCatalogPostM8:
 
     def test_execute_generate_dossier_report_no_style_param(self, tmp_ctx):
         """_execute_generate_dossier_report(ctx) call signature is (ctx,) only."""
-        from adversary_pursuit.agent.tools import _execute_generate_dossier_report
+        from pivotglass.agent.tools import _execute_generate_dossier_report
 
         sig = inspect.signature(_execute_generate_dossier_report)
         params = list(sig.parameters.keys())
@@ -208,8 +208,8 @@ class TestDossierReportStillWorks:
 
     def test_generate_dossier_report_produces_markdown(self, tmp_path):
         """generate_dossier_report() returns non-empty dossier Markdown."""
-        from adversary_pursuit.core.dossier_report import generate_dossier_report
-        from adversary_pursuit.core.workspace import WorkspaceManager
+        from pivotglass.core.dossier_report import generate_dossier_report
+        from pivotglass.core.workspace import WorkspaceManager
 
         wm = WorkspaceManager(workspace_dir=tmp_path / "ws")
         wm.create("audit")

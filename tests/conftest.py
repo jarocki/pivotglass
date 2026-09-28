@@ -1,4 +1,4 @@
-"""Shared test fixtures for Adversary Pursuit."""
+"""Shared test fixtures for Pivotglass."""
 
 import sys
 from pathlib import Path

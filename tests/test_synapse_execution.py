@@ -8,22 +8,22 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.integrations.synapse_execution import (
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.integrations.synapse_execution import (
     SynapseShadowExecutor,
     SynapseShadowJournal,
     approve_synapse_shadow_load,
     synapse_shadow_confirmation,
 )
-from adversary_pursuit.integrations.synapse_graph import (
+from pivotglass.integrations.synapse_graph import (
     SynapseManifestNode,
     SynapseShadowManifest,
 )
-from adversary_pursuit.integrations.synapse_migration import (
+from pivotglass.integrations.synapse_migration import (
     compile_synapse_migration_plan,
     pivotglass_synapse_model_contract,
 )
-from adversary_pursuit.integrations.synapse_model import (
+from pivotglass.integrations.synapse_model import (
     PIVOTGLASS_RECORD_FORM,
 )
 

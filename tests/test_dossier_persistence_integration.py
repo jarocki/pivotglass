@@ -4,22 +4,22 @@ This is the LOAD-BEARING compound integration test required by the Evaluation Co
 It proves that:
 
 1. A DossierState snapshot persists across two distinct run_module() invocations against
-   the same workspace (simulating two separate ap chat sessions).
+   the same workspace (simulating two separate pivotglass chat sessions).
 2. A PersistedPrediction authored in session 1 is loaded in session 2 and validated
    when matching SCOs arrive.
 3. The validated prediction fires a dossier_prediction_validated ScoreEvent at +4 points.
 4. F64 gate: prediction-validated event text is absent from the LLM summary.
 
-These tests do NOT use a real ap chat process — they simulate two sessions by creating
+These tests do NOT use a real pivotglass chat process — they simulate two sessions by creating
 two separate ToolContext instances sharing the same workspace directory, which is the
-exact mechanism that separates ap chat invocations (same SQLite database, new Python
+exact mechanism that separates pivotglass chat invocations (same SQLite database, new Python
 process).
 
 @decision DEC-M4-PERSIST-001 (integration verification)
 @title Sentinel-row persistence survives across ToolContext instantiation boundaries
 @status accepted
-@rationale The ToolContext creates a new WorkspaceManager on each ap chat start, reading
-    from the same SQLite file. This is identical to what ap chat restart does; no actual
+@rationale The ToolContext creates a new WorkspaceManager on each pivotglass chat start, reading
+    from the same SQLite file. This is identical to what pivotglass chat restart does; no actual
     process restart is needed for the integration test.
 """
 
@@ -29,9 +29,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.agent.tools import ToolContext, execute_tool
-from adversary_pursuit.dossier.predictions import load_predictions_log
-from adversary_pursuit.dossier.state import load_dossier_state
+from pivotglass.agent.tools import ToolContext, execute_tool
+from pivotglass.dossier.predictions import load_predictions_log
+from pivotglass.dossier.state import load_dossier_state
 
 # ---------------------------------------------------------------------------
 # SCO fixtures — chosen to trigger specific slot fills and prediction matches
@@ -71,7 +71,7 @@ GENERIC_DOMAIN_SCOS = [
 def _make_ctx(workspace_dir, config_dir) -> ToolContext:
     """Create a fresh ToolContext sharing the given directories.
 
-    Simulates a new ap chat session: new Python objects, same SQLite file.
+    Simulates a new pivotglass chat session: new Python objects, same SQLite file.
     """
     ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
     ctx.workspace_mgr.switch("default")  # re-attach to existing workspace
@@ -305,7 +305,7 @@ class TestF62F63Regression:
 
     def test_r1_prediction_validated_event_does_not_break_streak(self, tmp_path):
         """R1: A hunt that fires prediction_validated events still contributes to streak."""
-        from adversary_pursuit.dossier.predictions import (
+        from pivotglass.dossier.predictions import (
             ExpectedEvidence,
             PersistedPrediction,
             save_predictions_log,
@@ -343,7 +343,7 @@ class TestF62F63Regression:
 
     def test_r2_prediction_validated_points_counted_in_total_score(self, tmp_path):
         """R2: prediction_validated points (4) add to get_total_score() for milestone math."""
-        from adversary_pursuit.dossier.predictions import (
+        from pivotglass.dossier.predictions import (
             ExpectedEvidence,
             PersistedPrediction,
             save_predictions_log,
@@ -425,7 +425,7 @@ class TestM5StageBAutoFalsification:
         """
         import json
 
-        from adversary_pursuit.agent.tools import execute_tool
+        from pivotglass.agent.tools import execute_tool
 
         ctx = _make_ctx(shared_dirs["workspace_dir"], shared_dirs["config_dir"])
 
@@ -473,7 +473,7 @@ class TestM5StageBAutoFalsification:
         """Stage B: falsified prediction status survives workspace reload (new ToolContext)."""
         import json
 
-        from adversary_pursuit.agent.tools import execute_tool
+        from pivotglass.agent.tools import execute_tool
 
         # Session 1: author + note + hunt
         ctx1 = _make_ctx(shared_dirs["workspace_dir"], shared_dirs["config_dir"])
@@ -527,7 +527,7 @@ class TestM5F62StreakRegression:
         """
         import json
 
-        from adversary_pursuit.agent.tools import execute_tool
+        from pivotglass.agent.tools import execute_tool
 
         config_dir = tmp_path / "config"
         workspace_dir = tmp_path / "workspaces"

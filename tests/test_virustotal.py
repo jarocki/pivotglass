@@ -28,13 +28,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.core.plugin_mgr import PluginManager
-from adversary_pursuit.modules.base import (
+from pivotglass.core.plugin_mgr import PluginManager
+from pivotglass.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
-from adversary_pursuit.modules.cti.virustotal import VirusTotal
+from pivotglass.modules.cti.virustotal import VirusTotal
 
 # ---------------------------------------------------------------------------
 # Sample API responses (VirusTotal v3 /api/v3/{type}/{target})
@@ -168,7 +168,7 @@ def mock_ip_success():
     """Patch httpx.AsyncClient for a successful IPv4 query."""
     resp = _make_mock_response(200, SAMPLE_IP_RESPONSE)
     client = _make_client(resp)
-    with patch("adversary_pursuit.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
+    with patch("pivotglass.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
         yield client
 
 
@@ -177,7 +177,7 @@ def mock_domain_success():
     """Patch httpx.AsyncClient for a successful domain query."""
     resp = _make_mock_response(200, SAMPLE_DOMAIN_RESPONSE)
     client = _make_client(resp)
-    with patch("adversary_pursuit.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
+    with patch("pivotglass.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
         yield client
 
 
@@ -186,7 +186,7 @@ def mock_url_success():
     """Patch httpx.AsyncClient for a successful URL query."""
     resp = _make_mock_response(200, SAMPLE_URL_RESPONSE)
     client = _make_client(resp)
-    with patch("adversary_pursuit.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
+    with patch("pivotglass.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
         yield client
 
 
@@ -195,7 +195,7 @@ def mock_hash_success():
     """Patch httpx.AsyncClient for a successful file hash query."""
     resp = _make_mock_response(200, SAMPLE_HASH_RESPONSE)
     client = _make_client(resp)
-    with patch("adversary_pursuit.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
+    with patch("pivotglass.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
         yield client
 
 
@@ -204,7 +204,7 @@ def mock_zeros_success():
     """Patch httpx.AsyncClient for a clean IP with all-zero malicious stats."""
     resp = _make_mock_response(200, SAMPLE_STATS_ZEROS)
     client = _make_client(resp)
-    with patch("adversary_pursuit.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
+    with patch("pivotglass.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
         yield client
 
 
@@ -213,7 +213,7 @@ def mock_401():
     """Patch httpx.AsyncClient to return 401."""
     resp = _make_mock_response(401, {"error": {"code": "WrongCredentialsError"}})
     client = _make_client(resp)
-    with patch("adversary_pursuit.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
+    with patch("pivotglass.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
         yield client
 
 
@@ -222,7 +222,7 @@ def mock_429():
     """Patch httpx.AsyncClient to return 429."""
     resp = _make_mock_response(429, {"error": {"code": "QuotaExceededError"}})
     client = _make_client(resp)
-    with patch("adversary_pursuit.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
+    with patch("pivotglass.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
         yield client
 
 
@@ -238,7 +238,7 @@ def mock_404():
         "404 Not Found", request=MagicMock(), response=resp
     )
     client = _make_client(resp)
-    with patch("adversary_pursuit.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
+    with patch("pivotglass.modules.cti.virustotal.httpx.AsyncClient", return_value=client):
         yield client
 
 
@@ -264,7 +264,7 @@ class TestVirusTotalMetadata:
 
     def test_module_author(self):
         mod = VirusTotal()
-        assert mod.author == "Adversary Pursuit"
+        assert mod.author == "Pivotglass"
 
     def test_description_non_empty(self):
         mod = VirusTotal()

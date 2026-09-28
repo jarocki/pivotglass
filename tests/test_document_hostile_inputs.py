@@ -6,10 +6,10 @@ import base64
 
 import pytest
 
-from adversary_pursuit.agent.tools import ToolContext
-from adversary_pursuit.core.document_entity_extraction import extract_entity_candidates
-from adversary_pursuit.core.document_ingestion import DocumentLimits, preview_document
-from adversary_pursuit.web.server import WebCockpitService
+from pivotglass.agent.tools import ToolContext
+from pivotglass.core.document_entity_extraction import extract_entity_candidates
+from pivotglass.core.document_ingestion import DocumentLimits, preview_document
+from pivotglass.web.server import WebCockpitService
 
 
 def test_active_html_and_external_references_are_text_only() -> None:

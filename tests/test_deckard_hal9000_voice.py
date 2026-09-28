@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.gamification.phrases import PHRASES, Phrase
+from pivotglass.gamification.phrases import PHRASES, Phrase
 
 # ---------------------------------------------------------------------------
 # detective phrase content

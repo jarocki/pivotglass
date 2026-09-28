@@ -1,6 +1,6 @@
 """Phase 17P: chat workspace subcommand parity + db_status meta-command tests.
 
-Tests that the ``ap chat`` workspace dispatcher matches cmd2 APConsole.do_workspace
+Tests that the ``pivotglass chat`` workspace dispatcher matches cmd2 PivotglassConsole.do_workspace
 parity (DEC-WORKSPACE-DB-003: legacy shorthand warns and still switches; new
 subcommands list / create / switch / delete / clear all work) and that the
 db_status meta-command renders the same enhanced table as do_db_status.
@@ -23,9 +23,9 @@ import io
 
 from rich.console import Console
 
-from adversary_pursuit.agent.chat import _chat_handle_workspace
-from adversary_pursuit.core.console import _render_db_status_table
-from adversary_pursuit.core.workspace import WorkspaceManager
+from pivotglass.agent.chat import _chat_handle_workspace
+from pivotglass.core.console import _render_db_status_table
+from pivotglass.core.workspace import WorkspaceManager
 
 # ---------------------------------------------------------------------------
 # Stub: lightweight AgentRunner-like object for chat tests
@@ -139,7 +139,7 @@ def test_chat_workspace_delete_prompts_then_calls(tmp_path, monkeypatch):
     runner = _StubRunner(wm)
     con, buf = _make_console()
 
-    monkeypatch.setattr("adversary_pursuit.agent.chat._confirm", lambda prompt: True)
+    monkeypatch.setattr("pivotglass.agent.chat._confirm", lambda prompt: True)
 
     _chat_handle_workspace("workspace delete todelete", runner, con)
     out = buf.getvalue()
@@ -159,7 +159,7 @@ def test_chat_workspace_delete_rejects_active_workspace(tmp_path, monkeypatch):
     def unexpected_confirmation(prompt):
         raise AssertionError(f"confirmation should not be requested: {prompt}")
 
-    monkeypatch.setattr("adversary_pursuit.agent.chat._confirm", unexpected_confirmation)
+    monkeypatch.setattr("pivotglass.agent.chat._confirm", unexpected_confirmation)
 
     _chat_handle_workspace("workspace delete active-delete", runner, con)
 
@@ -185,7 +185,7 @@ def test_chat_workspace_clear_no_arg_prompts_then_calls_active(tmp_path, monkeyp
     runner = _StubRunner(wm)
     con, buf = _make_console()
 
-    monkeypatch.setattr("adversary_pursuit.agent.chat._confirm", lambda prompt: True)
+    monkeypatch.setattr("pivotglass.agent.chat._confirm", lambda prompt: True)
 
     _chat_handle_workspace("workspace clear", runner, con)
     out = buf.getvalue()
@@ -209,7 +209,7 @@ def test_chat_workspace_clear_with_name_prompts_then_calls_named(tmp_path, monke
     runner = _StubRunner(wm)
     con, buf = _make_console()
 
-    monkeypatch.setattr("adversary_pursuit.agent.chat._confirm", lambda prompt: True)
+    monkeypatch.setattr("pivotglass.agent.chat._confirm", lambda prompt: True)
 
     _chat_handle_workspace("workspace clear target", runner, con)
     out = buf.getvalue()
@@ -274,7 +274,7 @@ def test_chat_db_status_renders_enhanced_table(tmp_path):
 
     This exercises the production sequence: chat db_status calls
     ``_render_db_status_table(runner.ctx.workspace_mgr, console)`` —
-    the same helper called by ``APConsole.do_db_status``. Both surfaces
+    the same helper called by ``PivotglassConsole.do_db_status``. Both surfaces
     render identical output for the same workspace state (DEC-WORKSPACE-DB-005).
     """
     wm = WorkspaceManager(workspace_dir=tmp_path)

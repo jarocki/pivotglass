@@ -34,8 +34,8 @@ from unittest.mock import patch
 
 import pytest
 
-from adversary_pursuit.agent.tools import ToolContext, create_tools, execute_tool
-from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+from pivotglass.agent.tools import ToolContext, create_tools, execute_tool
+from pivotglass.dossier.slots import DossierSlotName, SlotStatus
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -323,7 +323,7 @@ class TestGetDossierStatePanelIsolation:
                 "panel.render() was called from get_dossier_state — DEC-M2-DOSSIER-005 violation"
             )
 
-        with patch("adversary_pursuit.dossier.panel.render", side_effect=_fail_if_called):
+        with patch("pivotglass.dossier.panel.render", side_effect=_fail_if_called):
             try:
                 execute_tool(tmp_ctx, "get_dossier_state", {})
             except AssertionError as e:
@@ -444,10 +444,10 @@ class TestGetDossierStateM4Persistence:
         """GS1: get_dossier_state reads persisted state; no fresh inference needed."""
         import json
 
-        from adversary_pursuit.agent.tools import execute_tool
-        from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
-        from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
-        from adversary_pursuit.dossier.state import save_dossier_state
+        from pivotglass.agent.tools import execute_tool
+        from pivotglass.dossier.slot_inference import DossierState, SlotState
+        from pivotglass.dossier.slots import DossierSlotName, SlotStatus
+        from pivotglass.dossier.state import save_dossier_state
 
         config_dir = tmp_path / "config"
         workspace_dir = tmp_path / "workspaces"
@@ -480,7 +480,7 @@ class TestGetDossierStateM4Persistence:
         """GS1 fallback: no snapshot => fresh inference returns all-empty/deferred."""
         import json
 
-        from adversary_pursuit.agent.tools import execute_tool
+        from pivotglass.agent.tools import execute_tool
 
         config_dir = tmp_path / "config"
         workspace_dir = tmp_path / "workspaces"

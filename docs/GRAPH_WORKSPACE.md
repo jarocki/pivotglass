@@ -53,7 +53,7 @@ offers the same action beside the selected node in the graph workspace.
 
 ## Saved presentations
 
-In Pivotglass, open **Evidence relationships** under **Charts & Evidence**.
+In Pivotglass, open **Evidence relationships** under **Visualize**.
 Drag nodes, pan or zoom, optionally filter the visible subset, pin important
 nodes in view, and collapse or expand a selected node's direct connections.
 Collapsed nodes remain in the exact-data inventory and exports. Enter a layout
@@ -62,7 +62,7 @@ workspace and survives refreshes and restarts. It is included in portable
 workspace exports and merges.
 
 A saved presentation contains only bounded node coordinates, viewport, filter
-text, and optional display labels. It cannot contain nodes, edges, evidence, or
+text, pinned nodes, collapsed direct connections, and optional display labels. It cannot contain nodes, edges, evidence, or
 relationships. Loading a layout resolves it against the current graph and
 reports new or absent nodes instead of hiding graph drift. Deleting a layout
 deletes only this presentation record.

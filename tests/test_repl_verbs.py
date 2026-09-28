@@ -35,13 +35,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.agent.repl_verbs import (
+from pivotglass.agent.repl_verbs import (
     ReplVerb,
     _FarewellExit,
     dispatch_repl_verb,
     parse_repl_verb,
 )
-from adversary_pursuit.gamification.modes import DEFAULT_MODES, display_mode_name
+from pivotglass.gamification.modes import DEFAULT_MODES, display_mode_name
 
 # ---------------------------------------------------------------------------
 # P-1: zero-argument verbs
@@ -331,7 +331,7 @@ class TestDispatchUse:
 
 
 def test_public_multiword_mode_name_parses_and_switches():
-    from adversary_pursuit.gamification.modes import ModeManager
+    from pivotglass.gamification.modes import ModeManager
 
     verb = parse_repl_verb("mode Sherlock Holmes")
     manager = ModeManager()
@@ -344,14 +344,14 @@ def test_public_multiword_mode_name_parses_and_switches():
         workspace_mgr=None,
     )
     assert manager.active.name == "detective"
-    assert result.startswith("Mode switched: Sherlock Holmes")
+    assert result.startswith("Mode switched: Sleuth")
 
 
 class TestWorkspaceCommandParity:
     """TUI workspace administration matches the non-visual web command contract."""
 
     def test_export_merge_and_confirmed_delete(self, tmp_path):
-        from adversary_pursuit.core.workspace import WorkspaceManager
+        from pivotglass.core.workspace import WorkspaceManager
 
         manager = WorkspaceManager(tmp_path / "workspaces")
         manager.create("source")
@@ -395,7 +395,7 @@ class TestWorkspaceCommandParity:
         assert "source" not in manager.list_workspaces()
 
     def test_delete_requires_exact_confirmation_and_rejects_active(self, tmp_path):
-        from adversary_pursuit.core.workspace import WorkspaceManager
+        from pivotglass.core.workspace import WorkspaceManager
 
         manager = WorkspaceManager(tmp_path / "workspaces")
         manager.create("case")
@@ -419,7 +419,7 @@ class TestWorkspaceCommandParity:
         assert manager.list_workspaces() == ["case"]
 
     def test_clear_requires_exact_confirmation_and_preserves_workspace(self, tmp_path):
-        from adversary_pursuit.core.workspace import WorkspaceManager
+        from pivotglass.core.workspace import WorkspaceManager
 
         manager = WorkspaceManager(tmp_path / "workspaces")
         manager.create("case")
@@ -465,10 +465,10 @@ class TestThemeCommand:
         import os
 
         sentinel = object()
-        old_scheme = os.environ.get("AP_TUI_COLOR_SCHEME", sentinel)
-        old_contrast = os.environ.get("AP_TUI_HIGH_CONTRAST", sentinel)
-        os.environ.pop("AP_TUI_COLOR_SCHEME", None)
-        os.environ.pop("AP_TUI_HIGH_CONTRAST", None)
+        old_scheme = os.environ.get("PIVOTGLASS_TUI_COLOR_SCHEME", sentinel)
+        old_contrast = os.environ.get("PIVOTGLASS_TUI_HIGH_CONTRAST", sentinel)
+        os.environ.pop("PIVOTGLASS_TUI_COLOR_SCHEME", None)
+        os.environ.pop("PIVOTGLASS_TUI_HIGH_CONTRAST", None)
 
         try:
             result = dispatch_repl_verb(
@@ -479,17 +479,17 @@ class TestThemeCommand:
             )
 
             assert result == label
-            assert os.environ["AP_TUI_COLOR_SCHEME"] == scheme
-            assert os.environ.get("AP_TUI_HIGH_CONTRAST") == contrast
+            assert os.environ["PIVOTGLASS_TUI_COLOR_SCHEME"] == scheme
+            assert os.environ.get("PIVOTGLASS_TUI_HIGH_CONTRAST") == contrast
         finally:
             if old_scheme is sentinel:
-                os.environ.pop("AP_TUI_COLOR_SCHEME", None)
+                os.environ.pop("PIVOTGLASS_TUI_COLOR_SCHEME", None)
             else:
-                os.environ["AP_TUI_COLOR_SCHEME"] = old_scheme
+                os.environ["PIVOTGLASS_TUI_COLOR_SCHEME"] = old_scheme
             if old_contrast is sentinel:
-                os.environ.pop("AP_TUI_HIGH_CONTRAST", None)
+                os.environ.pop("PIVOTGLASS_TUI_HIGH_CONTRAST", None)
             else:
-                os.environ["AP_TUI_HIGH_CONTRAST"] = old_contrast
+                os.environ["PIVOTGLASS_TUI_HIGH_CONTRAST"] = old_contrast
 
 
 # ---------------------------------------------------------------------------
@@ -501,7 +501,7 @@ class TestDispatchMode:
     """mode <name> switches mode via mode_mgr for known names; character-voiced error for unknown."""
 
     def _make_mode_mgr(self, active_name: str = "default"):
-        from adversary_pursuit.gamification.modes import ModeManager
+        from pivotglass.gamification.modes import ModeManager
 
         mgr = ModeManager()
         if active_name != "default":
@@ -538,7 +538,7 @@ class TestDispatchMode:
         second = dispatch_repl_verb(verb, ctx=None, mode_mgr=mgr, workspace_mgr=None)
         assert first == second
         assert first.startswith("Character modes (* active)\n")
-        assert "* The Matrix" in first
+        assert "* Code Rain" in first
 
     def test_dispatch_unknown_mode_returns_voiced_error(self):
         mgr = self._make_mode_mgr("default")
@@ -573,7 +573,7 @@ class TestDispatchUsesPickForOutput:
     def test_dispatch_help_uses_pick(self):
         verb = ReplVerb(name="help", args=())
         with patch(
-            "adversary_pursuit.agent.repl_verbs.pick", return_value="[help text]"
+            "pivotglass.agent.repl_verbs.pick", return_value="[help text]"
         ) as mock_pick:
             result = dispatch_repl_verb(verb, ctx=None, mode_mgr=None, workspace_mgr=None)
         mock_pick.assert_called_once_with("default", "help:tui_overview")
@@ -581,7 +581,7 @@ class TestDispatchUsesPickForOutput:
 
     def test_dispatch_status_uses_pick(self):
         verb = ReplVerb(name="status", args=())
-        with patch("adversary_pursuit.agent.repl_verbs.pick", return_value="[status]") as mock_pick:
+        with patch("pivotglass.agent.repl_verbs.pick", return_value="[status]") as mock_pick:
             result = dispatch_repl_verb(verb, ctx=None, mode_mgr=None, workspace_mgr=None)
         # pick is called for the status_intro line
         mock_pick.assert_called_with("default", "status_intro")
@@ -589,7 +589,7 @@ class TestDispatchUsesPickForOutput:
 
     def test_dispatch_farewell_uses_pick(self):
         verb = ReplVerb(name="quit", args=())
-        with patch("adversary_pursuit.agent.repl_verbs.pick", return_value="[bye]"):
+        with patch("pivotglass.agent.repl_verbs.pick", return_value="[bye]"):
             with pytest.raises(_FarewellExit) as exc_info:
                 dispatch_repl_verb(verb, ctx=None, mode_mgr=None, workspace_mgr=None)
         assert exc_info.value.phrase == "[bye]"
@@ -599,7 +599,7 @@ class TestDispatchUsesPickForOutput:
         workspace_mgr = MagicMock()  # @mock-exempt: WorkspaceManager boundary
         workspace_mgr.active = "default"
         with patch(
-            "adversary_pursuit.agent.repl_verbs.pick",
+            "pivotglass.agent.repl_verbs.pick",
             return_value="On it — {target}",
         ) as mock_pick:
             result = dispatch_repl_verb(
@@ -612,18 +612,18 @@ class TestDispatchUsesPickForOutput:
         assert "8.8.8.8" in result
 
     def test_dispatch_mode_switch_is_deterministic_not_random_phrase(self):
-        from adversary_pursuit.gamification.modes import ModeManager
+        from pivotglass.gamification.modes import ModeManager
 
         mgr = ModeManager()
         verb = ReplVerb(name="mode", args=("ninja",))
-        with patch("adversary_pursuit.agent.repl_verbs.pick") as mock_pick:
+        with patch("pivotglass.agent.repl_verbs.pick") as mock_pick:
             result = dispatch_repl_verb(verb, ctx=None, mode_mgr=mgr, workspace_mgr=None)
         mock_pick.assert_not_called()
         assert result.startswith("Mode switched: Ninja\n")
 
     def test_dispatch_unknown_mode_is_deterministic_not_random_phrase(self):
         verb = ReplVerb(name="mode", args=("xyzzy",))
-        with patch("adversary_pursuit.agent.repl_verbs.pick") as mock_pick:
+        with patch("pivotglass.agent.repl_verbs.pick") as mock_pick:
             result = dispatch_repl_verb(verb, ctx=None, mode_mgr=None, workspace_mgr=None)
         mock_pick.assert_not_called()
         assert result.startswith("Unknown mode: xyzzy\nAvailable modes:")
@@ -661,7 +661,7 @@ class TestParseDispatchRoundTrip:
         assert bus.publish.called
 
     def test_mode_ninja_round_trip_switches(self):
-        from adversary_pursuit.gamification.modes import ModeManager
+        from pivotglass.gamification.modes import ModeManager
 
         verb = parse_repl_verb("mode ninja")
         assert verb is not None

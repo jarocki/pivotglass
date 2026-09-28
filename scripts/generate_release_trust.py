@@ -26,7 +26,7 @@ from typing import Any, Iterable
 from urllib.parse import quote
 
 PROJECT_NAME = "Pivotglass"
-PYTHON_DISTRIBUTION = "adversary-pursuit"
+PYTHON_DISTRIBUTION = "pivotglass"
 SBOM_FILENAME = "pivotglass.cdx.json"
 LICENSE_FILENAME = "THIRD_PARTY_LICENSES.csv"
 CHECKSUM_FILENAME = "SHA256SUMS"

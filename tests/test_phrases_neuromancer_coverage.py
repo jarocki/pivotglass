@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.gamification.phrases import PHRASES, has_phrases
+from pivotglass.gamification.phrases import PHRASES, has_phrases
 
 # ---------------------------------------------------------------------------
 # Category lists

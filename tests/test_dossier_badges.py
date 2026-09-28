@@ -27,12 +27,12 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from adversary_pursuit.gamification.badges import (
+from pivotglass.gamification.badges import (
     _DEFAULT_BADGES,
     BadgeMetric,
     BadgeRarity,
 )
-from adversary_pursuit.gamification.dossier_badges import (
+from pivotglass.gamification.dossier_badges import (
     DOSSIER_BADGES,
     build_dossier_stats,
 )
@@ -47,7 +47,7 @@ from adversary_pursuit.gamification.dossier_badges import (
 
 def _make_slot(status_value: str = "empty") -> SimpleNamespace:
     """Create a minimal slot stub with .status attribute."""
-    from adversary_pursuit.dossier.slots import SlotStatus
+    from pivotglass.dossier.slots import SlotStatus
 
     return SimpleNamespace(status=SlotStatus(status_value))
 
@@ -57,7 +57,7 @@ def _make_dossier_state(
     partial: list[str] | None = None,
 ) -> SimpleNamespace:
     """Create a minimal DossierState stub using real DossierSlotName enum keys."""
-    from adversary_pursuit.dossier.slots import DossierSlotName
+    from pivotglass.dossier.slots import DossierSlotName
 
     filled = filled or []
     partial = partial or []
@@ -372,7 +372,7 @@ class TestDossierBadgeCompoundInteraction:
     """
 
     def _make_manager(self):
-        from adversary_pursuit.gamification.badges import BadgeManager
+        from pivotglass.gamification.badges import BadgeManager
 
         return BadgeManager()  # uses the full additive catalog, including dossier badges
 
@@ -465,8 +465,8 @@ class TestBuildDossierStatsNovelty:
         """Create a WorkspaceManager with `count` dossier_novelty_recognized score events."""
         from sqlalchemy.orm import Session
 
-        from adversary_pursuit.core.workspace import WorkspaceManager
-        from adversary_pursuit.models.database import ScoreEvent
+        from pivotglass.core.workspace import WorkspaceManager
+        from pivotglass.models.database import ScoreEvent
 
         mgr = WorkspaceManager(workspace_dir=tmp_path)
         mgr.create("test-novelty")
@@ -506,8 +506,8 @@ class TestBuildDossierStatsNovelty:
         """Only dossier_novelty_recognized action rows counted; other actions excluded."""
         from sqlalchemy.orm import Session
 
-        from adversary_pursuit.core.workspace import WorkspaceManager
-        from adversary_pursuit.models.database import ScoreEvent
+        from pivotglass.core.workspace import WorkspaceManager
+        from pivotglass.models.database import ScoreEvent
 
         mgr = WorkspaceManager(workspace_dir=tmp_path)
         mgr.create("test-novelty-filter")

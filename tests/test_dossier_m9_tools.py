@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from adversary_pursuit.agent.tools import ToolContext, create_tools
+from pivotglass.agent.tools import ToolContext, create_tools
 
 # Derive the repo root from this file's location so subprocess calls work
 # regardless of which worktree pytest is invoked from.  tests/ sits one level
@@ -104,7 +104,7 @@ class TestExecuteExportDossier:
 
     def test_returns_valid_stix_bundle_json(self, tmp_ctx: ToolContext):
         """In STIX 2.1, spec_version is on each SDO, not on the Bundle root."""
-        from adversary_pursuit.agent.tools import _execute_export_dossier
+        from pivotglass.agent.tools import _execute_export_dossier
 
         result = _execute_export_dossier(tmp_ctx, actor_identifier="test-actor")
         bundle_dict = json.loads(result)
@@ -114,7 +114,7 @@ class TestExecuteExportDossier:
 
     def test_no_rich_markup_in_result(self, tmp_ctx: ToolContext):
         """F64: export_dossier tool result contains no Rich markup (DEC-M9-TOOL-EXPORT-001)."""
-        from adversary_pursuit.agent.tools import _execute_export_dossier
+        from pivotglass.agent.tools import _execute_export_dossier
 
         result = _execute_export_dossier(tmp_ctx)
         rich_markers = ("[bold]", "[green]", "[red]", "[/bold]", "[dim]", "[cyan]", "[yellow]")
@@ -122,7 +122,7 @@ class TestExecuteExportDossier:
             assert marker not in result, f"Rich markup '{marker}' found in export_dossier result"
 
     def test_publish_false_returns_bundle_not_path(self, tmp_ctx: ToolContext):
-        from adversary_pursuit.agent.tools import _execute_export_dossier
+        from pivotglass.agent.tools import _execute_export_dossier
 
         result = _execute_export_dossier(tmp_ctx, publish=False)
         # Should be parseable as a bundle dict, not a path dict
@@ -130,28 +130,28 @@ class TestExecuteExportDossier:
         assert parsed.get("type") == "bundle"
 
     def test_invalid_actor_id_returns_error_json(self, tmp_ctx: ToolContext):
-        from adversary_pursuit.agent.tools import _execute_export_dossier
+        from pivotglass.agent.tools import _execute_export_dossier
 
         result = _execute_export_dossier(tmp_ctx, actor_identifier="../../etc/passwd")
         error_dict = json.loads(result)
         assert "error" in error_dict
 
     def test_publish_true_without_env_returns_error_json(self, tmp_ctx: ToolContext, monkeypatch):
-        """publish=True without AP_DOSSIER_PUBLISH=on returns error JSON."""
-        from adversary_pursuit.agent.tools import _execute_export_dossier
+        """publish=True without PIVOTGLASS_DOSSIER_PUBLISH=on returns error JSON."""
+        from pivotglass.agent.tools import _execute_export_dossier
 
-        monkeypatch.delenv("AP_DOSSIER_PUBLISH", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_DOSSIER_PUBLISH", raising=False)
         result = _execute_export_dossier(tmp_ctx, publish=True)
         error_dict = json.loads(result)
         assert "error" in error_dict
 
     def test_publish_true_with_env_returns_path(self, tmp_path: Path, monkeypatch):
-        """publish=True with AP_DOSSIER_PUBLISH=on returns library path JSON."""
-        from adversary_pursuit.agent.tools import _execute_export_dossier
+        """publish=True with PIVOTGLASS_DOSSIER_PUBLISH=on returns library path JSON."""
+        from pivotglass.agent.tools import _execute_export_dossier
 
         lib_dir = tmp_path / "lib"
-        monkeypatch.setenv("AP_DOSSIER_PUBLISH", "on")
-        monkeypatch.setenv("AP_DOSSIER_LIBRARY", str(lib_dir))
+        monkeypatch.setenv("PIVOTGLASS_DOSSIER_PUBLISH", "on")
+        monkeypatch.setenv("PIVOTGLASS_DOSSIER_LIBRARY", str(lib_dir))
 
         config_dir = tmp_path / "config"
         workspace_dir = tmp_path / "workspaces"
@@ -176,8 +176,8 @@ class TestExecuteCompareDossier:
     """_execute_compare_dossier returns plain-ASCII report or error."""
 
     def test_compare_from_file_returns_ascii_report(self, tmp_path: Path, monkeypatch):
-        from adversary_pursuit.agent.tools import _execute_compare_dossier
-        from adversary_pursuit.dossier.export import export_dossier as _export
+        from pivotglass.agent.tools import _execute_compare_dossier
+        from pivotglass.dossier.export import export_dossier as _export
 
         # Create two workspaces and export the second as a file
         ws_dir = tmp_path / "workspaces"
@@ -189,7 +189,7 @@ class TestExecuteCompareDossier:
         ctx.workspace_mgr.switch("default")
 
         # Export a peer dossier to a file
-        from adversary_pursuit.core.workspace import WorkspaceManager
+        from pivotglass.core.workspace import WorkspaceManager
 
         peer_wm = WorkspaceManager(workspace_dir=tmp_path / "peer_ws")
         peer_wm.create("default")
@@ -203,24 +203,24 @@ class TestExecuteCompareDossier:
         assert "===" in result or "Completion" in result or "Slot" in result
 
     def test_missing_file_returns_error_json(self, tmp_ctx: ToolContext):
-        from adversary_pursuit.agent.tools import _execute_compare_dossier
+        from pivotglass.agent.tools import _execute_compare_dossier
 
         result = _execute_compare_dossier(tmp_ctx, source="/nonexistent/path/actor.json")
         error_dict = json.loads(result)
         assert "error" in error_dict
 
     def test_missing_library_entry_returns_error_json(self, tmp_ctx: ToolContext, monkeypatch):
-        from adversary_pursuit.agent.tools import _execute_compare_dossier
+        from pivotglass.agent.tools import _execute_compare_dossier
 
-        monkeypatch.setenv("AP_DOSSIER_LIBRARY", "/nonexistent/lib")
+        monkeypatch.setenv("PIVOTGLASS_DOSSIER_LIBRARY", "/nonexistent/lib")
         result = _execute_compare_dossier(tmp_ctx, source="nonexistent-actor")
         error_dict = json.loads(result)
         assert "error" in error_dict
 
     def test_no_rich_markup_in_comparison_result(self, tmp_path: Path):
         """F64: compare_dossier tool result contains no Rich markup."""
-        from adversary_pursuit.agent.tools import _execute_compare_dossier
-        from adversary_pursuit.core.workspace import WorkspaceManager
+        from pivotglass.agent.tools import _execute_compare_dossier
+        from pivotglass.core.workspace import WorkspaceManager
 
         ws_dir = tmp_path / "workspaces"
         ws_dir.mkdir()
@@ -233,7 +233,7 @@ class TestExecuteCompareDossier:
         peer_wm = WorkspaceManager(workspace_dir=tmp_path / "peer_ws")
         peer_wm.create("default")
         peer_wm.switch("default")
-        from adversary_pursuit.dossier.export import export_dossier as _export
+        from pivotglass.dossier.export import export_dossier as _export
 
         peer_bundle = _export(peer_wm, actor_identifier="peer")
         peer_file = tmp_path / "peer.json"
@@ -269,7 +269,7 @@ class TestF64Invariants:
                 "grep",
                 "-c",
                 "_DOSSIER_ACTIONS",
-                "src/adversary_pursuit/agent/tools.py",
+                "src/pivotglass/agent/tools.py",
             ],
             capture_output=True,
             text=True,
@@ -291,7 +291,7 @@ class TestF64Invariants:
         ]
         for action in expected_actions:
             result = subprocess.run(
-                ["grep", "-c", action, "src/adversary_pursuit/agent/tools.py"],
+                ["grep", "-c", action, "src/pivotglass/agent/tools.py"],
                 capture_output=True,
                 text=True,
                 cwd=str(_REPO_ROOT),

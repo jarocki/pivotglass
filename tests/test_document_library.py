@@ -8,14 +8,14 @@ import sqlite3
 import pytest
 from sqlalchemy import inspect
 
-from adversary_pursuit.core.document_library import (
+from pivotglass.core.document_library import (
     DocumentLibraryService,
     PivotTrailAuthority,
 )
-from adversary_pursuit.core.investigation_graph import GraphTruthKind, build_investigation_graph
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.core.workspace_admin import export_workspace, merge_workspaces
-from adversary_pursuit.core.workspace_migrations import CURRENT_WORKSPACE_SCHEMA_VERSION
+from pivotglass.core.investigation_graph import GraphTruthKind, build_investigation_graph
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.core.workspace_admin import export_workspace, merge_workspaces
+from pivotglass.core.workspace_migrations import CURRENT_WORKSPACE_SCHEMA_VERSION
 
 
 def _workspace(tmp_path) -> WorkspaceManager:
@@ -67,6 +67,110 @@ def test_ingestion_is_bound_to_the_reviewed_sha256(tmp_path) -> None:
             expected_sha256=hashlib.sha256(b"reviewed").hexdigest(),
         )
     assert DocumentLibraryService(manager).list() == ()
+
+
+def test_analyst_selected_candidates_become_provenanced_workspace_entities(tmp_path) -> None:
+    manager = _workspace(tmp_path)
+    data = (
+        b"Report names 198.51.100.8, node.example, CVE-2024-1709, T1059, and "
+        b"17738a27bb307b3cb7bd571934a398223e170842005f1725c46c7075f14e90fe."
+    )
+    service = DocumentLibraryService(manager)
+    intake = service.ingest_bytes(
+        data,
+        filename="reviewed-report.txt",
+        operator="analyst",
+        expected_sha256=hashlib.sha256(data).hexdigest(),
+    )
+    detail = service.detail(intake.intake.occurrence_id)
+    selected = [
+        candidate["id"]
+        for candidate in detail["candidates"]
+        if candidate["entity_type"] != "domain-name"
+    ]
+
+    receipt = service.admit_candidates(
+        intake.intake.occurrence_id,
+        selected,
+        operator="analyst",
+    )
+
+    assert receipt.selected_count == 4
+    assert receipt.admitted_candidate_count == 4
+    assert receipt.entity_count == 4
+    assert receipt.new_entity_count == 4
+    assert "does not make" in receipt.truth_boundary
+    objects = manager.get_stix_objects()
+    assert {item["type"] for item in objects} == {
+        "ipv4-addr",
+        "file",
+        "vulnerability",
+        "attack-pattern",
+    }
+    assert {item.get("value") or item.get("x_indicator_value") for item in objects} == {
+        "198.51.100.8",
+        "CVE-2024-1709",
+        "T1059",
+        "17738a27bb307b3cb7bd571934a398223e170842005f1725c46c7075f14e90fe",
+    }
+    observations = manager.get_observations(source_module="document/entity-admission")
+    assert len(observations) == 4
+    assert all(item["raw_artifact_ref"].startswith("sha256:") for item in observations)
+    updated = service.detail(intake.intake.occurrence_id)["candidates"]
+    assert {item["state"] for item in updated if item["id"] in selected} == {"admitted"}
+    assert next(item for item in updated if item["entity_type"] == "domain-name")["state"] == "candidate"
+    assert any(
+        event["action"] == "document_candidate_admitted"
+        for event in PivotTrailAuthority(manager).list()
+    )
+
+    trail = PivotTrailAuthority(manager).list()
+    group = next(event for event in trail if event["action"] == "analyst_group_created")
+    assert group["created_by"] == "analyst"
+    members = [event for event in trail if event["from_ref"] == group["to_ref"]]
+    assert {event["to_ref"] for event in members} == set(receipt.entity_refs)
+    assert "does not assert" in group["basis"]
+    assert PivotTrailAuthority(manager).list_groups() == [group]
+    before_repeat = len(trail)
+
+    repeated = service.admit_candidates(
+        intake.intake.occurrence_id,
+        selected,
+        operator="analyst",
+    )
+    assert repeated.admitted_candidate_count == 0
+    assert repeated.already_admitted_count == 4
+    assert len(PivotTrailAuthority(manager).list()) == before_repeat
+    assert repeated.new_entity_count == 0
+    assert len(manager.get_observations(source_module="document/entity-admission")) == 4
+
+
+def test_candidate_admission_rejects_cross_document_selection(tmp_path) -> None:
+    manager = _workspace(tmp_path)
+    service = DocumentLibraryService(manager)
+    receipts = []
+    for filename, data in (
+        ("first.txt", b"first.example"),
+        ("second.txt", b"second.example"),
+    ):
+        receipts.append(
+            service.ingest_bytes(
+                data,
+                filename=filename,
+                operator="analyst",
+                expected_sha256=hashlib.sha256(data).hexdigest(),
+            )
+        )
+    foreign_candidate = service.detail(receipts[1].intake.occurrence_id)["candidates"][0]
+
+    with pytest.raises(ValueError, match="do not belong"):
+        service.admit_candidates(
+            receipts[0].intake.occurrence_id,
+            [foreign_candidate["id"]],
+            operator="analyst",
+        )
+
+    assert manager.get_stix_objects() == []
 
 
 def test_pivot_trail_is_ordered_deduplicated_and_not_observed_truth(tmp_path) -> None:

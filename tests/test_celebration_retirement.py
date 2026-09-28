@@ -17,8 +17,8 @@ import inspect
 
 import pytest
 
-from adversary_pursuit.gamification.celebrations import CelebrationEngine
-from adversary_pursuit.gamification.phrases import pick
+from pivotglass.gamification.celebrations import CelebrationEngine
+from pivotglass.gamification.phrases import pick
 
 # ---------------------------------------------------------------------------
 # Fixture
@@ -141,7 +141,7 @@ def test_badge_earned_phrase_exists_in_phrases(rarity: str):
 
 def test_tui_path_has_no_achievement_unlocked_panel():
     """_run_tui_chat does not render Achievement Unlocked panels (C-9-A)."""
-    import adversary_pursuit.agent.chat as chat_module
+    import pivotglass.agent.chat as chat_module
 
     source = inspect.getsource(chat_module._run_tui_chat)
     assert "Achievement Unlocked" not in source, (

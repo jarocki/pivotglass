@@ -28,9 +28,9 @@ from unittest.mock import MagicMock, patch  # @mock-exempt: sys.stdin.isatty is 
 import pytest
 from prompt_toolkit.styles.style import _parse_style_str  # type: ignore[attr-defined]
 
-from adversary_pursuit.agent.tui.application import TuiApplication
-from adversary_pursuit.agent.tui.events import EventBus
-from adversary_pursuit.agent.tui.themes import DEFAULT_THEMES
+from pivotglass.agent.tui.application import TuiApplication
+from pivotglass.agent.tui.events import EventBus
+from pivotglass.agent.tui.themes import DEFAULT_THEMES
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -129,7 +129,7 @@ def test_heading_row_uses_bold_fg_hex_form() -> None:
     but rejects 'fg:bold #ff5555' (modifier inside fg:). Verify the correct form
     is assembled by application.py (DEC-TUI-PTK-COLOR-COMPAT-001).
     """
-    from adversary_pursuit.agent.tui.themes import theme_for
+    from pivotglass.agent.tui.themes import theme_for
 
     app = _make_app("hal9000")
     ft = app._get_live_pane_formatted()

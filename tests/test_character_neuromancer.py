@@ -26,8 +26,8 @@ Covers:
 
 from __future__ import annotations
 
-from adversary_pursuit.gamification.modes import DEFAULT_MODES, ModeManager
-from adversary_pursuit.gamification.phrases import pick
+from pivotglass.gamification.modes import DEFAULT_MODES, ModeManager
+from pivotglass.gamification.phrases import pick
 
 
 class TestNeuromancerModeExists:

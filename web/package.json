@@ -1,23 +1,27 @@
 {
   "name": "pivotglass-web",
-  "version": "0.9.6",
+  "version": "0.9.8",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "lint": "tsc --noEmit",
     "test:advisor": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/test-advisor-idle.test.ts",
+    "test:guidance": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/test-guidance-profile.test.ts scripts/test-guidance-position.test.ts scripts/test-question-coaching.test.ts",
     "test:arcade": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/test-arcade-engine.test.ts",
     "test:visualization": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/test-visualization-intent.test.ts",
-    "verify:supply-chain": "npm audit signatures"
+    "test:constellation": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/test-constellation-presentation.test.ts",
+    "test:usability": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/test-reading-preferences.test.ts scripts/test-guidance-navigation.test.ts scripts/test-overlay-focus.test.ts scripts/test-intake-review.test.ts scripts/test-document-intake.test.ts",
+    "verify:supply-chain": "npm audit signatures",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/*.test.ts"
   },
   "dependencies": {
     "chart.js": "4.5.1",
     "flint-chart": "0.4.0",
-    "next": "16.3.0",
+    "next": "16.3.6",
     "react": "19.2.7",
     "react-dom": "19.2.7",
-    "sharp": "0.35.3"
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@types/node": "26.1.1",
