@@ -33,7 +33,7 @@ bundle and verifies it before use:
 ```text
 URL: https://raw.githubusercontent.com/mitre-attack/attack-stix-data/v19.2/enterprise-attack/enterprise-attack.json
 SHA-256: dc1639caa5501d720e280cf1cbd8fbe009884a0c9b3e6e9ed9d0c25166c3d8f4
-Local path: ~/.ap/frameworks/enterprise-attack-19.2.json
+Local path: ~/.pivotglass/frameworks/enterprise-attack-19.2.json
 Navigator layer: 4.5 (Navigator 5.3.2)
 ```
 

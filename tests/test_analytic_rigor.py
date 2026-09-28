@@ -1,6 +1,6 @@
 """Deterministic confidence review and contradiction-candidate contracts."""
 
-from adversary_pursuit.core.analytic_rigor import (
+from pivotglass.core.analytic_rigor import (
     build_analytic_rigor,
     canonical_claim_value,
 )

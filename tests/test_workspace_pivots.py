@@ -24,7 +24,7 @@ import time
 
 import pytest
 
-from adversary_pursuit.core.workspace import WorkspaceManager
+from pivotglass.core.workspace import WorkspaceManager
 
 # ---------------------------------------------------------------------------
 # Fixtures

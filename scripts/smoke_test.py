@@ -1,8 +1,8 @@
-"""Adversary Pursuit dummy-user smoke test.
+"""Pivotglass dummy-user smoke test.
 
 Reads API keys from runtime sources ONLY — never hardcoded here:
-  1. ~/.ap/config.toml  (via adversary_pursuit.core.config.ConfigManager)
-  2. AP_* environment variables (project-namespaced)
+  1. ~/.pivotglass/config.toml  (via pivotglass.core.config.ConfigManager)
+  2. PIVOTGLASS_* environment variables (project-namespaced)
   3. Vendor-convention environment variables (SHODAN_API_KEY, OTX_API_KEY, etc.)
 
 NEVER commit API key values to this file or any file in the repo.
@@ -24,7 +24,7 @@ Exit codes
 @status accepted
 @rationale The script is committed to the repo. Hardcoding any API key would
            expose it in git history permanently. Instead, the script delegates
-           key lookup to ConfigManager (which reads ~/.ap/config.toml and env
+           key lookup to ConfigManager (which reads ~/.pivotglass/config.toml and env
            vars) so the committed file contains zero secrets.
 
 @decision DEC-SMOKE-002
@@ -44,13 +44,13 @@ Exit codes
            ApiKeysConfig field "shodan"). This caused "no API key configured"
            false-positives even when the user had valid keys in config.toml.
            Delegating to ConfigManager.get_api_key() / get_censys_pat() gives
-           the correct 3-layer chain (config > AP_* env > vendor env) automatically
+           the correct 3-layer chain (config > PIVOTGLASS_* env > vendor env) automatically
            and keeps this file free of field-name duplication that can drift.
 
 @decision DEC-SMOKE-004
 @title Source layer identified via Option B: raw model attribute check + env inspection
 @status accepted
-@rationale Identifying which layer supplied a key ("config", "AP env", "vendor env")
+@rationale Identifying which layer supplied a key ("config", "Pivotglass env", "vendor env")
            for diagnostic display requires per-layer probing. ConfigManager does not
            expose a get_api_key_with_source() method (adding one would require
            touching the forbidden src/ scope). Option B: the smoke test inspects each
@@ -85,7 +85,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from adversary_pursuit.modules.base import AuthenticationError
+from pivotglass.modules.base import AuthenticationError
 
 # ---------------------------------------------------------------------------
 # Secret masking helper
@@ -129,20 +129,20 @@ def mask_secret(s: str) -> str:
 # Key resolution helpers — delegate to ConfigManager, never duplicate field logic
 # ---------------------------------------------------------------------------
 
-# AP-prefixed env var names for each service (mirrors ConfigManager._AP_ENV_VAR_MAP).
+# Pivotglass-prefixed env var names for each service (mirrors ConfigManager._PIVOTGLASS_ENV_VAR_MAP).
 # Used only for source-layer reporting in _source_for(); the actual value always
 # comes from ConfigManager.get_api_key() / get_censys_pat().
-_AP_ENV_NAMES: dict[str, str] = {
-    "shodan": "AP_SHODAN_API_KEY",
-    "virustotal": "AP_VIRUSTOTAL_API_KEY",
-    "urlscan": "AP_URLSCAN_API_KEY",
-    "abuseipdb": "AP_ABUSEIPDB_API_KEY",
-    "hibp": "AP_HIBP_API_KEY",
-    "otx": "AP_OTX_API_KEY",
-    "censys_pat": "AP_CENSYS_PAT",
-    "passivetotal_user": "AP_PASSIVETOTAL_USER",
-    "passivetotal_key": "AP_PASSIVETOTAL_KEY",
-    "greynoise": "AP_GREYNOISE_API_KEY",
+_PIVOTGLASS_ENV_NAMES: dict[str, str] = {
+    "shodan": "PIVOTGLASS_SHODAN_API_KEY",
+    "virustotal": "PIVOTGLASS_VIRUSTOTAL_API_KEY",
+    "urlscan": "PIVOTGLASS_URLSCAN_API_KEY",
+    "abuseipdb": "PIVOTGLASS_ABUSEIPDB_API_KEY",
+    "hibp": "PIVOTGLASS_HIBP_API_KEY",
+    "otx": "PIVOTGLASS_OTX_API_KEY",
+    "censys_pat": "PIVOTGLASS_CENSYS_PAT",
+    "passivetotal_user": "PIVOTGLASS_PASSIVETOTAL_USER",
+    "passivetotal_key": "PIVOTGLASS_PASSIVETOTAL_KEY",
+    "greynoise": "PIVOTGLASS_GREYNOISE_API_KEY",
 }
 
 # Vendor-convention env var names for each service (mirrors ConfigManager._VENDOR_ENV_VAR_MAP).
@@ -171,7 +171,7 @@ def _source_for(
     This is a DIAGNOSTIC-ONLY helper (DEC-SMOKE-004). It inspects the same
     three layers that ConfigManager.get_api_key() checks, in the same order,
     to determine WHERE the value came from so the user can see e.g.
-    "(config)" vs "(AP env)" vs "(vendor env)" next to each detected key.
+    "(config)" vs "(Pivotglass env)" vs "(vendor env)" next to each detected key.
 
     The actual key VALUE is not re-derived here — it is passed in as *value*
     (already resolved by ConfigManager) so there is no duplication of key
@@ -190,7 +190,7 @@ def _source_for(
     Returns
     -------
     str
-        One of "config", "AP env", "vendor env", or "" (not configured).
+        One of "config", "Pivotglass env", "vendor env", or "" (not configured).
     """
     if not value:
         return ""
@@ -206,17 +206,17 @@ def _source_for(
     except AttributeError:
         pass
 
-    # Layer 2: AP-prefixed env var
-    ap_var = _AP_ENV_NAMES.get(service_id)
-    if ap_var and os.environ.get(ap_var):
-        return "AP env"
+    # Layer 2: Pivotglass-prefixed env var
+    project_var = _PIVOTGLASS_ENV_NAMES.get(service_id)
+    if project_var and os.environ.get(project_var):
+        return "Pivotglass env"
 
     # Layer 3: vendor-convention env var
     vendor_var = _VENDOR_ENV_NAMES.get(service_id)
     if vendor_var and os.environ.get(vendor_var):
         return "vendor env"
 
-    # Fallback: value exists but source is unclear (e.g. legacy AP_* alias)
+    # Fallback: value exists but source is unclear (e.g. legacy PIVOTGLASS_* alias)
     return "env"
 
 
@@ -224,7 +224,7 @@ def _resolve_keys(cm: Any) -> dict[str, tuple[str, str]]:
     """Resolve all module API keys via ConfigManager and annotate each with its source layer.
 
     Returns a mapping of logical key name -> (value, source) where source is one of
-    "config", "AP env", "vendor env", "env", or "". Empty value means not configured.
+    "config", "Pivotglass env", "vendor env", "env", or "". Empty value means not configured.
 
     Delegates ALL key lookup to ConfigManager so field names are always correct
     (DEC-SMOKE-003). Source attribution uses _source_for() (DEC-SMOKE-004).
@@ -274,7 +274,7 @@ async def _run_module(mod, target: str, options: dict) -> list[dict]:
 def _run_dns_resolve(target: str, verbose: bool) -> tuple[str, str, int]:
     """Run osint/dns_resolve — no key required."""
     try:
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         mgr = PluginManager()
         mgr.load_plugins()
@@ -291,7 +291,7 @@ def _run_dns_resolve(target: str, verbose: bool) -> tuple[str, str, int]:
 def _run_whois_lookup(target: str, verbose: bool) -> tuple[str, str, int]:
     """Run osint/whois_lookup — no key required."""
     try:
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         mgr = PluginManager()
         mgr.load_plugins()
@@ -310,7 +310,7 @@ def _run_shodan(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]:
     if not val:
         return SKIP, "no API key configured", 0
     try:
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         mgr = PluginManager()
         mgr.load_plugins()
@@ -338,7 +338,7 @@ def _run_censys(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]:
     if not pat:
         return SKIP, "no API key configured", 0
     try:
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         mgr = PluginManager()
         mgr.load_plugins()
@@ -359,7 +359,7 @@ def _run_abuseipdb(target: str, keys: dict, verbose: bool) -> tuple[str, str, in
     if not val:
         return SKIP, "no API key configured", 0
     try:
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         mgr = PluginManager()
         mgr.load_plugins()
@@ -380,7 +380,7 @@ def _run_urlscan(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]
     if not val:
         return SKIP, "no API key configured", 0
     try:
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         mgr = PluginManager()
         mgr.load_plugins()
@@ -401,7 +401,7 @@ def _run_hibp(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]:
     if not val:
         return SKIP, "no API key configured", 0
     try:
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         mgr = PluginManager()
         mgr.load_plugins()
@@ -422,7 +422,7 @@ def _run_virustotal(target: str, keys: dict, verbose: bool) -> tuple[str, str, i
     if not val:
         return SKIP, "no API key configured", 0
     try:
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         mgr = PluginManager()
         mgr.load_plugins()
@@ -443,7 +443,7 @@ def _run_otx(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]:
     if not val:
         return SKIP, "no API key configured", 0
     try:
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         mgr = PluginManager()
         mgr.load_plugins()
@@ -465,7 +465,7 @@ def _run_passivetotal(target: str, keys: dict, verbose: bool) -> tuple[str, str,
     if not user or not key:
         return SKIP, "no API key configured", 0
     try:
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         mgr = PluginManager()
         mgr.load_plugins()
@@ -487,7 +487,7 @@ def _run_greynoise(target: str, keys: dict, verbose: bool) -> tuple[str, str, in
     if not val:
         return SKIP, "no API key configured", 0
     try:
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         mgr = PluginManager()
         mgr.load_plugins()
@@ -506,7 +506,7 @@ def _run_greynoise(target: str, keys: dict, verbose: bool) -> tuple[str, str, in
 def _run_urlhaus(target: str, verbose: bool) -> tuple[str, str, int]:
     """Run cti/urlhaus — keyless, no API key required (F61)."""
     try:
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         mgr = PluginManager()
         mgr.load_plugins()
@@ -523,7 +523,7 @@ def _run_urlhaus(target: str, verbose: bool) -> tuple[str, str, int]:
 def _run_threatfox(target: str, verbose: bool) -> tuple[str, str, int]:
     """Run cti/threatfox — keyless, no API key required (F61)."""
     try:
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         mgr = PluginManager()
         mgr.load_plugins()
@@ -540,7 +540,7 @@ def _run_threatfox(target: str, verbose: bool) -> tuple[str, str, int]:
 def _run_malwarebazaar(target: str, verbose: bool) -> tuple[str, str, int]:
     """Run cti/malwarebazaar — keyless, no API key required (F61)."""
     try:
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         mgr = PluginManager()
         mgr.load_plugins()
@@ -557,7 +557,7 @@ def _run_malwarebazaar(target: str, verbose: bool) -> tuple[str, str, int]:
 def _run_crtsh(target: str, verbose: bool) -> tuple[str, str, int]:
     """Run osint/crtsh — keyless, no API key required (F61)."""
     try:
-        from adversary_pursuit.core.plugin_mgr import PluginManager
+        from pivotglass.core.plugin_mgr import PluginManager
 
         mgr = PluginManager()
         mgr.load_plugins()
@@ -585,7 +585,7 @@ def _fmt_exc(exc: Exception, verbose: bool) -> str:
     Signature is preserved per DEC-ERROR-INTERPRETER-007 — both call sites
     in the runner functions already pass (exc, verbose).
     """
-    from adversary_pursuit.core.error_interpreter import interpret, render_summary_line
+    from pivotglass.core.error_interpreter import interpret, render_summary_line
 
     interp = interpret(exc, context={"surface": "smoke_test"})
     summary = render_summary_line(interp)
@@ -607,12 +607,12 @@ def _check_workspace_persistence(
     """Verify the workspace can store and retrieve objects without UnboundExecutionError.
 
     This is the regression check for Bug 1. Uses a fresh WorkspaceManager with
-    tmp_dir to avoid touching ~/.ap/workspaces/.
+    tmp_dir to avoid touching ~/.pivotglass/workspaces/.
     """
     from sqlalchemy.exc import UnboundExecutionError
 
     try:
-        from adversary_pursuit.core.workspace import WorkspaceManager
+        from pivotglass.core.workspace import WorkspaceManager
 
         wm = WorkspaceManager(workspace_dir=tmp_dir)
         # Deliberately do NOT call create() or switch() — same as production path
@@ -659,8 +659,8 @@ def _print_key_summary(keys: dict, quiet: bool) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Adversary Pursuit dummy-user smoke test.\n"
-            "Reads API keys from ~/.ap/config.toml and environment variables.\n"
+            "Pivotglass dummy-user smoke test.\n"
+            "Reads API keys from ~/.pivotglass/config.toml and environment variables.\n"
             "NEVER hardcodes secrets — see DEC-SMOKE-001."
         )
     )
@@ -698,17 +698,17 @@ def main() -> int:
 
     # Load runtime config via ConfigManager (never raw toml read + wrong field names).
     # ConfigManager.get_api_key() implements the correct 3-layer chain:
-    #   config.toml > AP_<SERVICE>_API_KEY env > <SERVICE>_API_KEY env.
+    #   config.toml > PIVOTGLASS_<SERVICE>_API_KEY env > <SERVICE>_API_KEY env.
     # (DEC-SMOKE-003)
-    from adversary_pursuit.core.config import ConfigManager
+    from pivotglass.core.config import ConfigManager
 
     cm = ConfigManager()
     cm.load()
-    config_path = Path.home() / ".ap" / "config.toml"
+    config_path = Path.home() / ".pivotglass" / "config.toml"
 
     if not args.quiet:
         print("Config sources:")
-        print(f"  ~/.ap/config.toml: {'found' if config_path.exists() else 'NOT FOUND'}")
+        print(f"  ~/.pivotglass/config.toml: {'found' if config_path.exists() else 'NOT FOUND'}")
 
     keys = _resolve_keys(cm)
     _print_key_summary(keys, args.quiet)
@@ -796,7 +796,7 @@ def main() -> int:
     else:
         exit_code = 1 if fail_count > 0 else 0
         print(
-            f"ap smoke test: {pass_count} pass / {fail_count} fail / {skip_count} skip"
+            f"pivotglass smoke test: {pass_count} pass / {fail_count} fail / {skip_count} skip"
             f" — exit {exit_code}"
         )
 

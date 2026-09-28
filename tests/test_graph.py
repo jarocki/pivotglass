@@ -38,7 +38,7 @@ import xml.etree.ElementTree as ET
 
 from rich.tree import Tree
 
-from adversary_pursuit.core.graph import GraphNode, RelationshipGraph
+from pivotglass.core.graph import GraphNode, RelationshipGraph
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -323,7 +323,7 @@ class TestExportStixBundle:
 
     def test_stix_bundle_objects_includes_nodes(self, tmp_path):
         """Nodes from a workspace have real deterministic STIX ids that survive export."""
-        from adversary_pursuit.core.workspace import WorkspaceManager
+        from pivotglass.core.workspace import WorkspaceManager
 
         wm = WorkspaceManager(workspace_dir=tmp_path)
         wm.create("default")
@@ -347,8 +347,8 @@ class TestExportStixBundle:
 
     def test_stix_bundle_objects_includes_relationships(self, tmp_path):
         """Relationships between workspace-backed nodes appear in the bundle."""
-        from adversary_pursuit.core.workspace import WorkspaceManager
-        from adversary_pursuit.models.stix import create_domain, create_ipv4, create_relationship
+        from pivotglass.core.workspace import WorkspaceManager
+        from pivotglass.models.stix import create_domain, create_ipv4, create_relationship
 
         wm = WorkspaceManager(workspace_dir=tmp_path)
         wm.create("default")
@@ -362,7 +362,7 @@ class TestExportStixBundle:
         from sqlalchemy import select
         from sqlalchemy.orm import Session
 
-        from adversary_pursuit.models.database import Relationship as RelModel
+        from pivotglass.models.database import Relationship as RelModel
 
         objects = wm.get_stix_objects()
         with Session(wm._engine) as session:
@@ -477,7 +477,7 @@ class TestExportStixBundleSpecCompliance:
     """
 
     def _make_workspace(self, tmp_path):
-        from adversary_pursuit.core.workspace import WorkspaceManager
+        from pivotglass.core.workspace import WorkspaceManager
 
         wm = WorkspaceManager(workspace_dir=tmp_path)
         wm.create("default")
@@ -524,7 +524,7 @@ class TestExportStixBundleSpecCompliance:
         import stix2
         import stix2.v21
 
-        from adversary_pursuit.models.stix import create_domain, create_ipv4, create_relationship
+        from pivotglass.models.stix import create_domain, create_ipv4, create_relationship
 
         wm = self._make_workspace(tmp_path)
         ip = create_ipv4("203.0.113.101")
@@ -540,7 +540,7 @@ class TestExportStixBundleSpecCompliance:
         from sqlalchemy import select
         from sqlalchemy.orm import Session
 
-        from adversary_pursuit.models.database import Relationship as RelModel
+        from pivotglass.models.database import Relationship as RelModel
 
         with Session(wm._engine) as session:
             rels_raw = [
@@ -601,8 +601,8 @@ class TestExportStixBundleSpecCompliance:
         Relationships: relationship type appears for workspace-backed relationship SROs.
         """
 
-        from adversary_pursuit.core.workspace import WorkspaceManager
-        from adversary_pursuit.models.stix import create_domain, create_ipv4, create_relationship
+        from pivotglass.core.workspace import WorkspaceManager
+        from pivotglass.models.stix import create_domain, create_ipv4, create_relationship
 
         # Empty graph assertions (no workspace needed)
         g = RelationshipGraph()
@@ -642,7 +642,7 @@ class TestExportStixBundleSpecCompliance:
         from sqlalchemy import select
         from sqlalchemy.orm import Session
 
-        from adversary_pursuit.models.database import Relationship as RelModel
+        from pivotglass.models.database import Relationship as RelModel
 
         objects3 = wm3.get_stix_objects()
         with Session(wm3._engine) as session:
@@ -664,7 +664,7 @@ class TestExportStixBundleSpecCompliance:
 
 def test_property_pivots_are_conservative_and_labeled():
     objects = [
-        {"id": "domain-name--a", "type": "domain-name", "value": "seed.test", "x_ap_original_query": "1.2.3.4", "country": "US"},
+        {"id": "domain-name--a", "type": "domain-name", "value": "seed.test", "x_pivotglass_original_query": "1.2.3.4", "country": "US"},
         {"id": "ipv4-addr--b", "type": "ipv4-addr", "value": "1.2.3.4", "country": "US"},
         {"id": "ipv4-addr--c", "type": "ipv4-addr", "value": "5.6.7.8", "country": "US"},
     ]

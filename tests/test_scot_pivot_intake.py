@@ -10,15 +10,15 @@ from http.server import ThreadingHTTPServer
 
 import pytest
 
-from adversary_pursuit.agent.tools import ToolContext
-from adversary_pursuit.core.analytic_ledger import AnalyticLedger
-from adversary_pursuit.integrations.scot_pivot_intake import (
+from pivotglass.agent.tools import ToolContext
+from pivotglass.core.analytic_ledger import AnalyticLedger
+from pivotglass.integrations.scot_pivot_intake import (
     ScotPivotAuthenticationError,
     authenticate_scot_pivot_request,
     scot_pivot_signature,
 )
-from adversary_pursuit.integrations.scot_publication import validate_scot_pivot_request
-from adversary_pursuit.web.server import WebCockpitService, _handler
+from pivotglass.integrations.scot_publication import validate_scot_pivot_request
+from pivotglass.web.server import WebCockpitService, _handler
 
 _SECRET = "test-only-scot-pivot-secret-32-bytes-minimum"
 _KEY_ID = "scot4-primary"
@@ -181,7 +181,7 @@ def test_scot_pivot_authentication_preserves_exact_fractional_clock_skew():
 def test_scot_pivot_endpoint_authenticates_and_records_without_enqueueing(
     tmp_path, monkeypatch
 ):
-    monkeypatch.setenv("AP_SCOT_PIVOT_SECRET", _SECRET)
+    monkeypatch.setenv("PIVOTGLASS_SCOT_PIVOT_SECRET", _SECRET)
     ctx = ToolContext(
         config_dir=tmp_path / "config",
         workspace_dir=tmp_path / "workspaces",
@@ -279,7 +279,7 @@ def test_scot_pivot_endpoint_authenticates_and_records_without_enqueueing(
 
 
 def test_scot_pivot_endpoint_rejects_stale_authentication(tmp_path, monkeypatch):
-    monkeypatch.setenv("AP_SCOT_PIVOT_SECRET", _SECRET)
+    monkeypatch.setenv("PIVOTGLASS_SCOT_PIVOT_SECRET", _SECRET)
     ctx = ToolContext(
         config_dir=tmp_path / "config",
         workspace_dir=tmp_path / "workspaces",

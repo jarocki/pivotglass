@@ -33,8 +33,8 @@ import io
 
 import pytest
 
-from adversary_pursuit.core.console import APConsole
-from adversary_pursuit.gamification.modes import (
+from pivotglass.core.console import PivotglassConsole
+from pivotglass.gamification.modes import (
     DEFAULT_MODES,
     MODE_DISPLAY_NAMES,
     PUBLIC_MODE_ORDER,
@@ -54,15 +54,15 @@ def mgr() -> ModeManager:
 
 
 @pytest.fixture
-def console(tmp_path, monkeypatch) -> APConsole:
-    """APConsole with isolated temp dirs."""
+def console(tmp_path, monkeypatch) -> PivotglassConsole:
+    """PivotglassConsole with isolated temp dirs."""
     async def _mock_hunt(self, target, options):
         return [{"type": "domain-name", "value": target, "x_registrar": "Test Registrar"}]
 
     monkeypatch.setattr(
-        "adversary_pursuit.modules.osint.whois_lookup.WhoisLookup.hunt", _mock_hunt
+        "pivotglass.modules.osint.whois_lookup.WhoisLookup.hunt", _mock_hunt
     )
-    app = APConsole(
+    app = PivotglassConsole(
         config_dir=tmp_path / "config",
         workspace_dir=tmp_path / "workspaces",
     )
@@ -70,7 +70,7 @@ def console(tmp_path, monkeypatch) -> APConsole:
     return app
 
 
-def run_cmd(app: APConsole, cmd: str) -> str:
+def run_cmd(app: PivotglassConsole, cmd: str) -> str:
     """Run a command and return combined poutput + Rich output."""
     app.stdout = io.StringIO()
     app.rich_console = app._make_rich_console()
@@ -112,10 +112,10 @@ class TestDefaultModes:
         chuck = DEFAULT_MODES["sensei"]
         sherlock = DEFAULT_MODES["detective"]
 
-        assert "Chuck Norris" in chuck.personality
+        assert "Ironclad" in chuck.personality
         assert chuck.llm_profile is not None
-        assert "Chuck Norris" in chuck.llm_profile.voice_summary
-        assert "Sherlock Holmes" in sherlock.personality
+        assert "Ironclad" in chuck.llm_profile.voice_summary
+        assert "Sleuth" in sherlock.personality
         assert sherlock.llm_profile is not None
         assert "Consulting detective" in sherlock.llm_profile.voice_summary
 
@@ -128,7 +128,7 @@ class TestDefaultModes:
             assert "certain" in guardrails or "tool choice" in guardrails
 
     def test_public_chuck_and_sherlock_phrase_banks_do_not_mix_retired_voices(self):
-        from adversary_pursuit.gamification.phrases import PHRASES
+        from pivotglass.gamification.phrases import PHRASES
 
         forbidden = {
             "sensei": ("bruce lee", "be water"),
@@ -172,23 +172,23 @@ class TestDefaultModes:
     def test_public_catalogue_is_the_reviewed_seven_mode_system(self):
         assert [MODE_DISPLAY_NAMES[name] for name in PUBLIC_MODE_ORDER] == [
             "Default (Analyst)",
-            "Chuck Norris",
-            "HAL9000",
-            "Troll",
-            "Sherlock Holmes",
-            "Neuromancer",
-            "The Matrix",
+            "Ironclad",
+            "Deep Orbit",
+            "Rascal",
+            "Sleuth",
+            "Nightgrid",
+            "Code Rain",
         ]
 
     def test_public_names_switch_to_stable_internal_identifiers(self, mgr):
         expected = {
             "Default (Analyst)": "default",
-            "Chuck Norris": "sensei",
-            "HAL9000": "the_computer",
-            "Troll": "full_troll",
-            "Sherlock Holmes": "detective",
-            "Neuromancer": "the_sprawl",
-            "The Matrix": "m4tr1x",
+            "Ironclad": "sensei",
+            "Deep Orbit": "the_computer",
+            "Rascal": "full_troll",
+            "Sleuth": "detective",
+            "Nightgrid": "the_sprawl",
+            "Code Rain": "m4tr1x",
         }
         for public_name, internal_name in expected.items():
             assert mgr.switch(public_name).name == internal_name
@@ -413,57 +413,57 @@ class TestModeManagerListModes:
 class TestConsoleModeCommand:
     """Console do_mode() switches the active mode and updates the prompt."""
 
-    def test_mode_command_switches_to_ninja(self, console: APConsole):
+    def test_mode_command_switches_to_ninja(self, console: PivotglassConsole):
         """mode ninja activates ninja mode."""
         run_cmd(console, "mode ninja")
         assert console.mode_mgr.active.name == "ninja"
 
-    def test_mode_command_updates_prompt_with_prefix(self, console: APConsole):
-        """After mode ninja, mode is active but REPL prompt stays plain 'ap> '.
+    def test_mode_command_updates_prompt_with_prefix(self, console: PivotglassConsole):
+        """After mode ninja, mode is active but REPL prompt stays plain 'pivotglass> '.
 
         Phase 17R removed the mode-prefix injection into the REPL prompt.
-        Mode emoji/prefix lives only in the ap-chat surface, not the REPL.
+        Mode emoji/prefix lives only in the pivotglass-chat surface, not the REPL.
         """
         run_cmd(console, "mode ninja")
         assert console.mode_mgr.active.name == "ninja"
         # Prompt must not carry mode prefix
-        assert console.prompt == "ap> "
+        assert console.prompt == "pivotglass> "
 
-    def test_mode_command_full_troll_prefix_in_prompt(self, console: APConsole):
-        """After mode full_troll, mode is active but REPL prompt stays plain 'ap> '.
+    def test_mode_command_full_troll_prefix_in_prompt(self, console: PivotglassConsole):
+        """After mode full_troll, mode is active but REPL prompt stays plain 'pivotglass> '.
 
         Phase 17R removed the mode-prefix injection into the REPL prompt.
         """
         run_cmd(console, "mode full_troll")
         assert console.mode_mgr.active.name == "full_troll"
-        assert console.prompt == "ap> "
+        assert console.prompt == "pivotglass> "
 
-    def test_mode_default_has_clean_prompt(self, console: APConsole):
+    def test_mode_default_has_clean_prompt(self, console: PivotglassConsole):
         """After switching to ninja and back to default, prompt has no prefix."""
         run_cmd(console, "mode ninja")
         run_cmd(console, "mode default")
         # Default mode has empty prompt_prefix
         assert console.mode_mgr.active.prompt_prefix == ""
 
-    def test_mode_command_unknown_shows_error(self, console: APConsole):
+    def test_mode_command_unknown_shows_error(self, console: PivotglassConsole):
         """mode with unknown name shows an error message."""
         out = run_cmd(console, "mode totally_fake_mode")
         combined = out.lower()
         assert "unknown" in combined or "error" in combined or "available" in combined
 
-    def test_mode_command_unknown_does_not_change_active(self, console: APConsole):
+    def test_mode_command_unknown_does_not_change_active(self, console: PivotglassConsole):
         """mode with unknown name leaves active mode unchanged."""
         run_cmd(console, "mode ninja")
         run_cmd(console, "mode totally_fake_mode")
         assert console.mode_mgr.active.name == "ninja"
 
-    def test_mode_command_outputs_greeting(self, console: APConsole):
+    def test_mode_command_outputs_greeting(self, console: PivotglassConsole):
         """mode switch outputs the mode's greeting message."""
         out = run_cmd(console, "mode sun_tzu")
         # sun_tzu greeting contains "Know thy enemy"
         assert "Know thy enemy" in out or "sun_tzu" in out.lower() or out.strip()
 
-    def test_mode_command_all_valid_modes_do_not_crash(self, console: APConsole):
+    def test_mode_command_all_valid_modes_do_not_crash(self, console: PivotglassConsole):
         """All valid mode names can be switched to via console without crashing."""
         for name in DEFAULT_MODES:
             out = run_cmd(console, f"mode {name}")
@@ -478,7 +478,7 @@ class TestConsoleModeCommand:
 class TestConsoleModeRunIntegration:
     """Verify run success path uses active mode's text (production sequence)."""
 
-    def test_default_mode_run_success_message(self, console: APConsole):
+    def test_default_mode_run_success_message(self, console: PivotglassConsole):
         """In default mode, run success shows default mode's run_success text."""
         run_cmd(console, "use osint/whois_lookup")
         run_cmd(console, "set TARGET example.com")
@@ -486,11 +486,11 @@ class TestConsoleModeRunIntegration:
         # default mode run_success: "Hunt complete. Results stored."
         assert "Hunt complete" in out or "stored" in out.lower()
 
-    def test_ninja_mode_run_success_message(self, console: APConsole):
+    def test_ninja_mode_run_success_message(self, console: PivotglassConsole):
         """After mode ninja, hunt completes and results are stored.
 
         Phase 17R removed the run_success personality string from _execute_hunt
-        output — mode flavor is an ap-chat concern, not a REPL concern. We
+        output — mode flavor is an pivotglass-chat concern, not a REPL concern. We
         verify the hunt ran (results panel or 'stored' appears) rather than
         checking for a persona string.
         """
@@ -501,11 +501,11 @@ class TestConsoleModeRunIntegration:
         # Hunt completed — either results were displayed or stored message appeared
         assert out.strip() or console.mode_mgr.active.name == "ninja"
 
-    def test_full_troll_run_success_message(self, console: APConsole):
+    def test_full_troll_run_success_message(self, console: PivotglassConsole):
         """After mode full_troll, hunt completes and results are stored.
 
         Phase 17R removed the run_success personality string from _execute_hunt
-        output — mode flavor is an ap-chat concern, not a REPL concern. We
+        output — mode flavor is an pivotglass-chat concern, not a REPL concern. We
         verify the hunt ran rather than checking for a persona string.
         """
         run_cmd(console, "mode full_troll")
@@ -524,12 +524,12 @@ class TestConsoleModeRunIntegration:
 class TestConsoleModeScoreCelebration:
     """Verify score display uses active mode's score_celebration template."""
 
-    def test_default_mode_score_celebration(self, console: APConsole):
+    def test_default_mode_score_celebration(self, console: PivotglassConsole):
         """In default mode, score celebration comes from the reviewed phrase bank."""
         run_cmd(console, "use osint/whois_lookup")
         run_cmd(console, "set TARGET example.com")
         out = run_cmd(console, "run")
-        from adversary_pursuit.gamification.phrases import PHRASES
+        from pivotglass.gamification.phrases import PHRASES
 
         templates = PHRASES[("default", "score_celebration")]
         assert any(
@@ -538,7 +538,7 @@ class TestConsoleModeScoreCelebration:
             for phrase in templates
         )
 
-    def test_ninja_mode_score_celebration(self, console: APConsole):
+    def test_ninja_mode_score_celebration(self, console: PivotglassConsole):
         """In ninja mode, score celebration uses ninja's minimal template."""
         run_cmd(console, "mode ninja")
         run_cmd(console, "use osint/whois_lookup")

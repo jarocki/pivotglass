@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.core.workspace import WorkspaceManager
+from pivotglass.core.workspace import WorkspaceManager
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
@@ -43,12 +43,12 @@ def wm(tmp_path):
 @pytest.fixture
 def populated_wm(wm):
     """WorkspaceManager with STIX objects, dossier state, predictions, and notes."""
-    from adversary_pursuit.dossier.predictions import (
+    from pivotglass.dossier.predictions import (
         create_prediction,
         save_predictions_log,
     )
-    from adversary_pursuit.dossier.slot_inference import infer_dossier_state_full
-    from adversary_pursuit.dossier.state import (
+    from pivotglass.dossier.slot_inference import infer_dossier_state_full
+    from pivotglass.dossier.state import (
         save_dossier_state,
     )
 
@@ -111,7 +111,7 @@ class TestGenerateDossierReport:
 
     def test_returns_string(self, populated_wm):
         """generate_dossier_report returns a non-empty string."""
-        from adversary_pursuit.core.dossier_report import generate_dossier_report
+        from pivotglass.core.dossier_report import generate_dossier_report
 
         result = generate_dossier_report(populated_wm)
         assert isinstance(result, str)
@@ -119,21 +119,21 @@ class TestGenerateDossierReport:
 
     def test_has_header(self, populated_wm):
         """Report contains Threat Actor Dossier Report header."""
-        from adversary_pursuit.core.dossier_report import generate_dossier_report
+        from pivotglass.core.dossier_report import generate_dossier_report
 
         result = generate_dossier_report(populated_wm)
         assert "# Threat Actor Dossier Report" in result
 
     def test_has_dossier_state_section(self, populated_wm):
         """Report contains Dossier State section header."""
-        from adversary_pursuit.core.dossier_report import generate_dossier_report
+        from pivotglass.core.dossier_report import generate_dossier_report
 
         result = generate_dossier_report(populated_wm)
         assert "## Dossier State" in result
 
     def test_dossier_slot_grid_present(self, populated_wm):
         """Dossier slot grid contains all 9 slot names."""
-        from adversary_pursuit.core.dossier_report import generate_dossier_report
+        from pivotglass.core.dossier_report import generate_dossier_report
 
         result = generate_dossier_report(populated_wm)
         for slot_name in [
@@ -151,14 +151,14 @@ class TestGenerateDossierReport:
 
     def test_has_predictions_section(self, populated_wm):
         """Report contains Predictions section header."""
-        from adversary_pursuit.core.dossier_report import generate_dossier_report
+        from pivotglass.core.dossier_report import generate_dossier_report
 
         result = generate_dossier_report(populated_wm)
         assert "## Predictions" in result
 
     def test_predictions_content(self, populated_wm):
         """Report shows validated and pending predictions."""
-        from adversary_pursuit.core.dossier_report import generate_dossier_report
+        from pivotglass.core.dossier_report import generate_dossier_report
 
         result = generate_dossier_report(populated_wm)
         assert "Actor will reuse .ru TLD infrastructure" in result
@@ -166,21 +166,21 @@ class TestGenerateDossierReport:
 
     def test_predictions_shows_validated(self, populated_wm):
         """Report shows Validated Predictions subsection."""
-        from adversary_pursuit.core.dossier_report import generate_dossier_report
+        from pivotglass.core.dossier_report import generate_dossier_report
 
         result = generate_dossier_report(populated_wm)
         assert "Validated" in result
 
     def test_has_analyst_notes_section(self, populated_wm):
         """Report contains Analyst Notes section header."""
-        from adversary_pursuit.core.dossier_report import generate_dossier_report
+        from pivotglass.core.dossier_report import generate_dossier_report
 
         result = generate_dossier_report(populated_wm)
         assert "## Analyst Notes" in result
 
     def test_analyst_notes_content(self, populated_wm):
         """Report contains both analyst notes."""
-        from adversary_pursuit.core.dossier_report import generate_dossier_report
+        from pivotglass.core.dossier_report import generate_dossier_report
 
         result = generate_dossier_report(populated_wm)
         assert "Suspected APT group" in result
@@ -188,7 +188,7 @@ class TestGenerateDossierReport:
 
     def test_has_ioc_table(self, populated_wm):
         """Report contains Indicators of Compromise section."""
-        from adversary_pursuit.core.dossier_report import generate_dossier_report
+        from pivotglass.core.dossier_report import generate_dossier_report
 
         result = generate_dossier_report(populated_wm)
         assert "## Indicators of Compromise" in result
@@ -197,14 +197,14 @@ class TestGenerateDossierReport:
 
     def test_has_overview_metadata(self, populated_wm):
         """Report contains workspace name and score in overview."""
-        from adversary_pursuit.core.dossier_report import generate_dossier_report
+        from pivotglass.core.dossier_report import generate_dossier_report
 
         result = generate_dossier_report(populated_wm)
         assert "test" in result  # workspace name
         assert "300" in result  # total score
 
     def test_scientific_lifecycle_confidence_and_contradictions_are_reported(self, wm):
-        from adversary_pursuit.core.analytic_ledger import (
+        from pivotglass.core.analytic_ledger import (
             AnalyticLedger,
             AssertionType,
             ConfidenceLevel,
@@ -212,7 +212,7 @@ class TestGenerateDossierReport:
             LikelihoodTerm,
             Materiality,
         )
-        from adversary_pursuit.core.dossier_report import generate_dossier_report
+        from pivotglass.core.dossier_report import generate_dossier_report
 
         ledger = AnalyticLedger(wm)
         question_id = ledger.create_question("Who controls the observed infrastructure?")
@@ -283,14 +283,14 @@ class TestGenerateDossierReport:
 
     def test_has_statistics_section(self, populated_wm):
         """Report contains Statistics section."""
-        from adversary_pursuit.core.dossier_report import generate_dossier_report
+        from pivotglass.core.dossier_report import generate_dossier_report
 
         result = generate_dossier_report(populated_wm)
         assert "## Statistics" in result
 
     def test_empty_workspace_graceful(self, wm):
         """generate_dossier_report handles fresh workspace without error."""
-        from adversary_pursuit.core.dossier_report import generate_dossier_report
+        from pivotglass.core.dossier_report import generate_dossier_report
 
         result = generate_dossier_report(wm)
         assert isinstance(result, str)
@@ -307,7 +307,7 @@ class TestExecuteGenerateDossierReport:
 
     def test_returns_dossier_report(self, populated_wm):
         """Returns dossier-format Markdown."""
-        from adversary_pursuit.agent.tools import ToolContext, _execute_generate_dossier_report
+        from pivotglass.agent.tools import ToolContext, _execute_generate_dossier_report
 
         ctx = ToolContext(workspace_dir=populated_wm._workspace_dir)
         ctx.workspace_mgr = populated_wm
@@ -316,7 +316,7 @@ class TestExecuteGenerateDossierReport:
 
     def test_returns_string(self, populated_wm):
         """Returns a non-empty string."""
-        from adversary_pursuit.agent.tools import ToolContext, _execute_generate_dossier_report
+        from pivotglass.agent.tools import ToolContext, _execute_generate_dossier_report
 
         ctx = ToolContext(workspace_dir=populated_wm._workspace_dir)
         ctx.workspace_mgr = populated_wm

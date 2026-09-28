@@ -48,11 +48,11 @@ regen = _load_regen()
 
 
 def _write_fixture_tree(tmp_path: Path) -> Path:
-    """Create a minimal src/adversary_pursuit/ tree with @decision annotations.
+    """Create a minimal src/pivotglass/ tree with @decision annotations.
 
     Returns the tmp_path root (acts as project root for scan_source_tree).
     """
-    src = tmp_path / "src" / "adversary_pursuit"
+    src = tmp_path / "src" / "pivotglass"
 
     # Component 1: gamification — docstring-style annotation
     gamification = src / "gamification"
@@ -107,9 +107,9 @@ class DossierState:
 @rationale One workspace per process avoids shared-state races.
 
 @decision DEC-CORE-002
-@title workspace path defaults to ~/.ap/workspaces
+@title workspace path defaults to ~/.pivotglass/workspaces
 @status accepted
-@rationale XDG-compatible default; overridable via AP_WORKSPACE_PATH.
+@rationale XDG-compatible default; overridable via PIVOTGLASS_WORKSPACE_PATH.
 """
 
 class Workspace:
@@ -186,7 +186,7 @@ def test_idempotency(tmp_path):
 
 def test_malformed_annotation_no_title(tmp_path, capsys):
     """A @decision block without @title emits a WARN to stderr and uses DEC-ID as title fallback."""
-    src = tmp_path / "src" / "adversary_pursuit" / "core"
+    src = tmp_path / "src" / "pivotglass" / "core"
     src.mkdir(parents=True)
     (src / "__init__.py").write_text("")
     (src / "bad.py").write_text(
@@ -229,7 +229,7 @@ def test_malformed_annotation_no_title(tmp_path, capsys):
 
 def test_malformed_dec_id_pattern(tmp_path, capsys):
     """A @decision with a lowercase/non-standard DEC-ID emits a WARN but is kept."""
-    src = tmp_path / "src" / "adversary_pursuit" / "core"
+    src = tmp_path / "src" / "pivotglass" / "core"
     src.mkdir(parents=True)
     (src / "__init__.py").write_text("")
     (src / "odd.py").write_text(

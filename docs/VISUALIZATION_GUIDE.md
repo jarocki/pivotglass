@@ -4,6 +4,15 @@ Pivotglass visualizations exist to shorten the distance between an analyst's
 question and a defensible next decision. They do not decorate the cockpit, add
 analytical certainty, or turn proximity into a relationship.
 
+## How to use this document
+
+The question-to-view policy below describes supported intent families and their
+analytical guardrails. It is not a promise of an arbitrary chart builder or a
+complete implementation of every interaction mentioned in the design references.
+Available views depend on the workspace fields and bounded intent builders.
+The [visual analysis walkthrough](analysis/VISUALIZATIONS.md) explains delivered
+views with a synthetic release screenshot and worked reading examples.
+
 ## Selection rules
 
 Pivotglass applies these rules in order:
@@ -19,8 +28,9 @@ Pivotglass applies these rules in order:
    amount, diverging color communicates opposing directions, and qualitative
    color separates categories. Shape, text, or pattern repeats every important
    status.
-5. **Keep exact data close.** Every visualization has an accessible table and
-   exports the exact plotted records.
+5. **Keep exact data close.** Show accessible exact data alongside views.
+   Review the selected export contract: a full workspace or graph export can
+   have broader scope than the currently filtered or bounded plot.
 6. **Explain the choice.** The selected view states **Why this fits** and
    **How to read it**. Hover and keyboard focus reveal compact-view details.
 7. **Preserve uncertainty and missingness.** Pivotglass never silently imputes
@@ -56,12 +66,16 @@ decode a picture. It is intentionally dense:
 - all nine canonical Dossier dimensions remain aligned as columns;
 - 18-pixel pegs keep many indicators in view;
 - the matrix stays inside a bounded scroll window with sticky headings;
-- shape, color, and darkness distinguish filled, partial, deferred, and empty;
+- a green check means coverage met, an amber half-circle means some evidence,
+  an open circle means no evidence, and a dash means no automated path;
+- readable dimension names replace cryptic abbreviations;
+- source-labelled country flags describe the indicator's reported location,
+  not attacker origin; unknown locations are left unflagged;
 - a viewport-safe hover or keyboard-focus explainer provides the full dimension
   question, state meaning, and exact evidence count;
 - one Tab enters the grid; arrow keys move between pegs, Home and End move to
   the first and last dimension, and Enter or Space pins a selection;
-- selecting a peg pins the explanation above the matrix while selecting an indicator opens its
+- selecting a peg pins the explanation below the matrix without moving rows, while selecting an indicator opens its
   evidence and provenance; and
 - secondary filters are collapsed until needed, while search, sort, and the
   visible-row count stay immediately available.
@@ -74,6 +88,12 @@ not mean the dimension's analytical question is proven, nor does it communicate
 confidence, severity, or truth.
 
 ## Design references
+
+The references in this section explain design choices and future guardrails.
+References to external examples do not imply equivalent product capabilities.
+Descriptions of scaling strategies, richer incident views, or additional chart
+interactions are design guidance unless the current user guide demonstrates them.
+
 
 ### Interactive incident benchmark
 
@@ -118,8 +138,9 @@ reference conflicts with analytical truthfulness or operator agency.
   magnitude and the layout does not imply relationships. Include a size legend.
 - **Scatter and PCA:** show similarity or correlation only. At high density,
   switch to hexbin or two-dimensional density and preserve point-level access.
-- **Network graph:** render only admitted typed edges. Spatial proximity and
-  force-layout position are presentation, not evidence.
+- **Network graph:** render stored relationships, conservative property pivots,
+  and explicit analyst assertions or admission groups with distinct truth kinds
+  and provenance. Spatial proximity and force-layout position are presentation.
 - **Heatmap:** use for overview and pattern detection, with accessible exact
   values and a non-color status channel. Do not expect precise lookup by color.
 - **Histogram:** expose count and adjustable bins; never hide zero-count or
@@ -140,8 +161,7 @@ reference conflicts with analytical truthfulness or operator agency.
 
 ### Flint version boundary
 
-Pivotglass currently pins `flint-chart` 0.3.0. Flint 0.4.0 adds Plotly and
-editable Excel backends plus a richer semantic theme specification. That is a
-dependency and renderer-capability change, so it requires a separate
-compatibility, accessibility, supply-chain, and visual-regression review before
-adoption; it is not folded silently into this visualization redesign.
+Pivotglass pins `flint-chart` 0.4.0 for its qualified Chart.js intent paths.
+Plotly and editable Office backends are not qualified product features merely
+because the dependency contains them. Consult [Compatibility](COMPATIBILITY.md)
+for the supported renderer boundary.

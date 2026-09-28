@@ -20,7 +20,7 @@ Covers:
 @title test_streak.py covers all StreakManager invariants with tmp_path isolation
 @status accepted
 @rationale All tests use tmp_path fixture to write streak.json into an isolated temp
-           directory — the real ~/.ap/streak.json is never touched. This is the
+           directory — the real ~/.pivotglass/streak.json is never touched. This is the
            production-sequence contract: StreakManager reads/writes a single
            configurable path, so tests override that path to tmp_path/streak.json.
            State is verified by reading back via StreakManager.state (property)
@@ -33,7 +33,7 @@ import json
 from datetime import date, timedelta
 from pathlib import Path
 
-from adversary_pursuit.core.streak import StreakManager, StreakState, StreakUpdate
+from pivotglass.core.streak import StreakManager, StreakState, StreakUpdate
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -558,9 +558,9 @@ class TestM3F62Invariants:
         then asserts streak.json (if it exists) is byte-identical. Since the
         pure function has no I/O, the file must remain untouched.
         """
-        from adversary_pursuit.dossier.scoring import emit_dossier_slot_filled_events
-        from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
-        from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+        from pivotglass.dossier.scoring import emit_dossier_slot_filled_events
+        from pivotglass.dossier.slot_inference import DossierState, SlotState
+        from pivotglass.dossier.slots import DossierSlotName, SlotStatus
 
         streak_path = tmp_path / "streak.json"
 
@@ -597,11 +597,11 @@ class TestM3F62Invariants:
         _execute_hunt / run_module: per-IOC events first, dossier events second,
         streak event third. Verifies both action types appear in score_events.
         """
-        from adversary_pursuit.core.workspace import WorkspaceManager
-        from adversary_pursuit.dossier.scoring import emit_dossier_slot_filled_events
-        from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
-        from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
-        from adversary_pursuit.gamification.scoring import make_streak_continued_event
+        from pivotglass.core.workspace import WorkspaceManager
+        from pivotglass.dossier.scoring import emit_dossier_slot_filled_events
+        from pivotglass.dossier.slot_inference import DossierState, SlotState
+        from pivotglass.dossier.slots import DossierSlotName, SlotStatus
+        from pivotglass.gamification.scoring import make_streak_continued_event
 
         wm = WorkspaceManager(workspace_dir=tmp_path / "workspaces")
         wm.create("default")

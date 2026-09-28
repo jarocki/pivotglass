@@ -24,7 +24,7 @@ Production sequence tested:
            a WorkspaceManager instance. This keeps Challenge objects pure and
            testable without a database. The dict has known keys: stix_type_counts,
            modules_used, total_score, total_indicators, elapsed_seconds, indicators.
-           APConsole is responsible for assembling this dict from WorkspaceManager
+           PivotglassConsole is responsible for assembling this dict from WorkspaceManager
            before calling check_all. Tests verify both the contract and the assembly.
 """
 
@@ -37,8 +37,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from adversary_pursuit.core.console import APConsole
-from adversary_pursuit.gamification.challenges import (
+from pivotglass.core.console import PivotglassConsole
+from pivotglass.gamification.challenges import (
     Challenge,
     ChallengeManager,
     ChallengeStatus,
@@ -57,7 +57,7 @@ def _make_workspace_data(
     total_score: int = 0,
     total_indicators: int = 0,
 ) -> dict:
-    """Build a workspace_data dict matching what APConsole passes to check_all."""
+    """Build a workspace_data dict matching what PivotglassConsole passes to check_all."""
     return {
         "stix_type_counts": stix_counts or {},
         "modules_used": modules_used or [],
@@ -594,7 +594,7 @@ class TestListChallenges:
 
 @pytest.fixture
 def console(tmp_path):
-    app = APConsole(
+    app = PivotglassConsole(
         config_dir=tmp_path / "config",
         workspace_dir=tmp_path / "workspaces",
     )
@@ -602,7 +602,7 @@ def console(tmp_path):
     return app
 
 
-def run_cmd(app: APConsole, cmd: str) -> str:
+def run_cmd(app: PivotglassConsole, cmd: str) -> str:
     """Run a console command, return combined stdout + Rich output."""
     app.stdout = io.StringIO()
     app.rich_console = app._make_rich_console()
@@ -629,6 +629,6 @@ class TestConsoleChallenges:
         assert "active" in out.lower() or "ACTIVE" in out
 
     def test_challenges_manager_wired_to_console(self, console):
-        """APConsole has a challenge_mgr attribute after __init__."""
+        """PivotglassConsole has a challenge_mgr attribute after __init__."""
         assert hasattr(console, "challenge_mgr")
         assert isinstance(console.challenge_mgr, ChallengeManager)

@@ -20,9 +20,9 @@ from pathlib import Path
 
 import pytest
 
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.dossier.export import export_dossier
-from adversary_pursuit.dossier.import_ import ImportedDossier, import_dossier
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.dossier.export import export_dossier
+from pivotglass.dossier.import_ import ImportedDossier, import_dossier
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -78,7 +78,7 @@ class TestImportDossierShape:
         assert result.actor_identifier == "test-actor"
 
     def test_slot_states_has_9_entries(self, bundle_json_empty: str):
-        from adversary_pursuit.dossier.slots import DossierSlotName
+        from pivotglass.dossier.slots import DossierSlotName
 
         result = import_dossier(bundle_json_empty)
         assert len(result.slot_states) == len(list(DossierSlotName))
@@ -93,11 +93,11 @@ class TestImportDossierShape:
 
     def test_metadata_has_expected_keys(self, bundle_json_empty: str):
         result = import_dossier(bundle_json_empty)
-        assert "x_ap_version" in result.metadata
-        assert "x_ap_exported_at" in result.metadata
-        assert "x_ap_workspace_id" in result.metadata
-        assert "x_ap_actor_identifier" in result.metadata
-        assert "x_ap_dossier_schema_version" in result.metadata
+        assert "x_pivotglass_version" in result.metadata
+        assert "x_pivotglass_exported_at" in result.metadata
+        assert "x_pivotglass_workspace_id" in result.metadata
+        assert "x_pivotglass_actor_identifier" in result.metadata
+        assert "x_pivotglass_dossier_schema_version" in result.metadata
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +114,7 @@ class TestImportRoundTrip:
         assert imported.actor_identifier == "apt-28"
 
     def test_slot_states_all_present_after_import(self, wm: WorkspaceManager):
-        from adversary_pursuit.dossier.slots import DossierSlotName
+        from pivotglass.dossier.slots import DossierSlotName
 
         bundle = export_dossier(wm)
         imported = import_dossier(bundle)
@@ -123,7 +123,7 @@ class TestImportRoundTrip:
 
     def test_predictions_round_trip(self, tmp_path: Path):
         """Predictions stored in workspace appear in ImportedDossier after export/import."""
-        from adversary_pursuit.dossier.predictions import (
+        from pivotglass.dossier.predictions import (
             ExpectedEvidence,
             PersistedPrediction,
             save_predictions_log,
@@ -195,24 +195,24 @@ class TestImportLoudFailure:
             import_dossier(bundle.serialize())
 
     def test_schema_version_mismatch_raises_runtime_error(self, wm: WorkspaceManager):
-        """x_ap_dossier_schema_version != 1 raises RuntimeError."""
+        """x_pivotglass_dossier_schema_version != 1 raises RuntimeError."""
         bundle_json = export_dossier(wm)
         bundle_dict = json.loads(bundle_json)
         # Tamper with schema version on the threat-actor SDO
         for obj in bundle_dict["objects"]:
             if obj.get("type") == "threat-actor":
-                obj["x_ap_dossier_schema_version"] = 99
+                obj["x_pivotglass_dossier_schema_version"] = 99
         with pytest.raises(RuntimeError, match="schema version"):
             import_dossier(json.dumps(bundle_dict))
 
     def test_bundle_missing_schema_version_raises_value_error(self, wm: WorkspaceManager):
-        """Bundle with no x_ap_dossier_schema_version raises ValueError."""
+        """Bundle with no x_pivotglass_dossier_schema_version raises ValueError."""
         bundle_json = export_dossier(wm)
         bundle_dict = json.loads(bundle_json)
         for obj in bundle_dict["objects"]:
             if obj.get("type") == "threat-actor":
-                obj.pop("x_ap_dossier_schema_version", None)
-        with pytest.raises(ValueError, match="x_ap_dossier_schema_version"):
+                obj.pop("x_pivotglass_dossier_schema_version", None)
+        with pytest.raises(ValueError, match="x_pivotglass_dossier_schema_version"):
             import_dossier(json.dumps(bundle_dict))
 
 

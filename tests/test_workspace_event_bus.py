@@ -20,8 +20,8 @@ Verifies:
 
 from __future__ import annotations
 
-import adversary_pursuit.core.workspace as workspace_mod
-from adversary_pursuit.agent.tui.events import EventBus, TargetChanged
+import pivotglass.core.workspace as workspace_mod
+from pivotglass.agent.tui.events import EventBus, TargetChanged
 
 # ---------------------------------------------------------------------------
 # Unit: notify_target_changed publishes TargetChanged to explicit bus
@@ -107,7 +107,7 @@ def test_real_production_sequence_bus_wires_live_pane():
 
     No mocks — real EventBus, real LivePane, real notify_target_changed.
     """
-    from adversary_pursuit.agent.tui.live_pane import LivePane
+    from pivotglass.agent.tui.live_pane import LivePane
 
     # Step 1: Create bus (mirrors _run_tui_chat)
     bus = EventBus()

@@ -18,7 +18,7 @@ Start Pivotglass, then enter:
 workspace learn first-case
 ```
 
-Pivotglass creates and switches to `first-case`. The receipt reports zero
+Choose an unused workspace name. Pivotglass creates and switches to `first-case`. The receipt reports zero
 network and model requests and lists useful next commands. The workspace
 contains:
 
@@ -119,10 +119,10 @@ graph clusters
 The contradiction and graph are persisted; they are not session decoration.
 
 For a non-destructive file-level recovery rehearsal, stop Pivotglass and copy
-the workspace under a new name:
+the database fixture under an unused name:
 
 ```bash
-cp ~/.ap/workspaces/first-case.db ~/.ap/workspaces/first-case-recovered.db
+cp ~/.pivotglass/workspaces/first-case.db ~/.pivotglass/workspaces/first-case-recovered.db
 ```
 
 Restart Pivotglass and enter:
@@ -134,7 +134,8 @@ analysis show
 ```
 
 The copied case should validate and contain the same analytic record. This
-rehearsal leaves the original untouched. For schema-migration recovery, follow
+rehearsal leaves the original untouched. It copies only the synthetic case database;
+it is not a complete recovery procedure for a document library or configuration. For schema-migration recovery, follow
 the [workspace migration and recovery guide](WORKSPACE_MIGRATIONS.md).
 
 ## Start real work deliberately

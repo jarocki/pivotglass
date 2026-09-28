@@ -7,14 +7,14 @@ import sqlite3
 import pytest
 from sqlalchemy import inspect, select
 
-from adversary_pursuit.core.document_ingestion import (
+from pivotglass.core.document_ingestion import (
     DocumentIntakeService,
     DocumentLimits,
     preview_document,
 )
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.core.workspace_migrations import CURRENT_WORKSPACE_SCHEMA_VERSION
-from adversary_pursuit.models.database import (
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.core.workspace_migrations import CURRENT_WORKSPACE_SCHEMA_VERSION
+from pivotglass.models.database import (
     DocumentContent,
     DocumentOccurrence,
     DocumentParserReceipt,
@@ -54,7 +54,7 @@ def test_html_preview_does_not_run_or_emit_active_content() -> None:
     assert any("not run" in warning for warning in preview.warnings)
 
 
-def test_structured_preview_is_bounded_and_malformed_input_fails() -> None:
+def test_structured_preview_is_bounded_and_malformed_json_stays_reviewable() -> None:
     limited = preview_document(
         b"a,b\n1,2\n3,4\n",
         filename="rows.csv",
@@ -65,8 +65,9 @@ def test_structured_preview_is_bounded_and_malformed_input_fails() -> None:
     assert limited.state == "partial"
     assert limited.output_text == "a\tb"
     assert any("row limit" in warning for warning in limited.warnings)
-    assert malformed.state == "failed"
-    assert malformed.errors
+    assert malformed.state == "partial"
+    assert malformed.output_text == '{"unterminated":'
+    assert any("No JSON structure was trusted or repaired" in warning for warning in malformed.warnings)
 
 
 def test_jsonl_and_email_preview_keep_locations_and_attachments_explicit() -> None:
@@ -85,6 +86,91 @@ def test_jsonl_and_email_preview_keep_locations_and_attachments_explicit() -> No
     assert email.state == "partial"
     assert "Body indicator.example" in email.output_text
     assert any("sample.bin" in item for item in email.skipped)
+
+
+def test_json_preview_detects_bom_whitespace_and_misleading_metadata() -> None:
+    payload = '\ufeff  \n{"indicator":"198.51.100.44","domain":"json.example"}'.encode(
+        "utf-8"
+    )
+
+    preview = preview_document(
+        payload,
+        filename="uploaded-report.txt",
+        supplied_media_type="text/plain; charset=utf-8",
+    )
+
+    assert preview.state == "parsed"
+    assert preview.detected_media_type == "application/json"
+    assert '"indicator": "198.51.100.44"' in preview.output_text
+    assert '"domain": "json.example"' in preview.output_text
+
+
+@pytest.mark.parametrize("encoding", ["utf-16", "utf-32"])
+def test_json_preview_supports_bom_declared_unicode_encodings(encoding: str) -> None:
+    preview = preview_document(
+        '{"indicator":"203.0.113.17"}'.encode(encoding),
+        filename="report.json",
+    )
+
+    assert preview.state == "parsed"
+    assert "203.0.113.17" in preview.output_text
+    assert any("decoded as" in warning for warning in preview.warnings)
+
+
+def test_json_extension_falls_back_to_strict_json_lines() -> None:
+    preview = preview_document(
+        b'{"ip":"192.0.2.21"}\n{"ip":"192.0.2.22"}\n',
+        filename="provider-export.json",
+        supplied_media_type="application/json",
+    )
+
+    assert preview.state == "parsed"
+    assert preview.parser_name == "application/x-ndjson (strict fallback)"
+    assert preview.output_text.count("\n") == 1
+    assert any("line-delimited JSON" in warning for warning in preview.warnings)
+
+
+def test_malformed_json_remains_reviewable_without_claiming_structure(tmp_path) -> None:
+    manager = _workspace(tmp_path)
+    service = DocumentIntakeService(manager)
+    payload = b'{"ioc":"198.51.100.45",}'
+
+    preview = service.preview_bytes(payload, filename="slightly-broken.json")
+    receipt = service.store_bytes(
+        payload,
+        filename="slightly-broken.json",
+        operator="analyst",
+    )
+
+    assert preview.state == "partial"
+    assert preview.output_text == payload.decode()
+    assert any("No JSON structure was trusted or repaired" in item for item in preview.warnings)
+    assert receipt.preview.state == "partial"
+    assert manager.get_workspace_table_counts()["document_occurrences"] == 1
+
+
+def test_duplicate_json_keys_preserve_all_values_for_review() -> None:
+    preview = preview_document(
+        b'{"ioc":"192.0.2.31","ioc":"192.0.2.32"}',
+        filename="duplicate-keys.json",
+    )
+
+    assert preview.state == "partial"
+    assert "192.0.2.31" in preview.output_text
+    assert "192.0.2.32" in preview.output_text
+    assert any("Duplicate JSON object keys" in item for item in preview.warnings)
+
+
+@pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
+def test_non_finite_json_numbers_fail_closed(constant: str) -> None:
+    preview = preview_document(
+        f'{{"score":{constant}}}'.encode(),
+        filename="non-standard.json",
+    )
+
+    assert preview.state == "failed"
+    assert preview.output_text == ""
+    assert any("Non-standard JSON numeric constant" in item for item in preview.errors)
 
 
 def test_store_reuses_content_but_preserves_each_occurrence_and_receipt(tmp_path) -> None:
@@ -133,7 +219,7 @@ def test_store_refuses_failed_parse_and_oversized_input(tmp_path) -> None:
     service = DocumentIntakeService(manager)
 
     with pytest.raises(ValueError, match="parser failed"):
-        service.store_bytes(b"{bad", filename="bad.json", operator="analyst")
+        service.store_bytes(b'{"score":NaN}', filename="bad.json", operator="analyst")
     with pytest.raises(ValueError, match="configured limit"):
         service.preview_bytes(
             b"0123456789",

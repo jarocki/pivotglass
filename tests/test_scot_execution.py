@@ -8,8 +8,8 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.integrations.scot_execution import (
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.integrations.scot_execution import (
     ScotPublicationJournal,
     ScotRestPublisher,
     approve_scot_publication,
@@ -17,7 +17,7 @@ from adversary_pursuit.integrations.scot_execution import (
     scot_confirmation,
     validate_scot_approval,
 )
-from adversary_pursuit.integrations.scot_publication import (
+from pivotglass.integrations.scot_publication import (
     ScotPublicationItem,
     ScotPublicationManifest,
     ScotPublishedConnection,

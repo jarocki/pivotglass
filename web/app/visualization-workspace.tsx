@@ -1,6 +1,7 @@
 "use client";
 
-import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, useEffect, useLayoutEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Chart, registerables } from "chart.js";
 
 import {
@@ -20,19 +21,20 @@ import {
 } from "./visualization-intent";
 import { RGBLed, rgbLabelForStatus } from "./rgb-led";
 import { LiteBritePeg } from "./lite-brite-peg";
+import { COVERAGE_LABELS, indicatorTypeLabel, reportedCountry, tooltipPosition } from "./constellation-presentation";
 
 Chart.register(...registerables);
 
 const CONSTELLATION_COLUMN_LABELS: Readonly<Record<string, string>> = {
-  identity: "ID",
-  ttps: "TTP",
-  infrastructure: "INF",
-  timing: "TIM",
-  targeting: "TAR",
-  capability: "CAP",
-  motivation: "MOT",
-  predictions: "PRE",
-  denial: "DEN",
+  identity: "Identity",
+  ttps: "Techniques",
+  infrastructure: "Infrastructure",
+  timing: "Timing",
+  targeting: "Targeting",
+  capability: "Capability",
+  motivation: "Motivation",
+  predictions: "Predictions",
+  denial: "Counterevidence",
 };
 
 const CONSTELLATION_DIMENSION_HELP: Readonly<Record<string, string>> = {
@@ -63,13 +65,13 @@ const VISUALIZATION_VIEW_LABELS: Readonly<Record<VisualizationIntent["view"], st
 
 function constellationStatusHelp(status: string): string {
   if (status === "filled") {
-    return "Filled: source-backed evidence meets the configured coverage threshold; coverage is not confidence or truth.";
+    return "Coverage met: source-backed evidence meets the configured coverage threshold; coverage is not confidence or truth.";
   }
-  if (status === "partial") return "Partial: some source-backed evidence exists, but material gaps remain.";
+  if (status === "partial") return "Some evidence: source-backed evidence exists, but material gaps remain.";
   if (status === "deferred") {
-    return "Deferred: no applicable automated inference path exists; this is not an observed evidence gap.";
+    return "No automated path: this dimension needs analyst assessment; no work is automatically scheduled.";
   }
-  if (status === "empty") return "Empty: no supporting evidence is present in the admitted neighborhood.";
+  if (status === "empty") return "No evidence: no supporting evidence is present in the admitted neighborhood. This is not a threat verdict.";
   return `${status.replaceAll("_", " ")}: inspect the authoritative record for details.`;
 }
 
@@ -310,25 +312,24 @@ function CalendarHeatmap({ intent }: { intent: VisualizationIntent }) {
 
 function PivotTrail({ intent }: { intent: VisualizationIntent }) {
   if (!intent.data.rows.length) return <VisualizationEmpty intent={intent} />;
-  return (
-    <ol className="pivot-trail" aria-label="Chronological investigation pivot trail">
-      {intent.data.rows.map((row, index) => (
-        <li key={String(row.event_id ?? index)}>
-          <time>{displayValue(row.timestamp)}</time>
-          <div>
-            <small>{displayValue(row.from_kind).replaceAll("_", " ")}</small>
-            <b>{shortLabel(displayValue(row.from_label), 48)}</b>
-          </div>
-          <span aria-hidden="true">→</span>
-          <div>
-            <small>{displayValue(row.to_kind).replaceAll("_", " ")}</small>
-            <b>{shortLabel(displayValue(row.to_label), 48)}</b>
-          </div>
-          <p><strong>{displayValue(row.action).replaceAll("_", " ")}</strong> · {displayValue(row.basis)}</p>
-        </li>
-      ))}
-    </ol>
-  );
+  const branches=new Map<string, VisualizationRow[]>();
+  for(const row of intent.data.rows){
+    const key=String(row.from_ref || row.event_id);
+    branches.set(key,[...(branches.get(key)??[]),row]);
+  }
+  return <div className="provenance-history">
+    <p>Arrows record source admission, analyst grouping, and investigation steps. Analyst groups preserve your joint promotion decision.</p>
+    <div className="provenance-graph" role="region" aria-label="Provenance history graph">
+      {[...branches].map(([key,rows])=><section className="provenance-branch" key={key}>
+        <div className="provenance-source"><small>{displayValue(rows[0].from_kind).replaceAll("_"," ")}</small><b>{displayValue(rows[0].from_label)}</b></div>
+        <span className="provenance-arrow" aria-hidden="true">→</span>
+        <ol>{rows.map((row,index)=><li key={String(row.event_id??index)}>
+          <small>{displayValue(row.action).replaceAll("_"," ")} · {displayValue(row.timestamp)} · {displayValue(row.created_by)}</small>
+          <b>{displayValue(row.to_label)}</b><p>{displayValue(row.basis)}</p>
+        </li>)}</ol>
+      </section>)}
+    </div>
+  </div>;
 }
 
 type HierarchyNode = {
@@ -467,6 +468,29 @@ const TERMINAL_GLYPH: Record<string, string> = {
   not_assessed: "?",
 };
 
+function MatrixTooltip({ tip, id, onEnter, onLeave }: {
+  tip: { text: string; anchor: HTMLElement }; id: string; onEnter: () => void; onLeave: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState<CSSProperties>({ visibility: "hidden" });
+  useLayoutEffect(() => {
+    const box = ref.current;
+    if (!box) return;
+    const theme = getComputedStyle(tip.anchor);
+    setStyle({
+      ...tooltipPosition(tip.anchor.getBoundingClientRect(), box.getBoundingClientRect(),
+        { width: window.innerWidth, height: window.innerHeight }),
+      background: theme.getPropertyValue("--elevated"),
+      color: theme.getPropertyValue("--ink"),
+      borderColor: theme.getPropertyValue("--line"),
+    });
+  }, [tip]);
+  return createPortal(<div ref={ref} id={id} className="matrix-hover-tooltip" role="tooltip" style={style}
+    onPointerEnter={onEnter} onPointerLeave={onLeave}>
+    {tip.text}
+  </div>, document.body);
+}
+
 export function TaskMatrix({
   intent,
   onOpenEvidence,
@@ -479,7 +503,9 @@ export function TaskMatrix({
   liveRows?: VisualizationRow[];
 }) {
   const [selected, setSelected] = useState<VisualizationRow | null>(null);
-  const [hoverTip, setHoverTip] = useState<{ text: string; left: number; top: number } | null>(null);
+  const [hoverTip, setHoverTip] = useState<{ text: string; anchor: HTMLElement } | null>(null);
+  const tooltipId = useId();
+  const tooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [completenessFilter, setCompletenessFilter] = useState("all");
@@ -619,14 +645,46 @@ export function TaskMatrix({
     [columnField, mergedRows, rowIdField],
   );
   const activeCell = selected;
-  const showHoverTip = (event: React.PointerEvent<HTMLElement>, text: string) => {
-    const width = Math.min(360, Math.max(220, window.innerWidth - 24));
-    setHoverTip({
-      text,
-      left: Math.max(12, Math.min(event.clientX + 12, window.innerWidth - width - 12)),
-      top: Math.max(12, Math.min(event.clientY + 12, window.innerHeight - 104)),
-    });
+  const keepHoverTip = () => {
+    if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
   };
+  const scheduleHideHoverTip = () => {
+    keepHoverTip();
+    tooltipTimer.current = setTimeout(() => setHoverTip(null), 180);
+  };
+  useEffect(() => () => { if (tooltipTimer.current) clearTimeout(tooltipTimer.current); }, []);
+  const showHoverTip = (event: React.SyntheticEvent<HTMLElement>, text: string) => {
+    keepHoverTip();
+    setHoverTip({ text, anchor: event.currentTarget });
+  };
+
+  useEffect(() => {
+    if (!hoverTip) return;
+    const dismiss = (event?: Event) => {
+      if (event?.target instanceof Element && event.target.closest(".matrix-hover-tooltip")) return;
+      if (event?.type === "scroll" && document.activeElement === hoverTip.anchor) {
+        const rect = hoverTip.anchor.getBoundingClientRect();
+        if (rect.bottom > 0 && rect.top < window.innerHeight) {
+          setHoverTip({ ...hoverTip });
+          return;
+        }
+      }
+      setHoverTip(null);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      dismiss();
+    };
+    window.addEventListener("resize", dismiss);
+    document.addEventListener("scroll", dismiss, true);
+    document.addEventListener("keydown", escape, true);
+    return () => {
+      window.removeEventListener("resize", dismiss);
+      document.removeEventListener("scroll", dismiss, true);
+      document.removeEventListener("keydown", escape, true);
+    };
+  }, [hoverTip]);
 
   useEffect(() => {
     setGridFocus((current) => ({
@@ -681,7 +739,7 @@ export function TaskMatrix({
             <output>{rowIds.length} / {metadata.size} indicators</output>
           </div>
           <details className="constellation-more">
-            <summary>FILTERS</summary>
+            <summary>Filters · {[query, typeFilter !== "all", completenessFilter !== "all", relatedReference, firstSeenAfter, lastSeenBefore].filter(Boolean).length} active</summary>
             <div className="constellation-controls">
               <label>
                 <span>IoC type</span>
@@ -752,16 +810,17 @@ export function TaskMatrix({
         </section>
       )}
       {isConstellation && (
-        <div className="lite-brite-legend" aria-label="Lite Brite Dossier status legend">
-          {(["filled", "partial", "deferred", "empty"] as const).map((status) => (
+        <div className="lite-brite-legend" aria-label="Evidence coverage legend">
+          {(["filled", "partial", "empty", "deferred"] as const).map((status) => (
             <span key={status}>
-              <LiteBritePeg compact status={status} label={`${status} Dossier status`} />
-              <b>{status}</b>
+              <LiteBritePeg compact status={status} label={COVERAGE_LABELS[status]} />
+              <b>{COVERAGE_LABELS[status]}</b>
             </span>
           ))}
+          <small>Coverage—not confidence or safety. Hover or focus for facts; click for details.</small>
         </div>
       )}
-      {activeCell && (
+      {!isConstellation && activeCell && (
         <div className="visualization-selection" aria-live={selected ? "polite" : "off"}>
           <b>{displayValue(activeCell[rowField])}</b>
           <span>
@@ -783,15 +842,7 @@ export function TaskMatrix({
           </small>
         </div>
       )}
-      {hoverTip && (
-        <div
-          className="matrix-hover-tooltip"
-          role="tooltip"
-          style={{ left: hoverTip.left, top: hoverTip.top }}
-        >
-          {hoverTip.text}
-        </div>
-      )}
+      {hoverTip && <MatrixTooltip tip={hoverTip} id={tooltipId} onEnter={keepHoverTip} onLeave={scheduleHideHoverTip} />}
       <div
         className={`task-matrix-wrap ${isConstellation ? "constellation-matrix-wrap" : ""}`}
         ref={matrixWrap}
@@ -805,16 +856,20 @@ export function TaskMatrix({
                 <th
                   scope="col"
                   key={column}
-                  title={column.replaceAll("_", " ")}
+                  title={isConstellation ? undefined : column.replaceAll("_", " ")}
                 >
                   {isConstellation
                     ? (
                       <button
                         type="button"
                         className="constellation-dimension-help"
-                        aria-label={`${column.replaceAll("_", " ")}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."}`}
-                        onPointerEnter={(event) => showHoverTip(event, `${column.replaceAll("_", " ")}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."}`)}
-                        onPointerLeave={() => setHoverTip(null)}
+                        id={`${tooltipId}-column-${column}`}
+                        aria-label={`${CONSTELLATION_COLUMN_LABELS[column] ?? column}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."}`}
+                        onPointerEnter={(event) => showHoverTip(event, `${CONSTELLATION_COLUMN_LABELS[column] ?? column}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."}`)}
+                        onPointerLeave={scheduleHideHoverTip}
+                        onFocus={(event) => showHoverTip(event, `${CONSTELLATION_COLUMN_LABELS[column] ?? column}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."}`)}
+                        onBlur={() => setHoverTip(null)}
+                        aria-describedby={hoverTip?.anchor.id === `${tooltipId}-column-${column}` ? tooltipId : undefined}
                       >
                         {CONSTELLATION_COLUMN_LABELS[column] ?? column.slice(0, 3).toUpperCase()}
                       </button>
@@ -829,34 +884,45 @@ export function TaskMatrix({
               const row = metadata.get(rowId);
               if (!row) return null;
               const label = String(row[rowField]);
+              const country = row.country_source ? reportedCountry(row.country_code) : null;
+              const locationHelp = country
+                ? ` Source-reported location: ${country.name} (${country.code}), from ${displayValue(row.country_source)}, retrieved ${displayValue(row.country_observed_at)}. Infrastructure location is not actor origin.`
+                : " No source-reported country available.";
+              const indicatorHelp = `${label} · ${indicatorTypeLabel(String(row.indicator_type))} · ${displayValue(row.completeness_percent)}% coverage.${locationHelp} Open source evidence and provenance.`;
               return (
                 <tr key={rowId}>
-                  <th scope="row" title={label}>
+                  <th scope="row">
                     {onOpenEvidence && row.reference
                       ? (
                         <button
-                          onPointerEnter={(event) => showHoverTip(event, `${label} · ${displayValue(row.indicator_type)} · ${displayValue(row.completeness_percent)}% mapped. Open source evidence and provenance.`)}
-                          onPointerLeave={() => setHoverTip(null)}
-                          onClick={(event) => onOpenEvidence(String(row.reference), event.currentTarget)}
+                          id={`${tooltipId}-row-${rowIndex}`}
+                          onPointerEnter={(event) => showHoverTip(event, indicatorHelp)}
+                          onPointerLeave={scheduleHideHoverTip}
+                          onFocus={(event) => showHoverTip(event, indicatorHelp)}
+                          onBlur={() => setHoverTip(null)}
+                          aria-describedby={hoverTip?.anchor.id === `${tooltipId}-row-${rowIndex}` ? tooltipId : undefined}
+                          aria-label={indicatorHelp}
+                          onClick={(event) => { setHoverTip(null); onOpenEvidence(String(row.reference), event.currentTarget); }}
                         >
-                          <b>{shortLabel(label, isConstellation ? 30 : 42)}</b>
+                          <b>{label}</b>
                           {isConstellation && (
                             <small>
-                              {displayValue(row.indicator_type)} · {displayValue(row.completeness_percent)}%
+                              {country && <span className="constellation-country" aria-label={`Source-reported location: ${country.name}`}><span aria-hidden="true">{country.flag}</span> {country.code}</span>}
+                              {indicatorTypeLabel(String(row.indicator_type))} · {displayValue(row.completeness_percent)}% coverage
                             </small>
                           )}
                         </button>
                       )
-                      : shortLabel(label, 42)}
+                      : label}
                   </th>
                   {columns.map((column, columnIndex) => {
                     const cell = cells.get(`${rowId}\u0000${column}`);
                     if (!cell) return <td className="matrix-empty" key={column}>—</td>;
                     const status = String(cell[statusField]);
-                    const dimension = column.replaceAll("_", " ");
+                    const dimension = isConstellation ? CONSTELLATION_COLUMN_LABELS[column] ?? column : column.replaceAll("_", " ");
                     const evidenceCount = displayValue(cell.evidence_count);
                     const cellHelp = isConstellation
-                      ? `${dimension}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."} ${constellationStatusHelp(status)} ${evidenceCount} source-backed evidence records contribute.`
+                      ? `${label}. ${dimension}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."} ${constellationStatusHelp(status)} ${evidenceCount} source-backed evidence records contribute. Click to pin details below the grid.`
                       : isAch
                         ? `${column} · ${status.replaceAll("_", " ")} · ${displayValue(cell.rationale)}`
                         : `${dimension} · ${status.replaceAll("_", " ")} · latest authoritative lifecycle state`;
@@ -868,8 +934,9 @@ export function TaskMatrix({
                       <td key={column}>
                         <button
                           className={`matrix-cell ${isConstellation ? "lite-brite-cell" : ""} state-${status} ${isSelected ? "selected" : ""}`}
+                          id={`${tooltipId}-cell-${rowIndex}-${columnIndex}`}
                           onPointerEnter={(event) => showHoverTip(event, cellHelp)}
-                          onPointerLeave={() => setHoverTip(null)}
+                          onPointerLeave={scheduleHideHoverTip}
                           data-grid-row={rowIndex}
                           data-grid-column={columnIndex}
                           tabIndex={isConstellation
@@ -877,12 +944,16 @@ export function TaskMatrix({
                             : 0}
                           aria-pressed={isConstellation ? isSelected : undefined}
                           onClick={() => {
+                            setHoverTip(null);
                             setSelected(cell);
                             onSelectCell?.(cell);
                           }}
-                          onFocus={() => {
+                          onFocus={(event) => {
+                            showHoverTip(event, cellHelp);
                             if (isConstellation) setGridFocus({ row: rowIndex, column: columnIndex });
                           }}
+                          onBlur={() => setHoverTip(null)}
+                          aria-describedby={hoverTip?.anchor.id === `${tooltipId}-cell-${rowIndex}-${columnIndex}` ? tooltipId : undefined}
                           onKeyDown={(event) => {
                             if (!isConstellation) return;
                             let nextRow = rowIndex;
@@ -897,9 +968,9 @@ export function TaskMatrix({
                             event.preventDefault();
                             focusGridCell(nextRow, nextColumn);
                           }}
-                          title={`${dimension} · ${status}`}
+                          title={isConstellation ? undefined : `${dimension} · ${status}`}
                           aria-label={isConstellation
-                            ? `${label}. ${cellHelp}`
+                            ? cellHelp
                             : `${label}, ${column}, ${status}. RGB status ${rgbLabelForStatus(status)}`}
                         >
                           {isConstellation
@@ -907,7 +978,7 @@ export function TaskMatrix({
                               <LiteBritePeg
                                 compact
                                 status={status}
-                                label={`${dimension}, ${status}`}
+                                label={`${dimension}, ${COVERAGE_LABELS[status] ?? status}`}
                               />
                             )
                             : (
@@ -927,6 +998,16 @@ export function TaskMatrix({
           </tbody>
         </table>
       </div>
+      {isConstellation && (
+        <section className="visualization-selection constellation-selection" aria-label="Selected coverage details" aria-live="polite">
+          {activeCell ? <>
+            <b>{displayValue(activeCell[rowField])}</b>
+            <span>{CONSTELLATION_COLUMN_LABELS[String(activeCell[columnField])] ?? displayValue(activeCell[columnField])} · {COVERAGE_LABELS[String(activeCell[statusField])] ?? displayValue(activeCell[statusField])}</span>
+            <small>{constellationStatusHelp(String(activeCell[statusField]))} {displayValue(activeCell.evidence_count)} source-backed evidence records. First seen: {displayValue(activeCell.first_seen)} · Last seen: {displayValue(activeCell.last_seen)}.</small>
+            {onOpenEvidence && activeCell.reference && <button type="button" onClick={(event) => onOpenEvidence(String(activeCell.reference), event.currentTarget)}>Open evidence & provenance</button>}
+          </> : <small>Select a coverage mark to keep its details here. Select an indicator to open its evidence and provenance. Arrow keys move through the grid.</small>}
+        </section>
+      )}
       {rowIds.length === 0 && (
         <div className="visualization-empty">
           <b>NO INDICATORS MATCH</b>
@@ -1573,7 +1654,7 @@ function RelationshipGraph({
                   if ((degree.get(node.reference) ?? 0) > 0) toggleNeighborhood(node.reference);
                 }}
               >
-                <b>{shortLabel(node.label, 30)}</b>
+                <b>{node.label}</b>
                 <span>{node.entity_type}</span>
               </button>
             ))}
@@ -1721,7 +1802,9 @@ function RelationshipGraph({
                   <circle r={degree.get(node.reference) ? 26 : 21}>
                     <title>{labels[node.reference] ?? node.label}</title>
                   </circle>
-                  <text className="node-label" textAnchor="middle" y="-2">{shortLabel(labels[node.reference] ?? node.label, 21)}</text>
+                  <foreignObject x="-76" y="-12" width="152" height={Math.max(48, Math.ceil((labels[node.reference] ?? node.label).length / 20) * 15 + 12)}>
+                    <div className="graph-full-label">{labels[node.reference] ?? node.label}</div>
+                  </foreignObject>
                   <text className="node-type" textAnchor="middle" y="11">{node.entity_type}</text>
                 </g>
               );
@@ -1733,7 +1816,7 @@ function RelationshipGraph({
       <div className="graph-legend">
         <span><i className="explicit" /> Stored relationship</span>
         <span><i className="property" /> Property pivot</span>
-        <span><i className="manual" /> Analyst assertion</span>
+        <span><i className="manual" /> Analyst assertion / promotion group</span>
         <span>Force layout is limited to 48 nodes; drag, pan, zoom, filtering, selection, and collapsed connections change presentation only. Double-click a node to collapse or expand its direct connections. Shift, Command, or Control selects more than one node.</span>
       </div>
       {manualEdges.length > 0 && (
@@ -1793,7 +1876,7 @@ function RelationshipGraph({
               : "ANNOTATED ANALYST RELATION"}
           </b>
           <span>
-            {shortLabel(selectedNodes[0].label, 32)} → {shortLabel(selectedNodes[1].label, 32)}
+            {selectedNodes[0].label} → {selectedNodes[1].label}
           </span>
           <label>
             <span>Relationship</span>
@@ -2013,7 +2096,10 @@ export function VisualizationWorkspace({
             ))}
           </select>
         </label>
-        <small>{intents.length} evidence views · Pivotglass recommends the first applicable view.</small>
+        <small>{intents.length} evidence views</small>
+        <nav className="visualization-shortcuts" aria-label="Investigation views">
+          {[["pivot-trail","PROVENANCE HISTORY"],["relationship-graph","RELATIONSHIP GRAPH"],["indicator-constellation","INDICATOR COVERAGE"]].map(([id,label])=>intents.some(intent=>intent.intent_id===id)&&<button key={id} aria-pressed={selectedId===id} onClick={()=>setSelectedId(id)}>{label}</button>)}
+        </nav>
       </div>
       <header className="visualization-header">
         <div>

@@ -2,32 +2,32 @@
 
 from datetime import UTC, datetime
 
-from adversary_pursuit.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
-from adversary_pursuit.agent.tools import ToolContext
-from adversary_pursuit.core.analytic_ledger import AnalyticLedger
-from adversary_pursuit.core.command_completion import command_completions
-from adversary_pursuit.core.config import ConfigManager
-from adversary_pursuit.core.graph_repository import WorkspaceGraphRepository
-from adversary_pursuit.core.integration_commands import execute_integration_command
-from adversary_pursuit.integrations.scot_execution import (
+from pivotglass.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
+from pivotglass.agent.tools import ToolContext
+from pivotglass.core.analytic_ledger import AnalyticLedger
+from pivotglass.core.command_completion import command_completions
+from pivotglass.core.config import ConfigManager
+from pivotglass.core.graph_repository import WorkspaceGraphRepository
+from pivotglass.core.integration_commands import execute_integration_command
+from pivotglass.integrations.scot_execution import (
     ScotPublicationJournal,
     ScotPublicationReceipt,
     approve_scot_publication,
     scot_confirmation,
 )
-from adversary_pursuit.integrations.scot_publication import (
+from pivotglass.integrations.scot_publication import (
     build_scot_publication_manifest,
     compile_scot_write_plan,
     validate_scot_pivot_request,
 )
-from adversary_pursuit.integrations.synapse_execution import SynapseShadowJournal
-from adversary_pursuit.integrations.synapse_graph import build_synapse_shadow_manifest
-from adversary_pursuit.integrations.synapse_migration import compile_synapse_migration_plan
-from adversary_pursuit.integrations.synapse_model_deployment import (
+from pivotglass.integrations.synapse_execution import SynapseShadowJournal
+from pivotglass.integrations.synapse_graph import build_synapse_shadow_manifest
+from pivotglass.integrations.synapse_migration import compile_synapse_migration_plan
+from pivotglass.integrations.synapse_model_deployment import (
     SynapseModelDeploymentJournal,
     compile_synapse_model_deployment_plan,
 )
-from adversary_pursuit.web.server import WebCockpitService
+from pivotglass.web.server import WebCockpitService
 
 
 def test_integration_status_is_local_masked_and_shared(tmp_path):

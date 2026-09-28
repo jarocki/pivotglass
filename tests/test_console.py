@@ -1,4 +1,4 @@
-"""Tests for APConsole — cmd2-based REPL.
+"""Tests for PivotglassConsole — cmd2-based REPL.
 
 Tests use onecmd_plus_hooks() with stdout redirection to capture output.
 Rich output is captured via a StringIO-backed Console object.
@@ -14,7 +14,7 @@ import io
 
 import pytest
 
-from adversary_pursuit.core.console import APConsole
+from pivotglass.core.console import PivotglassConsole
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -23,8 +23,8 @@ from adversary_pursuit.core.console import APConsole
 
 @pytest.fixture
 def console(tmp_path):
-    """Create an APConsole with temp dirs for isolated testing."""
-    app = APConsole(
+    """Create an PivotglassConsole with temp dirs for isolated testing."""
+    app = PivotglassConsole(
         config_dir=tmp_path / "config",
         workspace_dir=tmp_path / "workspaces",
     )
@@ -32,7 +32,7 @@ def console(tmp_path):
     return app
 
 
-def run_cmd(app: APConsole, cmd: str) -> str:
+def run_cmd(app: PivotglassConsole, cmd: str) -> str:
     """Run a command and return captured stdout.
 
     Rich output now flows to self.stdout (DEC-CONSOLE-001 fix), so all
@@ -95,14 +95,14 @@ def test_back_resets_prompt(console):
     """back returns to main prompt."""
     run_cmd(console, "use osint/whois_lookup")
     run_cmd(console, "back")
-    assert console.prompt == "ap> "
+    assert console.prompt == "pivotglass> "
     assert console._active_module is None
 
 
 def test_back_without_module_is_safe(console):
     """back without a loaded module does not crash."""
     run_cmd(console, "back")
-    assert "ap>" in console.prompt or console.prompt == "ap> "
+    assert "pivotglass>" in console.prompt or console.prompt == "pivotglass> "
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +222,7 @@ def test_full_workflow_two_modules(console):
     out1 = run_cmd(console, "run")
     run_cmd(console, "back")
 
-    assert console.prompt == "ap> "
+    assert console.prompt == "pivotglass> "
     assert console._active_module is None
 
     run_cmd(console, "use osint/whois_lookup")
@@ -261,7 +261,7 @@ def test_workspace_switch(console):
 def test_workspace_delete(console, monkeypatch):
     """workspace delete confirms and reports complete runtime-data removal."""
     run_cmd(console, "workspace create deleteme")
-    monkeypatch.setattr("adversary_pursuit.core.console._confirm", lambda prompt: True)
+    monkeypatch.setattr("pivotglass.core.console._confirm", lambda prompt: True)
     deleted = run_cmd(console, "workspace delete deleteme")
     out = run_cmd(console, "workspace list")
     assert "deleteme" not in out
@@ -273,7 +273,7 @@ def test_workspace_delete_cancel_preserves_workspace(console, monkeypatch):
     """The classic console uses the same safe confirmation posture."""
 
     run_cmd(console, "workspace create keepme")
-    monkeypatch.setattr("adversary_pursuit.core.console._confirm", lambda prompt: False)
+    monkeypatch.setattr("pivotglass.core.console._confirm", lambda prompt: False)
     deleted = run_cmd(console, "workspace delete keepme")
 
     assert "cancelled" in deleted.lower()
@@ -289,7 +289,7 @@ def test_workspace_delete_rejects_active_workspace(console, monkeypatch):
     def unexpected_confirmation(prompt):
         raise AssertionError(f"confirmation should not be requested: {prompt}")
 
-    monkeypatch.setattr("adversary_pursuit.core.console._confirm", unexpected_confirmation)
+    monkeypatch.setattr("pivotglass.core.console._confirm", unexpected_confirmation)
     deleted = run_cmd(console, "workspace delete active-delete")
 
     assert "switch away" in deleted.lower()
@@ -380,7 +380,7 @@ class _RaisingModule:
         raise self._exc
 
 
-def _inject_module(console: APConsole, exc: BaseException) -> str:
+def _inject_module(console: PivotglassConsole, exc: BaseException) -> str:
     """Register a raising module directly in the plugin manager, load, and run it.
 
     PluginManager._modules stores *classes* (callables returning instances).
@@ -413,7 +413,7 @@ class TestConsoleErrorInterpreter:
 
     def test_module_error_produces_friendly_panel_no_traceback(self, console):
         """ModuleError from hunt() → friendly panel, no 'Traceback (most recent call last):'."""
-        from adversary_pursuit.modules.base import ModuleError
+        from pivotglass.modules.base import ModuleError
 
         exc = ModuleError("API key missing")
         out = _inject_module(console, exc)
@@ -438,14 +438,14 @@ class TestConsoleErrorInterpreter:
 
     def test_authentication_error_produces_api_key_suggestion(self, console):
         """AuthenticationError from hunt() → friendly panel with API key fix hint."""
-        from adversary_pursuit.modules.base import AuthenticationError
+        from pivotglass.modules.base import AuthenticationError
 
-        exc = AuthenticationError("AP_SHODAN_API_KEY not configured")
+        exc = AuthenticationError("PIVOTGLASS_SHODAN_API_KEY not configured")
         out = _inject_module(console, exc)
 
         assert "Traceback (most recent call last):" not in out
         # The interpreter should classify this as API key category
-        assert "API key" in out or "config setup" in out or "AP_" in out
+        assert "API key" in out or "config setup" in out or "PIVOTGLASS_" in out
 
     def test_file_not_found_goes_through_pexcept_hook(self, console):
         """FileNotFoundError via pexcept hook → friendly panel, no traceback.
@@ -465,7 +465,7 @@ class TestConsoleErrorInterpreter:
         assert re.search(r"[a-f0-9]{8}", out), "Expected diagnostic ID from pexcept"
 
     def test_pexcept_hook_produces_friendly_panel(self, console):
-        """APConsole.pexcept() renders a friendly panel for any exception."""
+        """PivotglassConsole.pexcept() renders a friendly panel for any exception."""
         exc = ValueError("totally unexpected state")
         console.stdout = io.StringIO()
         console.rich_console = console._make_rich_console()
@@ -477,7 +477,7 @@ class TestConsoleErrorInterpreter:
 
     def test_rate_limit_error_shows_wait_suggestion(self, console):
         """RateLimitError → friendly panel with rate-limit suggestion."""
-        from adversary_pursuit.modules.base import RateLimitError
+        from pivotglass.modules.base import RateLimitError
 
         exc = RateLimitError("Too many requests", retry_after=30)
         out = _inject_module(console, exc)
@@ -507,7 +507,7 @@ class TestF63MilestoneCatchupIntegration:
 
     @pytest.fixture
     def console(self, tmp_path):
-        app = APConsole(
+        app = PivotglassConsole(
             config_dir=tmp_path / "config",
             workspace_dir=tmp_path / "workspaces",
             streak_path=tmp_path / "streak.json",
@@ -590,8 +590,8 @@ class TestF63MilestoneCatchupIntegration:
         assert last_id is None or last_id >= 1
 
     def test_milestone_sentinel_persists_across_console_instances(self, tmp_path):
-        """Milestone sentinel survives a new APConsole pointing at the same workspace."""
-        console1 = APConsole(
+        """Milestone sentinel survives a new PivotglassConsole pointing at the same workspace."""
+        console1 = PivotglassConsole(
             config_dir=tmp_path / "config",
             workspace_dir=tmp_path / "workspaces",
             streak_path=tmp_path / "streak.json",
@@ -600,7 +600,7 @@ class TestF63MilestoneCatchupIntegration:
         console1.workspace_mgr.set_last_milestone_id(2)
 
         # New console pointing at same workspace dir
-        console2 = APConsole(
+        console2 = PivotglassConsole(
             config_dir=tmp_path / "config",
             workspace_dir=tmp_path / "workspaces",
             streak_path=tmp_path / "streak2.json",
@@ -620,7 +620,7 @@ class TestF63StreakContinuedIntegration:
 
     @pytest.fixture
     def console(self, tmp_path):
-        app = APConsole(
+        app = PivotglassConsole(
             config_dir=tmp_path / "config",
             workspace_dir=tmp_path / "workspaces",
             streak_path=tmp_path / "streak.json",
@@ -674,7 +674,7 @@ class TestF63StreakContinuedIntegration:
 
         All internal component boundaries are real (no mocks).
         """
-        app = APConsole(
+        app = PivotglassConsole(
             config_dir=tmp_path / "config",
             workspace_dir=tmp_path / "workspaces",
             streak_path=tmp_path / "streak.json",
@@ -717,16 +717,16 @@ class TestConsoleWorkspaceClear:
     """Tests for the cmd2 ``workspace clear`` subcommand (Phase 17P).
 
     The cmd2 surface prompts the user for confirmation (DEC-WORKSPACE-DB-006).
-    Tests mock ``adversary_pursuit.core.console._confirm`` to control the gate.
+    Tests mock ``pivotglass.core.console._confirm`` to control the gate.
     """
 
     def test_do_workspace_clear_no_arg_prompts_and_clears_active(self, tmp_path, monkeypatch):
         """workspace clear with no name prompts and clears the active workspace."""
         import io
 
-        from adversary_pursuit.core.console import APConsole
+        from pivotglass.core.console import PivotglassConsole
 
-        app = APConsole(
+        app = PivotglassConsole(
             config_dir=tmp_path / "config",
             workspace_dir=tmp_path / "workspaces",
         )
@@ -742,7 +742,7 @@ class TestConsoleWorkspaceClear:
         )
 
         # Monkeypatch _confirm to return True (user said yes)
-        monkeypatch.setattr("adversary_pursuit.core.console._confirm", lambda prompt: True)
+        monkeypatch.setattr("pivotglass.core.console._confirm", lambda prompt: True)
 
         app.stdout = io.StringIO()
         app.rich_console = app._make_rich_console()
@@ -756,9 +756,9 @@ class TestConsoleWorkspaceClear:
         """workspace clear <name> prompts and clears the named workspace."""
         import io
 
-        from adversary_pursuit.core.console import APConsole
+        from pivotglass.core.console import PivotglassConsole
 
-        app = APConsole(
+        app = PivotglassConsole(
             config_dir=tmp_path / "config",
             workspace_dir=tmp_path / "workspaces",
         )
@@ -775,7 +775,7 @@ class TestConsoleWorkspaceClear:
         )
         app.workspace_mgr.switch("keep")
 
-        monkeypatch.setattr("adversary_pursuit.core.console._confirm", lambda prompt: True)
+        monkeypatch.setattr("pivotglass.core.console._confirm", lambda prompt: True)
 
         app.stdout = io.StringIO()
         app.rich_console = app._make_rich_console()
@@ -791,9 +791,9 @@ class TestConsoleWorkspaceClear:
         """workspace clear with user confirmation=No leaves data intact."""
         import io
 
-        from adversary_pursuit.core.console import APConsole
+        from pivotglass.core.console import PivotglassConsole
 
-        app = APConsole(
+        app = PivotglassConsole(
             config_dir=tmp_path / "config",
             workspace_dir=tmp_path / "workspaces",
         )
@@ -806,7 +806,7 @@ class TestConsoleWorkspaceClear:
         )
 
         # User says no
-        monkeypatch.setattr("adversary_pursuit.core.console._confirm", lambda prompt: False)
+        monkeypatch.setattr("pivotglass.core.console._confirm", lambda prompt: False)
 
         app.stdout = io.StringIO()
         app.rich_console = app._make_rich_console()
@@ -833,9 +833,9 @@ class TestConsoleDbStatusEnhanced:
     def _make_app(self, tmp_path):
         import io
 
-        from adversary_pursuit.core.console import APConsole
+        from pivotglass.core.console import PivotglassConsole
 
-        app = APConsole(
+        app = PivotglassConsole(
             config_dir=tmp_path / "config",
             workspace_dir=tmp_path / "workspaces",
         )

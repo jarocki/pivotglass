@@ -2,7 +2,7 @@
 
 Verifies TuiApplication.__init__ succeeds when workspace_mgr.active raises
 RuntimeError (cold-start, no workspace switched yet) — the previous behavior
-crashed adversary_pursuit chat before the TUI could open.
+crashed pivotglass chat before the TUI could open.
 
 @decision DEC-TUI-COLD-START-HARDENING-001
 @title TuiApplication.__init__ tolerates workspace_mgr.active raising on cold start
@@ -18,8 +18,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch  # @mock-exempt: sys.stdin.isatty is OS/TTY boundary
 
-from adversary_pursuit.agent.tui.application import TuiApplication
-from adversary_pursuit.agent.tui.events import EventBus
+from pivotglass.agent.tui.application import TuiApplication
+from pivotglass.agent.tui.events import EventBus
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -134,7 +134,7 @@ def test_tui_application_cold_start_header_renders_correctly():
     confirming the full pipeline works end-to-end, not just that the attribute
     was set.
     """
-    from adversary_pursuit.agent.tui.themes import theme_for
+    from pivotglass.agent.tui.themes import theme_for
 
     with (
         patch("sys.stdin.isatty", return_value=True),

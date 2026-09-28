@@ -19,7 +19,7 @@ to its target branch.
 The following surfaces must agree:
 
 - `pyproject.toml`;
-- `src/adversary_pursuit/__init__.py`;
+- `src/pivotglass/__init__.py`;
 - `uv.lock`;
 - `web/package.json` and the root package entry in `web/package-lock.json`;
 - the current-release statement and examples in `README.md` and the Quick Start;

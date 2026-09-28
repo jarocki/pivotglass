@@ -34,7 +34,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from adversary_pursuit.agent.provider_setup import (
+from pivotglass.agent.provider_setup import (
     CTI_SERVICES,
     PROVIDER_BY_ID,
     PROVIDERS,
@@ -52,28 +52,28 @@ from adversary_pursuit.agent.provider_setup import (
     mask_secret,
     run_cti_credentials_wizard,
 )
-from adversary_pursuit.core.config import ConfigManager
+from pivotglass.core.config import ConfigManager
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 _CREDENTIAL_ENV_VARS = {
-    "AP_SHODAN_API_KEY", "SHODAN_API_KEY",
-    "AP_VIRUSTOTAL_API_KEY", "AP_VT_API_KEY", "VIRUSTOTAL_API_KEY", "VT_API_KEY",
-    "AP_CENSYS_ID", "AP_CENSYS_SECRET", "AP_CENSYS_PAT",
+    "PIVOTGLASS_SHODAN_API_KEY", "SHODAN_API_KEY",
+    "PIVOTGLASS_VIRUSTOTAL_API_KEY", "PIVOTGLASS_VT_API_KEY", "VIRUSTOTAL_API_KEY", "VT_API_KEY",
+    "PIVOTGLASS_CENSYS_ID", "PIVOTGLASS_CENSYS_SECRET", "PIVOTGLASS_CENSYS_PAT",
     "CENSYS_API_ID", "CENSYS_API_SECRET", "CENSYS_PAT",
-    "AP_URLSCAN_API_KEY", "URLSCAN_API_KEY",
-    "AP_ABUSEIPDB_API_KEY", "ABUSEIPDB_API_KEY",
-    "AP_GREYNOISE_API_KEY", "GREYNOISE_API_KEY",
-    "AP_HIBP_API_KEY", "HIBP_API_KEY",
-    "AP_OTX_API_KEY", "OTX_API_KEY",
-    "AP_PASSIVETOTAL_USER", "AP_PASSIVETOTAL_KEY", "AP_PT_USER", "AP_PT_API_KEY",
+    "PIVOTGLASS_URLSCAN_API_KEY", "URLSCAN_API_KEY",
+    "PIVOTGLASS_ABUSEIPDB_API_KEY", "ABUSEIPDB_API_KEY",
+    "PIVOTGLASS_GREYNOISE_API_KEY", "GREYNOISE_API_KEY",
+    "PIVOTGLASS_HIBP_API_KEY", "HIBP_API_KEY",
+    "PIVOTGLASS_OTX_API_KEY", "OTX_API_KEY",
+    "PIVOTGLASS_PASSIVETOTAL_USER", "PIVOTGLASS_PASSIVETOTAL_KEY", "PIVOTGLASS_PT_USER", "PIVOTGLASS_PT_API_KEY",
     "PT_USERNAME", "PT_API_KEY",
-    "AP_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY",
-    "AP_OPENAI_API_KEY", "OPENAI_API_KEY",
-    "AP_OPENROUTER_API_KEY", "OPENROUTER_API_KEY",
-    "AP_GOOGLE_API_KEY", "GOOGLE_API_KEY",
+    "PIVOTGLASS_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY",
+    "PIVOTGLASS_OPENAI_API_KEY", "OPENAI_API_KEY",
+    "PIVOTGLASS_OPENROUTER_API_KEY", "OPENROUTER_API_KEY",
+    "PIVOTGLASS_GOOGLE_API_KEY", "GOOGLE_API_KEY",
 }
 
 
@@ -85,7 +85,7 @@ def _isolate_real_credentials(monkeypatch):
 
 
 def make_config_mgr(tmp_path: Path) -> ConfigManager:
-    """Return a ConfigManager wired to a temp directory (no real ~/.ap touch)."""
+    """Return a ConfigManager wired to a temp directory (no real ~/.pivotglass touch)."""
     return ConfigManager(config_dir=tmp_path)
 
 
@@ -389,7 +389,7 @@ class TestWizardFlow:
             Only injected as an input when the provider has an API key
             (Ollama skips the save-destination prompt entirely).
         """
-        from adversary_pursuit.agent.provider_setup import run_provider_wizard
+        from pivotglass.agent.provider_setup import run_provider_wizard
 
         config_mgr = make_config_mgr(tmp_path)
 
@@ -410,13 +410,13 @@ class TestWizardFlow:
         with (
             patch("httpx.get", return_value=_mock_response(http_status, http_json)),
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=inputs,
             ),
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.status",
+                "pivotglass.agent.provider_setup.Console.status",
             ) as mock_status,
-            patch("adversary_pursuit.agent.provider_setup.Console.print"),
+            patch("pivotglass.agent.provider_setup.Console.print"),
         ):
             # Make status() usable as a context manager
             mock_status.return_value.__enter__ = MagicMock(return_value=None)
@@ -454,7 +454,7 @@ class TestWizardFlow:
 
     def test_wizard_ollama_skips_api_key(self, tmp_path):
         """Ollama wizard flow: no API key prompt (ollama = provider 5)."""
-        from adversary_pursuit.agent.provider_setup import run_provider_wizard
+        from pivotglass.agent.provider_setup import run_provider_wizard
 
         config_mgr = make_config_mgr(tmp_path)
         ollama_response = {"models": [{"name": "qwen2.5:8b"}, {"name": "llama3.2:3b"}]}
@@ -465,11 +465,11 @@ class TestWizardFlow:
         with (
             patch("httpx.get", return_value=_mock_response(200, ollama_response)),
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=input_side_effects,
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.status") as mock_status,
-            patch("adversary_pursuit.agent.provider_setup.Console.print"),
+            patch("pivotglass.agent.provider_setup.Console.status") as mock_status,
+            patch("pivotglass.agent.provider_setup.Console.print"),
         ):
             mock_status.return_value.__enter__ = MagicMock(return_value=None)
             mock_status.return_value.__exit__ = MagicMock(return_value=False)
@@ -482,7 +482,7 @@ class TestWizardFlow:
 
     def test_wizard_google_stores_key_and_prefixes_model(self, tmp_path):
         """Google wizard: key stored, model string prefixed with 'gemini/'."""
-        from adversary_pursuit.agent.provider_setup import run_provider_wizard
+        from pivotglass.agent.provider_setup import run_provider_wizard
 
         config_mgr = make_config_mgr(tmp_path)
         google_response = {
@@ -499,11 +499,11 @@ class TestWizardFlow:
         with (
             patch("httpx.get", return_value=_mock_response(200, google_response)),
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=input_side_effects,
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.status") as mock_status,
-            patch("adversary_pursuit.agent.provider_setup.Console.print"),
+            patch("pivotglass.agent.provider_setup.Console.status") as mock_status,
+            patch("pivotglass.agent.provider_setup.Console.print"),
         ):
             mock_status.return_value.__enter__ = MagicMock(return_value=None)
             mock_status.return_value.__exit__ = MagicMock(return_value=False)
@@ -515,18 +515,18 @@ class TestWizardFlow:
 
     def test_wizard_aborts_on_auth_error(self, tmp_path):
         """Wizard calls SystemExit when provider returns 401."""
-        from adversary_pursuit.agent.provider_setup import run_provider_wizard
+        from pivotglass.agent.provider_setup import run_provider_wizard
 
         config_mgr = make_config_mgr(tmp_path)
 
         with (
             patch("httpx.get", return_value=_mock_response(401, {"error": "bad key"})),
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=["1", "bad-key"],
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.status") as mock_status,
-            patch("adversary_pursuit.agent.provider_setup.Console.print"),
+            patch("pivotglass.agent.provider_setup.Console.status") as mock_status,
+            patch("pivotglass.agent.provider_setup.Console.print"),
         ):
             mock_status.return_value.__enter__ = MagicMock(return_value=None)
             mock_status.return_value.__exit__ = MagicMock(return_value=False)
@@ -535,18 +535,18 @@ class TestWizardFlow:
 
     def test_wizard_aborts_on_empty_model_list(self, tmp_path):
         """Wizard calls SystemExit when provider returns empty model list."""
-        from adversary_pursuit.agent.provider_setup import run_provider_wizard
+        from pivotglass.agent.provider_setup import run_provider_wizard
 
         config_mgr = make_config_mgr(tmp_path)
 
         with (
             patch("httpx.get", return_value=_mock_response(200, {"data": []})),
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=["1", "sk-ant-test"],
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.status") as mock_status,
-            patch("adversary_pursuit.agent.provider_setup.Console.print"),
+            patch("pivotglass.agent.provider_setup.Console.status") as mock_status,
+            patch("pivotglass.agent.provider_setup.Console.print"),
         ):
             mock_status.return_value.__enter__ = MagicMock(return_value=None)
             mock_status.return_value.__exit__ = MagicMock(return_value=False)
@@ -637,9 +637,9 @@ class TestDotfileExport:
         _write_rc_with_marker(rc, ['export ANTHROPIC_API_KEY="sk-test"'])
 
         content = rc.read_text(encoding="utf-8")
-        assert "# >>> ap chat wizard exports" in content
+        assert "# >>> pivotglass chat wizard exports" in content
         assert 'export ANTHROPIC_API_KEY="sk-test"' in content
-        assert "# <<< ap chat wizard exports" in content
+        assert "# <<< pivotglass chat wizard exports" in content
 
     def test_write_rc_with_marker_appends_after_existing_content(self, tmp_path):
         """Existing rc lines are preserved above the marker block."""
@@ -654,7 +654,7 @@ class TestDotfileExport:
         # New block present
         assert 'export OPENAI_API_KEY="sk-openai"' in content
         # Existing content appears before the marker
-        assert content.index("export PATH") < content.index("# >>> ap chat wizard exports")
+        assert content.index("export PATH") < content.index("# >>> pivotglass chat wizard exports")
 
     def test_write_rc_with_marker_idempotent_same_key(self, tmp_path):
         """Running twice with the same key produces exactly one marker block."""
@@ -666,8 +666,8 @@ class TestDotfileExport:
         _write_rc_with_marker(rc, export)
 
         content = rc.read_text(encoding="utf-8")
-        assert content.count("# >>> ap chat wizard exports") == 1
-        assert content.count("# <<< ap chat wizard exports") == 1
+        assert content.count("# >>> pivotglass chat wizard exports") == 1
+        assert content.count("# <<< pivotglass chat wizard exports") == 1
 
     def test_write_rc_with_marker_replaces_existing_block(self, tmp_path):
         """Re-running with a new key replaces the old block; no duplication."""
@@ -679,7 +679,7 @@ class TestDotfileExport:
 
         content = rc.read_text(encoding="utf-8")
         # Exactly one marker block
-        assert content.count("# >>> ap chat wizard exports") == 1
+        assert content.count("# >>> pivotglass chat wizard exports") == 1
         # Only the new key is present
         assert 'sk-ant-new"' in content
         assert "sk-ant-old" not in content
@@ -736,24 +736,24 @@ class TestDotfileExport:
         httpx.get are patched as external boundaries.
         # @mock-exempt: httpx.get is external HTTP; Console wraps terminal I/O
         """
-        from adversary_pursuit.agent.provider_setup import run_provider_wizard
+        from pivotglass.agent.provider_setup import run_provider_wizard
 
         config_mgr = make_config_mgr(tmp_path)
 
         with (
             patch("httpx.get", return_value=_mock_response(200, http_json)),
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=inputs,
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.status") as mock_status,
-            patch("adversary_pursuit.agent.provider_setup.Console.print"),
+            patch("pivotglass.agent.provider_setup.Console.status") as mock_status,
+            patch("pivotglass.agent.provider_setup.Console.print"),
         ):
             mock_status.return_value.__enter__ = MagicMock(return_value=None)
             mock_status.return_value.__exit__ = MagicMock(return_value=False)
             if rc_path is not None:
                 with patch(
-                    "adversary_pursuit.agent.provider_setup._detect_shell_rc",
+                    "pivotglass.agent.provider_setup._detect_shell_rc",
                     return_value=rc_path,
                 ):
                     result = run_provider_wizard(config_mgr)
@@ -791,7 +791,7 @@ class TestDotfileExport:
 
         assert config_mgr.get_provider_api_key("anthropic") == "sk-ant-key"
         rc_content = rc.read_text(encoding="utf-8")
-        assert "# >>> ap chat wizard exports" in rc_content
+        assert "# >>> pivotglass chat wizard exports" in rc_content
         assert 'export ANTHROPIC_API_KEY="sk-ant-key"' in rc_content
         assert "# existing zshrc" in rc_content
 
@@ -805,7 +805,7 @@ class TestDotfileExport:
             self._run_wizard(tmp_path, inputs, self._ANTHROPIC_RESPONSE, rc_path=rc)
 
         content = rc.read_text(encoding="utf-8")
-        assert content.count("# >>> ap chat wizard exports") == 1
+        assert content.count("# >>> pivotglass chat wizard exports") == 1
         assert "sk-ant-first" not in content
         assert 'sk-ant-second"' in content
 
@@ -822,22 +822,22 @@ class TestDotfileExport:
         # @mock-exempt: httpx.get/Console are external I/O boundaries
         # provider=1(anthropic), key, model=1, save=3
         inputs = ["1", "sk-ant-stdout", "1", "3", "n"]
-        from adversary_pursuit.agent.provider_setup import run_provider_wizard
+        from pivotglass.agent.provider_setup import run_provider_wizard
 
         config_mgr = make_config_mgr(tmp_path)
         with (
             patch("httpx.get", return_value=_mock_response(200, self._ANTHROPIC_RESPONSE)),
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=inputs,
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.status") as mock_status,
+            patch("pivotglass.agent.provider_setup.Console.status") as mock_status,
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.print",
+                "pivotglass.agent.provider_setup.Console.print",
                 side_effect=capture_print,
             ),
             patch(
-                "adversary_pursuit.agent.provider_setup._detect_shell_rc",
+                "pivotglass.agent.provider_setup._detect_shell_rc",
                 return_value=rc,
             ),
         ):
@@ -869,18 +869,18 @@ class TestDotfileExport:
         # @mock-exempt: httpx.get/Console are external I/O boundaries
         # provider=1(anthropic), key, model=1, save=2 (rc requested but shell unknown)
         inputs = ["1", "sk-ant-csh", "1", "2", "n"]
-        from adversary_pursuit.agent.provider_setup import run_provider_wizard
+        from pivotglass.agent.provider_setup import run_provider_wizard
 
         config_mgr = make_config_mgr(tmp_path)
         with (
             patch("httpx.get", return_value=_mock_response(200, self._ANTHROPIC_RESPONSE)),
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=inputs,
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.status") as mock_status,
+            patch("pivotglass.agent.provider_setup.Console.status") as mock_status,
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.print",
+                "pivotglass.agent.provider_setup.Console.print",
                 side_effect=capture_print,
             ),
         ):
@@ -931,48 +931,48 @@ class TestProviderConfigRoundTrip:
         assert mode == 0o600
 
     def test_runner_picks_up_config_model(self, tmp_path, monkeypatch):
-        """AgentRunner uses config model when AP_MODEL env var is not set."""
-        monkeypatch.delenv("AP_MODEL", raising=False)
+        """AgentRunner uses config model when PIVOTGLASS_MODEL env var is not set."""
+        monkeypatch.delenv("PIVOTGLASS_MODEL", raising=False)
 
         config_mgr = make_config_mgr(tmp_path)
         config_mgr.set_agent_selection("openai", "gpt-4o")
 
         # Import here to avoid circular at module level in test collection
-        from adversary_pursuit.agent.runner import AgentRunner
+        from pivotglass.agent.runner import AgentRunner
 
         runner = AgentRunner(config_mgr=config_mgr)
         assert runner.model == "gpt-4o"
 
-    def test_ap_model_env_overrides_config(self, tmp_path, monkeypatch):
-        """AP_MODEL env var takes precedence over config.toml selection."""
-        monkeypatch.setenv("AP_MODEL", "anthropic/claude-override")
+    def test_pivotglass_model_env_overrides_config(self, tmp_path, monkeypatch):
+        """PIVOTGLASS_MODEL env var takes precedence over config.toml selection."""
+        monkeypatch.setenv("PIVOTGLASS_MODEL", "anthropic/claude-override")
 
         config_mgr = make_config_mgr(tmp_path)
         config_mgr.set_agent_selection("openai", "gpt-4o")
 
-        from adversary_pursuit.agent.runner import AgentRunner
+        from pivotglass.agent.runner import AgentRunner
 
         runner = AgentRunner(config_mgr=config_mgr)
         assert runner.model == "anthropic/claude-override"
 
     def test_explicit_model_arg_overrides_all(self, tmp_path, monkeypatch):
-        """Explicit model= arg beats AP_MODEL env and config."""
-        monkeypatch.setenv("AP_MODEL", "from-env-model")
+        """Explicit model= arg beats PIVOTGLASS_MODEL env and config."""
+        monkeypatch.setenv("PIVOTGLASS_MODEL", "from-env-model")
 
         config_mgr = make_config_mgr(tmp_path)
         config_mgr.set_agent_selection("openai", "gpt-4o")
 
-        from adversary_pursuit.agent.runner import AgentRunner
+        from pivotglass.agent.runner import AgentRunner
 
         runner = AgentRunner(model="explicit-model", config_mgr=config_mgr)
         assert runner.model == "explicit-model"
 
     def test_default_model_when_nothing_configured(self, tmp_path, monkeypatch):
-        """DEFAULT_MODEL is used when AP_MODEL unset and config has no model."""
-        monkeypatch.delenv("AP_MODEL", raising=False)
+        """DEFAULT_MODEL is used when PIVOTGLASS_MODEL unset and config has no model."""
+        monkeypatch.delenv("PIVOTGLASS_MODEL", raising=False)
         config_mgr = make_config_mgr(tmp_path)
 
-        from adversary_pursuit.agent.runner import AgentRunner
+        from pivotglass.agent.runner import AgentRunner
 
         runner = AgentRunner(config_mgr=config_mgr)
         assert runner.model == AgentRunner.DEFAULT_MODEL
@@ -1245,7 +1245,7 @@ class TestCTIExportHelpers:
         rc.write_text("# existing\n", encoding="utf-8")
         _write_cti_rc_with_marker(rc, ['export SHODAN_API_KEY="test"'])
         content = rc.read_text(encoding="utf-8")
-        assert "# >>> ap cti wizard exports" in content
+        assert "# >>> pivotglass cti wizard exports" in content
         assert 'export SHODAN_API_KEY="test"' in content
         assert "# existing" in content
 
@@ -1255,7 +1255,7 @@ class TestCTIExportHelpers:
         _write_cti_rc_with_marker(rc, ['export SHODAN_API_KEY="v1"'])
         _write_cti_rc_with_marker(rc, ['export SHODAN_API_KEY="v2"'])
         content = rc.read_text(encoding="utf-8")
-        assert content.count("# >>> ap cti wizard exports") == 1
+        assert content.count("# >>> pivotglass cti wizard exports") == 1
         assert "v1" not in content
         assert "v2" in content
 
@@ -1266,8 +1266,8 @@ class TestCTIExportHelpers:
         _write_rc_with_marker(rc, ['export ANTHROPIC_API_KEY="ant-key"'])
         _write_cti_rc_with_marker(rc, ['export SHODAN_API_KEY="shdn-key"'])
         content = rc.read_text(encoding="utf-8")
-        assert content.count("# >>> ap chat wizard exports") == 1
-        assert content.count("# >>> ap cti wizard exports") == 1
+        assert content.count("# >>> pivotglass chat wizard exports") == 1
+        assert content.count("# >>> pivotglass cti wizard exports") == 1
         assert "ANTHROPIC_API_KEY" in content
         assert "SHODAN_API_KEY" in content
 
@@ -1295,11 +1295,11 @@ class TestRunCTICredentialsWizard:
         inputs = ["n"] * 9
         with (
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=inputs,
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.print"),
-            patch("adversary_pursuit.agent.provider_setup._validate_cti_key"),
+            patch("pivotglass.agent.provider_setup.Console.print"),
+            patch("pivotglass.agent.provider_setup._validate_cti_key"),
         ):
             result = run_cti_credentials_wizard(config_mgr)
         assert all(v is False for v in result.values())
@@ -1310,10 +1310,10 @@ class TestRunCTICredentialsWizard:
         inputs = ["s"] * 9
         with (
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=inputs,
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.print"),
+            patch("pivotglass.agent.provider_setup.Console.print"),
         ):
             result = run_cti_credentials_wizard(config_mgr)
         assert all(v is False for v in result.values())
@@ -1326,12 +1326,12 @@ class TestRunCTICredentialsWizard:
         inputs = ["y", "shdn-test"] + ["n"] * 8 + ["1"]  # save dest = 1
         with (
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=inputs,
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.print"),
+            patch("pivotglass.agent.provider_setup.Console.print"),
             patch(
-                "adversary_pursuit.agent.provider_setup.httpx.get",
+                "pivotglass.agent.provider_setup.httpx.get",
                 return_value=_mock_httpx_response(200),
             ),
         ):
@@ -1355,11 +1355,11 @@ class TestRunCTICredentialsWizard:
         inputs = ["k"] + ["n"] * 8
         with (
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=inputs,
             ),
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.print",
+                "pivotglass.agent.provider_setup.Console.print",
                 side_effect=capture_print,
             ),
         ):
@@ -1378,10 +1378,10 @@ class TestRunCTICredentialsWizard:
         inputs = ["k"] + ["n"] * 8
         with (
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=inputs,
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.print"),
+            patch("pivotglass.agent.provider_setup.Console.print"),
         ):
             result = run_cti_credentials_wizard(config_mgr)
         assert config_mgr.get_api_key("shodan") == "existing-shodan-key"
@@ -1396,12 +1396,12 @@ class TestRunCTICredentialsWizard:
         inputs = ["y", "bad-key", "y"] + ["n"] * 8 + ["1"]
         with (
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=inputs,
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.print"),
+            patch("pivotglass.agent.provider_setup.Console.print"),
             patch(
-                "adversary_pursuit.agent.provider_setup.httpx.get",
+                "pivotglass.agent.provider_setup.httpx.get",
                 return_value=_mock_httpx_response(401),
             ),
         ):
@@ -1415,12 +1415,12 @@ class TestRunCTICredentialsWizard:
         inputs = ["y", "bad-key", "n"] + ["n"] * 8
         with (
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=inputs,
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.print"),
+            patch("pivotglass.agent.provider_setup.Console.print"),
             patch(
-                "adversary_pursuit.agent.provider_setup.httpx.get",
+                "pivotglass.agent.provider_setup.httpx.get",
                 return_value=_mock_httpx_response(401),
             ),
         ):
@@ -1436,12 +1436,12 @@ class TestRunCTICredentialsWizard:
         inputs = ["n"] * 8 + ["y", "user@example.com", "pt-api-key"] + ["1"]
         with (
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=inputs,
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.print"),
+            patch("pivotglass.agent.provider_setup.Console.print"),
             patch(
-                "adversary_pursuit.agent.provider_setup.httpx.get",
+                "pivotglass.agent.provider_setup.httpx.get",
                 return_value=_mock_httpx_response(200),
             ),
         ):
@@ -1456,12 +1456,12 @@ class TestRunCTICredentialsWizard:
         inputs = ["n"] * 8 + ["y", "user@example.com", "pt-api-key"] + ["1"]
         with (
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=inputs,
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.print"),
+            patch("pivotglass.agent.provider_setup.Console.print"),
             patch(
-                "adversary_pursuit.agent.provider_setup.httpx.get",
+                "pivotglass.agent.provider_setup.httpx.get",
                 return_value=_mock_httpx_response(200),
             ) as mock_get,
         ):
@@ -1491,7 +1491,7 @@ class TestWizardFlowWithCTI:
           LLM provider selection → key validation → model selection → config save
           → CTI offer → Shodan configure → validation → CTI save
         """
-        from adversary_pursuit.agent.provider_setup import run_provider_wizard
+        from pivotglass.agent.provider_setup import run_provider_wizard
 
         config_mgr = make_config_mgr(tmp_path)
 
@@ -1511,15 +1511,15 @@ class TestWizardFlowWithCTI:
 
         with (
             patch(
-                "adversary_pursuit.agent.provider_setup.httpx.get",
+                "pivotglass.agent.provider_setup.httpx.get",
                 side_effect=http_responses,
             ),
             patch(
-                "adversary_pursuit.agent.provider_setup.Console.input",
+                "pivotglass.agent.provider_setup.Console.input",
                 side_effect=inputs,
             ),
-            patch("adversary_pursuit.agent.provider_setup.Console.status") as mock_status,
-            patch("adversary_pursuit.agent.provider_setup.Console.print"),
+            patch("pivotglass.agent.provider_setup.Console.status") as mock_status,
+            patch("pivotglass.agent.provider_setup.Console.print"),
         ):
             mock_status.return_value.__enter__ = MagicMock(return_value=None)
             mock_status.return_value.__exit__ = MagicMock(return_value=False)

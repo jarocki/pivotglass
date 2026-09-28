@@ -33,8 +33,8 @@ import io
 
 import pytest
 
-from adversary_pursuit.core.console import APConsole
-from adversary_pursuit.gamification.celebrations import (
+from pivotglass.core.console import PivotglassConsole
+from pivotglass.gamification.celebrations import (
     CelebrationEngine,
     MilestoneSpec,
     highest_crossed_milestone_id,
@@ -59,8 +59,8 @@ def bell_engine():
 
 @pytest.fixture
 def console(tmp_path):
-    """APConsole with isolated temp dirs."""
-    app = APConsole(
+    """PivotglassConsole with isolated temp dirs."""
+    app = PivotglassConsole(
         config_dir=tmp_path / "config",
         workspace_dir=tmp_path / "workspaces",
     )
@@ -68,7 +68,7 @@ def console(tmp_path):
     return app
 
 
-def run_cmd(app: APConsole, cmd: str) -> str:
+def run_cmd(app: PivotglassConsole, cmd: str) -> str:
     """Run a console command and return combined poutput + Rich output."""
     app.stdout = io.StringIO()
     app.rich_console = app._make_rich_console()
@@ -100,7 +100,7 @@ class TestCelebrateLevel:
 
     def test_small_celebration_returns_art_from_small_pool(self, engine):
         """All small-level calls return art from the small pool (F62: random.choice fix)."""
-        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
+        from pivotglass.gamification.celebrations import CELEBRATION_ART
 
         a = engine.celebrate(10)
         b = engine.celebrate(30)
@@ -118,14 +118,14 @@ class TestCelebrateLevel:
 
     def test_medium_celebration_at_199_points(self, engine):
         """199 points — just below large threshold — returns medium art."""
-        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
+        from pivotglass.gamification.celebrations import CELEBRATION_ART
 
         result = engine.celebrate(199)
         assert result in CELEBRATION_ART["medium"]
 
     def test_medium_celebration_returns_art_from_medium_pool(self, engine):
         """All medium-level calls return art from the medium pool (F62: random.choice fix)."""
-        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
+        from pivotglass.gamification.celebrations import CELEBRATION_ART
 
         a = engine.celebrate(50)
         b = engine.celebrate(150)
@@ -142,14 +142,14 @@ class TestCelebrateLevel:
 
     def test_large_celebration_at_499_points(self, engine):
         """499 points — just below epic threshold — returns large art."""
-        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
+        from pivotglass.gamification.celebrations import CELEBRATION_ART
 
         result = engine.celebrate(499)
         assert result in CELEBRATION_ART["large"]
 
     def test_large_celebration_returns_art_from_large_pool(self, engine):
         """All large-level calls return art from the large pool (F62: random.choice fix)."""
-        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
+        from pivotglass.gamification.celebrations import CELEBRATION_ART
 
         a = engine.celebrate(200)
         b = engine.celebrate(400)
@@ -166,14 +166,14 @@ class TestCelebrateLevel:
 
     def test_epic_celebration_at_high_points(self, engine):
         """Very high points still returns epic art."""
-        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
+        from pivotglass.gamification.celebrations import CELEBRATION_ART
 
         result = engine.celebrate(9999)
         assert result in CELEBRATION_ART["epic"]
 
     def test_epic_celebration_returns_art_from_epic_pool(self, engine):
         """All epic-level calls return art from the epic pool (F62: random.choice fix)."""
-        from adversary_pursuit.gamification.celebrations import CELEBRATION_ART
+        from pivotglass.gamification.celebrations import CELEBRATION_ART
 
         a = engine.celebrate(500)
         b = engine.celebrate(1000)
@@ -403,6 +403,6 @@ class TestConsoleIntegration:
         assert len(out) > 0
 
     def test_celebration_engine_wired_to_console(self, console):
-        """APConsole has a celebration_engine attribute after init."""
+        """PivotglassConsole has a celebration_engine attribute after init."""
         assert hasattr(console, "celebration_engine")
         assert isinstance(console.celebration_engine, CelebrationEngine)

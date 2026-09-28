@@ -9,11 +9,11 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.integrations.synapse_migration import (
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.integrations.synapse_migration import (
     pivotglass_synapse_model_contract,
 )
-from adversary_pursuit.integrations.synapse_model_deployment import (
+from pivotglass.integrations.synapse_model_deployment import (
     SynapseModelDeployer,
     SynapseModelDeploymentJournal,
     approve_synapse_model_deployment,

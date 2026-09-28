@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from adversary_pursuit.core.pursuit_brief import POLICY_ID, build_pursuit_brief
+from pivotglass.core.pursuit_brief import POLICY_ID, build_pursuit_brief
 
 
 def _analysis(**overrides):

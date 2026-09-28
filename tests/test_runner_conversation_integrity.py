@@ -56,7 +56,7 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from adversary_pursuit.agent.runner import AgentRunner
+from pivotglass.agent.runner import AgentRunner
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -289,7 +289,7 @@ class TestHookExceptionDoesNotTearConversation:
         with (
             patch.object(AgentRunner, "_call_llm", side_effect=side_effects),
             patch(
-                "adversary_pursuit.agent.runner.execute_tool",
+                "pivotglass.agent.runner.execute_tool",
                 return_value=("dns result", None, [], []),
             ),
         ):
@@ -322,7 +322,7 @@ class TestHookExceptionDoesNotTearConversation:
                 ],
             ),
             patch(
-                "adversary_pursuit.agent.runner.execute_tool",
+                "pivotglass.agent.runner.execute_tool",
                 return_value=("real tool result", None, [], []),
             ) as mock_execute,
         ):
@@ -363,7 +363,7 @@ class TestToolExecutionExceptionEmitsSyntheticResult:
                 ],
             ),
             patch(
-                "adversary_pursuit.agent.runner.execute_tool",
+                "pivotglass.agent.runner.execute_tool",
                 side_effect=RuntimeError("network timeout"),
             ),
         ):
@@ -418,7 +418,7 @@ class TestToolExecutionExceptionEmitsSyntheticResult:
                 side_effect=[round1_msg, _make_text_message("Got partial results.")],
             ),
             patch(
-                "adversary_pursuit.agent.runner.execute_tool",
+                "pivotglass.agent.runner.execute_tool",
                 side_effect=execute_side_effects,
             ),
         ):
@@ -478,7 +478,7 @@ class TestTornHistoryHealedOnChatEntry:
                 return_value=_make_text_message("Healed and responded."),
             ),
             patch(
-                "adversary_pursuit.agent.runner.execute_tool",
+                "pivotglass.agent.runner.execute_tool",
                 return_value=("result", None, [], []),
             ),
         ):

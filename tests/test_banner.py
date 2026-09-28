@@ -1,7 +1,7 @@
 """Tests for agent/banner.py — figlet wordmark boot banner and animations.
 
 Production sequence:
-  render_boot_banner(console) -> None   (renders to console, respects AP_NO_BANNER)
+  render_boot_banner(console) -> None   (renders to console, respects PIVOTGLASS_NO_BANNER)
   get_mode_color(mode_name) -> str      (mode-specific Rich colour string)
   thinking_status(console) -> context manager (wraps LLM call with spinner)
 
@@ -10,7 +10,7 @@ Production sequence:
 @status accepted
 @rationale render_boot_banner() writes to the caller-supplied Rich Console.
            Using Console(file=StringIO()) lets us capture output for assertion
-           without a real terminal. AP_NO_BANNER=1 is set in the no-banner
+           without a real terminal. PIVOTGLASS_NO_BANNER=1 is set in the no-banner
            tests via monkeypatch so the typewriter sleep loop is skipped,
            keeping test time < 100ms. The thinking_status context manager is
            tested by entering and exiting it around a no-op — we verify it
@@ -27,14 +27,14 @@ import io
 import pytest
 from rich.console import Console
 
-from adversary_pursuit.agent import banner as banner_module
-from adversary_pursuit.agent.banner import (
+from pivotglass.agent import banner as banner_module
+from pivotglass.agent.banner import (
     _WORDMARK_DEFAULT,
     get_mode_color,
     render_boot_banner,
     thinking_status,
 )
-from adversary_pursuit.agent.repl_input import _MODE_NAMES
+from pivotglass.agent.repl_input import _MODE_NAMES
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -56,40 +56,40 @@ def _make_console(width: int = 120) -> tuple[Console, io.StringIO]:
 class TestRenderBootBanner:
     def test_renders_without_exception(self, monkeypatch):
         """Banner must not raise under any circumstances."""
-        monkeypatch.setenv("AP_NO_BANNER", "1")
+        monkeypatch.setenv("PIVOTGLASS_NO_BANNER", "1")
         console, _ = _make_console()
         render_boot_banner(console)  # should not raise
 
-    def test_ap_no_banner_produces_no_output(self, monkeypatch):
-        """AP_NO_BANNER=1 must suppress all banner output."""
-        monkeypatch.setenv("AP_NO_BANNER", "1")
+    def test_pivotglass_no_banner_produces_no_output(self, monkeypatch):
+        """PIVOTGLASS_NO_BANNER=1 must suppress all banner output."""
+        monkeypatch.setenv("PIVOTGLASS_NO_BANNER", "1")
         console, buf = _make_console()
         render_boot_banner(console)
         assert buf.getvalue() == ""
 
     def test_banner_without_env_guard_produces_output(self, monkeypatch):
-        """When AP_NO_BANNER is not set, banner produces non-empty output."""
-        monkeypatch.delenv("AP_NO_BANNER", raising=False)
+        """When PIVOTGLASS_NO_BANNER is not set, banner produces non-empty output."""
+        monkeypatch.delenv("PIVOTGLASS_NO_BANNER", raising=False)
         # Override time.sleep so the typewriter doesn't slow tests
-        monkeypatch.setattr("adversary_pursuit.agent.banner.time.sleep", lambda _: None)
+        monkeypatch.setattr("pivotglass.agent.banner.time.sleep", lambda _: None)
         console, buf = _make_console()
         render_boot_banner(console)
         output = buf.getvalue()
         assert len(output) > 0
 
-    def test_banner_output_contains_adversary_pursuit(self, monkeypatch):
-        """Banner must mention 'Adversary Pursuit' somewhere."""
-        monkeypatch.delenv("AP_NO_BANNER", raising=False)
-        monkeypatch.setattr("adversary_pursuit.agent.banner.time.sleep", lambda _: None)
+    def test_banner_output_contains_pivotglass(self, monkeypatch):
+        """Banner must mention 'Pivotglass' somewhere."""
+        monkeypatch.delenv("PIVOTGLASS_NO_BANNER", raising=False)
+        monkeypatch.setattr("pivotglass.agent.banner.time.sleep", lambda _: None)
         console, buf = _make_console()
         render_boot_banner(console)
         output = buf.getvalue()
-        assert "Adversary Pursuit" in output or "ADVERSARY PURSUIT" in output or "AP" in output
+        assert "Pivotglass" in output or "PIVOTGLASS" in output or "Pivotglass" in output
 
     def test_banner_output_contains_tagline(self, monkeypatch):
         """Banner should include the tagline or CTI reference."""
-        monkeypatch.delenv("AP_NO_BANNER", raising=False)
-        monkeypatch.setattr("adversary_pursuit.agent.banner.time.sleep", lambda _: None)
+        monkeypatch.delenv("PIVOTGLASS_NO_BANNER", raising=False)
+        monkeypatch.setattr("pivotglass.agent.banner.time.sleep", lambda _: None)
         console, buf = _make_console()
         render_boot_banner(console)
         output = buf.getvalue()
@@ -117,7 +117,7 @@ class TestGetModeColor:
         wrapper around theme_for().heading_color. This test enforces that the two
         are identical — no parallel dict, no dual-authority drift.
         """
-        from adversary_pursuit.agent.tui.themes import theme_for
+        from pivotglass.agent.tui.themes import theme_for
 
         for mode_name in _MODE_NAMES:
             assert get_mode_color(mode_name) == theme_for(mode_name).heading_color, (
@@ -131,7 +131,7 @@ class TestGetModeColor:
         returns the default theme's heading_color rather than the raw _FALLBACK_COLOR
         constant (DEC-BANNER-MODE-COLOR-UNIFIED-001).
         """
-        from adversary_pursuit.agent.tui.themes import theme_for
+        from pivotglass.agent.tui.themes import theme_for
 
         result = get_mode_color("not_a_real_mode")
         assert result == theme_for("default").heading_color
@@ -218,8 +218,8 @@ class TestBannerWordmarkLayout:
 
     def test_default_layout_contains_wordmark(self, monkeypatch):
         """Default layout must contain figlet block-drawing characters (e.g. █ or ╗)."""
-        monkeypatch.delenv("AP_NO_BANNER", raising=False)
-        monkeypatch.setattr("adversary_pursuit.agent.banner.time.sleep", lambda _: None)
+        monkeypatch.delenv("PIVOTGLASS_NO_BANNER", raising=False)
+        monkeypatch.setattr("pivotglass.agent.banner.time.sleep", lambda _: None)
         console, buf = _make_console(width=120)
         render_boot_banner(console)
         output = buf.getvalue()
@@ -230,8 +230,8 @@ class TestBannerWordmarkLayout:
 
     def test_default_layout_contains_reticle(self, monkeypatch):
         """Default layout must contain at least one reticle glyph (⊕, ╳, or ◎)."""
-        monkeypatch.delenv("AP_NO_BANNER", raising=False)
-        monkeypatch.setattr("adversary_pursuit.agent.banner.time.sleep", lambda _: None)
+        monkeypatch.delenv("PIVOTGLASS_NO_BANNER", raising=False)
+        monkeypatch.setattr("pivotglass.agent.banner.time.sleep", lambda _: None)
         console, buf = _make_console(width=120)
         render_boot_banner(console)
         output = buf.getvalue()
@@ -241,8 +241,8 @@ class TestBannerWordmarkLayout:
 
     def test_compact_layout_used_when_width_below_60(self, monkeypatch):
         """Width < 60 must trigger compact layout: no reticle, but wordmark present."""
-        monkeypatch.delenv("AP_NO_BANNER", raising=False)
-        monkeypatch.setattr("adversary_pursuit.agent.banner.time.sleep", lambda _: None)
+        monkeypatch.delenv("PIVOTGLASS_NO_BANNER", raising=False)
+        monkeypatch.setattr("pivotglass.agent.banner.time.sleep", lambda _: None)
         console, buf = _make_console(width=40)
         render_boot_banner(console)
         output = buf.getvalue()
@@ -250,15 +250,15 @@ class TestBannerWordmarkLayout:
         assert "⊕" not in output
         assert "◎" not in output
         # But compact layout MUST contain some wordmark content from pyfiglet 'small' font
-        # The 'small' font for 'ap' uses underscores, pipes, and slashes: __ / _ etc.
+        # The 'small' font for 'pivotglass' uses underscores, pipes, and slashes: __ / _ etc.
         assert len(output) > 0, "Compact layout produced no output"
         # At minimum, the panel border must appear (green border_style)
         assert "─" in output or "│" in output or "┌" in output or "+" in output or len(output) > 20
 
     def test_metadata_strip_includes_version(self, monkeypatch):
         """Default layout metadata strip must contain version string (v<digit> or v?.?.?)."""
-        monkeypatch.delenv("AP_NO_BANNER", raising=False)
-        monkeypatch.setattr("adversary_pursuit.agent.banner.time.sleep", lambda _: None)
+        monkeypatch.delenv("PIVOTGLASS_NO_BANNER", raising=False)
+        monkeypatch.setattr("pivotglass.agent.banner.time.sleep", lambda _: None)
         console, buf = _make_console(width=120)
         render_boot_banner(console)
         output = buf.getvalue()
@@ -278,15 +278,15 @@ class TestBannerWordmarkLayout:
         assert len(_WORDMARK_DEFAULT.strip()) > 0, (
             "_WORDMARK_DEFAULT must be non-empty after stripping whitespace"
         )
-        # ansi_shadow 'ap' must contain block-drawing chars
+        # ansi_shadow 'pivotglass' must contain block-drawing chars
         assert "█" in _WORDMARK_DEFAULT or "╗" in _WORDMARK_DEFAULT, (
-            "ansi_shadow 'ap' wordmark must contain block-drawing characters"
+            "ansi_shadow 'pivotglass' wordmark must contain block-drawing characters"
         )
 
     def test_banner_handles_missing_workspace(self, monkeypatch):
         """Banner must not crash when WorkspaceManager raises, and shows '--' for IOC count."""
-        monkeypatch.delenv("AP_NO_BANNER", raising=False)
-        monkeypatch.setattr("adversary_pursuit.agent.banner.time.sleep", lambda _: None)
+        monkeypatch.delenv("PIVOTGLASS_NO_BANNER", raising=False)
+        monkeypatch.setattr("pivotglass.agent.banner.time.sleep", lambda _: None)
 
         # Patch _get_ioc_count to simulate workspace failure
         monkeypatch.setattr(banner_module, "_get_ioc_count", lambda: "--")
@@ -309,8 +309,8 @@ class TestBannerWordmarkLayout:
 class TestBannerCompoundInteraction:
     def test_full_boot_sequence_no_crash(self, monkeypatch):
         """Simulates the full boot sequence: banner → mode color → spinner → input."""
-        monkeypatch.delenv("AP_NO_BANNER", raising=False)
-        monkeypatch.setattr("adversary_pursuit.agent.banner.time.sleep", lambda _: None)
+        monkeypatch.delenv("PIVOTGLASS_NO_BANNER", raising=False)
+        monkeypatch.setattr("pivotglass.agent.banner.time.sleep", lambda _: None)
         console, buf = _make_console()
 
         # 1. Boot banner
@@ -329,8 +329,8 @@ class TestBannerCompoundInteraction:
         assert len(buf.getvalue()) > 0
 
     def test_ci_boot_sequence_produces_no_banner(self, monkeypatch):
-        """AP_NO_BANNER=1 boot: banner silent but mode color and spinner still work."""
-        monkeypatch.setenv("AP_NO_BANNER", "1")
+        """PIVOTGLASS_NO_BANNER=1 boot: banner silent but mode color and spinner still work."""
+        monkeypatch.setenv("PIVOTGLASS_NO_BANNER", "1")
         console, buf = _make_console()
 
         render_boot_banner(console)

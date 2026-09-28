@@ -32,26 +32,34 @@ plans, phrase transformation, dynamic headroom, non-silence, and fallback
 behavior. Automated checks establish structure and safety; listening remains
 necessary for aesthetic judgment.
 
-## Cinematic acoustic rendering
+## Cinematic and electronic rendering
 
 Reference recordings may refine a character through transferable properties
 such as pacing, density, dramatic arc, register, and orchestral weight. They
 never become source audio, melody templates, sampled fragments, or close
-arrangements. The current public scores deliberately replace synthetic
-computer voices with modeled acoustic and atmospheric ensembles:
+arrangements. The current public scores combine acoustic, electronic, and
+atmospheric ensembles:
 
-- Default (Analyst): piano, cello, strings, and timpani;
-- Chuck Norris: French horn calls, baritone guitar, strings, and impact timpani;
-- Troll: bassoon, pizzicato strings, muted strings, and crooked woodblock;
-- HAL9000: glass harmonica, cello, choir, and frame drum;
-- Sherlock Holmes: solo violin, bassoon, chamber strings, and woodblock;
-- Neuromancer: electric cello, synth bass, analog strings, and a gated darkwave
-  backbeat; and
-- The Matrix: string ostinato, low strings, brass choir, and syncopated taiko.
+- Default (Analyst): quiet ambient EDM, floating glass notes, warm pads,
+  soft electronic kick, and a steady bass pulse;
+- Ironclad: martial stop-time synth calls, electronic dance drums, bamboo-flute
+  replies, and syncopated taiko impacts;
+- Rascal: comic accordion reeds, jaunty pizzicato bass, bassoon punchlines,
+  and exaggerated phrase-ending fills;
+- Deep Orbit: sparse radar pings, quiet low drones, floating choir fields, and
+  an occasional original expansive organ interlude;
+- Sleuth: solo violin, bassoon, quiet organ foundation, deliberately uneven
+  pub-piano tuning, and woodblock;
+- Nightgrid: detuned 1980s new-wave synth stabs, octave replies, warm analog
+  pads, gated snare, and a rave build with sixteenth-note hats; and
+- Code Rain: fast violin figures and ringing glass-harp counterlines over synth
+  bass and dry electronic drums, all on one sixteenth-note timing grid.
 
 Each source is an original performance assembled from changing motifs,
 counterlines, harmonic fields, bass motion, percussion, and atmospheric
-layers. Additive harmonic profiles, expressive attacks and releases, gentle
+layers. Electronic voices use saw/square oscillators, filter envelopes, and
+pitched kick synthesis; Deep Orbit deliberately omits a regular drum pulse.
+Additive harmonic profiles, expressive attacks and releases, gentle
 vibrato, stereo placement, and an algorithmic room response make those roles
 read as an ensemble rather than isolated beeps. Variation happens at both the
 phrase and whole-form level, so subsequent movements develop the material
@@ -95,3 +103,29 @@ These gestures react only to persisted counts and facet states. They do not
 interpret evidence, imply confidence, announce a verdict, or modify the
 investigation. The response is presentation layered after the authoritative
 state transition.
+
+
+## Rhythm and character refinements — 2026-09-27
+
+Code Rain's melodic attacks use the same eighth/sixteenth subdivisions as its
+percussion. All parts share the Web Audio clock and exact bar-length returns.
+When the browser wakes late, missed rhythmic attacks are skipped instead of
+being bunched together or shifted off the grid. Electronic drums bypass the
+melodic reverb to keep the groove clear. Analyst's output gain and percussion
+are deliberately lower at the same volume setting. Rascal uses original comic
+folk/pop gestures and accordion colors, without quoting an artist or song.
+Deep Orbit's approved sparse score is preserved.
+
+
+### Original cinematic development — 2026-09-27
+
+Code Rain pairs its fast synchronized motor figure with a reaching high violin
+line: upward yearning, a suspended peak, and falling retreat. The build gains
+sixteenth-note percussion while the ending leaves tension for the next return.
+Deep Orbit keeps its sparse bed and radar pings; every third movement includes
+one six-note organ interlude, then returns to silence between gestures. Sleuth
+adds organ weight and a struck piano with uneven beating between its strings.
+Ironclad combines stop-time calls, a 1990s electronic dance foundation, breathy
+flute replies, and accented low drum strikes. The film references define broad
+dramatic and timbral functions; no film melody or recognizable cue is used.
+Analyst, Nightgrid, and Rascal retain their approved score and event plans.

@@ -1,7 +1,7 @@
 """Tests for evidence-safe enrichment teaching cards."""
 
-from adversary_pursuit.agent.battery_registry import DEFAULT_BATTERIES
-from adversary_pursuit.agent.enrichment_briefings import BRIEFINGS, render_briefing
+from pivotglass.agent.battery_registry import DEFAULT_BATTERIES
+from pivotglass.agent.enrichment_briefings import BRIEFINGS, render_briefing
 
 
 def test_every_battery_tool_has_an_enrichment_briefing():

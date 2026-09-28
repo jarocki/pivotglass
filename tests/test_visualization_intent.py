@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.core.investigation import (
+from pivotglass.core.investigation import (
     ContentClass,
     EventClass,
     InvestigationStore,
     LifecycleState,
 )
-from adversary_pursuit.core.visualization import (
+from pivotglass.core.visualization import (
     MAX_RELATIONSHIP_GRAPH_NODES,
     MAX_VISUALIZATION_ROWS,
     VISUALIZATION_POLICIES,
@@ -237,6 +237,31 @@ def test_indicator_constellation_is_persistent_newest_first_and_relation_aware()
     assert infrastructure["reference"].startswith("ev-")
     assert "ipv4-addr--newer" not in str(intent.data.rows)
     assert "not analytical confidence" in intent.caveats[1]
+
+
+def test_constellation_country_is_direct_sourced_metadata_not_neighbor_attribution():
+    objects = [
+        {"id": "ipv4-addr--a", "type": "ipv4-addr", "value": "192.0.2.1",
+         "x_country_code": "de", "x_pivotglass_source_module": "fixture",
+         "x_pivotglass_fetched_at": "2026-09-22T00:00:00Z"},
+        {"id": "domain-name--b", "type": "domain-name", "value": "example.test"},
+        {"id": "ipv4-addr--c", "type": "ipv4-addr", "value": "192.0.2.2",
+         "x_country_code": "US"},  # No source receipt: no flag.
+        {"id": "ipv4-addr--d", "type": "ipv4-addr", "value": "192.0.2.3",
+         "country_code": ["US"], "x_pivotglass_source_module": "fixture"},
+        {"id": "ipv4-addr--e", "type": "ipv4-addr", "value": "192.0.2.4",
+         "country_code": "<script>", "x_pivotglass_source_module": "fixture"},
+    ]
+    graph = {"nodes": [{"id": item["id"], "value": item["value"]} for item in objects],
+             "edges": [{"source": objects[0]["id"], "target": objects[1]["id"]}]}
+    rows = indicator_constellation_intent("test", objects, graph).data.rows
+    by_value = {row["indicator"]: row for row in rows}
+    assert by_value["192.0.2.1"]["country_code"] == "DE"
+    assert by_value["192.0.2.1"]["country_source"] == "fixture"
+    assert by_value["192.0.2.1"]["country_observed_at"] == "2026-09-22T00:00:00Z"
+    for value in ("example.test", "192.0.2.2", "192.0.2.3", "192.0.2.4"):
+        assert by_value[value]["country_code"] == ""
+        assert by_value[value]["country_source"] == ""
 
 
 def test_indicator_coverage_pca_is_deterministic_and_never_imputes_deferred_facets():
@@ -753,3 +778,21 @@ def test_relationship_degree_histogram_counts_only_admitted_edges():
             "connection_count": 0,
         },
     )
+
+
+def test_explicit_promotion_groups_project_as_analyst_edges_only():
+    graph = {"nodes": [{"id": "a", "value": "one.test", "type": "domain-name"},
+                       {"id": "b", "value": "two.test", "type": "domain-name"}], "edges": []}
+    events = [{"id": "batch-event", "action": "analyst_group_created", "to_ref": "group-1",
+               "to_label": "Promoted together", "created_by": "analyst", "basis": "Analyst selection", "provenance_refs": ["a", "b"]},
+              {"action": "document_candidate_admitted", "from_ref": "group-1", "to_ref": "a"},
+              {"action": "document_candidate_admitted", "from_ref": "group-1", "to_ref": "b"}]
+    intent = relationship_graph_intent("test", graph, {"pivot_trail": events})
+    assert len(intent.data.nodes) == 3
+    assert {(edge.source, edge.target) for edge in intent.data.edges} == {("group-1", "a"), ("group-1", "b")}
+    assert all(edge.basis == "manual" and edge.relationship == "analyst-grouped" for edge in intent.data.edges)
+    assert all("batch-event" in edge.provenance for edge in intent.data.edges)
+    assert relationship_graph_intent("test", graph, {"pivot_trail": events[1:]}).data.edges == ()
+
+    historic = relationship_graph_intent("test", graph, {"analyst_groups": [events[0]], "pivot_trail": []})
+    assert len(historic.data.edges) == 2

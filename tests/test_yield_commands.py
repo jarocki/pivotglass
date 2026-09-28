@@ -13,10 +13,10 @@
 
 from __future__ import annotations
 
-from adversary_pursuit.agent.battery import BatteryRun
-from adversary_pursuit.agent.battery_registry import DEFAULT_BATTERIES
-from adversary_pursuit.agent.tui.events import EventBus
-from adversary_pursuit.agent.yield_commands import YieldCommand, dispatch_yield, parse_yield
+from pivotglass.agent.battery import BatteryRun
+from pivotglass.agent.battery_registry import DEFAULT_BATTERIES
+from pivotglass.agent.tui.events import EventBus
+from pivotglass.agent.yield_commands import YieldCommand, dispatch_yield, parse_yield
 
 # ---------------------------------------------------------------------------
 # parse_yield — acceptance cases
@@ -190,7 +190,7 @@ def test_add_appends_tool_to_queue():
 
 def test_dispatch_yield_publishes_event():
     """dispatch_yield publishes YieldReceived event and returns a voice string."""
-    from adversary_pursuit.agent.tui.events import YieldReceived
+    from pivotglass.agent.tui.events import YieldReceived
 
     bus = EventBus()
     received: list = []
@@ -207,7 +207,7 @@ def test_dispatch_yield_publishes_event():
 
 
 def test_dispatch_yield_focus_publishes_argument():
-    from adversary_pursuit.agent.tui.events import YieldReceived
+    from pivotglass.agent.tui.events import YieldReceived
 
     bus = EventBus()
     received: list = []

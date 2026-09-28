@@ -1,65 +1,50 @@
 # Pivotglass
 
 Pivotglass is a local, AI-augmented workspace for cyber-threat investigation.
-Start with one clue. Pivotglass enriches it through intelligence services,
-preserves every result with provenance, connects only supported relationships,
-shows what remains unknown, and turns the investigation into a defensible
-report.
+Start with a question and the clues you have. Choose what to collect, keep
+source provenance visible, compare explanations, and produce a report whose
+reasoning another analyst can inspect.
 
-Version 0.9 adds version-pinned ATT&CK, Kill Chain, and Diamond
-framework perspectives without creating a second evidence authority. The
-release verifies Enterprise ATT&CK 19.2 content and exports the exact
-evidence-backed mapping as a Navigator layer.
+## From a clue to a defensible judgment
 
-Version 0.9.1 added a calm Pursuit Brief to the first viewport. It keeps four
-honest progress measures separate, surfaces contradictions and investigation
-gaps, and recommends one deterministic next action with its basis and safety
-boundary. The full expert workbench remains one action away.
+An alert, a suspicious domain, or a report can start an investigation. The hard
+part is deciding what the evidence means: which sources are independent, what
+else could explain the activity, what remains unknown, and what finding would
+justify action. More indicators alone cannot answer those questions.
 
-Version 0.9.2 qualified Flint 0.4 for the question-first visualization path,
-adds provenance-preserving evidence-cluster summaries, and introduces a
-bounded local document preview. Previewed text is not automatically admitted
-as evidence, an entity, or a relationship.
+Pivotglass brings the collection workflow and the reasoning notebook into one
+local workspace. It helps analysts preserve sources, inspect relationships,
+compare explanations, plan the next collection, and explain their judgment to
+someone who must act on it.
 
-Version 0.9.3 added exact-location, deterministic entity candidates and saved
-evidence-cluster comparisons. Candidates retain their source occurrence,
-parser receipt, byte and character span, line and column, context, and rule
-version. Graph-history comparisons do not rewrite prior evidence.
+| What the analyst needs | What Pivotglass provides | What still requires judgment |
+| --- | --- | --- |
+| A clear starting point | A Pursuit Brief with the active question, open work, and a proposed next step | The question, priority, and decision to support |
+| Less repeated handling | Persistent case workspaces across interfaces, deterministic normalization, a reviewable source library, and an enrichment queue | Which data is appropriate to admit or send to providers |
+| Connections that can be checked | Relationship and provenance graphs with labeled edge bases | Whether a connection supports a particular explanation |
+| A way to challenge an early theory | Competing hypotheses, predictions, contradictions, gaps, and versioned structured techniques | Evidence assessment and the final judgment |
+| Practical learning during work | Novice Q&A, explicit unknowns, reflection, and optional lighter guidance | Readiness, competence, and supervisory feedback |
+| A usable handoff | Source-grounded reports and structured exports | Handling, redaction, and the action recipient should take |
 
-Version 0.9.4 adds immutable, span-grounded entity, relationship, and behavior
-proposals with append-only human dispositions. Unmatched behavior remains a
-candidate framework gap; it is not automatically labeled a new TTP.
+These features are designed to improve efficiency by reducing repeated
+navigation and data handling, and effectiveness by making reasoning inspectable.
+They do not establish a measured productivity gain or certify analyst expertise.
 
-Version 0.9.5 closes the safe preview loop in the browser: bounded document
-text and temporary entity candidates appear together with exact locations and
-truth boundaries. The refreshed release also keeps workspace clear/delete
-behavior consistent across interfaces, refuses active-workspace deletion,
-prevents clean-checkout timestamp skew from blocking the packaged web cockpit,
-restores an overlay's opener after Escape, and hardens the compact mobile
-layout. It publishes the stable/preview/deferred and local-data-safety
-contracts required for an honest final pre-1.0 checkpoint.
+**Start here:** [install and run](docs/QUICKSTART.md) ·
+[complete an offline case](docs/LEARNING_WORKSPACE.md) ·
+[use the full guide](docs/USER_GUIDE.md) ·
+[learn the analytical method](docs/analysis/README.md).
 
-Version 0.9.6 turns that preview into an explicit, governed admission path.
-The analyst previews first, then chooses **Ingest into workspace** to preserve
-the exact bytes, content hash, parser receipt, and exact-span candidates in a
-persistent document library. Documents and candidate-to-entity bridges appear
-in the governed layered graph without promoting document claims to facts. An
-append-only pivot trail records how the analyst moved among documents,
-indicators, and entities and can be read as a chronological visualization.
-The Investigation Constellation now uses each character's Day/Night palette
-instead of embedding a dark panel inside light themes.
+Current release: **v0.9.8**. This is the documentation, naming, and release-quality
+checkpoint before the planned v0.9.9 marketing and operational documentation
+work and the separately approved v1.0.0 quality gate. See the
+[Changelog](CHANGELOG.md) for implementation history, the
+[compatibility matrix](docs/COMPATIBILITY.md) for capability maturity, and
+[data ownership and safety](docs/DATA_SAFETY.md) before enabling providers or
+LAN access.
 
-> An indicator is not the answer. It is the first node.
-
-The installed command remains `ap` for compatibility with earlier releases.
-The Python distribution is `adversary-pursuit`, and local configuration and
-workspaces remain under `~/.ap/`.
-
-See the [compatibility and maturity matrix](docs/COMPATIBILITY.md) before using
-preview integrations or document formats, and [data ownership and
-safety](docs/DATA_SAFETY.md) before enabling providers or LAN access.
-
-Current release: **v0.9.6 early availability**.
+The command, Python distribution, and import package are `pivotglass`.
+Local application data belongs under `~/.pivotglass/`.
 
 [![Watch the Pivotglass guided walkthrough](docs/media/pivotglass-guided-demo-poster.png)](docs/media/pivotglass-guided-demo-v0.9.5.mp4)
 
@@ -72,10 +57,21 @@ the offline synthetic learning workspace and shows
 the Pursuit Brief, scientific notebook, contradiction and gap handling, local
 document preview, the Investigation Constellation, relationship graph,
 deterministic reporting, sanitized configuration, responsive layout, and the
-Default Analyst, Sherlock Holmes, and Neuromancer modes. No credential, model
+Default Analyst, Sleuth, and Nightgrid modes. No credential, model
 request, provider account, or live indicator is used.
 
-![Current Pivotglass Pursuit Brief](docs/media/pivotglass-cockpit-v0.9.6.png)
+![Pursuit Brief as displayed in v0.9.6](docs/media/pivotglass-cockpit-v0.9.6.png)
+
+## Guided questions and practice
+
+Novice Q&A helps an analyst frame the case through six prompts: data, event,
+origin, scope, decision, and alternatives. “I don't know yet” preserves a gap.
+Review and edit the suggested questions before explicitly saving them to the
+notebook. Answers and reflections stay browser-local; a question save does not
+run collection. Repeated lessons encourage source checks, disconfirmation, and
+reflection. The analyst chooses when to reduce interface guidance.
+
+![Pivotglass v0.9.8 investigative-question coaching in a synthetic workspace](docs/media/pivotglass-question-coach-v0.9.8.png)
 
 ## The investigation model
 
@@ -117,14 +113,14 @@ Pivotglass requires Python 3.12 or newer. The shortest source installation uses
 [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone --branch v0.9.6 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v0.9.8 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent --frozen
-uv run ap --version
-uv run ap
+uv run pivotglass --version
+uv run pivotglass
 ```
 
-`uv run ap --version` should report `adversary-pursuit 0.9.6`. Pivotglass opens
+`uv run pivotglass --version` should report `pivotglass 0.9.8`. Pivotglass opens
 at `http://127.0.0.1:8765` and listens only on the local computer by default.
 The committed release already contains the built web interface; Node.js is
 required only when changing that interface.
@@ -135,8 +131,8 @@ investigation that uses no API key, model, account, or network service. The
 evidence, provenance, contradiction, graph, report, export, restart, and
 recovery paths.
 
-The repository and product are **Pivotglass**; the retained Python distribution
-name is `adversary-pursuit` and the installed command is `ap` for compatibility.
+The repository, distribution, Python import package, and command all use
+`pivotglass`.
 The [Quick Start](docs/QUICKSTART.md#update-or-remove-pivotglass) defines the
 single supported install, update, version-check, and uninstall lifecycle.
 
@@ -146,14 +142,14 @@ walkthrough, follow the **[Pivotglass Quick Start](docs/QUICKSTART.md)**.
 ### Interfaces
 
 ```text
-ap                 Local Pivotglass browser interface (default)
-ap web             Same browser interface
-ap tui             Full-screen terminal interface
-ap chat            Alias for the terminal interface
-ap basic           Direct module-control console
-ap repl            Alias for the direct console
-ap --help          Interface summary
-ap --version       Installed version
+pivotglass                 Local Pivotglass browser interface (default)
+pivotglass web             Same browser interface
+pivotglass tui             Full-screen terminal interface
+pivotglass chat            Alias for the terminal interface
+pivotglass basic           Direct module-control console
+pivotglass repl            Alias for the direct console
+pivotglass --help          Interface summary
+pivotglass --version       Installed version
 ```
 
 The browser and terminal interfaces share the same workspaces, command grammar,
@@ -168,16 +164,19 @@ Every stored indicator is a row; the nine Dossier dimensions are columns. The
 newest indicators appear first. Sort or filter by value, indicator type,
 mapped completeness, first or last seen, and direct graph relationship. A cell
 can be filled, partial, empty, or deferred. That state is navigation help—not a
-confidence score or malware verdict. Compact Lite Brite pegs keep all nine
-dimensions visible: starburst is filled, striped round is partial, concentric
-octagonal is deferred, and dark recessed is empty. Search and sort remain
+confidence score or malware verdict. Compact coverage marks use familiar shapes:
+a green check means **Coverage met**, an amber half-circle means **Some evidence**,
+an open circle means **No evidence**, and a dash means **No automated path**.
+Readable column headings remove the need to memorize abbreviations. Search and sort remain
 visible while secondary filters stay collapsed. Shape, viewport-safe hover
 explainers, keyboard focus, and selection repeat the color meaning and expose
 the full dimension question and evidence count. One Tab enters the grid;
-arrow keys move between pegs, and a pinned peg stays visibly marked. Enrichment Activity retains
+arrow keys move between marks, and selected details stay below the grid without
+shifting its rows. Source-reported country flags identify infrastructure location,
+not attacker origin; unknown locations are not guessed. Enrichment Activity retains
 its three-channel RGB blocks for indicator enrichment jobs.
 
-![Theme-aware Investigation Constellation with chart-selection guidance](docs/media/pivotglass-visualize-v0.9.6.png)
+![Clear coverage marks, source-reported countries, and evidence details in the current constellation](docs/media/pivotglass-constellation-night-v0.9.7.png)
 
 ### Visual Analysis and relationship graph
 
@@ -260,16 +259,36 @@ or select **Chronological trail** in Visual Analysis to reconstruct the path.
 
 ### Document intake and library
 
-Open **Visualize**, expand **Document intake & library**, choose a supported
-local file, and select **Preview locally**. Preview is non-persistent. After
-reviewing the parser output and exact-span candidates, select **Ingest into
-workspace**. The visible receipt and persistent library make that state change
-unambiguous. Ingestion preserves source bytes and provenance; it does not make
-the document's claims true or automatically admit its candidates as entities.
+Open **Investigate**, expand **Add indicators & reports**, choose a supported
+local file, and select **Preview locally**. Preview is non-persistent. JSON is
+recognized from its content, file extension, or structured MIME type, including
+UTF-8/16/32 byte signatures and strict line-delimited JSON found in a `.json`
+file. Duplicate keys and malformed records are never silently discarded or
+repaired; Pivotglass preserves bounded raw text with a warning when it can
+remain reviewable, and rejects unsafe non-finite values and excessive nesting.
+
+Review the parser output and exact-span candidates, then check only the visible
+candidates you intend to add. Choose **Ingest source + add entities** to store
+the source and admit that selection, or **Ingest source only** to preserve the
+report without admitting entities. Separate source and entity receipts make
+the state change unambiguous. If entity admission is interrupted after source
+storage, Pivotglass says so and offers an idempotent retry against the stored
+occurrence. Ingestion preserves source bytes and provenance; it does not make
+the document's claims true, assign a verdict, or create a threat relationship.
+
+An admitted source remains available under **Document library** after refresh.
+Choose **Review stored source** to inspect its parser receipt, full SHA-256, and
+unadmitted candidates; selecting candidates there can add them later without
+duplicating the source. A preview-only file intentionally is not persisted.
+Commonly defanged spellings (`1[.]1[.]1[.]1`, `hxxp[:]//host[.]test`, and
+`analyst AT host DOT test`) are normalized into candidates while their raw text
+and exact source spans remain visible.
+
+![JSON recognized from content with task-relative candidate guidance](docs/media/pivotglass-json-intake-v0.9.7.png)
 
 ![Explicit document admission and persistent library](docs/media/pivotglass-document-library-v0.9.6.png)
 
-![Pivotglass relationship graph](docs/media/pivotglass-graph-v0.9.5.png)
+![Pivotglass v0.9.8 relationship graph with full indicator values](docs/media/pivotglass-graph-v0.9.8.png)
 
 ### Configuration and models
 
@@ -291,6 +310,10 @@ prove: quota, latency, quality, and suitability for a particular case.
 Reports are built from the active workspace rather than a model's memory. The
 same evidence can be exported as JSON, CSV, STIX, or GEXF. Visual Analysis can
 also export the exact rows, nodes, and edges behind the current view.
+
+The export chooser offers **Preserve indicators** or **Defang indicators**.
+The equivalent command syntax is `export json|csv|stix|gexf --defang yes|no`.
+Defanging is presentation-only and rewrites only typed indicator values.
 
 ![Source-grounded Dossier report](docs/media/pivotglass-report-v0.9.5.png)
 
@@ -384,8 +407,8 @@ account, API key, or paid access.
 
 ## Characters, accessibility, and sound
 
-The public character deck contains Default (Analyst), Chuck Norris, HAL9000,
-Troll, Sherlock Holmes, Neuromancer, and The Matrix. A character changes voice,
+The public character deck contains Default (Analyst), Ironclad, Deep Orbit,
+Rascal, Sleuth, Nightgrid, and Code Rain. A character changes voice,
 palette, atmosphere, music, and an optional diversion. It never changes the
 meaning or order of evidence.
 
@@ -395,17 +418,18 @@ counterlines, percussion, modeled instruments, and room ambience. The browser
 schedules ahead and cross-fades to avoid gaps and hard audio edges. In-character
 field guidance appears only after an extended pause in meaningful analyst work,
 near the top of the current viewport without taking focus. Each Advisor card uses character- and advice-specific
-artwork and remains labeled narration, not evidence. **Read Aloud** uses a
-character-shaped rate and pitch profile with an available browser or operating-
-system voice; automatic voice audio is off by default and never clones an actor.
+artwork and remains labeled narration, not evidence. **Read Aloud** can use configured OpenAI speech synthesis with a
+character-specific delivery brief, with browser or operating-system speech as
+a fallback. Voice is opt-in; the speech service receives the narrated text.
+Music is synthesized locally. No voice clones are used.
 Music, narration, animation, scores, and mini-games are presentation only.
 
 Pivotglass includes Day, Night, high-contrast, reduced-motion, and effects-off
 controls. Terminal equivalents include:
 
 ```bash
-AP_TUI_COLOR_SCHEME=light ap tui
-AP_TUI_HIGH_CONTRAST=1 ap tui
+PIVOTGLASS_TUI_COLOR_SCHEME=light pivotglass tui
+PIVOTGLASS_TUI_HIGH_CONTRAST=1 pivotglass tui
 ```
 
 ## Architecture and trust boundary
@@ -413,9 +437,9 @@ AP_TUI_HIGH_CONTRAST=1 ap tui
 ```text
 operator
    │
-   ├── ap / ap web ───────── local browser interface
-   ├── ap tui / ap chat ──── terminal interface
-   └── ap basic / ap repl ── direct module console
+   ├── pivotglass / pivotglass web ───────── local browser interface
+   ├── pivotglass tui / pivotglass chat ──── terminal interface
+   └── pivotglass basic / pivotglass repl ── direct module console
                 │
         shared application services
                 │
@@ -436,9 +460,11 @@ dependencies and integrity hashes are committed. See the
 - [Failure and recovery](docs/FAILURE_RECOVERY.md) — truthful failure states, preserved evidence, and safe next actions
 - [Support](SUPPORT.md) — supported versions, safe issue reporting, and security-route status
 - [Release trust](docs/RELEASE_TRUST.md) — SBOM, licenses, checksums, signing, and public readback
-- [v0.9.6 release record](docs/RELEASE_HANDOFF_V0.9.6.md) — verification receipts, capability boundaries, and publication readback
-- [v0.9.6 quality record](docs/QA_V0.9.6.md) — automated, browser, accessibility, and security gates
+- [v0.9.6 release record](docs/releases/v0.9.6/RELEASE_HANDOFF_V0.9.6.md) — verification receipts, capability boundaries, and publication readback
+- [v0.9.6 quality record](docs/releases/v0.9.6/QA_V0.9.6.md) — automated, browser, accessibility, and security gates
 - [User Guide](docs/USER_GUIDE.md) — complete task and command reference
+- [Scientific analysis](docs/analysis/README.md) — methods, worked examples, visualization reading, and learning
+- [Architecture](docs/architecture/README.md) — authorities, data flow, and execution boundaries
 - [Documentation index](docs/README.md) — current guides, design notes, QA, and historical plans
 - [Procedural music](docs/PROCEDURAL_MUSIC.md) — composition and safety boundary
 - [Changelog](CHANGELOG.md) — user-visible release history
@@ -456,9 +482,9 @@ npm --prefix web run lint
 npm --prefix web run build
 ```
 
-The repository is `pivotglass`. The command `ap`, distribution
-`adversary-pursuit`, import package `adversary_pursuit`, and `~/.ap/` data path
-remain stable compatibility names.
+The source package is `src/pivotglass/`; the browser source is `web/`.
+Start with the [architecture](docs/architecture/README.md) and
+[documentation index](docs/README.md) to find the relevant policy or guide.
 
 ## Status and license
 

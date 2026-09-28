@@ -25,7 +25,7 @@ Tests cover:
 - HTTPStatusError / ReadTimeout classification: _run_* handlers return FAIL
 - Pass/fail exit code semantics
 - _resolve_keys: delegates to ConfigManager, reads from config/env, no hardcoded values
-- _source_for: returns correct layer label ("config", "AP env", "vendor env")
+- _source_for: returns correct layer label ("config", "Pivotglass env", "vendor env")
 
 @decision DEC-TEST-SMOKE-001
 @title Import smoke_test via importlib to avoid scripts/ not being a package
@@ -41,7 +41,7 @@ Tests cover:
 @rationale After DEC-SMOKE-003 (_resolve_keys delegates to ConfigManager), the
            tests must exercise a real ConfigManager to prove the correct field
            names are used. We construct ConfigManager(config_dir=tmp_dir) so
-           tests never touch the user's real ~/.ap/config.toml, then call
+           tests never touch the user's real ~/.pivotglass/config.toml, then call
            cm.load() and cm.save() to populate the in-memory cache with test
            values, which _resolve_keys() reads through the ConfigManager API.
 """
@@ -61,7 +61,7 @@ from unittest.mock import (  # @mock-exempt: hunt() is the external HTTP boundar
 import httpx
 import pytest
 
-from adversary_pursuit.modules.base import AuthenticationError
+from pivotglass.modules.base import AuthenticationError
 
 # ---------------------------------------------------------------------------
 # Import smoke_test module via importlib (not a package, so direct import)
@@ -107,9 +107,9 @@ def _make_cm(
     Uses ConfigManager's public API (load + field mutation + save) so the
     instance cache reflects the values and _resolve_keys() can query them
     through get_api_key() / get_censys_pat() without touching the real
-    ~/.ap/config.toml.
+    ~/.pivotglass/config.toml.
     """
-    from adversary_pursuit.core.config import ConfigManager
+    from pivotglass.core.config import ConfigManager
 
     cm = ConfigManager(config_dir=tmp_dir)
     cfg = cm.load()
@@ -314,7 +314,7 @@ class TestExitCodeSemantics:
         # ConfigManager class mock — constructor returns mock_cm instance
         mock_cm_class = MagicMock(return_value=mock_cm)
         return patch(
-            "adversary_pursuit.core.config.ConfigManager",
+            "pivotglass.core.config.ConfigManager",
             mock_cm_class,
         )
 
@@ -335,7 +335,7 @@ class TestExitCodeSemantics:
             patch.object(smoke, "_run_malwarebazaar", return_value=(smoke.PASS, "", 1)),
             patch.object(smoke, "_run_crtsh", return_value=(smoke.PASS, "", 1)),
             patch.object(smoke, "_check_workspace_persistence", return_value=(smoke.PASS, "")),
-            patch("adversary_pursuit.core.config.ConfigManager"),
+            patch("pivotglass.core.config.ConfigManager"),
             patch("sys.argv", ["smoke_test.py", "--quiet"]),
         ):
             code = smoke.main()
@@ -357,7 +357,7 @@ class TestExitCodeSemantics:
                 "_check_workspace_persistence",
                 return_value=(smoke.FAIL, "UnboundExecutionError"),
             ),
-            patch("adversary_pursuit.core.config.ConfigManager"),
+            patch("pivotglass.core.config.ConfigManager"),
             patch("sys.argv", ["smoke_test.py", "--quiet"]),
         ):
             code = smoke.main()
@@ -375,7 +375,7 @@ class TestExitCodeSemantics:
             patch.object(smoke, "_run_malwarebazaar", return_value=(smoke.PASS, "", 1)),
             patch.object(smoke, "_run_crtsh", return_value=(smoke.PASS, "", 1)),
             patch.object(smoke, "_check_workspace_persistence", return_value=(smoke.PASS, "")),
-            patch("adversary_pursuit.core.config.ConfigManager"),
+            patch("pivotglass.core.config.ConfigManager"),
             patch("sys.argv", ["smoke_test.py", "--quiet"]),
         ):
             code = smoke.main()
@@ -398,7 +398,7 @@ class TestExitCodeSemantics:
             patch.object(smoke, "_run_malwarebazaar", return_value=(smoke.SKIP, "no key", 0)),
             patch.object(smoke, "_run_crtsh", return_value=(smoke.SKIP, "no key", 0)),
             patch.object(smoke, "_check_workspace_persistence", return_value=(smoke.PASS, "")),
-            patch("adversary_pursuit.core.config.ConfigManager"),
+            patch("pivotglass.core.config.ConfigManager"),
             patch("sys.argv", ["smoke_test.py", "--quiet"]),
         ):
             code = smoke.main()
@@ -424,33 +424,33 @@ class TestSourceFor:
             src = smoke._source_for(cm, "shodan", "test-shodan-key-32-chars-xxxxxxxxxx")
         assert src == "config"
 
-    def test_resolve_key_from_ap_env_returns_source_layer(self, smoke):
-        """When key comes from AP_SHODAN_API_KEY env var, _source_for returns 'AP env'."""
+    def test_resolve_key_from_pivotglass_env_returns_source_layer(self, smoke):
+        """When key comes from PIVOTGLASS_SHODAN_API_KEY env var, _source_for returns 'Pivotglass env'."""
         with tempfile.TemporaryDirectory() as tmp:
             cm = _make_cm(tmp, shodan="")  # no config value
-            saved = os.environ.pop("AP_SHODAN_API_KEY", None)
-            os.environ["AP_SHODAN_API_KEY"] = "env-shodan-key-from-ap"
+            saved = os.environ.pop("PIVOTGLASS_SHODAN_API_KEY", None)
+            os.environ["PIVOTGLASS_SHODAN_API_KEY"] = "env-shodan-key-from-pivotglass"
             try:
-                src = smoke._source_for(cm, "shodan", "env-shodan-key-from-ap")
+                src = smoke._source_for(cm, "shodan", "env-shodan-key-from-pivotglass")
             finally:
-                os.environ.pop("AP_SHODAN_API_KEY", None)
+                os.environ.pop("PIVOTGLASS_SHODAN_API_KEY", None)
                 if saved is not None:
-                    os.environ["AP_SHODAN_API_KEY"] = saved
-        assert src == "AP env"
+                    os.environ["PIVOTGLASS_SHODAN_API_KEY"] = saved
+        assert src == "Pivotglass env"
 
     def test_resolve_key_from_vendor_env_returns_source_layer(self, smoke):
         """When key comes from SHODAN_API_KEY vendor env var, _source_for returns 'vendor env'."""
         with tempfile.TemporaryDirectory() as tmp:
             cm = _make_cm(tmp, shodan="")  # no config value
-            saved_ap = os.environ.pop("AP_SHODAN_API_KEY", None)
+            saved_pivotglass = os.environ.pop("PIVOTGLASS_SHODAN_API_KEY", None)
             saved_vendor = os.environ.pop("SHODAN_API_KEY", None)
             os.environ["SHODAN_API_KEY"] = "env-shodan-vendor-key"
             try:
                 src = smoke._source_for(cm, "shodan", "env-shodan-vendor-key")
             finally:
                 os.environ.pop("SHODAN_API_KEY", None)
-                if saved_ap is not None:
-                    os.environ["AP_SHODAN_API_KEY"] = saved_ap
+                if saved_pivotglass is not None:
+                    os.environ["PIVOTGLASS_SHODAN_API_KEY"] = saved_pivotglass
                 if saved_vendor is not None:
                     os.environ["SHODAN_API_KEY"] = saved_vendor
         assert src == "vendor env"
@@ -459,14 +459,14 @@ class TestSourceFor:
         """_source_for returns '' when value is None/empty (key not configured)."""
         with tempfile.TemporaryDirectory() as tmp:
             cm = _make_cm(tmp, shodan="")
-            saved_ap = os.environ.pop("AP_SHODAN_API_KEY", None)
+            saved_pivotglass = os.environ.pop("PIVOTGLASS_SHODAN_API_KEY", None)
             saved_vendor = os.environ.pop("SHODAN_API_KEY", None)
             try:
                 src = smoke._source_for(cm, "shodan", None)
                 src2 = smoke._source_for(cm, "shodan", "")
             finally:
-                if saved_ap is not None:
-                    os.environ["AP_SHODAN_API_KEY"] = saved_ap
+                if saved_pivotglass is not None:
+                    os.environ["PIVOTGLASS_SHODAN_API_KEY"] = saved_pivotglass
                 if saved_vendor is not None:
                     os.environ["SHODAN_API_KEY"] = saved_vendor
         assert src == ""
@@ -488,7 +488,7 @@ class TestResolveKeys:
     """
 
     # Env vars that might bleed in and corrupt the vendor-env layer test
-    _ALL_SHODAN_ENV = ["SHODAN_API_KEY", "AP_SHODAN_API_KEY"]
+    _ALL_SHODAN_ENV = ["SHODAN_API_KEY", "PIVOTGLASS_SHODAN_API_KEY"]
 
     def _isolate_shodan_env(self):
         """Remove Shodan env vars and return saved values."""
@@ -555,27 +555,27 @@ class TestResolveKeys:
         """When neither env vars nor config provides a key, value is empty string."""
         all_env_vars = [
             "SHODAN_API_KEY",
-            "AP_SHODAN_API_KEY",
+            "PIVOTGLASS_SHODAN_API_KEY",
             "CENSYS_PAT",
-            "AP_CENSYS_PAT",
+            "PIVOTGLASS_CENSYS_PAT",
             "ABUSEIPDB_API_KEY",
-            "AP_ABUSEIPDB_API_KEY",
+            "PIVOTGLASS_ABUSEIPDB_API_KEY",
             "URLSCAN_API_KEY",
-            "AP_URLSCAN_API_KEY",
+            "PIVOTGLASS_URLSCAN_API_KEY",
             "HIBP_API_KEY",
-            "AP_HIBP_API_KEY",
+            "PIVOTGLASS_HIBP_API_KEY",
             "VIRUSTOTAL_API_KEY",
-            "AP_VIRUSTOTAL_API_KEY",
-            "AP_VT_API_KEY",
+            "PIVOTGLASS_VIRUSTOTAL_API_KEY",
+            "PIVOTGLASS_VT_API_KEY",
             "VT_API_KEY",
             "OTX_API_KEY",
-            "AP_OTX_API_KEY",
-            "AP_PASSIVETOTAL_USER",
+            "PIVOTGLASS_OTX_API_KEY",
+            "PIVOTGLASS_PASSIVETOTAL_USER",
             "PT_USERNAME",
-            "AP_PASSIVETOTAL_KEY",
+            "PIVOTGLASS_PASSIVETOTAL_KEY",
             "PT_API_KEY",
             "GREYNOISE_API_KEY",
-            "AP_GREYNOISE_API_KEY",
+            "PIVOTGLASS_GREYNOISE_API_KEY",
         ]
         saved = {k: os.environ.pop(k, None) for k in all_env_vars}
         try:
@@ -680,7 +680,7 @@ class TestAuthErrorClassification:
         mock_mgr = MagicMock()
         mock_mgr.get_module.return_value = mock_mod
 
-        with patch("adversary_pursuit.core.plugin_mgr.PluginManager", return_value=mock_mgr):
+        with patch("pivotglass.core.plugin_mgr.PluginManager", return_value=mock_mgr):
             status, msg, count = smoke._run_shodan("8.8.8.8", self._keys_with_shodan(), False)
 
         assert status == smoke.SKIP, f"Expected SKIP, got {status!r}"
@@ -703,7 +703,7 @@ class TestAuthErrorClassification:
         mock_mgr = MagicMock()
         mock_mgr.get_module.return_value = mock_mod
 
-        with patch("adversary_pursuit.core.plugin_mgr.PluginManager", return_value=mock_mgr):
+        with patch("pivotglass.core.plugin_mgr.PluginManager", return_value=mock_mgr):
             status, msg, count = smoke._run_shodan("8.8.8.8", self._keys_with_shodan(), False)
 
         assert status == smoke.FAIL, f"Expected FAIL for HTTPStatusError, got {status!r}"
@@ -725,7 +725,7 @@ class TestAuthErrorClassification:
         mock_mgr = MagicMock()
         mock_mgr.get_module.return_value = mock_mod
 
-        with patch("adversary_pursuit.core.plugin_mgr.PluginManager", return_value=mock_mgr):
+        with patch("pivotglass.core.plugin_mgr.PluginManager", return_value=mock_mgr):
             status, msg, count = smoke._run_shodan("8.8.8.8", self._keys_with_shodan(), False)
 
         assert status == smoke.FAIL, f"Expected FAIL for ReadTimeout, got {status!r}"
@@ -746,7 +746,7 @@ class TestAuthErrorClassification:
         mock_mgr = MagicMock()
         mock_mgr.get_module.return_value = mock_mod
 
-        with patch("adversary_pursuit.core.plugin_mgr.PluginManager", return_value=mock_mgr):
+        with patch("pivotglass.core.plugin_mgr.PluginManager", return_value=mock_mgr):
             status, msg, count = smoke._run_censys("8.8.8.8", self._keys_with_censys(), False)
 
         assert status == smoke.SKIP, f"Expected SKIP for Censys AuthenticationError, got {status!r}"
@@ -810,7 +810,7 @@ class TestGreyNoiseRunHandler:
         mock_mgr = MagicMock()
         mock_mgr.get_module.return_value = mock_mod
 
-        with patch("adversary_pursuit.core.plugin_mgr.PluginManager", return_value=mock_mgr):
+        with patch("pivotglass.core.plugin_mgr.PluginManager", return_value=mock_mgr):
             status, msg, count = smoke._run_greynoise("8.8.8.8", self._keys_with_greynoise(), False)
 
         assert status == smoke.SKIP, f"Expected SKIP for AuthenticationError, got {status!r}"
@@ -842,7 +842,7 @@ class TestGreyNoiseRunHandler:
         mock_mgr = MagicMock()
         mock_mgr.get_module.return_value = mock_mod
 
-        with patch("adversary_pursuit.core.plugin_mgr.PluginManager", return_value=mock_mgr):
+        with patch("pivotglass.core.plugin_mgr.PluginManager", return_value=mock_mgr):
             status, _msg, count = smoke._run_greynoise(
                 "8.8.8.8", self._keys_with_greynoise(), False
             )
@@ -870,7 +870,7 @@ class TestGreyNoiseRunHandler:
         mock_mgr = MagicMock()
         mock_mgr.get_module.return_value = mock_mod
 
-        with patch("adversary_pursuit.core.plugin_mgr.PluginManager", return_value=mock_mgr):
+        with patch("pivotglass.core.plugin_mgr.PluginManager", return_value=mock_mgr):
             status, _msg, count = smoke._run_greynoise(
                 "8.8.8.8", self._keys_with_greynoise(), False
             )

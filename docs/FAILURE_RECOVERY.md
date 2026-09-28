@@ -63,7 +63,7 @@ in place. Follow [workspace migration and recovery](WORKSPACE_MIGRATIONS.md).
 ## Stale browser assets
 
 In an editable source checkout, Pivotglass compares the browser source and
-static export. If the export is older, `ap` refuses to serve it and instructs
+static export. If the export is older, `pivotglass` refuses to serve it and instructs
 you to run:
 
 ```bash
@@ -71,7 +71,7 @@ cd web
 npm ci
 npm run build
 cd ..
-uv run ap
+uv run pivotglass
 ```
 
 An installed wheel contains its qualified static export and does not need

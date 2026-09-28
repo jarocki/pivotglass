@@ -1,0 +1,1115 @@
+"""Terminal chat interface for Pivotglass agent — prompt_toolkit-powered REPL.
+
+Provides a Rich-based interactive REPL that wraps AgentRunner.
+Launched by default via ``pivotglass``. ``pivotglass chat`` remains a compatibility alias.
+
+@decision DEC-AGENT-CHAT-001
+@title prompt_toolkit REPL with history, autocomplete, vi keybindings
+@status accepted (supersedes: "Minimal Rich REPL — no readline/prompt_toolkit complexity")
+@rationale Upgraded from bare console.input() to prompt_toolkit ChatPromptSession
+           (repl_input.py) which provides: persistent FileHistory (~/.pivotglass/chat_history),
+           tab-completion of meta-commands and their arguments, vi/emacs editing
+           modes, and AutoSuggestFromHistory.  All input now flows through
+           repl_input.prompt_user() which is tested and mockable.  Errors that
+           would previously dump raw tracebacks are now routed through
+           error_handler.handle_error() which classifies, optionally explains via
+           a debug-LLM call, and renders a one-line problem + fix in a Rich Panel.
+           The boot banner is replaced by banner.render_boot_banner() which shows
+           ASCII art + a brief typewriter animation; PIVOTGLASS_NO_BANNER=1 skips it for CI.
+
+@decision DEC-AGENT-CHAT-002
+@title mode meta-command mirrors PivotglassConsole.do_mode — parsed before LLM dispatch
+@status accepted
+@rationale Character mode switching must be handled locally (not sent to the
+           LLM) so the mode state change is immediate and deterministic. The
+           command surface matches cmd2 PivotglassConsole.do_mode: 'mode' alone lists
+           available modes with the active one marked; 'mode list' is an alias;
+           'mode <name>' switches via ModeManager.switch(name) and then calls
+           runner.set_character(active_mode) to update the LLM system prompt.
+           Unknown names show an error without changing state. The prompt prefix
+           reflects the active mode's prompt_prefix so the user sees the persona
+           in every input line. Mirrors DEC-CONSOLE-004 for the agent path.
+
+@decision DEC-AGENT-CHAT-MODEL-COMMANDS-001
+@title model show / model select meta-commands for provider/model management
+@status accepted
+@rationale Users need a discoverable way to check which provider+model is active
+           and to re-run the setup wizard without restarting. Both are handled
+           locally (not sent to the LLM) for immediate, deterministic output.
+           'model show' reads from the three precedence layers (env, config,
+           default) and labels each so the user can diagnose override surprises.
+           'model select' re-runs the full provider wizard and updates
+           runner.model in-place so the running session immediately uses the new
+           selection without a restart. Wired through the same meta-command
+           intercept block as all other local commands — no new dispatch path.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.markup import escape
+from rich.panel import Panel
+from rich.table import Table
+
+# ConfigManager and run_provider_wizard are imported at module level so that
+# tests can patch 'pivotglass.agent.chat.ConfigManager' and
+# 'pivotglass.agent.chat.run_provider_wizard' cleanly.
+# Neither pulls in optional dependencies (litellm), so this is safe.
+from pivotglass.agent.banner import (
+    get_mode_color,
+    render_boot_banner,
+)
+from pivotglass.agent.error_handler import handle_error
+from pivotglass.agent.provider_setup import run_provider_wizard
+from pivotglass.agent.repl_input import ChatPromptSession
+from pivotglass.core.config import ConfigManager
+from pivotglass.core.console import _confirm, _render_db_status_table
+
+# ---------------------------------------------------------------------------
+# Phase 17P: chat workspace subcommand dispatcher + db_status helper
+# (DEC-WORKSPACE-DB-001, DEC-WORKSPACE-DB-003, DEC-WORKSPACE-DB-005)
+# ---------------------------------------------------------------------------
+
+
+def _chat_handle_workspace(stripped: str, runner: object, console: Console) -> None:
+    """Handle the ``workspace`` meta-command in the chat REPL.
+
+    Full subcommand dispatcher mirroring ``PivotglassConsole.do_workspace`` so both
+    surfaces offer identical functionality (DEC-WORKSPACE-DB-005 parity goal).
+
+    Subcommands::
+
+        workspace                   → list workspaces
+        workspace list              → list workspaces
+        workspace learn <name>      → create an offline learning investigation
+        workspace create <name>     → create workspace
+        workspace switch <name>     → switch active workspace
+        workspace delete <name>     → delete with y/N confirmation
+        workspace clear [<name>]    → clear data with y/N confirmation
+        workspace <name>            → DEPRECATED single-arg switch shorthand
+                                      (DEC-WORKSPACE-DB-003: warns for one release cycle)
+
+    Parameters
+    ----------
+    stripped:
+        Raw user input with leading/trailing whitespace removed.
+    runner:
+        ``AgentRunner`` instance; ``runner.ctx.workspace_mgr`` is the live
+        ``WorkspaceManager`` for the session.
+    console:
+        ``rich.console.Console`` for output.
+    """
+    workspace_mgr = runner.ctx.workspace_mgr  # type: ignore[attr-defined]
+
+    # Split into at most 3 tokens: "workspace", subcommand, optional name
+    parts = stripped.split(None, 2)
+    # parts[0] == "workspace"; sub is parts[1] if present
+    sub = parts[1].lower() if len(parts) >= 2 else "list"
+    arg = parts[2].strip() if len(parts) >= 3 else ""
+
+    # Detect legacy single-arg switch shorthand: "workspace <name>" where
+    # <name> is not a recognised subcommand — DEC-WORKSPACE-DB-003.
+    _KNOWN_SUBS = {"list", "learn", "create", "switch", "delete", "clear"}
+    if len(parts) == 2 and sub not in _KNOWN_SUBS:
+        # Legacy path: "workspace apt41" treated as "workspace switch apt41"
+        console.print(
+            f"[dim](deprecated: use `workspace switch {sub}` instead of "
+            f"`workspace {sub}` — single-arg shorthand will be removed in v0.5.x)[/dim]"
+        )
+        try:
+            workspace_mgr.switch(sub)
+            console.print(f"[green]Switched to workspace: {sub}[/green]")
+        except ValueError as e:
+            console.print(f"[yellow]{e}[/yellow]")
+        return
+
+    if sub in ("list", "") or (len(parts) == 1):
+        # List all workspaces
+        names = workspace_mgr.list_workspaces()
+        if not names:
+            console.print("[dim]No workspaces found.[/dim]")
+            return
+        table = Table(title="Workspaces", show_header=True)
+        table.add_column("Name", style="cyan")
+        table.add_column("Active", style="green")
+        try:
+            active = workspace_mgr.active
+        except RuntimeError:
+            active = ""
+        for n in names:
+            marker = "*" if n == active else ""
+            table.add_row(n, marker)
+        console.print(table)
+
+    elif sub == "create":
+        if not arg:
+            console.print("[yellow]Usage: workspace create <name>[/yellow]")
+            return
+        try:
+            workspace_mgr.create(arg)
+            console.print(f"[green]Workspace '{arg}' created.[/green]")
+        except ValueError as e:
+            console.print(f"[yellow]{e}[/yellow]")
+
+    elif sub == "learn":
+        if not arg:
+            console.print("[yellow]Usage: workspace learn <name>[/yellow]")
+            return
+        from pivotglass.core.learning_workspace import create_learning_workspace
+
+        try:
+            receipt = create_learning_workspace(workspace_mgr, arg)
+            console.print_json(data=receipt)
+        except ValueError as e:
+            console.print(f"[yellow]{e}[/yellow]")
+
+    elif sub == "switch":
+        if not arg:
+            console.print("[yellow]Usage: workspace switch <name>[/yellow]")
+            return
+        try:
+            workspace_mgr.switch(arg)
+            console.print(f"[green]Switched to workspace: {arg}[/green]")
+        except ValueError as e:
+            console.print(f"[yellow]{e}[/yellow]")
+
+    elif sub == "delete":
+        if not arg:
+            console.print("[yellow]Usage: workspace delete <name>[/yellow]")
+            return
+        try:
+            if arg == workspace_mgr.active:
+                console.print(
+                    "[yellow]Switch away from the active workspace before deleting it.[/yellow]"
+                )
+                return
+        except RuntimeError:
+            pass
+        if not _confirm(
+            f"Delete workspace '{arg}' and all stored investigation data, including "
+            "uploaded source documents? This cannot be undone."
+        ):
+            console.print("[dim]Delete cancelled.[/dim]")
+            return
+        try:
+            deleted = workspace_mgr.delete(arg)
+            console.print(
+                f"[green]Workspace '{arg}' deleted. "
+                f"{deleted['sqlite_files']} SQLite file(s) and "
+                f"{deleted['raw_document_files']} raw document file(s) removed.[/green]"
+            )
+        except (ValueError, RuntimeError) as e:
+            console.print(f"[yellow]{e}[/yellow]")
+
+    elif sub == "clear":
+        # arg is optional: empty → clear active; non-empty → clear named
+        name_to_clear: str | None = arg if arg else None
+        if name_to_clear is not None:
+            display_name = name_to_clear
+        else:
+            try:
+                display_name = workspace_mgr.active
+            except RuntimeError:
+                console.print(
+                    "[yellow]No active workspace. Use 'workspace switch <name>' first.[/yellow]"
+                )
+                return
+        if not _confirm(
+            f"Reset investigation data in workspace '{display_name}'? This permanently "
+            "removes evidence, indicators, relationships, collection history, notes, "
+            "analytic records, badges and challenges, saved graph layouts, uploaded "
+            "documents, and their parser, extraction, proposal, and snapshot records. "
+            "The empty workspace and schema remain. This cannot be undone."
+        ):
+            console.print("[dim]Clear cancelled.[/dim]")
+            return
+        try:
+            deleted = workspace_mgr.clear(name=name_to_clear)
+            raw_document_files = deleted["raw_document_files"]
+            table_counts = {
+                key: value for key, value in deleted.items() if key != "raw_document_files"
+            }
+            total = sum(table_counts.values())
+            detail = (
+                ", ".join(f"{value} {key}" for key, value in table_counts.items() if value > 0)
+                or "all tables were already empty"
+            )
+            console.print(
+                f"[green]Workspace '{display_name}' cleared. "
+                f"{total} database row(s) removed ({detail}); "
+                f"{raw_document_files} raw document file(s) removed.[/green]"
+            )
+        except (ValueError, RuntimeError) as e:
+            console.print(f"[yellow]{e}[/yellow]")
+
+    else:
+        console.print(f"[yellow]Unknown workspace subcommand: '{sub}'[/yellow]")
+        console.print("[dim]Usage: workspace [list|learn|create|switch|delete|clear] [name][/dim]")
+
+
+def run_chat() -> None:
+    """Run the conversational CTI interface.
+
+    Starts an interactive terminal chat session using AgentRunner.
+    Displays the boot banner, then loops reading user input until the user
+    types 'quit', 'exit', or sends EOF (Ctrl+D).
+
+    On first launch (when no model is configured via PIVOTGLASS_MODEL env var or
+    config.toml), runs the interactive provider/model setup wizard before
+    entering the chat loop.
+
+    Routing (Slice 6+):
+      - Default: TUI path via _run_tui_chat() (Textual-based interface).
+      - Legacy: prompt_toolkit REPL via _run_legacy_chat_loop() when:
+          * ``--legacy-repl`` is passed on the command line, OR
+          * ``PIVOTGLASS_REPL=legacy`` environment variable is set, OR
+          * stdin is not a TTY (piped / CI context).
+
+    Meta-commands (handled locally, not sent to the LLM):
+      workspace <name>              -- switch active workspace
+      mode                          -- list available character modes
+      mode list                     -- list available character modes
+      mode <name>                   -- switch to named character mode
+      hint                          -- get next free hint (general)
+      hint <module>                 -- get next free hint for a specific module
+      hint buy                      -- buy the next paid hint (costs score points)
+      hint buy <module>             -- buy the next paid module-specific hint
+      report [generate]             -- generate and display dossier Markdown report
+      model show                    -- display current provider/model and source layer
+      model select                  -- re-run the provider/model setup wizard
+      note <text>                   -- save analyst note (visible to dossier denial extractor + falsification)
+      dossier                       -- show Threat Actor Dossier panel (M-1 slot inference)
+      show dossier                  -- alias for dossier
+    """
+    console = Console()
+
+    # Boot banner (PIVOTGLASS_NO_BANNER=1 disables for CI)
+    render_boot_banner(console)
+
+    try:
+        # AgentRunner stays as a lazy import — it pulls in litellm (optional dep).
+        # ConfigManager and run_provider_wizard are module-level imports (no optional deps).
+        from pivotglass.agent.runner import AgentRunner
+
+        config_mgr = ConfigManager()
+
+        # Determine if a model is already configured; if not, run the wizard.
+        # Precedence: PIVOTGLASS_MODEL env > config.toml > (wizard needed)
+        resolved_model: str | None = os.environ.get("PIVOTGLASS_MODEL") or config_mgr.get_agent_model()
+        if not resolved_model:
+            # No model configured — run the interactive setup wizard.
+            try:
+                resolved_model = run_provider_wizard(config_mgr)
+            except SystemExit:
+                # Wizard aborted (bad key, no models, user cancelled).
+                return
+
+        runner = AgentRunner(model=resolved_model, config_mgr=config_mgr)
+        runner.ctx.console = (
+            console  # DEC-ERROR-ROUTING-004: propagate chat console for error panels
+        )
+        console.print("[dim]Agent ready. Ask me about any indicator.[/dim]\n")
+    except ImportError as exc:
+        handle_error(exc, console, None, None)
+        return
+
+    # @decision DEC-CHAT-TUI-ROUTING-001
+    # @title PIVOTGLASS_REPL=legacy / --legacy-repl / non-TTY stdin fall back to prompt_toolkit loop
+    # @status accepted
+    # @rationale The TUI path (Slice 6+) requires a real TTY and the textual package.
+    #            Three opt-out mechanisms let CI, piped scripts, and users who prefer the
+    #            classic REPL keep the Slice 5 experience without code changes. The three
+    #            conditions are OR'd: any one triggers legacy. The TUI path is the default
+    #            for interactive sessions with a real TTY and textual installed.
+    use_legacy = (
+        os.environ.get("PIVOTGLASS_REPL", "").lower() == "legacy"
+        or "--legacy-repl" in sys.argv
+        or not sys.stdin.isatty()
+    )
+
+    if use_legacy:
+        _run_legacy_chat_loop(runner, console, config_mgr)
+    else:
+        _run_tui_chat(runner, console, config_mgr)
+
+
+def _run_tui_chat(runner: object, console: "Console", config_mgr: "ConfigManager") -> None:
+    """Run the TUI REPL path (Slice 6+). Falls back to legacy on import or TTY errors.
+
+    Creates a per-session EventBus and TuiApplication, then hands control to
+    the Textual app. On NotATTYError or ImportError, falls back transparently
+    to the legacy prompt_toolkit loop so ``pivotglass chat`` always works.
+
+    Parameters
+    ----------
+    runner:
+        Configured AgentRunner instance.
+    console:
+        Rich Console for fallback rendering.
+    config_mgr:
+        Active ConfigManager (passed through to legacy fallback).
+    """
+    try:
+        from pivotglass.agent.tui.application import TuiApplication
+        from pivotglass.agent.tui.events import EventBus
+
+        bus = EventBus()
+        app = TuiApplication(runner, runner.ctx.workspace_mgr, runner.ctx.mode_mgr, bus)  # type: ignore[attr-defined]
+        app.run()
+    except ImportError as exc:
+        console.print(f"[yellow]TUI unavailable ({exc}) — falling back to legacy REPL.[/yellow]")
+        _run_legacy_chat_loop(runner, console, config_mgr)
+    except Exception as exc:  # noqa: BLE001
+        # Catch NotATTYError by class name to avoid a hard import dependency.
+        # The TUI module may not be installed in all environments.
+        if type(exc).__name__ == "NotATTYError":
+            console.print("[dim]No TTY detected — falling back to legacy REPL.[/dim]")
+            _run_legacy_chat_loop(runner, console, config_mgr)
+        else:
+            raise
+
+
+def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "ConfigManager") -> None:
+    """Run the legacy prompt_toolkit REPL loop (Slice 5 path).
+
+    Extracted from run_chat() so it can be called from both the legacy path
+    and the TUI fallback path without code duplication.
+
+    Parameters
+    ----------
+    runner:
+        Configured AgentRunner instance.
+    console:
+        Rich Console for output.
+    config_mgr:
+        Active ConfigManager for wizard re-runs and editing mode.
+    """
+    # Build a single PromptSession that persists history across the loop
+    editing_mode = config_mgr.get_editing_mode()  # type: ignore[attr-defined]
+    prompt_session = ChatPromptSession(editing_mode=editing_mode)
+
+    def _mode_prompt() -> str:
+        """Return a Rich-markup prompt string reflecting the active mode's prefix."""
+        mode = runner.ctx.mode_mgr.active  # type: ignore[attr-defined]
+        color = get_mode_color(mode.name)
+        prefix = mode.prompt_prefix  # e.g. "🥷" or "" for default
+        return f"{prefix}[bold {color}]pivotglass>[/bold {color}] "
+
+    while True:
+        try:
+            user_input = prompt_session.prompt(_mode_prompt())
+        except (EOFError, KeyboardInterrupt):
+            console.print("\nBye!")
+            break
+
+        stripped = user_input.strip()
+        if not stripped:
+            continue
+
+        # Handle local meta-commands (not sent to LLM)
+        if stripped.lower() in ("quit", "exit"):
+            console.print("Bye!")
+            break
+
+        # Workspace meta-command — full subcommand dispatcher mirroring
+        # PivotglassConsole.do_workspace (DEC-WORKSPACE-DB-003: legacy single-arg shorthand
+        # is kept for one release cycle with a deprecation warning).
+        #
+        # Supported forms:
+        #   workspace                       → list workspaces
+        #   workspace list                  → list workspaces
+        #   workspace create <name>         → create workspace
+        #   workspace switch <name>         → switch active workspace
+        #   workspace delete <name>         → delete with y/N confirmation
+        #   workspace clear [<name>]        → clear data with y/N confirmation
+        #   workspace <name>                → DEPRECATED: switch shorthand (warns)
+        if stripped.lower() == "workspace" or stripped.lower().startswith("workspace "):
+            _chat_handle_workspace(stripped, runner, console)
+            continue
+
+        # Mode meta-command — mirrors PivotglassConsole.do_mode (DEC-AGENT-CHAT-002)
+        lower = stripped.lower()
+        if lower == "mode" or lower == "mode list":
+            # List all available modes, mark the active one
+            mode_mgr = runner.ctx.mode_mgr
+            current = mode_mgr.active
+            table = Table(title="Character Modes", show_header=True)
+            table.add_column("", style="bold green", width=2)
+            table.add_column("Mode", style="cyan")
+            table.add_column("Personality")
+            for entry in mode_mgr.list_modes(public_only=True):
+                marker = "*" if entry["name"] == current.name else ""
+                table.add_row(marker, entry["display_name"], entry["personality"])
+            console.print(table)
+            from pivotglass.gamification.modes import display_mode_name
+
+            console.print(f"\n[dim]Active: [bold]{display_mode_name(current.name)}[/bold][/dim]")
+            continue
+
+        if lower.startswith("mode "):
+            mode_name = stripped[5:].strip()
+            if mode_name:
+                mode_mgr = runner.ctx.mode_mgr
+                try:
+                    new_mode = mode_mgr.switch(mode_name)
+                except ValueError as e:
+                    console.print(f"[yellow]Error: {e}[/yellow]")
+                    continue
+                # Update the LLM system prompt with the new persona
+                runner.set_character(new_mode)
+                from pivotglass.gamification.phrases import pick
+
+                public_name = display_mode_name(new_mode.name)
+                console.print(
+                    Panel(
+                        f"[bold]{public_name}[/bold]\n"
+                        f"{pick(new_mode.name, 'mode_switched')}\n\n"
+                        f"[dim]{new_mode.personality}[/dim]",
+                        title=f"[bold green]Mode switched: {public_name}[/bold green]",
+                        style="green",
+                    )
+                )
+            continue
+
+        # Hint meta-command — mirrors PivotglassConsole.do_hint (DEC-AGENT-HINTS-001).
+        # Handled locally so hint state changes are immediate and deterministic.
+        # Shares the same HintProvider instance on runner.ctx so revealed-ID set
+        # is consistent with the LLM tool path (DEC-HINT-002).
+        #
+        # Supported forms:
+        #   hint                 → next free general hint
+        #   hint <module>        → next free hint for that module
+        #   hint buy             → next paid general hint (deducts score)
+        #   hint buy <module>    → next paid hint for that module
+        if lower == "hint" or lower.startswith("hint "):
+            hint_mgr = runner.ctx.hint_mgr
+            workspace_mgr = runner.ctx.workspace_mgr
+            rest = stripped[4:].strip() if len(stripped) > 4 else ""
+
+            buy_mode = rest.lower().startswith("buy")
+            if buy_mode:
+                # "hint buy" or "hint buy <module>"
+                module_arg = rest[3:].strip() or None
+                try:
+                    current_score = workspace_mgr.get_total_score()
+                except Exception as e:
+                    handle_error(e, console, runner, config_mgr)
+                    continue
+                try:
+                    from pivotglass.gamification.hints import (
+                        InsufficientBalanceError,
+                    )
+
+                    result = hint_mgr.buy_hint(current_score=current_score, module=module_arg)
+                except InsufficientBalanceError as exc:
+                    console.print(
+                        f"[yellow]Not enough points: need {exc.required} pts "
+                        f"but have {exc.available} pts.[/yellow]"
+                    )
+                    continue
+                except Exception as e:
+                    handle_error(e, console, runner, config_mgr)
+                    continue
+
+                if result is None:
+                    ctx_label = f" for '{module_arg}'" if module_arg else ""
+                    console.print(f"[dim]No more paid hints available{ctx_label}.[/dim]")
+                    continue
+
+                # Persist score deduction (DEC-HINT-001: caller owns deduction)
+                try:
+                    workspace_mgr.store_score_events(
+                        [
+                            {
+                                "action": "hint",
+                                "points": -result.cost_paid,
+                                "indicator": module_arg or "general",
+                                "rule_description": f"Paid hint: {result.hint.id}",
+                            }
+                        ]
+                    )
+                except Exception as e:
+                    handle_error(e, console, runner, config_mgr)
+
+                # Render with mode-flavored header
+                mode_name = runner.ctx.mode_mgr.active.name
+                panel_title = f"[bold cyan]Hint (-{result.cost_paid} pts)[/bold cyan]"
+                console.print(
+                    Panel(
+                        result.hint.text,
+                        title=panel_title,
+                        subtitle=f"[dim]{mode_name}[/dim]",
+                        style="cyan",
+                    )
+                )
+            else:
+                # Free hint: "hint" or "hint <module>"
+                module_arg = rest or None
+                result = hint_mgr.get_next_hint(module=module_arg)
+                if result is None:
+                    ctx_label = f" for '{module_arg}'" if module_arg else ""
+                    console.print(
+                        f"[dim]No more free hints available{ctx_label}. "
+                        f"Try 'hint buy' for paid hints.[/dim]"
+                    )
+                    continue
+
+                mode_name = runner.ctx.mode_mgr.active.name
+                console.print(
+                    Panel(
+                        result.hint.text,
+                        title="[bold cyan]Hint (free)[/bold cyan]",
+                        subtitle=f"[dim]{mode_name}[/dim]",
+                        style="cyan",
+                    )
+                )
+            continue
+
+        # Autopivot meta-command — mirrors DEC-EVENTBUS-002 opt-in toggle.
+        # Handled locally (not sent to LLM) so state changes are immediate.
+        # Supported forms:
+        #   autopivot          → show current state
+        #   autopivot on       → enable EventBus cascade execution
+        #   autopivot off      → disable EventBus cascade execution
+        if lower == "autopivot" or lower.startswith("autopivot "):
+            sub = stripped[9:].strip().lower() if len(stripped) > 9 else ""
+            if sub == "on":
+                runner.ctx.set_autopivot(True)
+                console.print(
+                    "[green]Auto-pivot enabled.[/green] Cascading modules will fire on discoveries."
+                )
+            elif sub == "off":
+                runner.ctx.set_autopivot(False)
+                console.print(
+                    "[yellow]Auto-pivot disabled.[/yellow] Running modules manually only."
+                )
+            else:
+                # Status display
+                state = "on" if runner.ctx.autopivot_enabled else "off"
+                color = "green" if runner.ctx.autopivot_enabled else "yellow"
+                console.print(
+                    f"Auto-pivot is [{color}]{state}[/{color}]. "
+                    f"Use [bold]autopivot on[/bold] or [bold]autopivot off[/bold] to toggle."
+                )
+            continue
+
+        # Challenges meta-command — mirrors PivotglassConsole.do_challenges (DEC-AGENT-CHALLENGES-001).
+        # Handled locally (not sent to LLM) so the list is always deterministic and fast.
+        # Shares the same ChallengeManager instance on runner.ctx so completion state
+        # is consistent with the LLM tool path and the auto-check in run_module().
+        #
+        # Supported form:
+        #   challenges           → list all challenges with current status
+        if lower == "challenges":
+            items = runner.ctx.challenge_mgr.list_challenges()
+            table = Table(title="Challenges", show_header=True)
+            table.add_column("ID", style="cyan")
+            table.add_column("Name", style="bold")
+            table.add_column("Type", style="yellow")
+            table.add_column("Points", style="green", justify="right")
+            table.add_column("Status", style="white")
+            table.add_column("Description")
+            for item in items:
+                status = item["status"]
+                if status == "completed":
+                    status_str = "[green]completed[/green]"
+                elif status == "expired":
+                    status_str = "[red]expired[/red]"
+                else:
+                    status_str = "[blue]active[/blue]"
+                table.add_row(
+                    item["id"],
+                    item["name"],
+                    item["challenge_type"],
+                    str(item["points"]),
+                    status_str,
+                    item["description"],
+                )
+            console.print(table)
+            continue
+
+        if lower == "badges":
+            awarded = runner.ctx.workspace_mgr.get_awarded_badges()
+            table = Table(title=f"Earned Badges ({len(awarded)})", show_header=True)
+            table.add_column("Art", style="cyan")
+            table.add_column("Badge", style="bold")
+            table.add_column("Rarity", style="yellow")
+            table.add_column("Earned", style="green")
+            table.add_column("Challenge")
+            for item in awarded:
+                table.add_row(
+                    str(item.get("badge_glyph") or "◆"),
+                    str(item["badge_name"]),
+                    str(item.get("badge_rarity") or "earned"),
+                    str(item["awarded_at"]),
+                    str(item.get("challenge_id") or "milestone"),
+                )
+            if not awarded:
+                table.add_row("◇", "No badges earned yet", "—", "—", "Complete a challenge")
+            console.print(table)
+            continue
+
+        # Graph meta-command — mirrors PivotglassConsole.do_graph (DEC-AGENT-GRAPH-EXPORT-001).
+        # Handled locally (not sent to LLM) for immediate, deterministic output.
+        # Shares ToolContext.workspace_mgr so the graph reflects the live workspace.
+        #
+        # Supported form:
+        #   graph            → render workspace relationship graph as Rich Tree
+        if lower == "graph":
+            from pivotglass.core.graph import RelationshipGraph
+
+            try:
+                raw_objects = runner.ctx.workspace_mgr.get_stix_objects()
+            except Exception as e:
+                handle_error(e, console, runner, config_mgr)
+                continue
+            g = RelationshipGraph()
+            g.build_from_workspace(raw_objects)
+            if g.node_count == 0:
+                console.print("[dim]No objects in workspace. Run a module first.[/dim]")
+            else:
+                tree = g.render_tree()
+                console.print(tree)
+                stats = g.get_stats()
+                console.print(
+                    f"\n[dim]{stats['node_count']} nodes, {stats['edge_count']} edges[/dim]"
+                )
+            continue
+
+        # Note meta-command — DEC-M5-NOTE-002: local handler, no LLM dispatch.
+        # Persists the text via the existing workspace_mgr.add_note() API (AnalystNote
+        # table). The note is immediately visible to _read_analyst_notes callers:
+        # motivation extractor, denial extractor, M-4 note_keyword_any validation,
+        # and the M-5 falsification engine's contradiction_keyword_any check.
+        #
+        # Supported forms:
+        #   note <text>      -> save analyst note to dossier evidence
+        #   note             -> print usage hint
+        if lower == "note" or lower.startswith("note "):
+            note_text = stripped[4:].strip() if len(stripped) > 4 else ""
+            if not note_text:
+                console.print("[dim]Usage: note <text>[/dim]")
+                continue
+            try:
+                runner.ctx.workspace_mgr.add_note(note_text)
+                console.print(f"[green]Note saved.[/green] ({len(note_text)} chars)")
+            except Exception as e:
+                handle_error(e, console, runner, config_mgr)
+            continue
+
+        # Dossier meta-command — DEC-M1-DOSSIER-004: local handler, no LLM dispatch.
+        # Reads workspace SCOs via get_stix_objects() (read-only), feeds them through
+        # dossier.slot_inference.infer_dossier_state(), and renders the result as a
+        # Rich panel via dossier.panel.render(). The panel is printed directly on the
+        # existing console singleton — no new console helper in core/console.py
+        # (DEC-M1-DOSSIER-003). The get_dossier_state LLM tool is deferred to M-2
+        # (DEC-M1-DOSSIER-004).
+        #
+        # Supported forms:
+        #   dossier                        -> render dossier panel for current workspace
+        #   show dossier                   -> alias
+        #   dossier export [<actor>] [--publish]  -> export STIX bundle (M-9)
+        #   dossier compare <actor|path>   -> compare with peer dossier (M-9)
+        #
+        # M-9 sub-commands (DEC-M9-CHAT-METACMD-001): export and compare are handled
+        # locally (no LLM call) for deterministic, instant output. The plain-text
+        # output is F64-compliant (no Rich markup in LLM-facing surfaces; the console
+        # Panel wrapper here is Rich but the underlying report text is plain ASCII).
+
+        # "show" meta-commands — always handled locally; never dispatched to LLM.
+        # Bug 2 fix (Phase 18 Slice 4): "show details", "show <field>", and bare "show"
+        # must not fall through to the LLM. If there is no prior hunt in the current
+        # session, render a friendly message. If there is prior workspace data, show it.
+        #
+        # @decision DEC-P18S4-SHOW-TERMINAL-001
+        # @title show commands are terminal REPL handlers — never LLM dispatch
+        # @status accepted
+        # @rationale User typing "show details" expected to see prior hunt results, not
+        #            trigger new DNS/WHOIS tool calls. The "show" family is inspection-only:
+        #            it must be intercepted before LLM dispatch and render from workspace state.
+        if lower == "show" or (lower.startswith("show ") and not lower.startswith("show dossier")):
+            sub_field = lower[len("show") :].strip() if len(lower) > 4 else ""
+            try:
+                objects = runner.ctx.workspace_mgr.get_stix_objects()
+                runs = runner.ctx.workspace_mgr.get_module_runs()
+            except Exception:
+                objects, runs = [], []
+            if not objects and not runs:
+                console.print(
+                    "[yellow]No hunt results to show. Run a hunt first, then use "
+                    "`show details` to inspect it.[/yellow]"
+                )
+            else:
+                lines = [
+                    f"[bold]Workspace details[/bold] ({len(objects)} indicators, {len(runs)} module run(s)):"
+                ]
+                if sub_field in ("", "details"):
+                    for obj in objects[:20]:
+                        lines.append(f"  {obj.get('type', '?')}: {obj.get('value', '?')}")
+                    if len(objects) > 20:
+                        lines.append(f"  ... and {len(objects) - 20} more")
+                    if runs:
+                        lines.append(
+                            f"\nLast run: {runs[-1].get('module_name', '?')} on {runs[-1].get('target', '?')}"
+                        )
+                else:
+                    # Specific field — filter by STIX type or value keyword
+                    filtered = [
+                        o
+                        for o in objects
+                        if sub_field in o.get("type", "") or sub_field in str(o.get("value", ""))
+                    ]
+                    if filtered:
+                        lines = [f"[bold]{escape(sub_field)}[/bold] matches ({len(filtered)}):"]
+                        for obj in filtered[:20]:
+                            lines.append(f"  {obj.get('type', '?')}: {obj.get('value', '?')}")
+                    else:
+                        lines = [f"No workspace objects matching '{sub_field}'."]
+                console.print("\n".join(lines))
+            continue
+
+        if lower == "dossier" or lower == "show dossier":
+            from pivotglass.dossier.panel import render as render_dossier
+            from pivotglass.dossier.slot_inference import infer_dossier_state
+
+            try:
+                raw_objects = runner.ctx.workspace_mgr.get_stix_objects()
+            except Exception as e:
+                handle_error(e, console, runner, config_mgr)
+                continue
+            state = infer_dossier_state(raw_objects)
+            panel = render_dossier(state)
+            console.print(panel)
+            if state.total_sco_count == 0:
+                console.print(
+                    "[dim]No SCOs in workspace. Run a module first to fill dossier slots.[/dim]"
+                )
+            continue
+
+        if lower.startswith("dossier export"):
+            # dossier export [<actor_identifier>] [--publish]
+            from pivotglass.agent.tools import _execute_export_dossier
+
+            rest = stripped[len("dossier export") :].strip()
+            publish_flag = "--publish" in rest
+            actor_arg: str | None = rest.replace("--publish", "").strip() or None
+            result_str = _execute_export_dossier(
+                runner.ctx,
+                actor_identifier=actor_arg,
+                publish=publish_flag,
+            )
+            console.print(result_str)
+            continue
+
+        if lower.startswith("dossier compare"):
+            # dossier compare <actor_identifier_or_path>
+            from pivotglass.agent.tools import _execute_compare_dossier
+
+            rest = stripped[len("dossier compare") :].strip()
+            if not rest:
+                console.print("[yellow]Usage: dossier compare <actor_identifier|path>[/yellow]")
+                continue
+            result_str = _execute_compare_dossier(runner.ctx, source=rest)
+            console.print(result_str)
+            continue
+
+        # Export meta-command — mirrors PivotglassConsole.do_export (DEC-AGENT-GRAPH-EXPORT-001).
+        # Handled locally for deterministic output, no LLM involvement.
+        #
+        # Supported forms:
+        #   export gexf      → print GEXF 1.2 XML to terminal
+        #   export stix      → print STIX 2.1 bundle JSON to terminal
+        if lower == "export gexf" or lower == "export stix":
+            from pivotglass.core.graph import RelationshipGraph
+
+            fmt = stripped.split()[-1].lower()  # "gexf" or "stix"
+            try:
+                raw_objects = runner.ctx.workspace_mgr.get_stix_objects()
+            except Exception as e:
+                handle_error(e, console, runner, config_mgr)
+                continue
+            if not raw_objects:
+                console.print("[dim]No objects in workspace to export. Run a module first.[/dim]")
+                continue
+            g = RelationshipGraph()
+            g.build_from_workspace(raw_objects)
+            if fmt == "gexf":
+                console.print(g.export_gexf())
+            else:
+                import json as _json
+
+                bundle = g.export_stix_bundle()
+                console.print(_json.dumps(bundle, indent=2))
+            continue
+
+        # Help meta-command — renders a Rich Table of all chat meta-commands so
+        # users can discover the command surface without triggering an LLM call.
+        # Intercepted before LLM dispatch, identical output for both 'help' and '?'.
+        #
+        # @decision DEC-AGENT-CHAT-HELP-001
+        # @title Help / ? meta-command renders local command reference without LLM call
+        # @status accepted
+        # @rationale Users typing 'help' or '?' expect instant, offline discoverability
+        #            of available commands — not an LLM round-trip that may fail on
+        #            backend-unavailability (e.g., Ollama connection refused). Mirrors
+        #            cmd2's built-in help() parity for the conversational REPL. Showing
+        #            active model and workspace aids debugging without requiring a
+        #            separate status command.
+        if lower in ("help", "?"):
+            help_table = Table(
+                title="Chat Meta-Commands",
+                show_header=True,
+                header_style="bold cyan",
+            )
+            help_table.add_column("Command", style="bold cyan", no_wrap=True)
+            help_table.add_column("Syntax", style="green")
+            help_table.add_column("Description")
+            help_table.add_row(
+                "workspace",
+                "workspace [list|create|switch|delete|clear] [name]",
+                "Manage workspaces (legacy: workspace <name> warns and switches)",
+            )
+            help_table.add_row(
+                "db_status",
+                "db_status",
+                "Show DB file path, size, per-table counts, score, last events",
+            )
+            help_table.add_row(
+                "mode",
+                "mode / mode list / mode <name>",
+                "List or switch character mode",
+            )
+            help_table.add_row(
+                "hint",
+                "hint / hint <module> / hint buy [<module>]",
+                "Request free or paid hints",
+            )
+            help_table.add_row(
+                "autopivot",
+                "autopivot [on|off]",
+                "Toggle event-bus auto-pivot",
+            )
+            help_table.add_row(
+                "challenges",
+                "challenges",
+                "List active challenges",
+            )
+            help_table.add_row(
+                "graph",
+                "graph",
+                "Render workspace relationship tree",
+            )
+            help_table.add_row(
+                "note",
+                "note <text>",
+                "Save an analyst note (visible to dossier denial extractor + prediction validation/falsification)",
+            )
+            help_table.add_row(
+                "dossier",
+                "dossier / show dossier / dossier export [<actor>] [--publish] / dossier compare <actor|path>",
+                "Show Dossier panel; export as STIX bundle; compare with peer dossier (M-9)",
+            )
+            help_table.add_row(
+                "export",
+                "export gexf / export stix",
+                "Export workspace as GEXF or STIX bundle",
+            )
+            help_table.add_row(
+                "report",
+                "report / report answer N <text> / report generate",
+                "Interview-driven investigation report",
+            )
+            help_table.add_row(
+                "model",
+                "model show / model select",
+                "Show current provider/model or re-run setup wizard",
+            )
+            help_table.add_row(
+                "help",
+                "help / ?",
+                "Show this command reference",
+            )
+            help_table.add_row(
+                "quit",
+                "quit / exit",
+                "Leave chat",
+            )
+            console.print(help_table)
+            try:
+                active_workspace = runner.ctx.workspace_mgr.active
+            except RuntimeError:
+                active_workspace = "default"
+            console.print(f"\n[dim]Active model: [bold]{runner.model}[/bold][/dim]")
+            console.print(f"[dim]Active workspace: [bold]{active_workspace}[/bold][/dim]")
+            continue
+
+        # Report meta-command — M-8: sole dossier renderer; classic path removed
+        # (DEC-68-DOSSIER-REFRAME-008 / DEC-M8-CLEANUP-001).
+        # Supported forms:
+        #   report / report generate  → render dossier report as Markdown panel
+        if lower == "report" or lower.startswith("report "):
+            from pivotglass.agent.tools import _execute_generate_dossier_report
+
+            rest_lower = stripped[6:].strip().lower() if len(stripped) > 6 else ""
+
+            if rest_lower in ("", "generate"):
+                report_md = _execute_generate_dossier_report(runner.ctx)
+                if report_md.startswith("Error"):
+                    console.print(f"[yellow]{report_md}[/yellow]")
+                else:
+                    console.print(
+                        Panel(
+                            Markdown(report_md),
+                            title="[bold green]Investigation Report[/bold green]",
+                            style="green",
+                        )
+                    )
+            else:
+                console.print(
+                    f"[yellow]Unknown report subcommand: '{rest_lower}'. "
+                    "Usage: report [generate][/yellow]"
+                )
+
+            continue
+
+        # Model meta-commands — DEC-AGENT-CHAT-MODEL-COMMANDS-001.
+        # Handled locally (not sent to LLM) for immediate, deterministic output.
+        #
+        # Supported forms:
+        #   model show     → display current provider, model, and which precedence
+        #                    layer it came from (env / config / default)
+        #   model select   → re-run the full provider/model setup wizard; updates
+        #                    runner.model in-place for the current session
+        if lower == "model show":
+            env_model = os.environ.get("PIVOTGLASS_MODEL")
+            cfg_model = config_mgr.get_agent_model() if config_mgr else None
+            cfg_provider = config_mgr.get_agent_provider() if config_mgr else None
+            if env_model:
+                source = "[yellow]PIVOTGLASS_MODEL env var[/yellow]"
+                effective = env_model
+            elif cfg_model:
+                source = "[cyan]config.toml[/cyan]"
+                effective = cfg_model
+            else:
+                source = "[dim]default (not configured)[/dim]"
+                effective = runner.model
+            console.print(f"\n[bold]Current model:[/bold] {effective}")
+            console.print(f"[dim]Source: {source}[/dim]")
+            if cfg_provider:
+                console.print(f"[dim]Configured provider: {cfg_provider}[/dim]")
+            console.print()
+            continue
+
+        if lower == "model select":
+            try:
+                new_model = run_provider_wizard(config_mgr)
+                runner.model = new_model
+                console.print(f"[green]Model updated to:[/green] {new_model}\n")
+            except SystemExit:
+                console.print("[yellow]Setup wizard cancelled.[/yellow]\n")
+            continue
+
+        # db_status meta-command — mirrors PivotglassConsole.do_db_status (DEC-WORKSPACE-DB-005).
+        # Handled locally (not sent to LLM) for instant, deterministic output.
+        # Both chat and cmd2 surfaces share the single ``_render_db_status_table``
+        # helper from core/console.py (DEC-WORKSPACE-DB-005 single-authority render).
+        #
+        # Supported form:
+        #   db_status      → show enhanced database status table
+        if lower == "db_status":
+            _render_db_status_table(runner.ctx.workspace_mgr, console)  # type: ignore[attr-defined]
+            continue
+
+        # Route through handle_input (verb → yield → LLM priority chain).
+        # This ensures local-first verbs (help, status, clear, quit, use, mode)
+        # are intercepted before any LLM roundtrip — the operator directive
+        # "all commands should run locally unless they must use an LLM" applies
+        # to the legacy REPL as much as the TUI (DEC-RUNNER-INPUT-PRIORITY-001).
+        #
+        # StatusBar shows character + model + elapsed time + activity while busy.
+        # The bar is passed into handle_input → chat() so set_activity() fires
+        # around each tool call (DEC-STATUS-ACTIVITY-WIRING-001). On any
+        # StatusBar construction failure the outer except block routes through
+        # handle_error.
+        try:
+            from pivotglass.agent.banner import StatusBar
+            from pivotglass.agent.repl_verbs import _FarewellExit
+
+            _mode_name = (
+                runner.ctx.mode_mgr.active.name if hasattr(runner.ctx, "mode_mgr") else "default"
+            )
+            _status_bar = StatusBar(
+                console=console,
+                mode_name=_mode_name,
+                model_display=runner.model,
+                workspace_mgr=getattr(runner.ctx, "workspace_mgr", None),
+            )
+            with _status_bar:
+                try:
+                    response = runner.handle_input(stripped, status_bar=_status_bar)
+                except _FarewellExit as _fe:
+                    # Quit/exit/q via the REPL verb path — emit farewell and exit
+                    console.print(_fe.phrase)
+                    break
+            console.print(Markdown(response))
+            console.print()
+            # Render celebration panels after the LLM response — one per tool
+            # call that awarded points. The celebration is for the user, not
+            # the LLM, so it is displayed here (outside the tool result loop)
+            # mirroring cmd2's _execute_hunt() pattern where Rich panels appear
+            # after results are displayed and stored. Silent when no points
+            # were awarded (runner.last_celebrations will be empty).
+            for celebration_art in getattr(runner, "last_celebrations", []):
+                console.print(
+                    Panel(
+                        celebration_art,
+                        title="[bold yellow]Achievement Unlocked[/bold yellow]",
+                        style="yellow",
+                        width=60,
+                    )
+                )
+            # Render badge panels after celebrations — one per newly-earned badge.
+            # Mirrors cmd2 PivotglassConsole._check_badges_after_run() rarity-styled panels.
+            # Silent when no new badges earned (runner.last_badges will be empty).
+            _BADGE_RARITY_COLORS = {
+                "common": "white",
+                "uncommon": "green",
+                "rare": "blue",
+                "epic": "magenta",
+                "legendary": "bold yellow",
+            }
+            for badge in getattr(runner, "last_badges", []):
+                color = _BADGE_RARITY_COLORS.get(badge.rarity.value, "white")
+                console.print(
+                    Panel(
+                        f"[bold]{badge.name}[/bold] [{color}]({badge.rarity.value.upper()})[/{color}]\n"
+                        f"{badge.description}",
+                        title="[bold yellow]Badge Earned![/bold yellow]",
+                        style="yellow",
+                    )
+                )
+            # Render challenge panels after badges — one per newly-completed challenge.
+            # DEC-64-LLM-PANEL-SEPARATION-001: challenges are surfaced here via the
+            # sidecar runner.last_challenges list, NOT parsed from the LLM summary string.
+            # Silent when no challenges completed this turn (list will be empty).
+            for challenge in getattr(runner, "last_challenges", []):
+                console.print(
+                    Panel(
+                        f"[bold]{challenge.name}[/bold]\n"
+                        f"{challenge.description}\n"
+                        f"[bold green]+{challenge.points} pts[/bold green]",
+                        title="[bold cyan]Challenge Complete![/bold cyan]",
+                        style="cyan",
+                    )
+                )
+        except Exception as exc:
+            # Route ALL exceptions through error_handler — no raw tracebacks.
+            # handle_error returns True (recoverable) → continue the loop,
+            # False (fatal) → break and exit.
+            should_continue = handle_error(exc, console, runner, config_mgr)
+            if not should_continue:
+                break

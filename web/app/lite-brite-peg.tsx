@@ -1,9 +1,5 @@
 "use client";
 
-import type { CSSProperties } from "react";
-
-import { rgbForStatus } from "./rgb-led";
-
 type PegMotif = "empty" | "partial" | "filled" | "deferred" | "failed";
 
 function motifForStatus(status: string): PegMotif {
@@ -25,25 +21,22 @@ export function LiteBritePeg({
   label: string;
   compact?: boolean;
 }) {
-  const [red, green, blue] = rgbForStatus(status);
   const motif = motifForStatus(status);
-  const style = {
-    "--peg-rgb": `rgb(${red} ${green} ${blue})`,
-  } as CSSProperties;
 
   return (
     <span
       className={`lite-brite-peg motif-${motif}${compact ? " compact" : ""}`}
-      style={style}
       data-status={status}
-      data-rgb={`${red},${green},${blue}`}
       role="img"
       aria-label={label}
     >
-      <i className="peg-outer" aria-hidden="true" />
-      <i className="peg-middle" aria-hidden="true" />
-      <i className="peg-inner" aria-hidden="true" />
-      <i className="peg-center" aria-hidden="true" />
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        {motif === "filled" ? <><circle cx="10" cy="10" r="8" fill="currentColor" /><path d="m6 10 3 3 5-6" className="peg-check" /></>
+          : motif === "partial" ? <><circle cx="10" cy="10" r="7.5" /><path d="M10 2.5a7.5 7.5 0 0 0 0 15Z" fill="currentColor" stroke="none" /></>
+          : motif === "deferred" ? <path d="M5 10h10" />
+          : motif === "failed" ? <path d="m5 5 10 10M5 15 15 5" />
+          : <circle cx="10" cy="10" r="6" />}
+      </svg>
     </span>
   );
 }

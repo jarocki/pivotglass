@@ -50,8 +50,8 @@ Coverage matrix (28 tests):
 
 from __future__ import annotations
 
-from adversary_pursuit.core.config import AutoPivotPolicyConfig
-from adversary_pursuit.core.pivot_policy import PivotPolicy
+from pivotglass.core.config import AutoPivotPolicyConfig
+from pivotglass.core.pivot_policy import PivotPolicy
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -69,7 +69,7 @@ def make_policy(
     """Build a PivotPolicy with controlled config.
 
     allowlist_path and denylist_path default to /dev/null so tests don't
-    read ~/.ap/ files.
+    read ~/.pivotglass/ files.
     """
     cfg = AutoPivotPolicyConfig(
         confidence_threshold=confidence_threshold,

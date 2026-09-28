@@ -1,6 +1,6 @@
 """Operational authority and degraded-state registry contracts."""
 
-from adversary_pursuit.core.operational_status import build_authority_registry
+from pivotglass.core.operational_status import build_authority_registry
 
 
 def _configuration():

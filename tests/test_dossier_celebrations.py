@@ -24,7 +24,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import adversary_pursuit.gamification.dossier_celebrations as dc
+import pivotglass.gamification.dossier_celebrations as dc
 
 # ---------------------------------------------------------------------------
 # Helpers for events

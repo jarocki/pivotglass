@@ -7,13 +7,14 @@ explicit commands or workflows.
 
 ## Local data
 
-- Configuration and credentials live beneath `~/.ap/` unless the operator
+- Configuration and credentials live beneath `~/.pivotglass/` unless the operator
   chooses another configuration directory.
-- Workspaces are SQLite databases beneath `~/.ap/workspaces/` by default.
+- Workspaces are SQLite databases beneath `~/.pivotglass/workspaces/` by default.
 - Workspace migrations create a sibling pre-migration backup before the first
   schema change.
-- The v0.9.6 browser document path previews first and stores only after the
-  analyst selects **Ingest into workspace**. Preview alone stores nothing.
+- The v0.9.8 browser document path previews first and stores only after the
+  analyst chooses a source-only or source-plus-selected-entities admission.
+  Preview alone stores nothing.
 - Explicit admission writes original bytes to the content-addressed
   `<workspace>.content` store and writes occurrence, parser, extraction, and
   candidate receipts to the workspace database. Ordinary browser state and
@@ -44,6 +45,20 @@ address exposes the unauthenticated HTTP interface to devices that can reach
 that network. Use LAN exposure only on a trusted network, stop the service when
 finished, and do not treat HTTP as encrypted transport.
 
+The optional advisor voice uses AI-generated speech through the configured
+OpenAI key when available: narrated text is sent to OpenAI. A device voice is
+the fallback. Voice and procedural music start disabled; choose them explicitly.
+Music synthesis is local presentation and sends no case data. Character speech,
+guidance, and music never establish evidence or confidence.
+
+## Browser-local learning drafts
+
+Novice Q&A answers, edited drafts, and reflections stay in this browser's local
+storage for the workspace. Only explicitly saved questions enter the analytic
+ledger; those answers are reported context, not verified observations. Clear
+local drafts separately when using a shared browser. Practice counters record
+participation and do not certify analyst expertise or change guidance levels.
+
 ## Backup and recovery
 
 Run `workspace schema` before opening a valuable older workspace. Keep its
@@ -63,7 +78,7 @@ Provider loss, cancellation, stale browser assets, hostile input, and
 integration outages do not authorize deletion or rewriting of local evidence.
 See the [failure and recovery guide](FAILURE_RECOVERY.md).
 
-## v0.9.6 document-lifecycle boundary
+## v0.9.8 document and entity lifecycle boundary
 
 Persistent browser admission is explicit and produces a visible receipt.
 Selecting or previewing a file still creates no stored state. Admitted source
@@ -74,3 +89,12 @@ copying original bytes. Portable JSON export contains document metadata,
 parser/extraction receipts, candidates, and pivot events, but not raw source
 bytes; preserve or merge the sibling content store when exact originals must
 move with the investigation.
+
+Candidate strings do not become entities merely because a source is stored.
+The analyst must select them. Each browser selection is bound to the reviewed
+source hash, exact parser span, normalized value, extraction rule, and rule
+version. A stale or altered selection fails before storage. Selected entities
+enter the same STIX and immutable-observation authority as other workspace
+entities and retain the source hash and parser transformation as provenance.
+This admission records an analyst decision; it does not assign a verdict,
+validate the source's claim, fabricate a relationship, or attribute an actor.

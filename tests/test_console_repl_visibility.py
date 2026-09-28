@@ -10,7 +10,7 @@ actually appears in the captured stdout after the _make_rich_console() fix
 @rationale Prior to Phase 17R, _make_rich_console() created a dead io.StringIO
            buffer that was never shown to the user. These tests verify the fix:
            Rich Console(file=self.stdout) routes all table/panel output through
-           cmd2's stdout channel. Tests also verify prompt is plain ap>/ap(<mod>)>
+           cmd2's stdout channel. Tests also verify prompt is plain pivotglass>/pivotglass(<mod>)>
            with no mode prefix, and run_fail persona strings are absent from REPL.
 """
 
@@ -20,13 +20,13 @@ import io
 
 import pytest
 
-from adversary_pursuit.core.console import APConsole
+from pivotglass.core.console import PivotglassConsole
 
 
 @pytest.fixture
 def console(tmp_path):
-    """APConsole with temp dirs, stdout=StringIO for output capture."""
-    app = APConsole(
+    """PivotglassConsole with temp dirs, stdout=StringIO for output capture."""
+    app = PivotglassConsole(
         config_dir=tmp_path / "config",
         workspace_dir=tmp_path / "workspaces",
     )
@@ -34,7 +34,7 @@ def console(tmp_path):
     return app
 
 
-def run_cmd(app: APConsole, cmd: str) -> str:
+def run_cmd(app: PivotglassConsole, cmd: str) -> str:
     """Run a command and return all output from app.stdout."""
     app.stdout = io.StringIO()
     app.rich_console = app._make_rich_console()
@@ -58,29 +58,29 @@ class TestRichOutputVisibility:
         assert "TARGET" in out or "Options for" in out or "options" in out.lower()
 
     def test_repl_prompt_no_mode_prefix_at_init(self, console):
-        """Prompt at init is 'ap> ' — no [main] or mode prefix."""
-        assert console.prompt == "ap> "
+        """Prompt at init is 'pivotglass> ' — no [main] or mode prefix."""
+        assert console.prompt == "pivotglass> "
         assert "[main]" not in console.prompt
         assert "default" not in console.prompt
 
     def test_repl_prompt_module_context_after_use(self, console):
-        """After 'use cti/threatfox', prompt is 'ap(cti/threatfox)> '."""
+        """After 'use cti/threatfox', prompt is 'pivotglass(cti/threatfox)> '."""
         run_cmd(console, "use cti/threatfox")
-        assert console.prompt == "ap(cti/threatfox)> "
+        assert console.prompt == "pivotglass(cti/threatfox)> "
         assert "[module]" not in console.prompt
         assert "[main]" not in console.prompt
 
     def test_repl_prompt_back_to_plain(self, console):
-        """After 'back', prompt returns to 'ap> '."""
+        """After 'back', prompt returns to 'pivotglass> '."""
         run_cmd(console, "use cti/threatfox")
         run_cmd(console, "back")
-        assert console.prompt == "ap> "
+        assert console.prompt == "pivotglass> "
 
     def test_mode_command_does_not_change_prompt(self, console):
         """Switching modes does not inject a mode prefix into the REPL prompt."""
         run_cmd(console, "mode ninja")
-        # Prompt must still be plain 'ap> ' — mode only affects ap chat surface
-        assert console.prompt == "ap> "
+        # Prompt must still be plain 'pivotglass> ' — mode only affects pivotglass chat surface
+        assert console.prompt == "pivotglass> "
 
     def test_run_fail_string_not_in_output(self, console, monkeypatch):
         """When hunt() raises, the mode-flavored run_fail string is NOT in output.
@@ -88,7 +88,7 @@ class TestRichOutputVisibility:
         The error panel from render_interactive is sufficient. The personality
         voice (run_fail) has been removed from _execute_hunt (Phase 17R).
         """
-        from adversary_pursuit.modules.base import ModuleError
+        from pivotglass.modules.base import ModuleError
 
         class _RaisingModule:
             name = "test/raiser"

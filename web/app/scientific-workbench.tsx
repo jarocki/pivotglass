@@ -2,6 +2,9 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
+import { QuestionCoach } from "./question-coach";
+import type { GuidanceLevel } from "./guidance-profile";
+
 export type AnalyticInvestigation = {
   id: string;
   title: string;
@@ -184,7 +187,11 @@ const CAPTURE_LABELS: Record<CaptureKind, string> = {
 export function ScientificWorkbench({
   analysis,
   onCommand,
+  workspace,
+  guidanceLevel,
 }: {
+  workspace: string;
+  guidanceLevel: GuidanceLevel;
   analysis: AnalyticSnapshot;
   onCommand: (command: string) => Promise<string>;
 }) {
@@ -332,6 +339,8 @@ export function ScientificWorkbench({
           {(current?.status ?? "not started").replaceAll("_", " ")}
         </b>
       </header>
+
+      <QuestionCoach key={workspace} workspace={workspace} level={guidanceLevel} onCommand={onCommand}/>
 
       <ol className="lifecycle-rail" aria-label="Scientific lifecycle progress">
         {STAGES.map((stage, index) => {

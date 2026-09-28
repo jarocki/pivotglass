@@ -13,13 +13,13 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.dossier.slot_glyphs import (
+from pivotglass.dossier.slot_glyphs import (
     SLOT_ORDER,
     render_slot_strip,
     weight_tier,
 )
-from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
-from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+from pivotglass.dossier.slot_inference import DossierState, SlotState
+from pivotglass.dossier.slots import DossierSlotName, SlotStatus
 
 # ---------------------------------------------------------------------------
 # Helper

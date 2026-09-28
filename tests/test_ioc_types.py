@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from adversary_pursuit.core.ioc_types import detect_ioc_type
+from pivotglass.core.ioc_types import detect_ioc_type
 
 
 class TestDetectIocType:

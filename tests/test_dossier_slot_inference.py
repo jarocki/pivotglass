@@ -21,7 +21,7 @@ Covers both M-1 (infer_dossier_state) and M-2 (infer_dossier_state_full) APIs.
 @rationale M-2 extends M-1 without breaking the legacy thin-wrapper contract.
 
 @decision DEC-M2-DOSSIER-002 (timing extractor)
-@title Timing extractor uses x_ap_fetched_at + module_runs timestamps, UTC hour clustering
+@title Timing extractor uses x_pivotglass_fetched_at + module_runs timestamps, UTC hour clustering
 @status accepted
 
 @decision DEC-M2-DOSSIER-003 (capability extractor)
@@ -35,8 +35,8 @@ Covers both M-1 (infer_dossier_state) and M-2 (infer_dossier_state_full) APIs.
 
 from __future__ import annotations
 
-from adversary_pursuit.dossier.slot_inference import infer_dossier_state, infer_dossier_state_full
-from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+from pivotglass.dossier.slot_inference import infer_dossier_state, infer_dossier_state_full
+from pivotglass.dossier.slots import DossierSlotName, SlotStatus
 
 # ---------------------------------------------------------------------------
 # Helper factories — synthetic SCO dicts as workspace.get_stix_objects() returns
@@ -92,26 +92,26 @@ def _unknown_sco() -> dict:
 
 
 def _provenance_sco(value: str = "1.2.3.4") -> dict:
-    """SCO with x_ap_ provenance fields as workspace.store_stix_objects() would add."""
+    """SCO with x_pivotglass_ provenance fields as workspace.store_stix_objects() would add."""
     return {
         "type": "ipv4-addr",
         "value": value,
         "id": f"ipv4-addr--prov-{value}",
-        "x_ap_fetched_at": "2024-01-15T12:00:00Z",
-        "x_ap_source_url": "https://api.shodan.io/shodan/host/1.2.3.4",
-        "x_ap_api_version": "v1",
-        "x_ap_response_sha256": "abc123",
+        "x_pivotglass_fetched_at": "2024-01-15T12:00:00Z",
+        "x_pivotglass_source_url": "https://api.shodan.io/shodan/host/1.2.3.4",
+        "x_pivotglass_api_version": "v1",
+        "x_pivotglass_response_sha256": "abc123",
     }
 
 
 def _timestamped_sco(value: str, hour: int) -> dict:
-    """SCO with x_ap_fetched_at set to the given UTC hour on a fixed date."""
+    """SCO with x_pivotglass_fetched_at set to the given UTC hour on a fixed date."""
     ts = f"2024-01-15T{hour:02d}:30:00Z"
     return {
         "type": "ipv4-addr",
         "value": value,
         "id": f"ipv4-addr--ts-{value}-h{hour}",
-        "x_ap_fetched_at": ts,
+        "x_pivotglass_fetched_at": ts,
     }
 
 
@@ -247,7 +247,7 @@ class TestDeferredSlotStatus:
         return infer_dossier_state(scos)
 
     def test_timing_slot_empty_when_no_timestamps(self):
-        """Timing (slot 4) returns EMPTY in M-2 when no x_ap_fetched_at or module_runs present.
+        """Timing (slot 4) returns EMPTY in M-2 when no x_pivotglass_fetched_at or module_runs present.
 
         M-1 returned DEFERRED; M-2 ships a real extractor for this slot.
         infer_dossier_state() is a thin wrapper (no module_runs), so timing is EMPTY.
@@ -347,23 +347,23 @@ class TestInferenceEdgeCases:
 
         # Input list is unchanged
         assert original_scos == scos_copy, "infer_dossier_state must not mutate the input SCO list"
-        # No x_ap_* fields written on the SCO dicts
+        # No x_pivotglass_* fields written on the SCO dicts
         for sco in original_scos:
             for key in sco:
-                assert not key.startswith("x_ap_"), (
-                    f"infer_dossier_state wrote x_ap_* field {key!r} onto an SCO dict - "
+                assert not key.startswith("x_pivotglass_"), (
+                    f"infer_dossier_state wrote x_pivotglass_* field {key!r} onto an SCO dict - "
                     "DEC-59-STIX-PROVENANCE-001 violation"
                 )
 
     def test_inference_consumes_provenance_fields_without_writing(self):
-        """Inference reads x_ap_* provenance fields without modifying them.
+        """Inference reads x_pivotglass_* provenance fields without modifying them.
 
-        DEC-59-STIX-PROVENANCE-001: workspace.store_stix_objects() is the sole x_ap_*
-        authority. The dossier inference layer may READ x_ap_fetched_at etc. but must
+        DEC-59-STIX-PROVENANCE-001: workspace.store_stix_objects() is the sole x_pivotglass_*
+        authority. The dossier inference layer may READ x_pivotglass_fetched_at etc. but must
         never add, update, or remove them.
         """
         sco = _provenance_sco()
-        original_provenance = {k: v for k, v in sco.items() if k.startswith("x_ap_")}
+        original_provenance = {k: v for k, v in sco.items() if k.startswith("x_pivotglass_")}
 
         infer_dossier_state([sco])
 
@@ -406,7 +406,7 @@ class TestInferDossierStateFullAPI:
 
     def test_full_returns_dossier_state(self):
         """infer_dossier_state_full returns a DossierState with all 9 slots."""
-        from adversary_pursuit.dossier.slot_inference import DossierState
+        from pivotglass.dossier.slot_inference import DossierState
 
         state = infer_dossier_state_full([])
         assert isinstance(state, DossierState)
@@ -451,7 +451,7 @@ class TestInferDossierStateFullAPI:
 
 
 class TestTimingExtractor:
-    """Slot 4 (Timing/Behavioral): uses x_ap_fetched_at + module_runs timestamps.
+    """Slot 4 (Timing/Behavioral): uses x_pivotglass_fetched_at + module_runs timestamps.
 
     FILLED = >=10 events AND >=25% in one UTC hour bucket.
     With fewer than 10 events OR no dominant bucket: PARTIAL if any events, else EMPTY.
@@ -494,7 +494,7 @@ class TestTimingExtractor:
         )
 
     def test_timing_merges_scos_and_module_runs(self):
-        """x_ap_fetched_at from SCOs and module_runs timestamps are merged."""
+        """x_pivotglass_fetched_at from SCOs and module_runs timestamps are merged."""
         # 6 SCOs at hour 14 + 4 module runs at hour 14 = 10 total, 100% in bucket -> FILLED
         scos = [_timestamped_sco(f"10.0.0.{i}", hour=14) for i in range(6)]
         runs = [_module_run("osint/abuseipdb", hour=14) for _ in range(4)]
@@ -515,14 +515,14 @@ class TestTimingExtractor:
         )
 
     def test_timing_ignores_scos_without_fetched_at(self):
-        """SCOs without x_ap_fetched_at are skipped for timing inference."""
+        """SCOs without x_pivotglass_fetched_at are skipped for timing inference."""
         # Mix of scos with and without fetched_at — only the ones WITH it count
-        scos_no_ts = [_ipv4_sco() for _ in range(10)]  # no x_ap_fetched_at
+        scos_no_ts = [_ipv4_sco() for _ in range(10)]  # no x_pivotglass_fetched_at
         state = infer_dossier_state_full(scos_no_ts, module_runs=[], notes=[])
         timing = state.slots[DossierSlotName.TIMING]
         # Without timestamps there are 0 timing events -> EMPTY
         assert timing.status == SlotStatus.EMPTY, (
-            f"SCOs without x_ap_fetched_at should contribute 0 timing events, "
+            f"SCOs without x_pivotglass_fetched_at should contribute 0 timing events, "
             f"got timing status={timing.status}"
         )
 
@@ -579,7 +579,7 @@ class TestCapabilityExtractor:
         at function call time (DEC-M2-DOSSIER-003: 'reads DEFAULT_SUBSCRIPTIONS
         at call time').
         """
-        from adversary_pursuit.core.event_bus import DEFAULT_SUBSCRIPTIONS
+        from pivotglass.core.event_bus import DEFAULT_SUBSCRIPTIONS
 
         # Verify DEFAULT_SUBSCRIPTIONS is non-empty (sanity check)
         assert len(DEFAULT_SUBSCRIPTIONS) >= 6, (
@@ -722,16 +722,16 @@ class TestInferDossierStateFullReadOnly:
         infer_dossier_state_full([], module_runs=[], notes=notes)
         assert notes == notes_copy, "infer_dossier_state_full must not mutate the notes list"
 
-    def test_full_no_x_ap_writes(self):
-        """infer_dossier_state_full does not write x_ap_* fields (DEC-59-STIX-PROVENANCE-001)."""
+    def test_full_no_x_pivotglass_writes(self):
+        """infer_dossier_state_full does not write x_pivotglass_* fields (DEC-59-STIX-PROVENANCE-001)."""
         scos = [_provenance_sco()]
         original_keys = set(scos[0].keys())
         infer_dossier_state_full(scos, module_runs=[], notes=[])
         for sco in scos:
             for key in sco:
                 if key not in original_keys:
-                    assert not key.startswith("x_ap_"), (
-                        f"infer_dossier_state_full added x_ap_* field {key!r} to SCO dict"
+                    assert not key.startswith("x_pivotglass_"), (
+                        f"infer_dossier_state_full added x_pivotglass_* field {key!r} to SCO dict"
                     )
 
 
@@ -784,7 +784,7 @@ class TestM3TransitionReadiness:
         scos_after = scos_before + [_email_sco("threat@actor.ru")]
         post = infer_dossier_state_full(scos_after, module_runs=[], notes=[])
 
-        from adversary_pursuit.dossier.slots import DossierSlotName
+        from pivotglass.dossier.slots import DossierSlotName
 
         pre_identity_status = pre.slots[DossierSlotName.IDENTITY].status
         post_identity_status = post.slots[DossierSlotName.IDENTITY].status
@@ -794,7 +794,7 @@ class TestM3TransitionReadiness:
             f"pre={pre_identity_status!r}, post={post_identity_status!r}"
         )
         # Specifically: EMPTY -> PARTIAL (one distinct type = email-addr)
-        from adversary_pursuit.dossier.slots import SlotStatus
+        from pivotglass.dossier.slots import SlotStatus
 
         assert pre_identity_status == SlotStatus.EMPTY
         assert post_identity_status == SlotStatus.PARTIAL
@@ -812,8 +812,8 @@ def _dga_domain_sco(value: str) -> dict:
 
 
 def _fast_flux_sco(ip: str = "1.2.3.4", ttl: int = 30) -> dict:
-    """ipv4-addr SCO carrying x_ap_dns_ttl <= 60 (fast-flux indicator)."""
-    return {"type": "ipv4-addr", "value": ip, "id": f"ipv4-addr--ff-{ip}", "x_ap_dns_ttl": ttl}
+    """ipv4-addr SCO carrying x_pivotglass_dns_ttl <= 60 (fast-flux indicator)."""
+    return {"type": "ipv4-addr", "value": ip, "id": f"ipv4-addr--ff-{ip}", "x_pivotglass_dns_ttl": ttl}
 
 
 class TestDenialSlotExtractor:
@@ -929,20 +929,20 @@ class TestIsDgaShaped:
 
     def test_is_dga_shaped_returns_true_for_random_string(self):
         """xqzpfwbkdmrl is DGA-shaped: length=12, all consonants."""
-        from adversary_pursuit.dossier.slot_inference import _is_dga_shaped
+        from pivotglass.dossier.slot_inference import _is_dga_shaped
 
         assert _is_dga_shaped("xqzpfwbkdmrl") is True
 
     def test_is_dga_shaped_returns_false_for_short_label(self):
         """Short labels (< 12 chars) are always rejected regardless of ratio."""
-        from adversary_pursuit.dossier.slot_inference import _is_dga_shaped
+        from pivotglass.dossier.slot_inference import _is_dga_shaped
 
         assert _is_dga_shaped("abc") is False
         assert _is_dga_shaped("mail") is False
 
     def test_is_dga_shaped_returns_false_for_real_domain_label(self):
         """Common real-domain labels are not DGA-shaped."""
-        from adversary_pursuit.dossier.slot_inference import _is_dga_shaped
+        from pivotglass.dossier.slot_inference import _is_dga_shaped
 
         assert _is_dga_shaped("mail") is False  # short
         assert _is_dga_shaped("paypal") is False  # short + recognizable
@@ -950,7 +950,7 @@ class TestIsDgaShaped:
 
     def test_is_dga_shaped_returns_false_for_long_real_label(self):
         """Long but human-readable labels are not DGA-shaped (vowel/consonant balance)."""
-        from adversary_pursuit.dossier.slot_inference import _is_dga_shaped
+        from pivotglass.dossier.slot_inference import _is_dga_shaped
 
         # "bobby-hill" is human-readable; "-" chars excluded from ratio computation
         # Use "bobbyhill" — 9 letters, short, should be False for length
@@ -959,12 +959,12 @@ class TestIsDgaShaped:
 
     def test_is_dga_shaped_boundary_length_11(self):
         """11-char all-consonant label is rejected (length < 12)."""
-        from adversary_pursuit.dossier.slot_inference import _is_dga_shaped
+        from pivotglass.dossier.slot_inference import _is_dga_shaped
 
         assert _is_dga_shaped("xqzpfwbkdmr") is False  # length 11
 
     def test_is_dga_shaped_boundary_length_12(self):
         """12-char all-consonant label is accepted (length == 12)."""
-        from adversary_pursuit.dossier.slot_inference import _is_dga_shaped
+        from pivotglass.dossier.slot_inference import _is_dga_shaped
 
         assert _is_dga_shaped("xqzpfwbkdmrl") is True  # length 12

@@ -100,7 +100,7 @@ copy the sibling backup to a new workspace name, and open that copy with the
 older release that created it. For example:
 
 ```sh
-cp ~/.ap/workspaces/case.db.pre-v3-backup ~/.ap/workspaces/case-recovery.db
+cp ~/.pivotglass/workspaces/case.db.pre-v3-backup ~/.pivotglass/workspaces/case-recovery.db
 ```
 
 This creates a recoverable copy while preserving both the failed database and
@@ -129,3 +129,22 @@ workspace and exported its investigation record.
 
 Migration support is forward-only. Downgrading an upgraded workspace in place
 is not supported; use the preserved backup with the older release instead.
+
+## v0.9.8 product-home migration
+
+The CLI, package, plugin namespace, and default home now use `pivotglass`.
+Stop every process using the previous home before copying it. The explicit
+migration preserves the source and refuses an existing destination:
+
+```bash
+pivotglass migrate-home --from "$HOME/.ap" --confirm-stopped
+```
+
+The historical home name above is a migration input, not a supported command
+alias. Review the new `~/.pivotglass/` copy, configuration, and workspace schema
+before investigation. To choose a different new destination, add `--to PATH`.
+Update shell aliases, service definitions, `PIVOTGLASS_*` environment variables,
+and custom module registration to `pivotglass.modules`. Do not run old and new
+processes against the same SQLite workspace. Legacy serialized extension fields
+are normalized on read so provenance is retained; new exports use the
+`x_pivotglass_` namespace. This is a compatibility reader, not a second ledger.

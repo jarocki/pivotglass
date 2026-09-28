@@ -6,23 +6,23 @@ import json
 
 import pytest
 
-from adversary_pursuit.core.analytic_commands import execute_analysis_command
-from adversary_pursuit.core.analytic_ledger import (
+from pivotglass.core.analytic_commands import execute_analysis_command
+from pivotglass.core.analytic_ledger import (
     AnalyticLedger,
     AssertionType,
     AuthorKind,
     LifecycleItemType,
     Materiality,
 )
-from adversary_pursuit.core.command_completion import command_completions
-from adversary_pursuit.core.dossier_report import generate_dossier_report
-from adversary_pursuit.core.information_requirements import (
+from pivotglass.core.command_completion import command_completions
+from pivotglass.core.dossier_report import generate_dossier_report
+from pivotglass.core.information_requirements import (
     POLICY_ID,
     build_information_requirements,
     information_value,
     validate_requirement_criteria,
 )
-from adversary_pursuit.core.workspace import WorkspaceManager
+from pivotglass.core.workspace import WorkspaceManager
 
 
 def _workspace(tmp_path) -> WorkspaceManager:

@@ -17,7 +17,7 @@ Production sequences covered:
 @title Real filesystem used for debug-log tests; tmp_path fixture for isolation
 @status accepted
 @rationale The debug-log path is configurable via interp.traceback_path —
-           tests inject a tmp_path-based path so real ~/.ap/debug.log is never
+           tests inject a tmp_path-based path so real ~/.pivotglass/debug.log is never
            touched. fcntl.flock and rotation logic are exercised against real
            file I/O so concurrency behaviour matches production.
 """
@@ -33,7 +33,7 @@ from unittest.mock import patch
 
 from rich.console import Console
 
-from adversary_pursuit.core.error_interpreter import (
+from pivotglass.core.error_interpreter import (
     AutoFix,
     ErrorInterpretation,
     _append_debug_log,
@@ -188,32 +188,32 @@ class TestInterpretCatalogEntries:
     def _call(self, exc: BaseException, tmp_path: Path) -> ErrorInterpretation:
         """Call interpret() redirecting debug log to tmp_path."""
         interp = interpret(exc, context={"test": True})
-        # Override path for assertion purposes (real interpret writes to ~/.ap/debug.log)
+        # Override path for assertion purposes (real interpret writes to ~/.pivotglass/debug.log)
         # We verify the log write via a separate targeted test
         return interp
 
     # 1. AuthenticationError (modules.base)
     def test_auth_error_from_modules_base(self):
-        from adversary_pursuit.modules.base import AuthenticationError
+        from pivotglass.modules.base import AuthenticationError
 
-        exc = AuthenticationError("AP_SHODAN_API_KEY not configured")
+        exc = AuthenticationError("PIVOTGLASS_SHODAN_API_KEY not configured")
         interp = interpret(exc, context={"test": True})
         assert interp.category == "API key"
         assert interp.severity == "error"
-        assert "AP_" in interp.suggested_fix or "config setup" in interp.suggested_fix
+        assert "PIVOTGLASS_" in interp.suggested_fix or "config setup" in interp.suggested_fix
         assert re.fullmatch(r"[a-f0-9]{8}", interp.diagnostic_id)
 
     def test_auth_error_with_service_name_in_message(self):
-        from adversary_pursuit.modules.base import AuthenticationError
+        from pivotglass.modules.base import AuthenticationError
 
-        exc = AuthenticationError("Set AP_GREYNOISE_API_KEY or run `ap config setup`")
+        exc = AuthenticationError("Set PIVOTGLASS_GREYNOISE_API_KEY or run `pivotglass config setup`")
         interp = interpret(exc)
         assert interp.category == "API key"
         assert "GREYNOISE" in interp.suggested_fix or "config setup" in interp.suggested_fix
 
     # 2. RateLimitError (modules.base)
     def test_rate_limit_error_with_retry_after(self):
-        from adversary_pursuit.modules.base import RateLimitError
+        from pivotglass.modules.base import RateLimitError
 
         exc = RateLimitError("Too many requests", retry_after=15)
         interp = interpret(exc)
@@ -222,7 +222,7 @@ class TestInterpretCatalogEntries:
         assert "15" in interp.suggested_fix or "rotate" in interp.suggested_fix
 
     def test_rate_limit_error_without_retry_after(self):
-        from adversary_pursuit.modules.base import RateLimitError
+        from pivotglass.modules.base import RateLimitError
 
         exc = RateLimitError("Rate limit exceeded")
         interp = interpret(exc)
@@ -231,7 +231,7 @@ class TestInterpretCatalogEntries:
 
     def test_rate_limit_auto_fix_short_retry(self):
         """RateLimitError with retry_after<=30 offers an auto-fix sleep."""
-        from adversary_pursuit.modules.base import RateLimitError
+        from pivotglass.modules.base import RateLimitError
 
         exc = RateLimitError("Throttled", retry_after=5)
         interp = interpret(exc)
@@ -241,7 +241,7 @@ class TestInterpretCatalogEntries:
 
     def test_rate_limit_auto_fix_long_retry_is_none(self):
         """RateLimitError with retry_after>30 does not offer auto-fix sleep."""
-        from adversary_pursuit.modules.base import RateLimitError
+        from pivotglass.modules.base import RateLimitError
 
         exc = RateLimitError("Throttled", retry_after=60)
         interp = interpret(exc)
@@ -294,18 +294,18 @@ class TestInterpretCatalogEntries:
         assert "config.toml" in interp.summary or "config" in interp.suggested_fix.lower()
 
     def test_toml_error_auto_fix_when_backup_exists(self, tmp_path, monkeypatch):
-        """When ~/.ap/config.toml.bak exists, an auto-fix restore is offered."""
+        """When ~/.pivotglass/config.toml.bak exists, an auto-fix restore is offered."""
 
         class TOMLDecodeError(ValueError):
             pass
 
         # Monkeypatch Path.home() to tmp_path so backup detection works
         fake_home = tmp_path
-        (fake_home / ".ap").mkdir()
-        (fake_home / ".ap" / "config.toml.bak").write_text("[config]")
+        (fake_home / ".pivotglass").mkdir()
+        (fake_home / ".pivotglass" / "config.toml.bak").write_text("[config]")
         monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
         # Re-import _auto_fix_toml after monkeypatching home
-        from adversary_pursuit.core.error_interpreter import _auto_fix_toml
+        from pivotglass.core.error_interpreter import _auto_fix_toml
 
         exc = TOMLDecodeError("TOML error")
         auto_fix = _auto_fix_toml(exc)
@@ -318,7 +318,7 @@ class TestInterpretCatalogEntries:
 
         fake_home = tmp_path
         monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
-        from adversary_pursuit.core.error_interpreter import _auto_fix_toml
+        from pivotglass.core.error_interpreter import _auto_fix_toml
 
         exc = TOMLDecodeError("TOML error")
         auto_fix = _auto_fix_toml(exc)
@@ -396,13 +396,13 @@ class TestInterpretWritesDebugLog:
     def test_interpret_appends_to_debug_log(self, tmp_path):
         """interpret() must write exactly one JSONL entry to the debug log."""
         log = tmp_path / "debug.log"
-        from adversary_pursuit.modules.base import AuthenticationError
+        from pivotglass.modules.base import AuthenticationError
 
         exc = AuthenticationError("test key missing")
 
         # Patch DEBUG_LOG_PATH in the interpreter so it writes to our tmp log
         with patch(
-            "adversary_pursuit.core.error_interpreter.DEBUG_LOG_PATH",
+            "pivotglass.core.error_interpreter.DEBUG_LOG_PATH",
             log,
         ):
             interp = interpret(exc, context={"surface": "test"})
@@ -453,7 +453,7 @@ class TestRenderInteractive:
         assert "What happened" in output
 
     def test_mode_flavored_title_full_troll(self, tmp_path):
-        from adversary_pursuit.gamification.modes import DEFAULT_MODES
+        from pivotglass.gamification.modes import DEFAULT_MODES
 
         console, buf = _make_console()
         mode = DEFAULT_MODES["full_troll"]
@@ -464,7 +464,7 @@ class TestRenderInteractive:
         assert "BRUH" in output or "broke" in output.lower()
 
     def test_mode_flavored_title_ninja(self, tmp_path):
-        from adversary_pursuit.gamification.modes import DEFAULT_MODES
+        from pivotglass.gamification.modes import DEFAULT_MODES
 
         console, buf = _make_console()
         mode = DEFAULT_MODES["ninja"]
@@ -476,7 +476,7 @@ class TestRenderInteractive:
         assert "Missed" in output or "Regroup" in output
 
     def test_default_mode_neutral_title(self, tmp_path):
-        from adversary_pursuit.gamification.modes import DEFAULT_MODES
+        from pivotglass.gamification.modes import DEFAULT_MODES
 
         console, buf = _make_console()
         mode = DEFAULT_MODES["default"]
@@ -615,14 +615,14 @@ class TestEndToEndProduction:
 
     def test_auth_error_full_sequence(self, tmp_path):
         """Simulate a missing Shodan API key: interpret → panel → summary line."""
-        from adversary_pursuit.modules.base import AuthenticationError
+        from pivotglass.modules.base import AuthenticationError
 
-        exc = AuthenticationError("AP_SHODAN_API_KEY not configured")
+        exc = AuthenticationError("PIVOTGLASS_SHODAN_API_KEY not configured")
         log = tmp_path / "debug.log"
 
         # Route debug log to tmp_path
         with patch(
-            "adversary_pursuit.core.error_interpreter.DEBUG_LOG_PATH",
+            "pivotglass.core.error_interpreter.DEBUG_LOG_PATH",
             log,
         ):
             interp = interpret(exc, context={"module": "osint/shodan_ip"})
@@ -651,12 +651,12 @@ class TestEndToEndProduction:
 
     def test_rate_limit_with_auto_fix_full_sequence(self, tmp_path):
         """RateLimitError with retry_after: interpret → auto-fix offered → callable runs."""
-        from adversary_pursuit.modules.base import RateLimitError
+        from pivotglass.modules.base import RateLimitError
 
         exc = RateLimitError("Too many requests", retry_after=3)
 
         with patch(
-            "adversary_pursuit.core.error_interpreter.DEBUG_LOG_PATH",
+            "pivotglass.core.error_interpreter.DEBUG_LOG_PATH",
             tmp_path / "debug.log",
         ):
             interp = interpret(exc)
@@ -685,7 +685,7 @@ class TestEndToEndProduction:
         exc = RuntimeError("Some internal state corruption")
 
         with patch(
-            "adversary_pursuit.core.error_interpreter.DEBUG_LOG_PATH",
+            "pivotglass.core.error_interpreter.DEBUG_LOG_PATH",
             tmp_path / "debug.log",
         ):
             interp = interpret(exc)
@@ -700,11 +700,11 @@ class TestEndToEndProduction:
 
     def test_two_modes_produce_distinguishable_titles(self, tmp_path):
         """Default vs full_troll modes produce different panel titles."""
-        from adversary_pursuit.gamification.modes import DEFAULT_MODES
+        from pivotglass.gamification.modes import DEFAULT_MODES
 
         exc = ValueError("some error")
         with patch(
-            "adversary_pursuit.core.error_interpreter.DEBUG_LOG_PATH",
+            "pivotglass.core.error_interpreter.DEBUG_LOG_PATH",
             tmp_path / "debug.log",
         ):
             interp = interpret(exc)
@@ -752,7 +752,7 @@ class TestPanelTitleRichStripping:
         'grandma') but NOT the [bold red] literal tag — Rich would have consumed it
         during rendering, but by stripping first we ensure no nested-markup artefacts.
         """
-        from adversary_pursuit.gamification.modes import DEFAULT_MODES
+        from pivotglass.gamification.modes import DEFAULT_MODES
 
         mode = DEFAULT_MODES["full_troll"]
         assert "[bold red]" in mode.run_fail  # guard: confirms markup is present in source
@@ -774,7 +774,7 @@ class TestPanelTitleRichStripping:
         Before the fix, the literal tag could leak into the panel title string.
         After the fix, _panel_title strips it before embedding in [bold yellow].
         """
-        from adversary_pursuit.gamification.modes import DEFAULT_MODES
+        from pivotglass.gamification.modes import DEFAULT_MODES
 
         mode = DEFAULT_MODES["full_troll"]
         console, buf = _make_console()

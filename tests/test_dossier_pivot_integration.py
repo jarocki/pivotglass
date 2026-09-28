@@ -42,13 +42,13 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock
 
-from adversary_pursuit.core.config import AutoPivotPolicyConfig
-from adversary_pursuit.core.dossier_pivot import make_dossier_pivot_ranker
-from adversary_pursuit.core.event_bus import EventBus, PivotConfig
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
-from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
-from adversary_pursuit.dossier.state import (
+from pivotglass.core.config import AutoPivotPolicyConfig
+from pivotglass.core.dossier_pivot import make_dossier_pivot_ranker
+from pivotglass.core.event_bus import EventBus, PivotConfig
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.dossier.slot_inference import DossierState, SlotState
+from pivotglass.dossier.slots import DossierSlotName, SlotStatus
+from pivotglass.dossier.state import (
     default_deferred_state,
     load_dossier_state,
     save_dossier_state,

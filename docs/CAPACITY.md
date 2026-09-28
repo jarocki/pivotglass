@@ -41,7 +41,7 @@ to work, but it is not a supported performance claim for this release.
 | Browser document JSON request | 14 MiB | Request fails visibly before parsing |
 | Raw document preview | 10 MiB | Preview rejects the file |
 | Browser parser output | 100,000 characters | Output is visibly truncated |
-| Browser entity candidates | 2,000 extracted; 100 displayed | Exact additional count is shown |
+| Browser entity candidates | 2,000 extracted; paginated 50 per page | All extracted candidates can be reviewed across pages; limits remain visible |
 | Internal parser output | 2,000,000 characters | Parser receipt records truncation |
 | Internal entity candidates | 10,000 | Extraction fails at the authority boundary |
 | Visualization data | 5,000 combined records | Intent construction rejects an unbounded payload |

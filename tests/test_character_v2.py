@@ -27,7 +27,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.gamification.modes import (
+from pivotglass.gamification.modes import (
     DEFAULT_MODES,
     CharacterMode,
     LLMPersonaProfile,
@@ -359,8 +359,8 @@ class TestSetCharacterIntegration:
     @pytest.fixture
     def runner(self, tmp_path):
         """AgentRunner with isolated temp dirs (no real LLM needed)."""
-        from adversary_pursuit.agent.runner import AgentRunner
-        from adversary_pursuit.agent.tools import ToolContext
+        from pivotglass.agent.runner import AgentRunner
+        from pivotglass.agent.tools import ToolContext
 
         ctx = ToolContext(
             config_dir=tmp_path / "config",
@@ -515,7 +515,7 @@ class TestPersonaSwapPreservesToolCallIdentity:
         execute_tool is mocked at the module-dispatch boundary (same boundary
         as test_agent_tools.py) to avoid live network calls.
         """
-        from adversary_pursuit.agent import runner as runner_module
+        from pivotglass.agent import runner as runner_module
 
         tool_calls_recorded: list[tuple[str, str]] = []
 
@@ -558,8 +558,8 @@ class TestPersonaSwapPreservesToolCallIdentity:
         DEC-30-CHARACTER-V2-005: tool_preferences is voice-affinity ONLY,
         NEVER tool-selection bias.
         """
-        from adversary_pursuit.agent.runner import AgentRunner
-        from adversary_pursuit.agent.tools import ToolContext
+        from pivotglass.agent.runner import AgentRunner
+        from pivotglass.agent.tools import ToolContext
 
         ctx = ToolContext(
             config_dir=tmp_path / "config",
@@ -604,7 +604,7 @@ class TestF64PanelSeparation:
         text bleeds into it, the LLM receives confused input where data and
         voice are mixed.
         """
-        from adversary_pursuit.agent.tools import ToolContext, execute_tool
+        from pivotglass.agent.tools import ToolContext, execute_tool
 
         config_dir = tmp_path / "config"
         workspace_dir = tmp_path / "workspaces"
@@ -671,7 +671,7 @@ class TestF62AuthorityInvariants:
         critical run_fail wiring block at lines 1622-1628 contains the exact
         expected identifiers and no C-1 persona additions.
         """
-        import adversary_pursuit.agent.tools as tools_module
+        import pivotglass.agent.tools as tools_module
 
         source = inspect.getsource(tools_module)
         # The run_fail wiring must use ctx.mode_mgr.active.run_fail
@@ -694,7 +694,7 @@ class TestF62AuthorityInvariants:
 
     def test_run_fail_field_still_consumed_at_tools_py_1622_1628(self):
         """The run_fail wiring line must be present at roughly the correct location."""
-        import adversary_pursuit.agent.tools as tools_module
+        import pivotglass.agent.tools as tools_module
 
         source_lines = inspect.getsource(tools_module).splitlines()
         # Find the line with the run_fail wiring pattern
@@ -712,7 +712,7 @@ class TestF62AuthorityInvariants:
         StreakManager is the sole streak authority. Importing it from modes.py
         would create a dependency that could drift into a parallel authority.
         """
-        import adversary_pursuit.gamification.modes as modes_module
+        import pivotglass.gamification.modes as modes_module
 
         source = inspect.getsource(modes_module)
         assert "streak" not in source.lower(), (
@@ -746,7 +746,7 @@ class TestF62AuthorityInvariants:
             pytest.skip("git not available in this test environment")
 
         worktree_root = str(__import__("pathlib").Path(__file__).parent.parent)
-        # Verify that de08b4b (M-3 base from AP main) is an ancestor of HEAD.
+        # Verify that de08b4b (M-3 base from Pivotglass main) is an ancestor of HEAD.
         # `git merge-base --is-ancestor <commit> HEAD` exits 0 if true, 1 if not.
         result = subprocess.run(
             ["git", "merge-base", "--is-ancestor", "de08b4b", "HEAD"],
@@ -760,7 +760,7 @@ class TestF62AuthorityInvariants:
         if result.returncode == 128:
             pytest.skip(f"de08b4b not found in repo; git error: {result.stderr.strip()}")
         assert result.returncode == 0, (
-            "M-3 branch is not rooted at de08b4b (AP main M-3 base). "
+            "M-3 branch is not rooted at de08b4b (Pivotglass main M-3 base). "
             "tools.py F62 wiring integrity is verified by content-based tests above."
         )
 
@@ -975,7 +975,7 @@ class TestNinjaPersonaSwapHardGates:
 
         @mock-exempt: litellm.completion and execute_tool are external/dispatch boundaries.
         """
-        from adversary_pursuit.agent import runner as runner_module
+        from pivotglass.agent import runner as runner_module
 
         tool_calls_recorded: list[tuple[str, str]] = []
 
@@ -1012,8 +1012,8 @@ class TestNinjaPersonaSwapHardGates:
         DEC-30-CHARACTER-V2-005: tool_preferences is voice-affinity ONLY,
         NEVER tool-selection bias.
         """
-        from adversary_pursuit.agent.runner import AgentRunner
-        from adversary_pursuit.agent.tools import ToolContext
+        from pivotglass.agent.runner import AgentRunner
+        from pivotglass.agent.tools import ToolContext
 
         ctx = ToolContext(
             config_dir=tmp_path / "config",
@@ -1054,7 +1054,7 @@ class TestNinjaF64PanelSeparation:
         The summary is the LLM-facing tool result — it must contain pure data output
         (STIX SCOs + stats), not persona narration (F64 DEC-64-LLM-PANEL-SEPARATION-001).
         """
-        from adversary_pursuit.agent.tools import ToolContext, execute_tool
+        from pivotglass.agent.tools import ToolContext, execute_tool
 
         config_dir = tmp_path / "config"
         workspace_dir = tmp_path / "workspaces"
@@ -1287,7 +1287,7 @@ class TestSunTzuPersonaSwapHardGates:
         return mock_resp
 
     def _run_chat_with_mode(self, runner, mode: CharacterMode, query: str) -> list[tuple[str, str]]:
-        from adversary_pursuit.agent import runner as runner_module
+        from pivotglass.agent import runner as runner_module
 
         tool_calls_recorded: list[tuple[str, str]] = []
         tool_resp = self._make_mock_litellm_response(self.FIXED_TOOL_NAME, self.FIXED_TOOL_ARGS)
@@ -1322,8 +1322,8 @@ class TestSunTzuPersonaSwapHardGates:
         DEC-C3-PHILOSOPHY-004) and DEC-30-CHARACTER-V2-005: tool_preferences
         is voice-affinity ONLY, NEVER tool-selection bias.
         """
-        from adversary_pursuit.agent.runner import AgentRunner
-        from adversary_pursuit.agent.tools import ToolContext
+        from pivotglass.agent.runner import AgentRunner
+        from pivotglass.agent.tools import ToolContext
 
         ctx = ToolContext(
             config_dir=tmp_path / "config",
@@ -1356,7 +1356,7 @@ class TestSunTzuF64PanelSeparation:
 
     def test_strategist_persona_text_not_present_in_tool_result_summary(self, tmp_path):
         """strategist persona voice text must NOT appear in the summary returned by execute_tool."""
-        from adversary_pursuit.agent.tools import ToolContext, execute_tool
+        from pivotglass.agent.tools import ToolContext, execute_tool
 
         config_dir = tmp_path / "config"
         workspace_dir = tmp_path / "workspaces"
@@ -1414,7 +1414,7 @@ class TestBruceLeeProfileContent:
     def test_sensei_profile_voice_summary_content(self, profile: LLMPersonaProfile):
         """voice_summary identifies Chuck and preserves evidence discipline."""
         vs = profile.voice_summary.lower()
-        assert "chuck norris" in vs
+        assert "ironclad" in vs
         assert "evidence" in vs
 
     def test_sensei_profile_tone_registers_content(self, profile: LLMPersonaProfile):
@@ -1545,7 +1545,7 @@ class TestBruceLeePersonaSwapHardGates:
         return mock_resp
 
     def _run_chat_with_mode(self, runner, mode: CharacterMode, query: str) -> list[tuple[str, str]]:
-        from adversary_pursuit.agent import runner as runner_module
+        from pivotglass.agent import runner as runner_module
 
         tool_calls_recorded: list[tuple[str, str]] = []
         tool_resp = self._make_mock_litellm_response(self.FIXED_TOOL_NAME, self.FIXED_TOOL_ARGS)
@@ -1579,8 +1579,8 @@ class TestBruceLeePersonaSwapHardGates:
         HARD GATE for DEC-C1-FULLTROLL-004 (extended to sensei by C-3,
         DEC-C3-PHILOSOPHY-004) and DEC-30-CHARACTER-V2-005.
         """
-        from adversary_pursuit.agent.runner import AgentRunner
-        from adversary_pursuit.agent.tools import ToolContext
+        from pivotglass.agent.runner import AgentRunner
+        from pivotglass.agent.tools import ToolContext
 
         ctx = ToolContext(
             config_dir=tmp_path / "config",
@@ -1621,7 +1621,7 @@ class TestBruceLeeF64PanelSeparation:
         For sensei, "Don't fear failure." is both a signature_phrase AND the prefix
         of run_fail — we skip it here; the F62 run_fail single-authority tests cover it.
         """
-        from adversary_pursuit.agent.tools import ToolContext, execute_tool
+        from pivotglass.agent.tools import ToolContext, execute_tool
 
         config_dir = tmp_path / "config"
         workspace_dir = tmp_path / "workspaces"
@@ -1854,7 +1854,7 @@ class TestBureaucratPersonaSwapHardGates:
         return mock_resp
 
     def _run_chat_with_mode(self, runner, mode: CharacterMode, query: str) -> list[tuple[str, str]]:
-        from adversary_pursuit.agent import runner as runner_module
+        from pivotglass.agent import runner as runner_module
 
         tool_calls_recorded: list[tuple[str, str]] = []
         tool_resp = self._make_mock_litellm_response(self.FIXED_TOOL_NAME, self.FIXED_TOOL_ARGS)
@@ -1891,8 +1891,8 @@ class TestBureaucratPersonaSwapHardGates:
         plausibly bias crt.sh/WHOIS selection. This test is the mechanical proof
         it does not.
         """
-        from adversary_pursuit.agent.runner import AgentRunner
-        from adversary_pursuit.agent.tools import ToolContext
+        from pivotglass.agent.runner import AgentRunner
+        from pivotglass.agent.tools import ToolContext
 
         ctx = ToolContext(
             config_dir=tmp_path / "config",
@@ -1927,7 +1927,7 @@ class TestBureaucratF64PanelSeparation:
 
     def test_bureaucrat_persona_text_not_present_in_tool_result_summary(self, tmp_path):
         """bureaucrat persona voice text must NOT appear in the summary returned by execute_tool."""
-        from adversary_pursuit.agent.tools import ToolContext, execute_tool
+        from pivotglass.agent.tools import ToolContext, execute_tool
 
         config_dir = tmp_path / "config"
         workspace_dir = tmp_path / "workspaces"
@@ -2191,7 +2191,7 @@ class TestColumboPersonaSwapHardGates:
         return mock_resp
 
     def _run_chat_with_mode(self, runner, mode: CharacterMode, query: str) -> list[tuple[str, str]]:
-        from adversary_pursuit.agent import runner as runner_module
+        from pivotglass.agent import runner as runner_module
 
         tool_calls_recorded: list[tuple[str, str]] = []
         tool_resp = self._make_mock_litellm_response(self.FIXED_TOOL_NAME, self.FIXED_TOOL_ARGS)
@@ -2231,8 +2231,8 @@ class TestColumboPersonaSwapHardGates:
         Production sequence: AgentRunner.__init__ -> set_character(detective) ->
         chat() loop with mock LLM -> tool-call record must equal default-mode record.
         """
-        from adversary_pursuit.agent.runner import AgentRunner
-        from adversary_pursuit.agent.tools import ToolContext
+        from pivotglass.agent.runner import AgentRunner
+        from pivotglass.agent.tools import ToolContext
 
         ctx = ToolContext(
             config_dir=tmp_path / "config",
@@ -2279,7 +2279,7 @@ class TestColumboF64PanelSeparation:
         with static F62 voice fields (run_fail / run_success / greeting) because those
         reaching the summary is F62 run_fail wiring, not a persona profile leak.
         """
-        from adversary_pursuit.agent.tools import ToolContext, execute_tool
+        from pivotglass.agent.tools import ToolContext, execute_tool
 
         config_dir = tmp_path / "config"
         workspace_dir = tmp_path / "workspaces"

@@ -1,6 +1,6 @@
 """Regenerate DECISIONS.md from @decision annotations in the source tree.
 
-Scans ``src/adversary_pursuit/**/*.py`` for ``@decision DEC-*`` annotation
+Scans ``src/pivotglass/**/*.py`` for ``@decision DEC-*`` annotation
 blocks and emits a grouped-by-component ``DECISIONS.md`` index at the
 project root.
 
@@ -33,7 +33,7 @@ Annotation format (two supported forms):
        # @rationale The pre-F60 recursion limit is superseded ...
 
 The component name is derived from the top-level sub-package folder directly
-inside ``src/adversary_pursuit/`` (e.g. ``gamification``, ``core``, ``dossier``).
+inside ``src/pivotglass/`` (e.g. ``gamification``, ``core``, ``dossier``).
 The DEC-ID prefix (first token after ``DEC-``) is used as the component label
 when no folder component can be inferred (rare; falls back to the full prefix).
 
@@ -64,10 +64,10 @@ from typing import Iterator
 # ---------------------------------------------------------------------------
 
 # Root of the source package to scan, relative to project root.
-_SOURCE_ROOT = "src/adversary_pursuit"
+_SOURCE_ROOT = "src/pivotglass"
 
 # Output file, relative to project root.
-_OUTPUT_FILE = "DECISIONS.md"
+_OUTPUT_FILE = "docs/development/DECISIONS.md"
 
 # DEC-ID pattern: DEC followed by one or more dash-separated UPPERCASE/digit/
 # underscore segments.  e.g. DEC-BADGE-001, DEC-M4-PERSIST-002.
@@ -249,15 +249,15 @@ def _component_from_path(repo_relative_path: str) -> str:
     """Derive a component label from the file's position in the source tree.
 
     The label is the top-level sub-package name directly inside
-    ``src/adversary_pursuit/`` (e.g. ``gamification``, ``core``, ``dossier``).
+    ``src/pivotglass/`` (e.g. ``gamification``, ``core``, ``dossier``).
     Files at the package root (e.g. ``__init__.py``) use ``core`` as a fallback.
 
     The label is uppercased for the DECISIONS.md section heading.
     """
     # Normalise to forward slashes
     posix = repo_relative_path.replace("\\", "/")
-    # Expected: src/adversary_pursuit/<component>/...
-    prefix = "src/adversary_pursuit/"
+    # Expected: src/pivotglass/<component>/...
+    prefix = "src/pivotglass/"
     if posix.startswith(prefix):
         remainder = posix[len(prefix) :]
         parts = remainder.split("/")
@@ -361,7 +361,7 @@ def render_decisions_md(entries: list[DecisionEntry], timestamp: str) -> str:
                 lines.append(f"  - Rationale: {e.rationale}")
             lines.append("")  # blank line between entries
 
-    return "\n".join(lines) + "\n"
+    return "\n".join(lines).rstrip() + "\n"
 
 
 # ---------------------------------------------------------------------------
@@ -372,7 +372,7 @@ def render_decisions_md(entries: list[DecisionEntry], timestamp: str) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Regenerate DECISIONS.md from @decision annotations in src/adversary_pursuit/**/*.py"
+            "Regenerate DECISIONS.md from @decision annotations in src/pivotglass/**/*.py"
         )
     )
     parser.add_argument(

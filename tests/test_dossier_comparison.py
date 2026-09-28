@@ -21,14 +21,14 @@ from pathlib import Path
 
 import pytest
 
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.dossier.comparison import (
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.dossier.comparison import (
     compare_dossiers,
     format_comparison_report,
 )
-from adversary_pursuit.dossier.export import export_dossier
-from adversary_pursuit.dossier.import_ import ImportedDossier, import_dossier
-from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+from pivotglass.dossier.export import export_dossier
+from pivotglass.dossier.import_ import ImportedDossier, import_dossier
+from pivotglass.dossier.slots import DossierSlotName, SlotStatus
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -50,13 +50,13 @@ def _make_imported_dossier(
         slot_states=base_states,
         predictions=predictions or [],
         analyst_notes=analyst_notes or [],
-        metadata={"x_ap_dossier_schema_version": "1"},
+        metadata={"x_pivotglass_dossier_schema_version": "1"},
     )
 
 
 def _make_persisted_prediction(status: str = "pending") -> object:
     """Build a minimal PersistedPrediction for ratio tests."""
-    from adversary_pursuit.dossier.predictions import ExpectedEvidence, PersistedPrediction
+    from pivotglass.dossier.predictions import ExpectedEvidence, PersistedPrediction
 
     return PersistedPrediction(
         prediction_id=f"pred-{status}-001",
@@ -198,7 +198,7 @@ class TestCompletionMath:
 
     def test_completion_is_weighted_by_slot_weights(self):
         """Filling only the highest-weight slot (IDENTITY=5.0) gives a specific result."""
-        from adversary_pursuit.dossier.slots import SLOT_WEIGHTS
+        from pivotglass.dossier.slots import SLOT_WEIGHTS
 
         d = _make_imported_dossier(slot_overrides={DossierSlotName.IDENTITY: SlotStatus.FILLED})
         report = compare_dossiers(d, d)
@@ -330,11 +330,11 @@ class TestComparisonDeterminism:
 
     def test_pure_no_env_side_effects(self, monkeypatch):
         """compare_dossiers produces the same result regardless of env var state."""
-        monkeypatch.setenv("AP_DOSSIER_PUBLISH", "on")
+        monkeypatch.setenv("PIVOTGLASS_DOSSIER_PUBLISH", "on")
         d = _make_imported_dossier()
         report_with_env = compare_dossiers(d, d)
 
-        monkeypatch.delenv("AP_DOSSIER_PUBLISH", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_DOSSIER_PUBLISH", raising=False)
         report_without_env = compare_dossiers(d, d)
 
         assert report_with_env.completion_local == report_without_env.completion_local
@@ -390,7 +390,7 @@ class TestExportImportCompareIntegration:
         predictions log — which is directly persisted by save_predictions_log and
         faithfully round-trips through export/import without a scoring snapshot.
         """
-        from adversary_pursuit.dossier.predictions import (
+        from pivotglass.dossier.predictions import (
             ExpectedEvidence,
             PersistedPrediction,
             save_predictions_log,

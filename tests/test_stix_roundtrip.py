@@ -7,7 +7,7 @@ Evaluation Contract (MASTER_PLAN.md Phase 11, lines 923+):
 3. test_provenance_passthrough
 4. test_deterministic_id_independent_of_provenance
 5. test_legacy_call_no_provenance_kwargs
-6. (in test_workspace.py) test_workspace_rejects_caller_supplied_x_ap_fields
+6. (in test_workspace.py) test_workspace_rejects_caller_supplied_x_pivotglass_fields
 7. test_export_stix_bundle_is_spec_compliant  (in test_graph.py)
 8. Full suite regression (in test_workspace.py + test_graph.py)
 
@@ -15,9 +15,9 @@ This file covers tests 1-5 plus compound integration tests that exercise the
 full production path: store_stix_objects → export_stix_bundle → stix2.parse().
 
 @decision DEC-59-STIX-PROVENANCE-001
-@title workspace.store_stix_objects() is the sole x_ap_* authority
+@title workspace.store_stix_objects() is the sole x_pivotglass_* authority
 @status accepted
-@rationale Modules MUST NOT emit x_ap_* fields. Tests assert this boundary.
+@rationale Modules MUST NOT emit x_pivotglass_* fields. Tests assert this boundary.
 
 @decision DEC-59-STIX-PROVENANCE-002
 @title Provenance added AFTER obj.serialize() — deterministic id is stable
@@ -38,8 +38,8 @@ import pytest
 import stix2
 import stix2.v21
 
-from adversary_pursuit.core.graph import RelationshipGraph
-from adversary_pursuit.core.workspace import WorkspaceManager
+from pivotglass.core.graph import RelationshipGraph
+from pivotglass.core.workspace import WorkspaceManager
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -139,7 +139,7 @@ class TestBundleParseThroughStix2Parse:
 
 
 class TestEveryScoHasRequiredSpecFields:
-    """Evaluation Contract test 2: id, spec_version="2.1", x_ap_fetched_at."""
+    """Evaluation Contract test 2: id, spec_version="2.1", x_pivotglass_fetched_at."""
 
     def test_every_sco_has_required_spec_fields(self, populated_workspace):
         """Every SCO in the parsed bundle must have id, spec_version, fetched_at."""
@@ -159,12 +159,12 @@ class TestEveryScoHasRequiredSpecFields:
                 f"spec_version wrong on {obj.id}: {obj.spec_version!r}"
             )
 
-            # x_ap_fetched_at must be present and non-null (DEC-59-STIX-PROVENANCE-004)
+            # x_pivotglass_fetched_at must be present and non-null (DEC-59-STIX-PROVENANCE-004)
             raw = bundle_dict["objects"]
             raw_obj = next((o for o in raw if o.get("id") == obj.id), None)
             assert raw_obj is not None
-            assert "x_ap_fetched_at" in raw_obj, f"x_ap_fetched_at missing from {obj.id}"
-            assert raw_obj["x_ap_fetched_at"] is not None, f"x_ap_fetched_at is null on {obj.id}"
+            assert "x_pivotglass_fetched_at" in raw_obj, f"x_pivotglass_fetched_at missing from {obj.id}"
+            assert raw_obj["x_pivotglass_fetched_at"] is not None, f"x_pivotglass_fetched_at is null on {obj.id}"
 
     def test_sco_ids_match_expected_type_prefixes(self, populated_workspace):
         """Each SCO id prefix matches its STIX type."""
@@ -202,14 +202,14 @@ class TestProvenancePassthrough:
         )
 
         for obj in provenance_objects:
-            assert obj.get("x_ap_source_url") == _PROVENANCE_KWARGS["source_url"], (
-                f"x_ap_source_url mismatch on {obj.get('id')}: {obj.get('x_ap_source_url')!r}"
+            assert obj.get("x_pivotglass_source_url") == _PROVENANCE_KWARGS["source_url"], (
+                f"x_pivotglass_source_url mismatch on {obj.get('id')}: {obj.get('x_pivotglass_source_url')!r}"
             )
-            assert obj.get("x_ap_api_version") == _PROVENANCE_KWARGS["api_version"], (
-                f"x_ap_api_version mismatch on {obj.get('id')}: {obj.get('x_ap_api_version')!r}"
+            assert obj.get("x_pivotglass_api_version") == _PROVENANCE_KWARGS["api_version"], (
+                f"x_pivotglass_api_version mismatch on {obj.get('id')}: {obj.get('x_pivotglass_api_version')!r}"
             )
-            assert obj.get("x_ap_response_sha256") == _PROVENANCE_KWARGS["response_sha256"], (
-                f"x_ap_response_sha256 mismatch on {obj.get('id')}"
+            assert obj.get("x_pivotglass_response_sha256") == _PROVENANCE_KWARGS["response_sha256"], (
+                f"x_pivotglass_response_sha256 mismatch on {obj.get('id')}"
             )
 
     def test_provenance_sha256_stored_verbatim(self, workspace):
@@ -223,19 +223,19 @@ class TestProvenancePassthrough:
         )
         objects = workspace.get_stix_objects()
         assert len(objects) == 1
-        assert objects[0]["x_ap_response_sha256"] == sha
+        assert objects[0]["x_pivotglass_response_sha256"] == sha
 
     def test_fetched_at_is_rfc3339_z_suffix(self, workspace):
-        """x_ap_fetched_at from workspace default must end with 'Z'."""
+        """x_pivotglass_fetched_at from workspace default must end with 'Z'."""
         workspace.store_stix_objects(
             [{"type": "domain-name", "value": "example.com"}],
             module_name="test/module",
             target="example.com",
         )
         objects = workspace.get_stix_objects()
-        ts = objects[0]["x_ap_fetched_at"]
+        ts = objects[0]["x_pivotglass_fetched_at"]
         assert isinstance(ts, str)
-        assert ts.endswith("Z"), f"x_ap_fetched_at not Z-suffixed: {ts!r}"
+        assert ts.endswith("Z"), f"x_pivotglass_fetched_at not Z-suffixed: {ts!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -288,8 +288,8 @@ class TestDeterministicIdIndependentOfProvenance:
         assert obj_b["spec_version"] == "2.1"
 
         # Provenance differs — confirming the dedup is id-stable
-        assert obj_a["x_ap_fetched_at"] != obj_b["x_ap_fetched_at"]
-        assert obj_a["x_ap_source_url"] != obj_b["x_ap_source_url"]
+        assert obj_a["x_pivotglass_fetched_at"] != obj_b["x_pivotglass_fetched_at"]
+        assert obj_a["x_pivotglass_source_url"] != obj_b["x_pivotglass_source_url"]
 
     def test_dedup_within_workspace_preserves_first_stored_provenance(self, workspace):
         """Within a single workspace, dedup keeps the first-stored SCO's provenance."""
@@ -312,7 +312,7 @@ class TestDeterministicIdIndependentOfProvenance:
         objects = workspace.get_stix_objects()
         assert len(objects) == 1, "Deduplication failed — same SCO stored twice"
         # The first-stored provenance is preserved
-        assert objects[0]["x_ap_source_url"] == "https://first.example/"
+        assert objects[0]["x_pivotglass_source_url"] == "https://first.example/"
 
 
 # ---------------------------------------------------------------------------
@@ -326,7 +326,7 @@ class TestLegacyCallNoProvenanceKwargs:
     def test_legacy_call_no_provenance_kwargs(self, workspace):
         """store_stix_objects() with no provenance kwargs still works.
 
-        x_ap_fetched_at is populated by the workspace default; the other three
+        x_pivotglass_fetched_at is populated by the workspace default; the other three
         provenance fields are absent from the json_blob (null/absent per
         DEC-59-STIX-PROVENANCE-004).
         """
@@ -344,15 +344,15 @@ class TestLegacyCallNoProvenanceKwargs:
         assert len(objects) == 2
 
         for obj in objects:
-            # x_ap_fetched_at always populated
-            assert "x_ap_fetched_at" in obj
-            assert obj["x_ap_fetched_at"] is not None
+            # x_pivotglass_fetched_at always populated
+            assert "x_pivotglass_fetched_at" in obj
+            assert obj["x_pivotglass_fetched_at"] is not None
 
             # Other three absent (not in dict at all, since we only insert
             # them when non-None — see store_stix_objects provenance overlay)
-            assert "x_ap_source_url" not in obj
-            assert "x_ap_api_version" not in obj
-            assert "x_ap_response_sha256" not in obj
+            assert "x_pivotglass_source_url" not in obj
+            assert "x_pivotglass_api_version" not in obj
+            assert "x_pivotglass_response_sha256" not in obj
 
     def test_legacy_call_bundle_still_parses(self, workspace):
         """Bundle from legacy call site round-trips through stix2.parse()."""
@@ -391,14 +391,14 @@ class TestLegacyCallNoProvenanceKwargs:
         assert len(objects) == 1
         obj = objects[0]
 
-        # x_ap_fetched_at is always populated
-        assert "x_ap_fetched_at" in obj
-        assert obj["x_ap_fetched_at"] is not None
+        # x_pivotglass_fetched_at is always populated
+        assert "x_pivotglass_fetched_at" in obj
+        assert obj["x_pivotglass_fetched_at"] is not None
 
         # The three nullable fields must be absent (we don't store null-valued keys)
-        assert "x_ap_source_url" not in obj
-        assert "x_ap_api_version" not in obj
-        assert "x_ap_response_sha256" not in obj
+        assert "x_pivotglass_source_url" not in obj
+        assert "x_pivotglass_api_version" not in obj
+        assert "x_pivotglass_response_sha256" not in obj
 
 
 # ---------------------------------------------------------------------------
@@ -467,21 +467,21 @@ class TestProductionSequenceEndToEnd:
             assert obj.id
             assert obj.spec_version == "2.1"
 
-        # x_ap_fetched_at: all 5 objects must have it (4 from default, N from kwargs)
+        # x_pivotglass_fetched_at: all 5 objects must have it (4 from default, N from kwargs)
         for raw_obj in bundle_dict["objects"]:
-            assert "x_ap_fetched_at" in raw_obj, f"x_ap_fetched_at missing from {raw_obj.get('id')}"
-            assert raw_obj["x_ap_fetched_at"] is not None
+            assert "x_pivotglass_fetched_at" in raw_obj, f"x_pivotglass_fetched_at missing from {raw_obj.get('id')}"
+            assert raw_obj["x_pivotglass_fetched_at"] is not None
 
         # Objects with full provenance have all three optional fields
         provenance_values = {"198.51.100.10", "2001:db8::10", "compound.example.com"}
         for raw_obj in bundle_dict["objects"]:
             if raw_obj.get("value") in provenance_values:
                 assert (
-                    raw_obj.get("x_ap_source_url")
+                    raw_obj.get("x_pivotglass_source_url")
                     == "https://vendor.example/api/v3/ip/198.51.100.10"
                 )
-                assert raw_obj.get("x_ap_api_version") == "v3"
-                assert raw_obj.get("x_ap_response_sha256") == "c" * 64
+                assert raw_obj.get("x_pivotglass_api_version") == "v3"
+                assert raw_obj.get("x_pivotglass_response_sha256") == "c" * 64
 
         # Objects without full provenance lack the three optional fields
         legacy_values = {
@@ -490,9 +490,9 @@ class TestProductionSequenceEndToEnd:
         }
         for raw_obj in bundle_dict["objects"]:
             if raw_obj.get("value") in legacy_values:
-                assert "x_ap_source_url" not in raw_obj
-                assert "x_ap_api_version" not in raw_obj
-                assert "x_ap_response_sha256" not in raw_obj
+                assert "x_pivotglass_source_url" not in raw_obj
+                assert "x_pivotglass_api_version" not in raw_obj
+                assert "x_pivotglass_response_sha256" not in raw_obj
 
     def test_bundle_json_is_serializable(self, workspace):
         """export_stix_bundle() result is a plain dict serializable with json.dumps()."""

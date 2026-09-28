@@ -28,13 +28,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.core.plugin_mgr import PluginManager
-from adversary_pursuit.modules.base import (
+from pivotglass.core.plugin_mgr import PluginManager
+from pivotglass.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
-from adversary_pursuit.modules.cti.passivetotal import PassiveTotal
+from pivotglass.modules.cti.passivetotal import PassiveTotal
 
 # ---------------------------------------------------------------------------
 # Sample API responses
@@ -222,7 +222,7 @@ def mock_domain_with_whois():
     ]
     mock_client = _make_client(responses)
     with patch(
-        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -235,7 +235,7 @@ def mock_domain_no_whois():
     ]
     mock_client = _make_client(responses)
     with patch(
-        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -248,7 +248,7 @@ def mock_domain_empty_pdns():
     ]
     mock_client = _make_client(responses)
     with patch(
-        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -261,7 +261,7 @@ def mock_domain_duplicates():
     ]
     mock_client = _make_client(responses)
     with patch(
-        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -280,7 +280,7 @@ def mock_ip_with_whois():
     ]
     mock_client = _make_client(responses)
     with patch(
-        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -293,7 +293,7 @@ def mock_ip_no_whois():
     ]
     mock_client = _make_client(responses)
     with patch(
-        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -311,7 +311,7 @@ def mock_401():
     ]
     mock_client = _make_client(responses)
     with patch(
-        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -328,7 +328,7 @@ def mock_429():
     ]
     mock_client = _make_client(responses)
     with patch(
-        "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.cti.passivetotal.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -356,7 +356,7 @@ class TestPassiveTotalMetadata:
 
     def test_module_author(self):
         mod = PassiveTotal()
-        assert mod.author == "Adversary Pursuit"
+        assert mod.author == "Pivotglass"
 
     def test_description_non_empty(self):
         mod = PassiveTotal()
@@ -675,7 +675,7 @@ class TestPassiveTotalHTTPAuth:
         mod = PassiveTotal()
         mod.initialize({"passivetotal_user": "u@example.com", "passivetotal_key": "my-pt-key"})
         with patch(
-            "adversary_pursuit.modules.cti.passivetotal.httpx.AsyncClient",
+            "pivotglass.modules.cti.passivetotal.httpx.AsyncClient",
             return_value=mock_domain_no_whois,
         ) as mock_cls:
             asyncio.run(mod.hunt("evil.example.com", {"INCLUDE_WHOIS": "false"}))
@@ -783,13 +783,13 @@ class TestPassiveTotalDiscovery:
 class TestPassiveTotalErrorMessageRegression:
     """Regression tests verifying the missing-credentials error message is accurate.
 
-    Root cause: the error message referenced 'ap config set api_keys.passivetotal_user'
+    Root cause: the error message referenced 'pivotglass config set api_keys.passivetotal_user'
     which does not exist as a CLI command. Updated to reference the three accurate
-    configuration paths: the 'model select' wizard, env vars, and ~/.ap/config.toml.
+    configuration paths: the 'model select' wizard, env vars, and ~/.pivotglass/config.toml.
     """
 
-    def test_missing_credentials_error_message_does_not_mention_ap_config_set(self):
-        """Error message must NOT reference the non-existent 'ap config set' command."""
+    def test_missing_credentials_error_message_does_not_mention_pivotglass_config_set(self):
+        """Error message must NOT reference the non-existent 'pivotglass config set' command."""
         import asyncio
 
         mod = PassiveTotal()
@@ -797,8 +797,8 @@ class TestPassiveTotalErrorMessageRegression:
         with pytest.raises(AuthenticationError) as exc_info:
             asyncio.run(mod.hunt("google.com", {}))
         message = str(exc_info.value)
-        assert "ap config set" not in message, (
-            "Error message still references 'ap config set' which does not exist. "
+        assert "pivotglass config set" not in message, (
+            "Error message still references 'pivotglass config set' which does not exist. "
             "Update the message to reference the wizard, env vars, or config.toml."
         )
 
@@ -826,13 +826,13 @@ class TestPassiveTotalErrorMessageRegression:
             asyncio.run(mod.hunt("google.com", {}))
         message = str(exc_info.value)
         # Must mention at least one of the correct env var names
-        assert "AP_PASSIVETOTAL_USER" in message or "PT_USERNAME" in message, (
+        assert "PIVOTGLASS_PASSIVETOTAL_USER" in message or "PT_USERNAME" in message, (
             "Error message must mention the correct env var names "
-            "(AP_PASSIVETOTAL_USER / PT_USERNAME) so users can configure via env."
+            "(PIVOTGLASS_PASSIVETOTAL_USER / PT_USERNAME) so users can configure via env."
         )
 
     def test_missing_credentials_error_message_references_config_toml(self):
-        """Error message must reference ~/.ap/config.toml as a configuration path."""
+        """Error message must reference ~/.pivotglass/config.toml as a configuration path."""
         import asyncio
 
         mod = PassiveTotal()
@@ -841,6 +841,6 @@ class TestPassiveTotalErrorMessageRegression:
             asyncio.run(mod.hunt("google.com", {}))
         message = str(exc_info.value)
         assert "config.toml" in message, (
-            "Error message must mention ~/.ap/config.toml so users know they can "
+            "Error message must mention ~/.pivotglass/config.toml so users know they can "
             "hand-edit their configuration file directly."
         )

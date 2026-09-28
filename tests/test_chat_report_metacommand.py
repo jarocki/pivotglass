@@ -28,7 +28,7 @@ import pytest
 @pytest.fixture
 def ctx(tmp_path):
     """Minimal ToolContext pointed at a fresh workspace."""
-    from adversary_pursuit.agent.tools import ToolContext
+    from pivotglass.agent.tools import ToolContext
 
     return ToolContext(workspace_dir=tmp_path / "workspaces")
 
@@ -43,7 +43,7 @@ class TestExecuteGenerateDossierReportPostM8:
 
     def test_parameterless_signature(self):
         """_execute_generate_dossier_report accepts only ctx — no style param."""
-        from adversary_pursuit.agent.tools import _execute_generate_dossier_report
+        from pivotglass.agent.tools import _execute_generate_dossier_report
 
         sig = inspect.signature(_execute_generate_dossier_report)
         params = list(sig.parameters.keys())
@@ -54,14 +54,14 @@ class TestExecuteGenerateDossierReportPostM8:
 
     def test_raises_on_style_kwarg(self, ctx):
         """Passing style= raises TypeError (parameter does not exist)."""
-        from adversary_pursuit.agent.tools import _execute_generate_dossier_report
+        from pivotglass.agent.tools import _execute_generate_dossier_report
 
         with pytest.raises(TypeError):
             _execute_generate_dossier_report(ctx, style="dossier")  # type: ignore[call-arg]
 
     def test_returns_dossier_markdown(self, ctx):
         """Calling without style returns dossier Markdown."""
-        from adversary_pursuit.agent.tools import _execute_generate_dossier_report
+        from pivotglass.agent.tools import _execute_generate_dossier_report
 
         result = _execute_generate_dossier_report(ctx)
         assert isinstance(result, str)
@@ -69,7 +69,7 @@ class TestExecuteGenerateDossierReportPostM8:
 
     def test_no_classic_report_format(self, ctx):
         """Dossier renderer does NOT produce the classic interview header."""
-        from adversary_pursuit.agent.tools import _execute_generate_dossier_report
+        from pivotglass.agent.tools import _execute_generate_dossier_report
 
         result = _execute_generate_dossier_report(ctx)
         assert "## Interview Notes" not in result
@@ -90,7 +90,7 @@ class TestNoChatStyleFlag:
         chat_path = (
             Path(__file__).parent.parent
             / "src"
-            / "adversary_pursuit"
+            / "pivotglass"
             / "agent"
             / "chat.py"
         )
@@ -106,7 +106,7 @@ class TestNoChatStyleFlag:
         chat_path = (
             Path(__file__).parent.parent
             / "src"
-            / "adversary_pursuit"
+            / "pivotglass"
             / "agent"
             / "chat.py"
         )
@@ -122,7 +122,7 @@ class TestNoChatStyleFlag:
         chat_path = (
             Path(__file__).parent.parent
             / "src"
-            / "adversary_pursuit"
+            / "pivotglass"
             / "agent"
             / "chat.py"
         )

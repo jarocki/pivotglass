@@ -32,11 +32,11 @@ import json
 
 import pytest
 
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.dossier.predictions import ExpectedEvidence, PersistedPrediction
-from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
-from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
-from adversary_pursuit.dossier.state import (
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.dossier.predictions import ExpectedEvidence, PersistedPrediction
+from pivotglass.dossier.slot_inference import DossierState, SlotState
+from pivotglass.dossier.slots import DossierSlotName, SlotStatus
+from pivotglass.dossier.state import (
     DOSSIER_STATE_SENTINEL_ACTION,
     _deserialize_dossier_state,
     _serialize_dossier_state,
@@ -163,7 +163,7 @@ class TestSentinelUniqueness:
         from sqlalchemy import select
         from sqlalchemy.orm import Session
 
-        from adversary_pursuit.models.database import ScoreEvent
+        from pivotglass.models.database import ScoreEvent
 
         wm = _make_workspace(tmp_path)
         state1 = _all_empty_state()
@@ -208,7 +208,7 @@ class TestSentinelUniqueness:
         from sqlalchemy import select
         from sqlalchemy.orm import Session
 
-        from adversary_pursuit.models.database import ScoreEvent
+        from pivotglass.models.database import ScoreEvent
 
         wm = _make_workspace(tmp_path)
         save_dossier_state(wm, _all_empty_state())

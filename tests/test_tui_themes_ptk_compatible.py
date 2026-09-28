@@ -30,7 +30,7 @@ from __future__ import annotations
 import pytest
 from prompt_toolkit.styles.style import parse_color
 
-from adversary_pursuit.agent.tui.themes import DEFAULT_THEMES
+from pivotglass.agent.tui.themes import DEFAULT_THEMES
 
 # Every field that is used as a PTK color value (fed to fg: or as a bare style
 # token in FormattedText). bold/dim modifiers are applied at injection sites and

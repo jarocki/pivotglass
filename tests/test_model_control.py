@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from adversary_pursuit.agent.configuration_advisor import ConfigurationAdvisor
-from adversary_pursuit.agent.model_control import (
+from pivotglass.agent.configuration_advisor import ConfigurationAdvisor
+from pivotglass.agent.model_control import (
     ModelControl,
     execute_configuration_command,
     execute_model_command,
 )
-from adversary_pursuit.core.config import ConfigManager
+from pivotglass.core.config import ConfigManager
 
 
 def _control(tmp_path: Path) -> ModelControl:
@@ -18,7 +18,7 @@ def _control(tmp_path: Path) -> ModelControl:
 
 
 def test_status_is_masked_and_reports_effective_selection(tmp_path, monkeypatch):
-    monkeypatch.delenv("AP_MODEL", raising=False)
+    monkeypatch.delenv("PIVOTGLASS_MODEL", raising=False)
     control = _control(tmp_path)
     control.config_mgr.set_agent_selection("openai", "gpt-test")
     control.config_mgr.set_provider_api_key("openai", "super-secret-value")
@@ -52,11 +52,11 @@ def test_model_catalog_and_selection_use_provider_visible_models(
     control = _control(tmp_path)
     control.config_mgr.set_agent_selection("ollama", "ollama/old")
     monkeypatch.setattr(
-        "adversary_pursuit.agent.model_control.list_models",
+        "pivotglass.agent.model_control.list_models",
         lambda provider, key: ["qwen-test:8b", "reasoner-test:14b"],
     )
     monkeypatch.setattr(
-        "adversary_pursuit.agent.model_control._capability_info",
+        "pivotglass.agent.model_control._capability_info",
         lambda model: {
             "supports_function_calling": True,
             "supports_reasoning": "reasoner" in model,
@@ -77,7 +77,7 @@ def test_model_selection_rejects_unlisted_model(tmp_path, monkeypatch):
     control = _control(tmp_path)
     control.config_mgr.set_agent_selection("ollama", "ollama/old")
     monkeypatch.setattr(
-        "adversary_pursuit.agent.model_control.list_models",
+        "pivotglass.agent.model_control.list_models",
         lambda provider, key: ["approved:latest"],
     )
 

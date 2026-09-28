@@ -123,7 +123,7 @@ function HalShutdownGame() {
     <p>{scenario.hint}</p>
     <div className="shutdown-stack">{scenario.systems.map((system, index) => <button key={system} className={disabled.includes(index) ? "offline" : ""} onClick={() => disable(index)} disabled={disabled.includes(index)}><span>{index + 1} · {system}</span><b>{disabled.includes(index) ? "OFFLINE" : "ONLINE"}</b></button>)}</div>
     {disabled.length === 4 && <button onClick={nextScenario}>LOAD NEXT FAILURE</button>}
-    <p aria-live="polite">{message}</p><small>Four deterministic scenarios rotate by seed. Keys 1–4 disconnect systems. AP remains untouched.</small>
+    <p aria-live="polite">{message}</p><small>Four deterministic scenarios rotate by seed. Keys 1–4 disconnect systems. Pivotglass remains untouched.</small>
   </div>;
 }
 
@@ -334,19 +334,19 @@ function MatrixPowerGridGame() {
 
 export function ThemeArcade({ character, onClose, reduced, publicModeLabel }: { character: string; onClose: () => void; reduced: boolean; publicModeLabel: (id?: string) => string }) {
   const identity = publicModeLabel(character);
-  const title = identity === "Sherlock Holmes" ? "CHESS · THE FORCED CONCLUSION"
-    : identity === "HAL9000" ? "DISABLE THE COMPUTER"
-    : identity === "Neuromancer" ? "JACK IN / AVOID ICE"
-    : identity === "The Matrix" ? "HACK THE POWER GRID"
-    : identity === "Chuck Norris" ? "VERIFIED ROUNDHOUSE"
-    : identity === "Troll" ? "CHALLENGE THE ASSUMPTION"
+  const title = identity === "Sleuth" ? "CHESS · THE FORCED CONCLUSION"
+    : identity === "Deep Orbit" ? "DISABLE THE COMPUTER"
+    : identity === "Nightgrid" ? "JACK IN / AVOID ICE"
+    : identity === "Code Rain" ? "HACK THE POWER GRID"
+    : identity === "Ironclad" ? "VERIFIED ROUNDHOUSE"
+    : identity === "Rascal" ? "CHALLENGE THE ASSUMPTION"
     : "TRIAGE THE LEAD";
   const game = identity === "Default (Analyst)" ? <AnalystTriageGame/>
-    : identity === "Chuck Norris" ? <ChuckTimingGame reduced={reduced}/>
-    : identity === "HAL9000" ? <HalShutdownGame/>
-    : identity === "Troll" ? <TrollContrarianGame/>
-    : identity === "Sherlock Holmes" ? <SherlockChessGame/>
-    : identity === "Neuromancer" ? <NeuromancerJackInGame/>
+    : identity === "Ironclad" ? <ChuckTimingGame reduced={reduced}/>
+    : identity === "Deep Orbit" ? <HalShutdownGame/>
+    : identity === "Rascal" ? <TrollContrarianGame/>
+    : identity === "Sleuth" ? <SherlockChessGame/>
+    : identity === "Nightgrid" ? <NeuromancerJackInGame/>
     : <MatrixPowerGridGame/>;
   return <section className="dojo" role="dialog" aria-modal="true" aria-label={`${identity} training diversion`}>
     <button className="close" aria-label="Close training simulator" onClick={onClose}>×</button>

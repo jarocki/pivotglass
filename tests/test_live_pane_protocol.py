@@ -37,9 +37,9 @@ All tests use a real EventBus, real LivePane, and real phrases.pick() — no moc
 
 from __future__ import annotations
 
-from adversary_pursuit.agent.runner import _StatusHook
-from adversary_pursuit.agent.tui.events import EventBus
-from adversary_pursuit.agent.tui.live_pane import LivePane
+from pivotglass.agent.runner import _StatusHook
+from pivotglass.agent.tui.events import EventBus
+from pivotglass.agent.tui.live_pane import LivePane
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -122,7 +122,7 @@ def test_set_activity_none_resets_to_idle():
 
 def test_set_activity_uses_real_phrases_pick():
     """The phrase in row 5 matches what pick() returns for the same slug."""
-    from adversary_pursuit.gamification.phrases import pick
+    from pivotglass.gamification.phrases import pick
 
     pane, _ = _make_pane(mode_name="default")
     pane.set_activity("virustotal")

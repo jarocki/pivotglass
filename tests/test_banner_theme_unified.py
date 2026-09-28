@@ -21,10 +21,10 @@ from __future__ import annotations
 
 import inspect
 
-import adversary_pursuit.agent.banner as banner_module
-from adversary_pursuit.agent.banner import get_mode_color
-from adversary_pursuit.agent.tui.themes import theme_for
-from adversary_pursuit.gamification.modes import DEFAULT_MODES
+import pivotglass.agent.banner as banner_module
+from pivotglass.agent.banner import get_mode_color
+from pivotglass.agent.tui.themes import theme_for
+from pivotglass.gamification.modes import DEFAULT_MODES
 
 # ---------------------------------------------------------------------------
 # Authority invariant: no parallel color dict at module scope
@@ -185,7 +185,7 @@ class TestStatusBarUsesThemeColor:
         """Simulate chat.py's _mode_prompt() color lookup via get_mode_color."""
         # This mirrors the production sequence in chat.py:
         #   color = get_mode_color(mode.name)
-        #   return f"{prefix}[{color}]ap>[/{color}] "
+        #   return f"{prefix}[{color}]pivotglass>[/{color}] "
         for mode_name in DEFAULT_MODES:
             color = get_mode_color(mode_name)
             # The color must be valid for Rich markup — non-empty, string
@@ -198,15 +198,15 @@ class TestStatusBarUsesThemeColor:
                 f"get_mode_color='{color}', theme.heading_color='{theme_for(mode_name).heading_color}'"
             )
 def test_tui_light_and_high_contrast_resolve_complete_semantic_palettes(monkeypatch):
-    from adversary_pursuit.agent.tui.themes import theme_for
+    from pivotglass.agent.tui.themes import theme_for
 
-    monkeypatch.setenv("AP_TUI_COLOR_SCHEME", "light")
+    monkeypatch.setenv("PIVOTGLASS_TUI_COLOR_SCHEME", "light")
     light = theme_for("m4tr1x")
     assert light.text_color == "#101b13"
     assert light.dim_color == "#43594a"
     assert light.border_color == "#116329"
 
-    monkeypatch.setenv("AP_TUI_HIGH_CONTRAST", "1")
+    monkeypatch.setenv("PIVOTGLASS_TUI_HIGH_CONTRAST", "1")
     high = theme_for("m4tr1x")
     assert high.text_color == "#000000"
     assert high.heading_color == "#000000"

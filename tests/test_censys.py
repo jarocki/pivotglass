@@ -47,13 +47,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.core.plugin_mgr import PluginManager
-from adversary_pursuit.modules.base import (
+from pivotglass.core.plugin_mgr import PluginManager
+from pivotglass.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
-from adversary_pursuit.modules.osint.censys_host import CensysHost
+from pivotglass.modules.osint.censys_host import CensysHost
 
 # ---------------------------------------------------------------------------
 # Sample API responses (v3 Platform API format)
@@ -237,7 +237,7 @@ def mock_success():
     mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_FULL)
     mock_client = _make_client_mock(mock_resp)
     with patch(
-        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -248,7 +248,7 @@ def mock_success_multi_certs():
     mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_MULTI_CERTS)
     mock_client = _make_client_mock(mock_resp)
     with patch(
-        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -259,7 +259,7 @@ def mock_success_minimal():
     mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_MINIMAL)
     mock_client = _make_client_mock(mock_resp)
     with patch(
-        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -270,7 +270,7 @@ def mock_success_no_services():
     mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_NO_SERVICES)
     mock_client = _make_client_mock(mock_resp)
     with patch(
-        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -290,7 +290,7 @@ def mock_401():
     )
     mock_client = _make_client_mock(mock_resp)
     with patch(
-        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -310,7 +310,7 @@ def mock_403():
     )
     mock_client = _make_client_mock(mock_resp)
     with patch(
-        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -323,7 +323,7 @@ def mock_404():
     )
     mock_client = _make_client_mock(mock_resp)
     with patch(
-        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -338,7 +338,7 @@ def mock_429():
     )
     mock_client = _make_client_mock(mock_resp)
     with patch(
-        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -353,7 +353,7 @@ def mock_429_no_retry():
     )
     mock_client = _make_client_mock(mock_resp)
     with patch(
-        "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
+        "pivotglass.modules.osint.censys_host.httpx.AsyncClient", return_value=mock_client
     ):
         yield mock_client
 
@@ -381,7 +381,7 @@ class TestCensysHostMetadata:
 
     def test_module_author(self):
         mod = CensysHost()
-        assert mod.author == "Adversary Pursuit"
+        assert mod.author == "Pivotglass"
 
     def test_description_non_empty(self):
         mod = CensysHost()
@@ -434,16 +434,16 @@ class TestCensysHostErrors:
             asyncio.run(mod.hunt("8.8.8.8", {}))
 
     def test_hunt_pat_from_env_var(self):
-        """hunt() reads censys_pat from AP_CENSYS_PAT env var."""
+        """hunt() reads censys_pat from PIVOTGLASS_CENSYS_PAT env var."""
         mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_FULL)
         mock_client = _make_client_mock(mock_resp)
         with patch(
-            "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient",
+            "pivotglass.modules.osint.censys_host.httpx.AsyncClient",
             return_value=mock_client,
         ):
             mod = CensysHost()
             mod.initialize({})  # no censys_pat in config
-            with patch.dict(os.environ, {"AP_CENSYS_PAT": "env-pat-token"}):
+            with patch.dict(os.environ, {"PIVOTGLASS_CENSYS_PAT": "env-pat-token"}):
                 results = asyncio.run(mod.hunt("8.8.8.8", {}))
             assert len(results) == 1
             assert results[0]["type"] == "ipv4-addr"
@@ -453,13 +453,13 @@ class TestCensysHostErrors:
         mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_FULL)
         mock_client = _make_client_mock(mock_resp)
         with patch(
-            "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient",
+            "pivotglass.modules.osint.censys_host.httpx.AsyncClient",
             return_value=mock_client,
         ):
             mod = CensysHost()
             mod.initialize({})
-            # Ensure AP_CENSYS_PAT is not set so fallback to CENSYS_PAT is tested
-            env = {k: v for k, v in os.environ.items() if k != "AP_CENSYS_PAT"}
+            # Ensure PIVOTGLASS_CENSYS_PAT is not set so fallback to CENSYS_PAT is tested
+            env = {k: v for k, v in os.environ.items() if k != "PIVOTGLASS_CENSYS_PAT"}
             env["CENSYS_PAT"] = "vendor-env-pat"
             with patch.dict(os.environ, env, clear=True):
                 results = asyncio.run(mod.hunt("8.8.8.8", {}))
@@ -724,7 +724,7 @@ class TestCensysHostRequestConstruction:
         mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_FULL)
         mock_client = _make_client_mock(mock_resp)
         with patch(
-            "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient",
+            "pivotglass.modules.osint.censys_host.httpx.AsyncClient",
         ) as mock_cls:
             mock_cls.return_value = mock_client
             mod = CensysHost()
@@ -741,7 +741,7 @@ class TestCensysHostRequestConstruction:
         mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_FULL)
         mock_client = _make_client_mock(mock_resp)
         with patch(
-            "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient",
+            "pivotglass.modules.osint.censys_host.httpx.AsyncClient",
         ) as mock_cls:
             mock_cls.return_value = mock_client
             mod = CensysHost()
@@ -826,7 +826,7 @@ class TestCensysHostRedirectRegression:
         mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_FULL)
         mock_client = _make_client_mock(mock_resp)
         with patch(
-            "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient",
+            "pivotglass.modules.osint.censys_host.httpx.AsyncClient",
             return_value=mock_client,
         ):
             mod = CensysHost()
@@ -877,7 +877,7 @@ class TestCensysHostRedirectRegression:
         mock_resp = _make_mock_response(200, v3_response)
         mock_client = _make_client_mock(mock_resp)
         with patch(
-            "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient",
+            "pivotglass.modules.osint.censys_host.httpx.AsyncClient",
             return_value=mock_client,
         ):
             mod = CensysHost()
@@ -909,7 +909,7 @@ class TestCensysHostRedirectRegression:
         mock_client = _make_client_mock(mock_resp)
 
         with patch(
-            "adversary_pursuit.modules.osint.censys_host.httpx.AsyncClient",
+            "pivotglass.modules.osint.censys_host.httpx.AsyncClient",
             return_value=mock_client,
         ):
             # Step 1: Discover module via PluginManager (production entry point)

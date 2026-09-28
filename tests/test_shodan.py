@@ -35,13 +35,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.core.plugin_mgr import PluginManager
-from adversary_pursuit.modules.base import (
+from pivotglass.core.plugin_mgr import PluginManager
+from pivotglass.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
-from adversary_pursuit.modules.osint.shodan_ip import ShodanIP
+from pivotglass.modules.osint.shodan_ip import ShodanIP
 
 # ---------------------------------------------------------------------------
 # Sample API responses
@@ -128,7 +128,7 @@ def mock_success():
     """Patch httpx.AsyncClient to return the full success response."""
     mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_FULL)
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -137,7 +137,7 @@ def mock_success_vulns_list():
     """Patch httpx.AsyncClient to return vulns as a list."""
     mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_VULNS_AS_LIST)
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -146,7 +146,7 @@ def mock_success_no_vulns():
     """Patch httpx.AsyncClient to return response without vulns field."""
     mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_NO_VULNS)
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -155,7 +155,7 @@ def mock_success_minify():
     """Patch httpx.AsyncClient to return the minified response."""
     mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_MINIFY)
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -164,7 +164,7 @@ def mock_401():
     """Patch httpx.AsyncClient to return 401 Unauthorized."""
     mock_resp = _make_mock_response(401, {"error": "Invalid API key."})
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -177,7 +177,7 @@ def mock_429():
         headers={"Retry-After": "60"},
     )
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -186,7 +186,7 @@ def mock_429_no_retry():
     """Patch httpx.AsyncClient to return 429 without Retry-After header."""
     mock_resp = _make_mock_response(429, {"error": "Rate limit reached."}, headers={})
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -195,7 +195,7 @@ def mock_404():
     """Patch httpx.AsyncClient to return 404 Not Found."""
     mock_resp = _make_mock_response(404, {"error": "No information available for that IP."})
     mock_client = _make_client_mock(mock_resp)
-    with patch("adversary_pursuit.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
+    with patch("pivotglass.modules.osint.shodan_ip.httpx.AsyncClient", return_value=mock_client):
         yield mock_client
 
 
@@ -221,7 +221,7 @@ class TestShodanIPMetadata:
 
     def test_module_author(self):
         mod = ShodanIP()
-        assert mod.author == "Adversary Pursuit"
+        assert mod.author == "Pivotglass"
 
     def test_description_non_empty(self):
         mod = ShodanIP()

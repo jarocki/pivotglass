@@ -112,18 +112,17 @@ hunt session is published.
 - Nucleotide requires the analyst to group events before fingerprinting.
   Unique means unique within the configured template corpus, and generated
   Snort, Suricata, Sigma, or YARA content is never deployed by Pivotglass.
-- Document bytes and text are untrusted data. Intake is content-addressed and
-  bounded by type, size, expansion, page/row/member, time, CPU, and memory
-  limits. Active content never runs, URL retrieval is SSRF-resistant, and
-  document text cannot become a model or tool instruction.
-- SCOT Flair occurrences and Synapse scrape results retain remote IDs, rule or
-  parser context, and exact offsets when supplied. They are compared with
-  Pivotglass extraction and require the same analyst disposition as other
-  external proposals before graph admission.
+- Current local document intake treats bytes and text as untrusted data. It
+  retains content-addressed originals and applies qualified-format, 10 MiB
+  file, row, candidate, and JSON-depth limits. Admission is an explicit analyst
+  action; document text does not become a tool instruction.
+- Additional parser isolation, expansion, page/member, time, CPU, memory,
+  SSRF-resistant URL retrieval, and SCOT Flair/Synapse scrape comparison are
+  target contracts. They are not qualified current intake capabilities.
 
 ## Configure
 
-Add the endpoint settings to `~/.ap/config.toml`:
+Add the endpoint settings to `~/.pivotglass/config.toml`:
 
 ```toml
 [integrations]
@@ -148,19 +147,19 @@ scot = "..."
 The same values can be supplied without editing the file:
 
 ```text
-AP_SYNAPSE_MCP_URL
-AP_SYNAPSE_API_KEY
-AP_SCOT_MCP_URL
-AP_SCOT_API_URL
-AP_SCOT_API_KEY
-AP_SCOT_PIVOT_SECRET
-AP_GO_ROAST_BIN
-AP_NUCLEOTIDE_BIN
-AP_NUCLEOTIDE_LOOKUP
+PIVOTGLASS_SYNAPSE_MCP_URL
+PIVOTGLASS_SYNAPSE_API_KEY
+PIVOTGLASS_SCOT_MCP_URL
+PIVOTGLASS_SCOT_API_URL
+PIVOTGLASS_SCOT_API_KEY
+PIVOTGLASS_SCOT_PIVOT_SECRET
+PIVOTGLASS_GO_ROAST_BIN
+PIVOTGLASS_NUCLEOTIDE_BIN
+PIVOTGLASS_NUCLEOTIDE_LOOKUP
 ```
 
 Stored configuration takes precedence over environment variables except for
-`AP_SCOT_PIVOT_SECRET`, which is intentionally environment-only and must be at
+`PIVOTGLASS_SCOT_PIVOT_SECRET`, which is intentionally environment-only and must be at
 least 32 UTF-8 bytes. It is separate from the outbound SCOT API credential and
 is never returned by ordinary configuration polling. Cleartext HTTP is limited
 to loopback by default. Set `allow_insecure_http=true` only when a deliberately
@@ -469,6 +468,6 @@ cutover, it still needs:
   rejection, and idempotent execution path are implemented and locally tested.
 - the governed document-ingestion contract, same-corpus SCOT4/Synapse
   extraction comparison, exact source-span round trip, and reviewed remote
-  document exchange scheduled for completion by v0.9.5.
+  document exchange deferred until explicitly qualified.
 
 Unreviewed graph mutations and unapproved SCOT publication remain out of scope.

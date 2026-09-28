@@ -8,24 +8,24 @@ import copy
 import os
 import tempfile
 
-from adversary_pursuit.integrations.synapse_execution import (
+from pivotglass.integrations.synapse_execution import (
     reconcile_synapse_readback,
     verify_synapse_model,
 )
-from adversary_pursuit.integrations.synapse_graph import (
+from pivotglass.integrations.synapse_graph import (
     SynapseManifestEdge,
     SynapseManifestNode,
     SynapseShadowManifest,
 )
-from adversary_pursuit.integrations.synapse_migration import (
+from pivotglass.integrations.synapse_migration import (
     compile_synapse_migration_plan,
     pivotglass_synapse_model_contract,
 )
-from adversary_pursuit.integrations.synapse_model import (
+from pivotglass.integrations.synapse_model import (
     PIVOTGLASS_EDGE_FORM,
     PIVOTGLASS_RECORD_FORM,
 )
-from adversary_pursuit.integrations.synapse_model_deployment import (
+from pivotglass.integrations.synapse_model_deployment import (
     compile_synapse_model_deployment_plan,
     extended_model_contains,
 )

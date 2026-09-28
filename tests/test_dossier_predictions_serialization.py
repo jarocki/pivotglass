@@ -23,7 +23,7 @@ import json
 
 import pytest
 
-from adversary_pursuit.dossier.predictions import (
+from pivotglass.dossier.predictions import (
     ExpectedEvidence,
     FalsificationEvidence,
     PersistedPrediction,

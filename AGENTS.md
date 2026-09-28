@@ -42,8 +42,8 @@ replace them.
 - Preserve operator agency during automated work. Long-running hunts must
   expose meaningful state and honor supported stop, focus, add, and skip
   controls.
-- Keep the AI-augmented cyberdeck (`ap`) as the primary user experience. The
-  classic console (`ap basic` / `ap repl`) is a supported direct-control
+- Keep the AI-augmented cyberdeck (`pivotglass`) as the primary user experience. The
+  classic console (`pivotglass basic` / `pivotglass repl`) is a supported direct-control
   surface, not the default interface.
 - Personas are durable product features. Deprecation does not authorize
   deletion, and character voice must not weaken analytical accuracy.

@@ -10,7 +10,7 @@ from scripts.check_release_contract import (
 
 def test_release_version_surfaces_and_operator_docs_are_consistent() -> None:
     versions = current_versions()
-    assert set(versions.values()) == {"0.9.6"}
+    assert set(versions.values()) == {"0.9.8"}
     assert validate() == []
 
 
@@ -19,7 +19,7 @@ def test_semver_comparison_preserves_release_order() -> None:
 
 
 def test_feature_paths_cover_shipped_behavior_not_documentation() -> None:
-    assert is_feature_bearing_path("src/adversary_pursuit/core/workspace.py")
+    assert is_feature_bearing_path("src/pivotglass/core/workspace.py")
     assert is_feature_bearing_path("web/app/page.tsx")
     assert is_feature_bearing_path("scripts/validate_synapse_contract.py")
     assert not is_feature_bearing_path("docs/USER_GUIDE.md")
@@ -30,5 +30,5 @@ def test_quickstart_uses_the_frozen_source_release_path() -> None:
     from scripts.check_release_contract import ROOT
 
     quickstart = ROOT.joinpath("docs/QUICKSTART.md").read_text(encoding="utf-8")
-    assert "git clone --branch v0.9.6" in quickstart
+    assert "git clone --branch v0.9.8" in quickstart
     assert "uv sync --extra agent --frozen" in quickstart

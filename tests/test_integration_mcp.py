@@ -7,14 +7,14 @@ import json
 import httpx
 import pytest
 
-from adversary_pursuit.integrations.mapping import synapse_lift
-from adversary_pursuit.integrations.mcp import (
+from pivotglass.integrations.mapping import synapse_lift
+from pivotglass.integrations.mcp import (
     McpError,
     StreamableHttpMcpClient,
     validated_mcp_url,
 )
-from adversary_pursuit.integrations.scot import ScotMcpAdapter
-from adversary_pursuit.integrations.synapse import SynapseMcpAdapter
+from pivotglass.integrations.scot import ScotMcpAdapter
+from pivotglass.integrations.synapse import SynapseMcpAdapter
 
 
 def _response(request: httpx.Request, result: dict | None = None) -> httpx.Response:

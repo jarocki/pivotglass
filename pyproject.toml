@@ -1,6 +1,6 @@
 [project]
-name = "adversary-pursuit"
-version = "0.9.6"
+name = "pivotglass"
+version = "0.9.8"
 requires-python = ">=3.12"
 description = "Gamified framework for hunting, pivoting, and discovery of adversary infrastructure, indicators, and TTPs"
 readme = "README.md"
@@ -8,7 +8,7 @@ license = { text = "MIT" }
 authors = [
     { name = "John Jarocki", email = "john@jarocki.me" },
 ]
-keywords = ["threat-intelligence", "osint", "cti", "gamification", "adversary-pursuit"]
+keywords = ["threat-intelligence", "osint", "cti", "gamification", "pivotglass"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
@@ -41,33 +41,33 @@ Repository = "https://github.com/jarocki/pivotglass"
 "Bug Tracker" = "https://github.com/jarocki/pivotglass/issues"
 
 [project.scripts]
-ap = "adversary_pursuit.__main__:main"
+pivotglass = "pivotglass.__main__:main"
 
-[project.entry-points."adversary_pursuit.modules"]
-whois_lookup = "adversary_pursuit.modules.osint.whois_lookup:WhoisLookup"
-abuseipdb = "adversary_pursuit.modules.osint.abuseipdb:AbuseIPDB"
-urlscan = "adversary_pursuit.modules.osint.urlscan:URLScan"
-hibp = "adversary_pursuit.modules.osint.hibp:HIBP"
-otx = "adversary_pursuit.modules.cti.otx:AlienVaultOTX"
-shodan_ip = "adversary_pursuit.modules.osint.shodan_ip:ShodanIP"
-censys_host = "adversary_pursuit.modules.osint.censys_host:CensysHost"
-virustotal = "adversary_pursuit.modules.cti.virustotal:VirusTotal"
-passivetotal = "adversary_pursuit.modules.cti.passivetotal:PassiveTotal"
-greynoise = "adversary_pursuit.modules.osint.greynoise:GreyNoise"
-urlhaus = "adversary_pursuit.modules.cti.urlhaus:URLHaus"
-threatfox = "adversary_pursuit.modules.cti.threatfox:ThreatFox"
-malwarebazaar = "adversary_pursuit.modules.cti.malwarebazaar:MalwareBazaar"
-crtsh = "adversary_pursuit.modules.osint.crtsh:CrtSh"
+[project.entry-points."pivotglass.modules"]
+whois_lookup = "pivotglass.modules.osint.whois_lookup:WhoisLookup"
+abuseipdb = "pivotglass.modules.osint.abuseipdb:AbuseIPDB"
+urlscan = "pivotglass.modules.osint.urlscan:URLScan"
+hibp = "pivotglass.modules.osint.hibp:HIBP"
+otx = "pivotglass.modules.cti.otx:AlienVaultOTX"
+shodan_ip = "pivotglass.modules.osint.shodan_ip:ShodanIP"
+censys_host = "pivotglass.modules.osint.censys_host:CensysHost"
+virustotal = "pivotglass.modules.cti.virustotal:VirusTotal"
+passivetotal = "pivotglass.modules.cti.passivetotal:PassiveTotal"
+greynoise = "pivotglass.modules.osint.greynoise:GreyNoise"
+urlhaus = "pivotglass.modules.cti.urlhaus:URLHaus"
+threatfox = "pivotglass.modules.cti.threatfox:ThreatFox"
+malwarebazaar = "pivotglass.modules.cti.malwarebazaar:MalwareBazaar"
+crtsh = "pivotglass.modules.osint.crtsh:CrtSh"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/adversary_pursuit"]
+packages = ["src/pivotglass"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"web/out" = "adversary_pursuit/web/static"
+"web/out" = "pivotglass/web/static"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -33,12 +33,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from adversary_pursuit.core.config import AutoPivotPolicyConfig
-from adversary_pursuit.core.dossier_pivot import make_dossier_pivot_ranker
-from adversary_pursuit.core.event_bus import EventBus, PivotConfig
-from adversary_pursuit.core.pivot_policy import PivotPolicy
-from adversary_pursuit.dossier.slot_inference import DossierState, SlotState
-from adversary_pursuit.dossier.slots import DossierSlotName, SlotStatus
+from pivotglass.core.config import AutoPivotPolicyConfig
+from pivotglass.core.dossier_pivot import make_dossier_pivot_ranker
+from pivotglass.core.event_bus import EventBus, PivotConfig
+from pivotglass.core.pivot_policy import PivotPolicy
+from pivotglass.dossier.slot_inference import DossierState, SlotState
+from pivotglass.dossier.slots import DossierSlotName, SlotStatus
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -310,7 +310,7 @@ class TestPivotPolicyEvaluateShapeUnchanged:
     def test_evaluate_returns_policy_decision_with_three_fields(self):
         """EB8: PivotPolicy.evaluate returns PolicyDecision(verdict, gate, reason)
         — shape unchanged by M-6."""
-        from adversary_pursuit.core.pivot_policy import PolicyDecision
+        from pivotglass.core.pivot_policy import PolicyDecision
 
         policy = PivotPolicy(
             AutoPivotPolicyConfig(

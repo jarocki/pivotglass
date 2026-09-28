@@ -1,7 +1,7 @@
 # Pivotglass User Guide
 
 Pivotglass is a local-first investigation workspace for collecting, connecting,
-and testing cyber-threat evidence. The installed command remains `ap`. The
+and testing cyber-threat evidence. The installed command is `pivotglass`. The
 browser interface is the default; the terminal interface and direct
 module-control console share the same underlying workspaces and evidence.
 
@@ -13,15 +13,40 @@ Start with the [Quick Start](QUICKSTART.md) if this is your first session.
 [Captions](media/pivotglass-guided-demo-v0.9.5.vtt) ·
 [Read the transcript](media/pivotglass-guided-demo-transcript.md)
 
+## How to use this guide
+
+An investigation starts with a decision someone needs to make. Indicators
+help locate evidence; they do not supply a conclusion by themselves. Pivotglass
+keeps the collection process and reasoning visible so you can return to the
+source, challenge an explanation, and communicate a bounded judgment.
+
+| Your next task | Go to |
+| --- | --- |
+| Install, launch, and check the version | [Quick Start](QUICKSTART.md) |
+| Practice without credentials or provider traffic | [Offline learning case](LEARNING_WORKSPACE.md) |
+| Turn incomplete context into useful questions | [Guided question walkthrough](#walkthrough-from-reported-context-to-a-question) |
+| Bring a report or indicator list into a case | [Document intake](#preview-ingest-and-revisit-a-document) |
+| Trace where an indicator or grouping came from | [Evidence and provenance](#evidence-and-provenance), then [relationship graph](#relationship-graph) |
+| Compare explanations and challenge assumptions | [Scientific method and SATs](analysis/README.md) |
+| Read a chart without overstating it | [Visualization examples](analysis/VISUALIZATIONS.md) |
+| Produce a handoff | [Reports and exports](#reports-and-exports) |
+| Recover from failures | [Activity and errors](#activity-errors-and-degraded-operation), [recovery guide](FAILURE_RECOVERY.md) |
+| Understand storage and service boundaries | [Architecture](architecture/README.md), [data safety](DATA_SAFETY.md) |
+
+You may pause, keep uncertainty open, or choose a different explanation. An
+unanswered question can be a useful outcome when it identifies the next
+collection that would change a decision. A completed enrichment job, badge,
+or filled coverage cell does not establish maliciousness or analytical skill.
+
 ## Choose an interface
 
 ```bash
-ap             # Local Pivotglass browser interface
-ap web         # Same as bare ap
-ap tui         # Full-screen terminal interface
-ap chat        # Alias for the terminal interface
-ap basic       # Direct module-control console
-ap repl        # Alias for the direct console
+pivotglass             # Local Pivotglass browser interface
+pivotglass web         # Same as bare pivotglass
+pivotglass tui         # Full-screen terminal interface
+pivotglass chat        # Alias for the terminal interface
+pivotglass basic       # Direct module-control console
+pivotglass repl        # Alias for the direct console
 ```
 
 Pivotglass prints its local address when it starts and opens the browser when
@@ -68,7 +93,7 @@ basis and permission class. Merely viewing or polling it never runs a remote
 query, creates a relationship, accepts an analytical proposal, changes
 confidence, attributes activity to an actor, or publishes externally.
 
-![Current Pursuit Brief with separate progress and open-work measures](media/pivotglass-cockpit-v0.9.6.png)
+![v0.9.6 Pursuit Brief with separate progress and open-work measures](media/pivotglass-cockpit-v0.9.6.png)
 
 Primary navigation is deliberately limited to **Investigate**, **Evidence**,
 **Visualize**, and **More**. Evidence opens in an on-demand detail area.
@@ -76,11 +101,123 @@ Configuration, system status, commands, themes, badges, and display controls
 remain under **More**. Choose **Open full workbench** when the complete
 scientific notebook and framework lenses are needed.
 
+**Investigate** is also where reports and indicator lists enter the workspace.
+Expand **Add indicators & reports**, preview a supported local file, and review
+the extracted strings. Check only the candidates that should become workspace
+entities. **Ingest source only** preserves the report and review candidates;
+**Ingest source + add entities** also admits the selected entities through the
+same evidence authority used by enrichment results. Admission retains document
+and parser provenance but assigns no verdict or actor. Promoting multiple new
+entities together records an explicit analyst group; its edges describe your
+selection decision, without asserting shared adversary activity. Open
+**Visualize → Provenance History** to retrace sources, promotions, and pivots,
+or **Relationship Graph** to inspect analyst-grouped edges. Older promotions
+without an explicit batch record retain their source provenance.
+
+New installations begin in **Novice** guidance. Choose **BUILD INVESTIGATIVE
+QUESTIONS · Q&A**, the opening guided tip, or **Help → Build Investigative
+Questions** to open the notebook's coaching session. The six prompts ask about
+available data and provenance, reported activity, how it started, scope and time,
+the decision to support, and competing explanations. **I DON'T KNOW YET** preserves
+a gap rather than inventing an answer. Pause and resume, go back, or clear the
+local draft at any time.
+
+Review and edit the three suggested questions, then **SAVE THIS QUESTION** for
+each useful one. Only those explicit saves create analyst questions in the
+active investigation through the existing notebook authority. Answers and
+reflections remain browser-local, scoped by workspace; they are reported context,
+not source evidence. Avoid entering secrets on a shared browser. Saved questions
+remain when a local draft is cleared. No enrichment runs from the Q&A.
+
+After saving at least one question, write a reflection and choose **COMPLETE
+PRACTICE**. Repeated sessions rotate lessons on provenance, disconfirmation,
+scope, and decision thresholds; revisit saved questions after collecting evidence.
+Practice counts measure participation, not demonstrated competence. Guidance
+levels remain under your control: Help suggests lighter interface guidance after
+three and twelve completed workflows, but never changes your level automatically.
+Choose **Adept** for occasional tips or **Expert** for no unsolicited tips; the
+Q&A remains available in the full workbench at every level. Resetting the
+walkthrough resets interface guidance; local Q&A drafts have a separate clear
+control.
+
+![Investigative-question coaching in Pivotglass v0.9.8 using a synthetic workspace](media/pivotglass-question-coach-v0.9.8.png)
+
 ![Scientific workbench with competing hypotheses and open gaps](media/pivotglass-analysis-v0.9.5.png)
+
+## Walkthrough: from reported context to a question
+
+This exercise uses invented context, not a claim about a real incident. Create
+an empty practice workspace with `workspace create framing-practice`, or use
+a different unused name. The separate [offline learning case](LEARNING_WORKSPACE.md)
+contains prepopulated source-marked evidence for the full collection-to-report
+workflow.
+
+1. Confirm the workspace name in the cockpit. Open **BUILD INVESTIGATIVE
+   QUESTIONS · Q&A**. In **Novice**, coaching is available from the guided tip;
+   at every guidance level it remains available in the full workbench.
+2. Answer **What data do you have?**: “An exported proxy log from one host,
+   collected by the network team for 10:00–11:00 UTC; clock synchronization is
+   not checked.” Name the source and limitations before guessing a cause.
+3. Answer **What happened?**: “The report says repeated connections occurred
+   to a domain.” A report of a connection is reported context until you inspect
+   and preserve the relevant source records.
+4. At **Do you know how it started?**, select **I DON'T KNOW YET**. The earliest
+   visible connection may follow an earlier event outside the log window.
+5. Bound **Who or what is affected, and when?** to the one host and log window.
+   At the decision prompt, say you need to decide whether further endpoint
+   collection or containment is justified. At the alternatives prompt, include
+   expected administration as well as unauthorized activity.
+6. Choose **REVIEW DRAFT QUESTIONS**. Edit the suggestions to remove ambiguity
+   and make the scope manageable. For example: “What evidence would distinguish
+   expected administration from unauthorized connections by this host during
+   the recorded hour?” Save only a question you intend to investigate using
+   **SAVE THIS QUESTION**, then read the saved receipt.
+7. In the notebook, record competing explanations and predictions. Ask what
+   result would weaken each explanation. Identify missing clock, endpoint,
+   and authorization information before collecting. Consult the
+   [worked analytic example](analysis/WORKED_EXAMPLE.md) for the method.
+8. If you bring in a report, preview it locally and explicitly admit the source
+   or selected entities. Admission preserves provenance; it does not run
+   enrichment or prove the report's claims. Review an admitted indicator and
+   choose **Investigate** separately if you intend to send it to enabled services.
+9. Revisit the question after collection. Was it answered, narrowed, or made
+   obsolete? Record your reasoning and remaining uncertainty before producing
+   a report.
+10. Write a short reflection: “I separated the reported event from the suspected
+    cause; the source window cannot establish the origin.” After at least one
+    saved question, choose **COMPLETE PRACTICE** to record participation locally.
+
+**PAUSE Q&A** keeps the draft. **BACK** lets you revisit earlier prompts before
+saving; after a question is saved, its context cannot be edited through that
+same review session. **CLEAR DRAFT AND START AGAIN** clears the browser draft
+and reflection, while saved notebook questions remain. Browser storage failure
+is reported; keep the page open if a draft is only in memory. On an interrupted
+save, check the notebook before retrying so you do not duplicate a question.
+
+Drafts are tied to a workspace name in this browser. Practice counts are
+browser-local across sessions and are not a personnel assessment. A different
+browser or device will not carry that draft or count. Do not put credentials,
+private keys, or unnecessary personal data in coaching answers.
+
+### Learn through repeated investigations
+
+Practice becomes useful when you review the consequence of your choices.
+After each case, compare your early question with the evidence you eventually
+found. Identify an assumption you tested, an alternative you took seriously,
+and an information gap that changed the decision. Ask a colleague or supervisor
+to review a source-to-judgment chain when appropriate.
+
+The rotating coaching lessons emphasize provenance, disconfirmation, scope,
+and decision thresholds. Workflow participation can suggest lighter guidance
+in Help after three and twelve completed workflows, but guidance never switches
+automatically. **Adept** offers occasional tips; **Expert** suppresses unsolicited
+tips. Those labels describe interface assistance, not certified competence.
+See [learning through practice](analysis/LEARNING.md) for a repeatable review
+routine and observable skills to discuss with a mentor.
 
 ## Workspaces
 
-Each investigation has an isolated SQLite workspace under `~/.ap/`. Workspaces
+Each investigation has an isolated SQLite workspace under `~/.pivotglass/`. Workspaces
 store normalized STIX objects, relationships, module runs, notes, score events,
 badges, and Dossier state.
 
@@ -114,7 +251,7 @@ v0.9.5 correction. `workspace delete` permanently removes the workspace database
 SQLite sidecars, and uploaded-document content directory. Both commands report
 what they removed and fail loudly rather than claiming success after incomplete
 cleanup. The browser and full-screen terminal require the repeated name shown
-above. The direct `ap basic` console and legacy chat-compatible terminal use a
+above. The direct `pivotglass basic` console and legacy chat-compatible terminal use a
 default-no interactive confirmation and allow `workspace clear` without a name
 to mean the active workspace.
 
@@ -153,8 +290,9 @@ skip <source>    Remove a source from the pending queue
 
 Evidence details show the actual indicator, STIX type, normalized fields,
 source, query target, collection time, stored relationships, and available
-source metadata. Long values are shortened only in the middle in compact
-views; the complete value remains available in details and accessible labels.
+source metadata. Full indicator values wrap in evidence, queue, intake, and
+graph displays rather than being truncated. Inspect the complete value and
+source record before copying or acting on it.
 
 Country flags and known-malware marks appear only when stored source data
 supports them. Analyst notes are labeled as analyst-authored context. Inference
@@ -208,21 +346,28 @@ neighborhood. Relationship filters use only edges admitted by the graph
 authority. Selecting an indicator opens its evidence; selecting a cell explains
 the dimension state.
 
-Each Dossier state is a compact Lite Brite peg. A bright starburst is filled, a
-striped round peg is partial, a concentric octagonal peg is deferred, and a
-dark recessed peg is empty. The form makes each state recognizable without
-color. Hover or keyboard focus opens a viewport-safe explainer with the full
+Each Dossier state is a compact coverage mark: green check **Coverage met**,
+amber half-circle **Some evidence**, open circle **No evidence**, and dash
+**No automated path**. The dash means analyst assessment is needed, not that
+work is queued. These shapes remain recognizable without color.
+Hover or keyboard focus opens a viewport-safe explainer with the full
 dimension question, state meaning, and exact evidence count; selection pins the
-same explanation above the matrix and visibly marks its peg. Tab enters the
+same explanation below the matrix without shifting its rows. Tab enters the
 grid once; use the arrow keys to move, Home or End to reach the first or last
 dimension, and Enter or Space to pin the focused peg. Column headings are
 focusable and announce the full dimension question. Enrichment Activity keeps the larger
 three-channel RGB blocks because those cells represent job lifecycles rather
 than Dossier coverage.
 
+Country flags appear only for source-labelled location metadata on that
+indicator. Hover or focus the indicator for the country name, source, and
+retrieval time. This is infrastructure location—not attacker origin. Unknown
+locations have no flag. Use **Open evidence & provenance** in selected-cell
+details to inspect the underlying records. Escape dismisses a hover explainer.
+
 The overall mapped value is navigation help, not confidence or a verdict.
 
-![Theme-aware Investigation Constellation with chart-selection guidance](media/pivotglass-visualize-v0.9.6.png)
+![Day-mode constellation with readable headings and selected evidence details](media/pivotglass-constellation-day-v0.9.7.png)
 
 ## Visual Analysis
 
@@ -256,21 +401,35 @@ question-to-view policy and the analytical guardrails for every chart family.
 
 ### Preview, ingest, and revisit a document
 
-Open **Visualize**, then expand **Document intake & library** above the chart
-panel. The workflow is deliberately two-step:
+Open **Investigate**, then expand **Add indicators & reports** beneath the
+Pursuit Brief. The workflow is deliberately review-first:
 
 1. Choose a file and select **Preview locally**. This creates no stored state.
-2. Review the parser result and candidates, then select **Ingest into
-   workspace**. A visible receipt confirms the stored occurrence, content hash,
-   parser receipt, candidate count, and pivot event.
+2. Review the parser result and expand **Entity candidates**.
+3. Check only the visible candidates that belong in the workspace.
+4. Select **Ingest source + add entities**, or **Ingest source only** when the
+   report belongs in the library but none of its strings should be admitted.
+   Separate receipts confirm source storage and entity admission.
 
 The library remains beneath the intake controls after refresh and restart. It
 shows display-safe metadata rather than returning the original bytes to the
 browser. The content-addressed original lives beside the active workspace
 database and is removed only by an exact-confirmed workspace clear or delete.
 
+Select **Review stored source** on any library entry to reopen its parser
+receipt, full SHA-256, and candidate list. Candidates that were not admitted
+the first time can be selected and admitted later; the source is not copied
+again. A preview-only source remains intentionally session-local because its
+bytes have not been explicitly stored.
+
 The intake accepts an explicitly selected file up to 10 MiB and has qualified
-parsers for text, Markdown, HTML, CSV, JSON, JSONL, and RFC 5322 email. HTML
+parsers for text, Markdown, HTML, CSV, JSON, JSONL, and RFC 5322 email. JSON is
+recognized by content, extension, or structured MIME type. UTF-8, UTF-16, and
+UTF-32 byte signatures are supported, and strict line-delimited records inside
+a `.json` file receive an explicit JSONL fallback receipt. Duplicate keys and
+malformed records are never silently dropped or repaired: bounded raw text may
+remain reviewable with a warning, while non-finite numbers, excessive nesting,
+and other unsafe input fail closed. HTML
 scripts, styles, templates, and external references are not run. Email
 attachments are named as skipped rather than silently treated as parsed. PDF
 input is recognized and hashed, but text extraction and OCR remain unqualified
@@ -278,7 +437,7 @@ and are reported as such.
 
 The preview returns the sanitized filename, media type, byte count, content
 hash, parser version, parse state, bounded text, warnings, errors, and skipped
-content. Until **Ingest into workspace** is selected, it is temporary and
+content. Until one of the explicit **Ingest source** actions is selected, it is temporary and
 local: it creates no document record, evidence, entity, relationship, graph
 edge, or model request. Parsed text proves only what the selected source
 contained; it does not prove the source's claims.
@@ -286,9 +445,24 @@ contained; it does not prove the source's claims.
 Expand **Entity candidates** beneath the parser output to inspect deterministic
 matches. Each candidate exposes its raw and normalized value, entity type,
 parser-output line/column, character and UTF-8 byte span, and rule/version. The
-browser bounds extraction at 2,000 candidates and renders the first 100 to keep
-the panel responsive. Admission stores those candidates for review but does
-not promote them to STIX evidence, a verdict, or actor attribution.
+browser bounds extraction at 2,000 candidates and displays 50 per page. Use
+**Previous** and **Next** to review every page. **Select this page** is additive;
+it preserves earlier selections without selecting unseen pages. Source-only
+admission stores those candidates for review.
+The stored-source library can be filtered by filename, source type, parse state,
+or media type and sorted by date, name, or candidate count. Reopened source
+candidates can be filtered, sorted, selected by visible page or all matches,
+and paged before explicit admission.
+When the analyst explicitly selects candidates, Pivotglass admits only those
+strings as provenanced workspace entities. It still does not validate the
+report's claims, assign a verdict, create a threat relationship, or attribute
+an actor.
+
+Source storage and entity admission have separate receipts. If source storage
+succeeds but selected entity admission is interrupted, the interface keeps the
+source receipt visible and offers **Retry entity admission**. The retry refers
+to the same occurrence and selection keys, so it neither stores a second source
+copy nor duplicates already admitted entities.
 
 The layered investigation graph adds an epistemic node for each stored
 document and candidate, a structural `contains-candidate` edge, and—only when
@@ -296,6 +470,8 @@ the exact normalized value already exists as admitted evidence—a labeled
 bridge to that entity. These are provenance and review aids, not evidence that
 the document's claim is true. `timeline pivots` and the **Chronological trail**
 visualization show the append-only analyst path among documents and indicators.
+
+![JSON recognized from content with task-relative candidate guidance](media/pivotglass-json-intake-v0.9.7.png)
 
 ![Document preview, explicit admission, and persistent library](media/pivotglass-document-library-v0.9.6.png)
 
@@ -389,6 +565,8 @@ export json
 export csv
 export stix
 export gexf
+export csv --defang yes
+export json --defang no
 ```
 
 Reports are generated from the active workspace. They summarize current
@@ -400,11 +578,17 @@ structured exchange. GEXF supports graph tools such as Gephi. Exports can
 contain raw indicators and provider-derived information; review them before
 sharing.
 
+The browser export chooser makes the same decision explicit: **Preserve
+indicators** keeps canonical values, while **Defang indicators** writes common
+analyst-safe spellings such as `1[.]1[.]1[.]1` and `hxxp[:]//host[.]test`.
+Only typed indicator values are changed; evidence, provenance, and raw source
+text are not rewritten. Defanged downloads include `-defanged` in the filename.
+
 ![Dossier report](media/pivotglass-report-v0.9.5.png)
 
 ## Configuration and models
 
-Configuration is stored under `~/.ap/config.toml` with restrictive permissions.
+Configuration is stored under `~/.pivotglass/config.toml` with restrictive permissions.
 The Pivotglass **CONFIGURATION** dialog can inspect masked state, save and test
 credentials, enable or disable intelligence sources, enable or disable model
 synthesis, list account-visible models, and select a model.
@@ -461,9 +645,11 @@ evidence**, never runs the action automatically, and can be dismissed or
 disabled with the Narration control.
 
 Every card also offers **Read Aloud**. The optional automatic Advisor Voice
-setting is off by default and persists locally when enabled. Speech uses an
-available browser or operating-system voice with character-specific rate and
-pitch; Pivotglass does not clone an actor, celebrity, or fictional performance.
+setting is off by default and persists locally when enabled. Speech uses
+AI-generated speech through a configured OpenAI key, or a browser or
+operating-system voice with character-specific rate and pitch. When AI speech
+is available, the visible narration text is sent to OpenAI for synthesis.
+Pivotglass does not clone an actor, celebrity, or fictional performance.
 Speech stops when the card is dismissed, audio is disabled, or the character
 changes.
 
@@ -479,7 +665,7 @@ A clickable `debug.log · <diagnostic-id>` reference opens only the sanitized
 record for that exact eight-character diagnostic identifier. The browser never
 receives raw exception strings, tracebacks, credentials, query strings, private
 file paths, or arbitrary log-file contents. Full local debugging material stays
-in `~/.ap/debug.log`.
+in `~/.pivotglass/debug.log`.
 
 The panel's **Operational Authorities** section identifies which component owns
 each action and labels it Ready, Degraded, Disabled, Missing Configuration, or
@@ -506,10 +692,10 @@ does require a local `whois` executable.
 Common non-interactive overrides include:
 
 ```bash
-export AP_MODEL=anthropic/claude-sonnet-4-5
-export AP_ANTHROPIC_API_KEY=...
-export AP_SHODAN_API_KEY=...
-ap
+export PIVOTGLASS_MODEL=anthropic/claude-sonnet-4-5
+export PIVOTGLASS_ANTHROPIC_API_KEY=...
+export PIVOTGLASS_SHODAN_API_KEY=...
+pivotglass
 ```
 
 Pivotglass also recognizes documented vendor environment variables. Never
@@ -642,11 +828,10 @@ Tab completes commands and relevant arguments. In Pivotglass, arrow keys move
 through suggestions and Enter accepts one. A `?` typed inside an editable field
 remains text; outside an editable field it opens Help.
 
-See [Investigation graph](GRAPH_WORKSPACE.md) for the entity/epistemic layer
-and [Vertex Synapse and SCOT4 integrations](EXTERNAL_INTEGRATIONS.md) for MCP
-configuration, authority boundaries, and remaining release gates.
-contract and the distinction between observed relationships and derived
-navigation pivots. See [Framework projections](FRAMEWORK_PROJECTIONS.md) for
+See [Investigation graph](GRAPH_WORKSPACE.md) for the entity/epistemic
+layer contract and the distinction between observed relationships and derived
+navigation pivots. See [Vertex Synapse and SCOT4 integrations](EXTERNAL_INTEGRATIONS.md)
+for MCP configuration, authority boundaries, and remaining release gates. See [Framework projections](FRAMEWORK_PROJECTIONS.md) for
 the mapping and content-verification contract.
 
 The TUI-only `theme light|dark|high` command changes the current terminal
@@ -710,18 +895,18 @@ Terminal playback requires `afplay` on macOS or `aplay`/`paplay` on Linux.
 
 ## Characters, accessibility, and sound
 
-The public deck contains Default (Analyst), Chuck Norris, HAL9000, Troll,
-Sherlock Holmes, Neuromancer, and The Matrix. Use DECK or:
+The public deck contains Default (Analyst), Ironclad, Deep Orbit, Rascal,
+Sleuth, Nightgrid, and Code Rain. Use DECK or:
 
 ```text
 mode list
 mode Default (Analyst)
-mode Chuck Norris
-mode HAL9000
-mode Troll
-mode Sherlock Holmes
-mode Neuromancer
-mode The Matrix
+mode Ironclad
+mode Deep Orbit
+mode Rascal
+mode Sleuth
+mode Nightgrid
+mode Code Rain
 ```
 
 Each character changes palette, motion, narration, music, and an optional
@@ -743,13 +928,51 @@ Pivotglass provides Day, Night, high-contrast, reduced-motion, and effects-off
 controls. Terminal equivalents are:
 
 ```bash
-AP_TUI_COLOR_SCHEME=light ap tui
-AP_TUI_HIGH_CONTRAST=1 ap tui
+PIVOTGLASS_TUI_COLOR_SCHEME=light pivotglass tui
+PIVOTGLASS_TUI_HIGH_CONTRAST=1 pivotglass tui
 ```
 
-![Sherlock Holmes and Neuromancer presentation themes over the same evidence](media/pivotglass-themes-v0.9.5.png)
+![Sleuth and Nightgrid presentation themes over the same evidence](media/pivotglass-themes-v0.9.5.png)
 
 ![Focused Pivotglass workflow at phone width](media/pivotglass-mobile-v0.9.5.png)
+
+## Reading, attention, and recovery
+
+![Larger-text Help with optional spotlight and Quiet workspace](media/pivotglass-reading-v0.9.7.png)
+
+Open **Help → Reading & attention** (also available in **More**) to choose
+**Larger — easier reading** or the standard compact display. The preference
+persists in this browser. Browser zoom remains available. The constellation
+keeps its internal scroll area rather than making the entire page overflow.
+
+**Dim other panels while I work** is off by default. Enabling it adds a
+presentation-only spotlight when full visual effects are selected. Hover never
+moves keyboard focus. Tutorial highlighting is separate and dismissible.
+
+**Quiet workspace** turns off decorative motion, music, device voice,
+unsolicited character advice, and hover dimming. It does not hide work, errors,
+or manual Help. Set workflow guidance to **Expert** separately if you also want
+no unsolicited tutorial tips. Restore individual options in More.
+
+The **Utilities** dialog (More → System status & attention) keeps Tab and
+Shift+Tab within its controls. Escape closes it and returns to its opener.
+Help and other modal dialogs use the same focus handling. In TUI Help, use
+Up/Down, Page Up/Page Down, Home/End, the wheel, or the scrollbar; Escape returns
+to the command input without moving your history position.
+
+For output, use **More → Create printable report** or **Help → Create a report**.
+Review before printing or saving. **Export workspace data** opens the format
+choices; it does not export until you select JSON, CSV, STIX, or GEXF.
+
+During intake, the destination workspace is named above the file control.
+Switching workspaces clears unfinished preview and selection. Writes from a
+stale workspace are rejected before mutation. Library load failures show
+**Retry library**, not a misleading empty-library message. A stored receipt
+and an entity-admission receipt remain separate.
+
+After selected entities are successfully admitted, **Use [indicator]** puts
+that exact value into the command input and focuses it. You still choose
+**Investigate** to run enrichment. No tutorial button silently does that work.
 
 ## Safety boundary
 

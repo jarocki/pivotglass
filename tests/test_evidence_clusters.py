@@ -4,18 +4,18 @@ from __future__ import annotations
 
 from stix2 import DomainName, IPv4Address, Relationship
 
-from adversary_pursuit.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
-from adversary_pursuit.agent.tools import ToolContext
-from adversary_pursuit.core.analytic_ledger import ConfidenceLevel
-from adversary_pursuit.core.command_completion import command_completions
-from adversary_pursuit.core.evidence_clusters import build_evidence_clusters
-from adversary_pursuit.core.framework_projections import (
+from pivotglass.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
+from pivotglass.agent.tools import ToolContext
+from pivotglass.core.analytic_ledger import ConfidenceLevel
+from pivotglass.core.command_completion import command_completions
+from pivotglass.core.evidence_clusters import build_evidence_clusters
+from pivotglass.core.framework_projections import (
     Framework,
     FrameworkProjectionAuthority,
     MappingOrigin,
 )
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.web.server import WebCockpitService
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.web.server import WebCockpitService
 
 
 def _workspace(tmp_path):

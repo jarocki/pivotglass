@@ -23,16 +23,16 @@ from unittest.mock import MagicMock, patch  # @mock-exempt: sys.stdin.isatty is 
 
 import pytest
 
-from adversary_pursuit.agent.tui.application import (
+from pivotglass.agent.tui.application import (
     NotATTYError,
     TuiApplication,
     _TuiConsole,
 )
-from adversary_pursuit.agent.tui.events import EventBus
-from adversary_pursuit.agent.tui.live_pane import LivePane
-from adversary_pursuit.agent.tui.scrollback import ScrollbackBuffer
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.dossier.state import default_deferred_state, save_dossier_state
+from pivotglass.agent.tui.events import EventBus
+from pivotglass.agent.tui.live_pane import LivePane
+from pivotglass.agent.tui.scrollback import ScrollbackBuffer
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.dossier.state import default_deferred_state, save_dossier_state
 
 # ---------------------------------------------------------------------------
 # Fake runner — minimal duck-type for TuiApplication.__init__
@@ -278,6 +278,25 @@ def test_help_overlay_content_is_immediately_discoverable():
     assert "Press Esc" in text
 
 
+def test_help_navigation_is_bounded_and_independent_of_history():
+    from pivotglass.agent.tui.application import _HELP_TEXT
+
+    app = _make_app()
+    app._scroll_offset = 12
+    app._input_buffer.text = "unfinished question"
+    app._move_help(-100)
+    assert app._help_cursor == 0
+    app._move_help(1000)
+    assert app._help_cursor == len(_HELP_TEXT.splitlines()) - 1
+    app._drag_help(-1, None)
+    assert app._help_cursor == 0
+    app._drag_help(2, None)
+    assert app._help_cursor == len(_HELP_TEXT.splitlines()) - 1
+    assert app._help_page_size() == 10
+    assert app._scroll_offset == 12
+    assert app._input_buffer.text == "unfinished question"
+
+
 def test_prompt_marker_is_high_contrast_and_animated():
     app = _make_app()
 
@@ -300,7 +319,7 @@ def test_pursuit_title_tracks_active_mode():
 
     rendered = app._get_pursuit_title_formatted()
 
-    assert any("THE MATRIX" in text for _style, text in rendered)
+    assert any("CODE RAIN" in text for _style, text in rendered)
     assert all("INTELLIGENCE FEED" not in text for _style, text in rendered)
 
 
@@ -423,7 +442,7 @@ def test_target_hunt_uses_tools_then_one_synthesis_call():
     app._runner.narrate = MagicMock(return_value="Synthesized next pivot")
 
     with patch(
-        "adversary_pursuit.agent.tools.execute_tool",
+        "pivotglass.agent.tools.execute_tool",
         return_value=("WHOIS evidence", None, [], []),
     ) as tool:
         app._run_target_batteries("example.com")
@@ -508,7 +527,7 @@ def test_runner_error_becomes_recovery_card():
         diagnostic_id="cafe1234",
     )
 
-    with patch("adversary_pursuit.core.error_interpreter.interpret", return_value=interp):
+    with patch("pivotglass.core.error_interpreter.interpret", return_value=interp):
         app._emit_error_card(RuntimeError("boom"), "investigate example.com")
 
     text = "\n".join(app._scrollback.get_lines())

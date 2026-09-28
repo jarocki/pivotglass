@@ -26,16 +26,16 @@ const CHARACTER: Readonly<Record<string, { name: string; voice: readonly string[
     ],
   },
   chuck_norris: {
-    name: "Chuck Norris",
+    name: "Ironclad",
     voice: [
-      "Chuck Norris already checked the blind spot. Your turn: {idea}",
-      "A weak lead once tried to hide from Chuck Norris. {idea}",
-      "Chuck Norris does not chase clues. Clues report for duty. {idea}",
+      "Ironclad already checked the blind spot. Your turn: {idea}",
+      "A weak lead once tried to hide from Ironclad. {idea}",
+      "Ironclad does not chase clues. Clues report for duty. {idea}",
       "The dossier has one round left in it: {idea}",
     ],
   },
   hal9000: {
-    name: "HAL9000",
+    name: "Deep Orbit",
     voice: [
       "I have reviewed the board. {idea} I am sure this will go perfectly.",
       "A calm suggestion, before human improvisation begins: {idea}",
@@ -44,7 +44,7 @@ const CHARACTER: Readonly<Record<string, { name: string; voice: readonly string[
     ],
   },
   troll: {
-    name: "Troll",
+    name: "Rascal",
     voice: [
       "{idea} Or keep staring at the same pane. That seems productive. 🙄",
       "Tiny idea from the allegedly unhelpful one: {idea}",
@@ -53,7 +53,7 @@ const CHARACTER: Readonly<Record<string, { name: string; voice: readonly string[
     ],
   },
   sherlock_holmes: {
-    name: "Sherlock Holmes",
+    name: "Sleuth",
     voice: [
       "The board has made one fact rather conspicuous: {idea}",
       "Observe what is absent, not merely what is present. {idea}",
@@ -62,7 +62,7 @@ const CHARACTER: Readonly<Record<string, { name: string; voice: readonly string[
     ],
   },
   neuromancer: {
-    name: "Neuromancer",
+    name: "Nightgrid",
     voice: [
       "A weak signal is blinking through the static: {idea}",
       "The sprawl keeps receipts. Jack into the next seam: {idea}",
@@ -71,7 +71,7 @@ const CHARACTER: Readonly<Record<string, { name: string; voice: readonly string[
     ],
   },
   the_matrix: {
-    name: "The Matrix",
+    name: "Code Rain",
     voice: [
       "The path is visible now: {idea}",
       "One connection changes the shape of the system. {idea}",

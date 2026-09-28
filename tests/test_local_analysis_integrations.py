@@ -8,18 +8,18 @@ from pathlib import Path
 
 import pytest
 
-from adversary_pursuit.agent.tools import ToolContext
-from adversary_pursuit.core.analytic_ledger import (
+from pivotglass.agent.tools import ToolContext
+from pivotglass.core.analytic_ledger import (
     AnalystDisposition,
     AnalyticLedger,
 )
-from adversary_pursuit.core.command_completion import command_completions
-from adversary_pursuit.core.config import ConfigManager
-from adversary_pursuit.core.integration_commands import execute_integration_command
-from adversary_pursuit.core.investigation_graph import build_investigation_graph
-from adversary_pursuit.integrations.nucleotide import NucleotideAdapter
-from adversary_pursuit.integrations.roast import RoastAdapter
-from adversary_pursuit.web.server import WebCockpitService
+from pivotglass.core.command_completion import command_completions
+from pivotglass.core.config import ConfigManager
+from pivotglass.core.integration_commands import execute_integration_command
+from pivotglass.core.investigation_graph import build_investigation_graph
+from pivotglass.integrations.nucleotide import NucleotideAdapter
+from pivotglass.integrations.roast import RoastAdapter
+from pivotglass.web.server import WebCockpitService
 
 
 def _tool(tmp_path: Path, body: str) -> str:
@@ -589,9 +589,9 @@ def test_accepted_nucleotide_proposals_materialize_as_inferences(
 def test_local_tool_environment_does_not_forward_secrets(tmp_path, monkeypatch):
     executable = _tool(
         tmp_path,
-        "import json, os, sys\njson.dump([{'original': os.getenv('AP_TEST_SECRET', 'absent'), 'valid': True}], sys.stdout)\n",
+        "import json, os, sys\njson.dump([{'original': os.getenv('PIVOTGLASS_TEST_SECRET', 'absent'), 'valid': True}], sys.stdout)\n",
     )
-    monkeypatch.setenv("AP_TEST_SECRET", "do-not-forward")
+    monkeypatch.setenv("PIVOTGLASS_TEST_SECRET", "do-not-forward")
     adapter = RoastAdapter(executable, timeout_seconds=2, max_output_bytes=100_000, max_records=10)
 
     preview = adapter.decode(["x.oast.pro"])

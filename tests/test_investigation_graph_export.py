@@ -7,17 +7,17 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
-from adversary_pursuit.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
-from adversary_pursuit.agent.tools import ToolContext
-from adversary_pursuit.core.investigation_graph import (
+from pivotglass.agent.repl_verbs import dispatch_repl_verb, parse_repl_verb
+from pivotglass.agent.tools import ToolContext
+from pivotglass.core.investigation_graph import (
     GraphLayer,
     GraphTruthKind,
     InvestigationGraphEdge,
     InvestigationGraphNode,
     InvestigationGraphProjection,
 )
-from adversary_pursuit.core.investigation_graph_export import export_investigation_graph
-from adversary_pursuit.web.server import WebCockpitService
+from pivotglass.core.investigation_graph_export import export_investigation_graph
+from pivotglass.web.server import WebCockpitService
 
 
 def _projection() -> InvestigationGraphProjection:

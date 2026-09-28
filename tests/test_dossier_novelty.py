@@ -8,19 +8,19 @@ Covers:
 - Cache dedup (INSERT OR IGNORE)
 - Schema: 6-column table
 - detect_novelty first/second occurrence
-- AP_NO_NOVELTY opt-out
+- PIVOTGLASS_NO_NOVELTY opt-out
 - novelty_enabled() truthy/falsy values
 - emit_dossier_novelty_recognized_event shape
 - rule_description has no Rich markup (F64 invariant)
-- Default cache path is Path.home() / ".ap" / "dossier_novelty.sqlite"
+- Default cache path is Path.home() / ".pivotglass" / "dossier_novelty.sqlite"
 
 @decision DEC-TEST-M8-NOVELTY-001
 @title test_dossier_novelty covers all Stage B acceptance tests from plan §4
 @status accepted
 @rationale Each test maps to a named acceptance test in plan §4 Stage B.
            NoveltyCache(path=tmp_path/...) injects test isolation without
-           touching ~/.ap/. No mocks — uses sqlite3 directly to verify schema.
-           AP_NO_NOVELTY is tested via monkeypatch (clean env restore guaranteed).
+           touching ~/.pivotglass/. No mocks — uses sqlite3 directly to verify schema.
+           PIVOTGLASS_NO_NOVELTY is tested via monkeypatch (clean env restore guaranteed).
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from adversary_pursuit.dossier.novelty import (
+from pivotglass.dossier.novelty import (
     _SLOT_EXTRACTOR_NAMES,
     NoveltyCache,
     compute_novelty_hash,
@@ -36,7 +36,7 @@ from adversary_pursuit.dossier.novelty import (
     emit_dossier_novelty_recognized_event,
     novelty_enabled,
 )
-from adversary_pursuit.dossier.slots import DossierSlotName
+from pivotglass.dossier.slots import DossierSlotName
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -323,24 +323,24 @@ class TestDetectNovelty:
 
 
 # ---------------------------------------------------------------------------
-# Stage B-8: AP_NO_NOVELTY opt-out
+# Stage B-8: PIVOTGLASS_NO_NOVELTY opt-out
 # ---------------------------------------------------------------------------
 
 
 class TestNoveltyOptOut:
-    """AP_NO_NOVELTY env var disables detection entirely."""
+    """PIVOTGLASS_NO_NOVELTY env var disables detection entirely."""
 
     def test_detect_novelty_respects_opt_out(self, tmp_path, monkeypatch):
-        """With AP_NO_NOVELTY=1, detect_novelty always returns False."""
-        monkeypatch.setenv("AP_NO_NOVELTY", "1")
+        """With PIVOTGLASS_NO_NOVELTY=1, detect_novelty always returns False."""
+        monkeypatch.setenv("PIVOTGLASS_NO_NOVELTY", "1")
         cache = _fresh_cache(tmp_path)
         result = detect_novelty(_identity_slot(), "_extract_identity", ["ipv4-addr"], cache)
         assert result is False
         cache.close()
 
     def test_opt_out_does_not_write_cache(self, tmp_path, monkeypatch):
-        """With AP_NO_NOVELTY set, the cache file is not created."""
-        monkeypatch.setenv("AP_NO_NOVELTY", "1")
+        """With PIVOTGLASS_NO_NOVELTY set, the cache file is not created."""
+        monkeypatch.setenv("PIVOTGLASS_NO_NOVELTY", "1")
         path = tmp_path / "novelty.sqlite"
         cache = NoveltyCache(path=path)
         detect_novelty(_identity_slot(), "_extract_identity", ["ipv4-addr"], cache)
@@ -354,36 +354,36 @@ class TestNoveltyOptOut:
 
 
 class TestNoveltyEnabled:
-    """novelty_enabled() returns True when AP_NO_NOVELTY is unset/empty."""
+    """novelty_enabled() returns True when PIVOTGLASS_NO_NOVELTY is unset/empty."""
 
     def test_enabled_when_env_unset(self, monkeypatch):
-        """AP_NO_NOVELTY not set → novelty_enabled() is True."""
-        monkeypatch.delenv("AP_NO_NOVELTY", raising=False)
+        """PIVOTGLASS_NO_NOVELTY not set → novelty_enabled() is True."""
+        monkeypatch.delenv("PIVOTGLASS_NO_NOVELTY", raising=False)
         assert novelty_enabled() is True
 
     def test_disabled_when_env_is_1(self, monkeypatch):
-        """AP_NO_NOVELTY=1 → novelty_enabled() is False."""
-        monkeypatch.setenv("AP_NO_NOVELTY", "1")
+        """PIVOTGLASS_NO_NOVELTY=1 → novelty_enabled() is False."""
+        monkeypatch.setenv("PIVOTGLASS_NO_NOVELTY", "1")
         assert novelty_enabled() is False
 
     def test_disabled_when_env_is_true(self, monkeypatch):
-        """AP_NO_NOVELTY=true → novelty_enabled() is False."""
-        monkeypatch.setenv("AP_NO_NOVELTY", "true")
+        """PIVOTGLASS_NO_NOVELTY=true → novelty_enabled() is False."""
+        monkeypatch.setenv("PIVOTGLASS_NO_NOVELTY", "true")
         assert novelty_enabled() is False
 
     def test_disabled_when_env_is_on(self, monkeypatch):
-        """AP_NO_NOVELTY=on → novelty_enabled() is False."""
-        monkeypatch.setenv("AP_NO_NOVELTY", "on")
+        """PIVOTGLASS_NO_NOVELTY=on → novelty_enabled() is False."""
+        monkeypatch.setenv("PIVOTGLASS_NO_NOVELTY", "on")
         assert novelty_enabled() is False
 
     def test_disabled_when_env_is_any_nonempty(self, monkeypatch):
-        """Any non-empty AP_NO_NOVELTY value → disabled."""
-        monkeypatch.setenv("AP_NO_NOVELTY", "yes")
+        """Any non-empty PIVOTGLASS_NO_NOVELTY value → disabled."""
+        monkeypatch.setenv("PIVOTGLASS_NO_NOVELTY", "yes")
         assert novelty_enabled() is False
 
     def test_enabled_when_env_is_empty(self, monkeypatch):
-        """AP_NO_NOVELTY='' (empty string) → novelty_enabled() is True."""
-        monkeypatch.setenv("AP_NO_NOVELTY", "")
+        """PIVOTGLASS_NO_NOVELTY='' (empty string) → novelty_enabled() is True."""
+        monkeypatch.setenv("PIVOTGLASS_NO_NOVELTY", "")
         assert novelty_enabled() is True
 
 
@@ -470,12 +470,12 @@ class TestRuleDescriptionNoRichMarkup:
 
 
 class TestDefaultCachePath:
-    """NoveltyCache() default path is Path.home() / ".ap" / "dossier_novelty.sqlite"."""
+    """NoveltyCache() default path is Path.home() / ".pivotglass" / "dossier_novelty.sqlite"."""
 
     def test_default_path_is_user_home(self):
-        """NoveltyCache() without args uses ~/.ap/dossier_novelty.sqlite."""
+        """NoveltyCache() without args uses ~/.pivotglass/dossier_novelty.sqlite."""
         cache = NoveltyCache()
-        expected = Path.home() / ".ap" / "dossier_novelty.sqlite"
+        expected = Path.home() / ".pivotglass" / "dossier_novelty.sqlite"
         assert cache.path == expected
         # Do NOT call record — must not create the real file in tests
         cache.close()

@@ -7,9 +7,9 @@ import json
 
 import pytest
 
-from adversary_pursuit.core.framework_commands import execute_framework_command
-from adversary_pursuit.core.framework_perspectives import AttackContentManifest
-from adversary_pursuit.core.workspace import WorkspaceManager
+from pivotglass.core.framework_commands import execute_framework_command
+from pivotglass.core.framework_perspectives import AttackContentManifest
+from pivotglass.core.workspace import WorkspaceManager
 
 
 def _workspace(tmp_path) -> WorkspaceManager:

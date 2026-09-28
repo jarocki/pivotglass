@@ -14,6 +14,19 @@ available publisher provenance:
    It loads no CDN scripts, fonts, telemetry, or remote UI code.
 7. The Python lockfile retains hashes for the analysis engine dependencies.
 
+## v0.9.8 candidate dependency update
+
+The 2026-09-27 release audit identified advisories in the previous Next.js
+16.3.0, sharp 0.35.3, and baseline-browser-mapping dependency pins. The candidate
+uses Next.js 16.3.6, sharp 0.35.5, and an updated locked browser mapping package.
+The exact post-update audit and signature counts belong to the v0.9.8 QA receipt.
+Static serving avoids using the Next.js application server at runtime, but does
+not excuse known vulnerable dependencies in the build environment.
+
+Advisory sources: [Next.js Windows server issue](https://github.com/advisories/GHSA-p293-qw3h-jr36),
+[sharp/libheif issue](https://github.com/advisories/GHSA-rgj7-g3m4-5g8c), and
+[browser mapping issue](https://github.com/advisories/GHSA-w5vr-8v7q-w6rv).
+
 ## v0.9.2 release receipt
 
 Flint is pinned to exactly 0.4.0 with registry SHA-512 integrity. The same

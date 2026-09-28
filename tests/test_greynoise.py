@@ -16,7 +16,7 @@ paths (401, 404, 429, missing key) and SCO output structure.
 @rationale Mirrors DEC-TEST-ABUSEIPDB-001: respx is not in the dependency set.
            unittest.mock.patch on httpx.AsyncClient exercises all status-code branches
            (200, 401, 404, 429) without a live API key. The patch target is the
-           adversary_pursuit.modules.osint.greynoise module's httpx import so the
+           pivotglass.modules.osint.greynoise module's httpx import so the
            AsyncClient constructor call is intercepted at the call site.
 """
 
@@ -27,13 +27,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.core.plugin_mgr import PluginManager
-from adversary_pursuit.modules.base import (
+from pivotglass.core.plugin_mgr import PluginManager
+from pivotglass.modules.base import (
     AuthenticationError,
     PursuitModule,
     RateLimitError,
 )
-from adversary_pursuit.modules.osint.greynoise import GreyNoise
+from pivotglass.modules.osint.greynoise import GreyNoise
 
 # ---------------------------------------------------------------------------
 # Shared fixtures and helpers
@@ -91,7 +91,7 @@ def mock_success():
     mock_resp = _make_mock_response(200, SAMPLE_200_RESPONSE)
     mock_client = _make_mock_client(mock_resp)
     with patch(
-        "adversary_pursuit.modules.osint.greynoise.httpx.AsyncClient",
+        "pivotglass.modules.osint.greynoise.httpx.AsyncClient",
         return_value=mock_client,
     ):
         yield mock_client
@@ -103,7 +103,7 @@ def mock_success_malicious():
     mock_resp = _make_mock_response(200, SAMPLE_200_MALICIOUS)
     mock_client = _make_mock_client(mock_resp)
     with patch(
-        "adversary_pursuit.modules.osint.greynoise.httpx.AsyncClient",
+        "pivotglass.modules.osint.greynoise.httpx.AsyncClient",
         return_value=mock_client,
     ):
         yield mock_client
@@ -115,7 +115,7 @@ def mock_401():
     mock_resp = _make_mock_response(401, {"message": "invalid or revoked API key"})
     mock_client = _make_mock_client(mock_resp)
     with patch(
-        "adversary_pursuit.modules.osint.greynoise.httpx.AsyncClient",
+        "pivotglass.modules.osint.greynoise.httpx.AsyncClient",
         return_value=mock_client,
     ):
         yield mock_client
@@ -127,7 +127,7 @@ def mock_404():
     mock_resp = _make_mock_response(404, {"message": "Not found"})
     mock_client = _make_mock_client(mock_resp)
     with patch(
-        "adversary_pursuit.modules.osint.greynoise.httpx.AsyncClient",
+        "pivotglass.modules.osint.greynoise.httpx.AsyncClient",
         return_value=mock_client,
     ):
         yield mock_client
@@ -143,7 +143,7 @@ def mock_429():
     )
     mock_client = _make_mock_client(mock_resp)
     with patch(
-        "adversary_pursuit.modules.osint.greynoise.httpx.AsyncClient",
+        "pivotglass.modules.osint.greynoise.httpx.AsyncClient",
         return_value=mock_client,
     ):
         yield mock_client
@@ -159,7 +159,7 @@ def mock_429_no_retry_after():
     )
     mock_client = _make_mock_client(mock_resp)
     with patch(
-        "adversary_pursuit.modules.osint.greynoise.httpx.AsyncClient",
+        "pivotglass.modules.osint.greynoise.httpx.AsyncClient",
         return_value=mock_client,
     ):
         yield mock_client
@@ -189,7 +189,7 @@ class TestGreyNoiseMetadata:
 
     def test_module_author(self):
         mod = GreyNoise()
-        assert mod.author == "Adversary Pursuit"
+        assert mod.author == "Pivotglass"
 
     def test_description_non_empty(self):
         mod = GreyNoise()
@@ -257,7 +257,7 @@ class TestGreyNoiseAuth:
         when no key is configured — it must fail fast with AuthenticationError.
         """
         with patch(
-            "adversary_pursuit.modules.osint.greynoise.httpx.AsyncClient"
+            "pivotglass.modules.osint.greynoise.httpx.AsyncClient"
         ) as mock_cls:
             mod = GreyNoise()
             mod.initialize({})

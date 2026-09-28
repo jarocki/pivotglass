@@ -7,23 +7,23 @@ from datetime import UTC, datetime
 import pytest
 from stix2 import DomainName, IPv4Address, Relationship
 
-from adversary_pursuit.core.analytic_ledger import AnalyticLedger
-from adversary_pursuit.core.graph_repository import WorkspaceGraphRepository
-from adversary_pursuit.core.workspace import WorkspaceManager
-from adversary_pursuit.integrations.scot_pivot_intake import (
+from pivotglass.core.analytic_ledger import AnalyticLedger
+from pivotglass.core.graph_repository import WorkspaceGraphRepository
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.integrations.scot_pivot_intake import (
     authenticate_scot_pivot_request,
     scot_pivot_signature,
 )
-from adversary_pursuit.integrations.scot_publication import (
+from pivotglass.integrations.scot_publication import (
     build_scot_publication_manifest,
     compile_scot_write_plan,
     validate_scot_pivot_request,
 )
-from adversary_pursuit.integrations.synapse_graph import (
+from pivotglass.integrations.synapse_graph import (
     build_synapse_shadow_manifest,
     compare_synapse_shadow,
 )
-from adversary_pursuit.integrations.synapse_migration import (
+from pivotglass.integrations.synapse_migration import (
     compile_synapse_migration_plan,
     pivotglass_synapse_model_contract,
 )

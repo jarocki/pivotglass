@@ -36,7 +36,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.agent.runner import AgentRunner
+from pivotglass.agent.runner import AgentRunner
 
 
 def _make_runner() -> AgentRunner:
@@ -65,14 +65,14 @@ class TestReplVerbWins:
         # @mock-exempt: dispatch_yield → phrase cache + EventBus; mocked for routing isolation
         with (
             patch(
-                "adversary_pursuit.agent.repl_verbs.dispatch_repl_verb",
+                "pivotglass.agent.repl_verbs.dispatch_repl_verb",
                 return_value="[help text]",
             ) as mock_verb,
             patch(
-                "adversary_pursuit.agent.yield_commands.dispatch_yield",
+                "pivotglass.agent.yield_commands.dispatch_yield",
             ) as mock_yield,
             patch(
-                "adversary_pursuit.agent.runner.AgentRunner.chat",
+                "pivotglass.agent.runner.AgentRunner.chat",
                 return_value="llm response",
             ) as mock_chat,
         ):
@@ -89,11 +89,11 @@ class TestReplVerbWins:
 
         with (
             patch(
-                "adversary_pursuit.agent.repl_verbs.dispatch_repl_verb",
+                "pivotglass.agent.repl_verbs.dispatch_repl_verb",
                 return_value="[help]",
             ) as mock_verb,
             patch(
-                "adversary_pursuit.agent.runner.AgentRunner.chat",
+                "pivotglass.agent.runner.AgentRunner.chat",
             ) as mock_chat,
         ):
             result = runner.handle_input("?")
@@ -107,10 +107,10 @@ class TestReplVerbWins:
 
         with (
             patch(
-                "adversary_pursuit.agent.repl_verbs.dispatch_repl_verb",
+                "pivotglass.agent.repl_verbs.dispatch_repl_verb",
                 return_value="[status]",
             ) as mock_verb,
-            patch("adversary_pursuit.agent.runner.AgentRunner.chat") as mock_chat,
+            patch("pivotglass.agent.runner.AgentRunner.chat") as mock_chat,
         ):
             runner.handle_input("status")
 
@@ -136,11 +136,11 @@ class TestYieldWinsOverChat:
         # @mock-exempt: dispatch_yield → phrase cache + EventBus; mocked for routing isolation
         with (
             patch(
-                "adversary_pursuit.agent.yield_commands.dispatch_yield",
+                "pivotglass.agent.yield_commands.dispatch_yield",
                 return_value="battery stopped",
             ) as mock_yield,
             patch(
-                "adversary_pursuit.agent.runner.AgentRunner.chat",
+                "pivotglass.agent.runner.AgentRunner.chat",
                 return_value="llm response",
             ) as mock_chat,
         ):
@@ -155,10 +155,10 @@ class TestYieldWinsOverChat:
 
         with (
             patch(
-                "adversary_pursuit.agent.yield_commands.dispatch_yield",
+                "pivotglass.agent.yield_commands.dispatch_yield",
                 return_value="focusing",
             ) as mock_yield,
-            patch("adversary_pursuit.agent.runner.AgentRunner.chat") as mock_chat,
+            patch("pivotglass.agent.runner.AgentRunner.chat") as mock_chat,
         ):
             runner.handle_input("focus whois_lookup")
 
@@ -182,7 +182,7 @@ class TestUnmatchedFallsToChat:
 
         # @mock-exempt: AgentRunner.chat → litellm.completion() (external LLM boundary)
         with patch(
-            "adversary_pursuit.agent.runner.AgentRunner.chat",
+            "pivotglass.agent.runner.AgentRunner.chat",
             return_value="Google LLC",
         ) as mock_chat:
             result = runner.handle_input("who owns 8.8.8.8")
@@ -194,7 +194,7 @@ class TestUnmatchedFallsToChat:
         runner = _make_runner()
 
         with patch(
-            "adversary_pursuit.agent.runner.AgentRunner.chat",
+            "pivotglass.agent.runner.AgentRunner.chat",
             return_value="here is the intel",
         ) as mock_chat:
             result = runner.handle_input("investigate 192.168.1.1 for malware")
@@ -218,10 +218,10 @@ class TestUseSuspiciousIocDoesNotCallChat:
         # @mock-exempt: AgentRunner.chat → litellm.completion() (external LLM boundary)
         with (
             patch(
-                "adversary_pursuit.agent.repl_verbs.dispatch_repl_verb",
+                "pivotglass.agent.repl_verbs.dispatch_repl_verb",
                 return_value="Target set: suspicious.example",
             ) as mock_verb,
-            patch("adversary_pursuit.agent.runner.AgentRunner.chat") as mock_chat,
+            patch("pivotglass.agent.runner.AgentRunner.chat") as mock_chat,
         ):
             result = runner.handle_input("use suspicious.example")
 
@@ -234,10 +234,10 @@ class TestUseSuspiciousIocDoesNotCallChat:
 
         with (
             patch(
-                "adversary_pursuit.agent.repl_verbs.dispatch_repl_verb",
+                "pivotglass.agent.repl_verbs.dispatch_repl_verb",
                 return_value="Target set: 203.0.113.1",
             ) as mock_verb,
-            patch("adversary_pursuit.agent.runner.AgentRunner.chat") as mock_chat,
+            patch("pivotglass.agent.runner.AgentRunner.chat") as mock_chat,
         ):
             runner.handle_input("use 203.0.113.1")
 
@@ -258,7 +258,7 @@ class TestUseGibberishFallsToLLM:
 
         with (
             patch(
-                "adversary_pursuit.agent.runner.AgentRunner.chat",
+                "pivotglass.agent.runner.AgentRunner.chat",
                 return_value="here is info about notarealhost",
             ) as mock_chat,
         ):
@@ -281,10 +281,10 @@ class TestModeVerbDoesNotCallChat:
 
         with (
             patch(
-                "adversary_pursuit.agent.repl_verbs.dispatch_repl_verb",
+                "pivotglass.agent.repl_verbs.dispatch_repl_verb",
                 return_value="ninja mode engaged",
             ) as mock_verb,
-            patch("adversary_pursuit.agent.runner.AgentRunner.chat") as mock_chat,
+            patch("pivotglass.agent.runner.AgentRunner.chat") as mock_chat,
         ):
             runner.handle_input("mode ninja")
 
@@ -305,7 +305,7 @@ class TestModeVerbDoesNotCallChat:
     @pytest.mark.parametrize("text", ["mode", "mode list"])
     def test_mode_list_is_local_stable_and_does_not_call_llm(self, text: str):
         runner = _make_runner()
-        with patch("adversary_pursuit.agent.runner.AgentRunner.chat") as mock_chat:
+        with patch("pivotglass.agent.runner.AgentRunner.chat") as mock_chat:
             first = runner.handle_input(text)
             second = runner.handle_input(text)
         mock_chat.assert_not_called()
@@ -324,7 +324,7 @@ class TestHandleInputAlwaysReturnsStr:
     def test_verb_path_returns_str(self):
         runner = _make_runner()
         with patch(
-            "adversary_pursuit.agent.repl_verbs.dispatch_repl_verb",
+            "pivotglass.agent.repl_verbs.dispatch_repl_verb",
             return_value="ok",
         ):
             result = runner.handle_input("help")
@@ -333,7 +333,7 @@ class TestHandleInputAlwaysReturnsStr:
     def test_yield_path_returns_str(self):
         runner = _make_runner()
         with patch(
-            "adversary_pursuit.agent.yield_commands.dispatch_yield",
+            "pivotglass.agent.yield_commands.dispatch_yield",
             return_value="stopped",
         ):
             result = runner.handle_input("stop")
@@ -342,7 +342,7 @@ class TestHandleInputAlwaysReturnsStr:
     def test_chat_path_returns_str(self):
         runner = _make_runner()
         with patch(
-            "adversary_pursuit.agent.runner.AgentRunner.chat",
+            "pivotglass.agent.runner.AgentRunner.chat",
             return_value="answer",
         ):
             result = runner.handle_input("who is 8.8.8.8?")
@@ -351,7 +351,7 @@ class TestHandleInputAlwaysReturnsStr:
     def test_empty_chat_response_still_returns_str(self):
         runner = _make_runner()
         with patch(
-            "adversary_pursuit.agent.runner.AgentRunner.chat",
+            "pivotglass.agent.runner.AgentRunner.chat",
             return_value="",
         ):
             result = runner.handle_input("mystery input xyz")

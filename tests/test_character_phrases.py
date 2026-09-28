@@ -25,8 +25,8 @@ from __future__ import annotations
 
 import pytest
 
-from adversary_pursuit.gamification.modes import DEFAULT_MODES
-from adversary_pursuit.gamification.phrases import (
+from pivotglass.gamification.modes import DEFAULT_MODES
+from pivotglass.gamification.phrases import (
     PHRASES,
     VOICE_LINE_BANKS,
     has_phrases,

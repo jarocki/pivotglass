@@ -36,9 +36,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch  # @mock-exempt: sys.stdin.isatty is OS/TTY boundary
 
-from adversary_pursuit.agent.tui.application import TuiApplication
-from adversary_pursuit.agent.tui.events import EventBus
-from adversary_pursuit.agent.tui.themes import (
+from pivotglass.agent.tui.application import TuiApplication
+from pivotglass.agent.tui.events import EventBus
+from pivotglass.agent.tui.themes import (
     COCKPIT_PROFILES,
     cockpit_for,
     resolved_border_color,
@@ -74,8 +74,8 @@ class _FakeRunner:
 def test_every_mode_has_a_distinct_cockpit_identity() -> None:
     assert len(COCKPIT_PROFILES) == 10
     assert len({profile.vehicle for profile in COCKPIT_PROFILES.values()}) == 10
-    assert cockpit_for("the_computer").vehicle == "DISCOVERY ONE"
-    assert cockpit_for("the_sprawl").vehicle == "ONO-SENDAI VII"
+    assert cockpit_for("the_computer").vehicle == "ORBITAL ARRAY"
+    assert cockpit_for("the_sprawl").vehicle == "CITY CIRCUIT"
 
 
 def _make_app(mode_name: str = "default") -> TuiApplication:
@@ -108,7 +108,7 @@ class TestHeaderFormattedTextHasThemeColor:
 
     def test_header_formatted_text_has_theme_color_the_sprawl(self, monkeypatch) -> None:
         """With the_sprawl mode active, header style tokens contain '#ff5fff' (bright_magenta hex)."""
-        monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("the_sprawl")
         theme = theme_for("the_sprawl")
         expected_color = resolved_border_color(theme)  # "#ff5fff"
@@ -124,7 +124,7 @@ class TestHeaderFormattedTextHasThemeColor:
 
     def test_header_formatted_text_has_theme_color_the_computer(self, monkeypatch) -> None:
         """With the_computer mode active, header style tokens contain '#ff5555' (bright_red hex)."""
-        monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("the_computer")
         theme = theme_for("the_computer")
         expected_color = resolved_border_color(theme)  # "#ff5555"
@@ -138,7 +138,7 @@ class TestHeaderFormattedTextHasThemeColor:
 
     def test_header_formatted_text_no_empty_style_on_border_rows(self, monkeypatch) -> None:
         """Border rows must NOT use the empty style ('') — that was the pre-Slice-7A bug."""
-        monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("the_sprawl")
 
         ft = app._get_header_formatted()
@@ -152,7 +152,7 @@ class TestHeaderFormattedTextHasThemeColor:
 
     def test_header_returns_exactly_three_content_rows(self, monkeypatch) -> None:
         """_get_header_formatted() must produce exactly 3 text content rows."""
-        monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("default")
 
         ft = app._get_header_formatted()
@@ -173,7 +173,7 @@ class TestLivePaneFormattedTextHasThemeColor:
 
     def test_live_pane_formatted_text_has_theme_color_the_sprawl(self, monkeypatch) -> None:
         """With the_sprawl mode active, live pane style tokens contain '#ff5fff' (bright_magenta hex)."""
-        monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("the_sprawl")
         theme = theme_for("the_sprawl")
         expected_color = resolved_border_color(theme)  # "#ff5fff"
@@ -188,7 +188,7 @@ class TestLivePaneFormattedTextHasThemeColor:
 
     def test_live_pane_formatted_text_has_theme_color_the_computer(self, monkeypatch) -> None:
         """With the_computer mode active, live pane style tokens contain '#ff5555' (bright_red hex)."""
-        monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("the_computer")
         theme = theme_for("the_computer")
         expected_color = resolved_border_color(theme)  # "#ff5555"
@@ -203,7 +203,7 @@ class TestLivePaneFormattedTextHasThemeColor:
 
     def test_live_pane_returns_exactly_six_content_rows(self, monkeypatch) -> None:
         """_get_live_pane_formatted() must produce exactly 6 content rows."""
-        monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("default")
 
         ft = app._get_live_pane_formatted()
@@ -226,7 +226,7 @@ class TestLivePaneFormattedTextHasThemeColor:
         app._process_input("mode neuromancer")
 
         assert app.live_pane._mode_name == "the_sprawl"
-        assert "NEUROMANCER" in app.live_pane.render()[0]
+        assert "NIGHTGRID" in app.live_pane.render()[0]
 
     def test_live_pane_row1_uses_bold_heading_color(self, monkeypatch) -> None:
         """Row 1 of live pane (character identity) must use 'bold fg:<heading_color>'.
@@ -235,7 +235,7 @@ class TestLivePaneFormattedTextHasThemeColor:
         site in application.py (DEC-TUI-PTK-COLOR-COMPAT-001). The row1 style
         token must be 'bold fg:#xxxxxx', not the bare heading_color hex string.
         """
-        monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("the_sprawl")
         theme = theme_for("the_sprawl")
 
@@ -261,7 +261,7 @@ class TestSwitchingCharacterUpdatesStyleTokens:
 
     def test_switching_character_updates_header_style_tokens(self, monkeypatch) -> None:
         """Switch from default to the_computer; header style tokens must reflect the new color."""
-        monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("default")
 
         # Capture style tokens for default mode
@@ -287,7 +287,7 @@ class TestSwitchingCharacterUpdatesStyleTokens:
 
     def test_switching_character_updates_live_pane_style_tokens(self, monkeypatch) -> None:
         """Switch from default to the_computer; live pane style tokens must change."""
-        monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("default")
 
         ft_default = app._get_live_pane_formatted()
@@ -310,32 +310,32 @@ class TestSwitchingCharacterUpdatesStyleTokens:
 
 
 class TestHighContrastEnvSwapsStyleTokens:
-    """AP_TUI_HIGH_CONTRAST=1 must switch style tokens to the high_contrast_border color (#ffffff)."""
+    """PIVOTGLASS_TUI_HIGH_CONTRAST=1 must switch style tokens to the high_contrast_border color (#ffffff)."""
 
     def test_high_contrast_header_style_is_white_hex(self, monkeypatch) -> None:
-        """With AP_TUI_HIGH_CONTRAST=1, header style tokens use #ffffff (white hex).
+        """With PIVOTGLASS_TUI_HIGH_CONTRAST=1, header style tokens use #ffffff (white hex).
 
         Updated in Slice 7Ah2: high_contrast_border is now '#ffffff' (PTK-compatible)
         instead of 'bright_white' (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
-        monkeypatch.setenv("AP_TUI_HIGH_CONTRAST", "1")
+        monkeypatch.setenv("PIVOTGLASS_TUI_HIGH_CONTRAST", "1")
         app = _make_app("the_sprawl")
 
         ft = app._get_header_formatted()
         style_tokens = [style for style, text in ft if text.strip()]
 
         assert all("#ffffff" in tok for tok in style_tokens), (
-            f"Expected '#ffffff' in all border style tokens with AP_TUI_HIGH_CONTRAST=1. "
+            f"Expected '#ffffff' in all border style tokens with PIVOTGLASS_TUI_HIGH_CONTRAST=1. "
             f"Got: {style_tokens}"
         )
 
     def test_high_contrast_live_pane_style_contains_white_hex(self, monkeypatch) -> None:
-        """With AP_TUI_HIGH_CONTRAST=1, live pane rows 2–6 use #ffffff border.
+        """With PIVOTGLASS_TUI_HIGH_CONTRAST=1, live pane rows 2–6 use #ffffff border.
 
         Updated in Slice 7Ah2: high_contrast_border is now '#ffffff' (PTK-compatible)
         instead of 'bright_white' (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
-        monkeypatch.setenv("AP_TUI_HIGH_CONTRAST", "1")
+        monkeypatch.setenv("PIVOTGLASS_TUI_HIGH_CONTRAST", "1")
         app = _make_app("the_sprawl")
 
         ft = app._get_live_pane_formatted()
@@ -344,7 +344,7 @@ class TestHighContrastEnvSwapsStyleTokens:
         border_row_tokens = [style for style, _ in content_parts[1:]]
 
         assert all("#ffffff" in tok for tok in border_row_tokens), (
-            f"Expected '#ffffff' in live pane rows 2-6 with AP_TUI_HIGH_CONTRAST=1. "
+            f"Expected '#ffffff' in live pane rows 2-6 with PIVOTGLASS_TUI_HIGH_CONTRAST=1. "
             f"Got: {border_row_tokens}"
         )
 
@@ -354,7 +354,7 @@ class TestHighContrastEnvSwapsStyleTokens:
         Updated in Slice 7Ah2: hex codes replace Rich color names
         (DEC-TUI-PTK-COLOR-COMPAT-001).
         """
-        monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("the_sprawl")
 
         ft = app._get_header_formatted()
@@ -383,7 +383,7 @@ class TestEndToEndRenderSequence:
 
     def test_header_and_live_pane_use_same_border_color(self, monkeypatch) -> None:
         """Header and live pane must use the same resolved border color for a given mode."""
-        monkeypatch.delenv("AP_TUI_HIGH_CONTRAST", raising=False)
+        monkeypatch.delenv("PIVOTGLASS_TUI_HIGH_CONTRAST", raising=False)
         app = _make_app("sensei")
         theme = theme_for("sensei")
         expected_color = resolved_border_color(theme)  # "#ff5fff" (bright_magenta hex)

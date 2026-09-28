@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from adversary_pursuit.web import server as web_server
+from pivotglass.web import server as web_server
 
 
 def test_editable_checkout_rejects_export_older_than_source(tmp_path, monkeypatch):

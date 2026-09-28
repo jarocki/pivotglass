@@ -1,6 +1,7 @@
 """Tests for the loopback Pivotglass API adapter."""
 
 import base64
+import hashlib
 import json
 import socket
 import threading
@@ -12,16 +13,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from adversary_pursuit.agent.tools import ToolContext
-from adversary_pursuit.core.analytic_ledger import AnalyticLedger
-from adversary_pursuit.core.investigation import (
+from pivotglass.agent.tools import ToolContext
+from pivotglass.core.analytic_ledger import AnalyticLedger
+from pivotglass.core.investigation import (
     ContentClass,
     EventClass,
     LifecycleState,
 )
-from adversary_pursuit.integrations.scot_pivot_intake import ScotPivotAuthenticationReceipt
-from adversary_pursuit.integrations.scot_publication import validate_scot_pivot_request
-from adversary_pursuit.web.server import WebCockpitService, _handler, _tool_failure
+from pivotglass.integrations.scot_pivot_intake import ScotPivotAuthenticationReceipt
+from pivotglass.integrations.scot_publication import validate_scot_pivot_request
+from pivotglass.web.server import WebCockpitService, _handler, _tool_failure
 
 
 def _service(tmp_path) -> WebCockpitService:
@@ -269,6 +270,224 @@ def test_document_ingestion_requires_preview_hash_and_populates_library(tmp_path
     assert any(item["intent_id"] == "pivot-trail" for item in state["visualizations"])
 
 
+def test_document_ingestion_admits_only_analyst_selected_candidates(tmp_path):
+    service = _service(tmp_path)
+    data = b"Report contains 198.51.100.82 and selected.example."
+    encoded = base64.b64encode(data).decode()
+    preview = service.preview_document(
+        {"filename": "selection.txt", "content_base64": encoded}
+    )
+    selected = next(
+        item for item in preview["entity_extraction"]["candidates"]
+        if item["entity_type"] == "ipv4-addr"
+    )
+
+    admitted = service.ingest_document(
+        {
+            "filename": "selection.txt",
+            "content_base64": encoded,
+            "expected_sha256": preview["content_sha256"],
+            "candidate_keys": [selected["selection_key"]],
+            "operator": "analyst",
+        }
+    )
+
+    assert admitted["candidate_admission"]["selected_count"] == 1
+    assert admitted["candidate_admission"]["new_entity_count"] == 1
+    objects = service.ctx.workspace_mgr.get_stix_objects()
+    assert [(item["type"], item["value"]) for item in objects] == [
+        ("ipv4-addr", "198.51.100.82")
+    ]
+    detail = service.document_detail(admitted["receipt"]["intake"]["occurrence_id"])
+    states = {item["normalized_value"]: item["state"] for item in detail["candidates"]}
+    assert states == {
+        "198.51.100.82": "admitted",
+        "selected.example": "candidate",
+    }
+    assert any(
+        event["action"] == "document_candidate_admitted"
+        for event in service.pivot_trail()["events"]
+    )
+
+
+def test_document_ingestion_rejects_tampered_selection_before_storage(tmp_path):
+    service = _service(tmp_path)
+    data = b"Report contains 198.51.100.83."
+
+    with pytest.raises(ValueError, match="do not match"):
+        service.ingest_document(
+            {
+                "filename": "tampered.txt",
+                "content_base64": base64.b64encode(data).decode(),
+                "expected_sha256": hashlib.sha256(data).hexdigest(),
+                "candidate_keys": ["document-selection-" + "0" * 64],
+                "operator": "analyst",
+            }
+        )
+
+    assert service.ctx.workspace_mgr.get_workspace_table_counts()["document_occurrences"] == 0
+
+
+def test_document_ingestion_can_add_reviewed_candidates_beyond_first_hundred(tmp_path):
+    service = _service(tmp_path)
+    data = "\n".join(f"indicator-{index:03}.example" for index in range(125)).encode()
+    encoded = base64.b64encode(data).decode()
+    preview = service.preview_document({"filename": "large-list.txt", "content_base64": encoded})
+    candidates = preview["entity_extraction"]["candidates"]
+    assert len(candidates) == 125
+    reviewed = [candidates[1], candidates[110]]
+    result = service.ingest_document({
+        "filename": "large-list.txt", "content_base64": encoded,
+        "expected_sha256": preview["content_sha256"],
+        "expected_workspace": service.ctx.workspace_mgr.active,
+        "candidate_keys": [item["selection_key"] for item in reviewed],
+    })
+    assert result["candidate_admission"]["new_entity_count"] == 2
+    assert {item["value"] for item in service.ctx.workspace_mgr.get_stix_objects()} == {
+        item["normalized_value"] for item in reviewed
+    }
+
+
+def test_document_ingestion_preserves_source_and_allows_idempotent_entity_retry(
+    tmp_path,
+):
+    service = _service(tmp_path)
+    data = b'{"indicator": "198.51.100.84", "related": "retry.example"}'
+    encoded = base64.b64encode(data).decode()
+    preview = service.preview_document(
+        {
+            "filename": "retry.json",
+            "media_type": "text/plain",
+            "content_base64": encoded,
+        }
+    )
+    selected = [
+        item["selection_key"]
+        for item in preview["entity_extraction"]["candidates"]
+        if item["normalized_value"] == "198.51.100.84"
+    ]
+
+    with patch(
+        "pivotglass.web.server.DocumentLibraryService.admit_candidate_keys",
+        side_effect=RuntimeError("sensitive internal detail"),
+    ):
+        admitted = service.ingest_document(
+            {
+                "filename": "retry.json",
+                "media_type": "text/plain",
+                "content_base64": encoded,
+                "expected_sha256": preview["content_sha256"],
+                "candidate_keys": selected,
+                "operator": "analyst",
+            }
+        )
+
+    assert admitted["admitted"] is True
+    assert admitted["candidate_admission"] is None
+    assert "Retry admission" in admitted["candidate_admission_error"]
+    assert "sensitive internal detail" not in admitted["candidate_admission_error"]
+    assert service.ctx.workspace_mgr.get_workspace_table_counts()["document_occurrences"] == 1
+
+    retried = service.admit_document_candidates(
+        {
+            "occurrence_id": admitted["receipt"]["intake"]["occurrence_id"],
+            "candidate_keys": selected,
+            "operator": "analyst",
+        }
+    )
+    repeated = service.admit_document_candidates(
+        {
+            "occurrence_id": admitted["receipt"]["intake"]["occurrence_id"],
+            "candidate_keys": selected,
+            "operator": "analyst",
+        }
+    )
+
+    assert retried["receipt"]["new_entity_count"] == 1
+    assert repeated["receipt"]["new_entity_count"] == 0
+    assert repeated["receipt"]["already_admitted_count"] == 1
+    assert service.ctx.workspace_mgr.get_workspace_table_counts()["document_occurrences"] == 1
+
+
+def test_document_candidate_admission_rejects_ambiguous_identifier_contract(tmp_path):
+    service = _service(tmp_path)
+
+    with pytest.raises(ValueError, match="not both"):
+        service.admit_document_candidates(
+            {
+                "occurrence_id": "document-occurrence-example",
+                "candidate_ids": [],
+                "candidate_keys": [],
+            }
+        )
+
+
+@pytest.mark.parametrize("expected", ["other-case", "", 42, ["default"]])
+def test_document_workspace_guard_rejects_stale_or_invalid_targets_before_storage(tmp_path, expected):
+    service = _service(tmp_path)
+    encoded = base64.b64encode(b"guard.example").decode()
+    preview = service.preview_document({"filename": "guard.txt", "content_base64": encoded})
+    before = service.ctx.workspace_mgr.get_workspace_table_counts()
+    with pytest.raises(ValueError, match="Workspace changed"):
+        service.ingest_document({
+            "filename": "guard.txt", "content_base64": encoded,
+            "expected_sha256": preview["content_sha256"], "expected_workspace": expected,
+            "candidate_keys": [preview["entity_extraction"]["candidates"][0]["selection_key"]],
+        })
+    assert service.ctx.workspace_mgr.get_workspace_table_counts() == before
+    assert not list((tmp_path / "workspaces").rglob("*.content"))
+    with pytest.raises(ValueError, match="Workspace changed"):
+        service.admit_document_candidates({
+            "occurrence_id": "not-written", "candidate_keys": [], "expected_workspace": expected,
+        })
+    assert service.ctx.workspace_mgr.get_workspace_table_counts() == before
+
+
+def test_document_workspace_guard_binds_preview_to_case_and_allows_explicit_current_case(tmp_path):
+    service = _service(tmp_path)
+    encoded = base64.b64encode(b"approved.example").decode()
+    preview = service.preview_document({"filename": "case.txt", "content_base64": encoded})
+    original = service.ctx.workspace_mgr.active
+    payload = {
+        "filename": "case.txt", "content_base64": encoded,
+        "expected_sha256": preview["content_sha256"], "expected_workspace": original,
+    }
+    service.execute_command("workspace create next-case")
+    service.execute_command("workspace switch next-case")
+    with pytest.raises(ValueError, match="Workspace changed"):
+        service.ingest_document(payload)
+    assert service.document_library()["documents"] == []
+    service.execute_command(f"workspace switch {original}")
+    result = service.ingest_document(payload)
+    key = preview["entity_extraction"]["candidates"][0]["selection_key"]
+    admitted = service.admit_document_candidates({
+        "occurrence_id": result["receipt"]["intake"]["occurrence_id"],
+        "candidate_keys": [key], "expected_workspace": original,
+    })
+    assert admitted["receipt"]["new_entity_count"] == 1
+    assert service.document_library()["workspace"] == original
+    assert len(service.document_library()["documents"]) == 1
+
+
+@pytest.mark.parametrize("endpoint", ["/api/documents/ingest", "/api/documents/candidates/admit"])
+def test_document_endpoints_reject_changed_workspace_without_mutation(tmp_path, endpoint):
+    service = _service(tmp_path)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(service, tmp_path))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    before = service.ctx.workspace_mgr.get_workspace_table_counts()
+    try:
+        status, result = _post_json(server, endpoint, {"expected_workspace": "old-case"})
+        assert status == 400
+        assert "Workspace changed" in result["error"]
+        assert service.ctx.workspace_mgr.get_workspace_table_counts() == before
+        assert not list((tmp_path / "workspaces").rglob("*.content"))
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
 @pytest.mark.parametrize("filename", ["deep.json", "deep.jsonl"])
 def test_document_preview_endpoint_bounds_deep_json_and_remains_available(
     tmp_path, filename
@@ -414,16 +633,16 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
     assert len(state["modes"]) == 7
     assert {mode["display_name"] for mode in state["modes"]} == {
         "Default (Analyst)",
-        "Chuck Norris",
-        "HAL9000",
-        "Troll",
-        "Sherlock Holmes",
-        "Neuromancer",
-        "The Matrix",
+        "Ironclad",
+        "Deep Orbit",
+        "Rascal",
+        "Sleuth",
+        "Nightgrid",
+        "Code Rain",
     }
     m4tr1x = next(mode for mode in state["modes"] if mode["name"] == "m4tr1x")
     assert m4tr1x["theme"]["heading_color"] == "#00ff5f"
-    assert m4tr1x["cockpit"]["vehicle"] == "NEBUCHADNEZZAR"
+    assert m4tr1x["cockpit"]["vehicle"] == "SIGNAL DECK"
 
 
 def test_switch_mode_reuses_canonical_character_and_cockpit_authorities(tmp_path):
@@ -434,14 +653,14 @@ def test_switch_mode_reuses_canonical_character_and_cockpit_authorities(tmp_path
     assert state["character"] == "the_computer"
     active = next(mode for mode in state["modes"] if mode["name"] == "the_computer")
     assert active["theme"]["heading_color"] == "#ff5555"
-    assert active["cockpit"]["hud_title"] == "HAL OPTICS"
+    assert active["cockpit"]["hud_title"] == "LOGIC CORE"
 
 
 def test_completions_match_public_modes_and_workspace_context(tmp_path):
     service = _service(tmp_path)
     service.ctx.workspace_mgr.create("case-red")
 
-    assert service.completions("mode neuro") == ["mode Neuromancer"]
+    assert service.completions("mode night") == ["mode Nightgrid"]
     assert "workspace switch case-red" in service.completions("workspace switch c")
     assert "model check" in service.completions("model ch")
     assert "config disable " in service.completions("config dis")
@@ -498,11 +717,11 @@ def test_configuration_update_enables_and_disables_without_deleting_key(tmp_path
 def test_model_catalog_returns_live_models_with_capability_caveats(tmp_path, monkeypatch):
     service = _service(tmp_path)
     monkeypatch.setattr(
-        "adversary_pursuit.agent.model_control.list_models",
+        "pivotglass.agent.model_control.list_models",
         lambda provider, key: ["local-test:8b"],
     )
     monkeypatch.setattr(
-        "adversary_pursuit.agent.model_control._capability_info",
+        "pivotglass.agent.model_control._capability_info",
         lambda model: {},
     )
 
@@ -545,9 +764,9 @@ def test_investigate_uses_existing_dispatch_and_execution_authorities(tmp_path):
     service = _service(tmp_path)
     battery = type("Battery", (), {"tools": ("virustotal_lookup",)})()
     with (
-        patch("adversary_pursuit.web.server.dispatch_batteries", return_value=[battery]),
+        patch("pivotglass.web.server.dispatch_batteries", return_value=[battery]),
         patch(
-            "adversary_pursuit.web.server.execute_tool",
+            "pivotglass.web.server.execute_tool",
             return_value=("Observed service response", None, [], []),
         ) as execute,
     ):
@@ -562,7 +781,7 @@ def test_investigate_uses_existing_dispatch_and_execution_authorities(tmp_path):
 def test_plan_payload_teaches_only_applicable_services(tmp_path):
     service = _service(tmp_path)
     battery = type("Battery", (), {"tools": ("passivetotal_lookup",)})()
-    with patch("adversary_pursuit.web.server.dispatch_batteries", return_value=[battery]):
+    with patch("pivotglass.web.server.dispatch_batteries", return_value=[battery]):
         plan = service.plan_payload("suspect.test")
 
     assert [event["tool"] for event in plan["events"]] == ["passivetotal_lookup"]
@@ -573,9 +792,9 @@ def test_async_investigation_streams_lifecycle_events(tmp_path):
     service = _service(tmp_path)
     battery = type("Battery", (), {"tools": ("virustotal_lookup",)})()
     with (
-        patch("adversary_pursuit.web.server.dispatch_batteries", return_value=[battery]),
+        patch("pivotglass.web.server.dispatch_batteries", return_value=[battery]),
         patch(
-            "adversary_pursuit.web.server.execute_tool",
+            "pivotglass.web.server.execute_tool",
             return_value=("No new service artifacts", None, [], []),
         ),
     ):
@@ -607,7 +826,7 @@ def test_scot_pivot_enqueue_uses_shared_enrichment_lifecycle(tmp_path):
         "integration scot pivot-enqueue event 42 198.51.100.42 | "
         "scot-analyst@example.test | Follow the event relationship. | local-analyst"
     )
-    with patch("adversary_pursuit.web.server.dispatch_batteries", return_value=[]):
+    with patch("pivotglass.web.server.dispatch_batteries", return_value=[]):
         result = service.execute_command(command)
 
     assert result["data"]["created"] is True
@@ -671,7 +890,7 @@ def test_authenticated_scot_inbox_acceptance_starts_shared_lifecycle_once(tmp_pa
         "local-analyst | In scope for this hunt."
     )
 
-    with patch("adversary_pursuit.web.server.dispatch_batteries", return_value=[]):
+    with patch("pivotglass.web.server.dispatch_batteries", return_value=[]):
         accepted = service.execute_command(command)
         repeated = service.execute_command(command)
 
@@ -750,7 +969,7 @@ def test_web_activity_turns_tool_failure_receipt_into_sanitized_event(tmp_path):
     receipt = (
         "[USER_SAW_PANEL] [API key] Configure the source credential, then retry. (diag cafe1234)"
     )
-    with patch("adversary_pursuit.web.server.execute_tool", return_value=(receipt, None, [], [])):
+    with patch("pivotglass.web.server.execute_tool", return_value=(receipt, None, [], [])):
         service._run_investigation(
             record.investigation_id,
             "suspect.test",
@@ -789,7 +1008,7 @@ def test_diagnostic_detail_reads_only_sanitized_fields_from_fixed_log(tmp_path):
         + "\n",
         encoding="utf-8",
     )
-    with patch("adversary_pursuit.web.server.DEBUG_LOG_PATH", debug_log):
+    with patch("pivotglass.web.server.DEBUG_LOG_PATH", debug_log):
         detail = service.diagnostic_detail("abcd1234")
 
     assert detail["log_name"] == "debug.log"
@@ -816,7 +1035,7 @@ def test_tool_failure_parser_rejects_unmarked_results():
 def test_web_command_router_accepts_iocs_commands_and_workspace_queries(tmp_path):
     service = _service(tmp_path)
     battery = type("Battery", (), {"tools": ()})()
-    with patch("adversary_pursuit.web.server.dispatch_batteries", return_value=[battery]):
+    with patch("pivotglass.web.server.dispatch_batteries", return_value=[battery]):
         investigation = service.execute_command("198.51.100.10")
 
     assert investigation["kind"] == "investigation"
@@ -843,7 +1062,7 @@ def test_web_pivot_timeline_command_is_workflow_history(tmp_path):
         module_name="osint/test",
         target="pivot.example",
     )
-    from adversary_pursuit.core.document_library import PivotTrailAuthority
+    from pivotglass.core.document_library import PivotTrailAuthority
 
     PivotTrailAuthority(service.ctx.workspace_mgr).record_indicator("pivot.example")
     result = service.execute_command("timeline pivots")
@@ -870,6 +1089,36 @@ def test_web_command_router_saves_linkable_notes_and_exports_csv(tmp_path):
     assert exported["kind"] == "download"
     assert exported["mime"] == "text/csv"
     assert "suspect.test" in exported["content"]
+
+
+def test_web_export_can_defang_typed_indicator_values(tmp_path):
+    service = _service(tmp_path)
+    service.ctx.workspace_mgr.store_stix_objects(
+        [
+            {"type": "ipv4-addr", "value": "1.1.1.1"},
+            {"type": "url", "value": "https://foo.example/path"},
+            {"type": "email-addr", "value": "john@doe.org"},
+            {"type": "file-hash-sha256", "value": "A" * 64},
+        ],
+        module_name="document/test",
+        target="defanged-export",
+    )
+
+    defanged = service.execute_command("export csv --defang yes")
+    plain = service.execute_command("export csv --defang no")
+
+    assert defanged["filename"].endswith("-defanged.csv")
+    assert "1[.]1[.]1[.]1" in defanged["content"]
+    assert "hxxps[:]//foo[.]example/path" in defanged["content"]
+    assert "john[@]doe[.]org" in defanged["content"]
+    assert "1.1.1.1" in plain["content"]
+    assert "https://foo.example/path" in plain["content"]
+
+
+def test_web_export_rejects_ambiguous_defang_option(tmp_path):
+    service = _service(tmp_path)
+    with pytest.raises(ValueError, match="--defang yes\\|no"):
+        service.execute_command("export csv --defang maybe")
 
 
 def test_web_framework_lens_polls_counts_and_requires_explicit_detail(tmp_path):
@@ -983,3 +1232,33 @@ def test_workspace_switch_is_blocked_while_investigation_is_active(tmp_path):
         service.execute_command("workspace switch other")
 
     assert service.ctx.workspace_mgr.active == "default"
+
+
+def test_reviewed_coaching_question_uses_ledger_without_collection_and_guards_workspace(tmp_path):
+    service = _service(tmp_path)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(service, tmp_path))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    text = "Which independent records distinguish a test from unexplained connections?"
+    try:
+        status, result = _post_json(
+            server, "/api/command", {"command": f"analysis question {text}", "workspace": "default"}
+        )
+        assert status == 202
+        assert result["title"] == "Investigation question created"
+        question_id = result["data"]["question_id"]
+        snapshot = AnalyticLedger(service.ctx.workspace_mgr).snapshot()
+        assert [(q["id"], q["text"]) for q in snapshot["questions"]] == [(question_id, text)]
+        assert snapshot["questions"][0]["created_by"] == "human"
+        assert any(item["record_id"] == question_id for item in snapshot["lifecycle_items"])
+        assert service.ctx.workspace_mgr.get_module_runs() == []
+        assert service.state()["objects"] == []
+        status, _ = _post_json(
+            server, "/api/command", {"command": "analysis question Wrong workspace?", "workspace": "other-case"}
+        )
+        assert status == 400
+        assert len(AnalyticLedger(service.ctx.workspace_mgr).snapshot()["questions"]) == 1
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
