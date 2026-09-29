@@ -159,5 +159,10 @@ Browser regression suite: **58 passed**; TypeScript check passed. Ruff passed
 across src/tests/scripts. Complete Python suite: **4,277 passed, 2 skipped**, one existing SQLite
 datetime-adapter deprecation warning, in 262.94 seconds. Documentation checks
 cover **90 public Markdown files**, zero broken local links/anchors; the five
-documentation regression tests passed. Prior package receipts above describe their named
-historical commits; the four-film candidate requires fresh package qualification.
+documentation regression tests passed. Prior package receipts above describe their named historical commits.
+Fresh unsigned review packages from `8d11efc` contain all four films, both logo
+assets and all eight marketing documents; the wheel contains the SAT report
+update. Protected contexts are excluded. The trust generator produced 140
+locked components (77 Python, 63 npm), license inventory and checksums in the
+fresh review bundle. The configured proposed-main guard passed. Final signed
+publication artifacts still require the owner release ceremony.

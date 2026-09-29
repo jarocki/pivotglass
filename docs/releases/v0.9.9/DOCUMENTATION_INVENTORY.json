@@ -1,7 +1,7 @@
 {
   "schema": "pivotglass-documentation-inventory-1.0",
   "status": "candidate_checkpoint",
-  "generated_at": "2026-09-29T15:14:25.693278Z",
+  "generated_at": "2026-09-29T15:15:56.257921Z",
   "file_count": 90,
   "qualification_limits": [
     "Candidate checkpoint only; not a frozen release or publication receipt.",
@@ -448,8 +448,8 @@
     },
     {
       "path": "docs/releases/v0.9.9/QA.md",
-      "line_count": 163,
-      "sha256": "0555f8ab155c0fe64944605b3d8119a62b76b5a0cca5b4af2d2ee407467d0481"
+      "line_count": 168,
+      "sha256": "98b07d35c18bc72fb892fbcc2c1ee52789142cd8fc9356be31fd1fb5348db1d4"
     },
     {
       "path": "docs/reviews/V0.6_ARCADE_SYNTHETIC_PLAYTEST.md",
