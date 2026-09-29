@@ -71,7 +71,13 @@ captions, export decode, and playback must be checked after that limit is resolv
 The earlier HTML player checks validate the Play/Pause/chapter approach, not
 completion of the replacement voice requirement.
 
-Final immutable artifacts, the owner signature, configured pre-push guard
+The configured pre-push guard passed for the proposed main update at candidate
+commit `943e1da`. A fresh wheel and source archive built from that commit contain
+the Save Markdown interface and all eight public marketing files; protected
+design context and the separate career project are excluded. These are package
+verification files, not final signed release artifacts.
+
+Final immutable artifacts, the owner signature, final publication guard
 execution, public main/tag/release, and downloaded readback remain publication
 gates. Do not reuse the preliminary package files as signed release artifacts.
 No social post, Signal message, or jarocki.org update has been sent.
