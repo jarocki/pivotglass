@@ -1,91 +1,435 @@
-# Documentation inventory
-
-Generated from every public Markdown file in the candidate tree. Hashes identify
-the inspected bytes; link checks are mechanical evidence, not a substitute
-for editorial or factual review.
-
-| Path | Lines | SHA-256 |
-|---|---:|---|
-| `AGENTS.md` | 104 | `dc6e39a0db5febe7eb28fd6d6bf0caa633bdce9406a954a8eab1195bb162dd85` |
-| `CHANGELOG.md` | 1318 | `2d255259ac25302e046bad8fd090dab3a7b8a65f36a12f5cc549137b1f3fa40d` |
-| `PHILOSOPHY.md` | 162 | `adeb6f0327c7b77ee83dd0707266dd921b21e798d98170ec236c2e4948441969` |
-| `README.md` | 212 | `496ed423746fce350c4c4074fa9d6a33869c91cd788ddd33c671d889d9b3e670` |
-| `SUPPORT.md` | 65 | `03f8b5daa427845455066d44134672ebf6548fd51da2922ea4a0f14159932329` |
-| `docs/ANALYTIC_METHOD.md` | 166 | `f353d9ed1f32ef964c43a2c32bbdb62bdb9fd2538082358e8eb121c281a839e9` |
-| `docs/CAPACITY.md` | 113 | `75cf577164cb01c403d28dfc578afdb5c0eb4da1b150d050660d561338abbc65` |
-| `docs/COMPATIBILITY.md` | 71 | `8e2ebbb01dc45d5f4162bcad5c5d4e23d9dd5e02cf56fdbfa3a2623e1dacfbbe` |
-| `docs/DATA_SAFETY.md` | 104 | `f9476551d4d59ba13a2296649a92896235b42a81dff18b3092cc571b34951f7a` |
-| `docs/EXTERNAL_INTEGRATIONS.md` | 478 | `96ced81b322c90abb4ebe1432d9169ac81377c697c76b21d8afa05e78cd9a969` |
-| `docs/FAILURE_RECOVERY.md` | 95 | `8b1d1cdf710cf90d3173f0989d442d224a6b71b7e31ce7dee761ef831cc18d46` |
-| `docs/FRAMEWORK_PROJECTIONS.md` | 107 | `633198035747d6c3368de2572de44c41533658b463b0983bc7016cd580070627` |
-| `docs/GRAPH_WORKSPACE.md` | 102 | `4cf813a964e6e80d2a47d9f558d2049094fce01c260dd53eb10c1f078adf704b` |
-| `docs/LEARNING_WORKSPACE.md` | 160 | `eb4b89238fb4fde8c54f11f59397f68c58784f33449f9c1a789a6fc54d8cee56` |
-| `docs/PROCEDURAL_MUSIC.md` | 131 | `ea7419f71a8100f9c049263edaa875bda6fa4e7fda2ea46bb2ba6240907a9d0a` |
-| `docs/QUICKSTART.md` | 649 | `965b97da8267751b275cf68a6421f103cd0431f8d0dfb1114fed77310295d2c9` |
-| `docs/README.md` | 97 | `dbffc6778ca056f052f1fa5750c24e9a9913a8ce967361ca1d1cfdd6ca2ec77f` |
-| `docs/RELEASE_TRUST.md` | 181 | `990e81b5d2e450a14c1068db7f67cd39c933ff3b150e8d194e4592364de266a5` |
-| `docs/RELEASING.md` | 75 | `cfd0d5d4e4c62bc7e8cbf5718a399e8cb6a264b2a053f4b2f77b49f7fe50209f` |
-| `docs/USER_GUIDE.md` | 1122 | `77517460584a85f67db9a19635cd728dc1cbd2b79e25d833d776cc435d40d000` |
-| `docs/VISUALIZATION_GUIDE.md` | 167 | `5a10ca41af769201e73537fda0e572b62aaacebb712390fb3681b4e5f1b9990f` |
-| `docs/WEB_SUPPLY_CHAIN.md` | 108 | `9f8e6d0f7a696cb1d6f4f490c2e14126af37e8b13e3dda9542c22c0191415fba` |
-| `docs/WORKSPACE_MIGRATIONS.md` | 160 | `cedfb15cf4be51d27aec850685c3529c8855cfbaa353790ad050c25d5efbc765` |
-| `docs/analysis/LEARNING.md` | 82 | `86e102906207bfe98e87420cb76c0176490af779847a75990e3e25f6fbc9f564` |
-| `docs/analysis/README.md` | 259 | `6517bb17dc0fcabf1842588795d1fcd6741d78db89bb5aabd78527e50a5c224f` |
-| `docs/analysis/VISUALIZATIONS.md` | 147 | `a5e0e1c75d534fdcc957f4d66e5132c164b55e6484dbe7730110953c04ccc972` |
-| `docs/analysis/WORKED_EXAMPLE.md` | 173 | `fdc07511a10585076a6ae4d110c43680a5d136d0b8ad5e2461783e55e3f1b9b9` |
-| `docs/architecture/README.md` | 162 | `04710d245a2b5d7eda9943979ce4d1f58cbc5abd29f2d5ac40319c3462a10ada` |
-| `docs/development/DECISIONS.md` | 1510 | `8fd16335a2fd720eac98062e0585b6ae460b6dbd7ccb08bd53d673a5c20fa481` |
-| `docs/development/REPOSITORY_MAP.md` | 48 | `83cbaab0707b871ddd2b2859a424d7acbe517ce29ce33e1fd1359c4ea0711002` |
-| `docs/development/SIGNING_KEY.md` | 59 | `8ac8d9083cd9e48b6c68c3553615fed9077538e81541c98e93e4391cac8314a2` |
-| `docs/marketing/ELEVATOR_PITCHES.md` | 37 | `d1e9f4b23e44825061f7cbc3d78e31efb147d7f52ccce15d4221c96defd94f91` |
-| `docs/marketing/LAUNCH_CHECKLIST.md` | 75 | `a668ad30625145ae198785dbf3f18205a33b67f57c746b7c784a22f8ac71e040` |
-| `docs/marketing/LINKEDIN.md` | 33 | `60543f7e33edc39957d0642689b51d3095afd6e7e1c917370ca877513682913f` |
-| `docs/marketing/MASTODON.md` | 8 | `3004e06bf08ed85c0b74f77b5fd53aa60952c635db5bff72ae527f21c0c0bc77` |
-| `docs/marketing/PRODUCT_ONE_PAGER.md` | 71 | `7521d46b4a5bcbfdfdbe9c47dccd93faf7c6f220e72f4eaa1f6a3f4449bad58f` |
-| `docs/marketing/README.md` | 35 | `51522a1bb06eeb8b8b442ae8bed081457142f95806186300eb584e6ebfd220d8` |
-| `docs/marketing/SIGNAL.md` | 12 | `3b2b4bfb6a9d4b20d4d29b36952cf65246c322cc57acea176cccaf3c1e85fc73` |
-| `docs/marketing/WEBSITE_COPY.md` | 82 | `af532cee69f1699e764f081c157983ec27982f63d5f7459ec5ca3ef7469ca451` |
-| `docs/media/pivotglass-guided-demo-transcript-v0.9.9.md` | 113 | `b563e6ce038cea2d6e3ef0fbc3aa31d90073a289e19983eb677bf906926ea77d` |
-| `docs/media/pivotglass-guided-demo-transcript.md` | 74 | `8c918765927809873f947d58b90bed8dc30689dda17409d46276bbad09da3392` |
-| `docs/operations/IMPLEMENTATION.md` | 162 | `5a6508327bdeb537d6eaeebcafb61a8d6e38d0984452d45a575138f320964661` |
-| `docs/operations/INFRASTRUCTURE.md` | 113 | `d44f6452dd3f1e76734c99f50eeb709d1315597e8c4b53c7bfe718eedf5fd933` |
-| `docs/operations/OPERATIONS.md` | 227 | `9f74afc64371817a633ee615868eb46a3eeb8f99739c5cd311036bcd5eacc335` |
-| `docs/plans/MASTER_PLAN.md` | 3587 | `64625b14849436c7f90ca4ce7a60f169affda11a1ef5cb00f172063ff6509fc3` |
-| `docs/plans/V0.4.2_QA_UX_PLAN.md` | 620 | `06d6912fd092b1411c18b59ad36c72a539cff09a288ab569c541b8f213d3accb` |
-| `docs/plans/V0.6.0_PLAN.md` | 323 | `ecf264323a00931d19b0ea6f4f724419680db31cd8641cff52d791d8bf8c17b1` |
-| `docs/plans/V0.8_TO_1.0_ROADMAP.md` | 544 | `6101b048766b18c3ad4118d005d6acd0e9710f5cf2814516cd148d31554719e8` |
-| `docs/plans/V0.9.1_TO_1.0_BURNDOWN.md` | 208 | `022afdbb5dcd9668e39a61e03b50031250f9c648cfbba837cfa7b9574cc886f1` |
-| `docs/plans/V0.9.5_DOCUMENT_INGESTION.md` | 257 | `d0b86b6b97fae717bdc0648db589fbb2993e5bbc39df125b289a87ad1167a011` |
-| `docs/plans/V0.9.8_RELEASE_PLAN.md` | 72 | `d0ed0c824d82d6fd0e62fb594049a590487259c4eb3534a872f4586b1b22aa7d` |
-| `docs/plans/V0.9.8_TO_1.0_ROADMAP.md` | 66 | `fd74216c7e675fc14da50a2bd4ab830fb0d8c9233a22170394c34464577e9b05` |
-| `docs/plans/V0.9.9_COMPLETION_PLAN.md` | 32 | `b9ea87180ab4034465a15ad5370c50d46e5473bcd4a40e3ceab03b922b3a4b8f` |
-| `docs/releases/README.md` | 48 | `11bfbe1cfff86e52e3e6012ff4ad78a8c8201577a0d9f8d4fbb9f48f6357a3fa` |
-| `docs/releases/v0.4.9/QA_V0.4.9.md` | 36 | `dd3f6f989512bb94b5572a3b338f96076cbef91bd609e3cd438a2da650df005d` |
-| `docs/releases/v0.5.1/QA_V0.5.1.md` | 54 | `54bffc534a4424eef5d6f12f7369be8a1a8b409983283b188a7343f919315410` |
-| `docs/releases/v0.5.2/QA_V0.5.2.md` | 38 | `10840a4b15c72e53b5888876efcf102a483cb4cf5718f6d6f0cda36a87587e5d` |
-| `docs/releases/v0.6.0/QA_V0.6.0.md` | 76 | `492e69ad322c68f2e4ecb9e56ccb0a52b3a3837d542cb0c8e6008477d5149b72` |
-| `docs/releases/v0.6.1/QA_V0.6.1.md` | 91 | `83032c24988edfeac03f83a7274b81e10454f933eb8867dbc4a4ae9cda7bf25a` |
-| `docs/releases/v0.7.0/QA_V0.7.0.md` | 94 | `ca668265f912f9bb4be8b42bdbffd5ff5ea257a001754bef365f619f4c10e3e5` |
-| `docs/releases/v0.8.0/QA_V0.8.0.md` | 99 | `daea7bf0f4b3b079c1db5fef27c37c55b9d585b1c3cae99aed0f85ddf94df513` |
-| `docs/releases/v0.8.5/QA_V0.8.5.md` | 39 | `eeb10f4f8bf2f49b47c11be1afbbf142e98a05911a892f8888f28147c34aed66` |
-| `docs/releases/v0.8.5/UX_V0.8.5.md` | 54 | `99402c2c2ebf03befb707330435ee440425ed4a1d942527659f4b3842ef995f9` |
-| `docs/releases/v0.9.0/QA_V0.9.0.md` | 87 | `fcd15ddee63f66e40463caf865520f14b37bb7b5e7740830cdc8b76408424e02` |
-| `docs/releases/v0.9.1/QA_V0.9.1.md` | 90 | `6ae9bfd7f60e8a3ddc81483a76b46d160bdc84d0fd51e32eab6b5aff31853ce2` |
-| `docs/releases/v0.9.2/QA_V0.9.2.md` | 104 | `24b09c76fdb0e048410f1901f80983644889bd63bc40dfdd4d5611e0735067bf` |
-| `docs/releases/v0.9.3/QA_V0.9.3.md` | 77 | `2b6f11f75a91911426c8a5edc91fd234c81f1b48370d018aec3484b7854987ac` |
-| `docs/releases/v0.9.4/QA_V0.9.4.md` | 70 | `f8981b4db0e9153c3eb2d12e37923f3a95356f8169313a14731d696e0ac93bf2` |
-| `docs/releases/v0.9.5/QA_V0.9.5.md` | 243 | `639c6e8c70903dc9f9348a8059df1fc68c11b7ac39a2097ceed4cc496423fc77` |
-| `docs/releases/v0.9.5/RELEASE_HANDOFF_V0.9.5.md` | 118 | `7b30a9923e141e5796a71847d90398fb9a444fa45cb1b58d969b00d60f86a471` |
-| `docs/releases/v0.9.6/QA_V0.9.6.md` | 72 | `77659fd79433556953b2dec217a9891b663d0916af5ad7ef71f0e527ccf68199` |
-| `docs/releases/v0.9.6/RELEASE_HANDOFF_V0.9.6.md` | 52 | `15ecd748b31c015906c453a4ebc2e1a5af1f1fcf187c592802a8cfe54fee9035` |
-| `docs/releases/v0.9.7/ANNOUNCEMENT_V0.9.7.md` | 60 | `d339cc70148c37e6a2b8adf0ddd46c4008568f79002827f43e9f3020aabdd4e7` |
-| `docs/releases/v0.9.7/MOCK_USABILITY_STUDY_V0.9.7.md` | 161 | `4f9dbffd5ac26081af897b76ffc4e201d76c35bbdde9d4a14c3936623c487bfe` |
-| `docs/releases/v0.9.7/QA_V0.9.7.md` | 188 | `bf5708c8db525e24eb0743637f7c908aab67aed3f932b3ea7106e91a7c146e9d` |
-| `docs/releases/v0.9.8/EDITORIAL_REVIEW.md` | 47 | `517227ec3306713f614707c3c40721624da693d03e92fe0dbdc02270eb7f956e` |
-| `docs/releases/v0.9.8/QA.md` | 43 | `6fd3c944d095902b61cf8bd93eeea19e1760a7c760e632f9722ce10de26a6898` |
-| `docs/releases/v0.9.9/COMPLETION_MATRIX.md` | 66 | `bd37a90a44e8946c435284dad70230c37225fc7df184d100e88346aabd99d22e` |
-| `docs/releases/v0.9.9/EXPERT_EDITORIAL_REVIEW.md` | 131 | `ab554644dfc4222fb16f92ff98bf89fcb34e06e6b249daad0bed6cde44e0694c` |
-| `docs/releases/v0.9.9/NEWCOMER_REVIEW.md` | 71 | `bf593522e6a90d167483af945e582ccdb395813178a8930deb1b8df5ca63e922` |
-| `docs/releases/v0.9.9/QA.md` | 82 | `75962314b73e291a2738ef285c39ccb0768430d0722e60869ce26feb5f3da79a` |
-| `docs/reviews/V0.6_ARCADE_SYNTHETIC_PLAYTEST.md` | 32 | `a3e44e5420ca7f150885dda813bb6dc3fd41ae714af2c085f7025518b29321b4` |
-| `docs/reviews/V0.9.8_EXPERT_EDITORIAL_REVIEW.md` | 83 | `0c984cb1b1c014f5884b523a46dee77985018d8cdbb1fd0e76609b6fcb8bf17e` |
+{
+  "schema": "pivotglass-documentation-inventory-1.0",
+  "status": "candidate_checkpoint",
+  "generated_at": "2026-09-29T06:12:18.188811Z",
+  "file_count": 84,
+  "qualification_limits": [
+    "Candidate checkpoint only; not a frozen release or publication receipt.",
+    "Hashes identify file bytes at generation time; later edits make records stale.",
+    "Scope is root Markdown and docs/**/*.md; protected/private context and the independent career project are excluded.",
+    "Inventory and local link checks do not prove semantic correctness, exhaustive editorial review, or human usability.",
+    "Historical test counts, public objects, remote websites, live integrations, and media/audio qualification are not independently verified by this inventory."
+  ],
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "line_count": 104,
+      "sha256": "dc6e39a0db5febe7eb28fd6d6bf0caa633bdce9406a954a8eab1195bb162dd85"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "line_count": 1318,
+      "sha256": "ce548f0339f99dac23f0dc979b5525aa13fee55e0f2cfa051ffa131c65ed0b03"
+    },
+    {
+      "path": "PHILOSOPHY.md",
+      "line_count": 162,
+      "sha256": "adeb6f0327c7b77ee83dd0707266dd921b21e798d98170ec236c2e4948441969"
+    },
+    {
+      "path": "README.md",
+      "line_count": 212,
+      "sha256": "c7c2d29a523cd104b7bde8da977f766f6fd007598fca17ba46f3827d08deafe5"
+    },
+    {
+      "path": "SUPPORT.md",
+      "line_count": 65,
+      "sha256": "03f8b5daa427845455066d44134672ebf6548fd51da2922ea4a0f14159932329"
+    },
+    {
+      "path": "docs/ANALYTIC_METHOD.md",
+      "line_count": 166,
+      "sha256": "f353d9ed1f32ef964c43a2c32bbdb62bdb9fd2538082358e8eb121c281a839e9"
+    },
+    {
+      "path": "docs/CAPACITY.md",
+      "line_count": 113,
+      "sha256": "75cf577164cb01c403d28dfc578afdb5c0eb4da1b150d050660d561338abbc65"
+    },
+    {
+      "path": "docs/COMPATIBILITY.md",
+      "line_count": 71,
+      "sha256": "8e2ebbb01dc45d5f4162bcad5c5d4e23d9dd5e02cf56fdbfa3a2623e1dacfbbe"
+    },
+    {
+      "path": "docs/DATA_SAFETY.md",
+      "line_count": 104,
+      "sha256": "f9476551d4d59ba13a2296649a92896235b42a81dff18b3092cc571b34951f7a"
+    },
+    {
+      "path": "docs/EXTERNAL_INTEGRATIONS.md",
+      "line_count": 478,
+      "sha256": "96ced81b322c90abb4ebe1432d9169ac81377c697c76b21d8afa05e78cd9a969"
+    },
+    {
+      "path": "docs/FAILURE_RECOVERY.md",
+      "line_count": 95,
+      "sha256": "8b1d1cdf710cf90d3173f0989d442d224a6b71b7e31ce7dee761ef831cc18d46"
+    },
+    {
+      "path": "docs/FRAMEWORK_PROJECTIONS.md",
+      "line_count": 107,
+      "sha256": "633198035747d6c3368de2572de44c41533658b463b0983bc7016cd580070627"
+    },
+    {
+      "path": "docs/GRAPH_WORKSPACE.md",
+      "line_count": 102,
+      "sha256": "4cf813a964e6e80d2a47d9f558d2049094fce01c260dd53eb10c1f078adf704b"
+    },
+    {
+      "path": "docs/LEARNING_WORKSPACE.md",
+      "line_count": 160,
+      "sha256": "eb4b89238fb4fde8c54f11f59397f68c58784f33449f9c1a789a6fc54d8cee56"
+    },
+    {
+      "path": "docs/PROCEDURAL_MUSIC.md",
+      "line_count": 131,
+      "sha256": "ea7419f71a8100f9c049263edaa875bda6fa4e7fda2ea46bb2ba6240907a9d0a"
+    },
+    {
+      "path": "docs/QUICKSTART.md",
+      "line_count": 652,
+      "sha256": "d809ac2910d783e53af90ff5441f56b617181038e28cda1da228aaa481887165"
+    },
+    {
+      "path": "docs/README.md",
+      "line_count": 97,
+      "sha256": "c45670235f755eae2759a983d7c89fd77b48750f5abd4170ad65a5d44d648341"
+    },
+    {
+      "path": "docs/RELEASE_TRUST.md",
+      "line_count": 181,
+      "sha256": "990e81b5d2e450a14c1068db7f67cd39c933ff3b150e8d194e4592364de266a5"
+    },
+    {
+      "path": "docs/RELEASING.md",
+      "line_count": 75,
+      "sha256": "cfd0d5d4e4c62bc7e8cbf5718a399e8cb6a264b2a053f4b2f77b49f7fe50209f"
+    },
+    {
+      "path": "docs/USER_GUIDE.md",
+      "line_count": 1122,
+      "sha256": "f991ef50e11a0f2ffd594750ec5b5b240ba5f176f76ffa324df9a7a046d7f6aa"
+    },
+    {
+      "path": "docs/VISUALIZATION_GUIDE.md",
+      "line_count": 167,
+      "sha256": "5a10ca41af769201e73537fda0e572b62aaacebb712390fb3681b4e5f1b9990f"
+    },
+    {
+      "path": "docs/WEB_SUPPLY_CHAIN.md",
+      "line_count": 108,
+      "sha256": "9f8e6d0f7a696cb1d6f4f490c2e14126af37e8b13e3dda9542c22c0191415fba"
+    },
+    {
+      "path": "docs/WORKSPACE_MIGRATIONS.md",
+      "line_count": 160,
+      "sha256": "cedfb15cf4be51d27aec850685c3529c8855cfbaa353790ad050c25d5efbc765"
+    },
+    {
+      "path": "docs/analysis/LEARNING.md",
+      "line_count": 82,
+      "sha256": "86e102906207bfe98e87420cb76c0176490af779847a75990e3e25f6fbc9f564"
+    },
+    {
+      "path": "docs/analysis/README.md",
+      "line_count": 259,
+      "sha256": "6517bb17dc0fcabf1842588795d1fcd6741d78db89bb5aabd78527e50a5c224f"
+    },
+    {
+      "path": "docs/analysis/VISUALIZATIONS.md",
+      "line_count": 147,
+      "sha256": "a5e0e1c75d534fdcc957f4d66e5132c164b55e6484dbe7730110953c04ccc972"
+    },
+    {
+      "path": "docs/analysis/WORKED_EXAMPLE.md",
+      "line_count": 173,
+      "sha256": "fdc07511a10585076a6ae4d110c43680a5d136d0b8ad5e2461783e55e3f1b9b9"
+    },
+    {
+      "path": "docs/architecture/README.md",
+      "line_count": 162,
+      "sha256": "04710d245a2b5d7eda9943979ce4d1f58cbc5abd29f2d5ac40319c3462a10ada"
+    },
+    {
+      "path": "docs/development/DECISIONS.md",
+      "line_count": 1510,
+      "sha256": "8fd16335a2fd720eac98062e0585b6ae460b6dbd7ccb08bd53d673a5c20fa481"
+    },
+    {
+      "path": "docs/development/REPOSITORY_MAP.md",
+      "line_count": 48,
+      "sha256": "83cbaab0707b871ddd2b2859a424d7acbe517ce29ce33e1fd1359c4ea0711002"
+    },
+    {
+      "path": "docs/development/SIGNING_KEY.md",
+      "line_count": 59,
+      "sha256": "8ac8d9083cd9e48b6c68c3553615fed9077538e81541c98e93e4391cac8314a2"
+    },
+    {
+      "path": "docs/marketing/ELEVATOR_PITCHES.md",
+      "line_count": 37,
+      "sha256": "d1e9f4b23e44825061f7cbc3d78e31efb147d7f52ccce15d4221c96defd94f91"
+    },
+    {
+      "path": "docs/marketing/LAUNCH_CHECKLIST.md",
+      "line_count": 75,
+      "sha256": "a668ad30625145ae198785dbf3f18205a33b67f57c746b7c784a22f8ac71e040"
+    },
+    {
+      "path": "docs/marketing/LINKEDIN.md",
+      "line_count": 33,
+      "sha256": "60543f7e33edc39957d0642689b51d3095afd6e7e1c917370ca877513682913f"
+    },
+    {
+      "path": "docs/marketing/MASTODON.md",
+      "line_count": 8,
+      "sha256": "3004e06bf08ed85c0b74f77b5fd53aa60952c635db5bff72ae527f21c0c0bc77"
+    },
+    {
+      "path": "docs/marketing/PRODUCT_ONE_PAGER.md",
+      "line_count": 71,
+      "sha256": "7521d46b4a5bcbfdfdbe9c47dccd93faf7c6f220e72f4eaa1f6a3f4449bad58f"
+    },
+    {
+      "path": "docs/marketing/README.md",
+      "line_count": 35,
+      "sha256": "51522a1bb06eeb8b8b442ae8bed081457142f95806186300eb584e6ebfd220d8"
+    },
+    {
+      "path": "docs/marketing/SIGNAL.md",
+      "line_count": 12,
+      "sha256": "3b2b4bfb6a9d4b20d4d29b36952cf65246c322cc57acea176cccaf3c1e85fc73"
+    },
+    {
+      "path": "docs/marketing/WEBSITE_COPY.md",
+      "line_count": 82,
+      "sha256": "af532cee69f1699e764f081c157983ec27982f63d5f7459ec5ca3ef7469ca451"
+    },
+    {
+      "path": "docs/media/demo-v0.9.9-source/README.md",
+      "line_count": 14,
+      "sha256": "2b04840eeb8bfbbc59d7e4b938f28e87e90f856215b484e48b1652dff0b508a2"
+    },
+    {
+      "path": "docs/media/pivotglass-guided-demo-transcript-v0.9.9.md",
+      "line_count": 111,
+      "sha256": "058083e44b8dd1ae09dde0846256825bb4e7f9cb6c9788538d7413e55e3d4b56"
+    },
+    {
+      "path": "docs/media/pivotglass-guided-demo-transcript.md",
+      "line_count": 74,
+      "sha256": "8c918765927809873f947d58b90bed8dc30689dda17409d46276bbad09da3392"
+    },
+    {
+      "path": "docs/operations/IMPLEMENTATION.md",
+      "line_count": 162,
+      "sha256": "5a6508327bdeb537d6eaeebcafb61a8d6e38d0984452d45a575138f320964661"
+    },
+    {
+      "path": "docs/operations/INFRASTRUCTURE.md",
+      "line_count": 113,
+      "sha256": "d44f6452dd3f1e76734c99f50eeb709d1315597e8c4b53c7bfe718eedf5fd933"
+    },
+    {
+      "path": "docs/operations/OPERATIONS.md",
+      "line_count": 227,
+      "sha256": "9f74afc64371817a633ee615868eb46a3eeb8f99739c5cd311036bcd5eacc335"
+    },
+    {
+      "path": "docs/plans/MASTER_PLAN.md",
+      "line_count": 3587,
+      "sha256": "64625b14849436c7f90ca4ce7a60f169affda11a1ef5cb00f172063ff6509fc3"
+    },
+    {
+      "path": "docs/plans/V0.4.2_QA_UX_PLAN.md",
+      "line_count": 620,
+      "sha256": "06d6912fd092b1411c18b59ad36c72a539cff09a288ab569c541b8f213d3accb"
+    },
+    {
+      "path": "docs/plans/V0.6.0_PLAN.md",
+      "line_count": 323,
+      "sha256": "ecf264323a00931d19b0ea6f4f724419680db31cd8641cff52d791d8bf8c17b1"
+    },
+    {
+      "path": "docs/plans/V0.8_TO_1.0_ROADMAP.md",
+      "line_count": 544,
+      "sha256": "6101b048766b18c3ad4118d005d6acd0e9710f5cf2814516cd148d31554719e8"
+    },
+    {
+      "path": "docs/plans/V0.9.1_TO_1.0_BURNDOWN.md",
+      "line_count": 208,
+      "sha256": "022afdbb5dcd9668e39a61e03b50031250f9c648cfbba837cfa7b9574cc886f1"
+    },
+    {
+      "path": "docs/plans/V0.9.5_DOCUMENT_INGESTION.md",
+      "line_count": 257,
+      "sha256": "d0b86b6b97fae717bdc0648db589fbb2993e5bbc39df125b289a87ad1167a011"
+    },
+    {
+      "path": "docs/plans/V0.9.8_RELEASE_PLAN.md",
+      "line_count": 72,
+      "sha256": "d0ed0c824d82d6fd0e62fb594049a590487259c4eb3534a872f4586b1b22aa7d"
+    },
+    {
+      "path": "docs/plans/V0.9.8_TO_1.0_ROADMAP.md",
+      "line_count": 66,
+      "sha256": "fd74216c7e675fc14da50a2bd4ab830fb0d8c9233a22170394c34464577e9b05"
+    },
+    {
+      "path": "docs/plans/V0.9.9_COMPLETION_PLAN.md",
+      "line_count": 32,
+      "sha256": "abefb5284313a923808a3a3764f6840dde0360ee0e02c853a6e4890c7faaae4e"
+    },
+    {
+      "path": "docs/releases/README.md",
+      "line_count": 48,
+      "sha256": "11bfbe1cfff86e52e3e6012ff4ad78a8c8201577a0d9f8d4fbb9f48f6357a3fa"
+    },
+    {
+      "path": "docs/releases/v0.4.9/QA_V0.4.9.md",
+      "line_count": 36,
+      "sha256": "dd3f6f989512bb94b5572a3b338f96076cbef91bd609e3cd438a2da650df005d"
+    },
+    {
+      "path": "docs/releases/v0.5.1/QA_V0.5.1.md",
+      "line_count": 54,
+      "sha256": "54bffc534a4424eef5d6f12f7369be8a1a8b409983283b188a7343f919315410"
+    },
+    {
+      "path": "docs/releases/v0.5.2/QA_V0.5.2.md",
+      "line_count": 38,
+      "sha256": "10840a4b15c72e53b5888876efcf102a483cb4cf5718f6d6f0cda36a87587e5d"
+    },
+    {
+      "path": "docs/releases/v0.6.0/QA_V0.6.0.md",
+      "line_count": 76,
+      "sha256": "492e69ad322c68f2e4ecb9e56ccb0a52b3a3837d542cb0c8e6008477d5149b72"
+    },
+    {
+      "path": "docs/releases/v0.6.1/QA_V0.6.1.md",
+      "line_count": 91,
+      "sha256": "83032c24988edfeac03f83a7274b81e10454f933eb8867dbc4a4ae9cda7bf25a"
+    },
+    {
+      "path": "docs/releases/v0.7.0/QA_V0.7.0.md",
+      "line_count": 94,
+      "sha256": "ca668265f912f9bb4be8b42bdbffd5ff5ea257a001754bef365f619f4c10e3e5"
+    },
+    {
+      "path": "docs/releases/v0.8.0/QA_V0.8.0.md",
+      "line_count": 99,
+      "sha256": "daea7bf0f4b3b079c1db5fef27c37c55b9d585b1c3cae99aed0f85ddf94df513"
+    },
+    {
+      "path": "docs/releases/v0.8.5/QA_V0.8.5.md",
+      "line_count": 39,
+      "sha256": "eeb10f4f8bf2f49b47c11be1afbbf142e98a05911a892f8888f28147c34aed66"
+    },
+    {
+      "path": "docs/releases/v0.8.5/UX_V0.8.5.md",
+      "line_count": 54,
+      "sha256": "99402c2c2ebf03befb707330435ee440425ed4a1d942527659f4b3842ef995f9"
+    },
+    {
+      "path": "docs/releases/v0.9.0/QA_V0.9.0.md",
+      "line_count": 87,
+      "sha256": "fcd15ddee63f66e40463caf865520f14b37bb7b5e7740830cdc8b76408424e02"
+    },
+    {
+      "path": "docs/releases/v0.9.1/QA_V0.9.1.md",
+      "line_count": 90,
+      "sha256": "6ae9bfd7f60e8a3ddc81483a76b46d160bdc84d0fd51e32eab6b5aff31853ce2"
+    },
+    {
+      "path": "docs/releases/v0.9.2/QA_V0.9.2.md",
+      "line_count": 104,
+      "sha256": "24b09c76fdb0e048410f1901f80983644889bd63bc40dfdd4d5611e0735067bf"
+    },
+    {
+      "path": "docs/releases/v0.9.3/QA_V0.9.3.md",
+      "line_count": 77,
+      "sha256": "2b6f11f75a91911426c8a5edc91fd234c81f1b48370d018aec3484b7854987ac"
+    },
+    {
+      "path": "docs/releases/v0.9.4/QA_V0.9.4.md",
+      "line_count": 70,
+      "sha256": "f8981b4db0e9153c3eb2d12e37923f3a95356f8169313a14731d696e0ac93bf2"
+    },
+    {
+      "path": "docs/releases/v0.9.5/QA_V0.9.5.md",
+      "line_count": 243,
+      "sha256": "639c6e8c70903dc9f9348a8059df1fc68c11b7ac39a2097ceed4cc496423fc77"
+    },
+    {
+      "path": "docs/releases/v0.9.5/RELEASE_HANDOFF_V0.9.5.md",
+      "line_count": 118,
+      "sha256": "7b30a9923e141e5796a71847d90398fb9a444fa45cb1b58d969b00d60f86a471"
+    },
+    {
+      "path": "docs/releases/v0.9.6/QA_V0.9.6.md",
+      "line_count": 72,
+      "sha256": "77659fd79433556953b2dec217a9891b663d0916af5ad7ef71f0e527ccf68199"
+    },
+    {
+      "path": "docs/releases/v0.9.6/RELEASE_HANDOFF_V0.9.6.md",
+      "line_count": 52,
+      "sha256": "15ecd748b31c015906c453a4ebc2e1a5af1f1fcf187c592802a8cfe54fee9035"
+    },
+    {
+      "path": "docs/releases/v0.9.7/ANNOUNCEMENT_V0.9.7.md",
+      "line_count": 60,
+      "sha256": "d339cc70148c37e6a2b8adf0ddd46c4008568f79002827f43e9f3020aabdd4e7"
+    },
+    {
+      "path": "docs/releases/v0.9.7/MOCK_USABILITY_STUDY_V0.9.7.md",
+      "line_count": 161,
+      "sha256": "4f9dbffd5ac26081af897b76ffc4e201d76c35bbdde9d4a14c3936623c487bfe"
+    },
+    {
+      "path": "docs/releases/v0.9.7/QA_V0.9.7.md",
+      "line_count": 188,
+      "sha256": "bf5708c8db525e24eb0743637f7c908aab67aed3f932b3ea7106e91a7c146e9d"
+    },
+    {
+      "path": "docs/releases/v0.9.8/EDITORIAL_REVIEW.md",
+      "line_count": 47,
+      "sha256": "517227ec3306713f614707c3c40721624da693d03e92fe0dbdc02270eb7f956e"
+    },
+    {
+      "path": "docs/releases/v0.9.8/QA.md",
+      "line_count": 43,
+      "sha256": "6fd3c944d095902b61cf8bd93eeea19e1760a7c760e632f9722ce10de26a6898"
+    },
+    {
+      "path": "docs/releases/v0.9.9/COMPLETION_MATRIX.md",
+      "line_count": 66,
+      "sha256": "153c758e5f6944a933947aef98c0aa9ccc7a2570e69fd8de26750f009e248f60"
+    },
+    {
+      "path": "docs/releases/v0.9.9/EXPERT_EDITORIAL_REVIEW.md",
+      "line_count": 131,
+      "sha256": "ab554644dfc4222fb16f92ff98bf89fcb34e06e6b249daad0bed6cde44e0694c"
+    },
+    {
+      "path": "docs/releases/v0.9.9/NEWCOMER_REVIEW.md",
+      "line_count": 71,
+      "sha256": "bf593522e6a90d167483af945e582ccdb395813178a8930deb1b8df5ca63e922"
+    },
+    {
+      "path": "docs/releases/v0.9.9/QA.md",
+      "line_count": 123,
+      "sha256": "9c47cb2e6fe06a493fec4955742b38082d0c0d24dbdb0a54da3c5256d4d1b701"
+    },
+    {
+      "path": "docs/reviews/V0.6_ARCADE_SYNTHETIC_PLAYTEST.md",
+      "line_count": 32,
+      "sha256": "a3e44e5420ca7f150885dda813bb6dc3fd41ae714af2c085f7025518b29321b4"
+    },
+    {
+      "path": "docs/reviews/V0.9.8_EXPERT_EDITORIAL_REVIEW.md",
+      "line_count": 83,
+      "sha256": "0c984cb1b1c014f5884b523a46dee77985018d8cdbb1fd0e76609b6fcb8bf17e"
+    }
+  ]
+}

@@ -1,274 +1,253 @@
 WEBVTT
 
-00:00:00.000 --> 00:00:04.056
-Welcome to Pivotglass version zero point nine
-point nine.
+NOTE Captions derived from Descript audio-aligned transcript ticks, approximately five seconds; short cards merged within chapters.
 
-00:00:04.056 --> 00:00:10.032
-This edited walkthrough uses real screens from
-an isolated, synthetic investigation.
+00:00:00.000 --> 00:00:05.000 line:95% position:50% align:center size:95%
+Welcome to Pivotglass version zero point nine point nine. This
+edited
 
-00:00:10.032 --> 00:00:14.230
-No live intelligence service or language model
-is required.
+00:00:05.000 --> 00:00:10.000 line:95% position:50% align:center size:95%
+walkthrough uses real screens from an isolated, synthetic
+investigation. No live
 
-00:00:14.230 --> 00:00:21.060
-The cockpit brings questions, evidence,
-alternative explanations, and analyst decisions
-into one
+00:00:10.000 --> 00:00:15.000 line:95% position:50% align:center size:95%
+intelligence service or language model is required. The cockpit
+brings questions,
 
-00:00:21.060 --> 00:00:21.772
-workspace.
+00:00:15.000 --> 00:00:19.840 line:95% position:50% align:center size:95%
+evidence, alternative explanations, and analyst decisions into
+one workspace.
 
-00:00:22.272 --> 00:00:24.932
-Novice mode starts with a conversation.
-
-00:00:24.932 --> 00:00:26.432
-What data do you have?
-
-00:00:26.432 --> 00:00:27.387
+00:00:20.000 --> 00:00:25.000 line:95% position:50% align:center size:95%
+Novice mode starts with a conversation. What data do you have?
 What happened?
 
-00:00:27.387 --> 00:00:33.934
-The question coach helps a new analyst describe
-the source, the observed event, and the decision
+00:00:25.000 --> 00:00:30.000 line:95% position:50% align:center size:95%
+The question coach helps a new analyst describe the source, the
+observed event, and
 
-00:00:33.934 --> 00:00:36.321
-the investigation needs to support.
+00:00:30.000 --> 00:00:35.000 line:95% position:50% align:center size:95%
+the decision the investigation needs to support. Coaching is a
+practice aid,
 
-00:00:36.321 --> 00:00:40.276
-Coaching is a practice aid, not a substitute for
-evidence.
+00:00:35.000 --> 00:00:36.880 line:95% position:50% align:center size:95%
+not a substitute for evidence.
 
-00:00:40.776 --> 00:00:42.669
-Do you know how it started?
+00:00:36.880 --> 00:00:40.000 line:95% position:50% align:center size:95%
+Do you know how it started? Here the analyst
 
-00:00:42.669 --> 00:00:45.194
-Here the analyst explicitly says no.
+00:00:40.000 --> 00:00:45.000 line:95% position:50% align:center size:95%
+explicitly says no. That unknown remains visible. Useful
 
-00:00:45.194 --> 00:00:47.227
-That unknown remains visible.
+00:00:45.000 --> 00:00:49.200 line:95% position:50% align:center size:95%
+analysis does not fill a missing origin story with a confident
+guess.
 
-00:00:47.227 --> 00:00:52.556
-Useful analysis does not fill a missing origin
-story with a confident guess.
+00:00:49.200 --> 00:00:55.000 line:95% position:50% align:center size:95%
+The coach proposes investigative questions. The analyst edits a
+question to ask what
 
-00:00:53.055 --> 00:00:56.008
-The coach proposes investigative questions.
+00:00:55.000 --> 00:01:00.000 line:95% position:50% align:center size:95%
+independent evidence distinguishes common control from shared
+hosting. Saving is
 
-00:00:56.008 --> 00:01:02.534
-The analyst edits a question to ask what
-independent evidence distinguishes common
-control from
+00:01:00.000 --> 00:01:05.520 line:95% position:50% align:center size:95%
+an explicit decision; a draft becomes a durable question only
+after review.
 
-00:01:02.534 --> 00:01:03.564
-shared hosting.
+00:01:05.520 --> 00:01:10.000 line:95% position:50% align:center size:95%
+A short reflection records what the analyst practiced. Repeated
 
-00:01:03.564 --> 00:01:09.402
-Saving is an explicit decision; a draft becomes
-a durable question only after review.
+00:01:10.000 --> 00:01:15.000 line:95% position:50% align:center size:95%
+work builds habits: state the decision, separate observations
+from
 
-00:01:09.902 --> 00:01:13.631
-A short reflection records what the analyst
-practiced.
+00:01:15.000 --> 00:01:20.000 line:95% position:50% align:center size:95%
+assumptions, and identify evidence that could change the
+conclusion. Practice history
 
-00:01:13.631 --> 00:01:19.984
-Repeated work builds habits: state the decision,
-separate observations from assumptions, and
+00:01:20.000 --> 00:01:24.000 line:95% position:50% align:center size:95%
+records participation, not a certification of expertise.
 
-00:01:19.984 --> 00:01:23.506
-identify evidence that could change the
-conclusion.
+00:01:24.000 --> 00:01:25.000 line:95% position:50% align:center size:95%
+The analytical
 
-00:01:23.506 --> 00:01:28.547
-Practice history records participation, not a
-certification of expertise.
+00:01:25.000 --> 00:01:30.000 line:95% position:50% align:center size:95%
+workbench keeps competing hypotheses and contradictory evidence
+visible.
 
-00:01:29.047 --> 00:01:34.612
-The analytical workbench keeps competing
-hypotheses and contradictory evidence visible.
+00:01:30.000 --> 00:01:35.000 line:95% position:50% align:center size:95%
+Structured techniques help the analyst challenge a favored
+explanation. A
 
-00:01:34.612 --> 00:01:39.154
-Structured techniques help the analyst challenge
-a favored explanation.
+00:01:35.000 --> 00:01:40.640 line:95% position:50% align:center size:95%
+contradiction is something to investigate and disposition,
+rather than hide to make a cleaner narrative.
 
-00:01:39.154 --> 00:01:45.230
-A contradiction is something to investigate and
-disposition, rather than hide to make a cleaner
+00:01:40.640 --> 00:01:45.000 line:95% position:50% align:center size:95%
+The constellation is a navigation aid for the admitted evidence.
+It
 
-00:01:45.230 --> 00:01:45.870
-narrative.
+00:01:45.000 --> 00:01:50.000 line:95% position:50% align:center size:95%
+helps locate objects and gaps. Position and visual emphasis do
+not
 
-00:01:46.370 --> 00:01:50.926
-The constellation is a navigation aid for the
-admitted evidence.
+00:01:50.000 --> 00:01:53.760 line:95% position:50% align:center size:95%
+establish adversary ownership, confidence, or importance.
 
-00:01:50.926 --> 00:01:53.275
-It helps locate objects and gaps.
+00:01:53.760 --> 00:01:55.000 line:95% position:50% align:center size:95%
+Open an indicator
 
-00:01:53.275 --> 00:01:59.896
-Position and visual emphasis do not establish
-adversary ownership, confidence, or importance.
+00:01:55.000 --> 00:02:00.000 line:95% position:50% align:center size:95%
+to inspect its complete value and stored relationships. In this
+synthetic
 
-00:02:00.396 --> 00:02:05.771
-Open an indicator to inspect its complete value
-and stored relationships.
+00:02:00.000 --> 00:02:05.000 line:95% position:50% align:center size:95%
+case, a file communicates with a domain. A relationship supports
+a specific
 
-00:02:05.771 --> 00:02:10.041
-In this synthetic case, a file communicates with
-a domain.
+00:02:05.000 --> 00:02:09.680 line:95% position:50% align:center size:95%
+observation; it does not, by itself, establish common control.
 
-00:02:10.041 --> 00:02:16.520
-A relationship supports a specific observation;
-it does not, by itself, establish common
+00:02:09.680 --> 00:02:15.000 line:95% position:50% align:center size:95%
+The detail view exposes provenance and collection history.
+Source identifiers,
 
-00:02:16.520 --> 00:02:17.109
-control.
+00:02:15.000 --> 00:02:20.000 line:95% position:50% align:center size:95%
+timestamps, response hashes, and conflicting results let another
+analyst
 
-00:02:17.609 --> 00:02:21.829
-The detail view exposes provenance and
-collection history.
+00:02:20.000 --> 00:02:25.520 line:95% position:50% align:center size:95%
+examine where an observation came from. A model summary is not
+the original source.
 
-00:02:21.829 --> 00:02:28.523
-Source identifiers, timestamps, response hashes,
-and conflicting results let another analyst
+00:02:25.520 --> 00:02:30.000 line:95% position:50% align:center size:95%
+Local document intake first previews candidates. This synthetic
 
-00:02:28.523 --> 00:02:31.361
-examine where an observation came from.
+00:02:30.000 --> 00:02:35.000 line:95% position:50% align:center size:95%
+document contains a domain and a deliberately long URL. The
 
-00:02:31.361 --> 00:02:34.490
-A model summary is not the original source.
+00:02:35.000 --> 00:02:40.000 line:95% position:50% align:center size:95%
+analyst selects both, then explicitly admits the source and
+candidates.
 
-00:02:34.990 --> 00:02:38.236
-Local document intake first previews candidates.
+00:02:40.000 --> 00:02:43.120 line:95% position:50% align:center size:95%
+Previewing alone does not add evidence to the workspace.
 
-00:02:38.236 --> 00:02:42.970
-This synthetic document contains a domain and a
-deliberately long URL.
+00:02:43.120 --> 00:02:45.000 line:95% position:50% align:center size:95%
+The source library retains the
 
-00:02:42.970 --> 00:02:48.043
-The analyst selects both, then explicitly admits
-the source and candidates.
+00:02:45.000 --> 00:02:50.000 line:95% position:50% align:center size:95%
+admitted document and its digest. After restarting the isolated
+service,
 
-00:02:48.043 --> 00:02:51.830
-Previewing alone does not add evidence to the
-workspace.
+00:02:50.000 --> 00:02:55.000 line:95% position:50% align:center size:95%
+the same source and admitted objects remain available. Keeping
+source material makes
 
-00:02:52.330 --> 00:02:56.543
-The source library retains the admitted document
-and its digest.
+00:02:55.000 --> 00:02:57.360 line:95% position:50% align:center size:95%
+review and later correction possible.
 
-00:02:56.543 --> 00:03:02.665
-After restarting the isolated service, the same
-source and admitted objects remain available.
-
-00:03:02.665 --> 00:03:07.075
-Keeping source material makes review and later
-correction possible.
-
-00:03:07.575 --> 00:03:13.378
+00:02:57.360 --> 00:03:00.000 line:95% position:50% align:center size:95%
 Provenance history shows the actual workflow:
-document admission, creation of an analyst
 
-00:03:13.378 --> 00:03:16.412
-promotion group, and two candidate admissions.
+00:03:00.000 --> 00:03:05.000 line:95% position:50% align:center size:95%
+document admission, creation of an analyst promotion group, and
+two
 
-00:03:16.412 --> 00:03:21.556
-The branches record the analyst decision to
-promote these candidates together.
+00:03:05.000 --> 00:03:10.000 line:95% position:50% align:center size:95%
+candidate admissions. The branches record the analyst decision
+to promote these candidates
 
-00:03:21.556 --> 00:03:26.370
-They do not assert a shared adversary or an
-observed threat relationship.
+00:03:10.000 --> 00:03:15.280 line:95% position:50% align:center size:95%
+together. They do not assert a shared adversary or an observed
+threat relationship.
 
-00:03:26.870 --> 00:03:31.354
-The relationship graph now shows seven nodes and
-five visible edges.
+00:03:15.280 --> 00:03:20.000 line:95% position:50% align:center size:95%
+The relationship graph now shows seven nodes and five visible
+edges.
 
-00:03:31.354 --> 00:03:37.224
-Stored relationships use their own edge style;
-analyst grouping uses dotted yellow edges.
+00:03:20.000 --> 00:03:25.000 line:95% position:50% align:center size:95%
+Stored relationships use their own edge style; analyst grouping
+uses dotted
 
-00:03:37.224 --> 00:03:39.598
-The long URL wraps inside its label.
+00:03:25.000 --> 00:03:30.000 line:95% position:50% align:center size:95%
+yellow edges. The long URL wraps inside its label. The
 
-00:03:39.598 --> 00:03:44.808
-The analyst can read the complete value and
-distinguish grouping from evidence.
+00:03:30.000 --> 00:03:33.840 line:95% position:50% align:center size:95%
+analyst can read the complete value and distinguish grouping
+from evidence.
 
-00:03:45.308 --> 00:03:49.400
-The analyst records an explicit evidence link
-with a rationale.
+00:03:33.840 --> 00:03:35.000 line:95% position:50% align:center size:95%
+The analyst records
 
-00:03:49.400 --> 00:03:55.247
-Here, a synthetic observation supports the
-shared hosting alternative without establishing
+00:03:35.000 --> 00:03:40.000 line:95% position:50% align:center size:95%
+an explicit evidence link with a rationale. Here, a synthetic
 
-00:03:55.247 --> 00:03:55.766
-control.
+00:03:40.000 --> 00:03:45.000 line:95% position:50% align:center size:95%
+observation supports the shared hosting alternative without
+establishing control. The ledger
 
-00:03:55.766 --> 00:04:01.937
-The ledger stores the link as an analyst
-judgment, preserving the observation and the
-competing
+00:03:45.000 --> 00:03:50.000 line:95% position:50% align:center size:95%
+stores the link as an analyst judgment, preserving the
+observation and the competing
 
-00:04:01.937 --> 00:04:02.652
+00:03:50.000 --> 00:03:50.800 line:95% position:50% align:center size:95%
 hypothesis.
 
-00:04:03.153 --> 00:04:07.295
-Generate a deterministic report from the current
-workspace.
+00:03:50.800 --> 00:03:55.000 line:95% position:50% align:center size:95%
+Generate a deterministic report from the current workspace. The
 
-00:04:07.295 --> 00:04:13.683
-The report retains the investigative questions,
-alternative explanations, explicit evidence
+00:03:55.000 --> 00:04:00.000 line:95% position:50% align:center size:95%
+report retains the investigative questions, alternative
+explanations, explicit evidence
 
-00:04:13.683 --> 00:04:18.386
-links, unresolved contradictions, and next
-collection requirements.
+00:04:00.000 --> 00:04:05.000 line:95% position:50% align:center size:95%
+links, unresolved contradictions, and next collection
+requirements. It
 
-00:04:18.386 --> 00:04:22.107
-It is a handoff for review, not an automatic
-verdict.
+00:04:05.000 --> 00:04:10.000 line:95% position:50% align:center size:95%
+is a handoff for review, not an automatic verdict. The analyst
+still
 
-00:04:22.107 --> 00:04:27.863
-The analyst still checks the assessment,
-limitations, and handling before sharing.
+00:04:10.000 --> 00:04:15.000 line:95% position:50% align:center size:95%
+checks the assessment, limitations, and handling before sharing.
+Choose
 
-00:04:28.363 --> 00:04:34.475
-Configuration separates optional intelligence
-and model services from the local workflow.
+00:04:15.000 --> 00:04:20.000 line:95% position:50% align:center size:95%
+Save Markdown for the complete editable report, or Print and
+Save PDF for a
 
-00:04:34.475 --> 00:04:39.900
-Enable providers deliberately and understand
-their network and data boundaries.
+00:04:20.000 --> 00:04:21.040 line:95% position:50% align:center size:95%
+printable copy.
 
-00:04:39.900 --> 00:04:46.355
-The implementation and operations guides
-document prerequisites, backup, restore,
-maintenance,
+00:04:21.040 --> 00:04:25.000 line:95% position:50% align:center size:95%
+Configuration separates optional intelligence and model services
 
-00:04:46.355 --> 00:04:47.797
-and failure recovery.
+00:04:25.000 --> 00:04:30.000 line:95% position:50% align:center size:95%
+from the local workflow. Enable providers deliberately and
+understand their
 
-00:04:48.297 --> 00:04:52.497
-Personas and themes give the workspace a
-distinctive atmosphere.
+00:04:30.000 --> 00:04:35.000 line:95% position:50% align:center size:95%
+network and data boundaries. The implementation and operations
+guides
 
-00:04:52.497 --> 00:04:54.794
-This is the Nightgrid presentation.
+00:04:35.000 --> 00:04:40.080 line:95% position:50% align:center size:95%
+document prerequisites, backup, restore, maintenance, and
+failure recovery.
 
-00:04:54.794 --> 00:05:00.964
-Visuals and optional sound help the working
-experience; neither changes evidence or
-analytical
+00:04:40.080 --> 00:04:45.000 line:95% position:50% align:center size:95%
+Personas and themes give the workspace a distinctive atmosphere.
+This is the
 
-00:05:00.964 --> 00:05:01.620
-authority.
+00:04:45.000 --> 00:04:50.000 line:95% position:50% align:center size:95%
+Nightgrid presentation. Visuals and optional sound help the
+working
 
-00:05:01.620 --> 00:05:07.658
-Start with the offline quickstart, then follow
-the user guide through a reviewed, defensible
+00:04:50.000 --> 00:04:55.000 line:95% position:50% align:center size:95%
+experience; neither changes evidence or analytical authority.
+Start with the
 
-00:05:07.658 --> 00:05:08.183
-handoff.
+00:04:55.000 --> 00:05:00.160 line:95% position:50% align:center size:95%
+offline quickstart, then follow the user guide through a
+reviewed, defensible handoff.

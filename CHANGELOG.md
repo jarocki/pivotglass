@@ -17,9 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and added executable scientific-method practice, experienced workflows,
   correction/recovery, and a reviewable handoff checklist.
 - Replaced historical screenshots in current guides with actual v0.9.9
-  synthetic-case captures. Prepared a silent visual demo draft, narration script,
-  provisional captions, poster, and chapter manifest. The owner-requested natural
-  Descript voice and synchronized final export remain an acceptance gate.
+  synthetic-case captures. Added a five-minute tour using Descript’s Jesse neural
+  voice, actual speech chapter timing, readable external captions, a poster,
+  transcript, and public source captures. Owner listening review remains open.
 - Added implementation, infrastructure, operations and maintenance guides with
   local deployment boundaries, stopped-copy backup and restore verification,
   task ownership and cadence, deliberate collection, and automation limits.

@@ -1,129 +1,136 @@
 {
   "version": "0.9.9",
-  "method": "Edited actual browser captures; silent visual draft. Natural Descript neural narration and final synchronization pending.",
+  "method": "Edited actual browser captures synchronized to Descript-generated neural narration using actual speech chapter durations. External captions use audio-aligned transcript ticks; dedicated caption band preserves UI readability.",
   "synthetic": true,
   "network_enrichment": false,
-  "duration": 308.683,
+  "duration": 300.16,
   "chapters": [
     {
       "chapter": "A question, not a verdict",
-      "capture": "01-cockpit.png",
+      "capture": "demo-v0.9.9-source/01-cockpit.png",
       "start": 0,
-      "duration": 22.272,
+      "duration": 19.84,
       "narration": "Welcome to Pivotglass version zero point nine point nine. This edited walkthrough uses real screens from an isolated, synthetic investigation. No live intelligence service or language model is required. The cockpit brings questions, evidence, alternative explanations, and analyst decisions into one workspace."
     },
     {
       "chapter": "Begin with what you have",
-      "capture": "02-coach.png",
-      "start": 22.272,
-      "duration": 18.504,
+      "capture": "demo-v0.9.9-source/02-coach.png",
+      "start": 19.84,
+      "duration": 17.04,
       "narration": "Novice mode starts with a conversation. What data do you have? What happened? The question coach helps a new analyst describe the source, the observed event, and the decision the investigation needs to support. Coaching is a practice aid, not a substitute for evidence."
     },
     {
       "chapter": "Make unknowns explicit",
-      "capture": "03-unknown.png",
-      "start": 40.776,
-      "duration": 12.28,
+      "capture": "demo-v0.9.9-source/03-unknown.png",
+      "start": 36.88,
+      "duration": 12.32,
       "narration": "Do you know how it started? Here the analyst explicitly says no. That unknown remains visible. Useful analysis does not fill a missing origin story with a confident guess."
     },
     {
       "chapter": "Review before saving",
-      "capture": "04-review.png",
-      "start": 53.055,
-      "duration": 16.847,
+      "capture": "demo-v0.9.9-source/04-review.png",
+      "start": 49.2,
+      "duration": 16.32,
       "narration": "The coach proposes investigative questions. The analyst edits a question to ask what independent evidence distinguishes common control from shared hosting. Saving is an explicit decision; a draft becomes a durable question only after review."
     },
     {
       "chapter": "Practice and reflection",
-      "capture": "05-practice.png",
-      "start": 69.902,
-      "duration": 19.145,
+      "capture": "demo-v0.9.9-source/05-practice.png",
+      "start": 65.52,
+      "duration": 18.48,
       "narration": "A short reflection records what the analyst practiced. Repeated work builds habits: state the decision, separate observations from assumptions, and identify evidence that could change the conclusion. Practice history records participation, not a certification of expertise."
     },
     {
       "chapter": "Challenge the favored explanation",
-      "capture": "06-analysis.png",
-      "start": 89.047,
-      "duration": 17.323,
+      "capture": "demo-v0.9.9-source/06-analysis.png",
+      "start": 84,
+      "duration": 16.64,
       "narration": "The analytical workbench keeps competing hypotheses and contradictory evidence visible. Structured techniques help the analyst challenge a favored explanation. A contradiction is something to investigate and disposition, rather than hide to make a cleaner narrative."
     },
     {
       "chapter": "See coverage and gaps",
-      "capture": "07-constellation.png",
-      "start": 106.37,
-      "duration": 14.026,
+      "capture": "demo-v0.9.9-source/07-constellation.png",
+      "start": 100.64,
+      "duration": 13.12,
       "narration": "The constellation is a navigation aid for the admitted evidence. It helps locate objects and gaps. Position and visual emphasis do not establish adversary ownership, confidence, or importance."
     },
     {
       "chapter": "Inspect the complete indicator",
-      "capture": "08-indicator.png",
-      "start": 120.396,
-      "duration": 17.213,
+      "capture": "demo-v0.9.9-source/08-indicator.png",
+      "start": 113.76,
+      "duration": 15.92,
       "narration": "Open an indicator to inspect its complete value and stored relationships. In this synthetic case, a file communicates with a domain. A relationship supports a specific observation; it does not, by itself, establish common control."
     },
     {
       "chapter": "Follow the source trail",
-      "capture": "09-provenance.png",
-      "start": 137.609,
-      "duration": 17.381,
+      "capture": "demo-v0.9.9-source/09-provenance.png",
+      "start": 129.68,
+      "duration": 15.84,
       "narration": "The detail view exposes provenance and collection history. Source identifiers, timestamps, response hashes, and conflicting results let another analyst examine where an observation came from. A model summary is not the original source."
     },
     {
       "chapter": "Preview before admission",
-      "capture": "12-intake.png",
-      "start": 154.99,
-      "duration": 17.34,
+      "capture": "demo-v0.9.9-source/12-intake.png",
+      "start": 145.52,
+      "duration": 17.6,
       "narration": "Local document intake first previews candidates. This synthetic document contains a domain and a deliberately long URL. The analyst selects both, then explicitly admits the source and candidates. Previewing alone does not add evidence to the workspace."
     },
     {
       "chapter": "Keep the admitted source",
-      "capture": "13-library.png",
-      "start": 172.33,
-      "duration": 15.245,
+      "capture": "demo-v0.9.9-source/13-library.png",
+      "start": 163.12,
+      "duration": 14.24,
       "narration": "The source library retains the admitted document and its digest. After restarting the isolated service, the same source and admitted objects remain available. Keeping source material makes review and later correction possible."
     },
     {
       "chapter": "History records analyst decisions",
-      "capture": "14-history.png",
-      "start": 187.575,
-      "duration": 19.295,
+      "capture": "demo-v0.9.9-source/14-history.png",
+      "start": 177.36,
+      "duration": 17.92,
       "narration": "Provenance history shows the actual workflow: document admission, creation of an analyst promotion group, and two candidate admissions. The branches record the analyst decision to promote these candidates together. They do not assert a shared adversary or an observed threat relationship."
     },
     {
       "chapter": "Distinguish relationships from grouping",
-      "capture": "15-group-graph.png",
-      "start": 206.87,
-      "duration": 18.438,
+      "capture": "demo-v0.9.9-source/15-group-graph.png",
+      "start": 195.28,
+      "duration": 18.56,
       "narration": "The relationship graph now shows seven nodes and five visible edges. Stored relationships use their own edge style; analyst grouping uses dotted yellow edges. The long URL wraps inside its label. The analyst can read the complete value and distinguish grouping from evidence."
     },
     {
       "chapter": "Explain the evidence connection",
-      "capture": "17-link.png",
-      "start": 225.308,
-      "duration": 17.844,
+      "capture": "demo-v0.9.9-source/17-link.png",
+      "start": 213.84,
+      "duration": 16.96,
       "narration": "The analyst records an explicit evidence link with a rationale. Here, a synthetic observation supports the shared hosting alternative without establishing control. The ledger stores the link as an analyst judgment, preserving the observation and the competing hypothesis."
     },
     {
       "chapter": "Prepare a reviewable handoff",
-      "capture": "16-report.png",
-      "start": 243.153,
-      "duration": 25.21,
-      "narration": "Generate a deterministic report from the current workspace. The report retains the investigative questions, alternative explanations, explicit evidence links, unresolved contradictions, and next collection requirements. It is a handoff for review, not an automatic verdict. The analyst still checks the assessment, limitations, and handling before sharing."
+      "capture": "demo-v0.9.9-source/16-report-current-normal.png",
+      "start": 230.8,
+      "duration": 30.24,
+      "narration": "Generate a deterministic report from the current workspace. The report retains the investigative questions, alternative explanations, explicit evidence links, unresolved contradictions, and next collection requirements. It is a handoff for review, not an automatic verdict. The analyst still checks the assessment, limitations, and handling before sharing. Choose Save Markdown for the complete editable report, or Print and Save PDF for a printable copy."
     },
     {
       "chapter": "Start locally; enable services deliberately",
-      "capture": "18-config.png",
-      "start": 268.363,
-      "duration": 19.934,
+      "capture": "demo-v0.9.9-source/18-config.png",
+      "start": 261.04,
+      "duration": 19.04,
       "narration": "Configuration separates optional intelligence and model services from the local workflow. Enable providers deliberately and understand their network and data boundaries. The implementation and operations guides document prerequisites, backup, restore, maintenance, and failure recovery."
     },
     {
       "chapter": "Presentation stays separate from truth",
-      "capture": "19-theme.png",
-      "start": 288.297,
-      "duration": 20.386,
+      "capture": "demo-v0.9.9-source/19-theme-named.png",
+      "start": 280.08,
+      "duration": 20.08,
       "narration": "Personas and themes give the workspace a distinctive atmosphere. This is the Nightgrid presentation. Visuals and optional sound help the working experience; neither changes evidence or analytical authority. Start with the offline quickstart, then follow the user guide through a reviewed, defensible handoff."
     }
   ],
-  "status": "visual_draft_pending_descript_voice"
+  "status": "review_candidate",
+  "voice": {
+    "provider": "Descript",
+    "name": "Jesse",
+    "type": "stock neural voice"
+  },
+  "caption_alignment_granularity_seconds": 5,
+  "investigative_model_calls": false
 }

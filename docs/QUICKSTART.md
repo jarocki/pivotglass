@@ -19,7 +19,7 @@ choices do not change your evidence or suppress error alerts.
 
 ## Watch with captions
 
-[Preview the current visual draft](media/pivotglass-guided-demo-v0.9.9.mp4),
+[Watch the current narrated tour](media/pivotglass-guided-demo-v0.9.9.mp4),
 [read the transcript](media/pivotglass-guided-demo-transcript-v0.9.9.md), or
 [download its WebVTT captions](media/pivotglass-guided-demo-v0.9.9.vtt).
 It uses edited actual UI captures from an isolated synthetic case, not a
@@ -35,6 +35,9 @@ uv run python -m http.server 8877 --bind 127.0.0.1 --directory docs/media
 
 Open `http://127.0.0.1:8877/pivotglass-guided-demo-v0.9.9.html`. Use the player's
 caption control to change caption display, or use the adjacent transcript.
+The basic Python server supports sequential playback; reliable chapter seeking
+requires a server with HTTP byte-range support. For offline seeking, open the
+MP4 and its same-named VTT file in a media player that supports external captions.
 Stop this separate media server with Ctrl+C when finished. The steps below are
 the complete practice path; you can follow them without watching the video.
 

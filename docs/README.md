@@ -25,8 +25,8 @@ a version string or development plan is not publication evidence.
 - [Caption-enabled player instructions](QUICKSTART.md#watch-with-captions)
 - [Chapter manifest and recording method](media/pivotglass-guided-demo-manifest-v0.9.9.json)
 
-The visual draft contains edited actual UI captures and synthetic case data.
-The requested natural Descript voice and synchronized final export are pending. The written walkthroughs supply the executable practice,
+The narrated tour combines actual UI captures of synthetic case data with
+Descript’s Jesse neural voice. The written walkthroughs supply the executable practice,
 reasoning, correction, and recovery details. Older demos remain historical
 assets and are not the current tour.
 

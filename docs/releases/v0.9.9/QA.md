@@ -1,8 +1,8 @@
 # Pivotglass v0.9.9 qualification checkpoint
 
-Date: 2026-09-28. This is a candidate checkpoint, not a public-release receipt.
-The requested natural Descript voice and synchronized final video remain an
-open acceptance gate. No v0.9.9 tag or public release is claimed here.
+Date: 2026-09-29. This is a candidate checkpoint, not a public-release receipt.
+The Descript neural-voice video has passed complete decode and timing checks.
+Owner listening review remains an open acceptance gate. No v0.9.9 tag or public release is claimed here.
 
 ## Completed checks
 
@@ -24,7 +24,7 @@ open acceptance gate. No v0.9.9 tag or public release is claimed here.
   vulnerabilities or skipped packages; npm reports zero known vulnerabilities.
   These are dated advisory checks, not proof of security.
 - npm verification: **31 registry signatures and 18 attestations** verified.
-- [Documentation inventory](DOCUMENTATION_INVENTORY.json): **83 public Markdown
+- [Documentation inventory](DOCUMENTATION_INVENTORY.json): **84 public Markdown
   files**, zero broken local targets/anchors. Expert and newcomer review records
   describe substantive review and its limits.
 - Candidate wheel and source archive built. An isolated wheel install reports
@@ -58,16 +58,39 @@ validated schema, SQLite integrity, and original-document hashes. A tampered
 source was rejected while the original backup remained unchanged. See the
 [expert receipt](EXPERT_EDITORIAL_REVIEW.md).
 
-## Media acceptance and publication remain open
+## Media recovery history and open publication gate
 
 The working visuals and script were checked against actual UI captures. The
 first system-speech rendition was rejected by the owner and its audio removed
 from the working video. It is not the accepted final demonstration.
 
 The silent visuals were imported into a private, separate Descript v0.9.9
-project. The request for natural neural/LLM narration and scene-by-scene timing
-was blocked by the account's AI-credit limit. Final voice quality, synchronization,
-captions, export decode, and playback must be checked after that limit is resolved.
+project. The first requests were blocked by the account's AI-credit limit. An
+owner-requested retry cleared that limit and generated an opening preview using
+Descript's Jesse neural voice. Inspection of the private preview export found
+black video during the opening narration: speech had been inserted before the
+visual instead of overlaid on it. That preview does not satisfy synchronization.
+
+Seventeen separate actual scene clips, including the current Save Markdown
+report controls, were imported into a new composition in the same private
+project. Its first full export fixed the blank video opening but contained only
+silence: decoded AAC had mean and maximum volume of -91 dB across 259.2 seconds.
+The Descript agent's claim that timed scratch text proved generated speech was
+contradicted by that artifact. This export was rejected.
+
+Direct inspection of the Descript editor exposed the actual synthesis error:
+the entire narration was one speech block, too long to generate. Inserting real
+paragraph breaks between the 17 chapters in Write mode and finishing that edit
+generated 17 new audio assets. The new private audio export is 300.16 seconds,
+with mean volume -18.7 dB and maximum -0.4 dB; it is no longer silent. Final
+visual and caption timing must use this generated speech, not the rejected
+259.2-second scratch timings. Oversized burned captions from that rejected
+export were removed after a visual review found obstruction and rendering
+artifacts. Current report and Nightgrid captures now visibly identify the
+export buttons and selected persona.
+At that intermediate checkpoint, voice quality, synchronization, captions,
+export decode, and playback remained open. The replacement verification below
+records which checks subsequently passed; owner listening review remains open.
 The earlier HTML player checks validate the Play/Pause/chapter approach, not
 completion of the replacement voice requirement.
 
@@ -86,3 +109,15 @@ The separate v1.0.0 assurance pass and owner approval remain future work.
 
 See [completion matrix](COMPLETION_MATRIX.md), [newcomer review](NEWCOMER_REVIEW.md),
 [release trust](../../RELEASE_TRUST.md), and [compatibility](../../COMPATIBILITY.md).
+
+## Replacement media verification — 2026-09-29
+
+The repository candidate now uses the actual 300.16-second Descript Jesse AAC narration. Seventeen actual UI stills follow generated speech chapter durations. The report capture displays both export buttons; the final capture names Nightgrid. This is an edited walkthrough, not a continuous screen recording.
+
+FFprobe confirms H.264 at 1280 × 816 and AAC. Complete FFmpeg decode passed: mean audio -18.7 dB, maximum -0.4 dB; no detected one-second black interval or one-second silence at -45 dB. The 68 external caption cues retain all 648 spoken-script words, using actual transcript ticks at approximately five-second granularity with short-cue merging within chapters. A dedicated 96-pixel band keeps captions below the interface. These checks establish media integrity and timing; they do not claim subjective listening approval.
+
+A generic browser download listener caught a Facebook tracking request, which the owner denied. That request was not downloaded or retried. Caption text was obtained through the Descript connector’s read-only transcript result instead.
+
+The replacement HTML player was inspected in the in-app browser: playback, pause, English captions, and the report chapter rendered correctly. Chapter seeking passed with a loopback server implementing HTTP byte ranges; the basic Python preview server reset seeking to the opening, so the Quickstart now documents that limitation. Native controls can overlap the caption band while controls are visible. No subjective audio audition is claimed.
+
+Each of the 17 replacement chapters was also decoded independently: every chapter contained audio signal above -40 dB mean volume. Five focused documentation tests passed after the JSON inventory fix, including exact UTF-8 hashes, edit detection, and exclusion of the independent career project.

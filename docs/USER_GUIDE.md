@@ -8,7 +8,7 @@ module-control console share the same underlying workspaces and evidence.
 Start with the [Quick Start](QUICKSTART.md) if this is your first session.
 
 
-[v0.9.9 visual draft — narration pending](media/pivotglass-guided-demo-v0.9.9.mp4) ·
+[v0.9.9 narrated tour](media/pivotglass-guided-demo-v0.9.9.mp4) ·
 [Captions](media/pivotglass-guided-demo-v0.9.9.vtt) ·
 [Transcript and chapters](media/pivotglass-guided-demo-transcript-v0.9.9.md) ·
 [Caption-enabled player instructions](QUICKSTART.md#watch-with-captions)

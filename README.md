@@ -38,18 +38,18 @@ They are design mechanisms, not measured productivity gains or proof of analyst
 competence. Badges, coverage percentages, and finished enrichment jobs are not
 threat verdicts or qualifications.
 
-## Preview the v0.9.9 demo draft
+## Watch the v0.9.9 guided demo
 
 [![Pivotglass v0.9.9 guided tour poster from the synthetic release-tour workspace](docs/media/pivotglass-guided-demo-poster-v0.9.9.png)](docs/media/pivotglass-guided-demo-v0.9.9.mp4)
 
-[Watch or download the v0.9.9 visual draft](docs/media/pivotglass-guided-demo-v0.9.9.mp4) ·
+[Watch or download the v0.9.9 narrated tour](docs/media/pivotglass-guided-demo-v0.9.9.mp4) ·
 [Captions](docs/media/pivotglass-guided-demo-v0.9.9.vtt) ·
 [Transcript and chapter times](docs/media/pivotglass-guided-demo-transcript-v0.9.9.md) ·
 [Caption-enabled player instructions](docs/QUICKSTART.md#watch-with-captions)
 
 This edited tour uses actual current browser states in an isolated synthetic
-case. The requested natural Descript voice and synchronized final export are
-pending; the visual draft is silent. It demonstrates Q&A review and saving,
+case, with Descript’s Jesse neural voice synchronized to the chapter screens.
+It demonstrates Q&A review and saving,
 source admission, provenance branches, analyst grouping, evidence linking, and
 optional configuration and presentation. It is not a continuous screen
 recording or a live threat assessment. Follow the written guides for the full

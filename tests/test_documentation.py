@@ -25,3 +25,26 @@ def test_inventory_excludes_private_and_independent_projects(tmp_path):
 
 def test_duplicate_heading_anchors_match_github_convention():
     assert anchors("# Evidence & inference\n## Same\n## Same\n") == {"evidence--inference", "same", "same-1"}
+
+
+def test_json_inventory_identifies_exact_public_document_bytes(tmp_path):
+    import hashlib
+    import json
+
+    from scripts.check_documentation import inventory
+
+    guide = '# Questions\n\nKeep uncertainty visible: café.\n'
+    (tmp_path / 'README.md').write_text(guide, encoding='utf-8')
+    (tmp_path / 'career-narrative').mkdir()
+    (tmp_path / 'career-narrative/private.md').write_text('# Separate project\n')
+    receipt = json.loads(inventory(tmp_path, json_output=True))
+    assert receipt['status'] == 'candidate_checkpoint'
+    assert receipt['file_count'] == 1
+    assert receipt['files'] == [{
+        'path': 'README.md',
+        'line_count': 3,
+        'sha256': hashlib.sha256(guide.encode('utf-8')).hexdigest(),
+    }]
+    (tmp_path / 'README.md').write_text(guide + 'An edit.\n', encoding='utf-8')
+    updated = json.loads(inventory(tmp_path, json_output=True))
+    assert updated['files'][0]['sha256'] != receipt['files'][0]['sha256']
