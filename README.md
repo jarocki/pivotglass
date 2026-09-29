@@ -1,5 +1,7 @@
 # Pivotglass
 
+![Pivotglass — digital looking glass portal and wordmark](docs/brand/pivotglass-looking-glass-v1.png)
+
 **Start with a question. Preserve the evidence. Make the reasoning inspectable.**
 
 Pivotglass is a local investigation workspace for security and threat
@@ -38,7 +40,12 @@ They are design mechanisms, not measured productivity gains or proof of analyst
 competence. Badges, coverage percentages, and finished enrichment jobs are not
 threat verdicts or qualifications.
 
-## Watch the v0.9.9 guided demo
+
+## Four ways through the looking glass
+
+Start with the [flashy Overview](docs/media/series-v0.9.9/pivotglass-overview-v0.9.9.mp4), then choose the [Analyst Walkthrough](docs/media/series-v0.9.9/pivotglass-analyst-v0.9.9.mp4), [PIVOT Glass](docs/media/series-v0.9.9/pivotglass-pivot-v0.9.9.mp4), or [Visualization and Reporting](docs/media/series-v0.9.9/pivotglass-visualization-v0.9.9.mp4). Each has real Descript narration, original generative music, captions and a transcript in the [series guide](docs/media/series-v0.9.9/README.md).
+
+## Earlier five-minute guided edit
 
 [![Pivotglass v0.9.9 guided tour poster from the synthetic release-tour workspace](docs/media/pivotglass-guided-demo-poster-v0.9.9.png)](docs/media/pivotglass-guided-demo-v0.9.9.mp4)
 

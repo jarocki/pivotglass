@@ -33,3 +33,7 @@ and describe SCOT4 and Vertex Synapse as preview integrations.
 
 v0.9.9 is the marketing and enablement checkpoint. The separately approved
 v1.0.0 quality gate remains future work; these drafts do not announce it.
+
+## Visual introduction
+
+Use the [Overview](../media/series-v0.9.9/pivotglass-overview-v0.9.9.mp4) for a brief invitation. The [four-film guide](../media/series-v0.9.9/README.md) gives follow-on paths for workflow, pivoting and visualization/reporting. [Looking Glass brand candidates](../brand/README.md) are available for presentation; review the final media and public release links before posting.

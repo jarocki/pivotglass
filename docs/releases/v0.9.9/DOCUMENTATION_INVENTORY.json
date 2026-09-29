@@ -1,8 +1,8 @@
 {
   "schema": "pivotglass-documentation-inventory-1.0",
   "status": "candidate_checkpoint",
-  "generated_at": "2026-09-29T06:16:48.259970Z",
-  "file_count": 84,
+  "generated_at": "2026-09-29T15:14:25.693278Z",
+  "file_count": 90,
   "qualification_limits": [
     "Candidate checkpoint only; not a frozen release or publication receipt.",
     "Hashes identify file bytes at generation time; later edits make records stale.",
@@ -18,8 +18,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "line_count": 1318,
-      "sha256": "ce548f0339f99dac23f0dc979b5525aa13fee55e0f2cfa051ffa131c65ed0b03"
+      "line_count": 1323,
+      "sha256": "45142611399dd5557386e6a16d93bb93f499e319ab64f045eaa3abeb994acdc8"
     },
     {
       "path": "PHILOSOPHY.md",
@@ -28,8 +28,8 @@
     },
     {
       "path": "README.md",
-      "line_count": 212,
-      "sha256": "c7c2d29a523cd104b7bde8da977f766f6fd007598fca17ba46f3827d08deafe5"
+      "line_count": 219,
+      "sha256": "9bf038f5e1ba340c3af3e407e599cb25c8731390ba238028d1fb43f0c303086f"
     },
     {
       "path": "SUPPORT.md",
@@ -88,13 +88,13 @@
     },
     {
       "path": "docs/QUICKSTART.md",
-      "line_count": 652,
-      "sha256": "d809ac2910d783e53af90ff5441f56b617181038e28cda1da228aaa481887165"
+      "line_count": 656,
+      "sha256": "0bac749627948c3939099f5492fb04e3d1189059d48645055a6fb0a4c6ac62ad"
     },
     {
       "path": "docs/README.md",
-      "line_count": 97,
-      "sha256": "c45670235f755eae2759a983d7c89fd77b48750f5abd4170ad65a5d44d648341"
+      "line_count": 101,
+      "sha256": "0431c960428086b47a9414bffaeea922c79042333e9218571579fffc7524c30b"
     },
     {
       "path": "docs/RELEASE_TRUST.md",
@@ -108,8 +108,8 @@
     },
     {
       "path": "docs/USER_GUIDE.md",
-      "line_count": 1122,
-      "sha256": "f991ef50e11a0f2ffd594750ec5b5b240ba5f176f76ffa324df9a7a046d7f6aa"
+      "line_count": 1131,
+      "sha256": "9ec300cc0234b042c9b539a0e7c33065291f0c892466e672d024b5aced5aa6d3"
     },
     {
       "path": "docs/VISUALIZATION_GUIDE.md",
@@ -150,6 +150,11 @@
       "path": "docs/architecture/README.md",
       "line_count": 162,
       "sha256": "04710d245a2b5d7eda9943979ce4d1f58cbc5abd29f2d5ac40319c3462a10ada"
+    },
+    {
+      "path": "docs/brand/README.md",
+      "line_count": 14,
+      "sha256": "a41a9a69fb8203c0f63184dc89e59e11450ed0ebc69d1691a80a8775091a84ff"
     },
     {
       "path": "docs/development/DECISIONS.md",
@@ -193,8 +198,8 @@
     },
     {
       "path": "docs/marketing/README.md",
-      "line_count": 35,
-      "sha256": "51522a1bb06eeb8b8b442ae8bed081457142f95806186300eb584e6ebfd220d8"
+      "line_count": 39,
+      "sha256": "05100c962ad86b22fb3aa2c0c000cef085e421db563e56ad637fe44f57329143"
     },
     {
       "path": "docs/marketing/SIGNAL.md",
@@ -220,6 +225,31 @@
       "path": "docs/media/pivotglass-guided-demo-transcript.md",
       "line_count": 74,
       "sha256": "8c918765927809873f947d58b90bed8dc30689dda17409d46276bbad09da3392"
+    },
+    {
+      "path": "docs/media/series-v0.9.9/README.md",
+      "line_count": 42,
+      "sha256": "181fb4680a9f55fa16a27f004a28d027484aca19fa0d3fc5943e66d13f39e2bb"
+    },
+    {
+      "path": "docs/media/series-v0.9.9/pivotglass-analyst-v0.9.9-transcript.md",
+      "line_count": 31,
+      "sha256": "cb3b01c1e225a19086650c248b9ab102875ddd76512c48afb321c90299b8dd29"
+    },
+    {
+      "path": "docs/media/series-v0.9.9/pivotglass-overview-v0.9.9-transcript.md",
+      "line_count": 27,
+      "sha256": "bb4c592254bd6f370ead268970b2dcda09e66be6166733560b47e27525c83abd"
+    },
+    {
+      "path": "docs/media/series-v0.9.9/pivotglass-pivot-v0.9.9-transcript.md",
+      "line_count": 27,
+      "sha256": "bab4d48cb78878f951183fc1d54b57421864ff33889dd56f2f391eff6dd95809"
+    },
+    {
+      "path": "docs/media/series-v0.9.9/pivotglass-visualization-v0.9.9-transcript.md",
+      "line_count": 31,
+      "sha256": "03fb56f9864fb449f21e3d1e34100d21473d9b931fffc49aa2e595354bedd64c"
     },
     {
       "path": "docs/operations/IMPLEMENTATION.md",
@@ -403,8 +433,8 @@
     },
     {
       "path": "docs/releases/v0.9.9/COMPLETION_MATRIX.md",
-      "line_count": 66,
-      "sha256": "153c758e5f6944a933947aef98c0aa9ccc7a2570e69fd8de26750f009e248f60"
+      "line_count": 70,
+      "sha256": "6bc4bf45204d1bc7402abd1efab13e8005bb879015e602ae25144ebf6689fab1"
     },
     {
       "path": "docs/releases/v0.9.9/EXPERT_EDITORIAL_REVIEW.md",
@@ -418,8 +448,8 @@
     },
     {
       "path": "docs/releases/v0.9.9/QA.md",
-      "line_count": 125,
-      "sha256": "179d7a3a2dad2696b2a4ba0816a8f56632366dc38bb398e735ea506dd827c043"
+      "line_count": 163,
+      "sha256": "0555f8ab155c0fe64944605b3d8119a62b76b5a0cca5b4af2d2ee407467d0481"
     },
     {
       "path": "docs/reviews/V0.6_ARCADE_SYNTHETIC_PLAYTEST.md",

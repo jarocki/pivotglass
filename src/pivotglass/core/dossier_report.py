@@ -22,7 +22,9 @@ Public API:
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
@@ -416,11 +418,27 @@ def _render_scientific_analysis_section(analysis: dict[str, list[dict]]) -> str:
 
     lines.extend(["", "### Structured Analytic Technique Runs", ""])
     if method_runs:
-        lines.extend(
-            f"- **{str(row['technique']).replace('_', ' ').title()} v{row['technique_version']}** "
-            f"— {row['status']}; analyst disposition: {row['analyst_disposition']}"
-            for row in method_runs
+        lines.append(
+            "Recorded method work is authored analysis, not observed evidence or automatic approval."
         )
+        for row in method_runs:
+            lines.append(
+                f"- **{str(row['technique']).replace('_', ' ').title()} v{row['technique_version']}** "
+                f"— {row['status']}; analyst disposition: {row['analyst_disposition']}"
+            )
+            for label, field in (
+                ("Recorded inputs", "input_blob"),
+                ("Recorded outputs", "output_blob"),
+            ):
+                payload = json.dumps(
+                    row.get(field) or {}, ensure_ascii=False, indent=2, sort_keys=True
+                )
+                # A recorded string may itself contain Markdown fences. Keep
+                # every authored byte inside an inert, correctly closed block.
+                fence = "`" * max(
+                    3, 1 + max((len(run) for run in re.findall(r"`+", payload)), default=0)
+                )
+                lines.extend(["", f"**{label}:**", "", f"{fence}json", payload, fence, ""])
     else:
         lines.append("_No Structured Analytic Technique runs recorded._")
 

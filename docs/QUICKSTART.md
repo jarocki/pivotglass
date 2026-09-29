@@ -17,6 +17,10 @@ and **Quiet workspace**. Dimming is optional and off by default. Help also has
 direct routes to create a report or choose an export format. These presentation
 choices do not change your evidence or suppress error alerts.
 
+## Four ways through the looking glass
+
+Start with the [flashy Overview](media/series-v0.9.9/pivotglass-overview-v0.9.9.mp4), then choose the [Analyst Walkthrough](media/series-v0.9.9/pivotglass-analyst-v0.9.9.mp4), [PIVOT Glass](media/series-v0.9.9/pivotglass-pivot-v0.9.9.mp4), or [Visualization and Reporting](media/series-v0.9.9/pivotglass-visualization-v0.9.9.mp4). Each has real Descript narration, original generative music, captions and a transcript in the [series guide](media/series-v0.9.9/README.md).
+
 ## Watch with captions
 
 [Watch the current narrated tour](media/pivotglass-guided-demo-v0.9.9.mp4),
@@ -33,7 +37,7 @@ only the public media folder on loopback:
 uv run python -m http.server 8877 --bind 127.0.0.1 --directory docs/media
 ```
 
-Open `http://127.0.0.1:8877/pivotglass-guided-demo-v0.9.9.html`. Use the player's
+Open `http://127.0.0.1:8877/series-v0.9.9/index.html` for the four new films, or `http://127.0.0.1:8877/pivotglass-guided-demo-v0.9.9.html` for the earlier edit. Use the player's
 caption control to change caption display, or use the adjacent transcript.
 The basic Python server supports sequential playback; reliable chapter seeking
 requires a server with HTTP byte-range support. For offline seeking, open the

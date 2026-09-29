@@ -17,6 +17,10 @@ The tour uses edited actual UI captures from a synthetic workspace. The guide
 below gives the reproducible actions, checkpoints, correction paths, and handoff
 work beyond what a short tour can demonstrate.
 
+## Four ways through the looking glass
+
+Start with the [flashy Overview](media/series-v0.9.9/pivotglass-overview-v0.9.9.mp4), then choose the [Analyst Walkthrough](media/series-v0.9.9/pivotglass-analyst-v0.9.9.mp4), [PIVOT Glass](media/series-v0.9.9/pivotglass-pivot-v0.9.9.mp4), or [Visualization and Reporting](media/series-v0.9.9/pivotglass-visualization-v0.9.9.mp4). Each has real Descript narration, original generative music, captions and a transcript in the [series guide](media/series-v0.9.9/README.md).
+
 ## How to use this guide
 
 An investigation starts with a decision someone needs to make. Indicators
@@ -643,6 +647,11 @@ report dialog provides **SAVE MARKDOWN** to download the exact generated text
 as a `.md` file, alongside **PRINT / SAVE PDF** through the browser. The
 Markdown download keeps headings, tables, provenance references, and limitations
 editable for a reviewed handoff; it is not a complete workspace backup.
+
+Structured technique runs retain their recorded inputs and outputs in the report,
+alongside the actual analyst disposition. A completed run may still be pending
+review. These are authored analytical records; field completeness does not
+establish correctness, observed evidence, or attribution.
 
 JSON and CSV support inspection and downstream analysis. STIX supports
 structured exchange. GEXF supports graph tools such as Gephi. Exports can

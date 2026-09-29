@@ -1,0 +1,126 @@
+{
+  "id": "visualization",
+  "title": "Visualize, Challenge, Report",
+  "version": "0.9.9",
+  "status": "review_candidate",
+  "synthetic": true,
+  "network_enrichment": false,
+  "duration": 109.93333333333332,
+  "voice": {
+    "provider": "Descript",
+    "name": "Jesse",
+    "tempo_multiplier": 1.2,
+    "emotion_control": "not exposed by stock-voice synthesis"
+  },
+  "music": {
+    "engine": "pivotglass.core.music",
+    "theme": "default",
+    "speech_ducking": true
+  },
+  "method": "Edited actual UI captures and branded title art; narration generated in Descript. Original procedural score shaped to scene progression and ducked beneath speech.",
+  "chapters": [
+    {
+      "chapter": "Choose the question",
+      "captures": [
+        "../../brand/pivotglass-looking-glass-v1.png",
+        "source/view-constellation.png"
+      ],
+      "narration": "The best visualization starts with an analyst question. Pivotglass offers twelve evidence views, each with a stated scope, a reason for the chart, and exact data. Let us look at the same synthetic case through several lenses.",
+      "capture_offsets": [
+        4.0
+      ],
+      "start": 0.0,
+      "duration": 12.133333333333335
+    },
+    {
+      "chapter": "Structure and history",
+      "captures": [
+        "source/view-relationships.png",
+        "source/view-history-full.png",
+        "source/view-degree.png"
+      ],
+      "narration": "Relationship graphs expose typed connections. Provenance history preserves admissions and analyst grouping. Connection counts identify dense neighborhoods for inspection. Graph position and node degree do not establish maliciousness or common control.",
+      "capture_offsets": [
+        2.4399999999999995,
+        6.4399999999999995
+      ],
+      "start": 12.133333333333335,
+      "duration": 13.866666666666665
+    },
+    {
+      "chapter": "Coverage and activity",
+      "captures": [
+        "source/view-types.png",
+        "source/view-completeness.png",
+        "source/view-constellation.png",
+        "source/view-activity.png",
+        "source/view-enrichment.png",
+        "source/view-similarity.png"
+      ],
+      "narration": "Stored-type charts summarize the inventory. Dossier completeness and the constellation expose gaps. Activity views separate investigation records from enrichment task state. Coverage similarity compares evidence profiles, not actor identity. Empty or unavailable dimensions remain visible instead of being guessed.",
+      "capture_offsets": [
+        2.8000000000000007,
+        3.8000000000000007,
+        7.800000000000001,
+        10.8,
+        11.8
+      ],
+      "start": 26.0,
+      "duration": 18.0
+    },
+    {
+      "chapter": "ACH compares alternatives",
+      "captures": [
+        "source/view-ach.png",
+        "source/ach-exact.png"
+      ],
+      "narration": "The competing-hypotheses matrix projects explicit support and contradiction links. Here, the same connected cluster supports both explanations. That overlap is the interesting part: it does not discriminate. Unassessed cells have no recorded stance. Open exact data to inspect rationales and mixed evidence.",
+      "capture_offsets": [
+        17.200000000000003
+      ],
+      "start": 44.0,
+      "duration": 17.799999999999997
+    },
+    {
+      "chapter": "SAT leaves a reviewable result",
+      "captures": [
+        "source/sat-run.png",
+        "source/report-sat.png"
+      ],
+      "narration": "A structured technique run records the method, selected inputs, findings, limitations, and disposition. In this demonstration, a key assumptions check challenges the leap from shared infrastructure to common control. Its result is an authored review and a collection need, not automatic attribution.",
+      "capture_offsets": [
+        13.840000000000003
+      ],
+      "start": 61.8,
+      "duration": 16.46666666666667
+    },
+    {
+      "chapter": "Hierarchy and assessment",
+      "captures": [
+        "source/view-hierarchy.png",
+        "source/view-likelihood.png"
+      ],
+      "narration": "The hierarchy organizes questions and analytical records under the investigation. Likelihood ranges and confidence history keep probability separate from the basis for belief. Membership in a tree is organizational; it is not a support link.",
+      "capture_offsets": [
+        5.079999999999998
+      ],
+      "start": 78.26666666666667,
+      "duration": 13.200000000000003
+    },
+    {
+      "chapter": "Report and export",
+      "captures": [
+        "../demo-v0.9.9-source/16-report-current-normal.png",
+        "source/report-sat.png",
+        "../../brand/pivotglass-looking-glass-v1.png"
+      ],
+      "narration": "Bring it together in the deterministic report: questions, hypotheses, evidence links, technique results, contradictions, and next steps. Save editable Markdown or print to PDF. Export exact chart data when a reviewer needs the underlying rows. Use the visualization to discover a question, and the report to make the reasoning reviewable.",
+      "capture_offsets": [
+        5.239999999999995,
+        17.239999999999995
+      ],
+      "start": 91.46666666666667,
+      "duration": 18.466666666666654
+    }
+  ]
+}

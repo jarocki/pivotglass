@@ -1,0 +1,119 @@
+{
+  "id": "overview",
+  "title": "Through the Digital Looking Glass",
+  "version": "0.9.9",
+  "status": "review_candidate",
+  "synthetic": true,
+  "network_enrichment": false,
+  "duration": 76.61538461538461,
+  "voice": {
+    "provider": "Descript",
+    "name": "Jesse",
+    "tempo_multiplier": 1.3,
+    "emotion_control": "not exposed by stock-voice synthesis"
+  },
+  "music": {
+    "engine": "pivotglass.core.music",
+    "theme": "neuromancer",
+    "speech_ducking": true
+  },
+  "method": "Edited actual UI captures and branded title art; narration generated in Descript. Original procedural score shaped to scene progression and ducked beneath speech.",
+  "chapters": [
+    {
+      "chapter": "An invitation",
+      "captures": [
+        "../../brand/pivotglass-looking-glass-v1.png",
+        "../demo-v0.9.9-source/01-cockpit.png"
+      ],
+      "narration": "What if an indicator could open a whole new perspective? Step through the digital looking glass. Meet Pivotglass: a workspace for asking better questions, following evidence, and seeing an investigation take shape.",
+      "capture_offsets": [
+        6.0
+      ],
+      "start": 0.0,
+      "duration": 10.584615384615384
+    },
+    {
+      "chapter": "Find your way",
+      "captures": [
+        "../demo-v0.9.9-source/02-coach.png",
+        "../demo-v0.9.9-source/12-intake.png",
+        "../demo-v0.9.9-source/13-library.png",
+        "../demo-v0.9.9-source/08-indicator.png"
+      ],
+      "narration": "Start with a question, an indicator, or a report. Guided coaching helps new analysts get moving. Preview local documents, choose what to admit, and open complete source details. Every step gives you something you can inspect.",
+      "capture_offsets": [
+        2.24,
+        6.24,
+        9.24
+      ],
+      "start": 10.584615384615384,
+      "duration": 11.815384615384614
+    },
+    {
+      "chapter": "See the connections",
+      "captures": [
+        "source/view-relationships.png",
+        "source/view-history-full.png",
+        "source/view-constellation.png"
+      ],
+      "narration": "Then change your perspective. Follow typed relationships. Reconstruct provenance and analyst groups. Scan the constellation for uneven coverage. A crowded case becomes a set of questions you can actually work.",
+      "capture_offsets": [
+        3.879999999999999,
+        6.879999999999999
+      ],
+      "start": 22.4,
+      "duration": 10.707692307692305
+    },
+    {
+      "chapter": "Twelve ways to look",
+      "captures": [
+        "source/view-types.png",
+        "source/view-completeness.png",
+        "source/view-activity.png",
+        "source/view-enrichment.png",
+        "source/view-degree.png",
+        "source/view-similarity.png"
+      ],
+      "narration": "Twelve evidence views reveal different sides of the same workspace: stored types, Dossier completeness, investigation and enrichment activity, connection counts, and coverage similarity. The view explains its question and exposes its exact data.",
+      "capture_offsets": [
+        4.960000000000001,
+        6.960000000000001,
+        7.960000000000001,
+        8.96,
+        10.96
+      ],
+      "start": 33.107692307692304,
+      "duration": 12.553846153846159
+    },
+    {
+      "chapter": "Challenge and communicate",
+      "captures": [
+        "source/view-ach.png",
+        "source/view-hierarchy.png",
+        "source/view-likelihood.png",
+        "../demo-v0.9.9-source/16-report-current-normal.png"
+      ],
+      "narration": "Compare competing hypotheses. Explore the investigation hierarchy. Keep likelihood separate from confidence. Structured techniques make assumptions, contradictions, and next collection needs visible. Then turn the work into a reviewable report, saved as Markdown or printed to PDF.",
+      "capture_offsets": [
+        2.6400000000000006,
+        4.640000000000001,
+        13.64
+      ],
+      "start": 45.66153846153846,
+      "duration": 15.138461538461542
+    },
+    {
+      "chapter": "Make it yours",
+      "captures": [
+        "../demo-v0.9.9-source/19-theme-named.png",
+        "../../brand/pivotglass-looking-glass-v1.png"
+      ],
+      "narration": "Choose your atmosphere, including original generative music. Begin locally with the synthetic quickstart, then enable services deliberately. Download Pivotglass from github dot com slash jarocki slash pivotglass. Follow a connection. Ask a sharper question. Discover what the evidence can show.",
+      "capture_offsets": [
+        9.959999999999994
+      ],
+      "start": 60.800000000000004,
+      "duration": 15.815384615384609
+    }
+  ]
+}

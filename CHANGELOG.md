@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation and enablement
 
+- Added four faster Descript-narrated films: Overview, Analyst Walkthrough, PIVOT Glass, and Visualization/Reporting. Actual captures, aligned captions, transcripts and original procedural music are preserved with edit/score manifests.
+- Added original Digital Looking Glass wordmark and transparent portal emblem.
+- Reports now retain structured technique inputs and outputs, safely fenced as JSON, while preserving pending analyst disposition and distinguishing authored analysis from evidence.
+
+
 - Completed the documentation and demonstration work left open at the v0.9.8
   publication checkpoint. Rewrote the product landing story and documentation
   routes, made the first investigation offline before provider configuration,

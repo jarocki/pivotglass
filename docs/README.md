@@ -5,6 +5,10 @@ release notes. These guides describe the v0.9.9 source tree. Published release
 status comes from [GitHub Releases](https://github.com/jarocki/pivotglass/releases);
 a version string or development plan is not publication evidence.
 
+## Four ways through the looking glass
+
+Start with the [flashy Overview](media/series-v0.9.9/pivotglass-overview-v0.9.9.mp4), then choose the [Analyst Walkthrough](media/series-v0.9.9/pivotglass-analyst-v0.9.9.mp4), [PIVOT Glass](media/series-v0.9.9/pivotglass-pivot-v0.9.9.mp4), or [Visualization and Reporting](media/series-v0.9.9/pivotglass-visualization-v0.9.9.mp4). Each has real Descript narration, original generative music, captions and a transcript in the [series guide](media/series-v0.9.9/README.md).
+
 ## Choose a path
 
 | Your role or task | Reading path | Outcome to check |

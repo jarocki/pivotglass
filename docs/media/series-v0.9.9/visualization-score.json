@@ -1,0 +1,5307 @@
+{
+  "theme": "default",
+  "duration": 109.93333333333332,
+  "cue_starts": [
+    0.0,
+    12.133333333333335,
+    26.0,
+    44.0,
+    61.8,
+    78.26666666666667,
+    91.46666666666667
+  ],
+  "events": [
+    {
+      "start": 0.0,
+      "duration": 8.977777777777778,
+      "frequency": 55.0,
+      "amplitude": 0.036480000000000005,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 0.0,
+      "duration": 8.622222222222222,
+      "frequency": 138.59131548843604,
+      "amplitude": 0.010640000000000002,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 0.0,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.04426240000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 0.5555555555555556,
+      "duration": 0.41111111111111115,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.03952,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 1.3888888888888888,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.03952,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 2.2222222222222223,
+      "duration": 0.20555555555555557,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.03952,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 2.7777777777777777,
+      "duration": 0.41111111111111115,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.03952,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 3.6111111111111107,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.04426240000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 4.444444444444444,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.03952,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 4.999999999999999,
+      "duration": 0.41111111111111115,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.03952,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 5.833333333333332,
+      "duration": 0.20555555555555557,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.03952,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 6.666666666666665,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.03952,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 7.2222222222222205,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.04426240000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 8.055555555555554,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.03952,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 0.0,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.036480000000000005,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 2.2222222222222223,
+      "duration": 0.3888888888888889,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.036480000000000005,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 4.444444444444445,
+      "duration": 0.3888888888888889,
+      "frequency": 82.4068892282175,
+      "amplitude": 0.036480000000000005,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 6.666666666666667,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.036480000000000005,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 0.0,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 0.5555555555555556,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 1.1111111111111112,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 1.6666666666666667,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 2.2222222222222223,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 2.7777777777777777,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 3.3333333333333335,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 3.8888888888888893,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 4.444444444444445,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 5.0,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 5.555555555555555,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 6.111111111111112,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 6.666666666666667,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 7.222222222222222,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 7.777777777777779,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 8.333333333333334,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.057760000000000006,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 0.2777777777777778,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 0.5555555555555556,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028880000000000003,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 0.8333333333333334,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 1.3888888888888888,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 1.6666666666666667,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028880000000000003,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 1.9444444444444446,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 2.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 2.7777777777777777,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028880000000000003,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 3.055555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 3.611111111111111,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 3.8888888888888893,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028880000000000003,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 4.166666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 4.722222222222222,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 5.0,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028880000000000003,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 5.277777777777778,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 5.833333333333334,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 6.111111111111112,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028880000000000003,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 6.388888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 6.944444444444445,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 7.222222222222222,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028880000000000003,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 7.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 8.055555555555555,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 8.333333333333334,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028880000000000003,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 8.61111111111111,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013680000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 8.88888888888889,
+      "duration": 8.977777777777778,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.04992,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 8.88888888888889,
+      "duration": 8.622222222222222,
+      "frequency": 184.9972113558172,
+      "amplitude": 0.014560000000000002,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 9.166666666666668,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.060569600000000015,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 9.722222222222225,
+      "duration": 0.41111111111111115,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.05408000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 10.555555555555559,
+      "duration": 0.20555555555555557,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.05408000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 11.388888888888893,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.05408000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 11.94444444444445,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.05408000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 12.777777777777784,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.060569600000000015,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 13.611111111111118,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.05408000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 14.166666666666675,
+      "duration": 0.41111111111111115,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.05408000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 15.000000000000009,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.05408000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 15.833333333333343,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.05408000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 16.3888888888889,
+      "duration": 0.41111111111111115,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.060569600000000015,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 17.222222222222236,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.05408000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 8.88888888888889,
+      "duration": 0.3888888888888889,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.04992,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 11.11111111111111,
+      "duration": 0.3888888888888889,
+      "frequency": 82.4068892282175,
+      "amplitude": 0.04992,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 13.333333333333332,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.04992,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 15.555555555555554,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.04992,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 8.88888888888889,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 9.444444444444445,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 10.0,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 10.555555555555555,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 11.11111111111111,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 11.666666666666668,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 12.222222222222223,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 12.777777777777779,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 13.333333333333334,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 13.88888888888889,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 14.444444444444445,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 15.0,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 15.555555555555557,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 16.11111111111111,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 16.666666666666668,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 17.22222222222222,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.07904,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 9.166666666666668,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 9.444444444444445,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03952,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 9.722222222222223,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 10.277777777777779,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 10.555555555555555,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03952,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 10.833333333333334,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 11.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 11.666666666666666,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03952,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 11.944444444444445,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 12.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 12.777777777777777,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03952,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 13.055555555555555,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 13.611111111111112,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 13.88888888888889,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03952,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 14.166666666666668,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 14.722222222222223,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 15.0,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03952,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 15.277777777777779,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 15.833333333333336,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 16.111111111111114,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03952,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 16.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 16.944444444444446,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 17.222222222222225,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03952,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 17.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01872,
+      "voice": "woodblock"
+    },
+    {
+      "start": 17.77777777777778,
+      "duration": 8.977777777777778,
+      "frequency": 82.4068892282175,
+      "amplitude": 0.061439999999999995,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 17.77777777777778,
+      "duration": 8.622222222222222,
+      "frequency": 195.99771799087463,
+      "amplitude": 0.017920000000000002,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 17.77777777777778,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.07454720000000002,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 18.055555555555557,
+      "duration": 0.16855555555555557,
+      "frequency": 391.99543598174927,
+      "amplitude": 0.036,
+      "voice": "answer"
+    },
+    {
+      "start": 18.333333333333336,
+      "duration": 0.41111111111111115,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.06656000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 18.611111111111114,
+      "duration": 0.33711111111111114,
+      "frequency": 293.6647679174076,
+      "amplitude": 0.036,
+      "voice": "answer"
+    },
+    {
+      "start": 19.16666666666667,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.06656000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 19.44444444444445,
+      "duration": 0.16855555555555557,
+      "frequency": 277.1826309768721,
+      "amplitude": 0.036,
+      "voice": "answer"
+    },
+    {
+      "start": 20.000000000000007,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.06656000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 20.277777777777786,
+      "duration": 0.16855555555555557,
+      "frequency": 369.9944227116344,
+      "amplitude": 0.036,
+      "voice": "answer"
+    },
+    {
+      "start": 20.555555555555564,
+      "duration": 0.41111111111111115,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.06656000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 20.833333333333343,
+      "duration": 0.33711111111111114,
+      "frequency": 329.6275569128699,
+      "amplitude": 0.036,
+      "voice": "answer"
+    },
+    {
+      "start": 21.3888888888889,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.07454720000000002,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 21.66666666666668,
+      "duration": 0.16855555555555557,
+      "frequency": 391.99543598174927,
+      "amplitude": 0.036,
+      "voice": "answer"
+    },
+    {
+      "start": 22.222222222222236,
+      "duration": 0.20555555555555557,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.06656000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 22.500000000000014,
+      "duration": 0.16855555555555557,
+      "frequency": 293.6647679174076,
+      "amplitude": 0.036,
+      "voice": "answer"
+    },
+    {
+      "start": 22.777777777777793,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.06656000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 23.05555555555557,
+      "duration": 0.33711111111111114,
+      "frequency": 277.1826309768721,
+      "amplitude": 0.036,
+      "voice": "answer"
+    },
+    {
+      "start": 23.61111111111113,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.06656000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 23.888888888888907,
+      "duration": 0.16855555555555557,
+      "frequency": 369.9944227116344,
+      "amplitude": 0.036,
+      "voice": "answer"
+    },
+    {
+      "start": 24.444444444444464,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.06656000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 24.722222222222243,
+      "duration": 0.16855555555555557,
+      "frequency": 329.6275569128699,
+      "amplitude": 0.036,
+      "voice": "answer"
+    },
+    {
+      "start": 25.00000000000002,
+      "duration": 0.41111111111111115,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.07454720000000002,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 25.2777777777778,
+      "duration": 0.33711111111111114,
+      "frequency": 391.99543598174927,
+      "amplitude": 0.036,
+      "voice": "answer"
+    },
+    {
+      "start": 25.833333333333357,
+      "duration": 0.20555555555555557,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.06656000000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 26.111111111111136,
+      "duration": 0.16855555555555557,
+      "frequency": 293.6647679174076,
+      "amplitude": 0.026099999999999998,
+      "voice": "answer"
+    },
+    {
+      "start": 17.77777777777778,
+      "duration": 0.3888888888888889,
+      "frequency": 82.4068892282175,
+      "amplitude": 0.061439999999999995,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 20.0,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.061439999999999995,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 22.22222222222222,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.061439999999999995,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 24.444444444444443,
+      "duration": 0.3888888888888889,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.061439999999999995,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 17.77777777777778,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.09728,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 18.333333333333336,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.09728,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 18.88888888888889,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.09728,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 19.444444444444446,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.09728,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 20.0,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.09728,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 20.555555555555557,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.09728,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 21.11111111111111,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.09728,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 21.666666666666668,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.09728,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 22.22222222222222,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.09728,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 22.77777777777778,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.09728,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 23.333333333333336,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.09728,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 23.88888888888889,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.09728,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 24.444444444444446,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.09728,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 25.0,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.09728,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 25.555555555555557,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.09728,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 26.111111111111114,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 18.055555555555557,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02304,
+      "voice": "woodblock"
+    },
+    {
+      "start": 18.333333333333336,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.04864,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 18.61111111111111,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02304,
+      "voice": "woodblock"
+    },
+    {
+      "start": 19.166666666666668,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02304,
+      "voice": "woodblock"
+    },
+    {
+      "start": 19.444444444444446,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.04864,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 19.72222222222222,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02304,
+      "voice": "woodblock"
+    },
+    {
+      "start": 20.27777777777778,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02304,
+      "voice": "woodblock"
+    },
+    {
+      "start": 20.555555555555557,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.04864,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 20.833333333333332,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02304,
+      "voice": "woodblock"
+    },
+    {
+      "start": 21.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02304,
+      "voice": "woodblock"
+    },
+    {
+      "start": 21.666666666666668,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.04864,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 21.944444444444443,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02304,
+      "voice": "woodblock"
+    },
+    {
+      "start": 22.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02304,
+      "voice": "woodblock"
+    },
+    {
+      "start": 22.77777777777778,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.04864,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 23.055555555555554,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02304,
+      "voice": "woodblock"
+    },
+    {
+      "start": 23.61111111111111,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02304,
+      "voice": "woodblock"
+    },
+    {
+      "start": 23.88888888888889,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.04864,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 24.166666666666664,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02304,
+      "voice": "woodblock"
+    },
+    {
+      "start": 24.722222222222225,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02304,
+      "voice": "woodblock"
+    },
+    {
+      "start": 25.000000000000004,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.04864,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 25.27777777777778,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02304,
+      "voice": "woodblock"
+    },
+    {
+      "start": 25.833333333333336,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02304,
+      "voice": "woodblock"
+    },
+    {
+      "start": 26.111111111111114,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.035264,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 26.388888888888893,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 26.666666666666668,
+      "duration": 8.977777777777778,
+      "frequency": 55.0,
+      "amplitude": 0.029231999999999994,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 26.666666666666668,
+      "duration": 8.622222222222222,
+      "frequency": 138.59131548843604,
+      "amplitude": 0.008526,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 26.666666666666668,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.035468160000000006,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 27.222222222222225,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 28.05555555555556,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 28.888888888888896,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.035468160000000006,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 29.444444444444454,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 30.27777777777779,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 31.111111111111125,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.035468160000000006,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 31.666666666666682,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 32.500000000000014,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 33.33333333333335,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.035468160000000006,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 33.88888888888891,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 34.72222222222224,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 26.666666666666668,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.029231999999999994,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 28.88888888888889,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.029231999999999994,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 31.11111111111111,
+      "duration": 0.3888888888888889,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.029231999999999994,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 33.333333333333336,
+      "duration": 0.3888888888888889,
+      "frequency": 82.4068892282175,
+      "amplitude": 0.029231999999999994,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 26.666666666666668,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 27.222222222222225,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 27.77777777777778,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 28.333333333333336,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 28.88888888888889,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 29.444444444444446,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 30.0,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 30.555555555555557,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 31.111111111111114,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 31.666666666666668,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 32.22222222222222,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 32.77777777777778,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 33.333333333333336,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 33.88888888888889,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 34.44444444444444,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 35.0,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 26.944444444444446,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 27.222222222222225,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 27.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 28.055555555555557,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 28.333333333333336,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 28.611111111111114,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 29.166666666666668,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 29.444444444444446,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 29.72222222222222,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 30.27777777777778,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 30.555555555555557,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 30.833333333333336,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 31.388888888888893,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 31.66666666666667,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 31.944444444444446,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 32.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 32.77777777777778,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 33.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 33.611111111111114,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 33.88888888888889,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 34.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 34.72222222222222,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 35.0,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 35.27777777777778,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 35.55555555555556,
+      "duration": 8.977777777777778,
+      "frequency": 55.0,
+      "amplitude": 0.026448,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 35.55555555555556,
+      "duration": 8.622222222222222,
+      "frequency": 138.59131548843604,
+      "amplitude": 0.007714,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 35.55555555555556,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.03209024,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 36.111111111111114,
+      "duration": 0.41111111111111115,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 36.94444444444444,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 37.77777777777778,
+      "duration": 0.20555555555555557,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 38.333333333333336,
+      "duration": 0.41111111111111115,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 39.16666666666667,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.03209024,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 40.0,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 40.55555555555556,
+      "duration": 0.41111111111111115,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 41.388888888888886,
+      "duration": 0.20555555555555557,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 42.22222222222222,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 42.77777777777778,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.03209024,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 43.611111111111114,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 35.55555555555556,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.026448,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 37.77777777777778,
+      "duration": 0.3888888888888889,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.026448,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 40.0,
+      "duration": 0.3888888888888889,
+      "frequency": 82.4068892282175,
+      "amplitude": 0.026448,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 42.22222222222222,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.026448,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 35.55555555555556,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 36.111111111111114,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 36.66666666666667,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 37.22222222222222,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 37.77777777777778,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 38.333333333333336,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 38.88888888888889,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 39.44444444444444,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 40.0,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 40.55555555555556,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 41.111111111111114,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 41.66666666666667,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 42.22222222222222,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 42.77777777777778,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 43.333333333333336,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 43.88888888888889,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 35.833333333333336,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 36.111111111111114,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.020938,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 36.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 36.94444444444444,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 37.22222222222222,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.020938,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 37.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 38.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 38.333333333333336,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.020938,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 38.611111111111114,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 39.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 39.44444444444444,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.020938,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 39.72222222222222,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 40.27777777777778,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 40.55555555555556,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.020938,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 40.833333333333336,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 41.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 41.66666666666667,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.020938,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 41.94444444444444,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 42.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 42.77777777777778,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.020938,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 43.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 43.611111111111114,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 43.88888888888889,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.020938,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 44.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 44.44444444444444,
+      "duration": 8.977777777777778,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.036191999999999995,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 44.44444444444444,
+      "duration": 8.622222222222222,
+      "frequency": 184.9972113558172,
+      "amplitude": 0.010556,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 44.72222222222223,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.04391296000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 45.277777777777786,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.039208,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 46.111111111111114,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.039208,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 46.94444444444445,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.039208,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 47.50000000000001,
+      "duration": 0.41111111111111115,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.039208,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 48.33333333333334,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.04391296000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 49.16666666666667,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.039208,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 49.72222222222223,
+      "duration": 0.41111111111111115,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.039208,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 50.555555555555564,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.039208,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 51.3888888888889,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.039208,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 51.94444444444446,
+      "duration": 0.41111111111111115,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.04391296000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 52.77777777777779,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.039208,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 44.44444444444444,
+      "duration": 0.3888888888888889,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.036191999999999995,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 46.66666666666667,
+      "duration": 0.3888888888888889,
+      "frequency": 82.4068892282175,
+      "amplitude": 0.036191999999999995,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 48.888888888888886,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.036191999999999995,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 51.111111111111114,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.036191999999999995,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 44.44444444444444,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 45.0,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 45.55555555555556,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 46.111111111111114,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 46.66666666666667,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 47.22222222222223,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 47.77777777777778,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 48.333333333333336,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 48.88888888888889,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 49.44444444444444,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 50.0,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 50.55555555555556,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 51.111111111111114,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 51.66666666666667,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 52.22222222222223,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 52.77777777777778,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.0372476,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 44.72222222222223,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 45.0,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028651999999999997,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 45.27777777777778,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 45.833333333333336,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 46.111111111111114,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028651999999999997,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 46.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 46.94444444444444,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 47.22222222222222,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028651999999999997,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 47.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 48.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 48.333333333333336,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028651999999999997,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 48.611111111111114,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 49.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 49.44444444444444,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028651999999999997,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 49.72222222222223,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 50.27777777777778,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 50.55555555555556,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028651999999999997,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 50.833333333333336,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 51.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 51.66666666666667,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028651999999999997,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 51.94444444444444,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 52.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 52.777777777777786,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.028651999999999997,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 53.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.013571999999999999,
+      "voice": "woodblock"
+    },
+    {
+      "start": 53.333333333333336,
+      "duration": 8.977777777777778,
+      "frequency": 82.4068892282175,
+      "amplitude": 0.04454399999999999,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 53.333333333333336,
+      "duration": 8.622222222222222,
+      "frequency": 195.99771799087463,
+      "amplitude": 0.012992000000000002,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 53.333333333333336,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.054046720000000006,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 53.611111111111114,
+      "duration": 0.16855555555555557,
+      "frequency": 369.9944227116344,
+      "amplitude": 0.026099999999999998,
+      "voice": "answer"
+    },
+    {
+      "start": 53.88888888888889,
+      "duration": 0.41111111111111115,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.048256,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 54.16666666666667,
+      "duration": 0.33711111111111114,
+      "frequency": 369.9944227116344,
+      "amplitude": 0.026099999999999998,
+      "voice": "answer"
+    },
+    {
+      "start": 54.72222222222223,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.048256,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 55.00000000000001,
+      "duration": 0.16855555555555557,
+      "frequency": 369.9944227116344,
+      "amplitude": 0.026099999999999998,
+      "voice": "answer"
+    },
+    {
+      "start": 55.555555555555564,
+      "duration": 0.20555555555555557,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.048256,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 55.83333333333334,
+      "duration": 0.16855555555555557,
+      "frequency": 293.6647679174076,
+      "amplitude": 0.026099999999999998,
+      "voice": "answer"
+    },
+    {
+      "start": 56.11111111111112,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.048256,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 56.3888888888889,
+      "duration": 0.33711111111111114,
+      "frequency": 277.1826309768721,
+      "amplitude": 0.026099999999999998,
+      "voice": "answer"
+    },
+    {
+      "start": 56.94444444444446,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.054046720000000006,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 57.222222222222236,
+      "duration": 0.16855555555555557,
+      "frequency": 369.9944227116344,
+      "amplitude": 0.026099999999999998,
+      "voice": "answer"
+    },
+    {
+      "start": 57.77777777777779,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.048256,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 58.05555555555557,
+      "duration": 0.16855555555555557,
+      "frequency": 369.9944227116344,
+      "amplitude": 0.026099999999999998,
+      "voice": "answer"
+    },
+    {
+      "start": 58.33333333333335,
+      "duration": 0.41111111111111115,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.048256,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 58.61111111111113,
+      "duration": 0.33711111111111114,
+      "frequency": 391.99543598174927,
+      "amplitude": 0.026099999999999998,
+      "voice": "answer"
+    },
+    {
+      "start": 59.166666666666686,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.048256,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 59.444444444444464,
+      "duration": 0.16855555555555557,
+      "frequency": 329.6275569128699,
+      "amplitude": 0.026099999999999998,
+      "voice": "answer"
+    },
+    {
+      "start": 60.00000000000002,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.048256,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 60.2777777777778,
+      "duration": 0.16855555555555557,
+      "frequency": 277.1826309768721,
+      "amplitude": 0.026099999999999998,
+      "voice": "answer"
+    },
+    {
+      "start": 60.55555555555558,
+      "duration": 0.41111111111111115,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.054046720000000006,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 60.83333333333336,
+      "duration": 0.33711111111111114,
+      "frequency": 369.9944227116344,
+      "amplitude": 0.026099999999999998,
+      "voice": "answer"
+    },
+    {
+      "start": 61.388888888888914,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.048256,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 61.66666666666669,
+      "duration": 0.16855555555555557,
+      "frequency": 329.6275569128699,
+      "amplitude": 0.026099999999999998,
+      "voice": "answer"
+    },
+    {
+      "start": 53.333333333333336,
+      "duration": 0.3888888888888889,
+      "frequency": 82.4068892282175,
+      "amplitude": 0.04454399999999999,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 55.55555555555556,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.04454399999999999,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 57.77777777777778,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.04454399999999999,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 60.0,
+      "duration": 0.3888888888888889,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.04454399999999999,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 53.333333333333336,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 53.88888888888889,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 54.44444444444444,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 55.0,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 55.55555555555556,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 56.111111111111114,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 56.66666666666667,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 57.22222222222223,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 57.77777777777778,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 58.333333333333336,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 58.88888888888889,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 59.44444444444444,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 60.0,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 60.55555555555556,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 61.111111111111114,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 61.66666666666667,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.0458432,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 53.611111111111114,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 53.88888888888889,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.035264,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 54.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 54.72222222222223,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 55.0,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.035264,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 55.27777777777778,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 55.833333333333336,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 56.111111111111114,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.035264,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 56.388888888888886,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 56.94444444444444,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 57.22222222222223,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.035264,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 57.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 58.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 58.333333333333336,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.035264,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 58.611111111111114,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 59.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 59.44444444444444,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.035264,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 59.72222222222222,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 60.277777777777786,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 60.55555555555556,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.035264,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 60.833333333333336,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 61.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 61.66666666666667,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.035264,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 61.94444444444445,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.016704,
+      "voice": "woodblock"
+    },
+    {
+      "start": 62.22222222222223,
+      "duration": 8.977777777777778,
+      "frequency": 55.0,
+      "amplitude": 0.029231999999999994,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 62.22222222222223,
+      "duration": 8.622222222222222,
+      "frequency": 138.59131548843604,
+      "amplitude": 0.008526,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 62.22222222222223,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.035468160000000006,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 62.777777777777786,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 63.611111111111114,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 64.44444444444446,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.035468160000000006,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 65.00000000000001,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 65.83333333333334,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 66.66666666666669,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.035468160000000006,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 67.22222222222224,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 68.05555555555557,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 68.88888888888891,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.035468160000000006,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 69.44444444444446,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 70.2777777777778,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.031668,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 62.22222222222223,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.029231999999999994,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 64.44444444444444,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.029231999999999994,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 66.66666666666667,
+      "duration": 0.3888888888888889,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.029231999999999994,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 68.88888888888889,
+      "duration": 0.3888888888888889,
+      "frequency": 82.4068892282175,
+      "amplitude": 0.029231999999999994,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 62.22222222222223,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 62.777777777777786,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 63.333333333333336,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 63.88888888888889,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 64.44444444444444,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 65.0,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 65.55555555555556,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 66.11111111111111,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 66.66666666666667,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 67.22222222222223,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 67.77777777777777,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 68.33333333333334,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 68.88888888888889,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 69.44444444444446,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 70.0,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 70.55555555555556,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0300846,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 62.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 62.777777777777786,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 63.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 63.611111111111114,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 63.88888888888889,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 64.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 64.72222222222223,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 65.0,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 65.27777777777777,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 65.83333333333334,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 66.11111111111111,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 66.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 66.94444444444446,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 67.22222222222223,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 67.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 68.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 68.33333333333334,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 68.61111111111111,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 69.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 69.44444444444446,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 69.72222222222223,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 70.27777777777777,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 70.55555555555556,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.023141999999999996,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 70.83333333333334,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.010962,
+      "voice": "woodblock"
+    },
+    {
+      "start": 71.11111111111111,
+      "duration": 8.977777777777778,
+      "frequency": 55.0,
+      "amplitude": 0.026448,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 71.11111111111111,
+      "duration": 8.622222222222222,
+      "frequency": 138.59131548843604,
+      "amplitude": 0.007714,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 71.11111111111111,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.03209024,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 71.66666666666667,
+      "duration": 0.41111111111111115,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 72.5,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 73.33333333333334,
+      "duration": 0.20555555555555557,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 73.88888888888889,
+      "duration": 0.41111111111111115,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 74.72222222222223,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.03209024,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 75.55555555555556,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 76.11111111111111,
+      "duration": 0.41111111111111115,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 76.94444444444444,
+      "duration": 0.20555555555555557,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 77.77777777777779,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.028651999999999997,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 78.33333333333333,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.049795200000000005,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 79.16666666666667,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.04446,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 71.11111111111111,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.026448,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 73.33333333333334,
+      "duration": 0.3888888888888889,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.026448,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 75.55555555555556,
+      "duration": 0.3888888888888889,
+      "frequency": 82.4068892282175,
+      "amplitude": 0.026448,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 77.77777777777779,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.026448,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 71.11111111111111,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 71.66666666666667,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 72.22222222222223,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 72.77777777777779,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 73.33333333333334,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 73.88888888888889,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 74.44444444444444,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 75.0,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 75.55555555555556,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 76.11111111111111,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 76.66666666666667,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 77.22222222222223,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 77.77777777777779,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0272194,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 78.33333333333334,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.06498,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 78.88888888888889,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.06498,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 79.44444444444444,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.06498,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 71.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 71.66666666666667,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.020938,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 71.94444444444444,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 72.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 72.77777777777779,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.020938,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 73.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 73.61111111111111,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 73.88888888888889,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.020938,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 74.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 74.72222222222223,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 75.0,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.020938,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 75.27777777777779,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 75.83333333333334,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 76.11111111111111,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.020938,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 76.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 76.94444444444444,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 77.22222222222223,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.020938,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 77.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 78.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009918,
+      "voice": "woodblock"
+    },
+    {
+      "start": 78.33333333333334,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03249,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 78.61111111111111,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.015390000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 79.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.015390000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 79.44444444444444,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03249,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 79.72222222222223,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.015390000000000001,
+      "voice": "woodblock"
+    },
+    {
+      "start": 80.0,
+      "duration": 8.977777777777778,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.05616,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 80.0,
+      "duration": 8.622222222222222,
+      "frequency": 184.9972113558172,
+      "amplitude": 0.016380000000000002,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 80.27777777777779,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.06814080000000002,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 80.83333333333334,
+      "duration": 0.41111111111111115,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.060840000000000005,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 81.66666666666667,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.060840000000000005,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 82.5,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.060840000000000005,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 83.05555555555557,
+      "duration": 0.41111111111111115,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.060840000000000005,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 83.8888888888889,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.06814080000000002,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 84.72222222222223,
+      "duration": 0.20555555555555557,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.060840000000000005,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 85.27777777777779,
+      "duration": 0.41111111111111115,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.060840000000000005,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 86.11111111111113,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.060840000000000005,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 86.94444444444446,
+      "duration": 0.20555555555555557,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.060840000000000005,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 87.50000000000001,
+      "duration": 0.41111111111111115,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.06814080000000002,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 88.33333333333334,
+      "duration": 0.20555555555555557,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.060840000000000005,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 80.0,
+      "duration": 0.3888888888888889,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.05616,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 82.22222222222223,
+      "duration": 0.3888888888888889,
+      "frequency": 82.4068892282175,
+      "amplitude": 0.05616,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 84.44444444444444,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.05616,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 86.66666666666667,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.05616,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 80.0,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 80.55555555555556,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 81.11111111111111,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 81.66666666666667,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 82.22222222222223,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 82.77777777777779,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 83.33333333333334,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 83.88888888888889,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 84.44444444444444,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 85.0,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 85.55555555555556,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 86.11111111111111,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 86.66666666666667,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 87.22222222222223,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 87.77777777777779,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 88.33333333333334,
+      "duration": 0.24,
+      "frequency": 36.70809598967594,
+      "amplitude": 0.08892,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 80.27777777777779,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 80.55555555555556,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.04446,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 80.83333333333334,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 81.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 81.66666666666667,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.04446,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 81.94444444444444,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 82.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 82.77777777777779,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.04446,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 83.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 83.61111111111111,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 83.88888888888889,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.04446,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 84.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 84.72222222222223,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 85.0,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.04446,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 85.27777777777779,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 85.83333333333334,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 86.11111111111111,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.04446,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 86.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 86.94444444444446,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 87.22222222222223,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.04446,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 87.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 88.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 88.33333333333334,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.04446,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 88.61111111111111,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.021060000000000002,
+      "voice": "woodblock"
+    },
+    {
+      "start": 88.88888888888889,
+      "duration": 8.977777777777778,
+      "frequency": 82.4068892282175,
+      "amplitude": 0.06912,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 88.88888888888889,
+      "duration": 8.622222222222222,
+      "frequency": 195.99771799087463,
+      "amplitude": 0.020160000000000004,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 88.88888888888889,
+      "duration": 0.20555555555555557,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.08386560000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 89.16666666666667,
+      "duration": 0.16855555555555557,
+      "frequency": 293.6647679174076,
+      "amplitude": 0.0405,
+      "voice": "answer"
+    },
+    {
+      "start": 89.44444444444446,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.07488000000000002,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 89.72222222222223,
+      "duration": 0.33711111111111114,
+      "frequency": 277.1826309768721,
+      "amplitude": 0.0405,
+      "voice": "answer"
+    },
+    {
+      "start": 90.27777777777779,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.07488000000000002,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 90.55555555555557,
+      "duration": 0.16855555555555557,
+      "frequency": 391.99543598174927,
+      "amplitude": 0.0405,
+      "voice": "answer"
+    },
+    {
+      "start": 91.11111111111111,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.07488000000000002,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 91.3888888888889,
+      "duration": 0.16855555555555557,
+      "frequency": 329.6275569128699,
+      "amplitude": 0.0405,
+      "voice": "answer"
+    },
+    {
+      "start": 91.66666666666669,
+      "duration": 0.41111111111111115,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.07488000000000002,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 91.94444444444446,
+      "duration": 0.33711111111111114,
+      "frequency": 391.99543598174927,
+      "amplitude": 0.0405,
+      "voice": "answer"
+    },
+    {
+      "start": 92.50000000000001,
+      "duration": 0.20555555555555557,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.08386560000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 92.7777777777778,
+      "duration": 0.16855555555555557,
+      "frequency": 293.6647679174076,
+      "amplitude": 0.0405,
+      "voice": "answer"
+    },
+    {
+      "start": 93.33333333333334,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.07488000000000002,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 93.61111111111113,
+      "duration": 0.16855555555555557,
+      "frequency": 277.1826309768721,
+      "amplitude": 0.0405,
+      "voice": "answer"
+    },
+    {
+      "start": 93.88888888888891,
+      "duration": 0.41111111111111115,
+      "frequency": 587.3295358348151,
+      "amplitude": 0.07488000000000002,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 94.16666666666669,
+      "duration": 0.33711111111111114,
+      "frequency": 369.9944227116344,
+      "amplitude": 0.0405,
+      "voice": "answer"
+    },
+    {
+      "start": 94.72222222222224,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.07488000000000002,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 95.00000000000003,
+      "duration": 0.16855555555555557,
+      "frequency": 329.6275569128699,
+      "amplitude": 0.0405,
+      "voice": "answer"
+    },
+    {
+      "start": 95.55555555555557,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.07488000000000002,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 95.83333333333336,
+      "duration": 0.16855555555555557,
+      "frequency": 391.99543598174927,
+      "amplitude": 0.0405,
+      "voice": "answer"
+    },
+    {
+      "start": 96.11111111111114,
+      "duration": 0.41111111111111115,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.08386560000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 96.38888888888891,
+      "duration": 0.33711111111111114,
+      "frequency": 293.6647679174076,
+      "amplitude": 0.0405,
+      "voice": "answer"
+    },
+    {
+      "start": 96.94444444444447,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.07488000000000002,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 97.22222222222226,
+      "duration": 0.16855555555555557,
+      "frequency": 277.1826309768721,
+      "amplitude": 0.0405,
+      "voice": "answer"
+    },
+    {
+      "start": 88.88888888888889,
+      "duration": 0.3888888888888889,
+      "frequency": 82.4068892282175,
+      "amplitude": 0.06912,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 91.11111111111111,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.06912,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 93.33333333333334,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.06912,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 95.55555555555556,
+      "duration": 0.3888888888888889,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.06912,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 88.88888888888889,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 89.44444444444446,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 90.0,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 90.55555555555556,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 91.11111111111111,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 91.66666666666667,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 92.22222222222223,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 92.77777777777779,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 93.33333333333334,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 93.88888888888889,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 94.44444444444446,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 95.0,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 95.55555555555556,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 96.11111111111111,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 96.66666666666667,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 97.22222222222223,
+      "duration": 0.24,
+      "frequency": 41.20344461410875,
+      "amplitude": 0.10944,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 89.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 89.44444444444446,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.05472,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 89.72222222222223,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 90.27777777777779,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 90.55555555555556,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.05472,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 90.83333333333334,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 91.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 91.66666666666667,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.05472,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 91.94444444444444,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 92.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 92.77777777777779,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.05472,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 93.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 93.61111111111111,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 93.88888888888889,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.05472,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 94.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 94.72222222222223,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 95.0,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.05472,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 95.27777777777777,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 95.83333333333334,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 96.11111111111111,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.05472,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 96.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 96.94444444444446,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 97.22222222222223,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.05472,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 97.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.02592,
+      "voice": "woodblock"
+    },
+    {
+      "start": 97.77777777777779,
+      "duration": 8.977777777777778,
+      "frequency": 55.0,
+      "amplitude": 0.04536,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 97.77777777777779,
+      "duration": 8.622222222222222,
+      "frequency": 138.59131548843604,
+      "amplitude": 0.013230000000000002,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 97.77777777777779,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.05503680000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 98.33333333333334,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.04914,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 99.16666666666667,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.04914,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 100.00000000000001,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.05503680000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 100.55555555555557,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.04914,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 101.3888888888889,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.04914,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 102.22222222222224,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.05503680000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 102.7777777777778,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.04914,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 103.61111111111113,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.04914,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 104.44444444444446,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.05503680000000001,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 105.00000000000003,
+      "duration": 0.41111111111111115,
+      "frequency": 440.0,
+      "amplitude": 0.04914,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 105.83333333333336,
+      "duration": 0.20555555555555557,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.04914,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 97.77777777777779,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.04536,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 100.0,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.04536,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 102.22222222222223,
+      "duration": 0.3888888888888889,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.04536,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 104.44444444444446,
+      "duration": 0.3888888888888889,
+      "frequency": 82.4068892282175,
+      "amplitude": 0.04536,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 97.77777777777779,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 98.33333333333334,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 98.88888888888889,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 99.44444444444446,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 100.0,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 100.55555555555556,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 101.11111111111111,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 101.66666666666667,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 102.22222222222223,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 102.77777777777779,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 103.33333333333334,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 103.88888888888889,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 104.44444444444446,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 105.0,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 105.55555555555556,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 106.11111111111111,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.07182,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 98.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 98.33333333333334,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03591,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 98.61111111111111,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 99.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 99.44444444444446,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03591,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 99.72222222222223,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 100.27777777777779,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 100.55555555555556,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03591,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 100.83333333333334,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 101.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 101.66666666666667,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03591,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 101.94444444444446,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 102.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 102.77777777777779,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03591,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 103.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 103.61111111111111,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 103.88888888888889,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03591,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 104.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 104.72222222222223,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 105.0,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03591,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 105.27777777777779,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 105.83333333333334,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 106.11111111111111,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.03591,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 106.38888888888889,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.01701,
+      "voice": "woodblock"
+    },
+    {
+      "start": 106.66666666666667,
+      "duration": 3.2666666666666515,
+      "frequency": 55.0,
+      "amplitude": 0.04104,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 106.66666666666667,
+      "duration": 3.2666666666666515,
+      "frequency": 138.59131548843604,
+      "amplitude": 0.011970000000000001,
+      "voice": "analog_strings"
+    },
+    {
+      "start": 106.66666666666667,
+      "duration": 0.20555555555555557,
+      "frequency": 440.0,
+      "amplitude": 0.049795200000000005,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 107.22222222222223,
+      "duration": 0.41111111111111115,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.04017866666666642,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 108.05555555555556,
+      "duration": 0.20555555555555557,
+      "frequency": 659.2551138257398,
+      "amplitude": 0.027828666666666488,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 108.8888888888889,
+      "duration": 0.20555555555555557,
+      "frequency": 493.8833012561241,
+      "amplitude": 0.015478666666666347,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 109.44444444444444,
+      "duration": 0.41111111111111115,
+      "frequency": 554.3652619537442,
+      "amplitude": 0.007245333333333202,
+      "voice": "glass_harp"
+    },
+    {
+      "start": 106.66666666666667,
+      "duration": 0.3888888888888889,
+      "frequency": 55.0,
+      "amplitude": 0.04104,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 108.8888888888889,
+      "duration": 0.3888888888888889,
+      "frequency": 73.41619197935188,
+      "amplitude": 0.014287999999999705,
+      "voice": "synth_bass"
+    },
+    {
+      "start": 106.66666666666667,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.06498,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 107.22222222222223,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0587226666666663,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 107.77777777777779,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.04668933333333294,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 108.33333333333334,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.03465599999999956,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 108.8888888888889,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.0226226666666662,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 109.44444444444444,
+      "duration": 0.24,
+      "frequency": 27.5,
+      "amplitude": 0.01058933333333314,
+      "voice": "electronic_kick"
+    },
+    {
+      "start": 106.94444444444444,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.015332999999999956,
+      "voice": "woodblock"
+    },
+    {
+      "start": 107.22222222222223,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.02936133333333315,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 107.5,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.012482999999999947,
+      "voice": "woodblock"
+    },
+    {
+      "start": 108.05555555555556,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.009632999999999938,
+      "voice": "woodblock"
+    },
+    {
+      "start": 108.33333333333334,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.01732799999999978,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 108.61111111111111,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.006782999999999931,
+      "voice": "woodblock"
+    },
+    {
+      "start": 109.16666666666667,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.003932999999999922,
+      "voice": "woodblock"
+    },
+    {
+      "start": 109.44444444444444,
+      "duration": 0.12222222222222223,
+      "frequency": 180.0,
+      "amplitude": 0.00529466666666657,
+      "voice": "gated_snare"
+    },
+    {
+      "start": 109.72222222222223,
+      "duration": 0.044444444444444446,
+      "frequency": 700.0,
+      "amplitude": 0.0010829999999999143,
+      "voice": "woodblock"
+    }
+  ]
+}

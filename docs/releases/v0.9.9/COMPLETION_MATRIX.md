@@ -64,3 +64,7 @@ The final correctness, resilience, efficiency, security, and usability review is
 still future work. Its evidence and unresolved findings must be presented for
 owner approval. This candidate does not assign, approve, or publish v1.0.0.
 See the [roadmap](../../plans/V0.9.8_TO_1.0_ROADMAP.md#final-quality-pass--prerequisite-to-v100).
+
+## Four-film and looking-glass revision — 2026-09-29
+
+The [new series](../../media/series-v0.9.9/README.md) separates the invitation, detailed workflow, pivoting and visualization/reporting into four faster edits. Each uses Descript speech, actual synthetic-case UI captures, aligned captions and original generative music. The [brand candidates](../../brand/README.md) provide a Digital Looking Glass wordmark and portal emblem. The report now preserves method inputs and outputs with the real pending disposition. Owner review of the new pace, tone, mix and artwork remains open; this revision is not a public-release receipt.

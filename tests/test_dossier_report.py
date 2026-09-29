@@ -362,3 +362,31 @@ def test_report_empty_guidance_uses_real_operator_commands():
     assert "lifecycle section" in predictions
     assert "note <text>" in notes
     assert "create_dossier_" not in predictions + notes
+
+
+def test_report_preserves_sat_inputs_outputs_and_pending_disposition(wm):
+    from pivotglass.core.analytic_ledger import AnalyticLedger
+    from pivotglass.core.dossier_report import generate_dossier_report
+    from pivotglass.core.structured_analysis import StructuredAnalysisWorkbench, StructuredTechnique
+
+    question = AnalyticLedger(wm).create_question("Does shared infrastructure establish control?")
+    workbench = StructuredAnalysisWorkbench(wm)
+    run = workbench.start(
+        question,
+        StructuredTechnique.KEY_ASSUMPTIONS,
+        {"assumptions": ["Shared hosting implies control."]},
+    )
+    outputs = {
+        "challenged_assumptions": ["No exclusive control observed. ``` Close?"],
+        "implications": ["Collect independent tenancy evidence."],
+    }
+    workbench.complete(run, outputs)
+    before = workbench.list_runs()
+    report = generate_dossier_report(wm)
+    assert "Shared hosting implies control." in report
+    assert "No exclusive control observed. ``` Close?" in report
+    assert "Collect independent tenancy evidence." in report
+    assert "analyst disposition: pending" in report
+    assert "not observed evidence or automatic approval" in report
+    assert "````json" in report
+    assert workbench.list_runs() == before
