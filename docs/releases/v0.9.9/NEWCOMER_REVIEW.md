@@ -15,7 +15,8 @@ from current qualification, and inspected actual screenshots. Read the demo
 manifest, transcript, and captions and inspected its streams with `ffprobe`.
 The root release agent separately verified the initial player and captions.
 The owner then rejected the system voice; that audio was removed. The requested
-natural Descript voice and synchronized final export remain pending. The HTML
+natural Descript voice was subsequently generated and synchronized in the
+replacement candidate. See the root verification addendum below. The HTML
 player provides explicit accessible Play/Pause and chapter controls.
 
 ## Findings and concrete corrections
@@ -69,3 +70,9 @@ review remains separate and requires owner approval.
 - [Request completion matrix](COMPLETION_MATRIX.md)
 - [Current transcript](../../media/pivotglass-guided-demo-transcript-v0.9.9.md)
 - [Release trust](../../RELEASE_TRUST.md)
+
+## Replacement candidate — root verification addendum, 2026-09-29
+
+The root release agent inspected the replacement report, named Nightgrid, unknown-answer, and grouping-graph captures; they retain the controls and distinctions described by the narration. The actual HTML player rendered the report chapter and external captions below the interface, with Play/Pause and chapter seeking verified using HTTP byte-range support. The replacement has 17 speech-timed scenes over 300.16 seconds, with real Descript Jesse neural speech and all 648 spoken words retained in 68 caption cues. The complete decode and per-chapter audio checks passed.
+
+The follow-up newcomer review was stopped before it produced a separate completed receipt. This addendum records root checks, not a new reviewer endorsement or human listening approval. Owner listening review remains open.
