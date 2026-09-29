@@ -1134,3 +1134,6 @@ main>.guided-help-layer{position:fixed;z-index:19000;top:12px;left:12px;width:mi
 .question-coach button:disabled { opacity:.5; cursor:not-allowed; }
 .question-coach textarea { background:var(--control); border-color:var(--line); color:var(--ink); }
 .question-coach button:focus-visible,.question-coach textarea:focus-visible,.question-coach input:focus-visible,.novice-question-entry button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+
+.report-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+@media print{.command-result .report-actions{display:none}}

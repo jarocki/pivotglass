@@ -24,6 +24,7 @@ from pivotglass.core.analytic_ledger import (
     AssertionType,
     ConfidenceLevel,
     ContradictionStatus,
+    EvidenceStance,
     HypothesisStatus,
     InvestigationStatus,
     LifecycleItemStatus,
@@ -50,6 +51,8 @@ ANALYSIS_USAGE = (
     "relation-revise <assertion-id> <subject-ref> <predicate> <object-ref> | <annotation>|"
     "assumption <text>|"
     "hypothesis <question-id> <text>|"
+    "link <observation|assertion> <source-id> <assertion|hypothesis> <target-id> "
+    "<supports|contradicts> | <rationale>|"
     "prediction|signpost|collect|stop|limitation|gap <text>|"
     "requirement <text> | <factor-json>|prioritize <item-id> <0-100>|"
     "conclude <text>|status <framing|collecting|analyzing|concluded|suspended>|"
@@ -119,6 +122,34 @@ def execute_analysis_command(args: tuple[str, ...], workspace_manager: Any) -> d
         return {
             "title": "Investigation question created",
             "data": {"question_id": question_id},
+        }
+    if action == "link":
+        if len(args) < 8 or args[6] != "|":
+            raise ValueError(
+                "Usage: analysis link <observation|assertion> <source-id> "
+                "<assertion|hypothesis> <target-id> <supports|contradicts> | <rationale>"
+            )
+        stance = _enum_value(EvidenceStance, args[5], "evidence stance")
+        rationale = " ".join(args[7:]).strip()
+        link_id = ledger.link_evidence(
+            source_kind=args[1].casefold(),
+            source_id=args[2],
+            target_kind=args[3].casefold(),
+            target_id=args[4],
+            stance=stance,
+            rationale=rationale,
+        )
+        return {
+            "title": "Analyst evidence link recorded",
+            "data": {
+                "link_id": link_id,
+                "source_kind": args[1].casefold(),
+                "source_id": args[2],
+                "target_kind": args[3].casefold(),
+                "target_id": args[4],
+                "stance": stance.value,
+                "rationale": rationale,
+            },
         }
     if action == "assumption" and len(args) >= 2:
         assertion_id = ledger.create_assertion(

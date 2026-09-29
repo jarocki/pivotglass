@@ -142,3 +142,25 @@ uses only explicit evidence links; an empty cell means no recorded relationship,
 not neutral evidence. The exported workspace archive and generated Markdown
 report include the lifecycle, method runs, confidence basis, contradictions,
 limitations, and unresolved gaps.
+
+## Record evidence support and contradiction
+
+Use the browser command bar or terminal cyberdeck's shared `analysis` path:
+
+```text
+analysis link observation <observation-id> hypothesis <hypothesis-id> supports | Explain why this observation supports this explanation.
+analysis link assertion <assertion-id> hypothesis <hypothesis-id> contradicts | Explain the inconsistency and its time or scope boundary.
+```
+
+The syntax is `analysis link <observation|assertion> <source-id>
+<assertion|hypothesis> <target-id> <supports|contradicts> | <rationale>`.
+Use actual IDs from `analysis show` and the exact source record, rather than a
+normalized entity ID. The command validates source and target kinds, existing
+IDs, stance, and a nonempty rationale through the canonical ledger. It records
+an analyst assessment locally; it does not collect, accept a hypothesis, or
+make an assertion an observation. The classic `basic`/`repl` console does not
+currently dispatch this shared analytic command path.
+
+Open the competing-hypotheses view to inspect the resulting persisted stance.
+Empty cells remain unassessed. An ACH method-run JSON `matrix` is authored method
+output and does not itself create ledger links or populate that projection.

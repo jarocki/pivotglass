@@ -149,3 +149,14 @@ the named qualification version and host, not to every installation.
 The architecture supports defensible work; it cannot guarantee that a source
 is truthful, that alternative hypotheses are exhaustive, that a recorded
 technique was performed well, or that an accepted conclusion is correct.
+
+## Trace one current synthetic case through the authorities
+
+The [current visual walkthrough](../analysis/VISUALIZATIONS.md) shows a source
+admission group alongside stored entity relationships. Begin at the reviewed
+source occurrence and exact candidate span, follow the explicit admission
+receipt to the normalized entity, and inspect the edge truth class. Use
+`analysis link` to record support or contradiction for a hypothesis with a
+rationale. A source claim, group membership, graph position, or model explanation
+cannot skip that evidential reasoning step. The source, local workflow decision,
+and analyst assessment retain their separate authorities.

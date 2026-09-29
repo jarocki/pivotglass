@@ -124,6 +124,7 @@ def command_completions(
             "relation-revise ",
             "assumption ",
             "hypothesis ",
+            "link ",
             "prediction ",
             "signpost ",
             "collect ",

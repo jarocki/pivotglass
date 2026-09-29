@@ -62,7 +62,10 @@ graph layers
 In the browser, open Evidence relationships. Follow the file's
 `communicates-with` link to the domain, then the domain's `resolves-to` link to
 the address and `hosts` link to the URL. The [visual analysis guide](VISUALIZATIONS.md)
-shows the actual v0.9.8 synthetic graph screenshot and its reading limits.
+shows the actual v0.9.9 synthetic graph screenshot and its reading limits.
+That release capture extends the four-entity learning fixture with two explicitly
+admitted candidates and their analyst group; its seven displayed nodes do not
+change the original fixture counts in this exercise.
 
 Ask: “Which part of this supports common control?” The topology is consistent
 with that hypothesis, but shared infrastructure can produce the same shape.
@@ -89,6 +92,22 @@ A useful next step is information that could distinguish the hypotheses. More
 unrelated reputation hits may increase volume while leaving the control
 question unanswered. Ask whether the proposed source can establish who used
 the address during the relevant interval, and whether collection is authorized.
+
+### Practice recording a sourced assessment
+
+In the browser command bar or terminal cyberdeck, run `analysis show` and copy
+an actual source assertion ID and a hypothesis ID from the training case.
+Explain why the source is diagnostic or weakly diagnostic before recording a
+stance. For example, replace the placeholders and write your own rationale:
+
+```text
+analysis link assertion <cluster-assertion-id> hypothesis <shared-infrastructure-hypothesis-id> supports | The same stored topology can arise from shared hosting; tenancy remains unknown.
+```
+
+This is an explicit local assessment, not a new source observation or acceptance
+of the hypothesis. Open the competing-hypotheses matrix and inspect the recorded
+rationale. The fixture already contains links; adding another records another
+assessment rather than generating more independent evidence.
 
 ## 6. Practice a Key Assumptions Check
 

@@ -94,12 +94,14 @@ is an explicit command action.
 
 ## Migration and exchange
 
-Fresh workspaces use schema v11. Existing workspaces migrate forward with the
+Fresh workspaces use schema v12. Existing workspaces migrate forward with the
 same backup-first migration process used by v0.8. The framework table and the
 v0.9.2 document-receipt tables are additive and do not rewrite observations or
 analytic records. `framework list` exports a secret-free envelope with schema
 version `framework-mappings-1.0`.
 
-The remaining 0.9 work moves the governed graph toward Synapse persistence and
-publishes reviewed hunt projections to SCOT4 while continuing to use this
-mapping authority. Neither backend may create framework truth independently.
+Optional Synapse and SCOT adapters continue to use this mapping authority.
+They remain preview integrations with their own approval and qualification
+gates; no version advance silently makes either service the production backend.
+The [current roadmap](plans/V0.9.8_TO_1.0_ROADMAP.md) controls future scope.
+Neither backend may create framework truth independently.

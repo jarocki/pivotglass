@@ -4,7 +4,7 @@ This matrix separates the supported local core from qualified previews and
 planned work. A dependency being installed does not make every capability it
 contains a supported Pivotglass path.
 
-| Surface | v0.9.8 status | Supported boundary |
+| Surface | Current capability status | Supported boundary |
 |---|---|---|
 | Python | Stable core | Python 3.12 or newer; tested release gates use the locked environment |
 | Browser cockpit | Stable local core | Static Next.js export served by Pivotglass on loopback by default |
@@ -23,7 +23,7 @@ contains a supported Pivotglass path.
 | Pivot trail | Qualified local core | Append-only workflow history and timeline; never presented as a threat relationship |
 | Model-assisted proposals | Internal authority | Span-grounded immutable records and human review exist; live browser/model workflow is deferred |
 | SCOT4 | Preview integration | Governed read/publication planning; stable status requires disposable live round-trip and recovery |
-| Vertex Synapse | Preview integration | Governed MCP/model/view planning; not the v1.0 primary graph backend yet |
+| Vertex Synapse | Preview integration | Governed MCP/model/view planning; no approved production primary-backend cutover |
 | go-roast / Nucleotide | Preview analysis | Bounded local adapters and proposals; no automatic control deployment or attribution |
 
 ## Capacity envelope
@@ -61,3 +61,11 @@ Preview means the truth and safety boundary is implemented and tested, but the
 end-to-end operational path is not yet stable. Deferred means the product does
 not claim the capability. A v1.0 feature may remain preview only when the UI,
 help, exports, and release notes all say so consistently.
+
+## Operational implementation
+
+The [implementation guide](operations/IMPLEMENTATION.md),
+[infrastructure requirements](operations/INFRASTRUCTURE.md), and
+[operations runbook](operations/OPERATIONS.md) apply these boundaries to
+installation, ownership, backup, recovery, updates, and safe automation.
+These guides do not qualify previously deferred product capabilities.

@@ -220,7 +220,7 @@ class TestBannerWordmarkLayout:
         """Default layout must contain figlet block-drawing characters (e.g. █ or ╗)."""
         monkeypatch.delenv("PIVOTGLASS_NO_BANNER", raising=False)
         monkeypatch.setattr("pivotglass.agent.banner.time.sleep", lambda _: None)
-        console, buf = _make_console(width=120)
+        console, buf = _make_console(width=180)
         render_boot_banner(console)
         output = buf.getvalue()
         # ansi_shadow font produces block-drawing chars like █ and box-drawing chars like ╗
@@ -232,7 +232,7 @@ class TestBannerWordmarkLayout:
         """Default layout must contain at least one reticle glyph (⊕, ╳, or ◎)."""
         monkeypatch.delenv("PIVOTGLASS_NO_BANNER", raising=False)
         monkeypatch.setattr("pivotglass.agent.banner.time.sleep", lambda _: None)
-        console, buf = _make_console(width=120)
+        console, buf = _make_console(width=180)
         render_boot_banner(console)
         output = buf.getvalue()
         assert any(glyph in output for glyph in ("⊕", "╳", "◎")), (
@@ -259,7 +259,7 @@ class TestBannerWordmarkLayout:
         """Default layout metadata strip must contain version string (v<digit> or v?.?.?)."""
         monkeypatch.delenv("PIVOTGLASS_NO_BANNER", raising=False)
         monkeypatch.setattr("pivotglass.agent.banner.time.sleep", lambda _: None)
-        console, buf = _make_console(width=120)
+        console, buf = _make_console(width=180)
         render_boot_banner(console)
         output = buf.getvalue()
         import re
@@ -291,7 +291,7 @@ class TestBannerWordmarkLayout:
         # Patch _get_ioc_count to simulate workspace failure
         monkeypatch.setattr(banner_module, "_get_ioc_count", lambda: "--")
 
-        console, buf = _make_console(width=120)
+        console, buf = _make_console(width=180)
         # Must not raise
         render_boot_banner(console)
         output = buf.getvalue()

@@ -28,6 +28,7 @@ from urllib.parse import parse_qs, urlparse
 from rich.console import Console
 from rich.text import Text
 
+from pivotglass import __version__
 from pivotglass.agent.battery_registry import dispatch_batteries
 from pivotglass.agent.configuration_advisor import ConfigurationAdvisor
 from pivotglass.agent.enrichment_briefings import BRIEFINGS
@@ -845,6 +846,10 @@ class WebCockpitService:
                 "purpose": "Propose a competing explanation without treating it as fact",
             },
             {
+                "command": "analysis link <observation|assertion> <source-id> <assertion|hypothesis> <target-id> <supports|contradicts> | <rationale>",
+                "purpose": "Record an analyst interpretation of how existing evidence supports or contradicts a claim; no collection or automatic acceptance",
+            },
+            {
                 "command": "analysis prediction <text>",
                 "purpose": "Record an observable prediction that could support or weaken the explanation",
             },
@@ -1231,6 +1236,8 @@ class WebCockpitService:
             return {
                 "kind": "text",
                 "title": "Dossier report",
+                "workspace": self.ctx.workspace_mgr.active,
+                "version": __version__,
                 "text": str(summary),
                 "printable": True,
             }

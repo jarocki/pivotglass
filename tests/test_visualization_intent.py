@@ -796,3 +796,11 @@ def test_explicit_promotion_groups_project_as_analyst_edges_only():
 
     historic = relationship_graph_intent("test", graph, {"analyst_groups": [events[0]], "pivot_trail": []})
     assert len(historic.data.edges) == 2
+
+    distribution = relationship_degree_distribution_intent("test", graph, {"pivot_trail": events})
+    assert distribution.source_scope.record_count == 2
+    assert distribution.data.rows == (
+        {"indicator": "one.test", "indicator_type": "domain-name", "connection_count": 1},
+        {"indicator": "two.test", "indicator_type": "domain-name", "connection_count": 1},
+    )
+    assert distribution.missing_data.omitted_count == 0

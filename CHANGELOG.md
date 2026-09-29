@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.9] - 2026-09-28
+
+### Documentation and enablement
+
+- Completed the documentation and demonstration work left open at the v0.9.8
+  publication checkpoint. Rewrote the product landing story and documentation
+  routes, made the first investigation offline before provider configuration,
+  and added executable scientific-method practice, experienced workflows,
+  correction/recovery, and a reviewable handoff checklist.
+- Replaced historical screenshots in current guides with actual v0.9.9
+  synthetic-case captures. Prepared a silent visual demo draft, narration script,
+  provisional captions, poster, and chapter manifest. The owner-requested natural
+  Descript voice and synchronized final export remain an acceptance gate.
+- Added implementation, infrastructure, operations and maintenance guides with
+  local deployment boundaries, stopped-copy backup and restore verification,
+  task ownership and cadence, deliberate collection, and automation limits.
+- Added audience-specific elevator pitches, product and website copy, and
+  LinkedIn, Mastodon, and Signal drafts. Repository copy does not publish posts
+  or change a website; external publication remains a separate owner action.
+- Reconciled the original v0.9.8 and v0.9.9 requests in a completion matrix,
+  separating delivered artifacts, current qualification, and public release
+  readback from the later owner-approved v1.0.0 assurance pass.
+
+### Added
+
+- Added **SAVE MARKDOWN** beside report **PRINT / SAVE PDF**, downloading the
+  exact generated report text with a safe workspace/version filename.
+- Exposed analyst evidence linking through the browser and full-screen terminal:
+  `analysis link` validates existing observation/assertion and target ledger
+  IDs, records a supports/contradicts stance with a required rationale, and
+  returns a receipt. Linking does not run collection, create observations,
+  accept a hypothesis, or change confidence.
+
+### Fixed
+
+- Render report file indicators as their preferred hashes or names instead of
+  internal object IDs, and replace internal-tool empty-state suggestions with
+  actual operator commands.
+- Handle promotion-group references in relationship-degree summaries without
+  indexing them as stored indicators, preventing a joint-admission graph from
+  failing during state refresh. Group markers are excluded from indicator
+  histogram rows; explicit membership edges count for their stored-entity endpoints.
+
 ## [0.9.8] - 2026-09-27
 
 - Patch locked Python and browser dependencies following advisory audits; repeat

@@ -12,7 +12,12 @@ without analyst review.
 
 ## Target architecture
 
-Synapse and SCOT4 have different long-term roles:
+The diagram and roles below are retained long-term design targets, not
+current deployment instructions. SQLite remains the local evidence authority.
+The [current roadmap](plans/V0.9.8_TO_1.0_ROADMAP.md) requires an explicit
+owner scope decision and live qualification before any primary-store cutover.
+
+Synapse and SCOT4 have different proposed long-term roles:
 
 - **Vertex Synapse becomes the primary graph database.** It persists normalized
   entities, provenance-bearing observations, typed relationships, time

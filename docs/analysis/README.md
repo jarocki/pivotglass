@@ -120,7 +120,14 @@ that bias has been eliminated. Pivotglass records seven versioned protocols.
 
 **Implemented:** required field presence, persisted run inputs and outputs,
 protocol version, author, completion state, and explicit human disposition.
-The visual ACH projection uses recorded evidence links.
+The visual ACH projection uses recorded evidence links. Create an explicit
+assessment with `analysis link` in the browser command bar or terminal cyberdeck,
+using a source observation/assertion ID, target assertion/hypothesis ID,
+`supports` or `contradicts`, and a rationale after `|`. See the
+[executable linking reference](../ANALYTIC_METHOD.md#record-evidence-support-and-contradiction).
+The classic basic/repl console does not dispatch this analytic path. A manually
+authored `matrix` inside a method-run JSON output records your method work;
+it does not automatically create ledger links or populate the visual projection.
 
 **Performed by the analyst:** source-quality evaluation, semantic adequacy of
 the submitted records, diagnostic weighting, alternative selection, sensitivity

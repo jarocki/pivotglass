@@ -1,0 +1,7 @@
+{
+  "classification": "SYNTHETIC TRAINING DATA",
+  "source": "Local demo report; not threat intelligence",
+  "reported_observation": "The synthetic endpoint contacted https://shared-relay.example/training/very-long-indicator-values-remain-visible/verify?case=offline-walkthrough-and-provenance-review during the observation interval.",
+  "alternative": "Shared hosting could explain the overlap. The report does not establish common control.",
+  "reported_domain": "shared-relay.example"
+}

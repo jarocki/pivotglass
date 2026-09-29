@@ -976,7 +976,7 @@ wheels = [
 
 [[package]]
 name = "pivotglass"
-version = "0.9.8"
+version = "0.9.9"
 source = { editable = "." }
 dependencies = [
     { name = "cmd2" },

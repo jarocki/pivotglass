@@ -1262,3 +1262,25 @@ def test_reviewed_coaching_question_uses_ledger_without_collection_and_guards_wo
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+def test_state_remains_available_after_joint_candidate_admission(tmp_path):
+    """An analyst group is a graph marker, never an IoC histogram row."""
+    service = _service(tmp_path)
+    encoded = base64.b64encode(b"Synthetic: 198.51.100.82 and selected.example.").decode()
+    preview = service.preview_document({"filename": "joint.txt", "content_base64": encoded})
+    candidates = preview["entity_extraction"]["candidates"]
+    admitted = service.ingest_document({
+        "filename": "joint.txt", "content_base64": encoded,
+        "expected_sha256": preview["content_sha256"],
+        "candidate_keys": [item["selection_key"] for item in candidates], "operator": "analyst",
+    })
+    assert admitted["candidate_admission"]["new_entity_count"] == 2
+    state = service.state()
+    assert len(state["visualizations"]) == 12
+    distribution = next(item for item in state["visualizations"]
+                        if item["intent_id"] == "relationship-degree-distribution")
+    assert distribution["source_scope"]["record_count"] == 2
+    assert {row["indicator"] for row in distribution["data"]["rows"]} == {"198.51.100.82", "selected.example"}
+    assert all(row["connection_count"] == 1 for row in distribution["data"]["rows"])
+    assert len(service.ctx.workspace_mgr.get_stix_objects()) == 2

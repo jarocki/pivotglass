@@ -153,3 +153,5 @@ dmypy.json
 
 # Separate nested project — never include its files in Pivotglass changes or commits.
 /career-narrative/
+
+# Public marketing and enablement materials live in docs/marketing/ and are tracked.

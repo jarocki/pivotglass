@@ -58,7 +58,9 @@ active workspace, so a rejected future schema does not strand the session.
 
 If integrity fails, stop Pivotglass and preserve the database and every backup.
 Do not experiment on the only copy and do not downgrade an upgraded database
-in place. Follow [workspace migration and recovery](WORKSPACE_MIGRATIONS.md).
+in place. Preserve sibling raw-document content as well as the database.
+Follow [workspace migration and recovery](WORKSPACE_MIGRATIONS.md) and the
+[full stopped-home restore procedure](operations/OPERATIONS.md#backup-and-restoration).
 
 ## Stale browser assets
 

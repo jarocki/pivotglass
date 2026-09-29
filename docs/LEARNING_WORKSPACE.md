@@ -122,7 +122,14 @@ For a non-destructive file-level recovery rehearsal, stop Pivotglass and copy
 the database fixture under an unused name:
 
 ```bash
-cp ~/.pivotglass/workspaces/first-case.db ~/.pivotglass/workspaces/first-case-recovered.db
+python - <<'PY'
+from pathlib import Path
+import shutil
+source = Path.home() / ".pivotglass/workspaces/first-case.db"
+destination = Path.home() / ".pivotglass/workspaces/first-case-recovered.db"
+with source.open("rb") as original, destination.open("xb") as recovered:
+    shutil.copyfileobj(original, recovered)
+PY
 ```
 
 Restart Pivotglass and enter:
@@ -133,7 +140,8 @@ workspace schema first-case-recovered
 analysis show
 ```
 
-The copied case should validate and contain the same analytic record. This
+The exclusive creation mode refuses an existing destination rather than
+overwriting a prior recovery case. The copied case should validate and contain the same analytic record. This
 rehearsal leaves the original untouched. It copies only the synthetic case database;
 it is not a complete recovery procedure for a document library or configuration. For schema-migration recovery, follow
 the [workspace migration and recovery guide](WORKSPACE_MIGRATIONS.md).

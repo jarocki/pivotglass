@@ -323,3 +323,42 @@ class TestExecuteGenerateDossierReport:
         result = _execute_generate_dossier_report(ctx)
         assert isinstance(result, str)
         assert len(result) > 0
+
+
+def test_file_ioc_table_displays_hash_or_filename_and_preserves_source():
+    from copy import deepcopy
+
+    from pivotglass.core.dossier_report import _render_ioc_table
+
+    objects = [
+        {"type": "file", "id": "file--internal-name-only", "name": "invoice-viewer.bin"},
+        {
+            "type": "file",
+            "id": "file--internal-hashed",
+            "name": "renamable.bin",
+            "hashes": {"MD5": "b" * 32, "SHA-256": "a" * 64},
+        },
+        {"type": "domain-name", "id": "domain-name--internal", "value": "example.test"},
+    ]
+    original = deepcopy(objects)
+    table = _render_ioc_table(objects)
+    assert "invoice-viewer.bin" in table
+    assert "a" * 64 in table
+    assert "b" * 32 not in table
+    assert "example.test" in table
+    assert "internal" not in table
+    assert objects == original
+
+
+def test_report_empty_guidance_uses_real_operator_commands():
+    from pivotglass.core.dossier_report import (
+        _render_analyst_notes_section,
+        _render_predictions_section,
+    )
+
+    predictions = _render_predictions_section([])
+    notes = _render_analyst_notes_section([])
+    assert "analysis prediction <text>" in predictions
+    assert "lifecycle section" in predictions
+    assert "note <text>" in notes
+    assert "create_dossier_" not in predictions + notes

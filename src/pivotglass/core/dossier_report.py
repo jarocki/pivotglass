@@ -487,7 +487,7 @@ def _render_predictions_section(predictions: list) -> str:
         Markdown formatted predictions, grouped by status.
     """
     if not predictions:
-        return "_No predictions authored yet. Use `create_dossier_prediction` to add predictions._"
+        return "_No legacy dossier predictions authored. Use `analysis prediction <text>` in the command bar or terminal cyberdeck to record a scientific prediction in the lifecycle section._"
 
     pending = [p for p in predictions if p.status == "pending"]
     validated = [p for p in predictions if p.status == "validated"]
@@ -541,7 +541,7 @@ def _render_analyst_notes_section(notes: list[dict]) -> str:
         Bullet list of notes or a placeholder when none exist.
     """
     if not notes:
-        return "_No analyst notes authored yet. Use `create_dossier_note` to add notes._"
+        return "_No analyst notes authored yet. Use `note <text>` to add notes._"
 
     lines: list[str] = []
     for note in notes:
@@ -571,10 +571,19 @@ def _render_ioc_table(stix_objects: list[dict]) -> str:
     if not stix_objects:
         return "_No indicators collected._"
 
+    from pivotglass.core.evidence_detail import _indicator_value
+
     rows: list[tuple[str, str, str]] = []
     for obj in stix_objects:
         obj_type = obj.get("type", "")
-        value = str(obj.get("value", obj.get("id", "")))
+        value = _indicator_value(obj)
+        if obj_type == "file":
+            hashes = obj.get("hashes") or {}
+            if isinstance(hashes, dict):
+                value = next(
+                    (str(hashes[key]) for key in ("SHA-256", "SHA-1", "MD5") if hashes.get(key)),
+                    value,
+                )
         created = str(obj.get("created", ""))[:10] or "unknown"
         rows.append((obj_type, value, created))
 
