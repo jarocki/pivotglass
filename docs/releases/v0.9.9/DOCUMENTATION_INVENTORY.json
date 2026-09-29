@@ -1,8 +1,8 @@
 {
   "schema": "pivotglass-documentation-inventory-1.0",
   "status": "candidate_checkpoint",
-  "generated_at": "2026-09-29T15:15:56.257921Z",
-  "file_count": 90,
+  "generated_at": "2026-09-29T23:50:31.582615Z",
+  "file_count": 91,
   "qualification_limits": [
     "Candidate checkpoint only; not a frozen release or publication receipt.",
     "Hashes identify file bytes at generation time; later edits make records stale.",
@@ -178,13 +178,13 @@
     },
     {
       "path": "docs/marketing/LAUNCH_CHECKLIST.md",
-      "line_count": 75,
-      "sha256": "a668ad30625145ae198785dbf3f18205a33b67f57c746b7c784a22f8ac71e040"
+      "line_count": 79,
+      "sha256": "1bc9969b38c883d08dbb1d215690b8eb2a285bbd1024fe933bae494eda2ad8e7"
     },
     {
       "path": "docs/marketing/LINKEDIN.md",
-      "line_count": 33,
-      "sha256": "60543f7e33edc39957d0642689b51d3095afd6e7e1c917370ca877513682913f"
+      "line_count": 42,
+      "sha256": "6b62f069ab73b9b4e7c0b8e2f0e3d1c84cdeffe4769d3a82e9301b0e2d791c86"
     },
     {
       "path": "docs/marketing/MASTODON.md",
@@ -198,18 +198,23 @@
     },
     {
       "path": "docs/marketing/README.md",
-      "line_count": 39,
-      "sha256": "05100c962ad86b22fb3aa2c0c000cef085e421db563e56ad637fe44f57329143"
+      "line_count": 40,
+      "sha256": "4f4ed4ac7c5e8dd49a3f0eacc8f51bc5bf9af0b277aaad306f3d8de249b7df19"
     },
     {
       "path": "docs/marketing/SIGNAL.md",
-      "line_count": 12,
-      "sha256": "3b2b4bfb6a9d4b20d4d29b36952cf65246c322cc57acea176cccaf3c1e85fc73"
+      "line_count": 8,
+      "sha256": "d7fff1713420bb619cbdf7f174b9661e2852fe5cd6d542b8b2b93717e8f9f251"
+    },
+    {
+      "path": "docs/marketing/SOCIAL_POST.md",
+      "line_count": 32,
+      "sha256": "1b4cddee76986bd258a4f2cff9168dad4790a3ebd43e751c0b68538f7e682e0e"
     },
     {
       "path": "docs/marketing/WEBSITE_COPY.md",
-      "line_count": 82,
-      "sha256": "af532cee69f1699e764f081c157983ec27982f63d5f7459ec5ca3ef7469ca451"
+      "line_count": 86,
+      "sha256": "170efe51ddff563042725441e266479edd76ca28eb53145b2fbb9b6ba5a74dce"
     },
     {
       "path": "docs/media/demo-v0.9.9-source/README.md",

@@ -1,12 +1,8 @@
-# Signal share draft
+# Signal share blurb — ready to send after release verification
 
-Ready to copy after verifying the public links. Sending is a separate human
-action; no message has been sent by preparing this file.
-
----
-
-Pivotglass is a local threat-investigation workspace: frame a question, collect
-deliberately, trace provenance, compare explanations, and hand off a reviewable
-report. New analysts can use guided Q&A and reflection. The synthetic offline
-case needs no provider keys. Want to try it?
+<!-- post:start -->
+I built Pivotglass. Check it out and star or follow on GitHub!
 https://github.com/jarocki/pivotglass
+<!-- post:end -->
+
+The blurb is twelve words before the URL. No Signal message has been sent.

@@ -13,6 +13,10 @@ permission to send a message on someone else's behalf.
 - [ ] Open every destination link in the public repository. Links to `main`
   must resolve to published material; use release-tag links for reproducible
   release-specific claims when available.
+- [ ] Verify the final Overview MP4 link in both [social](SOCIAL_POST.md) and
+  [LinkedIn](LINKEDIN.md), plus the repository-page link in the
+  [Signal blurb](SIGNAL.md). Attach the approved logo and synthetic-case
+  graphics with their alt text; do not upload a historical draft image.
 - [ ] Read the [compatibility matrix](../COMPATIBILITY.md),
   [data safety](../DATA_SAFETY.md), and [capacity](../CAPACITY.md) against the copy.
   Keep qualified, preview, and deferred capabilities distinct.

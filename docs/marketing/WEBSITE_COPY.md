@@ -29,6 +29,10 @@ no external publication was performed.
 
 ## Pivotglass
 
+![Pivotglass Digital Looking Glass wordmark](https://raw.githubusercontent.com/jarocki/pivotglass/main/docs/brand/pivotglass-looking-glass-v1.png)
+
+[Watch the short Overview](https://github.com/jarocki/pivotglass/blob/main/docs/media/series-v0.9.9/pivotglass-overview-v0.9.9.mp4)
+
 ### From a clue to a defensible judgment
 
 Pivotglass is a local, AI-augmented workspace for cyber-threat investigation.

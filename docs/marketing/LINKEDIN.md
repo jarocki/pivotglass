@@ -1,33 +1,42 @@
-# LinkedIn draft
+# LinkedIn release post — ready to publish after link verification
 
-Publication status: draft; confirm the public release and repository links
-using the launch checklist before posting.
+Attach the [Pivotglass logo](../brand/pivotglass-looking-glass-v1.png). Image alt
+text: “Pivotglass wordmark beside a luminous digital looking-glass portal,
+mirrored city, cyan and violet shards, and connected evidence nodes.”
 
----
+<!-- post:start -->
+An indicator is a beginning, not an answer.
 
-A suspicious domain is a clue. The investigation still needs a question.
+I built Pivotglass for the moment an analyst asks, “What does this clue connect
+to, how do we know, and what else could explain it?”
 
-What happened? Which sources support the explanation? What else could account
-for the activity? What finding would change the decision?
+Start with a question, an indicator, or a local report. Follow a file to a
+domain, an address, and a URL. Inspect the source and type of each relationship.
+See the chronological provenance trail, including when indicators were admitted
+together by an analyst. That grouping is useful context; it does not prove a
+common adversary.
 
-Pivotglass is a local, AI-augmented workspace built around that investigative
-loop. It brings together deliberate collection, source provenance, relationship
-and workflow-history graphs, competing hypotheses, contradictions, gaps, and
-reviewable reports.
+Pivotglass has twelve evidence views, from relationship and history graphs to
+coverage, activity, and competing-hypotheses comparisons. Each view states its
+analytical question and exposes the underlying data. The workbench keeps
+observations, assumptions, contradictions, likelihood, confidence, and
+collection needs separate. Structured Analytic Techniques help make reasoning
+reviewable, while the analyst owns the judgment.
 
-Novice Q&A helps new analysts frame questions and name unknowns. Reflection and
-optional lighter guidance support continued practice. These are learning aids;
-they do not certify expertise or establish measured productivity gains.
+New analysts can practice question framing through guided Q&A. Experienced
+analysts can move directly through pivots, evidence links, and a report they can
+save as Markdown. The synthetic learning case runs locally without provider
+keys; external services are optional and deliberate.
 
-You can try the synthetic offline learning case without a provider account or
-API key. Optional collection and model services can be enabled after reviewing
-your data-handling requirements.
+The short Overview is a tour through the digital looking glass. If it sparks a
+question, download Pivotglass and try the offline case. I would love to hear
+where your investigation takes you.
 
-The v0.9.9 materials include user guidance, worked analytical examples,
-architecture and workflow diagrams, implementation requirements, and operations
-guidance. The separate v1.0.0 quality gate remains ahead.
+Project page: https://github.com/jarocki/pivotglass
+Overview video: https://github.com/jarocki/pivotglass/blob/main/docs/media/series-v0.9.9/pivotglass-overview-v0.9.9.mp4
 
-Explore the project and start with the offline case:
-https://github.com/jarocki/pivotglass
+#ThreatIntelligence #ThreatHunting #SecurityOperations #AnalyticalTradecraft
+<!-- post:end -->
 
-#ThreatIntelligence #SecurityOperations #ThreatHunting #AnalyticalTradecraft
+The post is approximately 200 words excluding links and hashtags. Confirm the
+project and Overview links resolve from public `main` before publishing.
