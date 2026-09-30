@@ -1,7 +1,7 @@
 # Signal share blurb — ready to send after release verification
 
 <!-- post:start -->
-I built Pivotglass to help cyber defenders level up. Check it out; star or follow!
+Hey, I made Pivotglass to help defenders level up. Take a peek, star or follow!
 https://github.com/jarocki/pivotglass
 <!-- post:end -->
 
