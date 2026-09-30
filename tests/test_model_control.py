@@ -11,10 +11,116 @@ from pivotglass.agent.model_control import (
     execute_model_command,
 )
 from pivotglass.core.config import ConfigManager
+from pivotglass.core.module_credentials import resolve_module_credentials
 
 
 def _control(tmp_path: Path) -> ModelControl:
     return ModelControl(ConfigManager(config_dir=tmp_path))
+
+
+def test_service_credential_is_saved_when_validation_is_unreachable(tmp_path, monkeypatch):
+    control = _control(tmp_path)
+    monkeypatch.setattr(
+        "pivotglass.agent.model_control._validate_cti_key",
+        lambda spec, values: (False, "Network unreachable; access is unverified"),
+    )
+
+    result = control.set_service_credentials("virustotal", ["example-secret"])
+
+    assert result.state == "unreachable"
+    assert control.config_mgr.get_api_key("virustotal") == "example-secret"
+    assert "example-secret" not in repr(result)
+
+
+def test_service_credential_can_be_saved_without_a_live_test(tmp_path, monkeypatch):
+    control = _control(tmp_path)
+    monkeypatch.setattr(
+        "pivotglass.agent.model_control._validate_cti_key",
+        lambda spec, values: pytest.fail("Live test should not run"),
+    )
+
+    result = control.set_service_credentials("virustotal", ["example-secret"], verify=False)
+
+    assert result.state == "unknown"
+    assert control.config_mgr.get_api_key("virustotal") == "example-secret"
+
+
+def test_service_check_uses_stored_fields_when_inputs_are_blank(tmp_path, monkeypatch):
+    control = _control(tmp_path)
+    control.config_mgr.set("api_keys.passivetotal_user", "analyst@example.test")
+    control.config_mgr.set("api_keys.passivetotal_key", "stored-secret")
+    seen = []
+    monkeypatch.setattr(
+        "pivotglass.agent.model_control._validate_cti_key",
+        lambda spec, values: (seen.append(values) or True, "Validated successfully"),
+    )
+
+    assert control.check_service("passivetotal", ["", ""]).state == "ready"
+    assert seen == [["analyst@example.test", "stored-secret"]]
+
+
+def test_service_configuration_reports_each_field_without_exposing_values(tmp_path):
+    control = _control(tmp_path)
+    control.config_mgr.set("api_keys.passivetotal_user", "analyst@example.test")
+
+    service = next(item for item in control.configuration_summary()["services"] if item["id"] == "passivetotal")
+
+    assert service["credential_source"] == "missing"
+    assert [field["credential_source"] for field in service["credential_fields"]] == ["config", "missing"]
+    assert "analyst@example.test" not in repr(service)
+
+
+def test_censys_org_id_is_optional_and_can_be_added_to_stored_pat(tmp_path, monkeypatch):
+    control = _control(tmp_path)
+    seen = []
+    monkeypatch.setattr(
+        "pivotglass.agent.model_control._validate_cti_key",
+        lambda spec, values: (seen.append(values) or True, "Validated successfully"),
+    )
+
+    first = control.set_service_credentials("censys_pat", ["pat-secret", ""])
+    second = control.set_service_credentials("censys_pat", ["", "org-123"])
+
+    assert first.state == second.state == "ready"
+    assert seen == [["pat-secret", ""], ["pat-secret", "org-123"]]
+    assert control.config_mgr.get_api_key("censys_pat") == "pat-secret"
+    assert control.config_mgr.get_api_key("censys_org_id") == "org-123"
+
+
+@pytest.mark.parametrize(
+    ("service_id", "module_path", "fields"),
+    [
+        ("shodan", "osint/shodan_ip", ["shodan"]),
+        ("virustotal", "cti/virustotal", ["virustotal"]),
+        ("abuseipdb", "osint/abuseipdb", ["abuseipdb"]),
+        ("hibp", "osint/hibp", ["hibp"]),
+        ("otx", "cti/otx", ["otx"]),
+        ("urlscan", "osint/urlscan", ["urlscan"]),
+        ("censys_pat", "osint/censys_host", ["censys_pat", "censys_org_id"]),
+        ("greynoise", "osint/greynoise", ["greynoise"]),
+        ("passivetotal", "cti/passivetotal", ["passivetotal_user", "passivetotal_key"]),
+    ],
+)
+def test_every_service_saved_credential_reaches_its_module(
+    tmp_path, monkeypatch, service_id, module_path, fields
+):
+    control = _control(tmp_path)
+    values = [f"example-{field}" for field in fields]
+    monkeypatch.setattr(
+        "pivotglass.agent.model_control._validate_cti_key",
+        lambda spec, credentials: (True, "Validated successfully"),
+    )
+    control.config_mgr.set_service_enabled(service_id, True)
+
+    assert control.set_service_credentials(service_id, values).state == "ready"
+    module_config = resolve_module_credentials(module_path, control.config_mgr)
+
+    if service_id == "censys_pat":
+        assert module_config == dict(zip(fields, values))
+    elif service_id == "passivetotal":
+        assert module_config == dict(zip(fields, values))
+    else:
+        assert module_config == {"api_key": values[0]}
 
 
 def test_status_is_masked_and_reports_effective_selection(tmp_path, monkeypatch):

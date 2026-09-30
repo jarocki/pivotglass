@@ -1367,8 +1367,6 @@ class WebCockpitService:
                 [str(value) for value in values],
                 verify=bool(payload.get("verify", True)),
             )
-            if result.state != "ready" and bool(payload.get("verify", True)):
-                return {"saved": False, "health": result.to_dict()}
             return {
                 "saved": True,
                 "health": result.to_dict(),

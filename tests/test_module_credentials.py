@@ -79,16 +79,18 @@ class TestResolveModuleCredentials:
         # @mock-exempt: ConfigManager is external I/O boundary
         cfg = Mock()
         cfg.get_censys_pat.return_value = "censys-pat-value"
+        cfg.get_api_key.return_value = "org-123"
         result = resolve_module_credentials("osint/censys_host", cfg)
-        assert result == {"censys_pat": "censys-pat-value"}
+        assert result == {"censys_pat": "censys-pat-value", "censys_org_id": "org-123"}
 
     def test_censys_no_pat_returns_empty_string(self):
         """When get_censys_pat returns None, censys_pat is coerced to empty string."""
         # @mock-exempt: ConfigManager is external I/O boundary
         cfg = Mock()
         cfg.get_censys_pat.return_value = None
+        cfg.get_api_key.return_value = None
         result = resolve_module_credentials("osint/censys_host", cfg)
-        assert result == {"censys_pat": ""}
+        assert result == {"censys_pat": "", "censys_org_id": ""}
 
     def test_passivetotal_uses_credential_builder(self):
         """passivetotal uses CREDENTIAL_BUILDERS — multi-key auth."""

@@ -10,7 +10,7 @@ provenance, relationship graphs, and a scientific analysis notebook into one
 case. A report, alert, or suspicious domain is a starting point; the analyst
 owns the question, the collection decision, and the final judgment.
 
-Current release: **v1.0.0**.
+Current release: **v1.1.0**.
 The final assurance review approved the bounded local, single-analyst scope.
 External integration previews and deferred intake remain outside that scope.
 
@@ -100,17 +100,17 @@ The operational guides explain implementation choices and upkeep.
 
 Python 3.12 or newer, Git, and [uv](https://docs.astral.sh/uv/) are required.
 The release-tagged source and committed dependency lock are the supported
-reproducible installation for v1.0.0.
+reproducible installation for v1.1.0.
 
 ```bash
-git clone --branch v1.0.0 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v1.1.0 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent --frozen
 uv run pivotglass --version
 uv run pivotglass
 ```
 
-Expected version: `pivotglass 1.0.0`. The local browser opens at
+Expected version: `pivotglass 1.1.0`. The local browser opens at
 `http://127.0.0.1:8765`. The release includes the built browser assets; Node.js
 is needed only to rebuild them. Follow the [Quick Start](docs/QUICKSTART.md)
 for update, uninstall, data migration, configuration, and recovery.

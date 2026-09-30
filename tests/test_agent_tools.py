@@ -3560,14 +3560,14 @@ class TestServiceNameMap:
 
 
 class TestCensysPATCredentialBuilder:
-    """Verify _CREDENTIAL_BUILDERS["osint/censys_host"] uses censys_pat only."""
+    """Verify Censys Platform PAT and optional organization ID reach the module."""
 
     def test_credential_builders_censys_uses_censys_pat(self, tmp_ctx):
         """Builder passes censys_pat from get_censys_pat() to init_config."""
         tmp_ctx.config_mgr.set("api_keys.censys_pat", "test-pat-value")
         builder = _CREDENTIAL_BUILDERS["osint/censys_host"]
         config = builder(tmp_ctx.config_mgr)
-        assert config == {"censys_pat": "test-pat-value"}
+        assert config == {"censys_pat": "test-pat-value", "censys_org_id": ""}
 
     def test_credential_builders_censys_no_legacy_id_secret_path(self, tmp_ctx):
         """Builder output must NOT contain censys_id or censys_secret keys."""

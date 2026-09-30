@@ -89,6 +89,8 @@ from typing import TYPE_CHECKING, Callable
 from rich.console import Console
 from rich.panel import Panel
 
+from pivotglass.core.module_credentials import ServiceDisabledError
+
 if TYPE_CHECKING:
     from pivotglass.gamification.modes import CharacterMode
 
@@ -633,6 +635,16 @@ def _interpret_http_status_error_generic(exc: BaseException) -> dict:
 
 
 _CATALOG: list[_CatalogEntry] = [
+    (
+        lambda exc: isinstance(exc, ServiceDisabledError),
+        lambda exc: {
+            "severity": "warn",
+            "category": "Config",
+            "summary": "This intelligence service is disabled.",
+            "suggested_fix": str(exc),
+        },
+        _NO_AUTO_FIX,
+    ),
     # 1. API key authentication errors (modules.base.AuthenticationError)
     (_is_auth_error, _interpret_auth, _NO_AUTO_FIX),
     # 2. Rate limit exceeded (modules.base.RateLimitError)

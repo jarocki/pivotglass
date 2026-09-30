@@ -222,9 +222,18 @@ class CensysHost(BaseModule):
 
         url = f"{_API_BASE}{_HOST_PATH.format(ip=target)}"
 
+        org_id = (
+            self._config.get("censys_org_id", "")
+            or os.environ.get("PIVOTGLASS_CENSYS_ORG_ID", "")
+            or os.environ.get("CENSYS_ORG_ID", "")
+        )
+        headers = {"Authorization": f"Bearer {pat}"}
+        if org_id:
+            headers["X-Organization-ID"] = org_id
+
         async with httpx.AsyncClient(
             follow_redirects=True,
-            headers={"Authorization": f"Bearer {pat}"},
+            headers=headers,
         ) as client:
             response = await client.get(url, timeout=30.0)
 

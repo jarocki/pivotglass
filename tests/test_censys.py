@@ -736,6 +736,19 @@ class TestCensysHostRequestConstruction:
             assert "Authorization" in headers
             assert headers["Authorization"] == "Bearer my-test-pat"
 
+    def test_request_uses_organization_header_with_pat(self):
+        mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_FULL)
+        mock_client = _make_client_mock(mock_resp)
+        with patch("pivotglass.modules.osint.censys_host.httpx.AsyncClient") as mock_cls:
+            mock_cls.return_value = mock_client
+            mod = CensysHost()
+            mod.initialize({"censys_pat": "my-test-pat", "censys_org_id": "org-123"})
+            asyncio.run(mod.hunt("8.8.8.8", {}))
+
+        headers = mock_cls.call_args.kwargs["headers"]
+        assert headers["Authorization"] == "Bearer my-test-pat"
+        assert headers["X-Organization-ID"] == "org-123"
+
     def test_request_does_not_use_basic_auth(self):
         """AsyncClient is NOT constructed with auth= param (no Basic auth)."""
         mock_resp = _make_mock_response(200, SAMPLE_RESPONSE_FULL)

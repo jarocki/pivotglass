@@ -84,6 +84,7 @@ SERVICE_NAMES: dict[str, str | None] = {
 CREDENTIAL_BUILDERS: dict[str, Any] = {
     "osint/censys_host": lambda cfg: {
         "censys_pat": cfg.get_censys_pat() or "",
+        "censys_org_id": cfg.get_api_key("censys_org_id") or "",
     },
     "cti/passivetotal": lambda cfg: {
         "passivetotal_user": cfg.get_api_key("passivetotal_user") or "",
