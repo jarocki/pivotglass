@@ -5,9 +5,12 @@ must keep omitted evidence stored and exportable. A fast benchmark on one
 computer is not a universal promise, so this guide separates enforced limits,
 qualified release sizes, measured examples, and work that remains unqualified.
 
-## Qualified v0.9.6 local envelope
+## Dated local qualification envelope
 
-The stable local cockpit is qualified for:
+The v0.9.5/v0.9.6 qualification receipts established the following measured
+scenarios and enforced limits. The [2026-09-29 final assurance rehearsal](releases/v0.9.9/FINAL_QA_CAPACITY.json)
+repeated the 5,000-entity and 1,000-node workloads on the release-candidate
+code. These are local measurements, not a service-level promise:
 
 - workspaces containing up to **5,000 stored entities** in the measured
   evidence-only scenario;
@@ -43,7 +46,7 @@ to work, but it is not a supported performance claim for this release.
 | Browser parser output | 100,000 characters | Output is visibly truncated |
 | Browser entity candidates | 2,000 extracted; paginated 50 per page | All extracted candidates can be reviewed across pages; limits remain visible |
 | Internal parser output | 2,000,000 characters | Parser receipt records truncation |
-| Internal entity candidates | 10,000 | Extraction fails at the authority boundary |
+| Internal entity candidates | 10,000 by default | Receipt is explicitly partial when the candidate limit is reached; remaining text is not silently treated as fully extracted |
 | Visualization data | 5,000 combined records | Intent construction rejects an unbounded payload |
 | Relationship view | 1,000 entities within 5,000 combined records | View is bounded with an omission count; storage and export remain complete |
 | Cluster snapshot | 50,000 nodes and 100,000 edges | Capture fails before writing a partial snapshot |
@@ -93,7 +96,20 @@ These measurements are evidence about one run, not a latency service-level
 agreement. Disk speed, Python build, browser, graph density, annotations,
 observation count, and concurrent enrichment change the result.
 
-## Not qualified in v0.9.6
+### Final assurance rehearsal — 2026-09-29
+
+On the same Apple arm64/macOS 15.7.4/Python 3.14.6 host, the candidate stored
+5,000 synthetic entities in 7.946 seconds, built their cockpit state in 4.009
+seconds with a 29.6 MiB traced Python allocation peak, and produced a 3.42 MB
+JSON cockpit payload. The resulting SQLite workspace was 6.53 MB. The
+Constellation showed 4,995 exact rows for 555 indicators and reported 4,445
+omitted indicators. A 1,000-node/999-edge connected graph built cockpit state
+in 1.299 seconds with a 20.9 MiB traced peak and zero omitted graph records.
+The [machine receipt](releases/v0.9.9/FINAL_QA_CAPACITY.json) contains the
+complete measurements and environment. This rehearsal did not include browser
+rendering latency, concurrent users, or live-provider response time.
+
+## Workloads without a current qualification claim
 
 - batch document admission and aggregate batch memory;
 - interactive graph rendering beyond the bounded 1,000-node intent or 48-node
@@ -105,6 +121,6 @@ observation count, and concurrent enrichment change the result.
 
 Cancellation is cooperative: Pivotglass acknowledges the request immediately,
 lets the active enrichment return safely, then cancels remaining work. Its
-worst-case time therefore depends on the active provider's timeout. A bounded
-interruptible provider contract is a v1.0 gate; v0.9.6 does not advertise a
-fixed cancellation latency.
+worst-case time therefore depends on the active provider's timeout. The final assurance pass must decide and verify the supported cancellation
+contract; the current product does not advertise a fixed latency. See the
+[current release roadmap](plans/V0.9.8_TO_1.0_ROADMAP.md).

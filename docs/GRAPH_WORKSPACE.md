@@ -14,6 +14,19 @@ visually and structurally distinct from an observed relationship.
 
 Broad similarities such as a shared country or provider do not create edges.
 
+## Analyst grouping and provenance history
+
+A jointly admitted candidate set has a recorded analyst admission group. Its
+`analyst-grouped` edges communicate that the analyst promoted those entities
+together, with the group's operator, time, basis, and source references. They
+do not assert communication, common control, or adversary membership. Historical
+admissions without a recorded group are not retroactively reconstructed as one.
+
+**Provenance History** in Visualize follows stored workflow actions and branches.
+It describes how the analyst reached a source or indicator, not the chronology
+of an attack. Compare the action's time with the source's actual event-time
+claims before using either in a judgment.
+
 ## Epistemic layer
 
 The epistemic layer projects the records that explain how the analyst knows—or

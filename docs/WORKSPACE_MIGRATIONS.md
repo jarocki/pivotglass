@@ -97,14 +97,24 @@ do not alter any evidence record. The backup is named
 If migration fails, Pivotglass leaves the prior active workspace selected and
 reports the failure. Do not overwrite the failed database. Stop Pivotglass,
 copy the sibling backup to a new workspace name, and open that copy with the
-older release that created it. For example:
+older release that created it. For example, choose an absent recovery name and preserve the original backup:
 
-```sh
-cp ~/.pivotglass/workspaces/case.db.pre-v3-backup ~/.pivotglass/workspaces/case-recovery.db
+```bash
+python - <<'PY'
+from pathlib import Path
+import shutil
+source = Path.home() / ".pivotglass/workspaces/case.db.pre-v3-backup"
+destination = Path.home() / ".pivotglass/workspaces/case-recovery.db"
+with source.open("rb") as original, destination.open("xb") as recovered:
+    shutil.copyfileobj(original, recovered)
+PY
 ```
 
 This creates a recoverable copy while preserving both the failed database and
-the original backup. Keep the backup until you have validated the upgraded
+the original backup. This copies a database only; a document case also needs
+its matching sibling raw-document content store. Use the [full stopped-home
+backup and restore runbook](operations/OPERATIONS.md#backup-and-restoration)
+for a complete application/case recovery. Keep the backup until you have validated the upgraded
 workspace and exported its investigation record.
 
 ## Data handling guarantees

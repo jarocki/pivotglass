@@ -10,11 +10,14 @@ before making a judgment.
 
 ## Relationship graph: follow an actual connection
 
-![Pivotglass v0.9.8 relationship graph over the synthetic offline learning case](../media/pivotglass-graph-v0.9.8.png)
+![Pivotglass v0.9.9 relationship graph with six synthetic entities and one analyst admission group](../media/pivotglass-group-graph-v1.0.0.png)
 
-This screenshot uses synthetic training data. The following diagram shows the
-same four entities and three stored relationship types conceptually; it is not
-a screenshot or a claim about real infrastructure.
+This current screenshot uses synthetic training data: six entities plus one
+recorded analyst admission group, with three stored relationships and two
+manual group edges. The diagram below shows the original offline fixture
+subset of four entities and three stored relationship types. It is conceptual,
+not a reproduction of the complete seven-node screenshot or a claim about real
+infrastructure.
 
 ```mermaid
 flowchart LR
@@ -61,7 +64,16 @@ adversary. Use it to recover why nodes entered the investigation together and
 to ask which claimed connections still need evidence. An older admission with
 no recorded joint group is not retroactively reconstructed as one.
 
+The additional two entities entered through explicit joint candidate admission.
+Use their group to find the common source and admission rationale, then inspect
+its exact spans and the source's claims before judging a threat connection.
+Grouping answers “why did these enter this case together?” It does not answer
+“does one adversary control them?” That second question needs sourced support,
+alternatives, and an explicit analytic assessment.
+
 ## Provenance history: reconstruct how the case grew
+
+![Pivotglass v0.9.9 recorded synthetic admission and provenance branches](../media/pivotglass-history-v1.0.0.png)
 
 **Question:** How did this source or indicator enter the workspace, and what
 recorded pivot led here?

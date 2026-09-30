@@ -136,6 +136,7 @@ dmypy.json
 
 # Project-local scratch
 /tmp/
+/marketing/
 /.worktrees/
 
 # Claude Code harness — all per-session state, research, settings, and tool
@@ -153,3 +154,5 @@ dmypy.json
 
 # Separate nested project — never include its files in Pivotglass changes or commits.
 /career-narrative/
+
+# Public marketing and enablement materials live in docs/marketing/ and are tracked.

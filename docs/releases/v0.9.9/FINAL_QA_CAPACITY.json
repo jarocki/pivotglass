@@ -1,0 +1,66 @@
+{
+  "connected_graph": {
+    "cockpit_state": {
+      "elapsed_seconds": 1.298573,
+      "peak_python_mib": 20.933
+    },
+    "exact_table_rows": 999,
+    "ingest": {
+      "elapsed_seconds": 2.833061,
+      "peak_python_mib": 0.304
+    },
+    "omitted_records": 0,
+    "requested_nodes": 1000,
+    "stored_records": 1999,
+    "visible_edges": 999,
+    "visible_nodes": 1000
+  },
+  "enforced_limits": {
+    "entity_candidates": 10000,
+    "parser_output_characters": 2000000,
+    "raw_document_bytes": 10485760,
+    "relationship_graph_nodes": 1000,
+    "visualization_records": 5000
+  },
+  "environment": {
+    "machine": "arm64",
+    "platform": "macOS-15.7.4-arm64-arm-64bit-Mach-O",
+    "python": "3.14.6"
+  },
+  "interpretation": "Timings and traced Python allocations describe this run only. The release envelope is defined by enforced limits and the conservative qualified sizes published in docs/CAPACITY.md.",
+  "schema": "pivotglass-capacity-receipt-1.0",
+  "storage": {
+    "cockpit_json": {
+      "elapsed_seconds": 0.161951,
+      "peak_python_mib": 6.518
+    },
+    "cockpit_json_bytes": 3417165,
+    "cockpit_objects": 5000,
+    "cockpit_state": {
+      "elapsed_seconds": 4.008734,
+      "peak_python_mib": 29.636
+    },
+    "constellation_omitted": 4445,
+    "constellation_rows": 4995,
+    "ingest": {
+      "elapsed_seconds": 7.946177,
+      "peak_python_mib": 1.381
+    },
+    "requested_entities": 5000,
+    "startup": {
+      "elapsed_seconds": 0.257167,
+      "peak_python_mib": 3.09
+    },
+    "stored_entities": 5000,
+    "workspace_bytes": 6533120,
+    "workspace_export": {
+      "elapsed_seconds": 0.210177,
+      "peak_python_mib": 14.454
+    },
+    "workspace_export_json": {
+      "elapsed_seconds": 0.213806,
+      "peak_python_mib": 9.913
+    },
+    "workspace_export_json_bytes": 5197081
+  }
+}

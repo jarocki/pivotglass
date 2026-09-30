@@ -323,3 +323,70 @@ class TestExecuteGenerateDossierReport:
         result = _execute_generate_dossier_report(ctx)
         assert isinstance(result, str)
         assert len(result) > 0
+
+
+def test_file_ioc_table_displays_hash_or_filename_and_preserves_source():
+    from copy import deepcopy
+
+    from pivotglass.core.dossier_report import _render_ioc_table
+
+    objects = [
+        {"type": "file", "id": "file--internal-name-only", "name": "invoice-viewer.bin"},
+        {
+            "type": "file",
+            "id": "file--internal-hashed",
+            "name": "renamable.bin",
+            "hashes": {"MD5": "b" * 32, "SHA-256": "a" * 64},
+        },
+        {"type": "domain-name", "id": "domain-name--internal", "value": "example.test"},
+    ]
+    original = deepcopy(objects)
+    table = _render_ioc_table(objects)
+    assert "invoice-viewer.bin" in table
+    assert "a" * 64 in table
+    assert "b" * 32 not in table
+    assert "example.test" in table
+    assert "internal" not in table
+    assert objects == original
+
+
+def test_report_empty_guidance_uses_real_operator_commands():
+    from pivotglass.core.dossier_report import (
+        _render_analyst_notes_section,
+        _render_predictions_section,
+    )
+
+    predictions = _render_predictions_section([])
+    notes = _render_analyst_notes_section([])
+    assert "analysis prediction <text>" in predictions
+    assert "lifecycle section" in predictions
+    assert "note <text>" in notes
+    assert "create_dossier_" not in predictions + notes
+
+
+def test_report_preserves_sat_inputs_outputs_and_pending_disposition(wm):
+    from pivotglass.core.analytic_ledger import AnalyticLedger
+    from pivotglass.core.dossier_report import generate_dossier_report
+    from pivotglass.core.structured_analysis import StructuredAnalysisWorkbench, StructuredTechnique
+
+    question = AnalyticLedger(wm).create_question("Does shared infrastructure establish control?")
+    workbench = StructuredAnalysisWorkbench(wm)
+    run = workbench.start(
+        question,
+        StructuredTechnique.KEY_ASSUMPTIONS,
+        {"assumptions": ["Shared hosting implies control."]},
+    )
+    outputs = {
+        "challenged_assumptions": ["No exclusive control observed. ``` Close?"],
+        "implications": ["Collect independent tenancy evidence."],
+    }
+    workbench.complete(run, outputs)
+    before = workbench.list_runs()
+    report = generate_dossier_report(wm)
+    assert "Shared hosting implies control." in report
+    assert "No exclusive control observed. ``` Close?" in report
+    assert "Collect independent tenancy evidence." in report
+    assert "analyst disposition: pending" in report
+    assert "not observed evidence or automatic approval" in report
+    assert "````json" in report
+    assert workbench.list_runs() == before

@@ -12,7 +12,7 @@ explicit commands or workflows.
 - Workspaces are SQLite databases beneath `~/.pivotglass/workspaces/` by default.
 - Workspace migrations create a sibling pre-migration backup before the first
   schema change.
-- The v0.9.8 browser document path previews first and stores only after the
+- The browser document path previews first and stores only after the
   analyst chooses a source-only or source-plus-selected-entities admission.
   Preview alone stores nothing.
 - Explicit admission writes original bytes to the content-addressed
@@ -61,6 +61,10 @@ participation and do not certify analyst expertise or change guidance levels.
 
 ## Backup and recovery
 
+Use the [stopped-home backup and isolated restoration runbook](operations/OPERATIONS.md#backup-and-restoration)
+for a case with original source bytes. A database-only copy or JSON record
+export is not a full document-library backup.
+
 Run `workspace schema` before opening a valuable older workspace. Keep its
 `pre-vN-backup` file until the migrated workspace passes integrity checks and a
 portable export has been reviewed. Clear and delete deliberately do not remove
@@ -78,7 +82,7 @@ Provider loss, cancellation, stale browser assets, hostile input, and
 integration outages do not authorize deletion or rewriting of local evidence.
 See the [failure and recovery guide](FAILURE_RECOVERY.md).
 
-## v0.9.8 document and entity lifecycle boundary
+## Document and entity lifecycle boundary
 
 Persistent browser admission is explicit and produces a visible receipt.
 Selecting or previewing a file still creates no stored state. Admitted source

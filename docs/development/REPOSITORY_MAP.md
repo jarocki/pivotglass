@@ -21,6 +21,9 @@ or [the user guide](../USER_GUIDE.md).
 | `docs/development/` | Contributor navigation and generated decision registry |
 | `docs/plans/` | Current roadmap plus retained detailed planning history |
 | `docs/releases/vX.Y.Z/` | Dated qualification receipts, announcements, and release handoffs |
+| `docs/operations/` | Implementation, infrastructure, maintenance, automation, backup, and recovery |
+| `docs/marketing/` | Tracked public pitches and channel-specific publication drafts |
+| `docs/examples/` | Clearly labeled synthetic, reproducible input fixtures |
 | `docs/media/` | Labeled screenshots and walkthrough media; filenames identify the demonstrated version |
 | `.githooks/` | Tracked publication guard |
 

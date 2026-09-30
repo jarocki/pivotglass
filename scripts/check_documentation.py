@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -47,23 +49,55 @@ def check_links(root: Path) -> list[str]:
     return failures
 
 
-def inventory(root: Path) -> str:
-    rows = ["# Documentation inventory", "", "Generated from every public Markdown file in the candidate tree. Hashes identify",
-            "the inspected bytes; link checks are mechanical evidence, not a substitute",
-            "for editorial or factual review.", "", "| Path | Lines | SHA-256 |", "|---|---:|---|"]
+def inventory(root: Path, *, json_output: bool = False) -> str:
+    """Emit a dated candidate checkpoint using the public discovery authority."""
+    generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    files = []
     for path in markdown_files(root):
         data = path.read_bytes()
-        rows.append(f"| `{path.relative_to(root)}` | {len(data.splitlines())} | `{hashlib.sha256(data).hexdigest()}` |")
+        files.append({
+            "path": path.relative_to(root).as_posix(),
+            "line_count": len(data.splitlines()),
+            "sha256": hashlib.sha256(data).hexdigest(),
+        })
+    limits = [
+        "Candidate checkpoint only; not a frozen release or publication receipt.",
+        "Hashes identify file bytes at generation time; later edits make records stale.",
+        "Scope is root Markdown and docs/**/*.md; protected/private context and the independent career project are excluded.",
+        "Inventory and local link checks do not prove semantic correctness, exhaustive editorial review, or human usability.",
+        "Historical test counts, public objects, remote websites, live integrations, and media/audio qualification are not independently verified by this inventory.",
+    ]
+    if json_output:
+        return json.dumps({
+            "schema": "pivotglass-documentation-inventory-1.0",
+            "status": "candidate_checkpoint",
+            "generated_at": generated_at,
+            "file_count": len(files),
+            "qualification_limits": limits,
+            "files": files,
+        }, indent=2, ensure_ascii=False) + "\n"
+    rows = [
+        "# Documentation inventory", "", f"Candidate checkpoint generated {generated_at}.", "",
+        "Generated from every public Markdown file in the candidate tree. Hashes identify",
+        "the inspected bytes; link checks are mechanical evidence, not a substitute",
+        "for editorial or factual review.", "", "## Qualification limits", "",
+        *(f"- {limit}" for limit in limits), "",
+        "| Path | Lines | SHA-256 |", "|---|---:|---|",
+    ]
+    rows.extend(f"| `{record['path']}` | {record['line_count']} | `{record['sha256']}` |" for record in files)
     return "\n".join(rows) + "\n"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--inventory", type=Path, help="write candidate inventory outside its own input tree")
+    parser.add_argument("--inventory", type=Path, help="write a dated candidate checkpoint: JSON for .json suffix, Markdown otherwise; keep output outside inventoried Markdown")
     args = parser.parse_args()
     errors = check_links(ROOT)
     if args.inventory:
-        args.inventory.write_text(inventory(ROOT), encoding="utf-8")
+        args.inventory.write_text(
+            inventory(ROOT, json_output=args.inventory.suffix.casefold() == ".json"),
+            encoding="utf-8",
+        )
     for error in errors:
         print(error)
     print(f"Checked {len(markdown_files(ROOT))} Markdown files; {len(errors)} broken local links/anchors.")

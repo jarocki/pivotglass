@@ -1,91 +1,101 @@
 # Pivotglass documentation
 
-Use the current operator guides first. Planning documents and earlier quality
-records are retained for traceability, not as descriptions of the current
-interface.
+Use this index to choose a complete path rather than assemble a workflow from
+release notes. These guides describe the v0.9.9 source tree. Published release
+status comes from [GitHub Releases](https://github.com/jarocki/pivotglass/releases);
+a version string or development plan is not publication evidence.
 
-## Choose a reading path
+## Four ways through the looking glass
 
-**First investigation:** [Quick Start](QUICKSTART.md) →
-[offline case](LEARNING_WORKSPACE.md) → [User Guide](USER_GUIDE.md).
-No account or provider key is needed for the synthetic case.
+Start with the [flashy Overview](media/series-v1.0.0/pivotglass-overview-v1.0.0.mp4), then choose the [Analyst Walkthrough](media/series-v1.0.0/pivotglass-analyst-v1.0.0.mp4), [PIVOT Glass](media/series-v1.0.0/pivotglass-pivot-v1.0.0.mp4), or [Visualization and Reporting](media/series-v1.0.0/pivotglass-visualization-v1.0.0.mp4). Each has real Descript narration, original generative music, captions and a transcript in the [series guide](media/series-v1.0.0/README.md).
 
-**Improve analytical practice:** [scientific method and SATs](analysis/README.md) →
-[worked case](analysis/WORKED_EXAMPLE.md) →
-[visualization examples](analysis/VISUALIZATIONS.md) →
-[learning and reflection](analysis/LEARNING.md).
+## Choose a path
 
-**Operate or extend the product:** [architecture](architecture/README.md) →
-[data safety](DATA_SAFETY.md) → [capacity](CAPACITY.md) →
-[failure and recovery](FAILURE_RECOVERY.md) → [release discipline](RELEASING.md).
+| Your role or task | Reading path | Outcome to check |
+| --- | --- | --- |
+| New user | [Quick Start](QUICKSTART.md) → [offline learning case](LEARNING_WORKSPACE.md) → [User Guide](USER_GUIDE.md) | Create a synthetic case, trace a source, explain an unresolved gap, and produce a report without provider access |
+| Analyst learning the method | [Scientific analysis](analysis/README.md) → [worked example](analysis/WORKED_EXAMPLE.md) → [visual reading exercises](analysis/VISUALIZATIONS.md) → [reflection](analysis/LEARNING.md) | Test an alternative, preserve uncertainty, and explain why a judgment changed |
+| Experienced analyst | [Bounded investigation](USER_GUIDE.md#experienced-path-a-bounded-investigation) → [source admission](USER_GUIDE.md#preview-ingest-and-revisit-a-document) → [correction and handoff](USER_GUIDE.md#review-correct-and-hand-off-a-case) | Make collection and judgment reviewable by the next analyst |
+| Implementation owner | [Implementation](operations/IMPLEMENTATION.md) → [infrastructure](operations/INFRASTRUCTURE.md) → [architecture](architecture/README.md) | Select an appropriate local deployment, handling boundary, and acceptance checks |
+| Operator | [Operations](operations/OPERATIONS.md) → [failure and recovery](FAILURE_RECOVERY.md) → [data safety](DATA_SAFETY.md) | Verify a stopped backup, recover a copy, maintain versions, and handle failures without losing the case |
+| Communicator | [Marketing overview](marketing/README.md) → [product one-pager](marketing/PRODUCT_ONE_PAGER.md) → [elevator pitches](marketing/ELEVATOR_PITCHES.md) | Explain the value in terms appropriate to the audience and qualify the claims |
+| Contributor or release maintainer | [Repository map](development/REPOSITORY_MAP.md) → [governance](../AGENTS.md) → [release discipline](RELEASING.md) → [release trust](RELEASE_TRUST.md) | Find the authority for a change, run gates, and verify public artifacts |
 
-The user guide explains interface actions. The analysis guides explain how to
-reason about what those actions produce. Reference contracts describe the
-implemented boundaries. Release records describe checks at a dated checkpoint;
-plans describe intended work. Keep those distinctions when citing a document.
+## Current demonstration
 
-## Current operator and reference guides
+- [Narrated v0.9.9 MP4](media/pivotglass-guided-demo-v1.0.0.mp4)
+- [WebVTT captions](media/pivotglass-guided-demo-v1.0.0.vtt)
+- [Transcript and chapter times](media/pivotglass-guided-demo-transcript-v1.0.0.md)
+- [Caption-enabled player instructions](QUICKSTART.md#watch-with-captions)
+- [Chapter manifest and recording method](media/pivotglass-guided-demo-manifest-v1.0.0.json)
 
-- [Quick Start](QUICKSTART.md) — install Pivotglass and complete a first investigation
-- [Offline learning investigation](LEARNING_WORKSPACE.md) — complete the evidence-to-report loop with no key or network service
-- [User Guide](USER_GUIDE.md) — task guidance and command reference
-- [Architecture](architecture/README.md) — execution paths and policy/state authorities
-- [Scientific analysis](analysis/README.md) — methodology, worked examples, visualization reading, and learning
-- [Analytic method](ANALYTIC_METHOD.md) — scientific workflow, structured techniques, confidence, and contradictions
-- [Visualization guide](VISUALIZATION_GUIDE.md) — deterministic chart selection, reading guidance, and analytical guardrails
-- [Framework projections](FRAMEWORK_PROJECTIONS.md) — evidence-backed ATT&CK, Kill Chain, and Diamond mapping contract
-- [Vertex Synapse and SCOT4 integrations](EXTERNAL_INTEGRATIONS.md) — governed MCP setup, approval gates, receipts, and authority boundaries
-- [Workspace migration and recovery](WORKSPACE_MIGRATIONS.md) — preview, backup, validation, and recovery
-- [Compatibility and maturity](COMPATIBILITY.md) — stable, preview, deferred, and capacity boundaries
-- [Data ownership and safety](DATA_SAFETY.md) — storage, secrets, network actions, LAN exposure, backup, and recovery
-- [Capacity envelope](CAPACITY.md) — enforced limits, measured local scale, graceful overflow, and unqualified boundaries
-- [Failure and recovery](FAILURE_RECOVERY.md) — provider loss, cancellation, migrations, stale assets, hostile input, and integration outages
-- [Support](../SUPPORT.md) — supported-version boundary, safe issue reporting, and the open private security-route gate
-- [Release trust](RELEASE_TRUST.md) — SBOM, licenses, checksums, signing, publication, and public readback
-- [Guided video](media/pivotglass-guided-demo-v0.9.5.mp4) — two-minute core-workflow tour from v0.9.5
-- [Guided-video captions](media/pivotglass-guided-demo-v0.9.5.vtt) — English WebVTT captions
-- [Video transcript](media/pivotglass-guided-demo-transcript.md) — accessible narration text
-- [v0.9.7 guided-workflow screenshot](media/pivotglass-guidance-v0.9.7.png) — earlier task-relative novice guidance; the current Q&A is documented in the user guide
-- [v0.9.7 JSON-intake screenshot](media/pivotglass-json-intake-v0.9.7.png) — content-detected JSON preview and candidate guidance
-- [v0.9.7 announcement kit](releases/v0.9.7/ANNOUNCEMENT_V0.9.7.md) — reviewed social and community-launch drafts
+The narrated tour combines actual UI captures of synthetic case data with
+Descript’s Jesse neural voice. The written walkthroughs supply the executable practice,
+reasoning, correction, and recovery details. Older demos remain historical
+assets and are not the current tour.
 
-## Design and release assurance
+## User and analysis guides
 
-- [Mock usability review](releases/v0.9.7/MOCK_USABILITY_STUDY_V0.9.7.md) — fictional cohort, findings, implemented changes, and real-research follow-up
-- [v0.9.7 quality record](releases/v0.9.7/QA_V0.9.7.md) — historical implementation receipts and open media gate at that checkpoint
-- [Procedural music](PROCEDURAL_MUSIC.md) — composition, playback, and evidence boundary
-- [Web supply chain](WEB_SUPPLY_CHAIN.md) — dependency integrity and release checks
-- [v0.9.6 quality record](releases/v0.9.6/QA_V0.9.6.md) — prior release verification
-- [v0.9.5 quality record](releases/v0.9.5/QA_V0.9.5.md) — prior release verification
-- [v0.9.4 quality record](releases/v0.9.4/QA_V0.9.4.md) — prior release verification
-- [v0.9.3 quality record](releases/v0.9.3/QA_V0.9.3.md) — prior release verification
-- [v0.9.2 quality record](releases/v0.9.2/QA_V0.9.2.md) — prior release verification
-- [v0.9.1 quality record](releases/v0.9.1/QA_V0.9.1.md) — prior release verification
-- [v0.9.0 quality record](releases/v0.9.0/QA_V0.9.0.md) — prior release verification
-- [Release discipline](RELEASING.md) — version, changelog, verification, tag, and publication contract
-- [v0.9.6 release record](releases/v0.9.6/RELEASE_HANDOFF_V0.9.6.md) — final receipts, boundaries, artifacts, and public readback
-- [v0.9.5 release record](releases/v0.9.5/RELEASE_HANDOFF_V0.9.5.md) — prior release receipts and boundaries
-- [v0.8.5 quality record](releases/v0.8.5/QA_V0.8.5.md) — prior release verification
-- [v0.8.0 quality record](releases/v0.8.0/QA_V0.8.0.md) — prior release verification
-- [v0.8.5 UX redesign catalog](releases/v0.8.5/UX_V0.8.5.md) — clarity, workflow, and accessibility direction
-- [v0.7.0 quality record](releases/v0.7.0/QA_V0.7.0.md) — prior release verification
-- [Project philosophy](../PHILOSOPHY.md) — judgment framework
-- [Contributor governance](../AGENTS.md) — engineering and preservation rules
+- [Quick Start](QUICKSTART.md): installation, offline first investigation,
+  questions, evidence, analytical challenge, reports, and restart checks.
+- [User Guide](USER_GUIDE.md): interface navigation, intake, graphs, notebook,
+  correction, handoff, command reference, accessibility, and audio.
+- [Offline learning case](LEARNING_WORKSPACE.md): exact fixture and persistence exercise.
+- [Scientific method and Structured Analytic Techniques](analysis/README.md):
+  reasoning stages, technique protocols, and the distinction between recorded
+  inputs and a sound argument.
+- [Worked example](analysis/WORKED_EXAMPLE.md): why a connected synthetic
+  infrastructure cluster does not establish common control.
+- [Visualizations](analysis/VISUALIZATIONS.md): analytical questions, chart
+  interpretation, exact data, and overclaiming traps.
+- [Learning through practice](analysis/LEARNING.md): Novice Q&A, independent
+  framing, reflection, and mentor feedback without automatic certification.
 
-## Historical records
+## Implementation and operation
 
-The `QA_V*.md` files record what was checked at earlier development
-checkpoints. The `plans/` directory records intended work and implementation
-disposition at the time it was written. Commands and product names in historical documents have been normalized
-for navigation, but their dated test counts and capability descriptions describe
-the checkpoint named in the title. Do not use them as current qualification
-evidence. Requirements may have been superseded.
+- [Implementation guide](operations/IMPLEMENTATION.md): preparation, configuration,
+  rollout, acceptance, and authority boundaries.
+- [Infrastructure requirements](operations/INFRASTRUCTURE.md): runtime dependencies,
+  storage, network/provider choices, capacity limits, and local service assumptions.
+- [Operations and maintenance](operations/OPERATIONS.md): startup, shutdown,
+  backup/restore, update, diagnostics, and explicit automation boundaries.
+- [Architecture](architecture/README.md): logical components, data flows,
+  analytical authority, optional services, and extension paths.
+- [Data ownership and safety](DATA_SAFETY.md): user data, credentials, network
+  actions, LAN exposure, and sharing.
+- [Compatibility and maturity](COMPATIBILITY.md): stable, preview, and deferred contracts.
+- [Capacity envelope](CAPACITY.md): measured scale, enforced bounds, and unqualified limits.
+- [Failure and recovery](FAILURE_RECOVERY.md): truthful lifecycle states and safe recovery.
+- [Support](../SUPPORT.md): version support and safe issue reporting.
 
-- [v0.4.2 QA/UX plan](plans/V0.4.2_QA_UX_PLAN.md)
-- [v0.6 capability plan and disposition](plans/V0.6.0_PLAN.md)
-- [v0.8 through v1.0 approved roadmap](plans/V0.8_TO_1.0_ROADMAP.md)
-- [v0.9.1 through v1.0 burndown](plans/V0.9.1_TO_1.0_BURNDOWN.md)
-- [v0.9.5 document-ingestion plan](plans/V0.9.5_DOCUMENT_INGESTION.md)
-- [v0.6 arcade synthetic review](reviews/V0.6_ARCADE_SYNTHETIC_PLAYTEST.md)
-- [Development history](plans/MASTER_PLAN.md)
-- [Generated decision index](development/DECISIONS.md)
+## Detailed reference contracts
+
+- [Analytic records and commands](ANALYTIC_METHOD.md)
+- [Visualization selection and rendering](VISUALIZATION_GUIDE.md)
+- [Layered investigation graph](GRAPH_WORKSPACE.md)
+- [Framework projections](FRAMEWORK_PROJECTIONS.md)
+- [Synapse, SCOT4, go-roast, and Nucleotide](EXTERNAL_INTEGRATIONS.md)
+- [Workspace schema migration and recovery](WORKSPACE_MIGRATIONS.md)
+- [Procedural music](PROCEDURAL_MUSIC.md)
+- [Web supply chain](WEB_SUPPLY_CHAIN.md)
+
+The user guide explains actions; the analysis guides explain reasoning. Reference
+contracts describe implemented boundaries. An integration architecture labeled
+as a target does not establish a completed production cutover.
+
+## Release assurance and history
+
+- [v0.9.9 completion plan](plans/V0.9.9_COMPLETION_PLAN.md): scope, owners, and verification work.
+- [v0.9.9 request completion matrix](releases/v0.9.9/COMPLETION_MATRIX.md): delivered artifacts, remaining qualification, and public-release gates.
+- [Release records](releases/README.md): dated QA receipts, handoffs, and prior release documents.
+- [Release discipline](RELEASING.md): version, changelog, checks, tag, and publication.
+- [Release trust](RELEASE_TRUST.md): SBOM, licenses, checksums, signatures, and public readback.
+- [Changelog](../CHANGELOG.md): user-visible changes.
+- [Development history](plans/MASTER_PLAN.md) and [decision index](development/DECISIONS.md).
+- [Project philosophy](../PHILOSOPHY.md) and [contributor governance](../AGENTS.md).
+
+Historical screenshots, walkthroughs, quality counts, and plans describe their
+dated checkpoints. They remain useful for traceability, but are not current
+interface instructions or evidence that a later release passed the same checks.
+Mock editorial or usability exercises are labeled simulations; they are not
+endorsements from real users or measured outcome studies.

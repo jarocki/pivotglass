@@ -14,7 +14,7 @@ downloaded bytes match the owner's release decision.
 The SBOM describes the exact Python and npm lockfiles used to qualify the source
 release and build the packaged browser. Python wheel metadata intentionally
 uses compatible version ranges, so an unconstrained wheel installer can resolve
-newer dependencies. The supported pre-1.0 install is the tagged source checkout
+newer dependencies. The supported reproducible v1.0.0 install is the tagged source checkout
 with `uv sync --frozen`; a standalone wheel install is a package-compatibility
 check, not a reproduction of the locked environment.
 
@@ -51,7 +51,7 @@ must contain only the final candidate output; do not reuse a historical
 `dist/` directory.
 
 ```bash
-PIVOTGLASS_VERSION=0.9.8
+PIVOTGLASS_VERSION=1.0.0
 PIVOTGLASS_BUNDLE="$(mktemp -d)"
 
 uv lock --check
@@ -80,6 +80,41 @@ to the exact [Colorama](https://pypi.org/project/colorama/0.4.6/),
 [greenlet](https://pypi.org/project/greenlet/3.5.0/), and
 [pyreadline3](https://pypi.org/project/pyreadline3/3.5.4/) upstream package
 metadata in the generated inventory.
+
+## Verify the current guided media before freezing the candidate
+
+The current demo is an edited narrated sequence of actual local browser states
+from an isolated synthetic workspace. Its caption file, transcript, poster,
+chapter manifest, screenshots, and MP4 are under `docs/media/` with v1.0.0 in
+their filenames. The transcript discloses the method; the video is not a
+continuous screen recording or evidence of a live provider round trip.
+
+Before archiving, check the following against the actual files:
+
+1. The MP4 decodes, its video/audio/subtitle streams are readable, and ordinary
+   playback exposes the intended scene and caption transitions.
+2. Caption cues are ordered, bounded by the media duration, and match the
+   spoken content and transcript. The visible scene must support its caption:
+   graph footage must show the graph, not only its toolbar.
+3. Synthetic labels, complete indicator values, branch and edge distinctions,
+   explicit save/admission receipts, and analyst interpretation are preserved.
+4. Screens contain no credential, private source, personal data, or live-case
+   indicator. The chapter manifest describes what was actually recorded.
+5. Current guide links open the new files; historical media stays labeled in
+   the release record rather than serving as the current tour.
+
+A maintainer can inspect streams and decode the file with local media tools:
+
+```bash
+ffprobe -v error -show_streams -show_format docs/media/pivotglass-guided-demo-v1.0.0.mp4
+ffmpeg -v error -i docs/media/pivotglass-guided-demo-v1.0.0.mp4 -f null -
+```
+
+Media verification is additional to application tests. The signed source
+archive binds the tracked media bytes it includes. If media is also attached
+separately to a release, supply those final files as additional repeatable
+`--artifact` inputs to the trust generator before signing. Any later media
+change requires a regenerated manifest and signature, just like a code change.
 
 ## Release signing identity
 
@@ -139,7 +174,7 @@ is not a completed release.
 
 ## Current boundary
 
-The v0.9.8 source tree contains the generator, deterministic tests, support
+The v1.0.0 candidate source tree contains the generator, deterministic tests, support
 guidance, and this manual ceremony because release workflows are intentionally
 kept out of the public repository. The final signature and public readback can
 exist only after the immutable candidate is approved and published. Until then,

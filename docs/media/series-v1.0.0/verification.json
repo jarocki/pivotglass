@@ -1,0 +1,122 @@
+{
+  "date": "2026-09-29",
+  "checks": [
+    {
+      "sha256": "4f375c53f21070b7864aafb14127489f2316a025781413b93eb98321d62e3938",
+      "score_rms": 0.04137690653436538,
+      "file": "pivotglass-analyst-v1.0.0.mp4",
+      "bytes": 9106342,
+      "duration": 126.920998,
+      "manifest_delta": 0.005743762711858835,
+      "decode": "complete, no errors",
+      "streams": [
+        {
+          "type": "video",
+          "codec": "h264",
+          "duration": "126.920000",
+          "width": 1280,
+          "height": 816
+        },
+        {
+          "type": "audio",
+          "codec": "aac",
+          "duration": "126.920998",
+          "width": null,
+          "height": null
+        }
+      ],
+      "levels": [
+        "[Parsed_volumedetect_0 @ 0x12a608d60] mean_volume: -19.1 dB",
+        "[Parsed_volumedetect_0 @ 0x12a608d60] max_volume: -1.7 dB"
+      ]
+    },
+    {
+      "sha256": "649cc8efedcabc2fa8f7554adf9dceb3a9d9e6e107f4a53b718e6305c927dc73",
+      "score_rms": 0.038989567076512265,
+      "file": "pivotglass-overview-v1.0.0.mp4",
+      "bytes": 5530589,
+      "duration": 76.623991,
+      "manifest_delta": 0.008606384615390539,
+      "decode": "complete, no errors",
+      "streams": [
+        {
+          "type": "video",
+          "codec": "h264",
+          "duration": "76.600000",
+          "width": 1280,
+          "height": 816
+        },
+        {
+          "type": "audio",
+          "codec": "aac",
+          "duration": "76.623991",
+          "width": null,
+          "height": null
+        }
+      ],
+      "levels": [
+        "[Parsed_volumedetect_0 @ 0x134e11c90] mean_volume: -19.1 dB",
+        "[Parsed_volumedetect_0 @ 0x134e11c90] max_volume: -1.8 dB"
+      ]
+    },
+    {
+      "sha256": "720d9e1d926abdf00498afa14ab9d6052d869340e7b499cb69df77c2ae76ef2e",
+      "score_rms": 0.04050400239501747,
+      "file": "pivotglass-pivot-v1.0.0.mp4",
+      "bytes": 5912788,
+      "duration": 84.102993,
+      "manifest_delta": 0.00543202439024526,
+      "decode": "complete, no errors",
+      "streams": [
+        {
+          "type": "video",
+          "codec": "h264",
+          "duration": "84.080000",
+          "width": 1280,
+          "height": 816
+        },
+        {
+          "type": "audio",
+          "codec": "aac",
+          "duration": "84.102993",
+          "width": null,
+          "height": null
+        }
+      ],
+      "levels": [
+        "[Parsed_volumedetect_0 @ 0x149e0def0] mean_volume: -19.3 dB",
+        "[Parsed_volumedetect_0 @ 0x149e0def0] max_volume: -1.7 dB"
+      ]
+    },
+    {
+      "sha256": "faeb94b4278aa6a9ac141e6a6f7a964d930d45cc146a4afe8bcfedc27b4b946c",
+      "score_rms": 0.040829642452348734,
+      "file": "pivotglass-visualization-v1.0.0.mp4",
+      "bytes": 7672271,
+      "duration": 109.940998,
+      "manifest_delta": 0.007664666666670428,
+      "decode": "complete, no errors",
+      "streams": [
+        {
+          "type": "video",
+          "codec": "h264",
+          "duration": "109.920000",
+          "width": 1280,
+          "height": 816
+        },
+        {
+          "type": "audio",
+          "codec": "aac",
+          "duration": "109.940998",
+          "width": null,
+          "height": null
+        }
+      ],
+      "levels": [
+        "[Parsed_volumedetect_0 @ 0x12f806550] mean_volume: -19.0 dB",
+        "[Parsed_volumedetect_0 @ 0x12f806550] max_volume: -1.7 dB"
+      ]
+    }
+  ],
+  "listening_review": "pending owner review; objective decode does not establish tone or musical taste"
+}

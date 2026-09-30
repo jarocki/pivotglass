@@ -8,7 +8,7 @@ say “I don't know yet.” The purpose is to develop habits that remain useful 
 the guidance is reduced: source checking, scope control, competing explanations,
 and explicit uncertainty.
 
-![Pivotglass v0.9.8 question-coaching prompt in a synthetic training workspace](../media/pivotglass-question-coach-v0.9.8.png)
+![Pivotglass v0.9.9 question-coaching prompt in a synthetic training workspace](../media/pivotglass-question-coach-v1.0.0.png)
 
 This screenshot is an example of the current interface using a synthetic case.
 Practice participation is recorded locally; Pivotglass does not certify

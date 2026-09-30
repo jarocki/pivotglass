@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-29
+
+The owner approved the bounded local, single-analyst investigation scope after
+the final assurance review. The v0.9.9 work was a release candidate and is
+published here as v1.0.0; external integrations and additional intake formats
+retain their documented preview or deferred status.
+
+### Documentation and enablement
+
+- Added four faster Descript-narrated films: Overview, Analyst Walkthrough, PIVOT Glass, and Visualization/Reporting. Actual captures, aligned captions, transcripts and original procedural music are preserved with edit/score manifests.
+- Added original Digital Looking Glass wordmark and transparent portal emblem.
+- Reports now retain structured technique inputs and outputs, safely fenced as JSON, while preserving pending analyst disposition and distinguishing authored analysis from evidence.
+
+
+- Completed the documentation and demonstration work left open at the v0.9.8
+  publication checkpoint. Rewrote the product landing story and documentation
+  routes, made the first investigation offline before provider configuration,
+  and added executable scientific-method practice, experienced workflows,
+  correction/recovery, and a reviewable handoff checklist.
+- Replaced historical screenshots in current guides with actual v0.9.9
+  synthetic-case captures. Added a five-minute tour using Descript’s Jesse neural
+  voice, actual speech chapter timing, readable external captions, a poster,
+  transcript, and public source captures. Owner listening review remains open.
+- Added implementation, infrastructure, operations and maintenance guides with
+  local deployment boundaries, stopped-copy backup and restore verification,
+  task ownership and cadence, deliberate collection, and automation limits.
+- Added audience-specific elevator pitches, product and website copy, and
+  LinkedIn, Mastodon, and Signal drafts. Repository copy does not publish posts
+  or change a website; external publication remains a separate owner action.
+- Reconciled the original v0.9.8 and v0.9.9 requests in a completion matrix,
+  separating delivered artifacts, current qualification, and public release
+  readback from the later owner-approved v1.0.0 assurance pass.
+
+### Added
+
+- Added **SAVE MARKDOWN** beside report **PRINT / SAVE PDF**, downloading the
+  exact generated report text with a safe workspace/version filename.
+- Exposed analyst evidence linking through the browser and full-screen terminal:
+  `analysis link` validates existing observation/assertion and target ledger
+  IDs, records a supports/contradicts stance with a required rationale, and
+  returns a receipt. Linking does not run collection, create observations,
+  accept a hypothesis, or change confidence.
+
+### Fixed
+
+- Render report file indicators as their preferred hashes or names instead of
+  internal object IDs, and replace internal-tool empty-state suggestions with
+  actual operator commands.
+- Handle promotion-group references in relationship-degree summaries without
+  indexing them as stored indicators, preventing a joint-admission graph from
+  failing during state refresh. Group markers are excluded from indicator
+  histogram rows; explicit membership edges count for their stored-entity endpoints.
+
 ## [0.9.8] - 2026-09-27
 
 - Patch locked Python and browser dependencies following advisory audits; repeat

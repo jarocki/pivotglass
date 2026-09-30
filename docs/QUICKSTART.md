@@ -6,23 +6,54 @@ competing explanations. Pivotglass keeps each result with its
 source and time, connects only what the evidence supports, and leaves
 unanswered questions visible.
 
-This guide takes you from a clean installation to a small investigation, a
-graph review, and a report.
+This guide takes you from installation through a complete offline
+investigation: question, evidence, competing explanations, review, and report.
+Provider and model configuration comes after the practice case; the case needs
+neither. Keep shell commands in your terminal and workspace/analysis commands
+in the Pivotglass command field.
 
 Prefer a calmer display? Open **Help → Reading & attention** for larger text
 and **Quiet workspace**. Dimming is optional and off by default. Help also has
 direct routes to create a report or choose an export format. These presentation
 choices do not change your evidence or suppress error alerts.
 
+## Four ways through the looking glass
+
+Start with the [flashy Overview](media/series-v1.0.0/pivotglass-overview-v1.0.0.mp4), then choose the [Analyst Walkthrough](media/series-v1.0.0/pivotglass-analyst-v1.0.0.mp4), [PIVOT Glass](media/series-v1.0.0/pivotglass-pivot-v1.0.0.mp4), or [Visualization and Reporting](media/series-v1.0.0/pivotglass-visualization-v1.0.0.mp4). Each has real Descript narration, original generative music, captions and a transcript in the [series guide](media/series-v1.0.0/README.md).
+
+## Watch with captions
+
+[Watch the current narrated tour](media/pivotglass-guided-demo-v1.0.0.mp4),
+[read the transcript](media/pivotglass-guided-demo-transcript-v1.0.0.md), or
+[download its WebVTT captions](media/pivotglass-guided-demo-v1.0.0.vtt).
+It uses edited actual UI captures from an isolated synthetic case, not a
+continuous recording or a live provider investigation.
+
+The repository includes an [HTML player with captions on by default](media/pivotglass-guided-demo-v1.0.0.html).
+GitHub displays HTML as source; to use the player from a cloned checkout, serve
+only the public media folder on loopback:
+
+```bash
+uv run python -m http.server 8877 --bind 127.0.0.1 --directory docs/media
+```
+
+Open `http://127.0.0.1:8877/series-v1.0.0/index.html` for the four new films, or `http://127.0.0.1:8877/pivotglass-guided-demo-v1.0.0.html` for the earlier edit. Use the player's
+caption control to change caption display, or use the adjacent transcript.
+The basic Python server supports sequential playback; reliable chapter seeking
+requires a server with HTTP byte-range support. For offline seeking, open the
+MP4 and its same-named VTT file in a media player that supports external captions.
+Stop this separate media server with Ctrl+C when finished. The steps below are
+the complete practice path; you can follow them without watching the video.
+
 ## 1. Install Pivotglass
 
 You need Python 3.12 or newer, Git, and
 [uv](https://docs.astral.sh/uv/). The source tag plus its committed lockfile is
-the only supported pre-1.0 installation because it reproduces the dependency
+the supported reproducible v1.0.0 installation because it reproduces the dependency
 set used for release qualification.
 
 ```bash
-git clone --branch v0.9.8 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v1.0.0 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent --frozen
 uv run pivotglass --version
@@ -31,7 +62,7 @@ uv run pivotglass --version
 The final command should report:
 
 ```text
-pivotglass 0.9.8
+pivotglass 1.0.0
 ```
 
 The release contains the built browser interface. Node.js 20.9 or newer is
@@ -51,7 +82,7 @@ recreate the locked environment:
 
 ```bash
 git fetch --tags origin
-git checkout v0.9.8
+git checkout v1.0.0
 uv sync --extra agent --frozen
 uv run pivotglass --version
 ```
@@ -76,7 +107,7 @@ that a valuable workspace has migrated correctly.
 
 The v0.9.8 name change does not implicitly select an older data directory.
 Stop all Pivotglass processes using your old directory and back it up. Before
-starting v0.9.8, copy that directory into a **new, absent** destination with:
+starting a release that uses the new names, copy that directory into a **new, absent** destination with:
 
 ```bash
 uv run pivotglass migrate-home --from /absolute/path/to/previous-data --confirm-stopped
@@ -116,70 +147,7 @@ pivotglass basic    Direct module-control console
 pivotglass repl     Alias for the direct console
 ```
 
-## 3. Configure intelligence and AI services
-
-Open **MORE**, then **MODEL & API CONFIGURATION** in Pivotglass.
-
-### Intelligence services
-
-For each service you intend to use:
-
-1. Find the service under **INTELLIGENCE APIS**.
-2. Enter the required credential fields.
-3. Choose **SAVE + TEST**.
-4. Leave the service disabled if you do not want Pivotglass to use it.
-
-WHOIS and crt.sh work without API credentials. Most other integrations require
-an account or key. Checks occur only when you request them.
-
-### Optional model synthesis
-
-Pivotglass can collect and organize evidence without a model. To enable
-synthesis:
-
-1. Choose a model provider.
-2. Enter a credential if the provider requires one.
-3. Choose **SAVE + TEST**.
-4. Choose **VIEW AVAILABLE MODELS**.
-5. Review the recorded strengths and limitations.
-6. Choose **SELECT** beside the model you want.
-
-A successful check proves that the provider accepted the credential and
-returned the model in its catalog. It does not prove available quota, low
-latency, answer quality, or suitability for a particular investigation.
-
-Newly entered secrets exist transiently in the masked password field and the
-explicit local save/test request. Stored secrets are not returned during
-routine polling or repopulated into the form. Do not put secrets in the command
-field, notes, exports, or screenshots.
-
-You can inspect the same masked state with:
-
-```text
-model show
-model check
-model repair
-config show
-config repair
-```
-
-![Model and API configuration with masked credential state](media/pivotglass-configuration-v0.9.5.png)
-
-### Optional Synapse and SCOT4 integration
-
-Pivotglass 0.9 can make explicit, bounded, read-only MCP requests to Vertex
-Synapse and Sandia SCOT4. Its separate SCOT publication workflow requires an
-exact, short-lived human approval and readback reconciliation. Synapse loading
-likewise requires an exact approval, an operator backup receipt, and an
-explicit parent view; it writes only to a new unmerged child view. The required
-persistent Synapse extended model has a separate preview and approval gate
-because model changes affect the whole Cortex rather than one view. Configure
-endpoints and keys outside the command field, then check local state with
-`integration status`. See
-[Vertex Synapse and SCOT4 integrations](EXTERNAL_INTEGRATIONS.md). Remote
-read results are previews until an analyst deliberately imports or cites them.
-
-## 4. Create a learning workspace
+## 3. Create a learning workspace
 
 No account, API key, model, or network service is required for the first case.
 In the Pivotglass command field, enter:
@@ -188,7 +156,8 @@ In the Pivotglass command field, enter:
 workspace learn quickstart
 ```
 
-This creates and activates a real, persistent investigation populated with
+Use an unused name; choose `quickstart-2` if `quickstart` already exists.
+The command creates and activates a real, persistent investigation populated with
 reserved synthetic data. Its receipt reports zero model and network requests.
 The case includes source hashes and handling markings, four connected entities,
 two competing hypotheses, a high-materiality contradiction, formal confidence,
@@ -202,6 +171,9 @@ analysis lifecycle
 analysis contradictions
 analysis priorities
 ```
+
+**Checkpoint:** `status` names your synthetic workspace and `analysis show`
+shows the question and both hypotheses. Keep the fixture indicators offline.
 
 The fixture intentionally does not resolve the contradiction. Topology can be
 consistent with common control or shared infrastructure, so the open gap asks
@@ -232,6 +204,8 @@ indicators you are authorized to send to the enabled services.
 
 > An indicator is not the answer. It is the first node.
 
+![v1.0.0 question coaching starts with sources and provenance](media/pivotglass-question-coach-v1.0.0.png)
+
 ### Frame your question before collecting more
 
 In a separate workspace for your own case, choose **BUILD INVESTIGATIVE
@@ -253,7 +227,9 @@ finding about your workspace. See the
 [guided first investigation](USER_GUIDE.md#walkthrough-from-reported-context-to-a-question)
 for a complete exercise.
 
-## 5. Read the Investigation Constellation
+![v1.0.0 Pursuit Brief for the synthetic learning case](media/pivotglass-cockpit-v1.0.0.png)
+
+## 4. Read the Investigation Constellation
 
 Open **Visualize**, then choose **Investigation Constellation** from **Choose an
 analyst question**.
@@ -278,8 +254,6 @@ Space to pin the focused explanation below the matrix. Select **Open evidence
 & provenance** to inspect the records behind that indicator.
 
 > A blank cell is not missing interface. It is visible uncertainty.
-
-![Current constellation with familiar coverage marks and country labels](media/pivotglass-constellation-night-v0.9.7.png)
 
 ### Add a report or indicator list
 
@@ -317,18 +291,12 @@ If the source receipt appears but entity admission is interrupted, choose
 **Retry entity admission**. The retry is idempotent against the stored source:
 it does not upload a second copy or duplicate an already admitted entity.
 
-![JSON recognized from content with task-relative candidate guidance](media/pivotglass-json-intake-v0.9.7.png)
-
-![Explicit document admission and persistent source library](media/pivotglass-document-library-v0.9.6.png)
-
 Open **Visualize → Provenance History** to see the recorded path
 of document, indicator, and entity navigation. This trail explains how the
 analyst arrived at the current position; it is a workflow record, not evidence
 that two threat entities are related.
 
-![Chronological analyst pivot trail](media/pivotglass-pivot-timeline-v0.9.6.png)
-
-## 6. Pivot to related evidence
+## 5. Pivot to related evidence
 
 When enrichment discovers another indicator:
 
@@ -346,7 +314,7 @@ does not issue a direct DNS query from the operator host. URLScan is different:
 it can submit a URL or domain to an external browser-scanning service. Review
 the enabled service before sending private or embargoed indicators.
 
-## 7. Explore the relationship graph
+## 6. Explore the relationship graph
 
 In **VISUAL ANALYSIS**, choose **Evidence relationships**.
 
@@ -378,8 +346,6 @@ judgments appear as manual graph edges.
 
 > The graph is useful because it refuses to connect what the evidence does not.
 
-![Pivotglass v0.9.8 relationship graph in a synthetic workspace](media/pivotglass-graph-v0.9.8.png)
-
 The `graph` command opens the deterministic graph summary:
 
 ```text
@@ -399,6 +365,58 @@ rationale, and direction. The older `export stix` remains the standards-based
 entity/evidence exchange; Pivotglass does not disguise analytic notebook
 records as observed STIX objects.
 
+![v1.0.0 relationship graph from the synthetic walkthrough; source admission and analyst grouping do not resolve the control question](media/pivotglass-graph-v1.0.0.png)
+
+## 7. Test the explanations before deciding
+
+The learning case includes a common-control hypothesis and a
+shared-infrastructure alternative. A connected graph fits both, so topology
+alone cannot distinguish them. Enter:
+
+```text
+analysis show
+analysis contradictions
+analysis priorities
+```
+
+Read the recorded question, both explanations, the low confidence basis, and
+the separately stated likelihood. Locate the unresolved ownership or tenancy
+gap. Ask what source could establish **who controlled the address during the
+relevant interval**, and whether that collection is feasible and authorized.
+More reputation results may add data without answering that question.
+
+For a local practice action, record an exposed assumption:
+
+```text
+analysis assumption Connected infrastructure implies exclusive common control.
+```
+
+This writes an analyst-authored assumption, not an observed fact. Inspect
+`analysis show` for the new record. The
+[worked example](analysis/WORKED_EXAMPLE.md#6-practice-a-key-assumptions-check)
+then shows how to challenge it with a Key Assumptions Check, preserve the
+method result, and review it explicitly. Follow the returned IDs rather than
+copying placeholder IDs. The application checks protocol fields; the analyst
+judges whether the argument and evidence are sound.
+
+To make an evidence stance explicit, find the real IDs in `analysis show` and
+use the browser command field or full-screen terminal:
+
+```text
+analysis link observation <observation-id> hypothesis <hypothesis-id> supports | Explain what this record supports and why it does not eliminate the alternative.
+```
+
+This records your interpretation with a rationale. It does not accept the
+hypothesis or collect anything. Check the receipt and the
+[comparison matrix](USER_GUIDE.md#record-how-evidence-bears-on-an-explanation);
+an unassessed cell still means no stance was recorded.
+
+
+**Checkpoint:** explain why the two hypotheses remain plausible, name one
+finding that would discriminate between them, and distinguish coverage,
+likelihood, and confidence. An accurate unresolved result is useful if it
+identifies what should be collected next.
+
 ## 8. Report and export
 
 Generate the current Dossier report:
@@ -407,8 +425,11 @@ Generate the current Dossier report:
 report generate
 ```
 
-The report is built from the active workspace. Use **PRINT / SAVE PDF** in the
-report dialog to print it or save a PDF.
+Confirm the workspace name and review the question, evidence basis,
+alternatives, confidence, and remaining gap in the report. The report is built
+from the active workspace. Use **SAVE MARKDOWN** in the report dialog to
+download the exact report as a `.md` file, or **PRINT / SAVE PDF** to print it
+or save a PDF. Review handling and redaction before sharing either format.
 
 Download investigation data with:
 
@@ -457,7 +478,68 @@ rationale; it is not another position on the probability scale.
 Before sharing any export, remember that it can contain raw indicators and
 source-derived information.
 
-## 9. Change character and presentation
+## 9. Configure intelligence and AI services
+
+Open **MORE**, then **MODEL & API CONFIGURATION** in Pivotglass.
+
+### Intelligence services
+
+For each service you intend to use:
+
+1. Find the service under **INTELLIGENCE APIS**.
+2. Enter the required credential fields.
+3. Choose **SAVE + TEST**.
+4. Leave the service disabled if you do not want Pivotglass to use it.
+
+WHOIS and crt.sh work without API credentials. Most other integrations require
+an account or key. Checks occur only when you request them.
+
+### Optional model synthesis
+
+Pivotglass can collect and organize evidence without a model. To enable
+synthesis:
+
+1. Choose a model provider.
+2. Enter a credential if the provider requires one.
+3. Choose **SAVE + TEST**.
+4. Choose **VIEW AVAILABLE MODELS**.
+5. Review the recorded strengths and limitations.
+6. Choose **SELECT** beside the model you want.
+
+A successful check proves that the provider accepted the credential and
+returned the model in its catalog. It does not prove available quota, low
+latency, answer quality, or suitability for a particular investigation.
+
+Newly entered secrets exist transiently in the masked password field and the
+explicit local save/test request. Stored secrets are not returned during
+routine polling or repopulated into the form. Do not put secrets in the command
+field, notes, exports, or screenshots.
+
+You can inspect the same masked state with:
+
+```text
+model show
+model check
+model repair
+config show
+config repair
+```
+
+### Optional Synapse and SCOT4 integration
+
+Pivotglass 0.9 can make explicit, bounded, read-only MCP requests to Vertex
+Synapse and Sandia SCOT4. Its separate SCOT publication workflow requires an
+exact, short-lived human approval and readback reconciliation. Synapse loading
+likewise requires an exact approval, an operator backup receipt, and an
+explicit parent view; it writes only to a new unmerged child view. The required
+persistent Synapse extended model has a separate preview and approval gate
+because model changes affect the whole Cortex rather than one view. Configure
+endpoints and keys outside the command field, then check local state with
+`integration status`. See
+[Vertex Synapse and SCOT4 integrations](EXTERNAL_INTEGRATIONS.md). Remote
+read results are previews until an analyst deliberately imports or cites them.
+
+## 10. Change character and presentation
 
 Open **DECK** to choose a character, Day or Night display, contrast, motion,
 narration, and music. You can also use:
@@ -490,6 +572,22 @@ narrated text, with browser or operating-system speech as a fallback. Music
 is local, and no actor or character voice is cloned.
 
 In the terminal interface, `Alt-M` toggles music immediately.
+
+### Verify that the case survives a restart
+
+Close and restart Pivotglass, then enter:
+
+```text
+workspace switch quickstart
+analysis contradictions
+analysis show
+```
+
+Use your chosen name if different. The unresolved contradiction and saved
+assumption should still exist. Browser-local Q&A drafts are separate from these
+workspace records. Export is a handoff artifact, not a full backup of source
+bytes; use the [operations guide](operations/OPERATIONS.md) for a stopped-copy
+backup and restore rehearsal.
 
 ## Troubleshooting
 

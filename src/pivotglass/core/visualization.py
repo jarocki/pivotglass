@@ -1735,12 +1735,13 @@ def relationship_degree_distribution_intent(
 
     admitted = relationship_graph_intent(workspace, graph, analysis)
     graph_nodes = {str(node["id"]): node for node in graph.get("nodes", ()) if node.get("id")}
-    degree = {node.reference: 0 for node in admitted.data.nodes}
+    degree = {node.reference: 0 for node in admitted.data.nodes if node.reference in graph_nodes}
     for edge in admitted.data.edges:
         source = edge.source
         target = edge.target
-        if source in degree and target in degree:
+        if source in degree:
             degree[source] += 1
+        if target in degree:
             degree[target] += 1
     rows = tuple(
         {
@@ -1762,7 +1763,7 @@ def relationship_degree_distribution_intent(
         workspace=workspace,
         description=(
             "Degree counts from the current relationship projection; each admitted edge "
-            "contributes once to each endpoint."
+            "contributes once to each entity endpoint; analyst group markers are not indicators."
         ),
         record_count=len(graph_nodes),
         data=VisualizationData(rows=rows),
@@ -1790,6 +1791,7 @@ def relationship_degree_distribution_intent(
         caveats=(
             "Counts describe admitted graph edges, not actor importance, maliciousness, or "
             "analytic confidence.",
+            "Analyst grouping contributes navigation connections, not observed common control.",
         ),
     )
 

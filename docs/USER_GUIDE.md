@@ -7,11 +7,19 @@ module-control console share the same underlying workspaces and evidence.
 
 Start with the [Quick Start](QUICKSTART.md) if this is your first session.
 
-[![Watch the guided workflow](media/pivotglass-guided-demo-poster.png)](media/pivotglass-guided-demo-v0.9.5.mp4)
 
-[Watch or download the walkthrough](media/pivotglass-guided-demo-v0.9.5.mp4) ·
-[Captions](media/pivotglass-guided-demo-v0.9.5.vtt) ·
-[Read the transcript](media/pivotglass-guided-demo-transcript.md)
+[v0.9.9 narrated tour](media/pivotglass-guided-demo-v1.0.0.mp4) ·
+[Captions](media/pivotglass-guided-demo-v1.0.0.vtt) ·
+[Transcript and chapters](media/pivotglass-guided-demo-transcript-v1.0.0.md) ·
+[Caption-enabled player instructions](QUICKSTART.md#watch-with-captions)
+
+The tour uses edited actual UI captures from a synthetic workspace. The guide
+below gives the reproducible actions, checkpoints, correction paths, and handoff
+work beyond what a short tour can demonstrate.
+
+## Four ways through the looking glass
+
+Start with the [flashy Overview](media/series-v1.0.0/pivotglass-overview-v1.0.0.mp4), then choose the [Analyst Walkthrough](media/series-v1.0.0/pivotglass-analyst-v1.0.0.mp4), [PIVOT Glass](media/series-v1.0.0/pivotglass-pivot-v1.0.0.mp4), or [Visualization and Reporting](media/series-v1.0.0/pivotglass-visualization-v1.0.0.mp4). Each has real Descript narration, original generative music, captions and a transcript in the [series guide](media/series-v1.0.0/README.md).
 
 ## How to use this guide
 
@@ -32,6 +40,7 @@ source, challenge an explanation, and communicate a bounded judgment.
 | Produce a handoff | [Reports and exports](#reports-and-exports) |
 | Recover from failures | [Activity and errors](#activity-errors-and-degraded-operation), [recovery guide](FAILURE_RECOVERY.md) |
 | Understand storage and service boundaries | [Architecture](architecture/README.md), [data safety](DATA_SAFETY.md) |
+| Implement, size, or maintain a deployment | [Implementation](operations/IMPLEMENTATION.md), [infrastructure](operations/INFRASTRUCTURE.md), [operations](operations/OPERATIONS.md) |
 
 You may pause, keep uncertainty open, or choose a different explanation. An
 unanswered question can be a useful outcome when it identifies the next
@@ -74,6 +83,29 @@ local routing cannot answer them. Direct tools and stored evidence remain the
 source of observed facts. Character narration, music, effects, scores, and
 mini-games carry no analytical meaning.
 
+## Experienced path: a bounded investigation
+
+Use the full workbench when you already know the workflow. Keep each of these
+steps explicit, even when the interface can suggest a next action.
+
+| Step | Action in Pivotglass | Check before moving on |
+| --- | --- | --- |
+| Frame | Confirm workspace, decision, question, scope, and time window; record `analysis question <text>` | Does the question presume a cause or answer? |
+| Preserve | Preview reports and select source-only or source-plus-entity admission | Are digest, parser warnings, exact spans, and destination correct? |
+| Explain | Record competing hypotheses, assumptions, predictions, and collection requirements | What finding would weaken the favored explanation? |
+| Collect | Investigate an admitted indicator or explicitly run queued work through enabled providers | Is the query authorized, relevant, and appropriate for the provider? |
+| Compare | Inspect observations and source dependence; link evidence to hypotheses with a rationale | Are repeated upstream reports being counted as independent corroboration? |
+| Challenge | Choose a structured technique and record its inputs, results, and disposition | Are the argument and sources sound beyond the presence of required fields? |
+| Judge | Record hypothesis disposition, confidence basis, likelihood, limitations, and gaps | What uncertainty could change the decision? |
+| Hand off | Generate and review the report, export required records, assign next collection | Can the recipient reconstruct the source-to-judgment chain? |
+
+No single stage completes the next automatically. Intake does not collect,
+collection does not accept a hypothesis, and a method run does not update
+confidence. Scientific investigation is iterative: a conflict can change the
+question or scope before more collection is justified. Follow the
+[analytical method](analysis/README.md) for the reasoning and the
+[worked example](analysis/WORKED_EXAMPLE.md) for executable practice.
+
 ## The Pursuit Brief
 
 Pivotglass opens in a focused, single-column investigation view. The Pursuit
@@ -92,8 +124,6 @@ The recommendation is navigation guidance, not evidence. It identifies its
 basis and permission class. Merely viewing or polling it never runs a remote
 query, creates a relationship, accepts an analytical proposal, changes
 confidence, attributes activity to an actor, or publishes externally.
-
-![v0.9.6 Pursuit Brief with separate progress and open-work measures](media/pivotglass-cockpit-v0.9.6.png)
 
 Primary navigation is deliberately limited to **Investigate**, **Evidence**,
 **Visualize**, and **More**. Evidence opens in an on-demand detail area.
@@ -140,9 +170,7 @@ Q&A remains available in the full workbench at every level. Resetting the
 walkthrough resets interface guidance; local Q&A drafts have a separate clear
 control.
 
-![Investigative-question coaching in Pivotglass v0.9.8 using a synthetic workspace](media/pivotglass-question-coach-v0.9.8.png)
-
-![Scientific workbench with competing hypotheses and open gaps](media/pivotglass-analysis-v0.9.5.png)
+![v0.9.9 coaching asks what sources are available; the response is reported context until source checks](media/pivotglass-question-coach-v1.0.0.png)
 
 ## Walkthrough: from reported context to a question
 
@@ -215,6 +243,8 @@ tips. Those labels describe interface assistance, not certified competence.
 See [learning through practice](analysis/LEARNING.md) for a repeatable review
 routine and observable skills to discuss with a mentor.
 
+![v0.9.9 scientific workbench preserves competing explanations and an unresolved contradiction](media/pivotglass-analysis-v1.0.0.png)
+
 ## Workspaces
 
 Each investigation has an isolated SQLite workspace under `~/.pivotglass/`. Workspaces
@@ -246,8 +276,7 @@ removes stored evidence, relationships, notes, analysis records, the approved
 v9-v11 document/proposal/snapshot records, and uploaded document bytes. It does
 not delete repository documentation, product plans, source code, or deferred
 features. Framework-mapping records and external-integration execution receipts
-retain their pre-existing lifecycle and are not newly included in clear by this
-v0.9.5 correction. `workspace delete` permanently removes the workspace database,
+retain their separate lifecycle and are outside this clear operation. `workspace delete` permanently removes the workspace database,
 SQLite sidecars, and uploaded-document content directory. Both commands report
 what they removed and fail loudly rather than claiming success after incomplete
 cleanup. The browser and full-screen terminal require the repeated name shown
@@ -298,6 +327,8 @@ Country flags and known-malware marks appear only when stored source data
 supports them. Analyst notes are labeled as analyst-authored context. Inference
 details identify their supporting evidence. Missing provenance remains visibly
 unavailable rather than being reconstructed by a model.
+
+![Synthetic domain detail shows the source module, full indicator, discovery breadcrumbs, and stored relationships](media/pivotglass-provenance-v1.0.0.png)
 
 ## The Dossier
 
@@ -367,7 +398,7 @@ details to inspect the underlying records. Escape dismisses a hover explainer.
 
 The overall mapped value is navigation help, not confidence or a verdict.
 
-![Day-mode constellation with readable headings and selected evidence details](media/pivotglass-constellation-day-v0.9.7.png)
+![v0.9.9 Constellation shows separate evidence dimensions for four synthetic indicators](media/pivotglass-constellation-v1.0.0.png)
 
 ## Visual Analysis
 
@@ -422,6 +453,10 @@ the first time can be selected and admitted later; the source is not copied
 again. A preview-only source remains intentionally session-local because its
 bytes have not been explicitly stored.
 
+![v0.9.9 local preview shows two selected synthetic candidates, exact spans, full URL values, and the explicit admission action](media/pivotglass-intake-v1.0.0.png)
+
+![v0.9.9 persistent library and stored-source review show the source hash and separate candidate review](media/pivotglass-library-v1.0.0.png)
+
 The intake accepts an explicitly selected file up to 10 MiB and has qualified
 parsers for text, Markdown, HTML, CSV, JSON, JSONL, and RFC 5322 email. JSON is
 recognized by content, extension, or structured MIME type. UTF-8, UTF-16, and
@@ -464,16 +499,19 @@ source receipt visible and offers **Retry entity admission**. The retry refers
 to the same occurrence and selection keys, so it neither stores a second source
 copy nor duplicates already admitted entities.
 
+![v0.9.9 provenance history records document admission, a joint promotion group, and two candidate branches with the complete URL](media/pivotglass-history-v1.0.0.png)
+
+Read this path as the analyst's workflow: the document was admitted, two
+candidates were selected together, and those selected strings became entities.
+The group preserves the selection decision. It does not prove the source's
+claims, common control, or an adversary relationship.
+
 The layered investigation graph adds an epistemic node for each stored
 document and candidate, a structural `contains-candidate` edge, and—only when
 the exact normalized value already exists as admitted evidence—a labeled
 bridge to that entity. These are provenance and review aids, not evidence that
 the document's claim is true. `timeline pivots` and the **Chronological trail**
 visualization show the append-only analyst path among documents and indicators.
-
-![JSON recognized from content with task-relative candidate guidance](media/pivotglass-json-intake-v0.9.7.png)
-
-![Document preview, explicit admission, and persistent library](media/pivotglass-document-library-v0.9.6.png)
 
 Deferred dimensions remain in the table but are omitted from the radar shape
 because they do not have an inference path. Radar values 0, 50, and 100 map to
@@ -511,6 +549,33 @@ sufficient is the reasoning and evidence?” Pivotglass never merges them into a
 single score. Invalid ranges are omitted and counted rather than silently
 corrected.
 
+### Record how evidence bears on an explanation
+
+In the browser command field or full-screen terminal, use `analysis show` to
+find the exact observation/assertion and hypothesis IDs. Then record one
+interpretive link with a required rationale:
+
+```text
+analysis link observation <observation-id> hypothesis <hypothesis-id> supports | Explain which recorded fact supports this explanation and what it cannot establish.
+analysis link assertion <assertion-id> hypothesis <hypothesis-id> contradicts | Explain why this authored claim is inconsistent with the explanation.
+```
+
+Replace every placeholder with an existing ledger ID and write your own
+source-specific rationale. Source kinds are `observation` or `assertion`;
+target kinds are `assertion` or `hypothesis`; stances are `supports` or
+`contradicts`. The command validates those references and returns a link
+receipt. It is available in the browser and full-screen terminal, not the
+classic direct module console.
+
+This link states the analyst's interpretation. It does not create a new source
+observation, accept a hypothesis, set confidence, or run collection. Inspect
+`analysis show` and the competing-hypotheses matrix after the receipt. Assess
+every plausible hypothesis against the relevant evidence; a record can be
+compatible with more than one explanation. The synthetic example deliberately
+includes topology that supports both common control and shared infrastructure.
+
+![v0.9.9 analyst-authored evidence-link receipt records the existing IDs, stance, and rationale](media/pivotglass-evidence-link-v1.0.0.png)
+
 ## Relationship graph
 
 The relationship graph uses actual indicator values for node labels and
@@ -531,7 +596,7 @@ lowercase relationship such as `possibly-controlled-by` and a required
 annotation explaining the basis. Manual relations are amber dashed edges and
 remain analyst assertions; they are not written as observed STIX
 relationships. The equivalent shared command is `analysis relation
-<subject-ref> <predicate> <object-ref> | <annotation>`.
+<subject-ref> <predicate> <object-ref> \| <annotation>`.
 
 Open **Review analyst relations** to correct an active manual edge. **REVISE**
 creates a replacement judgment and marks the former assertion superseded;
@@ -554,7 +619,14 @@ connections. Use `Command/Control+Z` and `Shift+Command/Control+Z` when focus is
 in the graph rather than a text field. Analytic evidence, relations, assertions,
 and correction history are intentionally outside this undo boundary.
 
-![Evidence-backed relationship graph](media/pivotglass-graph-v0.9.5.png)
+![v0.9.9 graph shows six synthetic entities plus one promotion group, with three stored relationship edges and two dotted analyst-group edges](media/pivotglass-group-graph-v1.0.0.png)
+
+In this example, the newly admitted domain and long URL share an analyst
+promotion group. The dotted edges state that they were promoted together;
+they do not assert that the domain hosts the URL or that one actor controls
+both. Read the edge label and provenance before using any connection in a
+hypothesis.
+
 
 ## Reports and exports
 
@@ -571,7 +643,15 @@ export json --defang no
 
 Reports are generated from the active workspace. They summarize current
 evidence and visible gaps; they do not turn absent data into findings. The
-report dialog can print or save PDF through the browser.
+report dialog provides **SAVE MARKDOWN** to download the exact generated text
+as a `.md` file, alongside **PRINT / SAVE PDF** through the browser. The
+Markdown download keeps headings, tables, provenance references, and limitations
+editable for a reviewed handoff; it is not a complete workspace backup.
+
+Structured technique runs retain their recorded inputs and outputs in the report,
+alongside the actual analyst disposition. A completed run may still be pending
+review. These are authored analytical records; field completeness does not
+establish correctness, observed evidence, or attribution.
 
 JSON and CSV support inspection and downstream analysis. STIX supports
 structured exchange. GEXF supports graph tools such as Gephi. Exports can
@@ -584,7 +664,67 @@ analyst-safe spellings such as `1[.]1[.]1[.]1` and `hxxp[:]//host[.]test`.
 Only typed indicator values are changed; evidence, provenance, and raw source
 text are not rewritten. Defanged downloads include `-defanged` in the filename.
 
-![Dossier report](media/pivotglass-report-v0.9.5.png)
+![v0.9.9 Dossier report dialog presents the synthetic workspace question and scientific investigation records before printing](media/pivotglass-report-v1.0.0.png)
+
+## Review, correct, and hand off a case
+
+### Correct the record without hiding the history
+
+Read a consequential claim from its evidence rather than its graph position.
+If your interpretation changes, record the reason and the changed judgment.
+A saved presentation is only a view; **UNDO VIEW** cannot undo analytical work.
+
+| Problem discovered | Corrective action | Preserved boundary |
+| --- | --- | --- |
+| A manual graph relation is wrong | Use **Review analyst relations**, or `analysis relation-retract <assertion-id> \| <reason>` | The former assertion and human reason remain in history |
+| A manual relation needs a replacement | Use the review control or `analysis relation-revise <assertion-id> <subject-ref> <predicate> <object-ref> \| <annotation>` | The replacement supersedes the earlier authored judgment |
+| An early hypothesis is unsupported | Record an explicit reject or suspend disposition and explain the basis in the notebook | Collected observations are retained |
+| Two records appear inconsistent | Preserve the conflict and what evidence would resolve it; inspect event time and source dependence | A contradiction is not silently removed to make the story coherent |
+| Enrichment failed | Inspect **Activity & Errors** and retry deliberately when appropriate | Failure remains distinct from an empty or safe result |
+| Source admission succeeded but entity admission was interrupted | Read both receipts and use **Retry entity admission** | Retry refers to the stored source and avoids duplicate admission |
+| A Q&A save response was interrupted | Inspect `analysis show` before another save | A retained draft is not proof the save failed |
+| A chart appears to omit records | Read its visible count, scope, filter, and exact-data table/export | A bounded presentation does not remove stored case records |
+
+Questions, assertions, and hypotheses have different lifecycles. Use the
+specific command's supported transition, rather than assuming every record can
+be edited in place. Never clear a valuable workspace as a way to repair one
+judgment. [Failure and recovery](FAILURE_RECOVERY.md) covers rejected migrations,
+provider outages, stale assets, and malformed intake.
+
+### Prepare a handoff that someone can use
+
+Before `report generate`, check these seven elements against the notebook:
+
+1. **Decision and scope:** who needs the answer, the affected systems, and the
+   time window the evidence actually covers.
+2. **Judgment:** the proposition assessed and its explicit analyst disposition.
+3. **Evidence:** exact observations, sources, collection times, source quality,
+   and independence limitations behind the claim.
+4. **Alternatives:** the serious competing explanation and what would
+   distinguish it from the favored one.
+5. **Uncertainty:** likelihood and confidence expressed separately, with a
+   rationale; unresolved contradictions and missing visibility remain visible.
+6. **Next work:** a collection requirement, owner in your handoff text, and
+   the finding or timebox that should trigger review or stop collection.
+7. **Handling:** intended recipient, provider restrictions, indicators, source
+   text, and personal information reviewed before sharing.
+
+Pivotglass records analysis and provides report/export mechanisms. It does not
+assign an organizational owner, enforce your classification policy, or prove
+that a recipient has acted. Complete those handoff responsibilities in your
+operating process.
+
+Choose the export that fits the recipient: STIX for entity/evidence exchange,
+GEXF for graph analysis, JSON for structured records, or CSV for reviewable
+rows. **EXPORT EXACT DATA** concerns the view you are inspecting; it is not a
+substitute for all workspace records. Defanging changes typed indicator
+presentation, not the sensitivity of the source material.
+
+`workspace export <name>` carries workspace records and metadata. It does not
+include original content-addressed source-document bytes and is not a full
+application backup. A recoverable backup includes the stopped application data
+tree, configuration, workspace databases and relevant sidecars, and document
+content; follow [operations and maintenance](operations/OPERATIONS.md).
 
 ## Configuration and models
 
@@ -599,12 +739,12 @@ polling or repopulated into the form. Environment-owned credentials remain
 read-only. Secrets must not enter command history, notes, exports, screenshots,
 or model prompts.
 
-![Model and intelligence-service configuration with masked credential state](media/pivotglass-configuration-v0.9.5.png)
-
 The model catalog combines a provider's availability response with local
 LiteLLM capability metadata when available. Strengths and limitations are
 evidence-proportional notes, not rankings. A visible model can still lack
 quota, perform poorly for a case, respond slowly, or change at the provider.
+
+![v0.9.9 Configuration distinguishes model settings from missing intelligence-service credentials; checks are explicit](media/pivotglass-configuration-v1.0.0.png)
 
 ### Model commands
 
@@ -712,7 +852,7 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `workspace create <name>` | Create and switch to a workspace |
 | `workspace switch <name>` | Switch workspaces |
 | `workspace schema [name]` | Validate integrity and preview a migration without changing data |
-| `workspace export <name>` | Export a portable workspace archive |
+| `workspace export <name>` | Export workspace records and metadata; source bytes require a separate backup |
 | `workspace merge <source> <destination>` | Add source evidence to a destination |
 | `workspace clear <name> --confirm <name>` | Permanently reset investigation data and uploaded documents while preserving the empty workspace schema |
 | `workspace delete <name> --confirm <name>` | Delete after exact confirmation |
@@ -733,6 +873,8 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `analysis relation-revise <assertion-id> <subject-ref> <predicate> <object-ref> \| <annotation>` | Supersede a manual graph judgment with an annotated replacement while retaining both records |
 | `analysis relation-retract <assertion-id> \| <reason>` | Withdraw an active manual graph judgment without deleting its audit history |
 | `analysis hypothesis <question-id> <text>` | Propose a falsifiable candidate answer |
+| `analysis link <observation\|assertion> <source-id> <assertion\|hypothesis> <target-id> <supports\|contradicts> \| <rationale>` | Record an analyst interpretation between existing ledger records; requires a rationale |
+| `analysis claim <inferred\|assumed\|judgment> <subject-ref> <predicate> <value> \| <statement>` | Record a typed, structured analytical claim with a readable statement |
 | `analysis prediction <text>` | Record an observable prediction |
 | `analysis signpost <text>` | Record a development that should change the judgment |
 | `analysis collect <text>` / `analysis stop <text>` | Record an unscored collection requirement and state when collection should stop |
@@ -743,6 +885,10 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `analysis confidence <kind> <id> <level> <rationale> \| <factor-json>` | Record Low, Moderate, or High confidence with explicit source quality, independence, corroboration, assumptions, gaps, and rigor |
 | `analysis likelihood <kind> <id> <term> <rationale>` | Record probability language separately from confidence |
 | `analysis contradiction … \| <resolution requirement>` | Preserve a conflict and the evidence needed to resolve it |
+| `analysis resolve <contradiction-id> <note>` | Resolve a recorded conflict with an explicit explanatory note |
+| `analysis item <item-id> <open\|satisfied\|rejected\|resolved\|deferred> [accepted\|rejected\|revised]` | Update a planning item and optional analyst disposition |
+| `analysis status <framing\|collecting\|analyzing\|concluded\|suspended>` | Set the active investigation state explicitly |
+| `analysis conclude <text>` | Record a conclusion and mark the investigation concluded |
 | `framework manifest` | Show pinned ATT&CK source, digest, local path, and the Kill Chain/Diamond versions |
 | `framework list [framework]` | Inspect current framework mappings and their provenance |
 | `framework show <framework> [content-version]` | View one pinned framework lens; omitted versions use the project default |
@@ -932,13 +1078,9 @@ PIVOTGLASS_TUI_COLOR_SCHEME=light pivotglass tui
 PIVOTGLASS_TUI_HIGH_CONTRAST=1 pivotglass tui
 ```
 
-![Sleuth and Nightgrid presentation themes over the same evidence](media/pivotglass-themes-v0.9.5.png)
-
-![Focused Pivotglass workflow at phone width](media/pivotglass-mobile-v0.9.5.png)
+![v0.9.9 Code Rain presentation changes the palette while keeping the synthetic case question and uncertainty visible](media/pivotglass-themes-v1.0.0.png)
 
 ## Reading, attention, and recovery
-
-![Larger-text Help with optional spotlight and Quiet workspace](media/pivotglass-reading-v0.9.7.png)
 
 Open **Help → Reading & attention** (also available in **More**) to choose
 **Larger — easier reading** or the standard compact display. The preference
