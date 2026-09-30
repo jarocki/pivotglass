@@ -7,16 +7,18 @@ that order. The two interface captures use a synthetic offline case; their
 alt text is below. The pictures are presentation, not threat evidence.
 
 <!-- post:start -->
-What if one suspicious file opened a whole investigation? Step through the
-Pivotglass looking glass: follow it to a domain, an address, and a URL, with
-typed relationships and source history at every turn. Switch among twelve
-evidence views. See which connections are observed, which indicators an analyst
-grouped together, and where the case is still thin. Then challenge the tempting
-answer: does this cluster mean one operator, or shared infrastructure?
+I built Pivotglass because cyber defenders deserve better support for messy
+investigations. It's my attempt to help analysts level up: an AI-augmented
+framework for moving from a question or indicator to sources, pivots, competing
+explanations, and a report someone else can check.
 
-Pivotglass keeps both explanations, the evidence, a structured assumptions
-check, and a reviewable Markdown report together. Try the synthetic case locally
-without API keys. The analyst remains in control.
+I want the work to be faster and easier, with repeatable workflows and
+verifiable results. Pivotglass keeps provenance attached and makes it clear
+what was observed, what the analyst inferred, and what is still unknown. AI can
+help, but the analyst owns the judgment.
+
+You can try the synthetic case locally without API keys. Take a look and tell
+me what helps, or what gets in your way.
 
 Explore: https://github.com/jarocki/pivotglass
 Watch: https://github.com/jarocki/pivotglass/blob/main/docs/media/series-v0.9.9/pivotglass-overview-v0.9.9.mp4

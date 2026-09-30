@@ -1,7 +1,7 @@
 {
   "schema": "pivotglass-documentation-inventory-1.0",
   "status": "candidate_checkpoint",
-  "generated_at": "2026-09-30T00:09:59.973804Z",
+  "generated_at": "2026-09-30T01:24:44.260551Z",
   "file_count": 92,
   "qualification_limits": [
     "Candidate checkpoint only; not a frozen release or publication receipt.",
@@ -183,13 +183,13 @@
     },
     {
       "path": "docs/marketing/LINKEDIN.md",
-      "line_count": 42,
-      "sha256": "6b62f069ab73b9b4e7c0b8e2f0e3d1c84cdeffe4769d3a82e9301b0e2d791c86"
+      "line_count": 39,
+      "sha256": "831e80e52d882fdc699036a016e030561c9f6fc21c0d4419b80159da4490a387"
     },
     {
       "path": "docs/marketing/MASTODON.md",
       "line_count": 8,
-      "sha256": "3004e06bf08ed85c0b74f77b5fd53aa60952c635db5bff72ae527f21c0c0bc77"
+      "sha256": "834fefbf6d9406cacfb6f64bf26435cff606087c57fed509fe8cc82ccb8e7d22"
     },
     {
       "path": "docs/marketing/PRODUCT_ONE_PAGER.md",
@@ -199,17 +199,17 @@
     {
       "path": "docs/marketing/README.md",
       "line_count": 42,
-      "sha256": "75d29cf8bdfb6596b1aefed963658df96a29898c53a91476fa790f29b23c6157"
+      "sha256": "43275a099813726c7e9e81747002f3b4b20fe15c67a9ab37602777ced0c62b46"
     },
     {
       "path": "docs/marketing/SIGNAL.md",
       "line_count": 8,
-      "sha256": "d7fff1713420bb619cbdf7f174b9661e2852fe5cd6d542b8b2b93717e8f9f251"
+      "sha256": "7021436cda84ed11fbff79c8d0eff3f6d1d5ba5718c1bc8df3b9d8886ac09156"
     },
     {
       "path": "docs/marketing/SOCIAL_POST.md",
-      "line_count": 32,
-      "sha256": "1b4cddee76986bd258a4f2cff9168dad4790a3ebd43e751c0b68538f7e682e0e"
+      "line_count": 34,
+      "sha256": "902bfbb70fc1d608018045259575765fa9651db7415f693d4f597f2e9010ee4e"
     },
     {
       "path": "docs/marketing/WEBSITE_COPY.md",
