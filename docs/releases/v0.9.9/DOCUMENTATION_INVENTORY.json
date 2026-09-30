@@ -1,7 +1,7 @@
 {
   "schema": "pivotglass-documentation-inventory-1.0",
   "status": "candidate_checkpoint",
-  "generated_at": "2026-09-30T03:08:28.034186Z",
+  "generated_at": "2026-09-30T03:09:48.684309Z",
   "file_count": 92,
   "qualification_limits": [
     "Candidate checkpoint only; not a frozen release or publication receipt.",
@@ -199,12 +199,12 @@
     {
       "path": "docs/marketing/README.md",
       "line_count": 42,
-      "sha256": "43275a099813726c7e9e81747002f3b4b20fe15c67a9ab37602777ced0c62b46"
+      "sha256": "8cff3c660a7c0ec1563a72c61604871cf846e2dcd14606223f7e4de82a4217cb"
     },
     {
       "path": "docs/marketing/SIGNAL.md",
       "line_count": 8,
-      "sha256": "a4a3894435f8c053f6cc9519c0062c3fe3fb7d87df80dddfca73f539d6bf7362"
+      "sha256": "1e6224304c2eb3b69f6ee2346e045dfed575229d998dad7340d132bdfb9d8fbd"
     },
     {
       "path": "docs/marketing/SOCIAL_POST.md",

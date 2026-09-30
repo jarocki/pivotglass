@@ -1,8 +1,8 @@
 # Signal share blurb — ready to send after release verification
 
 <!-- post:start -->
-Hey, I made Pivotglass to help defenders level up. Take a peek, star or follow!
+Hey, I made Pivotglass to help defenders level up and make investigations easier to repeat and verify. Take a peek when you can, and star or follow!
 https://github.com/jarocki/pivotglass
 <!-- post:end -->
 
-The blurb is fifteen words before the URL. No Signal message has been sent.
+This is a personal share note, not a published announcement. No Signal message has been sent.

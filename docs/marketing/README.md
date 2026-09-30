@@ -14,7 +14,7 @@ and links in the [launch checklist](LAUNCH_CHECKLIST.md) before sharing.
 | Introduce Pivotglass in a conversation | [Elevator pitches](ELEVATOR_PITCHES.md) |
 | Share the release story with a professional network | [200-word LinkedIn post and logo](LINKEDIN.md) |
 | Share a short public introduction | [Mastodon draft](MASTODON.md) |
-| Ask friends to star or follow | [15-word Signal blurb](SIGNAL.md) |
+| Ask friends to star or follow | [Signal blurb](SIGNAL.md) |
 | Update www.jarocki.org | [Ready website Markdown](WEBSITE_COPY.md) |
 | Verify public claims and publication readiness | [Launch checklist and claims matrix](LAUNCH_CHECKLIST.md) |
 | Plan a local evaluation | [Implementation guide](../operations/IMPLEMENTATION.md) |
