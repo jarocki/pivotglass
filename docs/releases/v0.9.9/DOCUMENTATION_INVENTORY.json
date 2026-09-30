@@ -1,7 +1,7 @@
 {
   "schema": "pivotglass-documentation-inventory-1.0",
   "status": "candidate_checkpoint",
-  "generated_at": "2026-09-30T03:09:48.684309Z",
+  "generated_at": "2026-09-30T03:36:33.522370Z",
   "file_count": 92,
   "qualification_limits": [
     "Candidate checkpoint only; not a frozen release or publication receipt.",
@@ -189,7 +189,7 @@
     {
       "path": "docs/marketing/MASTODON.md",
       "line_count": 8,
-      "sha256": "834fefbf6d9406cacfb6f64bf26435cff606087c57fed509fe8cc82ccb8e7d22"
+      "sha256": "b7276a8864377de48a76ae3fef5ea6b660afc065721a9fd245c3aeb3ec77310a"
     },
     {
       "path": "docs/marketing/PRODUCT_ONE_PAGER.md",
@@ -204,7 +204,7 @@
     {
       "path": "docs/marketing/SIGNAL.md",
       "line_count": 8,
-      "sha256": "1e6224304c2eb3b69f6ee2346e045dfed575229d998dad7340d132bdfb9d8fbd"
+      "sha256": "0945cf16e5a5f444603dce3666fcc9b75da34a9ab33ac3d9441ba282dc33882a"
     },
     {
       "path": "docs/marketing/SOCIAL_POST.md",

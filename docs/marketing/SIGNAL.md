@@ -1,7 +1,7 @@
 # Signal share blurb — ready to send after release verification
 
 <!-- post:start -->
-Hey, I made Pivotglass to help defenders level up and make investigations easier to repeat and verify. Take a peek when you can, and star or follow!
+Hey, I built Pivotglass for those investigations where one odd domain turns into twelve tabs. It keeps the evidence and pivots together so we can show our work. Take a look when you have a minute—star or follow if you like it!
 https://github.com/jarocki/pivotglass
 <!-- post:end -->
 
