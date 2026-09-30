@@ -217,12 +217,12 @@
       "sha256": "170efe51ddff563042725441e266479edd76ca28eb53145b2fbb9b6ba5a74dce"
     },
     {
-      "path": "docs/media/demo-v0.9.9-source/README.md",
+      "path": "docs/media/demo-v1.0.0-source/README.md",
       "line_count": 14,
       "sha256": "2b04840eeb8bfbbc59d7e4b938f28e87e90f856215b484e48b1652dff0b508a2"
     },
     {
-      "path": "docs/media/pivotglass-guided-demo-transcript-v0.9.9.md",
+      "path": "docs/media/pivotglass-guided-demo-transcript-v1.0.0.md",
       "line_count": 111,
       "sha256": "058083e44b8dd1ae09dde0846256825bb4e7f9cb6c9788538d7413e55e3d4b56"
     },
@@ -232,27 +232,27 @@
       "sha256": "8c918765927809873f947d58b90bed8dc30689dda17409d46276bbad09da3392"
     },
     {
-      "path": "docs/media/series-v0.9.9/README.md",
+      "path": "docs/media/series-v1.0.0/README.md",
       "line_count": 42,
       "sha256": "181fb4680a9f55fa16a27f004a28d027484aca19fa0d3fc5943e66d13f39e2bb"
     },
     {
-      "path": "docs/media/series-v0.9.9/pivotglass-analyst-v0.9.9-transcript.md",
+      "path": "docs/media/series-v1.0.0/pivotglass-analyst-v1.0.0-transcript.md",
       "line_count": 31,
       "sha256": "cb3b01c1e225a19086650c248b9ab102875ddd76512c48afb321c90299b8dd29"
     },
     {
-      "path": "docs/media/series-v0.9.9/pivotglass-overview-v0.9.9-transcript.md",
+      "path": "docs/media/series-v1.0.0/pivotglass-overview-v1.0.0-transcript.md",
       "line_count": 27,
       "sha256": "bb4c592254bd6f370ead268970b2dcda09e66be6166733560b47e27525c83abd"
     },
     {
-      "path": "docs/media/series-v0.9.9/pivotglass-pivot-v0.9.9-transcript.md",
+      "path": "docs/media/series-v1.0.0/pivotglass-pivot-v1.0.0-transcript.md",
       "line_count": 27,
       "sha256": "bab4d48cb78878f951183fc1d54b57421864ff33889dd56f2f391eff6dd95809"
     },
     {
-      "path": "docs/media/series-v0.9.9/pivotglass-visualization-v0.9.9-transcript.md",
+      "path": "docs/media/series-v1.0.0/pivotglass-visualization-v1.0.0-transcript.md",
       "line_count": 31,
       "sha256": "03fb56f9864fb449f21e3d1e34100d21473d9b931fffc49aa2e595354bedd64c"
     },

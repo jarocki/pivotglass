@@ -4,17 +4,17 @@ import { reportMarkdownDownload } from "../app/report-download.ts";
 
 test("Markdown download preserves all generated text including Unicode and formatting", async () => {
   const markdown = "# Case café\n\n| Evidence | Value |\n|---|---|\n| file | invoice\\|viewer.bin |\n\n**Uncertain**: α ≠ β.\n";
-  const result = reportMarkdownDownload(markdown, "training-case", "0.9.9");
+  const result = reportMarkdownDownload(markdown, "training-case", "1.0.0");
   assert.equal(result.content, markdown);
-  assert.equal(result.filename, "pivotglass-training-case-v0.9.9-report.md");
+  assert.equal(result.filename, "pivotglass-training-case-v1.0.0-report.md");
   assert.equal(result.mime, "text/markdown;charset=utf-8");
   assert.equal(await new Blob([result.content], { type: result.mime }).text(), markdown);
 });
 
 test("Filename cannot contain traversal, markup, control characters, or unbounded workspace text", () => {
   for (const workspace of ["../../private/secret", "<script>\n\u0000", "", " ", "a".repeat(1000)]) {
-    const result = reportMarkdownDownload("source text", workspace, "0.9.9");
-    assert.match(result.filename, /^pivotglass-[a-zA-Z0-9_-]+-v0\.9\.9-report\.md$/);
+    const result = reportMarkdownDownload("source text", workspace, "1.0.0");
+    assert.match(result.filename, /^pivotglass-[a-zA-Z0-9_-]+-v1\.0\.0-report\.md$/);
     assert.ok(result.filename.length < 110);
     assert.equal(result.content, "source text");
   }
@@ -26,8 +26,8 @@ test("report download attaches and clicks an anchor carrying the exact UTF8 Blob
   const events: string[] = [];
   let emitted: Blob | undefined;
   let cleanup: (() => void) | undefined;
-  const anchor = { href: "", download: "", click() { events.push("click"); assert.equal(anchor.href, "blob:report"); assert.equal(anchor.download, "pivotglass-captured-case-v0.9.9-report.md"); }, remove() { events.push("remove"); } };
-  saveReportMarkdown(markdown, "captured-case", "0.9.9", {
+  const anchor = { href: "", download: "", click() { events.push("click"); assert.equal(anchor.href, "blob:report"); assert.equal(anchor.download, "pivotglass-captured-case-v1.0.0-report.md"); }, remove() { events.push("remove"); } };
+  saveReportMarkdown(markdown, "captured-case", "1.0.0", {
     createObjectURL(blob) { emitted = blob; events.push("blob"); return "blob:report"; },
     revokeObjectURL(url) { assert.equal(url, "blob:report"); events.push("revoke"); },
     createAnchor() { events.push("anchor"); return anchor; },
@@ -46,7 +46,7 @@ test("failed browser anchor click releases resources instead of leaking report U
   const { saveReportMarkdown } = await import("../app/report-download.ts");
   let removed = false;
   let revoked = false;
-  assert.throws(() => saveReportMarkdown("# report", "case", "0.9.9", {
+  assert.throws(() => saveReportMarkdown("# report", "case", "1.0.0", {
     createObjectURL() { return "blob:failed"; },
     revokeObjectURL() { revoked = true; },
     createAnchor() { return { href: "", download: "", click() { throw new Error("browser refused download"); }, remove() { removed = true; } }; },

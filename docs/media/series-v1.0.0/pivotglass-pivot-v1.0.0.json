@@ -1,7 +1,7 @@
 {
   "id": "pivot",
   "title": "PIVOT Glass: One Indicator, New Perspectives",
-  "version": "0.9.9",
+  "version": "1.0.0",
   "status": "review_candidate",
   "synthetic": true,
   "network_enrichment": false,
@@ -23,7 +23,7 @@
       "chapter": "Start with one thread",
       "captures": [
         "../../brand/pivotglass-looking-glass-v1.png",
-        "../demo-v0.9.9-source/08-indicator.png"
+        "../demo-v1.0.0-source/08-indicator.png"
       ],
       "narration": "A file. A domain. An address. On their own, they are fragments. Pivotglass helps you follow the thread between them. This is a synthetic, offline case: the relationships are already stored, so we can explore without pretending to query a live intelligence service.",
       "capture_offsets": [
@@ -63,7 +63,7 @@
     {
       "chapter": "Keep the path",
       "captures": [
-        "../demo-v0.9.9-source/09-provenance.png",
+        "../demo-v1.0.0-source/09-provenance.png",
         "source/view-history-full.png"
       ],
       "narration": "Provenance tells you where the records came from. The chronological trail records how material entered the investigation. These are reviewable paths, not an automatically reconstructed attack chain. A missing event remains missing.",
@@ -77,7 +77,7 @@
       "chapter": "Group without overclaiming",
       "captures": [
         "source/view-relationships.png",
-        "../demo-v0.9.9-source/12-intake.png"
+        "../demo-v1.0.0-source/12-intake.png"
       ],
       "narration": "Two admitted indicators also share an analyst promotion group. The dotted edges preserve why we selected them together. That is workflow context, not evidence of one owner. Read the complete wrapped URL, filter the neighborhood, and keep the distinctions visible.",
       "capture_offsets": [
@@ -90,7 +90,7 @@
       "chapter": "Turn a pivot into a test",
       "captures": [
         "source/view-ach.png",
-        "../demo-v0.9.9-source/17-link.png",
+        "../demo-v1.0.0-source/17-link.png",
         "../../brand/pivotglass-looking-glass-v1.png"
       ],
       "narration": "The useful result is a better test. Does this topology fit common control, shared hosting, or both? Record a rationale, identify independent evidence that could separate them, and choose the next authorized collection. Pivotglass turns a connection into a question you can investigate.",

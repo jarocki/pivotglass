@@ -68,7 +68,7 @@ review remains separate and requires owner approval.
 - [Documentation paths](../../README.md)
 - [Product story](../../../README.md)
 - [Request completion matrix](COMPLETION_MATRIX.md)
-- [Current transcript](../../media/pivotglass-guided-demo-transcript-v0.9.9.md)
+- [Current transcript](../../media/pivotglass-guided-demo-transcript-v1.0.0.md)
 - [Release trust](../../RELEASE_TRUST.md)
 
 ## Replacement candidate — root verification addendum, 2026-09-29

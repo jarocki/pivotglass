@@ -168,7 +168,7 @@ def render(video: dict, timing: dict, base: Path, audio_dir: Path, work: Path):
     listing = folder / "concat.txt"
     listing.write_text("".join(f"file '{p}'\n" for p in clips))
     filters = f"[1:a]atempo={pace},highpass=f=80,loudnorm=I=-16:TP=-2:LRA=7,asplit=2[voice][side];[2:a]lowpass=f=6500,loudnorm=I=-28:TP=-6:LRA=8[bed];[bed][side]sidechaincompress=threshold=0.03:ratio=6:attack=10:release=240[duck];[voice][duck]amix=inputs=2:normalize=0,alimiter=limit=0.89:level=0,afade=t=out:st={max(0, duration - 1)}:d=1[mix]"
-    stem = f"pivotglass-{key}-v0.9.9"
+    stem = f"pivotglass-{key}-v1.0.0"
     captions = caption_cues(timing["srt"], pace)
     (base / f"{stem}.vtt").write_text(
         "WEBVTT\n\n"
@@ -241,7 +241,7 @@ def render(video: dict, timing: dict, base: Path, audio_dir: Path, work: Path):
     manifest = {
         "id": key,
         "title": video["title"],
-        "version": "0.9.9",
+        "version": "1.0.0",
         "status": "review_candidate",
         "synthetic": True,
         "network_enrichment": False,
@@ -280,7 +280,7 @@ def main():
     parser.add_argument("--work-dir", type=Path, required=True)
     parser.add_argument("--only")
     args = parser.parse_args()
-    base = Path("docs/media/series-v0.9.9")
+    base = Path("docs/media/series-v1.0.0")
     plan = json.loads((base / "production-plan.json").read_text())
     timings = json.loads(args.timing.read_text())
     for video in plan["videos"]:

@@ -156,12 +156,12 @@ reconcile uncertain SCOT/Synapse outcomes with their owners.
 
 ```bash
 git fetch --tags origin
-git checkout v0.9.9
+git checkout v1.0.0
 uv sync --extra agent --frozen
 uv run pivotglass --version
 ```
 
-These commands require that v0.9.9 has been published. While it is a candidate,
+These commands require that v1.0.0 has been published. While it is a candidate,
 record the actual reviewed commit; do not describe it as a public release.
 
 4. Validate a disposable restored copy and a synthetic learning workspace before

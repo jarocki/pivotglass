@@ -19,17 +19,17 @@ choices do not change your evidence or suppress error alerts.
 
 ## Four ways through the looking glass
 
-Start with the [flashy Overview](media/series-v0.9.9/pivotglass-overview-v0.9.9.mp4), then choose the [Analyst Walkthrough](media/series-v0.9.9/pivotglass-analyst-v0.9.9.mp4), [PIVOT Glass](media/series-v0.9.9/pivotglass-pivot-v0.9.9.mp4), or [Visualization and Reporting](media/series-v0.9.9/pivotglass-visualization-v0.9.9.mp4). Each has real Descript narration, original generative music, captions and a transcript in the [series guide](media/series-v0.9.9/README.md).
+Start with the [flashy Overview](media/series-v1.0.0/pivotglass-overview-v1.0.0.mp4), then choose the [Analyst Walkthrough](media/series-v1.0.0/pivotglass-analyst-v1.0.0.mp4), [PIVOT Glass](media/series-v1.0.0/pivotglass-pivot-v1.0.0.mp4), or [Visualization and Reporting](media/series-v1.0.0/pivotglass-visualization-v1.0.0.mp4). Each has real Descript narration, original generative music, captions and a transcript in the [series guide](media/series-v1.0.0/README.md).
 
 ## Watch with captions
 
-[Watch the current narrated tour](media/pivotglass-guided-demo-v0.9.9.mp4),
-[read the transcript](media/pivotglass-guided-demo-transcript-v0.9.9.md), or
-[download its WebVTT captions](media/pivotglass-guided-demo-v0.9.9.vtt).
+[Watch the current narrated tour](media/pivotglass-guided-demo-v1.0.0.mp4),
+[read the transcript](media/pivotglass-guided-demo-transcript-v1.0.0.md), or
+[download its WebVTT captions](media/pivotglass-guided-demo-v1.0.0.vtt).
 It uses edited actual UI captures from an isolated synthetic case, not a
 continuous recording or a live provider investigation.
 
-The repository includes an [HTML player with captions on by default](media/pivotglass-guided-demo-v0.9.9.html).
+The repository includes an [HTML player with captions on by default](media/pivotglass-guided-demo-v1.0.0.html).
 GitHub displays HTML as source; to use the player from a cloned checkout, serve
 only the public media folder on loopback:
 
@@ -37,7 +37,7 @@ only the public media folder on loopback:
 uv run python -m http.server 8877 --bind 127.0.0.1 --directory docs/media
 ```
 
-Open `http://127.0.0.1:8877/series-v0.9.9/index.html` for the four new films, or `http://127.0.0.1:8877/pivotglass-guided-demo-v0.9.9.html` for the earlier edit. Use the player's
+Open `http://127.0.0.1:8877/series-v1.0.0/index.html` for the four new films, or `http://127.0.0.1:8877/pivotglass-guided-demo-v1.0.0.html` for the earlier edit. Use the player's
 caption control to change caption display, or use the adjacent transcript.
 The basic Python server supports sequential playback; reliable chapter seeking
 requires a server with HTTP byte-range support. For offline seeking, open the
@@ -49,11 +49,11 @@ the complete practice path; you can follow them without watching the video.
 
 You need Python 3.12 or newer, Git, and
 [uv](https://docs.astral.sh/uv/). The source tag plus its committed lockfile is
-the only supported pre-1.0 installation because it reproduces the dependency
+the supported reproducible v1.0.0 installation because it reproduces the dependency
 set used for release qualification.
 
 ```bash
-git clone --branch v0.9.9 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v1.0.0 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent --frozen
 uv run pivotglass --version
@@ -62,7 +62,7 @@ uv run pivotglass --version
 The final command should report:
 
 ```text
-pivotglass 0.9.9
+pivotglass 1.0.0
 ```
 
 The release contains the built browser interface. Node.js 20.9 or newer is
@@ -82,7 +82,7 @@ recreate the locked environment:
 
 ```bash
 git fetch --tags origin
-git checkout v0.9.9
+git checkout v1.0.0
 uv sync --extra agent --frozen
 uv run pivotglass --version
 ```
@@ -204,7 +204,7 @@ indicators you are authorized to send to the enabled services.
 
 > An indicator is not the answer. It is the first node.
 
-![v0.9.9 question coaching starts with sources and provenance](media/pivotglass-question-coach-v0.9.9.png)
+![v1.0.0 question coaching starts with sources and provenance](media/pivotglass-question-coach-v1.0.0.png)
 
 ### Frame your question before collecting more
 
@@ -227,7 +227,7 @@ finding about your workspace. See the
 [guided first investigation](USER_GUIDE.md#walkthrough-from-reported-context-to-a-question)
 for a complete exercise.
 
-![v0.9.9 Pursuit Brief for the synthetic learning case](media/pivotglass-cockpit-v0.9.9.png)
+![v1.0.0 Pursuit Brief for the synthetic learning case](media/pivotglass-cockpit-v1.0.0.png)
 
 ## 4. Read the Investigation Constellation
 
@@ -365,7 +365,7 @@ rationale, and direction. The older `export stix` remains the standards-based
 entity/evidence exchange; Pivotglass does not disguise analytic notebook
 records as observed STIX objects.
 
-![v0.9.9 relationship graph from the synthetic walkthrough; source admission and analyst grouping do not resolve the control question](media/pivotglass-graph-v0.9.9.png)
+![v1.0.0 relationship graph from the synthetic walkthrough; source admission and analyst grouping do not resolve the control question](media/pivotglass-graph-v1.0.0.png)
 
 ## 7. Test the explanations before deciding
 

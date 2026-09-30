@@ -7,7 +7,7 @@ a version string or development plan is not publication evidence.
 
 ## Four ways through the looking glass
 
-Start with the [flashy Overview](media/series-v0.9.9/pivotglass-overview-v0.9.9.mp4), then choose the [Analyst Walkthrough](media/series-v0.9.9/pivotglass-analyst-v0.9.9.mp4), [PIVOT Glass](media/series-v0.9.9/pivotglass-pivot-v0.9.9.mp4), or [Visualization and Reporting](media/series-v0.9.9/pivotglass-visualization-v0.9.9.mp4). Each has real Descript narration, original generative music, captions and a transcript in the [series guide](media/series-v0.9.9/README.md).
+Start with the [flashy Overview](media/series-v1.0.0/pivotglass-overview-v1.0.0.mp4), then choose the [Analyst Walkthrough](media/series-v1.0.0/pivotglass-analyst-v1.0.0.mp4), [PIVOT Glass](media/series-v1.0.0/pivotglass-pivot-v1.0.0.mp4), or [Visualization and Reporting](media/series-v1.0.0/pivotglass-visualization-v1.0.0.mp4). Each has real Descript narration, original generative music, captions and a transcript in the [series guide](media/series-v1.0.0/README.md).
 
 ## Choose a path
 
@@ -23,11 +23,11 @@ Start with the [flashy Overview](media/series-v0.9.9/pivotglass-overview-v0.9.9.
 
 ## Current demonstration
 
-- [Narrated v0.9.9 MP4](media/pivotglass-guided-demo-v0.9.9.mp4)
-- [WebVTT captions](media/pivotglass-guided-demo-v0.9.9.vtt)
-- [Transcript and chapter times](media/pivotglass-guided-demo-transcript-v0.9.9.md)
+- [Narrated v0.9.9 MP4](media/pivotglass-guided-demo-v1.0.0.mp4)
+- [WebVTT captions](media/pivotglass-guided-demo-v1.0.0.vtt)
+- [Transcript and chapter times](media/pivotglass-guided-demo-transcript-v1.0.0.md)
 - [Caption-enabled player instructions](QUICKSTART.md#watch-with-captions)
-- [Chapter manifest and recording method](media/pivotglass-guided-demo-manifest-v0.9.9.json)
+- [Chapter manifest and recording method](media/pivotglass-guided-demo-manifest-v1.0.0.json)
 
 The narrated tour combines actual UI captures of synthetic case data with
 Descript’s Jesse neural voice. The written walkthroughs supply the executable practice,

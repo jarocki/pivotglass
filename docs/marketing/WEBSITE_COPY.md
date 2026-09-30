@@ -31,7 +31,7 @@ no external publication was performed.
 
 ![Pivotglass Digital Looking Glass wordmark](https://raw.githubusercontent.com/jarocki/pivotglass/main/docs/brand/pivotglass-looking-glass-v1.png)
 
-[Watch the short Overview](https://github.com/jarocki/pivotglass/blob/main/docs/media/series-v0.9.9/pivotglass-overview-v0.9.9.mp4)
+[Watch the short Overview](https://github.com/jarocki/pivotglass/blob/main/docs/media/series-v1.0.0/pivotglass-overview-v1.0.0.mp4)
 
 ### From a clue to a defensible judgment
 
@@ -71,9 +71,10 @@ no API key or provider account. Enabled collection and model services may
 receive information selected for their requests; review data-handling rules
 before connecting them. Capacity and integration maturity are documented.
 
-The v0.9.9 materials provide implementation, infrastructure, and operations
-guidance alongside the user guide. The separately approved v1.0.0 quality gate
-remains ahead.
+The v1.0.0 release includes implementation, infrastructure, and operations
+guidance alongside the user guide. The stable scope is the bounded local
+analyst workspace; integrations and additional intake formats remain preview
+or deferred as documented.
 
 - [Explore the repository](https://github.com/jarocki/pivotglass)
 - [Install and run](https://github.com/jarocki/pivotglass/blob/main/docs/QUICKSTART.md)

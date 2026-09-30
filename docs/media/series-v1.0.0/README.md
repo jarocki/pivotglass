@@ -1,13 +1,13 @@
-# Pivotglass video series — v0.9.9
+# Pivotglass video series — v1.0.0
 
 Four distinct edits with actual synthetic-case UI captures, Descript’s Jesse neural voice, original Pivotglass generative music, and captions. These are review candidates for tone and pace; they are edited capture montages rather than continuous click recordings.
 
 | Film | Purpose | Duration | Resources |
 |---|---|---:|---|
-| [Through the Digital Looking Glass](pivotglass-overview-v0.9.9.mp4) | Overview | 1:16 | [Captions](pivotglass-overview-v0.9.9.vtt) · [Transcript](pivotglass-overview-v0.9.9-transcript.md) · [Edit manifest](pivotglass-overview-v0.9.9.json) |
-| [Analyst Walkthrough: From Question to Handoff](pivotglass-analyst-v0.9.9.mp4) | Analyst | 2:06 | [Captions](pivotglass-analyst-v0.9.9.vtt) · [Transcript](pivotglass-analyst-v0.9.9-transcript.md) · [Edit manifest](pivotglass-analyst-v0.9.9.json) |
-| [PIVOT Glass: One Indicator, New Perspectives](pivotglass-pivot-v0.9.9.mp4) | Pivot | 1:24 | [Captions](pivotglass-pivot-v0.9.9.vtt) · [Transcript](pivotglass-pivot-v0.9.9-transcript.md) · [Edit manifest](pivotglass-pivot-v0.9.9.json) |
-| [Visualize, Challenge, Report](pivotglass-visualization-v0.9.9.mp4) | Visualization | 1:49 | [Captions](pivotglass-visualization-v0.9.9.vtt) · [Transcript](pivotglass-visualization-v0.9.9-transcript.md) · [Edit manifest](pivotglass-visualization-v0.9.9.json) |
+| [Through the Digital Looking Glass](pivotglass-overview-v1.0.0.mp4) | Overview | 1:16 | [Captions](pivotglass-overview-v1.0.0.vtt) · [Transcript](pivotglass-overview-v1.0.0-transcript.md) · [Edit manifest](pivotglass-overview-v1.0.0.json) |
+| [Analyst Walkthrough: From Question to Handoff](pivotglass-analyst-v1.0.0.mp4) | Analyst | 2:06 | [Captions](pivotglass-analyst-v1.0.0.vtt) · [Transcript](pivotglass-analyst-v1.0.0-transcript.md) · [Edit manifest](pivotglass-analyst-v1.0.0.json) |
+| [PIVOT Glass: One Indicator, New Perspectives](pivotglass-pivot-v1.0.0.mp4) | Pivot | 1:24 | [Captions](pivotglass-pivot-v1.0.0.vtt) · [Transcript](pivotglass-pivot-v1.0.0-transcript.md) · [Edit manifest](pivotglass-pivot-v1.0.0.json) |
+| [Visualize, Challenge, Report](pivotglass-visualization-v1.0.0.mp4) | Visualization | 1:49 | [Captions](pivotglass-visualization-v1.0.0.vtt) · [Transcript](pivotglass-visualization-v1.0.0-transcript.md) · [Edit manifest](pivotglass-visualization-v1.0.0.json) |
 
 ## Production and analytical boundaries
 
@@ -33,10 +33,10 @@ The public production plan, narration timing, source captures, scores and manife
 ```bash
 .venv/bin/python scripts/render_video_series.py \
   --audio-dir /path/to/private/descript-exports \
-  --timing docs/media/series-v0.9.9/narration-timing.json \
+  --timing docs/media/series-v1.0.0/narration-timing.json \
   --work-dir /tmp/pivotglass-series-render
 ```
 
-Requires FFmpeg and the repository Python environment. The renderer never synthesizes speech or contacts a provider. Prior approved [five-minute tour](../pivotglass-guided-demo-v0.9.9.mp4) is preserved as the earlier edit.
+Requires FFmpeg and the repository Python environment. The renderer never synthesizes speech or contacts a provider. Prior approved [five-minute tour](../pivotglass-guided-demo-v1.0.0.mp4) is preserved as the earlier edit.
 
 [Logo and brand concept](../../brand/README.md) · [User Guide](../../USER_GUIDE.md)

@@ -37,13 +37,12 @@ Git, and uv are required. The release contains the built browser interface;
 Node.js is needed only for browser development/rebuild. Read
 [Infrastructure](INFRASTRUCTURE.md) for boundaries and prerequisites.
 
-The commands below select the v0.9.9 release. Run them only after that tag has
-been published and read back. While v0.9.9 is a candidate, use the current
-published version in the [Quick Start](../QUICKSTART.md), or the actual reviewed
-candidate checkout with its status recorded; do not invent a public tag.
+The commands below select the v1.0.0 release. Run them only after that tag has
+been published and read back. Until then, use the actual reviewed candidate
+checkout with its status recorded; do not invent a public tag.
 
 ```bash
-git clone --branch v0.9.9 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v1.0.0 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent --frozen
 uv run pivotglass --version

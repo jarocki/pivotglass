@@ -71,3 +71,12 @@ published or updated by this repository pass.
 The release remains **pending owner approval and the public trust ceremony**.
 The assurance evidence supports a bounded local-core release; it does not
 convert preview integrations or unmeasured outcomes into stable claims.
+
+## Owner decision — 2026-09-29
+
+The owner approved proceeding with v1.0.0 and directed a public GitHub push as
+soon as the launch checklist is complete. The approved scope is the bounded
+local, single-analyst core recommended above. External integration previews,
+PDF recognition, and deferred intake/remote-server capabilities remain outside
+stable qualification. This addendum records the decision; it does not rewrite
+the earlier candidate evidence or claim the release ceremony has occurred.

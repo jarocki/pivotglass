@@ -3,7 +3,7 @@
 
 def test_version():
     from pivotglass import __version__
-    assert __version__ == "0.9.9"
+    assert __version__ == "1.0.0"
 
 
 def test_main_entry_point():

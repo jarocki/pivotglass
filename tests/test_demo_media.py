@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MEDIA = ROOT / "docs" / "media"
-STEM = "pivotglass-guided-demo-v0.9.9"
+STEM = "pivotglass-guided-demo-v1.0.0"
 
 
 def test_current_public_navigation_links_current_video_and_assets_exist():
@@ -19,12 +19,12 @@ def test_current_public_navigation_links_current_video_and_assets_exist():
         assert b"ftyp" in handle.read(64), "Expected an ISO media container."
     for suffix in ("vtt", "html"):
         assert (MEDIA / f"{STEM}.{suffix}").stat().st_size > 0
-    assert (MEDIA / "pivotglass-guided-demo-poster-v0.9.9.png").stat().st_size > 0
+    assert (MEDIA / "pivotglass-guided-demo-poster-v1.0.0.png").stat().st_size > 0
 
 
 def test_demo_declares_synthetic_local_case_and_bounded_caption_timeline():
-    manifest = json.loads((MEDIA / "pivotglass-guided-demo-manifest-v0.9.9.json").read_text())
-    assert manifest["version"] == "0.9.9"
+    manifest = json.loads((MEDIA / "pivotglass-guided-demo-manifest-v1.0.0.json").read_text())
+    assert manifest["version"] == "1.0.0"
     assert manifest["synthetic"] is True
     assert manifest["network_enrichment"] is False
     duration = manifest["duration"]

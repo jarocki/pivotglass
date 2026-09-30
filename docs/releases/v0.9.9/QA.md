@@ -130,7 +130,7 @@ Review packages built from committed candidate `04655d3` contain the Descript ch
 
 ## Four-film revision verification — 2026-09-29
 
-[The series](../../media/series-v0.9.9/README.md) now contains four separate MP4s:
+[The series](../../media/series-v1.0.0/README.md) now contains four separate MP4s:
 Overview 76.62 s; Analyst 126.92 s; PIVOT Glass 84.10 s; Visualization/Reporting
 109.93 s. All use real Descript Jesse neural speech and the existing original
 procedural composition/synthesis engine. Actual transcript groups drive the
@@ -139,7 +139,7 @@ no emotion control, so wonder/excitement remains a listening-review criterion.
 
 The final H.264 Main / AAC 44.1 kHz stereo files passed complete FFmpeg decode.
 Maximum audio levels range from -1.8 to -1.7 dB, with no clipping detected.
-The [machine receipt](../../media/series-v0.9.9/verification.json) records exact
+The [machine receipt](../../media/series-v1.0.0/verification.json) records exact
 sizes, stream durations and manifest deltas. Captions preserve every spoken
 word; chronological chapter coverage, source existence and deterministic,
 bounded score generation have regression coverage. The report regression

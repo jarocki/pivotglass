@@ -20,7 +20,7 @@ checkpoint; it is not current qualification evidence. Use the
 - [Completion plan](../plans/V0.9.9_COMPLETION_PLAN.md): owner correction, ordered
   acceptance gates, and the difference between repository copy and external publication.
 - [Current documentation paths](../README.md): user, analysis, marketing, and operations guides.
-- [Current demo transcript](../media/pivotglass-guided-demo-transcript-v0.9.9.md):
+- [Current demo transcript](../media/pivotglass-guided-demo-transcript-v1.0.0.md):
   actual synthetic workflow, narration, chapter times, and recording-method disclosure.
 - [Release trust](../RELEASE_TRUST.md): immutable build, media checks, owner signature,
   public download, and version/commit reconciliation.

@@ -8,9 +8,9 @@ module-control console share the same underlying workspaces and evidence.
 Start with the [Quick Start](QUICKSTART.md) if this is your first session.
 
 
-[v0.9.9 narrated tour](media/pivotglass-guided-demo-v0.9.9.mp4) ·
-[Captions](media/pivotglass-guided-demo-v0.9.9.vtt) ·
-[Transcript and chapters](media/pivotglass-guided-demo-transcript-v0.9.9.md) ·
+[v0.9.9 narrated tour](media/pivotglass-guided-demo-v1.0.0.mp4) ·
+[Captions](media/pivotglass-guided-demo-v1.0.0.vtt) ·
+[Transcript and chapters](media/pivotglass-guided-demo-transcript-v1.0.0.md) ·
 [Caption-enabled player instructions](QUICKSTART.md#watch-with-captions)
 
 The tour uses edited actual UI captures from a synthetic workspace. The guide
@@ -19,7 +19,7 @@ work beyond what a short tour can demonstrate.
 
 ## Four ways through the looking glass
 
-Start with the [flashy Overview](media/series-v0.9.9/pivotglass-overview-v0.9.9.mp4), then choose the [Analyst Walkthrough](media/series-v0.9.9/pivotglass-analyst-v0.9.9.mp4), [PIVOT Glass](media/series-v0.9.9/pivotglass-pivot-v0.9.9.mp4), or [Visualization and Reporting](media/series-v0.9.9/pivotglass-visualization-v0.9.9.mp4). Each has real Descript narration, original generative music, captions and a transcript in the [series guide](media/series-v0.9.9/README.md).
+Start with the [flashy Overview](media/series-v1.0.0/pivotglass-overview-v1.0.0.mp4), then choose the [Analyst Walkthrough](media/series-v1.0.0/pivotglass-analyst-v1.0.0.mp4), [PIVOT Glass](media/series-v1.0.0/pivotglass-pivot-v1.0.0.mp4), or [Visualization and Reporting](media/series-v1.0.0/pivotglass-visualization-v1.0.0.mp4). Each has real Descript narration, original generative music, captions and a transcript in the [series guide](media/series-v1.0.0/README.md).
 
 ## How to use this guide
 
@@ -170,7 +170,7 @@ Q&A remains available in the full workbench at every level. Resetting the
 walkthrough resets interface guidance; local Q&A drafts have a separate clear
 control.
 
-![v0.9.9 coaching asks what sources are available; the response is reported context until source checks](media/pivotglass-question-coach-v0.9.9.png)
+![v0.9.9 coaching asks what sources are available; the response is reported context until source checks](media/pivotglass-question-coach-v1.0.0.png)
 
 ## Walkthrough: from reported context to a question
 
@@ -243,7 +243,7 @@ tips. Those labels describe interface assistance, not certified competence.
 See [learning through practice](analysis/LEARNING.md) for a repeatable review
 routine and observable skills to discuss with a mentor.
 
-![v0.9.9 scientific workbench preserves competing explanations and an unresolved contradiction](media/pivotglass-analysis-v0.9.9.png)
+![v0.9.9 scientific workbench preserves competing explanations and an unresolved contradiction](media/pivotglass-analysis-v1.0.0.png)
 
 ## Workspaces
 
@@ -328,7 +328,7 @@ supports them. Analyst notes are labeled as analyst-authored context. Inference
 details identify their supporting evidence. Missing provenance remains visibly
 unavailable rather than being reconstructed by a model.
 
-![Synthetic domain detail shows the source module, full indicator, discovery breadcrumbs, and stored relationships](media/pivotglass-provenance-v0.9.9.png)
+![Synthetic domain detail shows the source module, full indicator, discovery breadcrumbs, and stored relationships](media/pivotglass-provenance-v1.0.0.png)
 
 ## The Dossier
 
@@ -398,7 +398,7 @@ details to inspect the underlying records. Escape dismisses a hover explainer.
 
 The overall mapped value is navigation help, not confidence or a verdict.
 
-![v0.9.9 Constellation shows separate evidence dimensions for four synthetic indicators](media/pivotglass-constellation-v0.9.9.png)
+![v0.9.9 Constellation shows separate evidence dimensions for four synthetic indicators](media/pivotglass-constellation-v1.0.0.png)
 
 ## Visual Analysis
 
@@ -453,9 +453,9 @@ the first time can be selected and admitted later; the source is not copied
 again. A preview-only source remains intentionally session-local because its
 bytes have not been explicitly stored.
 
-![v0.9.9 local preview shows two selected synthetic candidates, exact spans, full URL values, and the explicit admission action](media/pivotglass-intake-v0.9.9.png)
+![v0.9.9 local preview shows two selected synthetic candidates, exact spans, full URL values, and the explicit admission action](media/pivotglass-intake-v1.0.0.png)
 
-![v0.9.9 persistent library and stored-source review show the source hash and separate candidate review](media/pivotglass-library-v0.9.9.png)
+![v0.9.9 persistent library and stored-source review show the source hash and separate candidate review](media/pivotglass-library-v1.0.0.png)
 
 The intake accepts an explicitly selected file up to 10 MiB and has qualified
 parsers for text, Markdown, HTML, CSV, JSON, JSONL, and RFC 5322 email. JSON is
@@ -499,7 +499,7 @@ source receipt visible and offers **Retry entity admission**. The retry refers
 to the same occurrence and selection keys, so it neither stores a second source
 copy nor duplicates already admitted entities.
 
-![v0.9.9 provenance history records document admission, a joint promotion group, and two candidate branches with the complete URL](media/pivotglass-history-v0.9.9.png)
+![v0.9.9 provenance history records document admission, a joint promotion group, and two candidate branches with the complete URL](media/pivotglass-history-v1.0.0.png)
 
 Read this path as the analyst's workflow: the document was admitted, two
 candidates were selected together, and those selected strings became entities.
@@ -574,7 +574,7 @@ every plausible hypothesis against the relevant evidence; a record can be
 compatible with more than one explanation. The synthetic example deliberately
 includes topology that supports both common control and shared infrastructure.
 
-![v0.9.9 analyst-authored evidence-link receipt records the existing IDs, stance, and rationale](media/pivotglass-evidence-link-v0.9.9.png)
+![v0.9.9 analyst-authored evidence-link receipt records the existing IDs, stance, and rationale](media/pivotglass-evidence-link-v1.0.0.png)
 
 ## Relationship graph
 
@@ -619,7 +619,7 @@ connections. Use `Command/Control+Z` and `Shift+Command/Control+Z` when focus is
 in the graph rather than a text field. Analytic evidence, relations, assertions,
 and correction history are intentionally outside this undo boundary.
 
-![v0.9.9 graph shows six synthetic entities plus one promotion group, with three stored relationship edges and two dotted analyst-group edges](media/pivotglass-group-graph-v0.9.9.png)
+![v0.9.9 graph shows six synthetic entities plus one promotion group, with three stored relationship edges and two dotted analyst-group edges](media/pivotglass-group-graph-v1.0.0.png)
 
 In this example, the newly admitted domain and long URL share an analyst
 promotion group. The dotted edges state that they were promoted together;
@@ -664,7 +664,7 @@ analyst-safe spellings such as `1[.]1[.]1[.]1` and `hxxp[:]//host[.]test`.
 Only typed indicator values are changed; evidence, provenance, and raw source
 text are not rewritten. Defanged downloads include `-defanged` in the filename.
 
-![v0.9.9 Dossier report dialog presents the synthetic workspace question and scientific investigation records before printing](media/pivotglass-report-v0.9.9.png)
+![v0.9.9 Dossier report dialog presents the synthetic workspace question and scientific investigation records before printing](media/pivotglass-report-v1.0.0.png)
 
 ## Review, correct, and hand off a case
 
@@ -744,7 +744,7 @@ LiteLLM capability metadata when available. Strengths and limitations are
 evidence-proportional notes, not rankings. A visible model can still lack
 quota, perform poorly for a case, respond slowly, or change at the provider.
 
-![v0.9.9 Configuration distinguishes model settings from missing intelligence-service credentials; checks are explicit](media/pivotglass-configuration-v0.9.9.png)
+![v0.9.9 Configuration distinguishes model settings from missing intelligence-service credentials; checks are explicit](media/pivotglass-configuration-v1.0.0.png)
 
 ### Model commands
 
@@ -1078,7 +1078,7 @@ PIVOTGLASS_TUI_COLOR_SCHEME=light pivotglass tui
 PIVOTGLASS_TUI_HIGH_CONTRAST=1 pivotglass tui
 ```
 
-![v0.9.9 Code Rain presentation changes the palette while keeping the synthetic case question and uncertainty visible](media/pivotglass-themes-v0.9.9.png)
+![v0.9.9 Code Rain presentation changes the palette while keeping the synthetic case question and uncertainty visible](media/pivotglass-themes-v1.0.0.png)
 
 ## Reading, attention, and recovery
 

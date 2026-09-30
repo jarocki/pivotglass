@@ -1,7 +1,7 @@
 {
   "id": "overview",
   "title": "Through the Digital Looking Glass",
-  "version": "0.9.9",
+  "version": "1.0.0",
   "status": "review_candidate",
   "synthetic": true,
   "network_enrichment": false,
@@ -23,7 +23,7 @@
       "chapter": "An invitation",
       "captures": [
         "../../brand/pivotglass-looking-glass-v1.png",
-        "../demo-v0.9.9-source/01-cockpit.png"
+        "../demo-v1.0.0-source/01-cockpit.png"
       ],
       "narration": "What if an indicator could open a whole new perspective? Step through the digital looking glass. Meet Pivotglass: a workspace for asking better questions, following evidence, and seeing an investigation take shape.",
       "capture_offsets": [
@@ -35,10 +35,10 @@
     {
       "chapter": "Find your way",
       "captures": [
-        "../demo-v0.9.9-source/02-coach.png",
-        "../demo-v0.9.9-source/12-intake.png",
-        "../demo-v0.9.9-source/13-library.png",
-        "../demo-v0.9.9-source/08-indicator.png"
+        "../demo-v1.0.0-source/02-coach.png",
+        "../demo-v1.0.0-source/12-intake.png",
+        "../demo-v1.0.0-source/13-library.png",
+        "../demo-v1.0.0-source/08-indicator.png"
       ],
       "narration": "Start with a question, an indicator, or a report. Guided coaching helps new analysts get moving. Preview local documents, choose what to admit, and open complete source details. Every step gives you something you can inspect.",
       "capture_offsets": [
@@ -91,7 +91,7 @@
         "source/view-ach.png",
         "source/view-hierarchy.png",
         "source/view-likelihood.png",
-        "../demo-v0.9.9-source/16-report-current-normal.png"
+        "../demo-v1.0.0-source/16-report-current-normal.png"
       ],
       "narration": "Compare competing hypotheses. Explore the investigation hierarchy. Keep likelihood separate from confidence. Structured techniques make assumptions, contradictions, and next collection needs visible. Then turn the work into a reviewable report, saved as Markdown or printed to PDF.",
       "capture_offsets": [
@@ -105,7 +105,7 @@
     {
       "chapter": "Make it yours",
       "captures": [
-        "../demo-v0.9.9-source/19-theme-named.png",
+        "../demo-v1.0.0-source/19-theme-named.png",
         "../../brand/pivotglass-looking-glass-v1.png"
       ],
       "narration": "Choose your atmosphere, including original generative music. Begin locally with the synthetic quickstart, then enable services deliberately. Download Pivotglass from github dot com slash jarocki slash pivotglass. Follow a connection. Ask a sharper question. Discover what the evidence can show.",

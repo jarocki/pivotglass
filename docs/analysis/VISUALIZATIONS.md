@@ -10,7 +10,7 @@ before making a judgment.
 
 ## Relationship graph: follow an actual connection
 
-![Pivotglass v0.9.9 relationship graph with six synthetic entities and one analyst admission group](../media/pivotglass-group-graph-v0.9.9.png)
+![Pivotglass v0.9.9 relationship graph with six synthetic entities and one analyst admission group](../media/pivotglass-group-graph-v1.0.0.png)
 
 This current screenshot uses synthetic training data: six entities plus one
 recorded analyst admission group, with three stored relationships and two
@@ -73,7 +73,7 @@ alternatives, and an explicit analytic assessment.
 
 ## Provenance history: reconstruct how the case grew
 
-![Pivotglass v0.9.9 recorded synthetic admission and provenance branches](../media/pivotglass-history-v0.9.9.png)
+![Pivotglass v0.9.9 recorded synthetic admission and provenance branches](../media/pivotglass-history-v1.0.0.png)
 
 **Question:** How did this source or indicator enter the workspace, and what
 recorded pivot led here?

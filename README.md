@@ -10,9 +10,9 @@ provenance, relationship graphs, and a scientific analysis notebook into one
 case. A report, alert, or suspicious domain is a starting point; the analyst
 owns the question, the collection decision, and the final judgment.
 
-Current release: **v0.9.9 (release candidate; publication pending)**.
-The next milestone is a separately approved correctness, resilience,
-efficiency, security, and usability gate for v1.0.0.
+Current release: **v1.0.0**.
+The final assurance review approved the bounded local, single-analyst scope.
+External integration previews and deferred intake remain outside that scope.
 
 ## Why it exists
 
@@ -43,15 +43,15 @@ threat verdicts or qualifications.
 
 ## Four ways through the looking glass
 
-Start with the [flashy Overview](docs/media/series-v0.9.9/pivotglass-overview-v0.9.9.mp4), then choose the [Analyst Walkthrough](docs/media/series-v0.9.9/pivotglass-analyst-v0.9.9.mp4), [PIVOT Glass](docs/media/series-v0.9.9/pivotglass-pivot-v0.9.9.mp4), or [Visualization and Reporting](docs/media/series-v0.9.9/pivotglass-visualization-v0.9.9.mp4). Each has real Descript narration, original generative music, captions and a transcript in the [series guide](docs/media/series-v0.9.9/README.md).
+Start with the [flashy Overview](docs/media/series-v1.0.0/pivotglass-overview-v1.0.0.mp4), then choose the [Analyst Walkthrough](docs/media/series-v1.0.0/pivotglass-analyst-v1.0.0.mp4), [PIVOT Glass](docs/media/series-v1.0.0/pivotglass-pivot-v1.0.0.mp4), or [Visualization and Reporting](docs/media/series-v1.0.0/pivotglass-visualization-v1.0.0.mp4). Each has real Descript narration, original generative music, captions and a transcript in the [series guide](docs/media/series-v1.0.0/README.md).
 
 ## Earlier five-minute guided edit
 
-[![Pivotglass v0.9.9 guided tour poster from the synthetic release-tour workspace](docs/media/pivotglass-guided-demo-poster-v0.9.9.png)](docs/media/pivotglass-guided-demo-v0.9.9.mp4)
+[![Pivotglass v1.0.0 guided tour poster from the synthetic release-tour workspace](docs/media/pivotglass-guided-demo-poster-v1.0.0.png)](docs/media/pivotglass-guided-demo-v1.0.0.mp4)
 
-[Watch or download the v0.9.9 narrated tour](docs/media/pivotglass-guided-demo-v0.9.9.mp4) ·
-[Captions](docs/media/pivotglass-guided-demo-v0.9.9.vtt) ·
-[Transcript and chapter times](docs/media/pivotglass-guided-demo-transcript-v0.9.9.md) ·
+[Watch or download the v1.0.0 narrated tour](docs/media/pivotglass-guided-demo-v1.0.0.mp4) ·
+[Captions](docs/media/pivotglass-guided-demo-v1.0.0.vtt) ·
+[Transcript and chapter times](docs/media/pivotglass-guided-demo-transcript-v1.0.0.md) ·
 [Caption-enabled player instructions](docs/QUICKSTART.md#watch-with-captions)
 
 This edited tour uses actual current browser states in an isolated synthetic
@@ -100,17 +100,17 @@ The operational guides explain implementation choices and upkeep.
 
 Python 3.12 or newer, Git, and [uv](https://docs.astral.sh/uv/) are required.
 The release-tagged source and committed dependency lock are the supported
-reproducible installation before v1.0.
+reproducible installation for v1.0.0.
 
 ```bash
-git clone --branch v0.9.9 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v1.0.0 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent --frozen
 uv run pivotglass --version
 uv run pivotglass
 ```
 
-Expected version: `pivotglass 0.9.9`. The local browser opens at
+Expected version: `pivotglass 1.0.0`. The local browser opens at
 `http://127.0.0.1:8765`. The release includes the built browser assets; Node.js
 is needed only to rebuild them. Follow the [Quick Start](docs/QUICKSTART.md)
 for update, uninstall, data migration, configuration, and recovery.
@@ -126,7 +126,7 @@ operation, separate from workspace schema migration.
 | Full-screen terminal | `pivotglass tui` or `pivotglass chat` | Keyboard-oriented investigation over the same local case authorities |
 | Direct module console | `pivotglass basic` or `pivotglass repl` | Explicit `use → set → run` module operation |
 
-![Novice Q&A asks for data and provenance before drafting investigative questions](docs/media/pivotglass-question-coach-v0.9.9.png)
+![Novice Q&A asks for data and provenance before drafting investigative questions](docs/media/pivotglass-question-coach-v1.0.0.png)
 
 ## The investigation loop
 

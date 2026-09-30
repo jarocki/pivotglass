@@ -1,4 +1,4 @@
-# Public materials for Pivotglass v0.9.9
+# Public materials for Pivotglass v1.0.0
 
 These tracked Markdown materials explain the product and support evaluation.
 They are draft publication copy: including them in the repository does not
@@ -32,11 +32,10 @@ Describe optional models and providers explicitly. Local operation does not
 mean all enabled actions remain offline. Show synthetic examples as synthetic,
 and describe SCOT4 and Vertex Synapse as preview integrations.
 
-v0.9.9 is the marketing and enablement candidate. The
-[final assurance review](../releases/v0.9.9/FINAL_ASSURANCE_REVIEW.md) is ready
-for owner approval; these drafts do not announce v1.0.0 before its signed,
-public release is verified.
+The owner approved the bounded v1.0.0 release scope following the
+[final assurance review](../releases/v0.9.9/FINAL_ASSURANCE_REVIEW.md).
+These drafts remain unpublished until the signed public release is verified.
 
 ## Visual introduction
 
-Use the [Overview](../media/series-v0.9.9/pivotglass-overview-v0.9.9.mp4) for a brief invitation. The [four-film guide](../media/series-v0.9.9/README.md) gives follow-on paths for workflow, pivoting and visualization/reporting. [Looking Glass brand candidates](../brand/README.md) are available for presentation; review the final media and public release links before posting.
+Use the [Overview](../media/series-v1.0.0/pivotglass-overview-v1.0.0.mp4) for a brief invitation. The [four-film guide](../media/series-v1.0.0/README.md) gives follow-on paths for workflow, pivoting and visualization/reporting. [Looking Glass brand candidates](../brand/README.md) are available for presentation; review the final media and public release links before posting.

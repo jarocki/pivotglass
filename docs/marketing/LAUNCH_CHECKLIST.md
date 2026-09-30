@@ -17,24 +17,46 @@ permission to send a message on someone else's behalf.
   [LinkedIn](LINKEDIN.md), plus the repository-page link in the
   [Signal blurb](SIGNAL.md). Attach the approved logo and synthetic-case
   graphics with their alt text; do not upload a historical draft image.
-- [ ] Read the [compatibility matrix](../COMPATIBILITY.md),
+- [x] Read the [compatibility matrix](../COMPATIBILITY.md),
   [data safety](../DATA_SAFETY.md), and [capacity](../CAPACITY.md) against the copy.
   Keep qualified, preview, and deferred capabilities distinct.
-- [ ] Verify diagrams, screenshots, and the guided demo against the shipped
+- [x] Verify diagrams, screenshots, and the guided demo against the shipped
   interface. Label synthetic data and older media with their actual version.
   Do not imply a historical screenshot shows the current interface.
-- [ ] Verify no credential, personal information, live-case indicator, private
+- [x] Verify no credential, personal information, live-case indicator, private
   hostname, or unapproved evidence appears in public media.
-- [ ] Read the copy as a first-time analyst: can the reader identify a starting
+- [x] Read the copy as a first-time analyst: can the reader identify a starting
   point, the meaning of unfamiliar terms, and what the next action will do?
-- [ ] Have a subject-matter reviewer challenge attribution, confidence,
+- [x] Have a subject-matter reviewer challenge attribution, confidence,
   independence, method, and collection claims. Have a newcomer reviewer check
   pacing, clarity, emotional tone, uncertainty, and permission language.
-- [ ] Record actual reviewer findings, edits, and unresolved limitations in the
+- [x] Record actual reviewer findings, edits, and unresolved limitations in the
   release record. Do not portray simulated/editorial review as a user study.
 - [ ] Check Mastodon length and the destination instance's URL-counting rules.
 - [ ] Have the account/site owner authorize and perform external publication.
   Drafts in this directory do not send posts, messages, or website updates.
+
+## Launch verification — 2026-09-29
+
+This pass reviewed the current working tree, including the owner's uncommitted
+edits to [Signal](SIGNAL.md) and [LinkedIn](LINKEDIN.md). Those edits were
+preserved. The checked boxes above mean the stated review was performed; they
+do not imply a public release or independent human endorsement.
+
+| Checklist items | Result and evidence | Remaining action |
+| --- | --- | --- |
+| Release, version, public links (1–3) | Public `main` and the latest GitHub Release are still v0.9.8. [PR #9](https://github.com/jarocki/pivotglass/pull/9) is a draft v0.9.9 candidate. Local Python and web manifests say v0.9.9; Signal's v1.0.0 wording is launch copy for a later approved release. Direct public-repository readback found `docs/QUICKSTART.md`, `docs/LEARNING_WORKSPACE.md`, `docs/USER_GUIDE.md`, and `docs/DATA_SAFETY.md`; it returned 404 for the Overview MP4, logo, and `docs/operations/IMPLEMENTATION.md` on `main`. | Approve the final assurance scope, create and publish the versioned release and trust artifacts, then repeat readback on the exact published tag and every destination. |
+| Video, repository link, graphics (4) | The repository page is the intended Signal destination. The social and LinkedIn drafts use the same Overview URL, which is currently unavailable on public `main`. The approved logo and two synthetic-case social graphics are present locally and visually match their alt text. All four local MP4 sizes and SHA-256 hashes match `series-v1.0.0/verification.json`. | Confirm the Overview plays from the public release link and attach the approved images and alt text at posting time. |
+| Claims and capability limits (5) | Reviewed current [compatibility](../COMPATIBILITY.md), [data safety](../DATA_SAFETY.md), and [capacity](../CAPACITY.md) against the marketing copy. It presents local practice, analyst judgment, provenance, and visualizations as mechanisms, without measured speed or learning claims. Preview integrations and deferred intake remain outside stable claims. | Keep the same limits in any final v1.0.0 copy and release notes. |
+| Media fidelity and disclosure (6–7) | The four edit manifests use only existing brand art and current synthetic-case capture files. The relationship image visibly distinguishes stored edges from dotted analyst grouping; the ACH image shows recorded support and unassessed cells. The series and source README state that the videos are edited captures, not continuous recordings. OCR screening of all 42 referenced-source PNGs and review of all four transcripts found no apparent credential, private hostname, real personal data, or live-case indicator. A configuration capture shows only public provider endpoints and missing-key state. The screenshots have synthetic names and `.example` domains. | Recheck the final uploaded assets. OCR and manual inspection are disclosure screening, not a guarantee against every hidden datum. |
+| Analyst and editorial reads (8–10) | First-time path: the repository and website copy point to the synthetic offline case, Quick Start, and User Guide. Agent-assisted subject-matter and newcomer passes checked evidence/inference separation, grouping versus relationship, source selection, uncertainty, jargon, pacing, and handoff. The owner's revised Signal and LinkedIn wording was preserved. The LinkedIn phrase “choose IoCs to ingest” is conversational but the product's precise sequence is preview source → ingest source → admit selected candidate indicators; explanatory docs retain that distinction. Existing [expert](../releases/v0.9.9/EXPERT_EDITORIAL_REVIEW.md) and [newcomer](../releases/v0.9.9/NEWCOMER_REVIEW.md) reviews predate the owner's two edits. This pass is not a new independent human review or user study. | If the owner wants more precise LinkedIn terminology, change that phrase before posting; no copy change is required for the release gate. |
+| Mastodon (11) | The draft is 417 Unicode characters including its URL, below 500 even without a shortened-link allowance. | Confirm the chosen instance's actual limit and URL handling before posting. No destination instance was specified. |
+| Publication authority (12) | No social post, Signal message, or website update was sent by this pass. [Final assurance](../releases/v0.9.9/FINAL_ASSURANCE_REVIEW.md) still requires the owner's v1.0.0 scope decision, followed by signed release and public readback. | Owner authorizes the final release scope and performs or explicitly authorizes each external publication after the links work. |
+
+**Launch state:** Six review items complete; six publication/link/account items
+remain open. Do not publish Signal's “v1.0.0 release” wording until v1.0.0 is
+actually public and verified. The marketing files are drafts, not proof of
+distribution.
 
 ## Claims and their supporting authority
 
@@ -57,7 +79,7 @@ not evidence that users achieved a measured operational outcome.
 | Bounded capacity and explicit omissions | [Capacity](../CAPACITY.md), [Compatibility](../COMPATIBILITY.md) | “Documented local envelope.” Measurements are scenario-specific; no enterprise-scale claim. |
 | External integrations | [Compatibility](../COMPATIBILITY.md), [Integration contract](../EXTERNAL_INTEGRATIONS.md) | “SCOT4 and Vertex Synapse previews.” Do not claim production-qualified live round trips. |
 | Supported document intake | [Compatibility](../COMPATIBILITY.md), [Data safety](../DATA_SAFETY.md) | Name qualified formats and limits. PDF recognition is not extraction; OCR, Office parsing, URL/RSS intake, and archive expansion are deferred. |
-| v0.9.9 enablement materials | [Implementation](../operations/IMPLEMENTATION.md), [Infrastructure](../operations/INFRASTRUCTURE.md), [Operations](../operations/OPERATIONS.md) | “Guidance for evaluation and operation.” A checklist is not proof every environment has been qualified. |
+| v1.0.0 enablement materials | [Implementation](../operations/IMPLEMENTATION.md), [Infrastructure](../operations/INFRASTRUCTURE.md), [Operations](../operations/OPERATIONS.md) | “Guidance for evaluation and operation.” A checklist is not proof every environment has been qualified. |
 
 ## Claims requiring new evidence
 
@@ -73,8 +95,8 @@ practice participation as competence.
 
 ## Release status language
 
-Use **draft v0.9.9 materials** while this branch is unpublished. The
-[final assurance review](../releases/v0.9.9/FINAL_ASSURANCE_REVIEW.md) is ready
-for the owner's scope and release decision. Reserve **Pivotglass v1.0.0** for
-the approved, signed, published release with downloaded readback. Preparing
-these materials and completing local QA do not satisfy that public gate.
+The owner approved the bounded v1.0.0 scope on 2026-09-29. Use **v1.0.0
+release candidate** until the approved, signed release is on public `main`
+with downloaded readback. The earlier 2026-09-29 audit above describes the
+state before this approval; the public link and artifact checks must be
+repeated after publication.

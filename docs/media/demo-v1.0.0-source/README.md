@@ -1,4 +1,4 @@
-# v0.9.9 demo source captures
+# v1.0.0 demo source captures
 
 These 17 PNGs are actual browser states from an isolated synthetic Pivotglass case. The chapter manifest maps each capture to its narration and exact speech duration. They are edited scene holds, not a continuous recording or evidence of a live threat investigation.
 

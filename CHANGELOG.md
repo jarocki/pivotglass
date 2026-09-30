@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.9.9] - 2026-09-28
+## [1.0.0] - 2026-09-29
+
+The owner approved the bounded local, single-analyst investigation scope after
+the final assurance review. The v0.9.9 work was a release candidate and is
+published here as v1.0.0; external integrations and additional intake formats
+retain their documented preview or deferred status.
 
 ### Documentation and enablement
 

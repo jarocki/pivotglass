@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE = ROOT / "docs/media/series-v0.9.9"
+BASE = ROOT / "docs/media/series-v1.0.0"
 spec = importlib.util.spec_from_file_location(
     "series_renderer", ROOT / "scripts/render_video_series.py"
 )
@@ -36,7 +36,7 @@ def test_all_four_published_edits_have_complete_word_coverage_and_sources():
     timing = json.loads((BASE / "narration-timing.json").read_text())
     assert {v["id"] for v in plan["videos"]} == {"overview", "analyst", "pivot", "visualization"}
     for v in plan["videos"]:
-        stem = f"pivotglass-{v['id']}-v0.9.9"
+        stem = f"pivotglass-{v['id']}-v1.0.0"
         manifest = json.loads((BASE / f"{stem}.json").read_text())
         assert manifest["synthetic"] and not manifest["network_enrichment"]
         assert manifest["voice"]["provider"] == "Descript"

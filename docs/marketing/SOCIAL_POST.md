@@ -1,8 +1,8 @@
 # Social release post — ready to publish after link verification
 
 Attach the [Pivotglass logo](../brand/pivotglass-looking-glass-v1.png), the
-[relationship graph](../media/series-v0.9.9/source/view-relationships.png), and
-the [competing-hypotheses view](../media/series-v0.9.9/source/view-ach.png), in
+[relationship graph](../media/series-v1.0.0/source/view-relationships.png), and
+the [competing-hypotheses view](../media/series-v1.0.0/source/view-ach.png), in
 that order. The two interface captures use a synthetic offline case; their
 alt text is below. The pictures are presentation, not threat evidence.
 
@@ -21,7 +21,7 @@ You can try the synthetic case locally without API keys. Take a look and tell
 me what helps, or what gets in your way.
 
 Explore: https://github.com/jarocki/pivotglass
-Watch: https://github.com/jarocki/pivotglass/blob/main/docs/media/series-v0.9.9/pivotglass-overview-v0.9.9.mp4
+Watch: https://github.com/jarocki/pivotglass/blob/main/docs/media/series-v1.0.0/pivotglass-overview-v1.0.0.mp4
 <!-- post:end -->
 
 **Image alt text**

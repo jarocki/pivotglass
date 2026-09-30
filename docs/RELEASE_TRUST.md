@@ -14,7 +14,7 @@ downloaded bytes match the owner's release decision.
 The SBOM describes the exact Python and npm lockfiles used to qualify the source
 release and build the packaged browser. Python wheel metadata intentionally
 uses compatible version ranges, so an unconstrained wheel installer can resolve
-newer dependencies. The supported pre-1.0 install is the tagged source checkout
+newer dependencies. The supported reproducible v1.0.0 install is the tagged source checkout
 with `uv sync --frozen`; a standalone wheel install is a package-compatibility
 check, not a reproduction of the locked environment.
 
@@ -51,7 +51,7 @@ must contain only the final candidate output; do not reuse a historical
 `dist/` directory.
 
 ```bash
-PIVOTGLASS_VERSION=0.9.9
+PIVOTGLASS_VERSION=1.0.0
 PIVOTGLASS_BUNDLE="$(mktemp -d)"
 
 uv lock --check
@@ -85,7 +85,7 @@ metadata in the generated inventory.
 
 The current demo is an edited narrated sequence of actual local browser states
 from an isolated synthetic workspace. Its caption file, transcript, poster,
-chapter manifest, screenshots, and MP4 are under `docs/media/` with v0.9.9 in
+chapter manifest, screenshots, and MP4 are under `docs/media/` with v1.0.0 in
 their filenames. The transcript discloses the method; the video is not a
 continuous screen recording or evidence of a live provider round trip.
 
@@ -106,8 +106,8 @@ Before archiving, check the following against the actual files:
 A maintainer can inspect streams and decode the file with local media tools:
 
 ```bash
-ffprobe -v error -show_streams -show_format docs/media/pivotglass-guided-demo-v0.9.9.mp4
-ffmpeg -v error -i docs/media/pivotglass-guided-demo-v0.9.9.mp4 -f null -
+ffprobe -v error -show_streams -show_format docs/media/pivotglass-guided-demo-v1.0.0.mp4
+ffmpeg -v error -i docs/media/pivotglass-guided-demo-v1.0.0.mp4 -f null -
 ```
 
 Media verification is additional to application tests. The signed source
@@ -174,7 +174,7 @@ is not a completed release.
 
 ## Current boundary
 
-The v0.9.9 candidate source tree contains the generator, deterministic tests, support
+The v1.0.0 candidate source tree contains the generator, deterministic tests, support
 guidance, and this manual ceremony because release workflows are intentionally
 kept out of the public repository. The final signature and public readback can
 exist only after the immutable candidate is approved and published. Until then,

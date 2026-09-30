@@ -1,7 +1,7 @@
 {
   "id": "analyst",
   "title": "Analyst Walkthrough: From Question to Handoff",
-  "version": "0.9.9",
+  "version": "1.0.0",
   "status": "review_candidate",
   "synthetic": true,
   "network_enrichment": false,
@@ -22,8 +22,8 @@
     {
       "chapter": "The decision",
       "captures": [
-        "../demo-v0.9.9-source/01-cockpit.png",
-        "../demo-v0.9.9-source/02-coach.png"
+        "../demo-v1.0.0-source/01-cockpit.png",
+        "../demo-v1.0.0-source/02-coach.png"
       ],
       "narration": "An investigation begins with a decision, not a verdict. In this synthetic case, we want to distinguish one operator from shared infrastructure. Pivotglass keeps the question, the evidence, and alternative explanations together. Novice coaching starts simply: What data do you have? What happened?",
       "capture_offsets": [
@@ -35,9 +35,9 @@
     {
       "chapter": "Unknowns become questions",
       "captures": [
-        "../demo-v0.9.9-source/03-unknown.png",
-        "../demo-v0.9.9-source/04-review.png",
-        "../demo-v0.9.9-source/05-practice.png"
+        "../demo-v1.0.0-source/03-unknown.png",
+        "../demo-v1.0.0-source/04-review.png",
+        "../demo-v1.0.0-source/05-practice.png"
       ],
       "narration": "Do you know how it started? Here, we do not. Keep that unknown. The coach proposes questions, and the analyst edits one to ask what independent evidence would distinguish common control from shared hosting. Review before saving. Practice records participation and reflection; expertise grows through real work and feedback.",
       "capture_offsets": [
@@ -50,8 +50,8 @@
     {
       "chapter": "Admit deliberately",
       "captures": [
-        "../demo-v0.9.9-source/12-intake.png",
-        "../demo-v0.9.9-source/13-library.png"
+        "../demo-v1.0.0-source/12-intake.png",
+        "../demo-v1.0.0-source/13-library.png"
       ],
       "narration": "Now preview a local report. Candidate strings are separate from admitted evidence. Select the domain and long URL, then explicitly admit them with their source. The library retains the source digest. A successful preview is not admission, and a document claim is not automatically true.",
       "capture_offsets": [
@@ -63,9 +63,9 @@
     {
       "chapter": "Inspect and challenge",
       "captures": [
-        "../demo-v0.9.9-source/08-indicator.png",
-        "../demo-v0.9.9-source/09-provenance.png",
-        "../demo-v0.9.9-source/06-analysis.png"
+        "../demo-v1.0.0-source/08-indicator.png",
+        "../demo-v1.0.0-source/09-provenance.png",
+        "../demo-v1.0.0-source/06-analysis.png"
       ],
       "narration": "Open the indicator. Read the complete value, typed relationships, original source, and collection history. The file communicates with a domain, but topology alone does not establish ownership. Keep both hypotheses. Record the conflicting explanation and what independent collection could resolve it.",
       "capture_offsets": [
@@ -78,7 +78,7 @@
     {
       "chapter": "Test the reasoning",
       "captures": [
-        "../demo-v0.9.9-source/17-link.png",
+        "../demo-v1.0.0-source/17-link.png",
         "source/view-ach.png",
         "source/sat-run.png"
       ],
@@ -95,7 +95,7 @@
       "captures": [
         "source/view-constellation.png",
         "source/view-likelihood.png",
-        "../demo-v0.9.9-source/06-analysis.png"
+        "../demo-v1.0.0-source/06-analysis.png"
       ],
       "narration": "Coverage shows where the investigation has evidence and where it needs more. It does not measure danger. Likelihood asks how probable an explanation is. Confidence asks how sound and sufficient its evidence and reasoning are. Keep the collection requirement and stopping condition visible so the hunt has a purpose and a boundary.",
       "capture_offsets": [
@@ -108,7 +108,7 @@
     {
       "chapter": "A defensible handoff",
       "captures": [
-        "../demo-v0.9.9-source/16-report-current-normal.png",
+        "../demo-v1.0.0-source/16-report-current-normal.png",
         "source/report-sat.png",
         "../../brand/pivotglass-looking-glass-v1.png"
       ],

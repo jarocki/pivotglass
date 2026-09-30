@@ -1,6 +1,6 @@
 [project]
 name = "pivotglass"
-version = "0.9.9"
+version = "1.0.0"
 requires-python = ">=3.12"
 description = "Gamified framework for hunting, pivoting, and discovery of adversary infrastructure, indicators, and TTPs"
 readme = "README.md"

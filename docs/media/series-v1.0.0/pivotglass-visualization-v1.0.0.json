@@ -1,7 +1,7 @@
 {
   "id": "visualization",
   "title": "Visualize, Challenge, Report",
-  "version": "0.9.9",
+  "version": "1.0.0",
   "status": "review_candidate",
   "synthetic": true,
   "network_enrichment": false,
@@ -110,7 +110,7 @@
     {
       "chapter": "Report and export",
       "captures": [
-        "../demo-v0.9.9-source/16-report-current-normal.png",
+        "../demo-v1.0.0-source/16-report-current-normal.png",
         "source/report-sat.png",
         "../../brand/pivotglass-looking-glass-v1.png"
       ],

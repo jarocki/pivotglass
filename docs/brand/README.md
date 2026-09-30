@@ -11,4 +11,4 @@ Original AI-generated artwork created on 2026-09-29 from the requested “Digita
 
 Use the wordmark on dark presentation surfaces and the emblem for thumbnails. Preserve proportions and keep other text outside the mark. The artwork is presentation and does not carry analytical meaning.
 
-[Video series](../media/series-v0.9.9/README.md)
+[Video series](../media/series-v1.0.0/README.md)
