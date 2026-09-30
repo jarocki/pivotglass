@@ -106,6 +106,7 @@ _PIVOTGLASS_ENV_VAR_MAP: dict[str, str] = {
     "censys_id": "PIVOTGLASS_CENSYS_ID",
     "censys_secret": "PIVOTGLASS_CENSYS_SECRET",
     "censys_pat": "PIVOTGLASS_CENSYS_PAT",
+    "censys_org_id": "PIVOTGLASS_CENSYS_ORG_ID",
     "urlscan": "PIVOTGLASS_URLSCAN_API_KEY",
     "abuseipdb": "PIVOTGLASS_ABUSEIPDB_API_KEY",
     "greynoise": "PIVOTGLASS_GREYNOISE_API_KEY",
@@ -130,6 +131,7 @@ _VENDOR_ENV_VAR_MAP: dict[str, str] = {
     "censys_id": "CENSYS_API_ID",
     "censys_secret": "CENSYS_API_SECRET",
     "censys_pat": "CENSYS_PAT",
+    "censys_org_id": "CENSYS_ORG_ID",
     "urlscan": "URLSCAN_API_KEY",
     "abuseipdb": "ABUSEIPDB_API_KEY",
     "greynoise": "GREYNOISE_API_KEY",
@@ -271,6 +273,7 @@ class ApiKeysConfig(BaseModel):
     censys_id: str = ""
     censys_secret: str = ""
     censys_pat: str | None = None
+    censys_org_id: str | None = None
     urlscan: str = ""
     abuseipdb: str = ""
     greynoise: str = ""

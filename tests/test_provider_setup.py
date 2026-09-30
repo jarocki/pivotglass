@@ -1027,7 +1027,8 @@ class TestCTIServicesRegistry:
 
     def test_censys_uses_pat_not_legacy_id_secret(self):
         censys = next(s for s in CTI_SERVICES if s.id == "censys_pat")
-        assert censys.config_keys == ["censys_pat"]
+        assert censys.config_keys == ["censys_pat", "censys_org_id"]
+        assert censys.optional_config_keys == ("censys_org_id",)
         assert "censys_id" not in censys.config_keys
         assert "censys_secret" not in censys.config_keys
 
@@ -1083,18 +1084,19 @@ class TestValidateCTIKey:
         assert ok is False
         assert "Authentication failed" in msg
 
-    def test_shodan_403_returns_false_auth_failed(self):
+    def test_shodan_403_reports_permissions_without_claiming_bad_key(self):
         spec = self._spec("shodan")
         with patch("httpx.get", return_value=_mock_httpx_response(403)):
             ok, msg = _validate_cti_key(spec, ["bad-key"])
         assert ok is False
-        assert "Authentication failed" in msg
+        assert "Access forbidden" in msg
 
-    def test_shodan_429_returns_true_rate_limited(self):
+    def test_shodan_429_leaves_access_unverified(self):
         spec = self._spec("shodan")
         with patch("httpx.get", return_value=_mock_httpx_response(429)):
             ok, msg = _validate_cti_key(spec, ["valid-key"])
-        assert ok is True
+        assert ok is False
+        assert "unverified" in msg
 
     def test_shodan_network_error_returns_false(self):
         spec = self._spec("shodan")
@@ -1110,8 +1112,15 @@ class TestValidateCTIKey:
             side_effect=httpx.TimeoutException("timeout", request=MagicMock()),
         ):
             ok, msg = _validate_cti_key(spec, ["test-key"])
-        assert ok is True
-        assert "timed out" in msg.lower() or "saving anyway" in msg.lower()
+        assert ok is False
+        assert "timed out" in msg.lower()
+
+    def test_network_error_does_not_echo_a_key_from_exception(self):
+        spec = self._spec("shodan")
+        with patch("httpx.get", side_effect=httpx.ConnectError("https://example.test/?key=secret-value")):
+            ok, msg = _validate_cti_key(spec, ["secret-value"])
+        assert ok is False
+        assert "secret-value" not in msg
 
     # --- VirusTotal (header_x_apikey) ---
     def test_virustotal_200_returns_true(self):
@@ -1121,6 +1130,7 @@ class TestValidateCTIKey:
         assert ok is True
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs["headers"]["x-apikey"] == "vt-key"
+        assert mock_get.call_args[0][0].endswith("/api/v3/ip_addresses/8.8.8.8")
 
     def test_virustotal_401_returns_false(self):
         spec = self._spec("virustotal")
@@ -1146,6 +1156,9 @@ class TestValidateCTIKey:
         assert ok is True
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs["headers"]["hibp-api-key"] == "hibp-key"
+        assert call_kwargs["headers"]["user-agent"]
+        assert mock_get.call_args[0][0].endswith("/api/v3/subscription/status")
+        assert call_kwargs["follow_redirects"] is True
 
     # --- OTX (header_x_otx) ---
     def test_otx_200_returns_true(self):
@@ -1164,6 +1177,7 @@ class TestValidateCTIKey:
         assert ok is True
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs["headers"]["API-Key"] == "urlscan-key"
+        assert mock_get.call_args[0][0] == "https://urlscan.io/api/v1/quotas"
 
     # --- Censys PAT (bearer) ---
     def test_censys_pat_200_returns_true(self):
@@ -1173,6 +1187,13 @@ class TestValidateCTIKey:
         assert ok is True
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs["headers"]["Authorization"] == "Bearer pat-token"
+
+    def test_censys_validation_includes_organization_header_when_set(self):
+        spec = self._spec("censys_pat")
+        with patch("httpx.get", return_value=_mock_httpx_response(200)) as mock_get:
+            ok, _ = _validate_cti_key(spec, ["pat-token", "org-123"])
+        assert ok is True
+        assert mock_get.call_args[1]["headers"]["X-Organization-ID"] == "org-123"
 
     # --- PassiveTotal (basic_auth) ---
     def test_passivetotal_200_returns_true(self):
@@ -1231,6 +1252,10 @@ class TestCTIExportHelpers:
     def test_compose_cti_export_lines_censys_pat(self):
         lines = _compose_cti_export_lines({"censys_pat": "my-pat"})
         assert lines == ['export CENSYS_PAT="my-pat"']
+
+    def test_compose_cti_export_lines_censys_org_id(self):
+        lines = _compose_cti_export_lines({"censys_org_id": "org-123"})
+        assert lines == ['export CENSYS_ORG_ID="org-123"']
 
     def test_compose_cti_export_lines_passivetotal(self):
         lines = _compose_cti_export_lines({

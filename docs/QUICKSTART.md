@@ -49,11 +49,11 @@ the complete practice path; you can follow them without watching the video.
 
 You need Python 3.12 or newer, Git, and
 [uv](https://docs.astral.sh/uv/). The source tag plus its committed lockfile is
-the supported reproducible v1.0.0 installation because it reproduces the dependency
+the supported reproducible v1.1.0 installation because it reproduces the dependency
 set used for release qualification.
 
 ```bash
-git clone --branch v1.0.0 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v1.1.0 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent --frozen
 uv run pivotglass --version
@@ -62,7 +62,7 @@ uv run pivotglass --version
 The final command should report:
 
 ```text
-pivotglass 1.0.0
+pivotglass 1.1.0
 ```
 
 The release contains the built browser interface. Node.js 20.9 or newer is
@@ -82,7 +82,7 @@ recreate the locked environment:
 
 ```bash
 git fetch --tags origin
-git checkout v1.0.0
+git checkout v1.1.0
 uv sync --extra agent --frozen
 uv run pivotglass --version
 ```
@@ -488,8 +488,21 @@ For each service you intend to use:
 
 1. Find the service under **INTELLIGENCE APIS**.
 2. Enter the required credential fields.
-3. Choose **SAVE + TEST**.
-4. Leave the service disabled if you do not want Pivotglass to use it.
+3. Choose **SAVE, THEN TEST**. Saving keeps your key even if the one-time access
+   test times out or the provider rejects the request. Read the separate test
+   result before relying on the service.
+4. Enable the service to use it in a hunt. Saving a key does not enable a
+   disabled service. Leave it disabled if you do not want Pivotglass to use it.
+
+Each credential field shows **SAVED IN PIVOTGLASS**, **SET IN ENVIRONMENT**, or
+**NO KEY SAVED**. The fixed dots confirm presence; they do not expose the key
+or its length. The replacement input stays empty. Choose **TEST** to check a
+stored key without re-entering it.
+
+Censys Platform uses a Personal Access Token. Enter your organization ID as
+well to use your organization’s entitlements; Censys Free accounts can leave
+the organization ID empty. Pivotglass sends it in the `X-Organization-ID`
+header with the PAT.
 
 WHOIS and crt.sh work without API credentials. Most other integrations require
 an account or key. Checks occur only when you request them.

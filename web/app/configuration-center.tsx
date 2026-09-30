@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type CredentialSource = "config" | "environment" | "missing" | "not-required";
+type CredentialSource = "config" | "environment" | "missing" | "mixed" | "not-required";
 type ModelState = {
   enabled: boolean;
   provider: string;
@@ -26,7 +26,7 @@ type ServiceState = {
   display_name: string;
   enabled: boolean;
   credential_source: CredentialSource;
-  credential_fields: Array<{ key: string; label: string }>;
+  credential_fields: Array<{ key: string; label: string; credential_source: CredentialSource; required: boolean }>;
   docs_url: string;
   test_endpoint: string;
 };
@@ -67,6 +67,7 @@ export function ConfigurationCenter({ onClose }: { onClose: () => void }) {
   const [models, setModels] = useState<ModelProfile[]>([]);
   const [notice, setNotice] = useState("");
   const [health, setHealth] = useState<Health | null>(null);
+  const [serviceOutcome, setServiceOutcome] = useState<Record<string, { saved: boolean | null; health: Health }>>({});
   const [busy, setBusy] = useState("");
 
   const provider = useMemo(
@@ -97,10 +98,19 @@ export function ConfigurationCenter({ onClose }: { onClose: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (result.health) setHealth(result.health);
+      if (result.health) {
+        if (body.action === "service-credentials") setServiceOutcome((current) => ({ ...current, [String(body.id)]: { saved: result.saved, health: result.health! } }));
+        else setHealth(result.health);
+      }
       if (result.configuration) setConfiguration(result.configuration);
       else await refresh();
-      setNotice(result.saved ? "Configuration saved." : "Nothing was saved; correct the test failure first.");
+      setNotice(result.saved
+        ? body.action === "service-credentials"
+          ? result.health?.state === "ready"
+            ? "Credential saved and service access verified. Enable the service to use it."
+            : "Credential saved. Service access is not verified; review the test result. Enable the service to use it."
+          : "Configuration saved."
+        : "Nothing was saved; correct the test failure first.");
       return result.saved;
     } catch (reason) {
       setNotice(String(reason));
@@ -124,7 +134,8 @@ export function ConfigurationCenter({ onClose }: { onClose: () => void }) {
           ...(values?.some(Boolean) ? { values } : {}),
         }),
       });
-      setHealth(result);
+      if (kind === "service") setServiceOutcome((current) => ({ ...current, [id]: { saved: null, health: result } }));
+      else setHealth(result);
     } catch (reason) {
       setNotice(String(reason));
     } finally {
@@ -201,18 +212,19 @@ export function ConfigurationCenter({ onClose }: { onClose: () => void }) {
     </section>}
 
     <section className="service-catalog" aria-label="Intelligence APIs">
-      <header><h3>INTELLIGENCE APIS</h3><span>Enable, test, repair, or remove one service at a time</span></header>
+      <header><h3>INTELLIGENCE APIS</h3><span>Save a credential, test access, and enable each service separately</span></header>
       <div>{configuration.services.map((service) => {
         const values = serviceSecrets[service.id] ?? service.credential_fields.map(() => "");
         return <article key={service.id}>
-          <header><div><b>{service.display_name}</b><small>{service.credential_source} · {service.test_endpoint}</small></div><button onClick={() => update({ action: "service-enabled", id: service.id, enabled: !service.enabled })}>{service.enabled ? "ENABLED" : "DISABLED"}</button></header>
-          <div className="service-credential-fields">{service.credential_fields.map((field, index) => <label key={field.key}>{field.label}<input type="password" autoComplete="new-password" value={values[index] ?? ""} onChange={(event) => setServiceSecrets((current) => ({ ...current, [service.id]: values.map((value, valueIndex) => valueIndex === index ? event.target.value : value) }))} placeholder={service.credential_source === "missing" ? "Required" : "Leave blank to keep current"} /></label>)}</div>
+          <header><div><b>{service.display_name}</b><small>{service.test_endpoint}</small></div><button onClick={() => update({ action: "service-enabled", id: service.id, enabled: !service.enabled })}>{service.enabled ? "ENABLED" : "DISABLED"}</button></header>
+          <div className="service-credential-fields">{service.credential_fields.map((field, index) => <label key={field.key}>{field.label}<span className="credential-presence">{field.credential_source === "config" ? "SAVED IN PIVOTGLASS · ••••••••" : field.credential_source === "environment" ? "SET IN ENVIRONMENT · ••••••••" : "NO VALUE SAVED"}</span><input type={field.key === "censys_org_id" ? "text" : "password"} autoComplete="new-password" value={values[index] ?? ""} onChange={(event) => setServiceSecrets((current) => ({ ...current, [service.id]: values.map((value, valueIndex) => valueIndex === index ? event.target.value : value) }))} placeholder={field.credential_source === "missing" ? field.required ? "Enter key" : "Optional" : "Enter a replacement value"} /></label>)}</div>
           <div className="configuration-actions">
             <button disabled={Boolean(busy)} onClick={() => check("service", service.id, values)}>TEST</button>
-            <button disabled={!values.every(Boolean) || Boolean(busy)} onClick={async () => { if (await update({ action: "service-credentials", id: service.id, values, verify: true })) setServiceSecrets((current) => ({ ...current, [service.id]: values.map(() => "") })); }}>SAVE + TEST</button>
-            {service.credential_source === "config" && <button className="danger-subtle" onClick={() => update({ action: "remove-service-credentials", id: service.id })}>REMOVE STORED</button>}
+            <button disabled={!values.some(Boolean) || service.credential_fields.some((field, index) => field.required && !values[index] && field.credential_source === "missing") || Boolean(busy)} onClick={async () => { if (await update({ action: "service-credentials", id: service.id, values, verify: true })) setServiceSecrets((current) => ({ ...current, [service.id]: values.map(() => "") })); }}>SAVE, THEN TEST</button>
+            {service.credential_fields.some((field) => field.credential_source === "config") && <button className="danger-subtle" onClick={() => update({ action: "remove-service-credentials", id: service.id })}>REMOVE STORED</button>}
             <a href={service.docs_url} target="_blank" rel="noreferrer">GET CREDENTIAL</a>
           </div>
+          {serviceOutcome[service.id] && <div className={`configuration-health ${serviceOutcome[service.id].health.state}`} role="status"><b>{serviceOutcome[service.id].saved === true ? "SAVED · " : ""}ACCESS {serviceOutcome[service.id].health.state.toUpperCase()}</b><span>{serviceOutcome[service.id].health.summary}</span></div>}
         </article>;
       })}</div>
     </section>

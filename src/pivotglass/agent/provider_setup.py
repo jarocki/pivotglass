@@ -442,6 +442,7 @@ class CTIServiceSpec:
     validate_method: str
     validate_header_name: str
     docs_url: str
+    optional_config_keys: tuple[str, ...] = ()
 
 
 CTI_SERVICES: list[CTIServiceSpec] = [
@@ -460,7 +461,7 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         display_name="VirusTotal",
         config_keys=["virustotal"],
         prompt_labels=["API Key"],
-        validate_url="https://www.virustotal.com/api/v3/users/current",
+        validate_url="https://www.virustotal.com/api/v3/ip_addresses/8.8.8.8",
         validate_method="header_x_apikey",
         validate_header_name="x-apikey",
         docs_url="https://www.virustotal.com/gui/my-apikey",
@@ -480,7 +481,7 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         display_name="HaveIBeenPwned",
         config_keys=["hibp"],
         prompt_labels=["API Key"],
-        validate_url="https://haveibeenpwned.com/api/v3/breaches",
+        validate_url="https://haveibeenpwned.com/api/v3/subscription/status",
         validate_method="header_key",
         validate_header_name="hibp-api-key",
         docs_url="https://haveibeenpwned.com/API/Key",
@@ -500,7 +501,7 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         display_name="URLScan",
         config_keys=["urlscan"],
         prompt_labels=["API Key"],
-        validate_url="https://urlscan.io/user/profile/",
+        validate_url="https://urlscan.io/api/v1/quotas",
         validate_method="header_api_key",
         validate_header_name="API-Key",
         docs_url="https://urlscan.io/user/profile/",
@@ -508,12 +509,13 @@ CTI_SERVICES: list[CTIServiceSpec] = [
     CTIServiceSpec(
         id="censys_pat",
         display_name="Censys (Platform PAT)",
-        config_keys=["censys_pat"],
-        prompt_labels=["Personal Access Token"],
+        config_keys=["censys_pat", "censys_org_id"],
+        prompt_labels=["Personal Access Token", "Organization ID (optional for Free accounts)"],
         validate_url="https://api.platform.censys.io/v3/global/asset/host/8.8.8.8",
         validate_method="bearer",
         validate_header_name="",
         docs_url="https://app.censys.io/user/tokens",
+        optional_config_keys=("censys_org_id",),
     ),
     CTIServiceSpec(
         id="greynoise",
@@ -547,6 +549,7 @@ _CTI_ENV_VAR: dict[str, str] = {
     "otx": "OTX_API_KEY",
     "urlscan": "URLSCAN_API_KEY",
     "censys_pat": "CENSYS_PAT",
+    "censys_org_id": "CENSYS_ORG_ID",
     "greynoise": "GREYNOISE_API_KEY",
     "passivetotal_user": "PT_USERNAME",
     "passivetotal_key": "PT_API_KEY",
@@ -650,9 +653,8 @@ def _validate_cti_key(spec: CTIServiceSpec, values: list[str]) -> tuple[bool, st
 
     Notes
     -----
-    HTTP 429 is treated as success (key is valid, just rate-limited).
-    Timeout (10 s) returns (True, "Validation timed out — saving anyway").
-    Network errors return (False, "Network unreachable: <error>").
+    Rate limits, timeouts, and network errors leave access unverified. Callers decide whether
+    to store the credential independently of this one-shot test.
     """
     headers: dict[str, str] = {}
     params: dict[str, str] = {}
@@ -665,6 +667,8 @@ def _validate_cti_key(spec: CTIServiceSpec, values: list[str]) -> tuple[bool, st
         url = url.format(key=key)
     elif method == "bearer":
         headers["Authorization"] = f"Bearer {key}"
+        if spec.id == "censys_pat" and len(values) > 1 and values[1]:
+            headers["X-Organization-ID"] = values[1]
     elif method in ("header_x_apikey", "header_key", "header_x_otx", "header_api_key"):
         headers[spec.validate_header_name] = key
     elif method == "basic_auth":
@@ -672,19 +676,27 @@ def _validate_cti_key(spec: CTIServiceSpec, values: list[str]) -> tuple[bool, st
         password = values[1] if len(values) > 1 else ""
         auth = (username, password)
 
+    if spec.id == "hibp":
+        headers["user-agent"] = "Pivotglass credential check"
+
     try:
-        response = httpx.get(url, headers=headers, params=params, auth=auth, timeout=10.0)
+        response = httpx.get(
+            url, headers=headers, params=params, auth=auth,
+            timeout=10.0, follow_redirects=True,
+        )
     except httpx.TimeoutException:
-        return True, "Validation timed out — saving anyway"
-    except httpx.ConnectError as exc:
-        return False, f"Network unreachable: {exc}"
-    except httpx.RequestError as exc:
-        return False, f"Network error: {exc}"
+        return False, "Validation timed out; access is unverified"
+    except httpx.ConnectError:
+        return False, "Network unreachable; access is unverified"
+    except httpx.RequestError:
+        return False, "Network error; access is unverified"
 
     if response.status_code == 429:
-        return True, "Rate-limited — key appears valid"
-    if response.status_code in (401, 403):
+        return False, "Rate limited (HTTP 429); credential access is unverified"
+    if response.status_code == 401:
         return False, "Authentication failed"
+    if response.status_code == 403:
+        return False, "Access forbidden (HTTP 403); check account permissions, plan, and organization"
     if response.status_code >= 400:
         return False, f"Unexpected status {response.status_code}"
     return True, "Validated successfully"
@@ -705,7 +717,8 @@ def _set_cti_credentials(
         Corresponding credential strings.
     """
     for key, value in zip(config_keys, values):
-        config_mgr.set(f"api_keys.{key}", value)
+        if value:
+            config_mgr.set(f"api_keys.{key}", value)
 
 
 def run_cti_credentials_wizard(

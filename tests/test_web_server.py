@@ -714,6 +714,23 @@ def test_configuration_update_enables_and_disables_without_deleting_key(tmp_path
     assert service.config_mgr.get_api_key("virustotal") == "stored-key"
 
 
+def test_configuration_save_reports_validation_failure_without_discarding_key(tmp_path, monkeypatch):
+    service = _service(tmp_path)
+    monkeypatch.setattr(
+        "pivotglass.agent.model_control._validate_cti_key",
+        lambda spec, values: (False, "Authentication failed"),
+    )
+
+    result = service.update_configuration(
+        {"action": "service-credentials", "id": "virustotal", "values": ["example-secret"], "verify": True}
+    )
+
+    assert result["saved"] is True
+    assert result["health"]["state"] == "invalid"
+    assert service.config_mgr.get_api_key("virustotal") == "example-secret"
+    assert "example-secret" not in repr(result)
+
+
 def test_model_catalog_returns_live_models_with_capability_caveats(tmp_path, monkeypatch):
     service = _service(tmp_path)
     monkeypatch.setattr(

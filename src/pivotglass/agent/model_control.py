@@ -261,15 +261,13 @@ class ModelControl:
                     "display_name": spec.display_name,
                     "enabled": self.config_mgr.is_service_enabled(spec.id),
                     "credential_source": (
-                        "config"
-                        if "config" in sources
-                        else "environment"
-                        if "environment" in sources
-                        else "missing"
+                        "missing" if "missing" in sources else
+                        sources[0] if len(set(sources)) == 1 else "mixed"
                     ),
                     "credential_fields": [
-                        {"key": key, "label": label}
-                        for key, label in zip(spec.config_keys, spec.prompt_labels)
+                        {"key": key, "label": label, "credential_source": source,
+                         "required": key not in spec.optional_config_keys}
+                        for key, label, source in zip(spec.config_keys, spec.prompt_labels, sources)
                     ],
                     "docs_url": spec.docs_url,
                     "test_endpoint": spec.validate_url.split("?", 1)[0],
@@ -343,10 +341,13 @@ class ModelControl:
         spec = next((item for item in CTI_SERVICES if item.id == service_id), None)
         if spec is None:
             return HealthResult("invalid", f"Unknown intelligence service: {service_id}")
-        credentials = values or [
-            self.config_mgr.get_api_key(key) or "" for key in spec.config_keys
+        credentials = [
+            (values[index] if values and index < len(values) and values[index]
+             else self.config_mgr.get_api_key(key) or "")
+            for index, key in enumerate(spec.config_keys)
         ]
-        if not all(credentials):
+        if any(not credentials[index] for index, key in enumerate(spec.config_keys)
+               if key not in spec.optional_config_keys):
             return HealthResult(
                 "missing",
                 f"{spec.display_name} credential is incomplete.",
@@ -461,14 +462,21 @@ class ModelControl:
         spec = next((item for item in CTI_SERVICES if item.id == service_id), None)
         if spec is None:
             raise ValueError(f"Unknown intelligence service: {service_id}")
-        if len(values) != len(spec.config_keys) or not all(values):
-            raise ValueError("all credential fields are required")
-        result = self.check_service(service_id, values)
-        if verify and result.state != "ready":
-            return result
+        if len(values) != len(spec.config_keys):
+            raise ValueError("credential field count does not match service")
+        if any(not (value or self.config_mgr.get_api_key(key))
+               for key, value in zip(spec.config_keys, values)
+               if key not in spec.optional_config_keys):
+            raise ValueError("required credential fields are missing")
         for key, value in zip(spec.config_keys, values):
-            self.config_mgr.set(f"api_keys.{key}", value)
-        return result
+            if value:
+                self.config_mgr.set(f"api_keys.{key}", value)
+        if not verify:
+            return HealthResult(
+                "unknown",
+                f"{spec.display_name} credential saved; live access was not tested.",
+            )
+        return self.check_service(service_id, values)
 
 
 def render_model_status(status: dict[str, Any]) -> str:

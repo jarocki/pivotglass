@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-30
+
+### Fixed
+
+- Saving an intelligence-service credential now persists the operator-entered
+  value even when its immediate access test fails or the provider is unreachable.
+  The test result remains separate from the save result; disabled services stay
+  disabled until explicitly enabled.
+- VirusTotal and URLScan credential tests use documented API endpoints. Network
+  test failures no longer echo exception text that may contain credential-bearing
+  URLs. HTTP 403 and 429 results no longer claim a bad or verified key without
+  proof. Disabled-service failures provide an actionable configuration message.
+- The Configuration interface explains the save, test, and enable steps.
+  Per-field masked presence labels show what is stored without returning secret
+  values or lengths to the browser, and TEST reuses stored values when inputs
+  are blank.
+- HIBP validation now checks an authenticated endpoint with a required user
+  agent instead of treating its public breach catalogue as proof of access.
+- Censys Platform configuration accepts an optional organization ID alongside
+  the required PAT and sends both through the test and host-lookup paths. This
+  lets organization accounts use their entitled API access while Free accounts
+  continue to use PAT-only access.
+
 ## [1.0.0] - 2026-09-29
 
 The owner approved the bounded local, single-analyst investigation scope after

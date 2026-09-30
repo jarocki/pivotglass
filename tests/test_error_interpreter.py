@@ -42,6 +42,7 @@ from pivotglass.core.error_interpreter import (
     render_interactive,
     render_summary_line,
 )
+from pivotglass.core.module_credentials import ServiceDisabledError
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -66,6 +67,15 @@ def _make_interp_with_log(tmp_path: Path, **kwargs) -> ErrorInterpretation:
     )
     defaults.update(kwargs)
     return ErrorInterpretation(**defaults)
+
+
+def test_disabled_service_has_actionable_configuration_error(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "pivotglass.core.error_interpreter.DEBUG_LOG_PATH", tmp_path / "debug.log"
+    )
+    result = interpret(ServiceDisabledError("urlscan is disabled. Enable it in Configuration."))
+    assert result.category == "Config"
+    assert "Enable it" in result.suggested_fix
 
 
 # ---------------------------------------------------------------------------

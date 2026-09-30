@@ -6,7 +6,16 @@ checkpoint; it is not current qualification evidence. Use the
 [current Quick Start](../QUICKSTART.md) for executable installation commands and
 [GitHub Releases](https://github.com/jarocki/pivotglass/releases) for public status.
 
-## v0.9.9 — current candidate
+## v1.1.0 — credential recovery candidate
+
+- [Qualification receipt](v1.1.0/RELEASE_QA.md): all-service credential-path tests,
+  browser behavior, Censys organization access, and public-release gates.
+
+## v1.0.0 — published release
+
+- [Qualification receipt](v1.0.0/RELEASE_QA.md): tests and scope at publication.
+
+## v0.9.9 — historical candidate
 
 - [Final assurance review for proposed v1.0.0](v0.9.9/FINAL_ASSURANCE_REVIEW.md):
   five-lens QA, fresh capacity receipt, sealed security diff review, stable-scope
