@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-30
+
+### Added
+
+- Shodan DNS domain lookup is a separate, bounded pivot with source record
+  times, optional history, and a visible query-credit warning.
+- URLScan can now search up to ten existing scans for a domain or IPv4 address
+  without submitting a new scan. Returned scan IDs and times remain visible.
+- URLScan submission accepts an optional scan country and up to ten analyst
+  tags, matching the current provider API. The existing unlisted visibility
+  default and explicit submission path remain in place.
+- URLScan and Shodan DNS observations have source-labelled evidence summaries;
+  existing scan IDs, observation times, and DNS record times are visible.
+
+### Fixed
+
+- Credential checks preserve existing URL query parameters. An empty `params`
+  argument had silently removed Shodan's API key and AbuseIPDB's test IP,
+  producing false HTTP 401 and 422 failures. AbuseIPDB now uses a known
+  accepted example IP for its `/check` test; analyst lookups remain unchanged.
+- OTX now routes IPv6 indicators to the IPv6 endpoint and records related IPv6
+  addresses with the correct STIX type. The module no longer advertises URL and
+  file-hash support that it does not implement.
+- URLScan polling derives its destination from the returned scan UUID instead
+  of following a response-supplied URL with the analyst's API key.
+
 ## [1.1.0] - 2026-09-30
 
 ### Fixed

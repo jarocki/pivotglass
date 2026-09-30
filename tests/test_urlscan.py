@@ -318,6 +318,33 @@ class TestURLScanHuntResults:
             mod.initialize({"api_key": "test-key"})
             return asyncio.run(mod.hunt(TARGET_URL, options or {}))
 
+    def test_poll_stays_on_urlscan_even_if_submission_supplies_external_api_url(self):
+        submit_resp = _make_mock_response(200, {
+            **SUBMIT_RESPONSE,
+            "api": "https://attacker.example/collect",
+        })
+        mock_client = _make_client(submit_resp, _make_mock_response(200, RESULT_RESPONSE))
+        with (
+            patch("pivotglass.modules.osint.urlscan.httpx.AsyncClient", return_value=mock_client),
+            patch("pivotglass.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+        ):
+            mod = URLScan()
+            mod.initialize({"api_key": "test-key"})
+            asyncio.run(mod.hunt(TARGET_URL, {}))
+        assert mock_client.get.call_args.args[0] == (
+            f"https://urlscan.io/api/v1/result/{SCAN_UUID}/"
+        )
+
+    def test_invalid_scan_id_does_not_poll(self):
+        submit_resp = _make_mock_response(200, {"uuid": "../collect"})
+        mock_client = _make_client(submit_resp, MagicMock())
+        with patch("pivotglass.modules.osint.urlscan.httpx.AsyncClient", return_value=mock_client):
+            mod = URLScan()
+            mod.initialize({"api_key": "test-key"})
+            with pytest.raises(ValueError, match="valid scan ID"):
+                asyncio.run(mod.hunt(TARGET_URL, {}))
+        mock_client.get.assert_not_called()
+
     def test_hunt_returns_list(self):
         """hunt() returns a list."""
         results = self._run_successful_hunt()
@@ -520,6 +547,39 @@ class TestURLScanPollBehavior:
         body = post_call_kwargs.kwargs.get("json", {})
         assert body.get("visibility") == "public"
 
+    def test_result_has_documented_artifact_links_when_task_omits_them(self):
+        from pivotglass.modules.osint.urlscan import _build_results
+
+        result = _build_results(TARGET_URL, SCAN_UUID, {"page": {}, "task": {}, "lists": {}})[0]
+        assert result["x_screenshot_url"] == f"https://urlscan.io/screenshots/{SCAN_UUID}.png"
+        assert result["x_dom_url"] == f"https://urlscan.io/dom/{SCAN_UUID}/"
+
+    def test_country_and_tags_forwarded_only_when_selected(self):
+        submit_resp = _make_mock_response(200, SUBMIT_RESPONSE)
+        poll_resp = _make_mock_response(200, RESULT_RESPONSE)
+        mock_client = _make_client(submit_resp, poll_resp)
+        with (
+            patch("pivotglass.modules.osint.urlscan.httpx.AsyncClient", return_value=mock_client),
+            patch("pivotglass.modules.osint.urlscan.asyncio.sleep", new_callable=AsyncMock),
+        ):
+            mod = URLScan()
+            mod.initialize({"api_key": "test-key"})
+            asyncio.run(mod.hunt(TARGET_URL, {"COUNTRY": "DE", "TAGS": ["phishing", "review"]}))
+        assert mock_client.post.call_args.kwargs["json"] == {
+            "url": TARGET_URL,
+            "visibility": "unlisted",
+            "country": "de",
+            "tags": ["phishing", "review"],
+        }
+
+    def test_invalid_scan_metadata_never_submits(self):
+        mod = URLScan()
+        mod.initialize({"api_key": "test-key"})
+        with patch("pivotglass.modules.osint.urlscan.httpx.AsyncClient") as client:
+            with pytest.raises(ValueError, match="COUNTRY"):
+                asyncio.run(mod.hunt(TARGET_URL, {"COUNTRY": "not-a-country"}))
+            client.assert_not_called()
+
     def test_submit_request_has_api_key_header(self):
         """POST submit uses API-Key header with the configured API key."""
         submit_resp = _make_mock_response(200, SUBMIT_RESPONSE)
@@ -711,21 +771,13 @@ class TestURLScanRequestShape:
         return mock_client
 
     def test_submit_endpoint_url_matches_spec(self):
-        """Submit POST is called with the exact canonical URL including trailing slash.
-
-        Asserts the literal string 'https://urlscan.io/api/v1/scan/' — the
-        trailing slash is required; Cloudflare returns 403 for the slash-less
-        variant. See DEC-MODULE-URLSCAN-005.
-        """
+        """Submit POST keeps one stable endpoint, without a fallback retry."""
         mock_client = self._run_hunt_and_capture()
         post_call_args = mock_client.post.call_args
         called_url = (
             post_call_args.args[0] if post_call_args.args else post_call_args.kwargs.get("url")
         )
-        assert called_url == "https://urlscan.io/api/v1/scan/", (
-            f"Expected submit URL 'https://urlscan.io/api/v1/scan/' (with trailing slash), "
-            f"got {called_url!r}. Missing slash causes Cloudflare 403."
-        )
+        assert called_url == "https://urlscan.io/api/v1/scan/"
 
     def test_submit_method_is_post(self):
         """Submit request uses the POST method (not GET, PUT, etc.)."""

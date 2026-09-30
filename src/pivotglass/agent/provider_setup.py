@@ -471,7 +471,7 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         display_name="AbuseIPDB",
         config_keys=["abuseipdb"],
         prompt_labels=["API Key"],
-        validate_url="https://api.abuseipdb.com/api/v2/check?ipAddress=8.8.8.8",
+        validate_url="https://api.abuseipdb.com/api/v2/check?ipAddress=176.111.173.242",
         validate_method="header_key",
         validate_header_name="Key",
         docs_url="https://www.abuseipdb.com/account/api",
@@ -657,7 +657,6 @@ def _validate_cti_key(spec: CTIServiceSpec, values: list[str]) -> tuple[bool, st
     to store the credential independently of this one-shot test.
     """
     headers: dict[str, str] = {}
-    params: dict[str, str] = {}
     auth = None
     url = spec.validate_url
     key = values[0] if values else ""
@@ -681,7 +680,7 @@ def _validate_cti_key(spec: CTIServiceSpec, values: list[str]) -> tuple[bool, st
 
     try:
         response = httpx.get(
-            url, headers=headers, params=params, auth=auth,
+            url, headers=headers, auth=auth,
             timeout=10.0, follow_redirects=True,
         )
     except httpx.TimeoutException:

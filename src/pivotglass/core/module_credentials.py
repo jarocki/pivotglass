@@ -59,8 +59,10 @@ from typing import Any
 
 SERVICE_NAMES: dict[str, str | None] = {
     "osint/shodan_ip": "shodan",
+    "osint/shodan_dns": "shodan",
     "osint/abuseipdb": "abuseipdb",
     "osint/urlscan": "urlscan",
+    "osint/urlscan_search": "urlscan",
     "osint/hibp": "hibp",
     "cti/virustotal": "virustotal",
     "cti/otx": "otx",

@@ -1073,9 +1073,12 @@ class TestValidateCTIKey:
     # --- Shodan (query_param) ---
     def test_shodan_200_returns_true(self):
         spec = self._spec("shodan")
-        with patch("httpx.get", return_value=_mock_httpx_response(200)):
+        with patch("httpx.get", return_value=_mock_httpx_response(200)) as mock_get:
             ok, msg = _validate_cti_key(spec, ["test-key"])
         assert ok is True
+        args, kwargs = mock_get.call_args
+        request = httpx.Request("GET", args[0], params=kwargs.get("params"))
+        assert request.url.params["key"] == "test-key"
 
     def test_shodan_401_returns_false_auth_failed(self):
         spec = self._spec("shodan")
@@ -1147,6 +1150,12 @@ class TestValidateCTIKey:
         assert ok is True
         call_kwargs = mock_get.call_args[1]
         assert call_kwargs["headers"]["Key"] == "abuse-key"
+        assert mock_get.call_args[0][0] == (
+            "https://api.abuseipdb.com/api/v2/check?ipAddress=176.111.173.242"
+        )
+        args, kwargs = mock_get.call_args
+        request = httpx.Request("GET", args[0], params=kwargs.get("params"))
+        assert request.url.params["ipAddress"] == "176.111.173.242"
 
     # --- HIBP (header_key with hibp-api-key header) ---
     def test_hibp_200_returns_true(self):

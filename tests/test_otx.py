@@ -38,7 +38,7 @@ from pivotglass.modules.base import (
     PursuitModule,
     RateLimitError,
 )
-from pivotglass.modules.cti.otx import AlienVaultOTX
+from pivotglass.modules.cti.otx import AlienVaultOTX, _extract_passive_dns
 
 # ---------------------------------------------------------------------------
 # Sample API responses
@@ -114,6 +114,26 @@ SAMPLE_DOMAIN_PASSIVE_DNS = {
 }
 
 SAMPLE_EMPTY_PASSIVE_DNS = {"passive_dns": []}
+
+
+def test_ipv6_uses_ipv6_endpoint_and_sco():
+    general = _make_mock_response(200, {"pulse_info": {"count": 0, "pulses": []}})
+    client = _make_client([general])
+    with patch("pivotglass.modules.cti.otx.httpx.AsyncClient", return_value=client):
+        mod = AlienVaultOTX()
+        mod.initialize({"api_key": "test-key"})
+        results = asyncio.run(mod.hunt("2001:db8::1", {"INCLUDE_PASSIVE_DNS": "false"}))
+    assert client.get.call_args.args[0] == "/api/v1/indicators/IPv6/2001:db8::1/general"
+    assert results[0]["type"] == "ipv6-addr"
+    assert results[0]["value"] == "2001:db8::1"
+
+
+def test_passive_dns_preserves_ipv6_type():
+    results = _extract_passive_dns(
+        "example.org",
+        {"passive_dns": [{"address": "2001:db8::2", "hostname": "v6.example.org"}]},
+    )
+    assert results[0] == {"type": "ipv6-addr", "value": "2001:db8::2"}
 
 
 # ---------------------------------------------------------------------------

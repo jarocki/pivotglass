@@ -116,3 +116,36 @@ def test_vendor_summary_surfaces_urlscan_links_before_raw_record():
     assert detail["source_intelligence"]["provider"] == "urlscan.io"
     labels = {link["label"] for link in detail["source_intelligence"]["links"]}
     assert labels == {"Open urlscan result", "Open screenshot"}
+
+
+def test_urlscan_search_history_is_visible_as_source_labelled_evidence():
+    obj = {
+        **_object(),
+        "x_pivotglass_source_module": "osint/urlscan_search",
+        "x_urlscan_search_total": 1,
+        "x_urlscan_matches": [{"scan_id": "scan-1", "scan_time": "2026-09-30T00:00:00Z"}],
+    }
+
+    detail = project_evidence([obj], evidence_ref(obj["id"]))
+
+    summary = detail["source_intelligence"]
+    assert summary["headline"] == "Existing scan history"
+    assert summary["facts"] == [{"label": "Matching scans", "value": 1}]
+    assert summary["groups"][0]["items"][0]["scan_id"] == "scan-1"
+
+
+def test_shodan_dns_records_are_visible_with_record_times():
+    obj = {
+        **_object(),
+        "x_pivotglass_source_module": "osint/shodan_dns",
+        "x_shodan_dns_records": [
+            {"subdomain": "www", "record_type": "A", "value": "192.0.2.1", "last_seen": "2026-09-30"}
+        ],
+        "x_shodan_more": False,
+    }
+
+    detail = project_evidence([obj], evidence_ref(obj["id"]))
+
+    summary = detail["source_intelligence"]
+    assert summary["headline"] == "Observed DNS records"
+    assert summary["groups"][0]["items"][0]["last_seen"] == "2026-09-30"

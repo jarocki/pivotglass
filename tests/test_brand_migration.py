@@ -20,13 +20,13 @@ def test_distribution_exposes_only_pivotglass_command():
     project = tomllib.loads(Path("pyproject.toml").read_text())["project"]
     assert project["name"] == "pivotglass"
     assert project["scripts"] == {"pivotglass": "pivotglass.__main__:main"}
-    assert project["version"] == __version__ == "1.1.0"
+    assert project["version"] == __version__ == "1.2.0"
 
 
 def test_version_names_public_product(monkeypatch, capsys):
     monkeypatch.setattr("sys.argv", ["pivotglass", "--version"])
     __main__.main()
-    assert capsys.readouterr().out == "pivotglass 1.1.0\n"
+    assert capsys.readouterr().out == "pivotglass 1.2.0\n"
 
 
 def test_home_copy_preserves_source_and_secret_modes(tmp_path):
