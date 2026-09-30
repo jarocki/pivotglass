@@ -73,7 +73,8 @@ practice participation as competence.
 
 ## Release status language
 
-Use **v0.9.9 marketing and enablement checkpoint** only after public release
-verification. Use **draft v0.9.9 materials** before then. Reserve **Pivotglass
-v1.0.0** for the separately approved final quality pass and its verified public
-release. Preparing these materials does not satisfy that gate.
+Use **draft v0.9.9 materials** while this branch is unpublished. The
+[final assurance review](../releases/v0.9.9/FINAL_ASSURANCE_REVIEW.md) is ready
+for the owner's scope and release decision. Reserve **Pivotglass v1.0.0** for
+the approved, signed, published release with downloaded readback. Preparing
+these materials and completing local QA do not satisfy that public gate.

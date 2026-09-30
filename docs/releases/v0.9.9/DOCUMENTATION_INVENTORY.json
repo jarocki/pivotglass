@@ -1,8 +1,8 @@
 {
   "schema": "pivotglass-documentation-inventory-1.0",
   "status": "candidate_checkpoint",
-  "generated_at": "2026-09-29T23:50:31.582615Z",
-  "file_count": 91,
+  "generated_at": "2026-09-30T00:09:59.973804Z",
+  "file_count": 92,
   "qualification_limits": [
     "Candidate checkpoint only; not a frozen release or publication receipt.",
     "Hashes identify file bytes at generation time; later edits make records stale.",
@@ -43,8 +43,8 @@
     },
     {
       "path": "docs/CAPACITY.md",
-      "line_count": 113,
-      "sha256": "75cf577164cb01c403d28dfc578afdb5c0eb4da1b150d050660d561338abbc65"
+      "line_count": 126,
+      "sha256": "bf90a0a2a476b35c218229be3e32a162303b424e025034ab9cb87717e043b3a9"
     },
     {
       "path": "docs/COMPATIBILITY.md",
@@ -178,8 +178,8 @@
     },
     {
       "path": "docs/marketing/LAUNCH_CHECKLIST.md",
-      "line_count": 79,
-      "sha256": "1bc9969b38c883d08dbb1d215690b8eb2a285bbd1024fe933bae494eda2ad8e7"
+      "line_count": 80,
+      "sha256": "b0782a94d082afca0025f7b94c28533aaa43a283ac73e408715cadb661ee3fd9"
     },
     {
       "path": "docs/marketing/LINKEDIN.md",
@@ -198,8 +198,8 @@
     },
     {
       "path": "docs/marketing/README.md",
-      "line_count": 40,
-      "sha256": "4f4ed4ac7c5e8dd49a3f0eacc8f51bc5bf9af0b277aaad306f3d8de249b7df19"
+      "line_count": 42,
+      "sha256": "75d29cf8bdfb6596b1aefed963658df96a29898c53a91476fa790f29b23c6157"
     },
     {
       "path": "docs/marketing/SIGNAL.md",
@@ -318,8 +318,8 @@
     },
     {
       "path": "docs/releases/README.md",
-      "line_count": 48,
-      "sha256": "11bfbe1cfff86e52e3e6012ff4ad78a8c8201577a0d9f8d4fbb9f48f6357a3fa"
+      "line_count": 51,
+      "sha256": "5c80ea00406ad1584886df6205810cf908323ea60fadc6b5a974be55c9f98285"
     },
     {
       "path": "docs/releases/v0.4.9/QA_V0.4.9.md",
@@ -447,14 +447,19 @@
       "sha256": "ab554644dfc4222fb16f92ff98bf89fcb34e06e6b249daad0bed6cde44e0694c"
     },
     {
+      "path": "docs/releases/v0.9.9/FINAL_ASSURANCE_REVIEW.md",
+      "line_count": 73,
+      "sha256": "b35cd7716f8b2445a394db5ae77b171884aa2447fe1bd8775d387813c5f3139e"
+    },
+    {
       "path": "docs/releases/v0.9.9/NEWCOMER_REVIEW.md",
       "line_count": 78,
       "sha256": "8e66a9eacb8deaa6f44a3de538b6f2ee935f1cab835106b83eab35343e124415"
     },
     {
       "path": "docs/releases/v0.9.9/QA.md",
-      "line_count": 168,
-      "sha256": "98b07d35c18bc72fb892fbcc2c1ee52789142cd8fc9356be31fd1fb5348db1d4"
+      "line_count": 181,
+      "sha256": "5028f51932e7b7bf3a36f163a5c5f856787f7f220e16020e243fe1c1e6512f73"
     },
     {
       "path": "docs/reviews/V0.6_ARCADE_SYNTHETIC_PLAYTEST.md",

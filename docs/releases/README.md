@@ -8,6 +8,9 @@ checkpoint; it is not current qualification evidence. Use the
 
 ## v0.9.9 — current candidate
 
+- [Final assurance review for proposed v1.0.0](v0.9.9/FINAL_ASSURANCE_REVIEW.md):
+  five-lens QA, fresh capacity receipt, sealed security diff review, stable-scope
+  recommendation, and owner/publication gates.
 - [Qualification checkpoint](v0.9.9/QA.md): actual completed checks and the open natural-voice/publication gates.
 
 - [Completion matrix](v0.9.9/COMPLETION_MATRIX.md): every original v0.9.8/v0.9.9
@@ -42,7 +45,7 @@ Earlier version directories retain their QA and handoff records. Retired
 executable/package names use labeled historical placeholders. Plans record
 intent rather than verification.
 
-The [release roadmap](../plans/V0.9.8_TO_1.0_ROADMAP.md) retains a separate final
-correctness, resilience, efficiency, security, and usability pass. Owner approval
-of that review is required before assigning or publishing v1.0.0. Approval of
-v0.9.9 does not imply approval of v1.0.0.
+The [release roadmap](../plans/V0.9.8_TO_1.0_ROADMAP.md) requires owner approval
+of the [completed final assurance review](v0.9.9/FINAL_ASSURANCE_REVIEW.md)
+before assigning or publishing v1.0.0. Approval of v0.9.9 does not imply
+approval of v1.0.0.

@@ -2,8 +2,8 @@
 
 Date: 2026-09-29. This is a candidate checkpoint, not a public-release receipt.
 The earlier Descript edit was accepted as a starting point. The new four-film
-revision has passed complete decode and timing checks; owner listening review
-of the new tone, pace and musical mix remains an open acceptance gate. No v0.9.9 tag or public release is claimed here.
+revision passed complete decode and timing checks; the owner subsequently
+approved the videos and logo. No v0.9.9 tag or public release is claimed here.
 
 ## Completed checks
 
@@ -91,7 +91,8 @@ artifacts. Current report and Nightgrid captures now visibly identify the
 export buttons and selected persona.
 At that intermediate checkpoint, voice quality, synchronization, captions,
 export decode, and playback remained open. The replacement verification below
-records which checks subsequently passed; owner listening review remains open.
+records which checks subsequently passed; owner listening review was still open
+at that checkpoint and was later approved.
 The earlier HTML player checks validate the Play/Pause/chapter approach, not
 completion of the replacement voice requirement.
 
@@ -106,7 +107,9 @@ execution, public main/tag/release, and downloaded readback remain publication
 gates. Do not reuse the preliminary package files as signed release artifacts.
 No social post, Signal message, or jarocki.org update has been sent.
 
-The separate v1.0.0 assurance pass and owner approval remain future work.
+The separate v1.0.0 assurance pass is now recorded in the
+[final assurance review](FINAL_ASSURANCE_REVIEW.md); owner approval and public
+release remain open.
 
 See [completion matrix](COMPLETION_MATRIX.md), [newcomer review](NEWCOMER_REVIEW.md),
 [release trust](../../RELEASE_TRUST.md), and [compatibility](../../COMPATIBILITY.md).
@@ -166,3 +169,13 @@ update. Protected contexts are excluded. The trust generator produced 140
 locked components (77 Python, 63 npm), license inventory and checksums in the
 fresh review bundle. The configured proposed-main guard passed. Final signed
 publication artifacts still require the owner release ceremony.
+
+## Final assurance handoff — 2026-09-29
+
+The owner said the four videos and logo are approved. The new social, LinkedIn,
+and Signal copy is tracked in the repository; the final candidate source archive
+contains all nine marketing documents. The complete five-lens
+[assurance review](FINAL_ASSURANCE_REVIEW.md) records fresh full-suite,
+security-diff, capacity, browser, and packaging evidence for the proposed
+v1.0.0 stable local core. This v0.9.9 branch remains a candidate until the owner
+approves that review and the public release trust ceremony is completed.

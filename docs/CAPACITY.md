@@ -7,10 +7,10 @@ qualified release sizes, measured examples, and work that remains unqualified.
 
 ## Dated local qualification envelope
 
-The v0.9.5/v0.9.6 qualification receipts establish the following measured
-scenarios and enforced limits. They do not claim a fresh v0.9.9 performance
-qualification. The current release retains these boundaries pending a new
-measurement receipt:
+The v0.9.5/v0.9.6 qualification receipts established the following measured
+scenarios and enforced limits. The [2026-09-29 final assurance rehearsal](releases/v0.9.9/FINAL_QA_CAPACITY.json)
+repeated the 5,000-entity and 1,000-node workloads on the release-candidate
+code. These are local measurements, not a service-level promise:
 
 - workspaces containing up to **5,000 stored entities** in the measured
   evidence-only scenario;
@@ -95,6 +95,19 @@ observations.
 These measurements are evidence about one run, not a latency service-level
 agreement. Disk speed, Python build, browser, graph density, annotations,
 observation count, and concurrent enrichment change the result.
+
+### Final assurance rehearsal — 2026-09-29
+
+On the same Apple arm64/macOS 15.7.4/Python 3.14.6 host, the candidate stored
+5,000 synthetic entities in 7.946 seconds, built their cockpit state in 4.009
+seconds with a 29.6 MiB traced Python allocation peak, and produced a 3.42 MB
+JSON cockpit payload. The resulting SQLite workspace was 6.53 MB. The
+Constellation showed 4,995 exact rows for 555 indicators and reported 4,445
+omitted indicators. A 1,000-node/999-edge connected graph built cockpit state
+in 1.299 seconds with a 20.9 MiB traced peak and zero omitted graph records.
+The [machine receipt](releases/v0.9.9/FINAL_QA_CAPACITY.json) contains the
+complete measurements and environment. This rehearsal did not include browser
+rendering latency, concurrent users, or live-provider response time.
 
 ## Workloads without a current qualification claim
 

@@ -32,8 +32,10 @@ Describe optional models and providers explicitly. Local operation does not
 mean all enabled actions remain offline. Show synthetic examples as synthetic,
 and describe SCOT4 and Vertex Synapse as preview integrations.
 
-v0.9.9 is the marketing and enablement checkpoint. The separately approved
-v1.0.0 quality gate remains future work; these drafts do not announce it.
+v0.9.9 is the marketing and enablement candidate. The
+[final assurance review](../releases/v0.9.9/FINAL_ASSURANCE_REVIEW.md) is ready
+for owner approval; these drafts do not announce v1.0.0 before its signed,
+public release is verified.
 
 ## Visual introduction
 
