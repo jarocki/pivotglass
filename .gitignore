@@ -136,6 +136,7 @@ dmypy.json
 
 # Project-local scratch
 /tmp/
+/marketing/
 /.worktrees/
 
 # Claude Code harness — all per-session state, research, settings, and tool
