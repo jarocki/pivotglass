@@ -105,15 +105,16 @@ class TestGetDossierStateRegistration:
         )
 
     def test_get_dossier_state_count_increased_by_one(self, tmp_ctx):
-        """create_tools() has 29 tools after direct-DNS removal."""
+        """The catalog includes the two explicit provider pivots."""
         tools = create_tools(tmp_ctx)
         # M-1: 26 tools; M-2: +get_dossier_state (27); M-4: +create_dossier_prediction (28);
         # M-5: +create_dossier_note (29) +falsify_dossier_prediction (30);
         # M-7: +generate_dossier_report (31);
         # M-8: -start_report_interview -answer_report_question -generate_report (28);
         # M-9: +export_dossier +compare_dossier (30) — DEC-M9-TOOLCOUNT-001
-        assert len(tools) == 29, (
-            f"Expected 29 tools after direct-DNS removal, got {len(tools)}. "
+        # v1.2: +shodan_dns_lookup +search_urlscan_history (31).
+        assert len(tools) == 31, (
+            f"Expected 31 tools including provider pivots, got {len(tools)}. "
             "If this fails, a different tool count was agreed — update this assertion."
         )
 

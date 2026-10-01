@@ -109,7 +109,7 @@ class AlienVaultOTX(BaseModule):
     description = "Query AlienVault OTX for threat intelligence on IPs and domains"
     author = "Pivotglass"
     module_type = "cti"
-    accepts = ("ipv4", "ipv6", "domain", "url", "md5", "sha1", "sha256")
+    accepts = ("ipv4", "ipv6", "domain")
 
     def __init__(self) -> None:
         super().__init__()
@@ -217,7 +217,11 @@ class AlienVaultOTX(BaseModule):
 
         # SCO type used for timeout stubs — matches the real primary SCO type.
         # See DEC-MODULE-OTX-005 for stub shape rationale.
-        stub_sco_type = "ipv4-addr" if indicator_type == "IPv4" else "domain-name"
+        stub_sco_type = (
+            "ipv4-addr" if indicator_type == "IPv4"
+            else "ipv6-addr" if indicator_type == "IPv6"
+            else "domain-name"
+        )
 
         async with httpx.AsyncClient(
             base_url=_BASE_URL, headers=headers, timeout=timeout
@@ -295,7 +299,7 @@ class AlienVaultOTX(BaseModule):
 
 
 def _detect_type(target: str) -> str:
-    """Return 'IPv4' if target is an IP address, else 'domain'.
+    """Return the OTX IP indicator type, or domain for a hostname.
 
     Parameters
     ----------
@@ -303,8 +307,8 @@ def _detect_type(target: str) -> str:
         Raw string from the user — could be an IP or a hostname.
     """
     try:
-        ipaddress.ip_address(target)
-        return "IPv4"
+        address = ipaddress.ip_address(target)
+        return "IPv4" if address.version == 4 else "IPv6"
     except ValueError:
         return "domain"
 
@@ -345,9 +349,9 @@ def _build_primary_sco(
     pulse_count = pulse_info.get("count", 0)
     pulses = pulse_info.get("pulses", [])[:pulse_limit]
 
-    if indicator_type == "IPv4":
+    if indicator_type in {"IPv4", "IPv6"}:
         sco: dict[str, Any] = {
-            "type": "ipv4-addr",
+            "type": "ipv4-addr" if indicator_type == "IPv4" else "ipv6-addr",
             "value": target,
             "x_pulse_count": pulse_count,
             "x_reputation": general_data.get("reputation", 0),
@@ -408,7 +412,11 @@ def _extract_passive_dns(
         if address and address not in seen:
             seen.add(address)
             if _is_ip(address):
-                results.append({"type": "ipv4-addr", "value": address})
+                address_type = ipaddress.ip_address(address).version
+                results.append({
+                    "type": "ipv4-addr" if address_type == 4 else "ipv6-addr",
+                    "value": address,
+                })
             else:
                 results.append({"type": "domain-name", "value": address})
 

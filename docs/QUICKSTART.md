@@ -49,11 +49,11 @@ the complete practice path; you can follow them without watching the video.
 
 You need Python 3.12 or newer, Git, and
 [uv](https://docs.astral.sh/uv/). The source tag plus its committed lockfile is
-the supported reproducible v1.1.0 installation because it reproduces the dependency
+the supported reproducible v1.2.0 installation because it reproduces the dependency
 set used for release qualification.
 
 ```bash
-git clone --branch v1.1.0 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v1.2.0 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent --frozen
 uv run pivotglass --version
@@ -62,7 +62,7 @@ uv run pivotglass --version
 The final command should report:
 
 ```text
-pivotglass 1.1.0
+pivotglass 1.2.0
 ```
 
 The release contains the built browser interface. Node.js 20.9 or newer is
@@ -82,7 +82,7 @@ recreate the locked environment:
 
 ```bash
 git fetch --tags origin
-git checkout v1.1.0
+git checkout v1.2.0
 uv sync --extra agent --frozen
 uv run pivotglass --version
 ```

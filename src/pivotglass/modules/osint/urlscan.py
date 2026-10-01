@@ -50,15 +50,11 @@ Flow: POST /api/v1/scan/ (submit) -> poll GET /api/v1/result/{uuid}/ -> parse re
 @decision DEC-MODULE-URLSCAN-005
 @title Submit endpoint URL uses trailing slash: https://urlscan.io/api/v1/scan/
 @status accepted
-@rationale The canonical urlscan.io/docs/api/ curl reference uses the trailing
-           slash: https://urlscan.io/api/v1/scan/. URLScan is fronted by
-           Cloudflare, which returns HTTP 403 for unmatched paths before the
-           request reaches the auth layer — omitting the slash causes Cloudflare
-           to return 403 even with a valid API key. The slash-less variant
-           https://urlscan.io/api/v1/scan (no slash) is NOT canonical.
-           This endpoint string must remain singular and exact; do not introduce
-           a fallback retry without the slash.
-           Reference: https://urlscan.io/docs/api/
+@rationale The original urlscan.io/docs/api/ examples use a trailing slash.
+           The current OpenAPI examples use the slashless form. Both paths
+           reached URLScan validation in a 2026-09-30 invalid-key probe. Keep
+           the established path until there is a reason to change it; never
+           retry a submit on another path because that could create two scans.
 
 @decision DEC-MODULE-URLSCAN-006
 @title 403 from submit endpoint raises AuthenticationError (same as 401)
@@ -97,6 +93,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Any
+from uuid import UUID
 
 import httpx
 
@@ -156,6 +153,16 @@ class URLScan(BaseModule):
                 "required": False,
                 "description": "Scan visibility: public, unlisted, private",
                 "default": "unlisted",
+            },
+            "COUNTRY": {
+                "required": False,
+                "description": "Optional two-letter scan country, such as de",
+                "default": "",
+            },
+            "TAGS": {
+                "required": False,
+                "description": "Up to 10 analyst labels for this scan",
+                "default": "",
             },
             "TIMEOUT": {
                 "required": False,
@@ -224,6 +231,20 @@ class URLScan(BaseModule):
             )
 
         visibility = options.get("VISIBILITY", self.options["VISIBILITY"]["default"])
+        if visibility not in {"public", "unlisted", "private"}:
+            raise ValueError("VISIBILITY must be public, unlisted, or private")
+        country = str(options.get("COUNTRY", "")).strip().lower()
+        if country and (len(country) != 2 or not country.isalpha()):
+            raise ValueError("COUNTRY must be a two-letter country code")
+        raw_tags = options.get("TAGS", "")
+        if isinstance(raw_tags, str):
+            tags = [tag.strip() for tag in raw_tags.split(",") if tag.strip()]
+        elif isinstance(raw_tags, list) and all(isinstance(tag, str) for tag in raw_tags):
+            tags = [tag.strip() for tag in raw_tags if tag.strip()]
+        else:
+            raise ValueError("TAGS must be a list or comma-separated text")
+        if len(tags) > 10:
+            raise ValueError("TAGS supports at most 10 labels")
         timeout = int(options.get("TIMEOUT", self.options["TIMEOUT"]["default"]))
         poll_interval = int(options.get("POLL_INTERVAL", self.options["POLL_INTERVAL"]["default"]))
 
@@ -234,9 +255,14 @@ class URLScan(BaseModule):
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             # Step 1: Submit scan
+            payload: dict[str, Any] = {"url": target, "visibility": visibility}
+            if country:
+                payload["country"] = country
+            if tags:
+                payload["tags"] = tags
             submit_resp = await client.post(
                 _SUBMIT_URL,
-                json={"url": target, "visibility": visibility},
+                json=payload,
                 headers=headers,
             )
 
@@ -257,11 +283,13 @@ class URLScan(BaseModule):
             submit_resp.raise_for_status()
 
             submit_data = submit_resp.json()
-            scan_uuid = submit_data.get("uuid", "")
-            result_url = submit_data.get(
-                "api",
-                f"https://urlscan.io/api/v1/result/{scan_uuid}/",
-            )
+            scan_uuid = str(submit_data.get("uuid", ""))
+            try:
+                scan_uuid = str(UUID(scan_uuid))
+            except ValueError as exc:
+                raise ValueError("URLScan submission did not return a valid scan ID") from exc
+            # Never forward the API key to a URL supplied in a response body.
+            result_url = f"https://urlscan.io/api/v1/result/{scan_uuid}/"
 
             logger.debug("URLScan submitted %s -> uuid=%s", target, scan_uuid)
 
@@ -370,9 +398,13 @@ def _build_results(
         "x_page_title": page.get("title", ""),
         "x_page_status": page.get("status", 0),
         "x_server": page.get("server", ""),
-        "x_screenshot_url": task.get("screenshotURL", ""),
+        "x_screenshot_url": task.get("screenshotURL") or (
+            f"https://urlscan.io/screenshots/{scan_uuid}.png" if scan_uuid else ""
+        ),
         "x_result_url": task.get("reportURL") or f"https://urlscan.io/result/{scan_uuid}/",
-        "x_dom_url": task.get("domURL", ""),
+        "x_dom_url": task.get("domURL") or (
+            f"https://urlscan.io/dom/{scan_uuid}/" if scan_uuid else ""
+        ),
         "x_scan_time": task.get("time", ""),
         "x_page_domain": page_domain,
         "x_page_ip": page_ip,

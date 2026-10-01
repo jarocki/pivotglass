@@ -1065,6 +1065,28 @@ def create_tools(ctx: ToolContext) -> list[dict]:
         {
             "type": "function",
             "function": {
+                "name": "shodan_dns_lookup",
+                "description": (
+                    "Query Shodan DNS for a domain. Returns bounded subdomain and address "
+                    "pivots with source record times. This may consume a Shodan query credit."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "domain": {"type": "string", "description": "Domain to query"},
+                        "history": {
+                            "type": "boolean",
+                            "description": "Include historical DNS records if the account permits it",
+                            "default": False,
+                        },
+                    },
+                    "required": ["domain"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "check_breaches",
                 "description": (
                     "Check email address against HaveIBeenPwned breach database. "
@@ -1112,8 +1134,10 @@ def create_tools(ctx: ToolContext) -> list[dict]:
             "function": {
                 "name": "scan_url",
                 "description": (
-                    "Submit a URL to URLScan.io for analysis. "
-                    "Returns page details, contacted IPs/domains, and screenshot URL."
+                    "Submit a URL to URLScan.io for a new remote scan only when the "
+                    "analyst has explicitly requested submission. This transmits the URL "
+                    "to URLScan; default visibility is unlisted. Returns page details, "
+                    "contacted IPs/domains, and screenshot URL."
                 ),
                 "parameters": {
                     "type": "object",
@@ -1127,8 +1151,38 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                             "description": "Scan visibility: public, unlisted, private",
                             "default": "unlisted",
                         },
+                        "country": {
+                            "type": "string",
+                            "description": "Optional two-letter country to scan from",
+                        },
+                        "tags": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "maxItems": 10,
+                            "description": "Optional analyst labels attached to the scan",
+                        },
                     },
                     "required": ["url"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "search_urlscan_history",
+                "description": (
+                    "Search up to ten existing URLScan results for a domain or IPv4 address. "
+                    "Read-only: this does not submit a new scan."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": "Domain or IPv4 address to find in existing scans",
+                        },
+                    },
+                    "required": ["target"],
                 },
             },
         },
@@ -1861,6 +1915,10 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
         "osint/shodan_ip",
         lambda a: (a["ip_address"], {"MINIFY": str(a.get("minify", False)).lower()}),
     ),
+    "shodan_dns_lookup": (
+        "osint/shodan_dns",
+        lambda a: (a["domain"], {"HISTORY": str(a.get("history", False)).lower()}),
+    ),
     "check_breaches": (
         "osint/hibp",
         lambda a: (a["email"], {}),
@@ -1874,7 +1932,18 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
     ),
     "scan_url": (
         "osint/urlscan",
-        lambda a: (a["url"], {"VISIBILITY": a.get("visibility", "unlisted")}),
+        lambda a: (
+            a["url"],
+            {
+                "VISIBILITY": a.get("visibility", "unlisted"),
+                "COUNTRY": a.get("country", ""),
+                "TAGS": a.get("tags", []),
+            },
+        ),
+    ),
+    "search_urlscan_history": (
+        "osint/urlscan_search",
+        lambda a: (a["target"], {}),
     ),
     # New entries — VT/Censys/PassiveTotal parity with cmd2 console
     "virustotal_lookup": (

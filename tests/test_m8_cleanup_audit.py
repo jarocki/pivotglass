@@ -138,15 +138,15 @@ def tmp_ctx(tmp_path):
 
 
 class TestToolCatalogPostM8:
-    """create_tools() returns 29 tools after direct-DNS removal."""
+    """The current catalog preserves the M-8 cleanup and adds provider pivots."""
 
     def test_tool_count_is_28(self, tmp_ctx):
-        """The historical M-9 catalog minus the forbidden direct-DNS tool is 29."""
+        """The M-9 catalog plus two explicit provider pivots is 31."""
         from pivotglass.agent.tools import create_tools
 
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 29, (
-            f"Expected 29 tools, got {len(tools)}. "
+        assert len(tools) == 31, (
+            f"Expected 31 tools, got {len(tools)}. "
             "M-8 removed start_report_interview, answer_report_question, generate_report. "
             "M-9 added export_dossier, compare_dossier (DEC-M9-TOOLCOUNT-001)."
         )
@@ -177,12 +177,12 @@ class TestToolCatalogPostM8:
             )
 
     def test_tool_schema_is_json_serializable(self, tmp_ctx):
-        """Tool list serialises to JSON and back with 30 entries (M-9: +2 tools)."""
+        """The complete current tool list serialises to JSON and back."""
         from pivotglass.agent.tools import create_tools
 
         tools = create_tools(tmp_ctx)
         roundtripped = json.loads(json.dumps(tools))
-        assert len(roundtripped) == 29
+        assert len(roundtripped) == 31
 
     def test_execute_generate_dossier_report_no_style_param(self, tmp_ctx):
         """_execute_generate_dossier_report(ctx) call signature is (ctx,) only."""

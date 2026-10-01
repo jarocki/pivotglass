@@ -180,7 +180,7 @@ class TestCreateTools:
     def test_returns_twenty_two_tools(self, tmp_ctx):
         """create_tools returns 29 definitions after direct-DNS removal."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 29
+        assert len(tools) == 31
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -215,9 +215,11 @@ class TestCreateTools:
             "whois_lookup",
             "check_ip_reputation",
             "shodan_host_lookup",
+            "shodan_dns_lookup",
             "check_breaches",
             "otx_threat_intel",
             "scan_url",
+            "search_urlscan_history",
             # New tools — VT/Censys/PassiveTotal parity
             "virustotal_lookup",
             "censys_host_lookup",
@@ -278,7 +280,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 29
+        assert len(roundtripped) == 31
 
     # --- New tool schema tests ---
 
@@ -761,7 +763,7 @@ class TestModuleMap:
 
     def test_module_map_has_eleven_entries(self):
         """_MODULE_MAP has exactly 15 entries (11 prior + 4 keyless hunters F61)."""
-        assert len(_MODULE_MAP) == 14
+        assert len(_MODULE_MAP) == 16
 
     def test_module_map_contains_new_tools(self):
         """_MODULE_MAP contains virustotal_lookup, censys_host_lookup, passivetotal_lookup."""
@@ -1428,7 +1430,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 29
+        assert len(r.tools) == 31
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""

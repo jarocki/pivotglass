@@ -64,9 +64,9 @@ class TestM9ToolRegistration:
         assert "compare_dossier" in names
 
     def test_tool_count_is_30(self, tmp_ctx: ToolContext):
-        """create_tools returns 29 tools after direct-DNS removal."""
+        """create_tools includes both explicit v1.2 provider pivots."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 29
+        assert len(tools) == 31
 
     def test_export_dossier_schema_valid(self, tmp_ctx: ToolContext):
         """export_dossier tool has OpenAI function-calling schema."""
@@ -91,7 +91,7 @@ class TestM9ToolRegistration:
         """Tool list with new tools round-trips through JSON."""
         tools = create_tools(tmp_ctx)
         roundtripped = json.loads(json.dumps(tools))
-        assert len(roundtripped) == 29
+        assert len(roundtripped) == 31
 
 
 # ---------------------------------------------------------------------------

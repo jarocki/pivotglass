@@ -10,12 +10,12 @@ from __future__ import annotations
 from typing import Any
 
 SERVICE_TOOL_NAMES: dict[str, tuple[str, ...]] = {
-    "shodan": ("shodan_host_lookup",),
+    "shodan": ("shodan_host_lookup", "shodan_dns_lookup"),
     "virustotal": ("virustotal_lookup",),
     "abuseipdb": ("check_ip_reputation",),
     "hibp": ("check_breaches",),
     "otx": ("otx_threat_intel",),
-    "urlscan": ("scan_url",),
+    "urlscan": ("scan_url", "search_urlscan_history"),
     "censys_pat": ("censys_host_lookup",),
     "greynoise": ("greynoise_lookup",),
     "passivetotal": ("passivetotal_lookup",),

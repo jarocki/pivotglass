@@ -75,6 +75,32 @@ def _source_intelligence(item: dict[str, Any]) -> dict[str, Any] | None:
             "groups": groups,
         }
 
+    if "urlscan_search" in source or "x_urlscan_matches" in item:
+        fact("Matching scans", "x_urlscan_search_total")
+        matches = item.get("x_urlscan_matches")
+        if isinstance(matches, list) and matches:
+            groups.append({"title": "Existing scans", "items": _scrub(matches)})
+        return {
+            "provider": "urlscan.io",
+            "headline": "Existing scan history",
+            "facts": facts,
+            "links": links,
+            "groups": groups,
+        }
+
+    if "shodan_dns" in source or "x_shodan_dns_records" in item:
+        fact("More records available", "x_shodan_more")
+        records = item.get("x_shodan_dns_records")
+        if isinstance(records, list) and records:
+            groups.append({"title": "DNS records", "items": _scrub(records)})
+        return {
+            "provider": "Shodan",
+            "headline": "Observed DNS records",
+            "facts": facts,
+            "links": links,
+            "groups": groups,
+        }
+
     if "urlscan" in source or "x_scan_uuid" in item:
         for label, key in (
             ("Page title", "x_page_title"),

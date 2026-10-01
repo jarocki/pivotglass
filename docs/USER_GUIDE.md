@@ -306,6 +306,19 @@ does not issue direct DNS queries from the operator host. URLScan can submit a
 URL or domain for an external browser scan. Review each provider's terms,
 quotas, and handling before submitting sensitive or embargoed indicators.
 
+Two additional, on-demand pivots help answer a question before expanding a
+case: **Shodan DNS lookup** retrieves up to 30 provider-held DNS records for a
+domain, retaining record times and an optional history choice; the request
+may consume a Shodan query credit. **Search URLScan history** retrieves up to
+10 existing scans for a domain or IPv4 address without starting a new scan.
+Keep a historical match separate from a current observation, and inspect the
+scan ID and time before treating it as relevant. A new URLScan scan remains a
+separate submission that sends the URL to that service. Its default visibility
+is unlisted; the analyst may specify a country and up to 10 tags.
+
+The provider endpoint inventory and its scope decisions are in
+[Provider API coverage](integrations/PROVIDER_API_COVERAGE.md).
+
 During a terminal investigation, these yield controls remain available:
 
 ```text
