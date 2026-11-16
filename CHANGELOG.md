@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Visualize is canvas-first. One header row holds Graph, Coverage, and Provenance tabs with record counts plus a single list of every view (empty views last, marked "no data"); the question is the headline; the visualization fills the rest of the window and refits on resize.
+- Relationship graph: node colour is indicator type and node size is degree, so hubs are the first thing the eye meets; only hubs, the selection, and the hovered node are labelled; hovering brightens a node's neighbourhood and dims the rest; zoom moves positions without shrinking text; a fit-to-view control; an **Analyst groups** toggle; layouts moved into a **Layouts** menu; legend and zoom float on the canvas.
+- Graph inspector docked beside the canvas: **Open evidence**, pin, collapse, the node's saved analyst notes with an add-note box (`Command/Control+Enter` saves), and **Rename on this graph** behind a disclosure.
+- The indicator evidence drawer can be maximized in place or popped out into its own window (`?solo=evidence&ref=…`).
+- Standard icon controls for maximize, restore, pop out, collapse, close, zoom, fit, undo, and redo, from one icon authority (`web/app/icons.tsx`), each with an accessible name and tooltip.
 - Indicator focus mode. Opening, dropping, or pasting a source opens it full
   screen with its indicator list beside the rendered source. The focused
   indicator is highlighted and scrolled into view, and every later occurrence
@@ -50,6 +55,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The mini-game menu item is named **Diversion** (it was "Themes").
+- Pane title controls are icons instead of the words Maximize, Pop out, and Hide.
+- Provenance timestamps show to the second; the full value is on hover.
 - Intake is one step: preview opens focus mode, and admitting stores the
   source and the selected indicators together. Intake sits directly under the
   command field.
@@ -83,6 +91,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Saving a graph node note looked like it did nothing: the wide box under "Presentation label" read as the note field, the real note box was a narrow one beside it, and a saved note was never shown again.
+- The relationship graph was drawn on a fixed 760×430 canvas letterboxed into the pane, with nodes clamped into rows along its edges and labels overprinting one another.
+- The 48 drawn graph nodes were all one type (degree ties broken alphabetically); they are now dealt round-robin by type after hubs.
+- The coverage matrix, provenance trail, and hierarchy were capped at 420–600 px regardless of window height; URLs in the coverage matrix broke mid-hostname.
+- The evidence drawer could render under the masthead.
 - crt.sh results no longer store email addresses, certificate labels, or case
   and trailing-dot duplicates as `domain-name` observations.
 - An unreadable PDF is stored as partial source evidence instead of failing
@@ -103,6 +116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- The twelve "recent indicator" rows with Queue buttons under every visualization (queueing remains in the evidence drawer), the duplicated "Question" labels, the "12 evidence views" count, and the empty selection placeholder under the coverage matrix.
 - The unused synchronous web investigation path, which returned undecoded
   diagnostic markers. All surfaces use the streaming investigation path.
 - The DECK button (it duplicated More), the keyboard-focus pill, the footer

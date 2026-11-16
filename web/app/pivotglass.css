@@ -406,11 +406,6 @@ pre{font-size:var(--fs-sm);line-height:1.5}
 /* v0.6.0 semantic visualization workspace. Python owns intent and data;
    Flint owns supported chart compilation; these rules own presentation only. */
 .visualization-workspace{display:grid;gap:10px;padding:10px;min-width:0}
-.visualization-picker{display:flex;align-items:end;justify-content:space-between;gap:12px;padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);border-radius:8px;background:color-mix(in srgb,var(--surface) 92%,transparent)}
-.visualization-picker label{display:grid;gap:4px;min-width:min(440px,100%)}
-.visualization-picker label span{color:var(--accent);font-size:var(--fs-xs);font-weight:800;letter-spacing:.02em}
-.visualization-picker select{min-height:34px;padding:6px 34px 6px 8px;border:1px solid color-mix(in srgb,var(--line) 46%,transparent);border-radius:6px;background:var(--control);color:var(--heading);font-weight:750}
-.visualization-picker small{max-width:38ch;color:var(--dim);line-height:1.35;text-align:right}
 .visualization-header button{border:1px solid color-mix(in srgb,var(--line) 46%,transparent);background:var(--control);color:var(--ink);padding:7px 9px;cursor:pointer}
 .visualization-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-block:5px;border-bottom:1px solid color-mix(in srgb,var(--line) 30%,transparent)}
 .visualization-header>div{display:grid;gap:4px;min-width:0}
@@ -455,7 +450,7 @@ pre{font-size:var(--fs-sm);line-height:1.5}
 .constellation-controls input,.constellation-controls select,.constellation-controls button{min-width:0;min-height:32px;padding:5px 7px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);border-radius:6px;background:var(--control);color:var(--ink)}
 .constellation-controls button{color:var(--heading);cursor:pointer}
 .task-matrix-wrap{max-width:100%;overflow:auto;border:1px solid color-mix(in srgb,var(--line) 30%,transparent)}
-.constellation-matrix-wrap{width:100%;max-width:100%;max-height:min(54dvh,480px);overscroll-behavior:contain;border-radius:8px;background:color-mix(in srgb,var(--control) 82%,var(--surface));scrollbar-gutter:stable}
+.constellation-matrix-wrap{width:100%;max-width:100%;overscroll-behavior:contain;border-radius:8px;background:color-mix(in srgb,var(--control) 82%,var(--surface));scrollbar-gutter:stable}
 .task-matrix{width:100%;min-width:520px;border-collapse:separate;border-spacing:0;color:var(--ink)}
 .task-matrix th,.task-matrix td{padding:5px;border-right:1px solid color-mix(in srgb,var(--line) 20%,transparent);border-bottom:1px solid color-mix(in srgb,var(--line) 20%,transparent);text-align:center}
 .task-matrix thead th{position:sticky;top:0;z-index:2;background:var(--elevated);color:var(--heading)}
@@ -472,7 +467,7 @@ pre{font-size:var(--fs-sm);line-height:1.5}
 .rgb-led .rgb-led-blue{background:rgb(0 0 var(--led-b));box-shadow:0 0 5px rgb(0 0 var(--led-b))}
 .matrix-cell.state-running .rgb-led,.matrix-cell.state-queued .rgb-led{animation:led-pulse 1.4s steps(3,end) infinite}
 .matrix-cell.state-failed .rgb-led,.matrix-cell.state-cancelled .rgb-led{box-shadow:inset 0 0 7px #000,0 0 12px var(--led-color)}
-.hierarchy-visualization{overflow:auto;max-height:420px;padding:10px;border:1px solid color-mix(in srgb,var(--line) 40%,transparent);background:color-mix(in srgb,var(--surface) 86%,transparent)}
+.hierarchy-visualization{overflow:auto;padding:10px;border:1px solid color-mix(in srgb,var(--line) 40%,transparent);background:color-mix(in srgb,var(--surface) 86%,transparent)}
 .hierarchy-visualization ul{list-style:none;margin:0;padding-left:22px;border-left:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
 .hierarchy-visualization>ul{padding-left:0;border-left:0}
 .hierarchy-visualization li{position:relative;margin:5px 0}
@@ -531,11 +526,6 @@ pre{font-size:var(--fs-sm);line-height:1.5}
 .visualization-selection b{overflow:hidden;text-overflow:ellipsis;color:var(--heading)}
 .visualization-selection small{grid-column:1/-1;color:var(--dim)}
 .relationship-visualization{display:grid;gap:6px;min-width:0}
-.relationship-controls{display:flex;flex-wrap:wrap;align-items:end;gap:8px}
-.relationship-controls label{display:grid;gap:3px;min-width:min(280px,100%)}
-.relationship-controls label span,.relationship-controls>span{color:var(--dim)}
-.relationship-controls input{min-width:0;padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
-.relationship-controls button,.visualization-selection button{padding:6px 8px;border:1px solid var(--line);background:var(--control);color:var(--heading);cursor:pointer}
 .graph-multiselect{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:8px;border:1px solid color-mix(in srgb,var(--focus-ring) 55%,transparent);background:color-mix(in srgb,var(--focus-ring) 8%,var(--control))}
 .graph-multiselect b{color:var(--heading);letter-spacing:.02em}
 .graph-multiselect span{flex:1 1 360px;color:var(--dim)}
@@ -559,24 +549,7 @@ pre{font-size:var(--fs-sm);line-height:1.5}
 .manual-relation-list button{padding:6px 8px;border:1px solid var(--line);background:var(--control);color:var(--heading);cursor:pointer}
 @media (max-width:650px){.manual-graph-relation{grid-template-columns:1fr}.manual-graph-relation>b,.manual-graph-relation>span,.manual-graph-relation>small{grid-column:1}}
 @media (max-width:650px){.manual-relation-list article{grid-template-columns:1fr}.manual-relation-list article>div{grid-column:1;grid-row:auto}}
-.graph-layout-controls{display:flex;flex-wrap:wrap;align-items:end;gap:8px;padding:8px;border:1px solid color-mix(in srgb,var(--line) 34%,transparent);background:color-mix(in srgb,var(--panel) 78%,transparent)}
-.graph-layout-controls label{display:grid;gap:3px;min-width:160px}
-.graph-layout-controls label span{color:var(--dim);font-size:var(--fs-xs);letter-spacing:.02em}
-.graph-layout-controls input,.graph-layout-controls select{min-width:0;padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
-.graph-layout-controls button{padding:7px 9px;border:1px solid var(--line);background:var(--control);color:var(--heading);cursor:pointer}
-.graph-layout-controls button:disabled{cursor:not-allowed;opacity:.48}
-.graph-layout-controls small{flex-basis:100%;color:var(--dim)}
-.graph-display-label{display:grid;gap:3px;min-width:min(360px,100%)}
-.graph-display-label span{color:var(--dim);font-size:var(--fs-xs);letter-spacing:.02em}
-.graph-display-label input{padding:7px 9px;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
-.graph-node-annotation{display:grid;gap:3px;min-width:min(420px,100%)}
-.graph-node-annotation span{color:var(--dim);font-size:var(--fs-xs);letter-spacing:.02em}
-.graph-node-annotation textarea{min-height:72px;padding:7px 9px;resize:vertical;border:1px solid color-mix(in srgb,var(--line) 44%,transparent);background:var(--control);color:var(--ink)}
-.graph-zoom-controls{display:inline-flex;gap:4px}
-.graph-zoom-controls button{min-width:32px}
-.graph-history-controls{display:inline-flex;gap:4px}
-.graph-history-controls button:disabled{cursor:not-allowed;opacity:.45}
-.relationship-visualization svg{width:100%;max-height:430px;border:1px solid color-mix(in srgb,var(--line) 28%,transparent);background:radial-gradient(circle at center,color-mix(in srgb,var(--accent) 8%,transparent),transparent 70%);cursor:grab;touch-action:none;user-select:none}
+.relationship-visualization svg{display:block;width:100%;height:100%;border:1px solid color-mix(in srgb,var(--line) 28%,transparent);background:radial-gradient(circle at center,color-mix(in srgb,var(--accent) 8%,transparent),transparent 70%);cursor:grab;touch-action:none;user-select:none}
 .relationship-visualization svg:active{cursor:grabbing}
 .relationship-edges{color:var(--line)}
 .relationship-edges line{stroke:currentColor;stroke-width:1.5}
@@ -592,10 +565,6 @@ pre{font-size:var(--fs-sm);line-height:1.5}
 .relationship-nodes>g.pinned circle{stroke-dasharray:3 2;stroke-width:3}
 .relationship-nodes>g.collapsed circle{stroke-dasharray:1 3;stroke-width:3}
 .relationship-nodes .node-label{fill:var(--heading);font-size:var(--fs-xs);font-weight:800}
-.relationship-nodes .node-type{fill:var(--dim);font-size:var(--fs-xs)}
-.relationship-nodes .type-domain-name circle{fill:color-mix(in srgb,var(--accent) 18%,var(--elevated))}
-.relationship-nodes .type-ipv4-addr circle,.relationship-nodes .type-ipv6-addr circle{fill:color-mix(in srgb,var(--heading) 16%,var(--elevated))}
-.relationship-nodes .type-file circle{fill:color-mix(in srgb,var(--focus-ring) 12%,var(--elevated))}
 .relationship-node-wrap{display:grid;place-items:center;width:100%;height:100%}
 .relationship-node-wrap button{display:grid;place-items:center;width:116px;height:48px;padding:4px;border:1px solid var(--line);border-radius:50%;background:var(--elevated);color:var(--ink);cursor:pointer}
 .relationship-node-wrap button.selected{outline:3px solid var(--focus-ring);outline-offset:2px}
@@ -609,17 +578,11 @@ pre{font-size:var(--fs-sm);line-height:1.5}
 .unconnected-graph button.selected{outline:3px solid var(--focus-ring);outline-offset:2px}
 .unconnected-graph button b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--heading)}
 .unconnected-graph button span{color:var(--dim)}
-.graph-legend{display:flex;flex-wrap:wrap;gap:12px;color:var(--dim)}
-.graph-legend span{display:flex;align-items:center;gap:5px}
-.graph-legend i{display:block;width:18px;border-top:2px solid var(--line)}
-.graph-legend i.property{border-top-style:dashed}
-.graph-legend i.manual{border-top-color:var(--focus-ring);border-top-style:dotted;border-top-width:3px}
 .relationship-node-inventory{padding-top:4px;border-top:1px solid color-mix(in srgb,var(--line) 20%,transparent)}
 .relationship-node-inventory summary{cursor:pointer;color:var(--heading)}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 @media(max-width:650px){
-  .visualization-picker{display:grid}.visualization-picker label{min-width:0}.visualization-picker small{text-align:left}
   .visualization-header{display:grid}
   .visualization-header button{justify-self:start}
   .visualization-explainer{grid-template-columns:1fr}
@@ -628,15 +591,12 @@ pre{font-size:var(--fs-sm);line-height:1.5}
   .constellation-toolbar output{grid-column:1/-1}
   .constellation-controls{grid-template-columns:1fr}
   .constellation-matrix{min-width:1000px}
-  .constellation-matrix-wrap{max-height:min(50dvh,420px)}
   .constellation-matrix thead th:first-child,.constellation-matrix tbody th{width:180px;min-width:180px;max-width:180px}
   .constellation-matrix tbody td{width:28px}
   .constellation-matrix .lite-brite-cell{width:32px;min-width:32px}
   .calendar-day{min-height:34px}
   .calendar-day span{display:none}
   .flint-canvas{height:280px}
-  .relationship-visualization svg{min-width:560px}
-  .relationship-visualization{overflow:auto}
 }
 
 /* Compact, presentation-only arcade mechanics vary by identity without changing analysis state. */
@@ -1054,9 +1014,7 @@ main>.guided-help-layer{position:fixed;z-index:19000;top:12px;left:12px;width:mi
 
 /* Exact IoC values remain readable in expanded and compact evidence surfaces. */
 .investigation-queue li>b,.artifact-list button b,.artifact-list button span,.task-matrix tbody th,.task-matrix tbody th button b,.visualization-selection b,.relationship-node-wrap b,.unconnected-graph button b,.facet-evidence button b,.detail-drawer h2,.detail-drawer dd,.relationship-list b,.graph-node-list b{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;max-width:none;min-width:0}
-.visualization-shortcuts{display:flex;flex-wrap:wrap;gap:8px;grid-column:1/-1}
-.visualization-shortcuts button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
-.provenance-graph{display:grid;gap:16px;max-height:600px;overflow:auto;padding:8px}
+.provenance-graph{display:grid;align-content:start;gap:16px;overflow:auto;padding:8px}
 .provenance-branch{display:grid;grid-template-columns:minmax(120px,1fr) 24px minmax(180px,2fr);align-items:center;gap:10px}
 .provenance-source,.provenance-branch li{display:grid;gap:5px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow-wrap:anywhere}
 .provenance-source{border-color:var(--accent)}
@@ -1067,10 +1025,6 @@ main>.guided-help-layer{position:fixed;z-index:19000;top:12px;left:12px;width:mi
 .provenance-branch small,.provenance-branch p{font-size:var(--fs-sm);color:var(--dim);margin:0}
 @media(max-width:520px){.provenance-branch{grid-template-columns:1fr}.provenance-arrow{transform:rotate(90deg);justify-self:center}}
 
-.graph-full-label{font-size:var(--fs-xs);line-height:15px;overflow-wrap:anywhere;white-space:normal;text-align:center;padding:5px;border-radius:5px;background:var(--surface);color:var(--ink);border:1px solid var(--line)}
-.visualization-picker{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end}
-.visualization-shortcuts{grid-column:1/-1;grid-row:1;justify-content:flex-start}
-.visualization-shortcuts button{font-size:var(--fs-sm);padding:8px 12px;min-height:36px}
 .provenance-branch{align-items:start}
 .provenance-source{position:sticky;top:0}
 
@@ -1401,5 +1355,151 @@ main.display-day .masthead .pane-switcher button[aria-current="page"]{border-bot
 .focus-keys{display:flex;flex-wrap:wrap;gap:6px 12px}
 .focus-keys>span{white-space:nowrap}
 /* Visualization shortcuts use the standard secondary button style. */
-.visualization-shortcuts button{border:1px solid color-mix(in srgb,var(--line) 45%,transparent);border-radius:7px;background:var(--control);color:var(--ink);cursor:pointer}
-.visualization-shortcuts button[aria-pressed=true]{background:color-mix(in srgb,var(--accent) 16%,var(--control))}
+
+/* ── Visualize: canvas first (v1.3.0 review round 3) ─────────────────────────
+   One header row, the question as the headline, then the visualization filling
+   the rest of the window (sized by useFillHeight). Controls are quiet; the data
+   carries the contrast. Yellow (--focus-ring) is reserved for selection. */
+.icon-button{display:inline-grid;place-items:center;width:30px;height:30px;padding:0;border:1px solid transparent;border-radius:6px;background:none;color:var(--dim);cursor:pointer}
+.icon-button:hover:not(:disabled),.icon-button:focus-visible{border-color:var(--hairline);color:var(--ink);background:var(--control)}
+.icon-button[aria-pressed="true"]{color:var(--accent)}
+.icon-button:disabled{opacity:.35;cursor:not-allowed}
+.icon{display:block;flex:none}
+.pane-control.icon-button{width:28px;height:28px;min-height:28px;padding:0;border-color:transparent}
+.visualization-workspace{gap:8px;padding:8px 10px 10px}
+.viz-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.viz-tabs{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--hairline);border-radius:8px;background:var(--control)}
+.viz-tabs button{display:inline-flex;align-items:baseline;gap:6px;padding:5px 12px;border:0;border-radius:6px;background:none;color:var(--dim);font-size:var(--fs-sm);font-weight:650;cursor:pointer}
+.viz-tabs button small{color:var(--dim);font-size:var(--fs-xs);font-weight:500;font-variant-numeric:tabular-nums}
+.viz-tabs button[aria-pressed="true"]{background:var(--surface);color:var(--heading);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 55%,transparent)}
+.viz-more select{max-width:min(320px,60vw);min-height:32px;padding:4px 28px 4px 8px;border:1px solid var(--hairline);border-radius:6px;background:var(--control);color:var(--ink);font-size:var(--fs-sm)}
+.viz-export{margin-left:auto;min-height:32px;padding:4px 10px;border:1px solid var(--hairline);border-radius:6px;background:none;color:var(--dim);font-size:var(--fs-sm);cursor:pointer}
+.viz-export:hover{color:var(--ink);border-color:var(--line)}
+.viz-question{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px;padding-bottom:6px;border-bottom:1px solid var(--hairline)}
+.viz-question h3{flex:1 1 100%;margin:0;color:var(--heading);font-size:var(--fs-lg);font-weight:700;line-height:1.3}
+.viz-question p{margin:0;color:var(--dim);font-size:var(--fs-xs)}
+.viz-question p span{color:color-mix(in srgb,var(--dim) 80%,transparent)}
+.viz-question .visualization-explainer-toggle>summary{font-size:var(--fs-xs)}
+.viz-question .visualization-explainer{margin-top:6px}
+.visualization-empty{min-height:0;padding:14px 16px;place-items:start;text-align:left;border-style:solid;border-color:var(--hairline)}
+.visualization-empty b{letter-spacing:0;font-weight:650}
+.visualization-data{border-top:1px solid var(--hairline)}
+.visualization-data summary{font-weight:600;color:var(--dim)}
+.constellation-selection:empty{display:none}
+.flint-canvas{position:relative;min-height:260px}
+.provenance-graph{border:1px solid var(--hairline);border-radius:8px}
+.provenance-graph time{font-variant-numeric:tabular-nums}
+
+.relationship-visualization{display:flex;flex-direction:column;gap:6px;min-width:0}
+.relationship-controls{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.relationship-controls .graph-filter{flex:0 1 240px;min-width:140px;min-height:32px;padding:4px 9px;border:1px solid var(--hairline);border-radius:6px;background:var(--control);color:var(--ink)}
+.relationship-controls .graph-count{color:var(--dim);font-size:var(--fs-xs);font-variant-numeric:tabular-nums}
+.relationship-controls>button{min-height:30px;padding:3px 9px;border:1px solid var(--hairline);border-radius:6px;background:none;color:var(--ink);font-size:var(--fs-sm);cursor:pointer}
+.graph-toggle{display:inline-flex;align-items:center;gap:6px;color:var(--dim);font-size:var(--fs-sm);cursor:pointer}
+.graph-toolbar-end{display:inline-flex;align-items:center;gap:6px;margin-left:auto}
+.icon-group{display:inline-flex;gap:2px}
+.graph-layouts{position:relative}
+.graph-layouts>summary{list-style:none;min-height:30px;padding:4px 10px;border:1px solid var(--hairline);border-radius:6px;color:var(--ink);font-size:var(--fs-sm);cursor:pointer}
+.graph-layouts>summary::-webkit-details-marker{display:none}
+.graph-layouts>summary::after{content:" ▾";color:var(--dim)}
+.graph-layouts-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;display:grid;gap:10px;width:min(300px,86vw);padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--elevated);box-shadow:0 16px 40px #0008}
+.graph-layouts-menu label{display:grid;gap:4px;color:var(--dim);font-size:var(--fs-xs)}
+.graph-layouts-menu input,.graph-layouts-menu select{min-height:32px;padding:4px 8px;border:1px solid var(--hairline);border-radius:6px;background:var(--control);color:var(--ink)}
+.graph-layouts-menu div{display:flex;gap:6px}
+.graph-layouts-menu button{flex:1;min-height:30px;border:1px solid var(--line);border-radius:6px;background:var(--control);color:var(--ink);cursor:pointer}
+.graph-layouts-menu button:disabled{opacity:.45;cursor:not-allowed}
+.graph-layouts-menu small{color:var(--dim)}
+
+.graph-stage{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;min-height:420px}
+.graph-stage.has-inspector{grid-template-columns:minmax(0,1fr) minmax(280px,340px)}
+.graph-canvas{position:relative;min-width:0;min-height:0;overflow:hidden;border:1px solid var(--hairline);border-radius:10px;background:radial-gradient(ellipse at center,color-mix(in srgb,var(--accent) 6%,var(--surface)),var(--surface) 75%)}
+.graph-canvas>svg{border:0!important;background:none!important}
+.graph-canvas>.unconnected-graph{height:100%;overflow:auto}
+.graph-overlay{position:absolute;z-index:2;border:1px solid var(--hairline);border-radius:8px;background:color-mix(in srgb,var(--elevated) 88%,transparent);backdrop-filter:blur(6px)}
+.graph-zoom-controls{right:10px;bottom:10px;display:grid;gap:2px;padding:3px}
+.graph-legend{left:10px;bottom:10px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;max-width:calc(100% - 80px);padding:5px 10px;color:var(--dim);font-size:var(--fs-xs)}
+.graph-legend span{display:inline-flex;align-items:center;gap:5px}
+.graph-legend i{display:block;width:18px;border-top:1.5px solid var(--dim)}
+.graph-legend i.property{border-top-style:dashed}
+.graph-legend i.manual{border-top-style:dotted;border-top-width:2px}
+.graph-legend .swatch{display:block;width:10px;height:10px;border-radius:50%;border:1px solid var(--line)}
+.graph-legend details{position:relative}
+.graph-legend summary{list-style:none;display:grid;place-items:center;width:20px;height:20px;border:1px solid var(--hairline);border-radius:50%;cursor:pointer;color:var(--ink)}
+.graph-legend summary::-webkit-details-marker{display:none}
+.graph-legend details p{position:absolute;left:0;bottom:calc(100% + 8px);width:min(420px,70vw);margin:0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--elevated);color:var(--ink);line-height:1.45;box-shadow:0 12px 30px #0008}
+
+/* Graph marks: hue = indicator type, area = degree, contrast = focus. */
+.relationship-edges line{stroke:var(--dim);stroke-width:1;opacity:.45;vector-effect:non-scaling-stroke}
+.relationship-edges line.basis-explicit{opacity:.7;stroke-width:1.4}
+.relationship-edges line.basis-property{stroke-dasharray:5 4}
+.relationship-edges line.basis-manual{stroke:var(--dim);stroke-dasharray:2 3;stroke-width:1}
+.relationship-edges marker path{fill:var(--dim)}
+.relationship-edges g.focus line{stroke:var(--heading);opacity:.95;stroke-width:1.6}
+.relationship-edges g.dim line{opacity:.1}
+.relationship-nodes>g{transition:opacity .12s}
+.relationship-nodes>g.dim{opacity:.22}
+.relationship-nodes circle{stroke:color-mix(in srgb,var(--ink) 35%,transparent);stroke-width:1;fill:var(--elevated)}
+.relationship-nodes .node-label{fill:var(--ink);font-size:var(--fs-xs);font-weight:600;paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round;pointer-events:none}
+.relationship-nodes>g.hovered .node-label,.relationship-nodes>g.selected .node-label{fill:var(--heading);font-weight:750}
+.type-ipv4-addr circle,.type-ipv6-addr circle,.swatch.type-ipv4-addr,.swatch.type-ipv6-addr{fill:#4f9fd9;background:#4f9fd9}
+.type-domain-name circle,.swatch.type-domain-name{fill:#3fbf9f;background:#3fbf9f}
+.type-url circle,.swatch.type-url{fill:#9a86e0;background:#9a86e0}
+.type-email-addr circle,.swatch.type-email-addr{fill:#d68ab8;background:#d68ab8}
+.type-file circle,.swatch.type-file{fill:#d9a24f;background:#d9a24f}
+.type-analyst-group circle,.swatch.type-analyst-group{fill:color-mix(in srgb,var(--dim) 30%,var(--surface));background:color-mix(in srgb,var(--dim) 30%,var(--surface))}
+.type-analyst-group circle{stroke-dasharray:3 3;stroke:var(--dim)}
+.relationship-nodes>g.neighbor circle{stroke:var(--heading);stroke-width:1.6}
+.relationship-nodes>g.hovered circle{stroke:var(--heading);stroke-width:2.2}
+.relationship-nodes>g.selected circle,.relationship-nodes>g:focus-visible circle{stroke:var(--focus-ring);stroke-width:3}
+.relationship-nodes>g.pinned circle{stroke-dasharray:3 2;stroke-width:2.2}
+
+.graph-inspector{display:grid;align-content:start;gap:10px;min-width:0;overflow:auto;padding:12px;border:1px solid var(--hairline);border-radius:10px;background:var(--control)}
+.graph-inspector-node{display:grid;gap:10px}
+.graph-inspector-node header{display:flex;align-items:flex-start;gap:8px}
+.graph-inspector-node header div{display:grid;gap:2px;min-width:0;flex:1}
+.graph-inspector-node header b{color:var(--heading);font-size:var(--fs-md);overflow-wrap:anywhere}
+.graph-inspector-node header span{color:var(--dim);font-size:var(--fs-xs)}
+.graph-inspector-actions{display:flex;flex-wrap:wrap;gap:6px}
+.graph-inspector button{min-height:30px;padding:4px 10px;border:1px solid var(--hairline);border-radius:6px;background:var(--surface);color:var(--ink);font-size:var(--fs-sm);cursor:pointer}
+.graph-inspector button.primary{border-color:color-mix(in srgb,var(--accent) 60%,transparent);color:var(--heading);font-weight:650}
+.graph-inspector button:disabled{opacity:.45;cursor:not-allowed}
+.graph-inspector button.icon-button{min-height:0;padding:0;border-color:transparent;background:none}
+.graph-node-notes{display:grid;gap:6px;padding-top:8px;border-top:1px solid var(--hairline)}
+.graph-node-notes h4{margin:0;color:var(--ink);font-size:var(--fs-sm)}
+.graph-node-notes ol{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.graph-node-notes li{padding:6px 8px;border-left:2px solid var(--accent);background:var(--surface)}
+.graph-node-notes li p{margin:0;color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
+.graph-node-notes li time{color:var(--dim);font-size:var(--fs-xs)}
+.graph-node-notes>small{color:var(--dim)}
+.graph-node-notes form{display:grid;gap:6px}
+.graph-node-notes textarea{width:100%;box-sizing:border-box;min-height:64px;padding:6px 8px;resize:vertical;border:1px solid var(--hairline);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit}
+.graph-node-notes form button{justify-self:start}
+.graph-node-notes small[role=status]{color:var(--accent)}
+.graph-display-label>summary{color:var(--dim);font-size:var(--fs-sm);cursor:pointer}
+.graph-display-label label{display:grid;gap:4px;margin-top:6px;color:var(--dim);font-size:var(--fs-xs)}
+.graph-display-label input{min-height:30px;padding:4px 8px;border:1px solid var(--hairline);border-radius:6px;background:var(--surface);color:var(--ink)}
+.graph-inspector .graph-multiselect,.graph-inspector .manual-graph-relation{grid-template-columns:1fr;border-radius:8px}
+@media (max-width:900px){
+  .graph-stage.has-inspector{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(320px,1fr) auto;height:auto!important}
+  .graph-stage.has-inspector .graph-canvas{min-height:360px}
+  .graph-legend{max-width:calc(100% - 64px)}
+}
+
+/* Evidence drawer: maximize in place or pop out. */
+.drawer-controls{position:sticky;top:0;z-index:2;float:right;display:inline-flex;gap:2px;margin:-14px -12px 0 8px;padding:2px;border-radius:8px;background:var(--elevated)}
+.detail-drawer>.close{display:none}
+.detail-backdrop.detail-maximized{padding:0}
+.detail-backdrop.detail-maximized .detail-drawer{width:100vw;max-width:none;height:100dvh;max-height:none;border-radius:0;padding:24px max(24px,calc((100vw - 1100px)/2))}
+.constellation-matrix tbody th button b{display:block;max-width:36ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:normal}
+@media (max-width:640px){
+  .viz-tabs{display:flex;width:100%}
+  .viz-tabs button{flex:1;justify-content:center;padding:5px 6px}
+  .viz-more{flex:1;min-width:0}
+  .viz-more select{width:100%;max-width:none}
+  .viz-export{margin-left:0}
+  .graph-toolbar-end{margin-left:0}
+  .relationship-controls .graph-filter{flex:1 1 100%}
+}
+/* main>* pins direct children to z-index 1; dialogs must sit above the masthead (15000). */
+main>.detail-backdrop{z-index:20000!important}
+.breadcrumbs li{display:flex;flex-wrap:wrap;gap:6px}

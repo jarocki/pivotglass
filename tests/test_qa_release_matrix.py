@@ -125,7 +125,7 @@ def test_public_characters_have_distinct_interactive_diversions():
     }.items():
         assert f"function {component}" in arcade
         assert title in arcade
-    assert "OPTIONAL DIVERSION · NO ANALYTICAL MEANING" in arcade
+    assert "Diversion · no analytical meaning" in arcade
     assert "publicModeLabel={publicModeLabel}" in page
 
 
@@ -265,11 +265,34 @@ def test_visualization_question_picker_keeps_the_analyst_question_primary():
     workspace = Path("web/app/visualization-workspace.tsx").read_text()
     styles = Path("web/app/pivotglass.css").read_text()
 
-    assert "<span>Question</span>" in workspace
+    # One header row: primary-view tabs plus a single select for every view. The analyst
+    # question is the headline, and the duplicated "Question" eyebrows are gone.
+    assert 'className="viz-bar"' in workspace
     assert '<select value={selected.intent_id}' in workspace
-    assert 'className="visualization-picker"' in workspace
-    assert ".visualization-picker" in styles
-    assert 'className="visualization-tabs"' not in workspace
+    assert workspace.count("<select value={selected.intent_id}") == 1
+    assert "<h3>{selected.question_text}</h3>" in workspace
+    assert "<span>Question</span>" not in workspace
+    assert 'className="visualization-picker"' not in workspace
+    assert ".viz-question h3" in styles
+
+
+def test_visualization_fills_the_window_instead_of_a_fixed_box():
+    workspace = Path("web/app/visualization-workspace.tsx").read_text()
+    styles = Path("web/app/pivotglass.css").read_text()
+
+    assert "function useFillHeight" in workspace
+    assert "data-viz-fill" in workspace
+    assert "const width = 760" not in workspace
+    assert "max-height:430px" not in styles
+    assert "max-height:min(54dvh,480px)" not in styles
+
+
+def test_graph_inspector_shows_saved_node_notes():
+    workspace = Path("web/app/visualization-workspace.tsx").read_text()
+
+    assert "/api/graph-annotations?node_ref=" in workspace
+    assert 'className="graph-node-notes"' in workspace
+    assert "SAVE NODE NOTE" not in workspace
 
 
 def test_every_selected_visualization_explains_choice_and_reading():

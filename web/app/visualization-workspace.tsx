@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, useEffect, useLayoutEffect, useId, useMemo, useRef, useState } from "react";
+import { CSSProperties, RefObject, useCallback, useEffect, useLayoutEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Chart, registerables } from "chart.js";
 
@@ -19,6 +19,7 @@ import {
   type VisualizationRow,
   type VisualizationTheme,
 } from "./visualization-intent";
+import { Icon } from "./icons";
 import { RGBLed, rgbLabelForStatus } from "./rgb-led";
 import { LiteBritePeg } from "./lite-brite-peg";
 import { COVERAGE_LABELS, indicatorTypeLabel, reportedCountry, tooltipPosition } from "./constellation-presentation";
@@ -111,9 +112,10 @@ function FlintCanvas({
     try {
       setError("");
       const width = canvas.current.parentElement?.clientWidth ?? 620;
+      const height = Math.max(260, (canvas.current.parentElement?.clientHeight ?? 320) - 40);
       const config = compileFlintChartjs(
         intent,
-        { width, height: 320 },
+        { width, height },
         intent.view === "histogram" ? { binCount } : intent.chart_properties,
       );
       const themed = config as typeof config & {
@@ -162,7 +164,7 @@ function FlintCanvas({
   if (error) return <div className="visualization-error">Unable to render: {error}</div>;
   if (rows.length === 0) return <VisualizationEmpty intent={intent} />;
   return (
-    <div className="flint-canvas">
+    <div className="flint-canvas" data-viz-fill="" data-viz-max="640">
       {intent.view === "histogram" && (
         <label className="histogram-bins">
           <span>Bins</span>
@@ -190,8 +192,8 @@ function FlintCanvas({
 function VisualizationEmpty({ intent }: { intent: VisualizationIntent }) {
   return (
     <div className="visualization-empty">
-      <b>No data in scope</b>
-      <span>{intent.source_scope.description}</span>
+      <b>Nothing recorded for this view yet.</b>
+      <span>Scope: {intent.source_scope.description}</span>
     </div>
   );
 }
@@ -319,12 +321,12 @@ function PivotTrail({ intent }: { intent: VisualizationIntent }) {
   }
   return <div className="provenance-history">
     <p>Arrows record source admission, analyst grouping, and investigation steps. Analyst groups preserve your joint promotion decision.</p>
-    <div className="provenance-graph" role="region" aria-label="Provenance history graph">
+    <div className="provenance-graph" role="region" aria-label="Provenance history graph" data-viz-fill="" tabIndex={0}>
       {[...branches].map(([key,rows])=><section className="provenance-branch" key={key}>
         <div className="provenance-source"><small>{displayValue(rows[0].from_kind).replaceAll("_"," ")}</small><b>{displayValue(rows[0].from_label)}</b></div>
         <span className="provenance-arrow" aria-hidden="true">→</span>
         <ol>{rows.map((row,index)=><li key={String(row.event_id??index)}>
-          <small>{displayValue(row.action).replaceAll("_"," ")} · {displayValue(row.timestamp)} · {displayValue(row.created_by)}</small>
+          <small>{displayValue(row.action).replaceAll("_"," ")} · <time dateTime={displayValue(row.timestamp)} title={displayValue(row.timestamp)}>{displayValue(row.timestamp).slice(0, 19)}</time> · {displayValue(row.created_by)}</small>
           <b>{displayValue(row.to_label)}</b><p>{displayValue(row.basis)}</p>
         </li>)}</ol>
       </section>)}
@@ -433,7 +435,7 @@ function HierarchyTree({ intent }: { intent: VisualizationIntent }) {
 
   if (!hierarchy.roots.length) return <VisualizationEmpty intent={intent} />;
   return (
-    <div className="hierarchy-visualization">
+    <div className="hierarchy-visualization" data-viz-fill="">
       <ul role="tree" aria-label={intent.question_text}>
         {hierarchy.roots.map((rootId) => (
           <HierarchyBranch
@@ -846,6 +848,8 @@ export function TaskMatrix({
       <div
         className={`task-matrix-wrap ${isConstellation ? "constellation-matrix-wrap" : ""}`}
         ref={matrixWrap}
+        data-viz-fill=""
+        data-viz-reserve={activeCell ? 150 : 56}
       >
         <table className={`task-matrix ${isConstellation ? "constellation-matrix" : ""}`}>
           <caption className="sr-only">{intent.question_text}</caption>
@@ -1005,7 +1009,7 @@ export function TaskMatrix({
             <span>{CONSTELLATION_COLUMN_LABELS[String(activeCell[columnField])] ?? displayValue(activeCell[columnField])} · {COVERAGE_LABELS[String(activeCell[statusField])] ?? displayValue(activeCell[statusField])}</span>
             <small>{constellationStatusHelp(String(activeCell[statusField]))} {displayValue(activeCell.evidence_count)} source-backed evidence records. First seen: {displayValue(activeCell.first_seen)} · Last seen: {displayValue(activeCell.last_seen)}.</small>
             {onOpenEvidence && activeCell.reference && <button type="button" onClick={(event) => onOpenEvidence(String(activeCell.reference), event.currentTarget)}>Open evidence & provenance</button>}
-          </> : <small>Select a coverage mark to keep its details here. Select an indicator to open its evidence and provenance. Arrow keys move through the grid.</small>}
+          </> : null}
         </section>
       )}
       {rowIds.length === 0 && (
@@ -1064,6 +1068,59 @@ function stableHash(value: string): number {
   return hash >>> 0;
 }
 
+type GraphNodeNote = { id: number; content: string; created_at: string };
+
+/** Hubs keep rank order; everything else is dealt round-robin by indicator type. */
+function diversifyByType<T extends { entity_type: string }>(ranked: T[], isHub: (node: T) => boolean): T[] {
+  const ordered = ranked.filter(isHub);
+  const queues = new Map<string, T[]>();
+  for (const node of ranked) {
+    if (isHub(node)) continue;
+    queues.set(node.entity_type, [...(queues.get(node.entity_type) ?? []), node]);
+  }
+  const lanes = [...queues.values()];
+  while (lanes.some((lane) => lane.length)) {
+    for (const lane of lanes) {
+      const next = lane.shift();
+      if (next) ordered.push(next);
+    }
+  }
+  return ordered;
+}
+
+/** Layout area grows with node count and keeps the canvas aspect ratio. */
+function layoutSpace(count: number, width: number, height: number): { width: number; height: number } {
+  const ideal = Math.max(76, Math.min(150, 560 / Math.sqrt(Math.max(count, 1))));
+  const aspect = width / Math.max(height, 1);
+  const logicalWidth = Math.max(width, Math.sqrt(count * ideal * ideal * 2.2 * aspect));
+  return { width: logicalWidth, height: logicalWidth / aspect };
+}
+
+/**
+ * Scale and centre so every visible node fits. Nodes and labels are drawn at a constant
+ * screen size, so the padding (room for labels to the right, the legend below) is in pixels.
+ */
+function fitViewport(points: Record<string, GraphPoint>, width: number, height: number): GraphViewport {
+  const values = Object.values(points);
+  if (!values.length) return { x: 0, y: 0, scale: 1 };
+  const xs = values.map((point) => point.x);
+  const ys = values.map((point) => point.y);
+  const pad = { left: 28, right: Math.min(210, width * 0.22), top: 32, bottom: 64 };
+  const spanX = Math.max(1, Math.max(...xs) - Math.min(...xs));
+  const spanY = Math.max(1, Math.max(...ys) - Math.min(...ys));
+  const scale = Math.max(0.15, Math.min(1.6,
+    (width - pad.left - pad.right) / spanX,
+    (height - pad.top - pad.bottom) / spanY,
+  ));
+  const centreX = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const centreY = (Math.min(...ys) + Math.max(...ys)) / 2;
+  return {
+    x: pad.left + (width - pad.left - pad.right) / 2 - centreX * scale,
+    y: pad.top + (height - pad.top - pad.bottom) / 2 - centreY * scale,
+    scale,
+  };
+}
+
 function forceLayout(
   nodes: VisualizationIntent["data"]["nodes"],
   edges: VisualizationIntent["data"]["edges"],
@@ -1084,7 +1141,8 @@ function forceLayout(
     velocity.set(node.reference, { x: 0, y: 0 });
   });
 
-  const ideal = Math.max(76, Math.min(150, 560 / Math.sqrt(Math.max(nodes.length, 1))));
+  // Edge length follows the space available, so a large canvas spreads the graph out.
+  const ideal = Math.max(76, Math.min(220, Math.sqrt((width * height) / (Math.max(nodes.length, 1) * 2.4))));
   for (let iteration = 0; iteration < 180; iteration += 1) {
     const cooling = 1 - iteration / 205;
     for (let leftIndex = 0; leftIndex < nodes.length; leftIndex += 1) {
@@ -1126,12 +1184,14 @@ function forceLayout(
     for (const node of nodes) {
       const position = positions.get(node.reference)!;
       const speed = velocity.get(node.reference)!;
-      speed.x += (width / 2 - position.x) * 0.0009;
-      speed.y += (height / 2 - position.y) * 0.0009;
+      speed.x += (width / 2 - position.x) * 0.0016;
+      speed.y += (height / 2 - position.y) * 0.0016;
       speed.x *= 0.82;
       speed.y *= 0.82;
-      position.x = Math.max(48, Math.min(width - 48, position.x + speed.x * 6));
-      position.y = Math.max(38, Math.min(height - 38, position.y + speed.y * 6));
+      // Soft bounds only: a hard clamp at the canvas edge stacked leaves into rows along the
+      // border. Fit-to-view scales whatever extent the layout settles into.
+      position.x = Math.max(-width, Math.min(width * 2, position.x + speed.x * 6));
+      position.y = Math.max(-height, Math.min(height * 2, position.y + speed.y * 6));
     }
   }
   return Object.fromEntries(positions);
@@ -1188,8 +1248,28 @@ function RelationshipGraph({
     pinned_refs: [],
     collapsed_refs: [],
   });
-  const width = 760;
-  const height = 430;
+  // The canvas is measured, never fixed: viewBox units equal CSS pixels, so the graph fills
+  // whatever space the view gives it and text never scales with the window.
+  const [size, setSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const canvasObserver = useRef<ResizeObserver | null>(null);
+  const canvasRef = useCallback((element: HTMLDivElement | null) => {
+    canvasObserver.current?.disconnect();
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const next = { width: Math.round(entry.contentRect.width), height: Math.round(entry.contentRect.height) };
+      setSize((current) => current.width === next.width && current.height === next.height ? current : next);
+    });
+    observer.observe(element);
+    canvasObserver.current = observer;
+  }, []);
+  const width = size.width || 960;
+  const height = size.height || 560;
+  const measured = size.width > 0 && size.height > 0;
+  const viewportTouched = useRef(false);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [showGroups, setShowGroups] = useState(true);
+  const [nodeNotes, setNodeNotes] = useState<GraphNodeNote[]>([]);
+  const [notesVersion, setNotesVersion] = useState(0);
   const degree = new Map(intent.data.nodes.map((node) => [node.reference, 0]));
   const graphLabels = new Map(intent.data.nodes.map((node) => [node.reference, node.label]));
   const neighbors = new Map(intent.data.nodes.map((node) => [node.reference, new Set<string>()]));
@@ -1212,10 +1292,16 @@ function RelationshipGraph({
   const protectedRefs = new Set([...selectedRefs, ...pinned]);
   const hiddenRefs = hiddenGraphReferences(intent.data.edges, collapsedRefs, protectedRefs);
   const priorityRefs = new Set([...selectedRefs, ...pinned]);
+  const groupHidden = (node: { entity_type: string }) => !showGroups && node.entity_type === "analyst-group";
   const candidates = [
     ...ranked.filter((node) => priorityRefs.has(node.reference) && !hiddenRefs.has(node.reference)),
-    ...filteredCandidates.filter(
-      (node) => !priorityRefs.has(node.reference) && !hiddenRefs.has(node.reference),
+    // Hubs first, then one of each indicator type in turn, so 48 slots never fill with a
+    // single alphabetical run of one type.
+    ...diversifyByType(
+      filteredCandidates.filter(
+        (node) => !priorityRefs.has(node.reference) && !hiddenRefs.has(node.reference) && !groupHidden(node),
+      ),
+      (node) => (degree.get(node.reference) ?? 0) >= 3,
     ),
   ];
   const visibleNodes = candidates.slice(0, 48);
@@ -1231,10 +1317,15 @@ function RelationshipGraph({
     ...visibleEdges.map((edge) => `${edge.source}>${edge.target}:${edge.relationship}`),
   ].join("\u0000");
   const initialPositions = useMemo(
-    () => forceLayout(visibleNodes, visibleEdges, width, height),
-    // graphKey is a compact deterministic identity for the current presentation subset.
+    () => {
+      if (!measured) return {};
+      const space = layoutSpace(visibleNodes.length, width, height);
+      return forceLayout(visibleNodes, visibleEdges, space.width, space.height);
+    },
+    // graphKey is a compact deterministic identity for the current presentation subset; the
+    // layout is computed once the canvas is measured and is not recomputed on resize.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [graphKey],
+    [graphKey, measured],
   );
   useEffect(() => {
     const restored = pendingLayoutPositions.current;
@@ -1244,11 +1335,21 @@ function RelationshipGraph({
         ? { ...initialPositions, ...current, ...restored }
         : { ...initialPositions, ...current }
     ));
-    if (!graphInitialized.current) {
+    if (!graphInitialized.current && Object.keys(initialPositions).length) {
       graphInitialized.current = true;
-      if (!restored) setViewport({ x: 0, y: 0, scale: 1 });
+      if (!restored) setViewport(fitViewport(initialPositions, width, height));
     }
   }, [initialPositions]);
+  useEffect(() => {
+    // Keep the whole graph in view as the window or pane changes size, until the analyst
+    // pans or zooms; after that their view is theirs.
+    if (!graphInitialized.current || viewportTouched.current) return;
+    // Positions set in this same commit are not in this closure yet; fall back to the layout.
+    const current = Object.entries({ ...initialPositions, ...positions }).filter(([reference]) => visibleIds.has(reference));
+    if (!current.length) return;
+    setViewport(fitViewport(Object.fromEntries(current), width, height));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [width, height]);
   const selected = selectedRefs.at(-1) ?? null;
   const selectedSet = new Set(selectedRefs);
   const selectedNode = intent.data.nodes.find((node) => node.reference === selected);
@@ -1256,6 +1357,20 @@ function RelationshipGraph({
     .map((reference) => intent.data.nodes.find((node) => node.reference === reference))
     .filter((node): node is NonNullable<typeof node> => Boolean(node));
   const markerId = `${intent.intent_id}-relationship-arrow`;
+  const selectedNodeRef = selectedNode?.reference;
+  useEffect(() => { setNodeAnnotationMessage(""); }, [selectedNodeRef]);
+  useEffect(() => {
+    if (!selectedNodeRef) {
+      setNodeNotes([]);
+      return;
+    }
+    let live = true;
+    fetch(`/api/graph-annotations?node_ref=${encodeURIComponent(selectedNodeRef)}`, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : { annotations: [] })
+      .then((result: { annotations?: GraphNodeNote[] }) => { if (live) setNodeNotes(result.annotations ?? []); })
+      .catch(() => { if (live) setNodeNotes([]); });
+    return () => { live = false; };
+  }, [selectedNodeRef, notesVersion]);
 
   latestPresentation.current = {
     positions,
@@ -1413,9 +1528,8 @@ function RelationshipGraph({
         throw new Error(result.error ?? "Unable to save graph annotation");
       }
       setNodeAnnotation("");
-      setNodeAnnotationMessage(
-        `Saved analyst note ${result.annotation.id}. Graph evidence was unchanged.`,
-      );
+      setNodeAnnotationMessage("Note saved. It is analyst context, not evidence.");
+      setNotesVersion((current) => current + 1);
     } catch (reason) {
       setNodeAnnotationMessage(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -1423,10 +1537,21 @@ function RelationshipGraph({
     }
   };
 
+  const fitToView = () => {
+    checkpointPresentation();
+    viewportTouched.current = false;
+    setViewport(fitViewport(
+      Object.fromEntries(Object.entries(positions).filter(([reference]) => visibleIds.has(reference))),
+      width,
+      height,
+    ));
+  };
+
   const updateZoom = (factor: number) => {
+    viewportTouched.current = true;
     checkpointPresentation();
     setViewport((current) => {
-      const nextScale = Math.max(0.45, Math.min(3, current.scale * factor));
+      const nextScale = Math.max(0.15, Math.min(4, current.scale * factor));
       const actualFactor = nextScale / current.scale;
       return {
         x: width / 2 - (width / 2 - current.x) * actualFactor,
@@ -1492,6 +1617,7 @@ function RelationshipGraph({
       window.setTimeout(() => {
         pendingLayoutPositions.current = null;
       }, 0);
+      viewportTouched.current = true;
       setViewport(result.viewport);
       setLayoutMessage(
         result.topology_changed
@@ -1551,6 +1677,35 @@ function RelationshipGraph({
     if (wheelCommitTimer.current !== null) window.clearTimeout(wheelCommitTimer.current);
   }, []);
 
+  // Visual hierarchy: node area follows degree, so hubs are what the eye meets first.
+  const maxDegree = Math.max(1, ...visibleNodes.map((node) => degree.get(node.reference) ?? 0));
+  const nodeRadius = (reference: string) => 7 + 19 * Math.sqrt((degree.get(reference) ?? 0) / maxDegree);
+  const hubRefs = new Set(
+    [...visibleNodes]
+      .filter((node) => (degree.get(node.reference) ?? 0) > 1)
+      .sort((left, right) => (degree.get(right.reference) ?? 0) - (degree.get(left.reference) ?? 0))
+      .slice(0, 8)
+      .map((node) => node.reference),
+  );
+  // Focus is the hovered node, else the selection; its neighbourhood stays bright, the rest dims.
+  const focusRefs = new Set<string>();
+  for (const reference of hovered ? [hovered] : selectedRefs) {
+    focusRefs.add(reference);
+    neighbors.get(reference)?.forEach((neighbor) => focusRefs.add(neighbor));
+  }
+  const coreRefs: Set<string> = hovered ? new Set([hovered]) : selectedSet;
+  const focusEdgeCount = visibleEdges.filter((edge) => coreRefs.has(edge.source) || coreRefs.has(edge.target)).length;
+  const toScreen = (point: GraphPoint): GraphPoint => ({
+    x: point.x * viewport.scale + viewport.x,
+    y: point.y * viewport.scale + viewport.y,
+  });
+  const labelled = (reference: string) => visibleNodes.length <= 16
+    || hubRefs.has(reference)
+    || focusRefs.has(reference)
+    || pinned.has(reference)
+    || Boolean(labels[reference])
+    || viewport.scale >= 1.6;
+
   if (intent.data.nodes.length === 0) return <VisualizationEmpty intent={intent} />;
   return (
     <div
@@ -1568,26 +1723,23 @@ function RelationshipGraph({
       }}
     >
       <div className="relationship-controls">
-        <label>
-          <span>Filter indicators or types</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="domain, IP, file…" />
-        </label>
-        <span>
-          Showing {visibleNodes.length} of {intent.data.nodes.length} nodes · {visibleEdges.length} visible edges
+        <input
+          className="graph-filter"
+          aria-label="Filter graph nodes by value or type"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Filter nodes…"
+        />
+        <span className="graph-count">
+          {visibleNodes.length} of {intent.data.nodes.length} nodes · {visibleEdges.length} edges
           {hiddenRefs.size > 0 ? ` · ${hiddenRefs.size} collapsed` : ""}
         </span>
-        {intent.data.edges.length > 0 && (
-          <span className="graph-zoom-controls" aria-label="Graph zoom controls">
-            <button onClick={() => updateZoom(1.2)} aria-label="Zoom relationship graph in">＋</button>
-            <button onClick={() => updateZoom(1 / 1.2)} aria-label="Zoom relationship graph out">－</button>
-            <button onClick={() => { checkpointPresentation(); setViewport({ x: 0, y: 0, scale: 1 }); }}>Center</button>
-          </span>
+        {intent.data.nodes.some((node) => node.entity_type === "analyst-group") && (
+          <label className="graph-toggle" title="Analyst promotion groups are your bookkeeping, not adversary evidence">
+            <input type="checkbox" checked={showGroups} onChange={(event) => setShowGroups(event.target.checked)} />
+            Analyst groups
+          </label>
         )}
-        <span className="graph-history-controls" aria-label="Graph presentation history">
-          <button onClick={undoPresentation} disabled={undoStack.length === 0}>Undo view</button>
-          <button onClick={redoPresentation} disabled={redoStack.length === 0}>Redo view</button>
-        </span>
-        {selectedRefs.length > 0 && <span>{selectedRefs.length} selected</span>}
         {hiddenRefs.size > 0 && (
           <button onClick={() => { checkpointPresentation(); setCollapsedRefs(new Set()); }}>Show all connections</button>
         )}
@@ -1597,41 +1749,53 @@ function RelationshipGraph({
             setQuery("");
             setSelectedRefs([]);
             setCollapsedRefs(new Set());
-          }}>Reset view</button>
+          }}>Reset</button>
         )}
+        <span className="graph-toolbar-end">
+          <span className="icon-group" aria-label="Graph presentation history">
+            <button className="icon-button" onClick={undoPresentation} disabled={undoStack.length === 0} aria-label="Undo view change" title="Undo view change (⌘Z)"><Icon name="undo" /></button>
+            <button className="icon-button" onClick={redoPresentation} disabled={redoStack.length === 0} aria-label="Redo view change" title="Redo view change (⇧⌘Z)"><Icon name="redo" /></button>
+          </span>
+          <details className="graph-layouts">
+            <summary>Layouts{layouts.length ? ` · ${layouts.length}` : ""}</summary>
+            <div className="graph-layouts-menu" aria-label="Saved graph layouts">
+              <label>
+                <span>Open a saved layout</span>
+                <select
+                  value={layouts.some((layout) => layout.name === layoutName) ? layoutName : ""}
+                  onChange={(event) => void loadLayout(event.target.value)}
+                  disabled={layoutBusy || layouts.length === 0}
+                >
+                  <option value="">{layouts.length ? "Choose a layout" : "No saved layouts"}</option>
+                  {layouts.map((layout) => <option key={layout.id} value={layout.name}>{layout.name}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Save this arrangement as</span>
+                <input
+                  value={layoutName}
+                  onChange={(event) => setLayoutName(event.target.value)}
+                  maxLength={64}
+                  placeholder="Layout name"
+                />
+              </label>
+              <div>
+                <button onClick={() => void saveLayout()} disabled={layoutBusy || !layoutName.trim()}>Save</button>
+                <button
+                  onClick={() => void deleteLayout()}
+                  disabled={layoutBusy || !layouts.some((layout) => layout.name === layoutName.trim())}
+                >
+                  Delete
+                </button>
+              </div>
+              <small>Layouts store positions, labels and zoom only. Evidence is never changed.</small>
+              {layoutMessage && <small role="status">{layoutMessage}</small>}
+            </div>
+          </details>
+        </span>
       </div>
-      <div className="graph-layout-controls" aria-label="Saved graph presentations">
-        <label>
-          <span>Saved presentation</span>
-          <select
-            value={layouts.some((layout) => layout.name === layoutName) ? layoutName : ""}
-            onChange={(event) => void loadLayout(event.target.value)}
-            disabled={layoutBusy}
-          >
-            <option value="">Choose a layout</option>
-            {layouts.map((layout) => <option key={layout.id} value={layout.name}>{layout.name}</option>)}
-          </select>
-        </label>
-        <label>
-          <span>Layout name</span>
-          <input
-            value={layoutName}
-            onChange={(event) => setLayoutName(event.target.value)}
-            maxLength={64}
-            placeholder="Analyst view"
-          />
-        </label>
-        <button onClick={() => void saveLayout()} disabled={layoutBusy || !layoutName.trim()}>
-          Save view
-        </button>
-        <button
-          onClick={() => void deleteLayout()}
-          disabled={layoutBusy || !layouts.some((layout) => layout.name === layoutName.trim())}
-        >
-          Delete view
-        </button>
-        {layoutMessage && <small role="status">{layoutMessage}</small>}
-      </div>
+      <div className={`graph-stage ${selectedRefs.length > 0 || relationCorrection ? "has-inspector" : ""}`} data-viz-fill="" data-viz-reserve="92">
+        <div className="graph-canvas" ref={canvasRef}>
       {intent.data.edges.length === 0 ? (
         <section className="unconnected-graph" aria-label="Unconnected stored indicators">
           <b>No relationship edges in scope</b>
@@ -1664,11 +1828,14 @@ function RelationshipGraph({
         <svg
           ref={svgRef}
           viewBox={`0 0 ${width} ${height}`}
+          width={width}
+          height={height}
           role="img"
           aria-labelledby={`${intent.intent_id}-graph-title`}
           tabIndex={0}
           onPointerDown={(event) => {
             if (event.target !== event.currentTarget) return;
+            viewportTouched.current = true;
             beginPresentationInteraction();
             event.currentTarget.setPointerCapture(event.pointerId);
             setDrag({
@@ -1693,6 +1860,7 @@ function RelationshipGraph({
           }}
           onWheel={(event) => {
             event.preventDefault();
+            viewportTouched.current = true;
             beginPresentationInteraction();
             if (wheelCommitTimer.current !== null) window.clearTimeout(wheelCommitTimer.current);
             const rect = event.currentTarget.getBoundingClientRect();
@@ -1700,7 +1868,7 @@ function RelationshipGraph({
             const cursorY = ((event.clientY - rect.top) / rect.height) * height;
             const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
             setViewport((current) => {
-              const nextScale = Math.max(0.45, Math.min(3, current.scale * factor));
+              const nextScale = Math.max(0.15, Math.min(4, current.scale * factor));
               const actualFactor = nextScale / current.scale;
               return {
                 x: cursorX - (cursorX - current.x) * actualFactor,
@@ -1722,14 +1890,16 @@ function RelationshipGraph({
             <path d="M 0 0 L 10 5 L 0 10 z" />
           </marker>
         </defs>
-        <g transform={`translate(${viewport.x} ${viewport.y}) scale(${viewport.scale})`}>
+        {/* Zoom moves positions only; nodes and labels keep their on-screen size at every zoom. */}
+        <g>
           <g className="relationship-edges">
             {visibleEdges.map((edge, index) => {
-              const source = positions[edge.source];
-              const target = positions[edge.target];
-              if (!source || !target) return null;
+              if (!positions[edge.source] || !positions[edge.target]) return null;
+              const source = toScreen(positions[edge.source]);
+              const target = toScreen(positions[edge.target]);
+              const touchesFocus = coreRefs.has(edge.source) || coreRefs.has(edge.target);
               return (
-                <g key={`${edge.source}-${edge.target}-${index}`}>
+                <g key={`${edge.source}-${edge.target}-${index}`} className={focusRefs.size === 0 ? "" : touchesFocus ? "focus" : "dim"}>
                   <line
                     x1={source.x}
                     y1={source.y}
@@ -1740,7 +1910,7 @@ function RelationshipGraph({
                   >
                     <title>{edge.relationship} · {edge.provenance}</title>
                   </line>
-                  {visibleEdges.length <= 24 && (
+                  {touchesFocus && focusEdgeCount <= 12 && (
                     <text x={(source.x + target.x) / 2} y={(source.y + target.y) / 2 - 4}>
                       {shortLabel(edge.relationship, 22)}
                     </text>
@@ -1751,8 +1921,8 @@ function RelationshipGraph({
           </g>
           <g className="relationship-nodes">
             {visibleNodes.map((node) => {
-              const position = positions[node.reference];
-              if (!position) return null;
+              if (!positions[node.reference]) return null;
+              const position = toScreen(positions[node.reference]);
               return (
                 <g
                   key={node.reference}
@@ -1764,6 +1934,8 @@ function RelationshipGraph({
                     selectedRefs.some((reference) => neighbors.get(reference)?.has(node.reference))
                       ? "neighbor"
                       : "",
+                    focusRefs.size > 0 && !focusRefs.has(node.reference) ? "dim" : "",
+                    node.reference === hovered ? "hovered" : "",
                     `type-${node.entity_type.replaceAll(/[^a-z0-9-]/gi, "-")}`,
                   ].join(" ")}
                   role="button"
@@ -1775,6 +1947,10 @@ function RelationshipGraph({
                     event.shiftKey || event.metaKey || event.ctrlKey,
                   )}
                   onDoubleClick={() => toggleNeighborhood(node.reference)}
+                  onPointerEnter={() => setHovered(node.reference)}
+                  onPointerLeave={() => setHovered((current) => current === node.reference ? null : current)}
+                  onFocus={() => setHovered(node.reference)}
+                  onBlur={() => setHovered((current) => current === node.reference ? null : current)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
@@ -1799,14 +1975,14 @@ function RelationshipGraph({
                     });
                   }}
                 >
-                  <circle r={degree.get(node.reference) ? 26 : 21}>
-                    <title>{labels[node.reference] ?? node.label}</title>
+                  <circle r={nodeRadius(node.reference)}>
+                    <title>{node.label} · {node.entity_type} · {degree.get(node.reference) ?? 0} relationships</title>
                   </circle>
-                  <foreignObject x="-76" y="-12" width="152" height={Math.max(48, Math.ceil((labels[node.reference] ?? node.label).length / 20) * 15 + 12)}>
-                    <div className="graph-full-label">{labels[node.reference] ?? node.label}</div>
-                  </foreignObject>
-                  {/* The type sits below both the circle and the (possibly wrapped) label, so the two never overprint. */}
-                  <text className="node-type" textAnchor="middle" y={Math.max(degree.get(node.reference) ? 26 : 21, Math.ceil((labels[node.reference] ?? node.label).length / 20) * 17) + 16}>{node.entity_type}</text>
+                  {labelled(node.reference) && (
+                    <text className="node-label" x={nodeRadius(node.reference) + 5} y={4}>
+                      {shortLabel(labels[node.reference] || node.label, 44)}
+                    </text>
+                  )}
                 </g>
               );
             })}
@@ -1814,41 +1990,132 @@ function RelationshipGraph({
         </g>
         </svg>
       )}
-      <div className="graph-legend">
-        <span><i className="explicit" /> Stored relationship</span>
-        <span><i className="property" /> Property pivot</span>
-        <span><i className="manual" /> Analyst assertion / promotion group</span>
-        <span>Force layout is limited to 48 nodes; drag, pan, zoom, filtering, selection, and collapsed connections change presentation only. Double-click a node to collapse or expand its direct connections. Shift, Command, or Control selects more than one node.</span>
-      </div>
-      {manualEdges.length > 0 && (
-        <details className="manual-relation-review">
-          <summary>Review analyst relations · {manualEdges.length}</summary>
-          <div className="manual-relation-list">
-            {manualEdges.map((edge) => (
-              <article key={edge.assertion_id ?? `${edge.source}-${edge.target}`}>
-                <b>
-                  {shortLabel(labels[edge.source] ?? graphLabels.get(edge.source) ?? edge.source, 28)} {edge.relationship} {shortLabel(labels[edge.target] ?? graphLabels.get(edge.target) ?? edge.target, 28)}
-                </b>
-                <span>{edge.annotation || "No analyst annotation recorded."}</span>
-                <small>{edge.assertion_id}</small>
-                <div>
-                  <button onClick={() => beginRelationCorrection("revise", edge)}>Revise</button>
-                  <button onClick={() => beginRelationCorrection("retract", edge)}>Retract</button>
-                </div>
-              </article>
-            ))}
+        {intent.data.edges.length > 0 && (
+          <div className="graph-overlay graph-zoom-controls" aria-label="Graph zoom controls">
+            <button className="icon-button" onClick={() => updateZoom(1.2)} aria-label="Zoom in" title="Zoom in"><Icon name="plus" /></button>
+            <button className="icon-button" onClick={() => updateZoom(1 / 1.2)} aria-label="Zoom out" title="Zoom out"><Icon name="minus" /></button>
+            <button className="icon-button" onClick={fitToView} aria-label="Fit graph to view" title="Fit graph to view"><Icon name="fit" /></button>
           </div>
-        </details>
-      )}
+        )}
+        <div className="graph-overlay graph-legend">
+          {visibleEdges.some((edge) => edge.basis === "explicit") && <span><i className="explicit" /> Stored relationship</span>}
+          {visibleEdges.some((edge) => edge.basis === "property") && <span><i className="property" /> Property pivot</span>}
+          {visibleEdges.some((edge) => edge.basis === "manual") && <span><i className="manual" /> Analyst assertion or group</span>}
+          {[...new Set(visibleNodes.map((node) => node.entity_type))].map((type) => (
+            <span key={type}><b className={`swatch type-${type.replaceAll(/[^a-z0-9-]/gi, "-")}`} /> {type}</span>
+          ))}
+          <details>
+            <summary aria-label="Graph controls help">?</summary>
+            <p>Click a node to inspect it; Shift, Command or Control adds to the selection. Drag nodes or the background, and scroll to zoom. Double-click a node to collapse or expand its direct connections. Up to 48 nodes are drawn: hubs first, then each indicator type in turn. Everything here changes presentation only.</p>
+          </details>
+        </div>
+        </div>
+        {(selectedRefs.length > 0 || relationCorrection) && (
+          <aside className="graph-inspector" aria-label="Selected nodes">
+        {selectedNode && (
+          <section className="graph-inspector-node" aria-live="polite">
+            <header>
+              <div>
+                <b title={selectedNode.label}>{labels[selectedNode.reference] || selectedNode.label}</b>
+                <span>{selectedNode.entity_type} · {degree.get(selectedNode.reference) ?? 0} relationships</span>
+              </div>
+              <button className="icon-button" onClick={() => setSelectedRefs([])} aria-label="Clear selection" title="Clear selection (Esc)"><Icon name="close" /></button>
+            </header>
+            <div className="graph-inspector-actions">
+              {onOpenEvidence && (
+                <button className="primary" onClick={(event) => onOpenEvidence(selectedNode.reference, event.currentTarget)}>
+                  Open evidence
+                </button>
+              )}
+              <button aria-pressed={pinned.has(selectedNode.reference)} onClick={() => {
+                checkpointPresentation();
+                setPinned((current) => {
+                  const next = new Set(current);
+                  if (next.has(selectedNode.reference)) next.delete(selectedNode.reference);
+                  else next.add(selectedNode.reference);
+                  return next;
+                });
+              }}>
+                {pinned.has(selectedNode.reference) ? "Unpin" : "Pin"}
+              </button>
+              {(degree.get(selectedNode.reference) ?? 0) > 0 && (
+                <button onClick={() => toggleNeighborhood(selectedNode.reference)}>
+                  {collapsedRefs.has(selectedNode.reference) ? "Expand connections" : "Collapse connections"}
+                </button>
+              )}
+            </div>
+            <section className="graph-node-notes" aria-label="Analyst notes on this node">
+              <h4>Analyst notes{nodeNotes.length ? ` · ${nodeNotes.length}` : ""}</h4>
+              {nodeNotes.length ? (
+                <ol>
+                  {nodeNotes.map((note) => (
+                    <li key={note.id}><p>{note.content}</p><time>{note.created_at.slice(0, 16)}</time></li>
+                  ))}
+                </ol>
+              ) : <small>No notes on this node yet.</small>}
+              <form onSubmit={(event) => { event.preventDefault(); void saveNodeAnnotation(); }}>
+                <label>
+                  <span className="sr-only">New analyst note</span>
+                  <textarea
+                    value={nodeAnnotation}
+                    maxLength={4000}
+                    rows={3}
+                    onChange={(event) => setNodeAnnotation(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                        event.preventDefault();
+                        void saveNodeAnnotation();
+                      }
+                    }}
+                    placeholder="Add a note: why this node matters (⌘↵ saves)"
+                  />
+                </label>
+                <button disabled={nodeAnnotationBusy || !nodeAnnotation.trim()}>Save note</button>
+                {nodeAnnotationMessage && <small role="status">{nodeAnnotationMessage}</small>}
+              </form>
+            </section>
+            <details className="graph-display-label">
+              <summary>Rename on this graph</summary>
+              <label>
+                <span>Display label (this graph only; the indicator is unchanged)</span>
+                <input
+                  value={labels[selectedNode.reference] ?? ""}
+                  maxLength={160}
+                  placeholder={selectedNode.label}
+                  onFocus={() => {
+                    labelEditStart.current = latestPresentation.current;
+                    labelEditCheckpointed.current = false;
+                  }}
+                  onChange={(event) => {
+                    const before = labelEditStart.current ?? latestPresentation.current;
+                    const previousLabel = before.labels[selectedNode.reference] ?? "";
+                    if (!labelEditCheckpointed.current && event.target.value !== previousLabel) {
+                      pushUndo(before);
+                      labelEditCheckpointed.current = true;
+                    }
+                    setLabels((current) => ({
+                      ...current,
+                      [selectedNode.reference]: event.target.value,
+                    }));
+                  }}
+                  onBlur={() => {
+                    labelEditStart.current = null;
+                    labelEditCheckpointed.current = false;
+                  }}
+                />
+              </label>
+            </details>
+          </section>
+        )}
       {selectedRefs.length > 1 && (
         <div className="graph-multiselect" aria-live="polite">
-          <b>{selectedRefs.length} NODES SELECTED</b>
+          <b>{selectedRefs.length} nodes selected</b>
           <span>Selection is temporary presentation state and is never saved as evidence or a relationship.</span>
           <button onClick={() => {
             checkpointPresentation();
             setPinned((current) => new Set([...current, ...selectedRefs]));
           }}>
-            PIN SELECTED
+            Pin selected
           </button>
           <button onClick={() => {
             checkpointPresentation();
@@ -1858,7 +2125,7 @@ function RelationshipGraph({
               return next;
             });
           }}>
-            UNPIN SELECTED
+            UNPin selected
           </button>
           <button onClick={() => setSelectedRefs([])}>Clear selection</button>
         </div>
@@ -1941,81 +2208,28 @@ function RelationshipGraph({
           {relationMessage && <small role="status">{relationMessage}</small>}
         </form>
       )}
-      {selectedNode && (
-        <div className="visualization-selection" aria-live="polite">
-          <b>{selectedNode.label}</b>
-          <span>{selectedNode.entity_type} · {degree.get(selectedNode.reference) ?? 0} relationships</span>
-          <small>
-            {selectedRefs.length > 1 ? "Primary selection" : "Selection"} highlights visible neighbors without changing graph evidence.
-          </small>
-          <button onClick={() => {
-            checkpointPresentation();
-            setPinned((current) => {
-              const next = new Set(current);
-              if (next.has(selectedNode.reference)) next.delete(selectedNode.reference);
-              else next.add(selectedNode.reference);
-              return next;
-            });
-          }}>
-            {pinned.has(selectedNode.reference) ? "Unpin from view" : "Pin in view"}
-          </button>
-          {(degree.get(selectedNode.reference) ?? 0) > 0 && (
-            <button onClick={() => toggleNeighborhood(selectedNode.reference)}>
-              {collapsedRefs.has(selectedNode.reference)
-                ? "Expand direct connections"
-                : "Collapse direct connections"}
-            </button>
-          )}
-          <label className="graph-display-label">
-            <span>Presentation label</span>
-            <input
-              value={labels[selectedNode.reference] ?? ""}
-              maxLength={160}
-              placeholder={selectedNode.label}
-              onFocus={() => {
-                labelEditStart.current = latestPresentation.current;
-                labelEditCheckpointed.current = false;
-              }}
-              onChange={(event) => {
-                const before = labelEditStart.current ?? latestPresentation.current;
-                const previousLabel = before.labels[selectedNode.reference] ?? "";
-                if (!labelEditCheckpointed.current && event.target.value !== previousLabel) {
-                  pushUndo(before);
-                  labelEditCheckpointed.current = true;
-                }
-                setLabels((current) => ({
-                  ...current,
-                  [selectedNode.reference]: event.target.value,
-                }));
-              }}
-              onBlur={() => {
-                labelEditStart.current = null;
-                labelEditCheckpointed.current = false;
-              }}
-            />
-          </label>
-          <label className="graph-node-annotation">
-            <span>Analyst note</span>
-            <textarea
-              value={nodeAnnotation}
-              maxLength={4000}
-              onChange={(event) => setNodeAnnotation(event.target.value)}
-              placeholder="Why does this node matter? This remains analyst-authored context."
-            />
-          </label>
-          <button
-            onClick={() => void saveNodeAnnotation()}
-            disabled={nodeAnnotationBusy || !nodeAnnotation.trim()}
-          >
-            SAVE NODE NOTE
-          </button>
-          {nodeAnnotationMessage && <small role="status">{nodeAnnotationMessage}</small>}
-          {onOpenEvidence && (
-            <button onClick={(event) => onOpenEvidence(selectedNode.reference, event.currentTarget)}>
-              OPEN EVIDENCE
-            </button>
-          )}
-        </div>
+          </aside>
+        )}
+      </div>
+      {manualEdges.length > 0 && (
+        <details className="manual-relation-review">
+          <summary>Review analyst relations · {manualEdges.length}</summary>
+          <div className="manual-relation-list">
+            {manualEdges.map((edge) => (
+              <article key={edge.assertion_id ?? `${edge.source}-${edge.target}`}>
+                <b>
+                  {shortLabel(labels[edge.source] ?? graphLabels.get(edge.source) ?? edge.source, 28)} {edge.relationship} {shortLabel(labels[edge.target] ?? graphLabels.get(edge.target) ?? edge.target, 28)}
+                </b>
+                <span>{edge.annotation || "No analyst annotation recorded."}</span>
+                <small>{edge.assertion_id}</small>
+                <div>
+                  <button onClick={() => beginRelationCorrection("revise", edge)}>Revise</button>
+                  <button onClick={() => beginRelationCorrection("retract", edge)}>Retract</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </details>
       )}
       <details className="relationship-node-inventory">
         <summary>View accessible node inventory</summary>
@@ -2038,6 +2252,51 @@ function RelationshipGraph({
       </details>
     </div>
   );
+}
+
+/** The three views analysts open most; every other view stays one select away. */
+const PRIMARY_VIEWS: ReadonlyArray<readonly [string, string]> = [
+  ["relationship-graph", "Graph"],
+  ["indicator-constellation", "Coverage"],
+  ["pivot-trail", "Provenance"],
+];
+
+/**
+ * Size each element marked ``data-viz-fill`` so the visualization fills the rest of the
+ * window (less ``data-viz-reserve`` px for what follows it), instead of a fixed-height box.
+ * Recomputed on resize and whenever the workspace's own layout changes.
+ */
+function useFillHeight(root: RefObject<HTMLElement | null>, key: string) {
+  useLayoutEffect(() => {
+    const host = root.current;
+    if (!host) return;
+    let frame = 0;
+    const apply = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        host.querySelectorAll<HTMLElement>("[data-viz-fill]").forEach((element) => {
+          const fixed = Boolean(element.closest(".pane-maximized"));
+          const top = element.getBoundingClientRect().top + (fixed ? 0 : window.scrollY);
+          const reserve = Number(element.dataset.vizReserve ?? 48);
+          let height = window.innerHeight - top - reserve;
+          if (height < 420) height = Math.max(420, Math.round(window.innerHeight * 0.72));
+          const cap = Number(element.dataset.vizMax ?? 0);
+          if (cap) height = Math.min(height, cap);
+          const value = `${Math.round(height)}px`;
+          if (element.style.height !== value) element.style.height = value;
+        });
+      });
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(host);
+    window.addEventListener("resize", apply);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", apply);
+    };
+  }, [root, key]);
 }
 
 function downloadIntent(intent: VisualizationIntent) {
@@ -2078,6 +2337,13 @@ export function VisualizationWorkspace({
     }
   }, [intents, selectedId]);
 
+  const workspaceRef = useRef<HTMLElement>(null);
+  useFillHeight(workspaceRef, selected?.intent_id ?? "");
+  // Views with data first, in server order; empty views sink to the end of the list.
+  const orderedIntents = [...intents].sort(
+    (left, right) => Number(right.source_scope.record_count > 0) - Number(left.source_scope.record_count > 0),
+  );
+
   if (!selected) return <div className="visualization-empty">Visualization intents unavailable.</div>;
   let validationError = "";
   try {
@@ -2087,39 +2353,45 @@ export function VisualizationWorkspace({
   }
 
   return (
-    <section className="visualization-workspace" aria-label="Visual analysis">
-      <div className="visualization-picker">
-        <label>
-          <span>Question</span>
+    <section ref={workspaceRef} className="visualization-workspace" aria-label="Visual analysis">
+      <header className="viz-bar">
+        <nav className="viz-tabs" aria-label="Primary views">
+          {PRIMARY_VIEWS.map(([id, label]) => {
+            const intent = intents.find((item) => item.intent_id === id);
+            return intent && (
+              <button key={id} aria-pressed={selected.intent_id === id} onClick={() => setSelectedId(id)}>
+                {label}<small>{intent.source_scope.record_count}</small>
+              </button>
+            );
+          })}
+        </nav>
+        <label className="viz-more">
+          <span className="sr-only">All evidence views</span>
           <select value={selected.intent_id} onChange={(event) => setSelectedId(event.target.value)}>
-            {intents.map((intent) => (
-              <option key={intent.intent_id} value={intent.intent_id}>{intent.title}</option>
+            {orderedIntents.map((intent) => (
+              <option key={intent.intent_id} value={intent.intent_id}>
+                {intent.title} · {intent.source_scope.record_count ? intent.source_scope.record_count : "no data"}
+              </option>
             ))}
           </select>
         </label>
-        <small>{intents.length} evidence views</small>
-        <nav className="visualization-shortcuts" aria-label="Investigation views">
-          {[["pivot-trail","Provenance history"],["relationship-graph","Relationship graph"],["indicator-constellation","Indicator coverage"]].map(([id,label])=>intents.some(intent=>intent.intent_id===id)&&<button key={id} aria-pressed={selectedId===id} onClick={()=>setSelectedId(id)}>{label}</button>)}
-        </nav>
-      </div>
-      <header className="visualization-header">
-        <div>
-          <span>Question</span>
-          <h3>{selected.question_text}</h3>
-          <small>
-            {selected.source_scope.description} · {selected.source_scope.record_count} records
-            {selected.source_scope.timezone ? ` · ${selected.source_scope.timezone}` : ""}
-          </small>
-          <details className="visualization-explainer-toggle">
-            <summary>How to read this {VISUALIZATION_VIEW_LABELS[selected.view].toLowerCase()}</summary>
-            <aside className="visualization-explainer" aria-label="Why Pivotglass selected this visualization">
-              <p><strong>Why this fits</strong> {selected.selection_rationale}</p>
-              <p><strong>How to read it</strong> {selected.reading_guide}</p>
-            </aside>
-          </details>
-        </div>
-        <button onClick={() => downloadIntent(selected)}>Export data</button>
+        <button className="viz-export" onClick={() => downloadIntent(selected)} title="Download this view's exact data">Export</button>
       </header>
+      <div className="viz-question">
+        <h3>{selected.question_text}</h3>
+        <p>
+          {selected.source_scope.record_count} records
+          {selected.source_scope.timezone ? ` · ${selected.source_scope.timezone}` : ""}
+          <span> · {selected.source_scope.description}</span>
+        </p>
+        <details className="visualization-explainer-toggle">
+          <summary>How to read this {VISUALIZATION_VIEW_LABELS[selected.view].toLowerCase()}</summary>
+          <aside className="visualization-explainer" aria-label="Why Pivotglass selected this visualization">
+            <p><strong>Why this fits</strong> {selected.selection_rationale}</p>
+            <p><strong>How to read it</strong> {selected.reading_guide}</p>
+          </aside>
+        </details>
+      </div>
       {validationError
         ? <div className="visualization-error">Rejected intent: {validationError}</div>
         : selected.renderer === "flint_chartjs"

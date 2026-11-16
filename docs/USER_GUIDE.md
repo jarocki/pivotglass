@@ -132,7 +132,7 @@ Primary navigation is deliberately limited to the **Investigate**,
 with view
 controls, tools (all commands, status and attention, the workbench, models and
 API keys, reports, export), appearance, and, under **Characters, sound, and
-badges**, the character voices, music, badges, and themes. Choose
+badges**, the character voices, music, badges, and the **Diversion** mini-game. Choose
 **Open workbench** when the complete scientific notebook and framework lenses
 are needed.
 
@@ -427,8 +427,11 @@ The overall mapped value is navigation help, not confidence or a verdict.
 ## Visual Analysis
 
 Visual Analysis starts with the analyst question rather than a preferred chart
-type. Use **Choose an analyst question** to switch evidence views without
-crossing a wall of chart controls. Pivotglass currently provides:
+type. One header row holds the three views analysts open most (**Graph**,
+**Coverage**, **Provenance**, each with its record count) and a single list of
+every view; views with no records sink to the end of that list and say so. The
+selected view's question is the headline, and the visualization fills the rest
+of the window. Pivotglass currently provides:
 
 - stored evidence types, compiled through Flint as a bar chart;
 - one-Dossier completeness, compiled through Flint as a radar chart on an
@@ -650,17 +653,25 @@ includes topology that supports both common control and shared infrastructure.
 
 ## Relationship graph
 
-The relationship graph uses actual indicator values for node labels and
-directional relationships for edges. Stored STIX relationships and conservative
-property pivots are visually distinguished. Select a node to highlight its
-neighbors. Hold Shift, Command, or Control while selecting to build a temporary
+The relationship graph fills the window and fits itself to view; it refits as
+the window changes until you pan or zoom. Node colour is indicator type, node
+size is how many relationships it has, and only hubs, the selection, and
+whatever you hover are labelled, so the largest nodes are where to look first.
+Zoom spreads nodes apart without shrinking text. Hover a node to brighten its
+neighbourhood and dim the rest. **Analyst groups** hides promotion groups,
+which are your bookkeeping rather than adversary evidence. Stored STIX
+relationships and conservative property pivots are visually distinguished.
+Select a node to open the inspector beside the graph. Hold Shift, Command, or Control while selecting to build a temporary
 multi-node set; the set can be pinned, unpinned, or cleared together. The last
 node selected remains the primary selection for its presentation label and
-evidence detail. Choose **OPEN EVIDENCE** to inspect the stored record.
+evidence detail. Choose **Open evidence** to inspect the stored record. The
+inspector also lists every analyst note on the node and adds new ones
+(`Command/Control+Enter` saves); notes are analyst context, not evidence.
+**Rename on this graph** changes only the label drawn here.
 Double-click a connected node, or use the selected-node control, to collapse or
 expand its direct connections. This changes only the bounded view: hidden
-nodes remain in the accessible inventory and exact-data export. **SHOW ALL
-CONNECTIONS** clears every temporary collapse.
+nodes remain in the accessible inventory and exact-data export. **Show all
+connections** clears every temporary collapse.
 
 With exactly two nodes selected, **ANNOTATED ANALYST RELATION** records a
 directional judgment from the first selection to the second. Enter a bounded
@@ -678,14 +689,14 @@ edit or delete observed evidence.
 
 Dragging, panning, zooming, filtering, centering, pinning, selecting, and
 collapsing change only the presentation. They do not alter evidence. Selection is deliberately
-temporary and is not included in saved layouts. Enter a layout name and choose
-**SAVE VIEW** to keep an arrangement in the active workspace. Loading an older
+temporary and is not included in saved layouts. Open **Layouts**, enter a name,
+and choose **Save** to keep an arrangement in the active workspace. Loading an older
 view reports added or absent nodes when the evidence graph has changed. Large
 workspaces use a bounded overview. If no supported edge exists, Pivotglass says
 so and keeps the evidence unconnected rather than manufacturing a relationship
 from proximity.
 
-**UNDO VIEW** and **REDO VIEW** retain up to 50 presentation checkpoints for
+The undo and redo arrows retain up to 50 presentation checkpoints for
 node movement, viewport changes, pins, display labels, and collapsed
 connections. Use `Command/Control+Z` and `Shift+Command/Control+Z` when focus is
 in the graph rather than a text field. Analytic evidence, relations, assertions,
@@ -744,7 +755,7 @@ text are not rewritten. Defanged downloads include `-defanged` in the filename.
 
 Read a consequential claim from its evidence rather than its graph position.
 If your interpretation changes, record the reason and the changed judgment.
-A saved presentation is only a view; **UNDO VIEW** cannot undo analytical work.
+A saved presentation is only a view; undo cannot reverse analytical work.
 
 | Problem discovered | Corrective action | Preserved boundary |
 | --- | --- | --- |
@@ -1171,11 +1182,14 @@ The choices persist in this browser and apply to every Pivotglass window.
 
 ![v1.3.0 Menu with View, Tools, and Appearance](media/pivotglass-view-menu-v1.3.0.png)
 
-Every pane (Sources, Next step, Activity, Evidence, Visualize) has the same two
-controls. **Maximize** (`z`) fills the window with that pane; Esc or
-**Restore** returns. A maximized Sources pane is a full-height paste area for
-long reports. **Pop out** (`Shift`+`Z`) opens the pane alone in its own browser
-window for a second monitor; the window title names the pane. Every window
+Every pane (Sources, Next step, Activity, Evidence, Visualize) has the same
+icon controls at the right of its title: maximize (outward corners, `z`), pop
+out (box with an arrow, `Shift`+`Z`), and collapse (chevron). Each names its
+action on hover and to screen readers. Maximize fills the window with that
+pane; Esc or restore (inward corners) returns. A maximized Sources pane is a
+full-height paste area for long reports. Pop out opens the pane alone in its
+own browser window for a second monitor; the window title names the pane. The
+indicator evidence drawer has the same maximize and pop-out controls. Every window
 reads the same local workspace, and view changes apply to all of them.
 Browser zoom remains available.
 

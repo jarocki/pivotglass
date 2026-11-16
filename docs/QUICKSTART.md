@@ -316,16 +316,17 @@ the enabled service before sending private or embargoed indicators.
 
 ## 6. Explore the relationship graph
 
-In **VISUAL ANALYSIS**, choose **Evidence relationships**.
+In **Visualize**, choose **Graph**.
 
 You can search by indicator or type, drag nodes, pan and zoom, select a node to
-highlight its visible neighbors, and choose **OPEN EVIDENCE** to inspect its
-provenance. Double-click a connected node, or use **COLLAPSE DIRECT
-CONNECTIONS**, to hide its immediate branches temporarily. Expand it again or
-choose **SHOW ALL CONNECTIONS** to restore the complete view. Collapsed nodes
+highlight its visible neighbors, and choose **Open evidence** in the inspector
+to inspect its provenance. Add analyst notes in the same inspector. Double-click
+a connected node, or use **Collapse connections**, to hide its immediate
+branches temporarily. Expand it again or choose **Show all connections** to
+restore the complete view. Collapsed nodes
 remain present in the accessible inventory and exact-data export.
 
-Use **UNDO VIEW** and **REDO VIEW** for layout changes, or press
+Use the undo and redo arrows for layout changes, or press
 `Command/Control+Z` and `Shift+Command/Control+Z` while focus is in the graph.
 The bounded history covers node movement, pan/zoom, pins, display labels, and
 collapsed connections. It never reverses evidence or analyst judgments.
@@ -335,7 +336,7 @@ Moving nodes changes only the layout. If no supported edge exists, Pivotglass
 shows unconnected indicators rather than implying a relationship from visual
 proximity.
 
-Enter a layout name and choose **SAVE VIEW** to keep the arrangement through
+Open **Layouts**, enter a name, and choose **Save** to keep the arrangement through
 refreshes and restarts. Saved views travel with workspace export and merge.
 Loading a view reports graph changes; it never restores old evidence or edges.
 
