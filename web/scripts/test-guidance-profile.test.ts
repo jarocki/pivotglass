@@ -4,11 +4,12 @@ import test from "node:test";
 import {
   NEW_GUIDANCE_PROFILE,
   completedGuidanceProfile,
+  readGuidanceProfile,
   suggestedGuidanceLevel,
 } from "../app/guidance-profile.ts";
 
-test("new analysts start with step-by-step novice guidance", () => {
-  assert.equal(NEW_GUIDANCE_PROFILE.level, "novice");
+test("new analysts start without unasked tutoring", () => {
+  assert.equal(NEW_GUIDANCE_PROFILE.level, "expert");
   assert.equal(NEW_GUIDANCE_PROFILE.completedWorkflows, 0);
   assert.equal(NEW_GUIDANCE_PROFILE.levelLocked, false);
 });
@@ -28,4 +29,12 @@ test("participation never silently promotes an analyst", () => {
     assert.equal(completedGuidanceProfile(profile, true).completedWorkflows, 13);
     assert.equal(completedGuidanceProfile(profile, false).completedWorkflows, 12);
   }
+});
+
+test("an unchosen v1.2 novice default migrates; a chosen level is kept", () => {
+  assert.equal(readGuidanceProfile('{"level":"novice","levelLocked":false}').level, "expert");
+  assert.equal(readGuidanceProfile('{"level":"novice","levelLocked":true}').level, "novice");
+  assert.equal(readGuidanceProfile('{"level":"adept"}').level, "adept");
+  assert.deepEqual(readGuidanceProfile("{"), NEW_GUIDANCE_PROFILE);
+  assert.deepEqual(readGuidanceProfile(null), NEW_GUIDANCE_PROFILE);
 });

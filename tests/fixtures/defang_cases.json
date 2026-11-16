@@ -1,0 +1,12 @@
+{
+  "_comment": "Shared parity cases for defang_indicator_value (Python) and defangValue (web/app/focus-model.ts).",
+  "cases": [
+    {"value": "https://login-portal.harbor-cdn.example/auth", "type": "url", "expected": "hxxps[:]//login-portal[.]harbor-cdn[.]example/auth"},
+    {"value": "http://files.harbor-cdn.example/upload", "type": "url", "expected": "hxxp[:]//files[.]harbor-cdn[.]example/upload"},
+    {"value": "ops@harbor-cdn.example", "type": "email-addr", "expected": "ops[@]harbor-cdn[.]example"},
+    {"value": "203.0.113.44", "type": "ipv4-addr", "expected": "203[.]0[.]113[.]44"},
+    {"value": "cdn.harbor-cdn.example", "type": "domain-name", "expected": "cdn[.]harbor-cdn[.]example"},
+    {"value": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "type": "file", "expected": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    {"value": "T1071.001", "type": "attack-pattern", "expected": "T1071.001"}
+  ]
+}

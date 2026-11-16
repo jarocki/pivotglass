@@ -7,12 +7,12 @@ import re
 
 import pytest
 
-from tests.pdf_fixture import text_pdf
 from pivotglass.core.document_entity_extraction import extract_entity_candidates
 from pivotglass.core.document_ingestion import preview_document
 from pivotglass.core.document_library import DocumentLibraryService
 from pivotglass.core.document_rendering import render_document, sanitize_html
 from pivotglass.core.workspace import WorkspaceManager
+from tests.pdf_fixture import text_pdf
 
 HOSTILE = """<html><head><title>APT report</title><base href="http://evil.example/">
 <meta http-equiv="refresh" content="0;url=http://evil.example/">

@@ -14,7 +14,7 @@ const STATUS_RGB: Readonly<Record<string, RGB>> = {
   deferred: [32, 32, 32],
   empty: [0, 0, 0],
   failed: [255, 0, 0],
-  skipped: [128, 96, 0],
+  skipped: [48, 48, 48], // setup state (e.g. not configured), not an alarm
   cancelled: [128, 0, 0],
   supports: [0, 210, 96],
   contradicts: [255, 56, 48],

@@ -34,14 +34,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Pages without a text layer are named.
 - Paste text or an indicator list directly as a source.
 - REPL `show modules` and `exit`.
+- View controls under **Menu → View**: width (Column, Wide, Full), text size
+  (four steps that scale every label and value, including the rendered source),
+  and density. Keys: `\` cycles width, `+` and `−` change text size. One
+  versioned preference replaces the earlier reading setting, which migrates.
+- Every pane can be maximized in place (`z`, Esc restores) or popped out into
+  its own window (`Shift`+`Z`). A maximized Sources pane is a full-height
+  paste area.
+- Copy from focus mode: `c` copies the focused indicator, `y` copies the
+  selection defanged, `Y` exactly as stored. Defanging matches the server's
+  export rule, checked against shared test cases.
 
 ### Changed
 
 - Intake is one step: preview opens focus mode, and admitting stores the
   source and the selected indicators together. Intake sits directly under the
   command field.
-- Removed slogan text from the cockpit masthead and footer. The masthead now
-  shows the active workspace.
+- Removed slogan text from the cockpit masthead and footer. The masthead is
+  one bar: name, workspace, the three tabs, status, Menu, and Help.
+- Interface cleanup from an eight-lens critique (see
+  `docs/plans/V1.3.0_UI_CRITIQUE.md`). Every interface size is a rem token,
+  so nothing renders below 12 px at the standard size. Caps, letter-spacing,
+  and monospace are now reserved for the wordmark, values, and keycaps. Pane,
+  tab, and menu labels share one vocabulary. Wide screens show Sources and
+  Next step beside Activity.
+- The Pursuit Brief is now the compact **Next step** pane: one action, with
+  progress, open work, and recent change on demand. A **Guidance** chip marks
+  it as workflow guidance rather than evidence.
+- Guidance no longer opens unasked or blurs the page. New installations start
+  at Expert guidance; a one-line **Show me how** offer stays in the empty
+  Activity pane.
+- Motion defaults to Reduced (no flicker, fog, or glow), and narration
+  defaults to Brief. Character personas keep their voice and artwork but no
+  longer skew or rotate panes.
+- An enrichment whose service has no configured credential is recorded as
+  skipped, **not configured**. It no longer counts as a failure or raises
+  attention. A configured key that is rejected remains a source fault.
 - Workspace schema v13 adds `indicator_tag_events`. The export format and the
   supported migration range now derive from the schema version.
 - Next.js 16.4.3 and `source-map-js` 1.2.2 resolve build-environment
@@ -58,11 +86,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Starting an investigation validates the target before recording a pivot
   trail event.
 - The REPL `hunt` result names a real pivot action.
+- The Activity pane no longer renders blank: it had deferred its own
+  rendering (`content-visibility`) behind a 720 px placeholder.
+- Escape closes the menu. Command suggestions appear only while typing.
 
 ### Removed
 
 - The unused synchronous web investigation path, which returned undecoded
   diagnostic markers. All surfaces use the streaming investigation path.
+- The DECK button (it duplicated More), the keyboard-focus pill, the footer
+  Help link, the always-on command hint, the "Novice practice" band, and the
+  "Awaiting target lock" art.
 
 ## [1.2.0] - 2026-09-30
 

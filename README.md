@@ -28,7 +28,7 @@ communicate what remains unknown.
 
 | Analyst need | What the workspace provides | What remains an analyst decision |
 | --- | --- | --- |
-| Find a starting point | Pursuit Brief with the question, open work, and a proposed next action | Purpose, scope, and priority |
+| Find a starting point | Next step pane with the question, open work, and a proposed next action | Purpose, scope, and priority |
 | Reduce repeated handling | Persistent cases across interfaces, deterministic normalization, reviewable document library, enrichment queue | Which data to admit and send to providers |
 | Inspect a connection | Full indicator values, edge bases, provenance history, and exact-data exports | Whether the connection supports an explanation |
 | Challenge an early theory | Hypotheses, predictions, assumptions, contradictions, and versioned structured techniques | Evidence stance, confidence, and judgment |
@@ -156,7 +156,7 @@ the resulting records.
 
 | View | Useful analyst question | Interpretation boundary |
 | --- | --- | --- |
-| Pursuit Brief | What needs attention next? | Recommendation is navigation guidance |
+| Next step (Pursuit Brief) | What needs attention next? | Recommendation is navigation guidance |
 | Investigation Constellation | Which evidence dimensions are present or missing? | Coverage is neither confidence nor maliciousness |
 | Relationship Graph | What supported or explicitly authored connections exist? | Proximity, shared property, or analyst grouping does not prove common control |
 | Provenance History | How did this source, promotion, or pivot enter the case? | Workflow history does not establish an adversary relationship |

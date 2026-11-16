@@ -89,11 +89,11 @@ test("library failure is not an empty library, retry restores records, and works
   assert.match(text(view), /Temporary outage/);
   assert.doesNotMatch(text(view), /No documents have been ingested/);
   mode = "mismatch";
-  await button(view, "RETRY LIBRARY").props.onClick(); await app.settle();
+  await button(view, "Retry").props.onClick(); await app.settle();
   view = app.render();
   assert.match(text(view), /active workspace changed/);
   mode = "ok";
-  await button(view, "RETRY LIBRARY").props.onClick(); await app.settle();
+  await button(view, "Retry").props.onClick(); await app.settle();
   assert.match(text(app.render()), /No documents have been ingested/);
 });
 
@@ -169,7 +169,7 @@ test("late library responses are ignored after the intake workspace unmounts", a
   assert.doesNotMatch(text(app.render()), /No documents have been ingested/);
 });
 
-test("stored sources reopen in focus mode with the complete hash, prior admissions, and stored-source admission", async () => {
+test("stored sources reopen in focus mode with the hash on demand, prior admissions, and stored-source admission", async () => {
   const fullHash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
   const candidates = [
     { id: "stored-1", selection_key: "stored-key-1", normalized_value: "stored.example", raw_value: "stored.example", entity_type: "domain-name", start_line: 4, start_char: 10, end_char: 24, state: "candidate" },
@@ -184,7 +184,9 @@ test("stored sources reopen in focus mode with the complete hash, prior admissio
   });
   app.render(); await app.settle();
   let view = app.render();
-  assert.match(text(view), new RegExp(fullHash));
+  // The row shows a short, comparable form; the full digest stays one hover away.
+  assert.match(text(view), new RegExp(`${fullHash.slice(0, 8)}…${fullHash.slice(-8)}`));
+  assert.ok(nodes(view).some((node: any) => node.props?.title === `SHA-256 ${fullHash}`));
   await nodes(view).find((node) => node.props["data-action"] === "open-stored-source")!.props.onClick(); await app.settle();
   view = app.render();
   const focus = focusOf(view)!;

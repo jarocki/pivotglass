@@ -302,7 +302,7 @@ When enrichment discovers another indicator:
 
 1. Open its evidence details.
 2. Review its source, normalized fields, collection history, and relationships.
-3. Choose **+ QUEUE** if it is worth investigating.
+3. Choose **Queue** if it is worth investigating.
 4. Choose **RUN NEXT** for one queued indicator or **RUN ALL** to process the
    queue in order.
 
@@ -554,8 +554,9 @@ read results are previews until an analyst deliberately imports or cites them.
 
 ## 10. Change character and presentation
 
-Open **DECK** to choose a character, Day or Night display, contrast, motion,
-narration, and music. You can also use:
+Open **Menu** to choose view width, text size, and density; Day or Night
+display, contrast, and motion; and, under **Characters, sound, and badges**, a
+character, narration, and music. You can also use:
 
 ```text
 mode list
@@ -579,7 +580,7 @@ The Analyst Advisor appears near
 the top of the current viewport, never steals focus, and is always labeled
 **Narration, not evidence**. Its artwork combines the active character with the
 kind of advice being offered. Choose its action, select **Read Aloud**, dismiss
-it, or turn Narration off from **DECK**. Automatic Advisor voice audio is a
+it, or turn Narration off from **Menu**. Automatic Advisor voice audio is a
 separate opt-in setting. Configured OpenAI speech synthesis receives the
 narrated text, with browser or operating-system speech as a fallback. Music
 is local, and no actor or character voice is cloned.

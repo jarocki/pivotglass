@@ -48,20 +48,19 @@ from pivotglass.core.analytic_commands import execute_analysis_command
 from pivotglass.core.analytic_ledger import AnalyticLedger
 from pivotglass.core.analytic_rigor import build_analytic_rigor
 from pivotglass.core.command_completion import command_completions
+from pivotglass.core.config import ApiKeysConfig
 from pivotglass.core.document_entity_extraction import (
     EntityExtractionLimits,
     defang_indicator_value,
     extract_entity_candidates,
 )
 from pivotglass.core.document_ingestion import DocumentIntakeService, DocumentLimits
-from pivotglass.core.document_rendering import render_document
-from pivotglass.core.indicator_context import IndicatorContextAuthority, document_relations
-from pivotglass.core.indicator_tags import IndicatorTagAuthority, dimension_catalog
 from pivotglass.core.document_library import (
     DocumentLibraryService,
     PivotTrailAuthority,
     document_candidate_selection_key,
 )
+from pivotglass.core.document_rendering import render_document
 from pivotglass.core.error_interpreter import DEBUG_LOG_PATH
 from pivotglass.core.evidence_cluster_history import EvidenceClusterHistory
 from pivotglass.core.evidence_clusters import build_evidence_clusters
@@ -75,6 +74,8 @@ from pivotglass.core.framework_perspectives import (
 from pivotglass.core.framework_projections import FrameworkProjectionAuthority
 from pivotglass.core.graph import RelationshipGraph, persisted_relationships
 from pivotglass.core.graph_presentation import GraphPresentationAuthority
+from pivotglass.core.indicator_context import IndicatorContextAuthority, document_relations
+from pivotglass.core.indicator_tags import IndicatorTagAuthority, dimension_catalog
 from pivotglass.core.information_requirements import build_information_requirements
 from pivotglass.core.integration_commands import execute_integration_command
 from pivotglass.core.investigation import (
@@ -200,6 +201,62 @@ def _tool_failure(summary: str) -> dict[str, str] | None:
             "diagnostic_id": "",
         }
     return None
+
+
+_API_KEY_FIELDS = frozenset(ApiKeysConfig.model_fields)
+_SERVICE_KEY_NAME = re.compile(r"PIVOTGLASS_([A-Z][A-Z0-9_]*)_API_KEY")
+
+
+def _compact(name: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", name.casefold())
+
+
+def _required_credentials(source: str | None, next_action: str) -> tuple[str, tuple[str, ...]] | None:
+    """Name the service and its required credential fields for one failure.
+
+    ``CTI_SERVICES`` is the authority for which credentials a service needs;
+    labels marked "optional" are not required. The enrichment's display
+    source identifies the service, and the key named in the remediation text
+    is the fallback for sources outside that catalogue.
+    """
+    if source:
+        wanted = _compact(source)
+        for spec in CTI_SERVICES:
+            if wanted and _compact(spec.display_name).startswith(wanted):
+                required = tuple(
+                    key
+                    for key, label in zip(spec.config_keys, spec.prompt_labels, strict=False)
+                    if "optional" not in label.casefold()
+                )
+                return spec.display_name, required or tuple(spec.config_keys[:1])
+    match = _SERVICE_KEY_NAME.search(next_action)
+    if match is None:
+        return None
+    key = {"vt": "virustotal"}.get(match.group(1).lower(), match.group(1).lower())
+    return (key, (key,)) if key in _API_KEY_FIELDS else None
+
+
+def _unconfigured_service(
+    failure: dict[str, str], config_mgr: Any, source: str | None = None
+) -> str | None:
+    """Return the service name when an API-key failure means no key is configured.
+
+    An ``API key`` receipt covers both missing and rejected credentials. Only
+    when every required credential for the service is resolvable and at least
+    one is absent is the failure a configuration state; a rejected key stays a
+    source fault (DEC-UNCONFIGURED-SOURCE-001).
+    """
+    if failure.get("category") != "API key":
+        return None
+    resolved = _required_credentials(source, failure.get("next_action", ""))
+    if resolved is None:
+        return None
+    service, keys = resolved
+    try:
+        missing = [key for key in keys if not config_mgr.get_api_key(key)]
+    except Exception:  # noqa: BLE001 - an unreadable key state is not "unconfigured"
+        return None
+    return service if missing else None
 
 
 def _source_web_build_is_stale(web_root: Path) -> bool:
@@ -1734,6 +1791,26 @@ class WebCockpitService:
                         self.ctx, tool_name, {argument_name: target}
                     )
                     failure = _tool_failure(summary)
+                    unconfigured = (
+                        _unconfigured_service(failure, self.config_mgr, source) if failure else None
+                    )
+                    if unconfigured is not None:
+                        # DEC-UNCONFIGURED-SOURCE-001: a source with no credential is
+                        # a configuration state, not a fault. It is recorded as
+                        # skipped so it never raises attention or fails the run.
+                        self.investigations.append(
+                            investigation_id,
+                            event_class=EventClass.SYSTEM,
+                            severity="info",
+                            lifecycle=LifecycleState.SKIPPED,
+                            content_class=ContentClass.SYSTEM,
+                            tool=tool_name,
+                            source=source,
+                            reason="not configured",
+                            diagnostic_category="Not configured",
+                            next_action=f"Add {unconfigured} credentials in Models and API keys to use this source.",
+                        )
+                        continue
                     if failure is not None:
                         any_failures = True
                         self.investigations.append(

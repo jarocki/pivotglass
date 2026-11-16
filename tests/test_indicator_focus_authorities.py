@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import threading
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
-import threading
 
 import pytest
 
@@ -18,9 +18,9 @@ from pivotglass.core.indicator_context import (
 )
 from pivotglass.core.indicator_tags import IndicatorTagAuthority, dimension_catalog
 from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.web.server import _handler
 from tests.pdf_fixture import text_pdf
 from tests.test_web_server import _post_json, _service
-from pivotglass.web.server import _handler
 
 
 def _workspace(tmp_path) -> WorkspaceManager:

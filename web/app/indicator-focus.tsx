@@ -18,6 +18,7 @@ import {
   filterIndicators, groupIndicators, groupMentions, indexTags, locateInSegments, occurrenceOrdinal,
   parseTagInput, type DocumentRelations, type FocusCandidate, type FocusIndicator, type IndicatorContext,
   type Tag, type TagDimension,
+  clipboardText, hexGroups,
 } from "./focus-model";
 
 export type FocusRendering = { kind: "text" | "html" | "pdf"; anchoring: "exact" | "ordinal"; html: string | null; notes: string[] };
@@ -68,6 +69,8 @@ export function IndicatorFocus({
   const [view, setView] = useState<ViewMode>(source.rendering.kind === "text" ? "text" : "rendered");
   const [located, setLocated] = useState<Record<string, boolean>>({});
   const [tagError, setTagError] = useState("");
+  const [copyNotice, setCopyNotice] = useState("");
+  useEffect(() => { if (!copyNotice) return; const timer = window.setTimeout(() => setCopyNotice(""), 2400); return () => window.clearTimeout(timer); }, [copyNotice]);
   const rootRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLOListElement>(null);
@@ -144,6 +147,17 @@ export function IndicatorFocus({
     if (keys.length) { await onAdmit(keys); setSelected(new Set()); }
   }, [targets, byKey, onAdmit]);
 
+  /** c copies the current value; y copies the selection (or current) defanged, Y refanged. */
+  const copy = useCallback(async (scope: "current" | "selection", defanged: boolean) => {
+    const keys = scope === "current" ? (focusKey ? [focusKey] : []) : targets();
+    const items = keys.map((key) => byKey.get(key)).filter((item): item is FocusIndicator => Boolean(item));
+    if (!items.length) return;
+    try {
+      await navigator.clipboard.writeText(clipboardText(items, defanged));
+      setCopyNotice(items.length === 1 ? `Copied ${defanged ? "defanged " : ""}${items[0]!.value}` : `Copied ${items.length} indicators${defanged ? ", defanged" : ""}`);
+    } catch { setCopyNotice("Clipboard is not available in this browser context."); }
+  }, [focusKey, targets, byKey]);
+
   const onKeyDown = (event: React.KeyboardEvent) => {
     const typing = (event.target as HTMLElement).closest("input,textarea,select");
     if (event.key === "Escape") {
@@ -163,6 +177,9 @@ export function IndicatorFocus({
       else if (key === "p" && focused) setMention((value) => (value - 1 + focused.mentions.length) % focused.mentions.length);
       else if (key === " " && focusKey) setSelected((current) => { const next = new Set(current); if (next.has(focusKey)) next.delete(focusKey); else next.add(focusKey); return next; });
       else if (key === "a") void admit();
+      else if (key === "c") void copy("current", false);
+      else if (key === "y") void copy("selection", true);
+      else if (key === "Y") void copy("selection", false);
       else if (key === "t") setPalette(true);
       else if (key === "i" && focusKey) setHover((current) => current?.pinned ? null : { key: focusKey, ...anchorPoint(listRef.current, focusKey), pinned: true });
       else if (key === "/") filterRef.current?.focus();
@@ -209,11 +226,11 @@ export function IndicatorFocus({
       </div>}
       {!source.stored && onStore && <button disabled={busy} onClick={() => void onStore()}>Store source</button>}
       <button className="primary" disabled={busy || (!selectionCount && !focusKey)} onClick={() => void admit()}>
-        {busy ? "Saving…" : selectionCount ? `Admit ${selectionCount}` : "Admit focused"}
+        {busy ? "Saving…" : selectionCount ? `Admit ${selectionCount}` : "Admit current"}
       </button>
       <button aria-label="Close focus mode" onClick={onClose}>✕</button>
     </header>
-    {(status || contextError || tagError) && <p className="focus-notice" role="status">{[status, contextError, tagError].filter(Boolean).join(" · ")}</p>}
+    {(status || contextError || tagError || copyNotice) && <p className="focus-notice" role="status">{[copyNotice, status, contextError, tagError].filter(Boolean).join(" · ")}</p>}
     <div className="focus-body">
       <section className="focus-list" aria-label="Indicators">
         <input ref={filterRef} value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter — value, type, role:c2, tactic:…" aria-label="Filter indicators" />
@@ -233,11 +250,11 @@ export function IndicatorFocus({
           </li>)}
           {!order.length && <li className="focus-empty">{indicators.length ? "No indicators match this filter." : "No indicators were found in this source."}</li>}
         </ol>
-        <p className="focus-keys" aria-label="Keyboard shortcuts"><kbd>j</kbd><kbd>k</kbd> move <kbd>n</kbd><kbd>p</kbd> mention <kbd>space</kbd> select <kbd>a</kbd> admit <kbd>t</kbd> tag <kbd>i</kbd> details <kbd>g</kbd> group <kbd>/</kbd> filter <kbd>↵</kbd> investigate <kbd>esc</kbd> close</p>
+        <p className="focus-keys" aria-label="Keyboard shortcuts"><kbd>j</kbd><kbd>k</kbd> move <kbd>n</kbd><kbd>p</kbd> mention <kbd>space</kbd> select <kbd>a</kbd> admit <kbd>c</kbd> copy <kbd>y</kbd> copy list <kbd>t</kbd> tag <kbd>i</kbd> details <kbd>g</kbd> group <kbd>/</kbd> filter <kbd>↵</kbd> investigate <kbd>esc</kbd> close</p>
       </section>
       <section className="focus-source" aria-label={`Source: ${source.filename}`}>
         {focused && <div className="focus-source-head">
-          <code>{focused.value}</code>
+          <IndicatorValue value={focused.value}/>
           <span>mention {Math.min(mention, focused.mentions.length - 1) + 1} of {focused.mentions.length} · line {focusMention?.start_line}</span>
           {notLocated && <button onClick={() => setView("text")}>Not located in this layout — show in text</button>}
         </div>}
@@ -254,6 +271,12 @@ export function IndicatorFocus({
       byKey={byKey} dimensions={dimensions} onFocus={(key) => { setFocusKey(key); setMention(0); setHover(null); }}
       onInvestigate={onInvestigate} onClose={() => setHover(null)} />}
   </div>, host);
+}
+
+/** Long digests read in groups of 8; the spans keep a copy byte-identical. */
+function IndicatorValue({ value }: { value: string }) {
+  const groups = hexGroups(value);
+  return <code className="indicator-value" title={value}>{groups ? groups.map((group, index) => <span key={index} className="hex-group">{group}</span>) : value}</code>;
 }
 
 function anchorPoint(list: HTMLElement | null, key: string) {
@@ -273,7 +296,7 @@ function IndicatorRow({ item, focused, selected, admitted, context, relations, o
     onClick={onFocus} onMouseEnter={(event) => { const rect = event.currentTarget.getBoundingClientRect(); onHover(rect.right + 8, rect.top); }} onMouseLeave={onLeave}>
     <input type="checkbox" checked={selected} onChange={onToggle} onClick={(event) => event.stopPropagation()} aria-label={`Select ${item.value}`} tabIndex={-1} />
     <div>
-      <code title={item.value}>{item.value}</code>
+      <IndicatorValue value={item.value}/>
       <span className="focus-row-meta">
         <i>{item.entityType}</i>
         {item.mentions.length > 1 && <i>×{item.mentions.length}</i>}
@@ -436,11 +459,14 @@ function anchorMentions(root: HTMLElement, text: string, candidates: FocusCandid
 function themeCss(root: HTMLElement | null): string {
   const style = root ? getComputedStyle(root) : null;
   const read = (name: string, fallback: string) => style?.getPropertyValue(name).trim() || fallback;
-  return `:root{--ink:${read("--ink", "#f3f7f8")};--dim:${read("--dim", "#a6b5bd")};--base:${read("--base", "#071116")};--line:${read("--line", "#49c6d6")};--accent:${read("--accent", "#65d98b")};--focus:${read("--focus-ring", "#ffd166")}}`;
+  // The frame cannot inherit the cockpit's rem scale, so pass the analyst's
+  // text size in: standard (14px root) reads at 16px in the source.
+  const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 14;
+  return `:root{--frame-size:${Math.round(rootPx * 16 / 14)}px;--ink:${read("--ink", "#f3f7f8")};--dim:${read("--dim", "#a6b5bd")};--base:${read("--base", "#071116")};--line:${read("--line", "#49c6d6")};--accent:${read("--accent", "#65d98b")};--focus:${read("--focus-ring", "#ffd166")}}`;
 }
 
-const FRAME_CSS = `html,body{margin:0;background:var(--base);color:var(--ink);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-body{padding:18px 22px;max-width:900px}a,.pg-link{color:var(--line);text-decoration:underline dotted}
+const FRAME_CSS = `html,body{margin:0;background:var(--base);color:var(--ink);font:var(--frame-size,15px)/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{padding:18px 24px;max-width:min(100%,110ch)}a,.pg-link{color:var(--line);text-decoration:underline dotted}
 table{border-collapse:collapse}td,th{border:1px solid color-mix(in srgb,var(--line) 30%,transparent);padding:3px 6px}
 pre,code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word}
 .pg-title{font-weight:700;color:var(--dim);margin-bottom:8px}
@@ -581,6 +607,9 @@ function HoverCard({ hover, item, context, relations, byKey, dimensions, onFocus
       {relations.same_line.length > 0 && <><h5>Same line</h5><ul className="peer-list">{peers(relations.same_line)}</ul></>}
       {relations.same_paragraph.length > 0 && <><h5>Same paragraph</h5><ul className="peer-list">{peers(relations.same_paragraph)}</ul></>}</section> : null}
     {ctx && empty && <p className="dim">Nothing known yet beyond this mention.</p>}
-    {hover.pinned && onInvestigate && <footer><button onClick={() => onInvestigate(item.value)}>Investigate {item.value}</button></footer>}
+    {hover.pinned && <footer>
+      <button onClick={() => void navigator.clipboard?.writeText(item.value)}>Copy</button>
+      {onInvestigate && <button onClick={() => onInvestigate(item.value)}>Investigate</button>}
+    </footer>}
   </div>;
 }

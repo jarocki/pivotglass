@@ -106,14 +106,16 @@ question or scope before more collection is justified. Follow the
 [analytical method](analysis/README.md) for the reasoning and the
 [worked example](analysis/WORKED_EXAMPLE.md) for executable practice.
 
-## The Pursuit Brief
+## The Next step pane
 
-Pivotglass opens in a focused, single-column investigation view. The Pursuit
-Brief near the top of the page answers five questions without requiring the
-analyst to assemble status from several panels:
+On a wide screen, Pivotglass opens with **Sources** and **Next step** on the
+left and **Activity** on the right; on a narrow screen they stack. The
+**Next step** pane (the Pursuit Brief in earlier releases) shows one
+deterministic action and why it matters. A dashed **Guidance** chip marks it
+as workflow guidance rather than evidence. Its summary line opens the details
+on demand:
 
-- **Now** — the active target, question, or enrichment work;
-- **Next** — one deterministic action and why it matters;
+- **Stage** — the active target, question, or enrichment work;
 - **Progress** — separate measures for evidence coverage, scientific method,
   live enrichment, and analyst review;
 - **Open work** — contradictions, knowledge gaps, pending reviews, weak Dossier
@@ -125,11 +127,13 @@ basis and permission class. Merely viewing or polling it never runs a remote
 query, creates a relationship, accepts an analytical proposal, changes
 confidence, attributes activity to an actor, or publishes externally.
 
-Primary navigation is deliberately limited to **Investigate**, **Evidence**,
-**Visualize**, and **More**. Evidence opens in an on-demand detail area.
-Configuration, system status, commands, themes, badges, and display controls
-remain under **More**. Choose **Open full workbench** when the complete
-scientific notebook and framework lenses are needed.
+Primary navigation is deliberately limited to the **Investigate**,
+**Evidence**, and **Visualize** tabs in the top bar. **Menu** holds view
+controls, tools (all commands, status and attention, the workbench, models and
+API keys, reports, export), appearance, and, under **Characters, sound, and
+badges**, the character voices, music, badges, and themes. Choose
+**Open workbench** when the complete scientific notebook and framework lenses
+are needed.
 
 **Investigate** is also where reports and indicator lists enter the workspace.
 Expand **Add indicators & reports**, preview a supported local file, and review
@@ -144,8 +148,10 @@ selection decision, without asserting shared adversary activity. Open
 or **Relationship Graph** to inspect analyst-grouped edges. Older promotions
 without an explicit batch record retain their source provenance.
 
-New installations begin in **Novice** guidance. Choose **BUILD INVESTIGATIVE
-QUESTIONS · Q&A**, the opening guided tip, or **Help → Build Investigative
+Guidance never opens unasked. New installations begin at **Expert**
+guidance: no tutorial tips appear until you ask for them. Choose
+**Show me how** in the empty Activity pane, **Help → Reset walkthrough**, or set
+**Novice** in Help for step-by-step tips. Choose **Help → Build Investigative
 Questions** to open the notebook's coaching session. The six prompts ask about
 available data and provenance, reported activity, how it started, scope and time,
 the decision to support, and competing explanations. **I DON'T KNOW YET** preserves
@@ -288,7 +294,7 @@ to mean the active workspace.
 
 The first indicator submitted in the command field starts applicable
 enrichment immediately. Later indicators discovered in evidence can be added
-to the investigation queue with **+ QUEUE**. **RUN NEXT** processes one queued
+to the investigation queue with **Queue**. **RUN NEXT** processes one queued
 indicator; **RUN ALL** processes the queue in order.
 
 The authoritative lifecycle is:
@@ -297,8 +303,12 @@ The authoritative lifecycle is:
 planned → queued → running → succeeded | empty | failed | skipped | canceled
 ```
 
-Lifecycle describes work, not the indicator. `succeeded` means the source
-returned successfully. `empty` means it returned no usable result. Neither
+Lifecycle describes work, not the indicator. A source that needs a credential
+you have not configured is `skipped` with the reason **not configured**; it is
+a setup state, so it neither fails the investigation nor raises attention. Add
+the key under **Menu → Models and API keys**. A key that is configured but
+rejected remains a `failed` source fault that needs attention. `succeeded`
+means the source returned successfully. `empty` means it returned no usable result. Neither
 state proves that an indicator is safe or malicious.
 
 Most integrations query intelligence already held by a provider. Pivotglass
@@ -470,8 +480,10 @@ The translucent card separates what is known by its basis:
 | Derived from the value | Structure | A URL's host, an email's domain, a parent domain, or a subdomain also found in this source |
 | Nearby in this source | Position only | Indicators on the same line or in the same short paragraph. Nearness is a reading aid, not a relationship |
 
-Press `i` to pin the card for the focused indicator; a pinned card can move
-focus to any related indicator or prepare an investigation.
+Press `i` to pin the card for the focused indicator; a pinned card can copy
+the value, move focus to any related indicator, or prepare an investigation.
+Long hashes are shown in groups of eight characters for comparison; a copy is
+always the unbroken value. The rendered source follows your text size.
 
 Focus mode is keyboard-first:
 
@@ -481,6 +493,8 @@ Focus mode is keyboard-first:
 | `n` / `p` | Next or previous mention of the same indicator |
 | `space` | Select or deselect |
 | `a` | Admit the selection, or the focused indicator when nothing is selected |
+| `c` | Copy the focused indicator exactly as stored |
+| `y` / `Y` | Copy the selection (or the focused indicator) one per line, defanged / exactly as stored |
 | `t` | Tag the selection or the focused indicator |
 | `g` | Cycle grouping: source order, type, then each tag dimension |
 | `/` | Filter by value, type, or `dimension:value` such as `role:c2` |
@@ -1038,7 +1052,7 @@ for MCP configuration, authority boundaries, and remaining release gates. See [F
 the mapping and content-verification contract.
 
 The TUI-only `theme light|dark|high` command changes the current terminal
-palette. Use DECK controls for Day, Night, and contrast in Pivotglass.
+palette. Use **Menu → Appearance** for Day, Night, and contrast in Pivotglass.
 
 ### Why Pivotglass chose a visualization
 
@@ -1099,7 +1113,8 @@ Terminal playback requires `afplay` on macOS or `aplay`/`paplay` on Linux.
 ## Characters, accessibility, and sound
 
 The public deck contains Default (Analyst), Ironclad, Deep Orbit, Rascal,
-Sleuth, Nightgrid, and Code Rain. Use DECK or:
+Sleuth, Nightgrid, and Code Rain. Use **Menu → Characters, sound, and badges**
+or:
 
 ```text
 mode list
@@ -1127,8 +1142,11 @@ Initial loading, workspace changes, and muted playback remain silent; these
 gestures celebrate persisted progress but carry no analytical meaning. Neither
 path streams music or treats sound as evidence.
 
-Pivotglass provides Day, Night, high-contrast, reduced-motion, and effects-off
-controls. Terminal equivalents are:
+Pivotglass provides Day, Night, contrast, and motion controls under
+**Menu → Appearance**. Motion starts at **Reduced**: no ambient animation,
+flicker, or glow. Choose **Full** to restore the character effects, or **Off**
+for no motion at all. Narration starts at **Brief**; the character greeting
+strip appears only with **Full** narration. Terminal equivalents are:
 
 ```bash
 PIVOTGLASS_TUI_COLOR_SCHEME=light pivotglass tui
@@ -1137,36 +1155,51 @@ PIVOTGLASS_TUI_HIGH_CONTRAST=1 pivotglass tui
 
 ![v0.9.9 Code Rain presentation changes the palette while keeping the synthetic case question and uncertainty visible](media/pivotglass-themes-v1.0.0.png)
 
-## Reading, attention, and recovery
+## View, reading, and attention
 
-Open **Help → Reading & attention** (also available in **More**) to choose
-**Larger — easier reading** or the standard compact display. The preference
-persists in this browser. Browser zoom remains available. The constellation
-keeps its internal scroll area rather than making the entire page overflow.
+Open **Menu → View** (also in Help) to fit the cockpit to your screen and eyes.
+The choices persist in this browser and apply to every Pivotglass window.
 
-**Dim other panels while I work** is off by default. Enabling it adds a
+| Control | Choices | Keys |
+| --- | --- | --- |
+| Width | **Column** (a 1180 px reading column), **Wide** (default, up to 1680 px, with Sources and Next step beside Activity), **Full** (the whole window) | `\` cycles |
+| Text | **Compact**, **Standard**, **Large**, **Extra large**. Every label and value scales, including the rendered source in focus mode. Standard renders nothing smaller than 12 px | `+` / `−` |
+| Density | **Comfortable** or **Compact** spacing | |
+
+![v1.3.0 wide view: Sources and Next step beside Activity; a source without a configured key is skipped, not failed](media/pivotglass-cockpit-wide-v1.3.0.png)
+
+![v1.3.0 Menu with View, Tools, and Appearance](media/pivotglass-view-menu-v1.3.0.png)
+
+Every pane (Sources, Next step, Activity, Evidence, Visualize) has the same two
+controls. **Maximize** (`z`) fills the window with that pane; Esc or
+**Restore** returns. A maximized Sources pane is a full-height paste area for
+long reports. **Pop out** (`Shift`+`Z`) opens the pane alone in its own browser
+window for a second monitor; the window title names the pane. Every window
+reads the same local workspace, and view changes apply to all of them.
+Browser zoom remains available.
+
+**Dim other panes while I work** is off by default. Enabling it adds a
 presentation-only spotlight when full visual effects are selected. Hover never
 moves keyboard focus. Tutorial highlighting is separate and dismissible.
 
 **Quiet workspace** turns off decorative motion, music, device voice,
 unsolicited character advice, and hover dimming. It does not hide work, errors,
-or manual Help. Set workflow guidance to **Expert** separately if you also want
-no unsolicited tutorial tips. Restore individual options in More.
+or manual Help. Restore individual options in Menu.
 
-The **Utilities** dialog (More → System status & attention) keeps Tab and
+The **Utilities** dialog (Menu → Status and attention) keeps Tab and
 Shift+Tab within its controls. Escape closes it and returns to its opener.
 Help and other modal dialogs use the same focus handling. In TUI Help, use
 Up/Down, Page Up/Page Down, Home/End, the wheel, or the scrollbar; Escape returns
 to the command input without moving your history position.
 
-For output, use **More → Create printable report** or **Help → Create a report**.
-Review before printing or saving. **Export workspace data** opens the format
+For output, use **Menu → Printable report** or **Help → Create a report**.
+Review before printing or saving. **Export workspace** opens the format
 choices; it does not export until you select JSON, CSV, STIX, or GEXF.
 
 During intake, the destination workspace is named above the file control.
 Switching workspaces clears unfinished preview and selection. Writes from a
 stale workspace are rejected before mutation. Library load failures show
-**Retry library**, not a misleading empty-library message. A stored receipt
+**Retry**, not a misleading empty-library message. A stored receipt
 and an entity-admission receipt remain separate.
 
 After selected entities are successfully admitted, **Use [indicator]** puts

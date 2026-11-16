@@ -24,6 +24,7 @@ import {
 } from "./graduated-help";
 import {
   NEW_GUIDANCE_PROFILE,
+  readGuidanceProfile,
   suggestedGuidanceLevel,
   completedGuidanceProfile,
   type GuidanceLevel,
@@ -31,8 +32,8 @@ import {
 } from "./guidance-profile";
 import { placeGuidance } from "./guidance-position";
 import { intakeTargetFor } from "./guidance-navigation";
-import { ReadingControls } from "./reading-controls";
-import { DEFAULT_READING, readReadingPreferences, type ReadingPreferences } from "./reading-preferences";
+import { ViewControls } from "./view-controls";
+import { DEFAULT_VIEW, LEGACY_READING_KEY, VIEW_KEY, nextWidth, readViewPreferences, stepTextSize, type ViewPreferences } from "./view-preferences";
 import { dialogControls, isolateDialogBackground, trapDialogTab } from "./overlay-focus";
 
 type Briefing = { source: string; artifacts: string; purpose: string; watch_for: string };
@@ -56,14 +57,20 @@ type AlertEvent = FeedEvent & { acknowledged: boolean; investigation_id: string 
 type AlertState = { alerts: AlertEvent[]; unread_count: number; highest_unread: string };
 type CommandResult = { workspace?: string; version?: string; kind: string; title?: string; text?: string; data?: unknown; commands?: Array<{ command: string; purpose: string }>; snapshot?: InvestigationSnapshot; state?: State; filename?: string; mime?: string; content?: string; printable?: boolean; synthesized?: boolean; action?: string };
 
-const paneIds = ["intelligence", "dossier", "artifact-field", "systems"] as const;
+// Pane authority (#26): every pane can be maximized in place or popped out
+// into its own window (``?solo=<id>``). Labels are the single source for
+// tabs, menus, pane titles, pop-out window titles, and Help.
+const paneIds = ["sources", "brief", "intelligence", "dossier", "artifact-field", "systems"] as const;
 type PaneId = typeof paneIds[number];
 const PANE_LABELS: Record<PaneId, string> = {
-  intelligence: "pursuit",
-  dossier: "dossier",
-  "artifact-field": "charts & evidence",
-  systems: "service status",
+  sources: "Sources",
+  brief: "Next step",
+  intelligence: "Activity",
+  dossier: "Evidence",
+  "artifact-field": "Visualize",
+  systems: "Service status",
 };
+const PANE_ELEMENT_IDS: Record<PaneId, string> = { sources: "sources", brief: "brief", intelligence: "intelligence", dossier: "dossier", "artifact-field": "artifact-field", systems: "systems" };
 type TaskGroup = { key: string; tool: string; events: FeedEvent[]; latest: FeedEvent; artifacts: string[]; interesting: boolean };
 type DisplayMode = "night" | "day";
 type ContrastMode = "soft" | "normal" | "high";
@@ -182,8 +189,20 @@ function guidanceCandidates(state: State, alerts: AlertState): GuidanceCandidate
   return candidates;
 }
 
-function PanelTitle({ id, title, status, collapsed, maximized = false, onToggle, onMaximize }: { id: string; title: string; status: string; collapsed: boolean; maximized?: boolean; onToggle: () => void; onMaximize?: () => void }) {
-  return <div className="panel-title"><span>{title}</span><span className="panel-actions"><small>{status}</small>{onMaximize && <button className="collapse-button" onClick={onMaximize} title={`${maximized ? "Restore" : "Maximize"} ${title}`}>{maximized ? "↙ RESTORE" : "↗ MAX"}</button>}<button className="collapse-button" onClick={onToggle} aria-expanded={!collapsed} aria-controls={`${id}-content`} title={`${collapsed ? "Expand" : "Collapse"} ${title}`}>{collapsed ? "▸ EXPAND" : "▾ COLLAPSE"}</button></span></div>;
+type PaneChrome = { maximized: PaneId | null; solo: PaneId | null; toggle: (id: PaneId) => void; popOut: (id: PaneId) => void };
+/** Maximize and pop-out controls; identical on every pane (#26). Hidden in a popped-out window. */
+function PaneControls({ id, chrome }: { id: PaneId; chrome: PaneChrome }) {
+  if (chrome.solo) return null;
+  const label = PANE_LABELS[id];
+  const maximized = chrome.maximized === id;
+  return <span className="pane-controls">
+    <button type="button" className="pane-control" aria-pressed={maximized} onClick={() => chrome.toggle(id)} title={`${maximized ? "Restore" : "Maximize"} ${label} (z)`}>{maximized ? "Restore" : "Maximize"}</button>
+    <button type="button" className="pane-control" onClick={() => chrome.popOut(id)} title={`Open ${label} in its own window (Shift+Z)`}>Pop out</button>
+  </span>;
+}
+function PanelTitle({ id, status, collapsed, onToggle, chrome }: { id: PaneId; status?: string; collapsed: boolean; onToggle: () => void; chrome: PaneChrome }) {
+  const title = PANE_LABELS[id];
+  return <div className="panel-title"><h2>{title}</h2><span className="panel-actions">{status && <small>{status}</small>}<PaneControls id={id} chrome={chrome}/>{!chrome.solo && chrome.maximized !== id && <button type="button" className="pane-control" onClick={onToggle} aria-expanded={!collapsed} aria-controls={`${id}-content`} title={`${collapsed ? "Show" : "Hide"} ${title}`}>{collapsed ? "Show" : "Hide"}</button>}</span></div>;
 }
 
 function AmbientEnvironment({ character }: { character: string }) {
@@ -233,15 +252,15 @@ export default function Cockpit() {
   const [palette, setPalette] = useState(false);
   const [paletteQuery, setPaletteQuery] = useState("");
   const [effects, setEffects] = useState<"full" | "reduced" | "off">("reduced");
-  const [narration, setNarration] = useState<"full" | "brief" | "off">("full");
+  const [narration, setNarration] = useState<"full" | "brief" | "off">("brief");
   const [voiceAudio, setVoiceAudio] = useState(false);
   const [music, setMusic] = useState(false);
   const [musicVolume, setMusicVolume] = useState(18);
   const [displayMode, setDisplayMode] = useState<DisplayMode>("night");
   const [contrast, setContrast] = useState<ContrastMode>("normal");
-  const [reading, setReading] = useState<ReadingPreferences>(DEFAULT_READING);
-  const attentionSpotlight = reading.spotlight;
-  const [collapsed, setCollapsed] = useState<Record<PaneId, boolean>>({ intelligence: false, dossier: false, "artifact-field": true, systems: true });
+  const [view, setView] = useState<ViewPreferences>(DEFAULT_VIEW);
+  const attentionSpotlight = view.spotlight;
+  const [collapsed, setCollapsed] = useState<Record<PaneId, boolean>>({ sources: false, brief: false, intelligence: false, dossier: false, "artifact-field": true, systems: true });
   const [focusView, setFocusView] = useState(true);
   const [utilityOpen, setUtilityOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -254,12 +273,12 @@ export default function Cockpit() {
   const [guidance, setGuidance] = useState<CharacterGuidance | null>(null);
   const [idleClock, setIdleClock] = useState(() => Date.now());
   const [maximized, setMaximized] = useState<PaneId | null>(null);
+  const [solo, setSolo] = useState<PaneId | null>(null);
   const [noteText, setNoteText] = useState("");
   const [investigationQueue, setInvestigationQueue] = useState<QueueItem[]>([]);
   const [completions, setCompletions] = useState<string[]>([]);
   const [completionIndex, setCompletionIndex] = useState(-1);
   const [commandFocused, setCommandFocused] = useState(false);
-  const [focusZone, setFocusZone] = useState("cockpit");
   const [attentionFocus, setAttentionFocus] = useState<string | null>(null);
   const [guidanceProfile, setGuidanceProfile] = useState<GuidanceProfile>(NEW_GUIDANCE_PROFILE);
   const [workflowStage, setWorkflowStage] = useState<WorkflowStage>("welcome");
@@ -313,8 +332,18 @@ export default function Cockpit() {
   }, [investigationQueue, state?.workspace]);
   useEffect(() => { const storedDisplay = window.localStorage.getItem("pivotglass.display"); const storedContrast = window.localStorage.getItem("pivotglass.contrast"); if (storedDisplay === "day" || storedDisplay === "night") setDisplayMode(storedDisplay); if (storedContrast === "soft" || storedContrast === "normal" || storedContrast === "high") setContrast(storedContrast); }, []);
   useEffect(() => {
-    try { setReading(readReadingPreferences(window.localStorage.getItem("pivotglass.reading.v1"))); }
-    catch { /* Reading preferences are optional, even when storage is blocked. */ }
+    try { setView(readViewPreferences(window.localStorage.getItem(VIEW_KEY), window.localStorage.getItem(LEGACY_READING_KEY))); }
+    catch { /* View preferences are optional, even when storage is blocked. */ }
+    const syncView = (event: StorageEvent) => { if (event.key === VIEW_KEY) setView(readViewPreferences(event.newValue)); };
+    window.addEventListener("storage", syncView);
+    const requested = new URL(window.location.href).searchParams.get("solo");
+    if (requested && (paneIds as readonly string[]).includes(requested)) {
+      const pane = requested as PaneId;
+      setSolo(pane); setMaximized(pane); setActivePane(pane);
+      if (pane === "dossier" || pane === "artifact-field") setInspectorOpen(true);
+      setCollapsed((current) => ({ ...current, [pane]: false }));
+    }
+    return () => window.removeEventListener("storage", syncView);
   }, []);
   useEffect(() => {
     const storedEffects = window.localStorage.getItem("pivotglass.effects");
@@ -325,7 +354,7 @@ export default function Cockpit() {
     const storedFocusView = window.localStorage.getItem("pivotglass.focusView");
     const storedVolume = Number(storedMusicVolume);
     if (storedEffects === "full" || storedEffects === "reduced" || storedEffects === "off") setEffects(storedEffects);
-    else setEffects(window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "reduced" : "full");
+    else setEffects("reduced"); // Motion is opt-in (#27); reduced-motion users never get more.
     if (storedNarration === "full" || storedNarration === "brief" || storedNarration === "off") setNarration(storedNarration);
     setVoiceAudio(storedVoiceAudio === "true");
     if (storedMusicVolume !== null && Number.isFinite(storedVolume) && storedVolume >= 0 && storedVolume <= 100) setMusicVolume(storedVolume);
@@ -357,28 +386,19 @@ export default function Cockpit() {
     }
     musicPreferenceLoaded.current = true;
   }, []);
+  useEffect(() => { document.documentElement.dataset.text = view.text; }, [view.text]);
+  // A popped-out window is titled by its pane so the OS window list is legible.
+  useEffect(() => { if (solo) document.title = `${PANE_LABELS[solo]} · Pivotglass`; }, [solo, state?.workspace]);
   useEffect(() => { document.documentElement.style.colorScheme = displayMode; document.documentElement.dataset.display = displayMode; }, [displayMode]);
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem("pivotglass.guidance.v1");
-      if (stored) {
-        const parsed = JSON.parse(stored) as Partial<GuidanceProfile>;
-        const profile: GuidanceProfile = {
-          schema: 1,
-          level: parsed.level === "adept" || parsed.level === "expert" ? parsed.level : "novice",
-          completedWorkflows: Math.max(0, Number(parsed.completedWorkflows) || 0),
-          dismissedTips: Math.max(0, Number(parsed.dismissedTips) || 0),
-          levelLocked: Boolean(parsed.levelLocked),
-        };
-        setGuidanceProfile(profile);
-        setWorkflowHelpVisible(profile.level === "novice" && profile.completedWorkflows === 0);
-      } else {
-        window.localStorage.setItem("pivotglass.guidance.v1", JSON.stringify(NEW_GUIDANCE_PROFILE));
-        setWorkflowHelpVisible(true);
-      }
+      // Guidance never opens unasked (#27). It starts from Help or from the
+      // one-line offer in the empty Activity pane.
+      const profile = readGuidanceProfile(window.localStorage.getItem("pivotglass.guidance.v1"));
+      window.localStorage.setItem("pivotglass.guidance.v1", JSON.stringify(profile));
+      setGuidanceProfile(profile);
     } catch {
       setGuidanceProfile(NEW_GUIDANCE_PROFILE);
-      setWorkflowHelpVisible(true);
     }
     setGuidanceReady(true);
   }, []);
@@ -428,23 +448,6 @@ export default function Cockpit() {
     }, 90);
     return () => { controller.abort(); window.clearTimeout(timer); };
   }, [target, commandFocused, state?.workspace]);
-  useEffect(() => {
-    const describeFocus = () => {
-      const activeElement = document.activeElement as HTMLElement | null;
-      if (!activeElement || activeElement === document.body) { setFocusZone("cockpit"); return; }
-      if (activeElement.closest("[role='dialog']")) setFocusZone("dialog");
-      else if (activeElement === commandInputRef.current) setFocusZone("command");
-      else setFocusZone(activeElement.closest(".panel")?.id ?? activeElement.getAttribute("aria-label") ?? "cockpit");
-    };
-    const deferDescribeFocus = () => window.requestAnimationFrame(describeFocus);
-    document.addEventListener("focusin", describeFocus);
-    document.addEventListener("focusout", deferDescribeFocus);
-    describeFocus();
-    return () => {
-      document.removeEventListener("focusin", describeFocus);
-      document.removeEventListener("focusout", deferDescribeFocus);
-    };
-  }, []);
   useEffect(() => {
     if (!attentionSpotlight || effects !== "full" || modalOpen) {
       setAttentionFocus(null);
@@ -533,12 +536,21 @@ export default function Cockpit() {
     const editing = !!activeElement && (activeElement.matches("input, textarea, select") || activeElement.isContentEditable);
     if (event.key === "Escape") {
       setCompletions([]);
+      if (menu) { setMenu(false); return; }
       if (modalOpen) { closeOverlays(); closeCommandResult(); }
       else if (workflowHelpVisible) dismissWorkflowHelp();
-      else { setMaximized(null); activeElement?.blur(); cockpitRef.current?.focus({ preventScroll: true }); }
+      else { if (!solo) setMaximized(null); activeElement?.blur(); cockpitRef.current?.focus({ preventScroll: true }); }
       return;
     }
     if (modalOpen) return;
+    const insideFocusMode = Boolean(activeElement?.closest(".indicator-focus"));
+    if (!editing && !insideFocusMode && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      if (event.key === "\\") { event.preventDefault(); saveView({ ...view, width: nextWidth(view.width) }); return; }
+      if (event.key === "+" || event.key === "=") { event.preventDefault(); saveView({ ...view, text: stepTextSize(view.text, 1) }); return; }
+      if (event.key === "-" || event.key === "_") { event.preventDefault(); saveView({ ...view, text: stepTextSize(view.text, -1) }); return; }
+      if (event.key === "z" && !solo) { event.preventDefault(); toggleMaximize(activePane); return; }
+      if (event.key === "Z" && !solo) { event.preventDefault(); popOutPane(activePane); return; }
+    }
     if (event.key === "F6") {
       event.preventDefault();
       if (activeElement === commandInputRef.current) cockpitRef.current?.focus({ preventScroll: true });
@@ -546,7 +558,7 @@ export default function Cockpit() {
     } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") { event.preventDefault(); openOverlay("palette"); }
     else if (event.key === "/" && !editing) { event.preventDefault(); commandInputRef.current?.focus(); }
     else if (event.key === "?" && (!editing || (activeElement === commandInputRef.current && !target))) { event.preventDefault(); openOverlay("help"); }
-  }; window.addEventListener("keydown", key); return () => window.removeEventListener("keydown", key); }, [modalOpen, target, commandResult, detail, workflowHelpVisible, guidanceProfile]);
+  }; window.addEventListener("keydown", key); return () => window.removeEventListener("keydown", key); }, [modalOpen, target, commandResult, detail, workflowHelpVisible, guidanceProfile, view, solo, activePane, menu]);
   useEffect(() => { const restore = () => { if (!window.location.hash.startsWith("#evidence=")) { setDetail(null); requestAnimationFrame(() => detailOrigin.current?.focus()); } const pane = new URL(window.location.href).searchParams.get("pane"); if (pane && paneIds.includes(pane as typeof paneIds[number])) document.getElementById(pane)?.scrollIntoView({ behavior: "auto", block: "center" }); }; restore(); window.addEventListener("popstate", restore); return () => window.removeEventListener("popstate", restore); }, []);
   useEffect(() => {
     if (!modalOpen) return;
@@ -770,7 +782,22 @@ export default function Cockpit() {
   }
   function closeCommandResult() { if (!commandResult) return; setCommandResult(null); restoreOverlayFocus(); }
   function togglePane(id: PaneId) { setCollapsed((current) => { const next = { ...current, [id]: !current[id] }; window.localStorage.setItem("pivotglass.panes", JSON.stringify(next)); return next; }); }
-  function toggleMaximize(id: PaneId) { setActivePane(id); setMaximized((current) => current === id ? null : id); }
+  function toggleMaximize(id: PaneId) {
+    if (solo) return;
+    setActivePane(id);
+    if (collapsed[id]) togglePane(id);
+    if (id === "dossier" || id === "artifact-field") setInspectorOpen(true);
+    setMaximized((current) => current === id ? null : id);
+  }
+  /** Open one pane alone in its own browser window. Data stays in sync because
+   *  every window reads the same local API; view preferences sync via storage. */
+  function popOutPane(id: PaneId) {
+    const url = new URL(window.location.href);
+    url.search = ""; url.hash = "";
+    url.searchParams.set("solo", id);
+    window.open(url.toString(), `pivotglass-${id}`, "popup=yes,width=1280,height=900");
+  }
+  const chrome: PaneChrome = { maximized, solo, toggle: toggleMaximize, popOut: popOutPane };
   function followGuidance(idea: CharacterGuidance) {
     recordAnalystActivity();
     setGuidance(null);
@@ -1015,13 +1042,13 @@ export default function Cockpit() {
   }
 
   function setEffectsPreference(value: "full" | "reduced" | "off") { setEffects(value); window.localStorage.setItem("pivotglass.effects", value); }
-  function saveReading(value: ReadingPreferences) {
-    setReading(value);
-    try { window.localStorage.setItem("pivotglass.reading.v1", JSON.stringify(value)); }
+  function saveView(value: ViewPreferences) {
+    setView(value);
+    try { window.localStorage.setItem(VIEW_KEY, JSON.stringify(value)); window.localStorage.removeItem(LEGACY_READING_KEY); }
     catch { /* Keep the current session usable if persistent storage is unavailable. */ }
   }
   function quietWorkspace() {
-    saveReading({ ...reading, spotlight: false });
+    saveView({ ...view, spotlight: false });
     setEffectsPreference("off");
     setNarrationPreference("off");
     setVoiceAudioPreference(false);
@@ -1058,10 +1085,12 @@ export default function Cockpit() {
     { label: "Open model and API configuration", run: () => openOverlay("configuration") },
     { label: "Open Attention Needed", run: () => openOverlay("alerts") },
     { label: `Open ${publicModeLabel(state?.character)} arcade`, run: () => openOverlay("dojo") },
-    { label: focusView ? "Show full cockpit" : "Use focus view", run: () => { const next = !focusView; setFocusView(next); window.localStorage.setItem("pivotglass.focusView", String(next)); } },
-    { label: "Mute visual effects", run: () => setEffectsPreference("off") },
-    { label: "Reduce visual effects", run: () => setEffectsPreference("reduced") },
-    { label: "Enable full visual effects", run: () => setEffectsPreference("full") },
+    { label: focusView ? "Show service telemetry strip" : "Hide service telemetry strip", run: () => { const next = !focusView; setFocusView(next); window.localStorage.setItem("pivotglass.focusView", String(next)); } },
+    ...(["column", "wide", "full"] as const).map((width) => ({ label: `View width: ${width}`, run: () => saveView({ ...view, width }) })),
+    ...paneIds.map((id) => ({ label: `Pop out ${PANE_LABELS[id]}`, run: () => popOutPane(id) })),
+    { label: "Motion: off", run: () => setEffectsPreference("off") },
+    { label: "Motion: reduced", run: () => setEffectsPreference("reduced") },
+    { label: "Motion: full", run: () => setEffectsPreference("full") },
     { label: music ? "Mute generative music" : "Enable generative music", run: toggleMusic },
     { label: "Show dossier and intelligence gaps", run: () => void runQuick("dossier") },
     { label: "Show relationship graph summary", run: () => void runQuick("graph") },
@@ -1122,32 +1151,60 @@ export default function Cockpit() {
     style={style}
     data-attention-focus={attentionFocus ?? undefined}
     data-tutorial-focus={guidanceReady && workflowHelpVisible ? guidanceFocus(workflowStage) : undefined}
-    className={`mode-${state?.character ?? "default"} effects-${effects} narration-${narration} display-${displayMode} contrast-${contrast} reading-${reading.textSize} ${focusView ? "focus-view" : ""} ${guidanceReady && workflowHelpVisible ? "guided-focus-active" : ""} ${attentionFocus ? "attention-focus-active" : ""} ${maximized ? `max-${maximized}` : ""}`}
+    data-width={view.width}
+    data-density={view.density}
+    data-maximized={maximized ?? undefined}
+    data-solo={solo ?? undefined}
+    className={`mode-${state?.character ?? "default"} effects-${effects} narration-${narration} display-${displayMode} contrast-${contrast} ${focusView ? "focus-view" : ""} ${guidanceReady && workflowHelpVisible ? "guided-focus-active" : ""} ${attentionFocus ? "attention-focus-active" : ""}`}
   >
     <a className="skip-link" href="#intelligence">Skip to pursuit workspace</a>
     <AmbientEnvironment character={state?.character ?? "default"} />
     <div className="fog-band" aria-hidden="true" />
     <header className="masthead">
-      <button className="menu-button" onPointerDown={() => { setCommandFocused(false); (document.activeElement as HTMLElement | null)?.blur(); }} onClick={() => setMenu((current) => !current)} aria-expanded={menu}>☰ <span>DECK</span></button>
-      <div className="brand"><span className="eyebrow" title="Active workspace">{state?.workspace ?? ""}</span><h1>PIVOTGLASS</h1></div>
-      <div className="status-cluster"><span className="lamp ok" /><span className={`lamp ${active ? "hot" : ""}`} /><span className={active ? "system-state pulse" : "system-state"}>{active ? "INVESTIGATING" : alerts.unread_count ? `${alerts.unread_count} NEEDS ATTENTION` : "READY"}</span><span className="focus-status" aria-live="polite">FOCUS · {focusZone.toUpperCase()}</span>{reviewingHistory && alerts.unread_count > 0 && <button className="unread-badge" onClick={(event) => openOverlay("alerts", event.currentTarget)}>{alerts.highest_unread.toUpperCase()} · {alerts.unread_count} UNREAD</button>}<button className="help-button" onClick={(event) => openOverlay("help", event.currentTarget)}>HELP ?</button></div>
-      {menu && <nav className="deck-menu" aria-label="More tools and settings"><label>WORKSPACE</label><button onClick={() => { setMenu(false); go("intelligence"); }}>INVESTIGATE</button><button onClick={() => { setMenu(false); setInspectorOpen(true); go("dossier"); }}>EVIDENCE &amp; DOSSIER</button><button onClick={() => { setMenu(false); setInspectorOpen(true); go("artifact-field"); }}>VISUALIZE</button><button onClick={(event) => openOverlay("utilities", event.currentTarget)}>SYSTEM STATUS &amp; ATTENTION</button><button onClick={() => { setMenu(false); openFullWorkbench(); }}>FULL SCIENTIFIC WORKBENCH</button><button onClick={(event) => { setMenu(false); openOverlay("palette", event.currentTarget); }}>ALL COMMANDS</button><button onClick={(event) => openOverlay("configuration", event.currentTarget)}>MODEL + API CONFIGURATION</button><button onClick={(event) => { setMenu(false); overlayOrigin.current = event.currentTarget; void runQuick("badges"); }}><span>{state?.badge_summary.count ?? 0} BADGES</span><small>{state?.badge_summary.latest?.badge_name ?? "No badge yet"}</small></button><button onClick={() => { overlayOrigin.current = document.querySelector<HTMLButtonElement>(".menu-button"); setMenu(false); void runQuick("report"); }}>CREATE PRINTABLE REPORT</button><button onClick={(event) => { setPaletteQuery("Export workspace"); openOverlay("palette", event.currentTarget); }}>EXPORT WORKSPACE DATA</button><button onClick={(event) => openOverlay("dojo", event.currentTarget)}>THEME ARCADE</button><hr/><label>DAY / NIGHT</label><div className="segmented display-choice">{(["night", "day"] as const).map((value) => <button className={displayMode === value ? "selected" : ""} key={value} onClick={() => { setDisplayMode(value); window.localStorage.setItem("pivotglass.display", value); }}>{value}</button>)}</div><label>CONTRAST</label><div className="segmented">{(["soft", "normal", "high"] as const).map((value) => <button className={contrast === value ? "selected" : ""} key={value} onClick={() => { setContrast(value); window.localStorage.setItem("pivotglass.contrast", value); }}>{value}</button>)}</div><label>VISUAL EFFECTS</label><div className="segmented">{(["full", "reduced", "off"] as const).map((value) => <button className={effects === value ? "selected" : ""} key={value} onClick={() => setEffectsPreference(value)}>{value}</button>)}</div><label>NARRATION</label><div className="segmented">{(["full", "brief", "off"] as const).map((value) => <button className={narration === value ? "selected" : ""} key={value} onClick={() => setNarrationPreference(value)}>{value}</button>)}</div><label>ADVISOR VOICE · OFF BY DEFAULT</label><button className={voiceAudio ? "selected" : ""} onClick={() => setVoiceAudioPreference(!voiceAudio)}>{voiceAudio ? "MUTE ADVISOR VOICE" : "ENABLE ADVISOR VOICE"}</button><small>Uses AI-generated speech through the configured OpenAI key when available; narrated text is sent to OpenAI. Otherwise uses a device voice. No actor or character voice is cloned.</small><label>GENERATIVE MUSIC · OFF BY DEFAULT</label><button className={music ? "selected" : ""} onClick={toggleMusic}>{music ? "MUTE MUSIC" : "ENABLE MUSIC"}</button><input type="range" min="0" max="100" value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))} aria-label="Music volume"/><ReadingControls value={reading} onChange={saveReading} onQuiet={quietWorkspace}/><hr/><label>CHARACTER VOICE</label>{publicModes(state?.modes).map(({ mode: item, label }) => <button className={item.name === state?.character ? "selected" : ""} key={item.name} onClick={() => switchMode(item.name)}><b>{label}</b><small>{item.personality}</small></button>)}</nav>}
+      <div className="brand"><h1>Pivotglass</h1><span className="workspace-chip" title="Active workspace">{state?.workspace ?? ""}</span></div>
+      <nav className="pane-switcher primary-flow" aria-label="Primary workflow"><button aria-current={activePane !== "dossier" && activePane !== "artifact-field" ? "page" : undefined} onClick={() => { setInspectorOpen(false); go("intelligence"); }}>Investigate</button><button aria-current={activePane === "dossier" ? "page" : undefined} onClick={() => { setInspectorOpen(true); go("dossier"); }}>Evidence</button><button aria-current={activePane === "artifact-field" ? "page" : undefined} onClick={() => { setInspectorOpen(true); go("artifact-field"); }}>Visualize</button></nav>
+      <div className="status-cluster"><span className={`lamp ${active ? "hot" : alerts.unread_count ? "warn" : "ok"}`} aria-hidden="true" />{alerts.unread_count && !active ? <button className="system-state attention" onClick={(event) => openOverlay("alerts", event.currentTarget)}>{alerts.unread_count} need attention</button> : <span className={active ? "system-state pulse" : "system-state"} role="status">{active ? "Investigating" : "Ready"}</span>}<button className="menu-button" onPointerDown={() => { setCommandFocused(false); (document.activeElement as HTMLElement | null)?.blur(); }} onClick={() => setMenu((current) => !current)} aria-expanded={menu} aria-haspopup="true">Menu</button><button className="help-button" aria-label="Help" title="Help (?)" onClick={(event) => openOverlay("help", event.currentTarget)}>?</button></div>
+      {menu && <nav className="deck-menu" aria-label="Menu">
+        <ViewControls value={view} onChange={saveView} onQuiet={quietWorkspace}/>
+        <section className="menu-group" aria-label="Tools"><h3>Tools</h3>
+          <button onClick={(event) => { setMenu(false); openOverlay("palette", event.currentTarget); }}>All commands <kbd>⌘K</kbd></button>
+          <button onClick={(event) => openOverlay("utilities", event.currentTarget)}>Status and attention</button>
+          <button onClick={() => { setMenu(false); openFullWorkbench(); }}>Workbench: questions and hypotheses</button>
+          <button onClick={(event) => openOverlay("configuration", event.currentTarget)}>Models and API keys</button>
+          <button onClick={() => { overlayOrigin.current = document.querySelector<HTMLButtonElement>(".menu-button"); setMenu(false); void runQuick("report"); }}>Printable report</button>
+          <button onClick={(event) => { setPaletteQuery("Export workspace"); openOverlay("palette", event.currentTarget); }}>Export workspace</button>
+        </section>
+        <section className="menu-group" aria-label="Appearance"><h3>Appearance</h3>
+          <div className="view-row"><span>Theme</span><div className="segmented display-choice">{(["night", "day"] as const).map((value) => <button className={displayMode === value ? "selected" : ""} aria-pressed={displayMode === value} key={value} onClick={() => { setDisplayMode(value); window.localStorage.setItem("pivotglass.display", value); }}>{value === "night" ? "Night" : "Day"}</button>)}</div></div>
+          <div className="view-row"><span>Contrast</span><div className="segmented">{(["soft", "normal", "high"] as const).map((value) => <button className={contrast === value ? "selected" : ""} aria-pressed={contrast === value} key={value} onClick={() => { setContrast(value); window.localStorage.setItem("pivotglass.contrast", value); }}>{value[0]!.toUpperCase() + value.slice(1)}</button>)}</div></div>
+          <div className="view-row"><span>Motion</span><div className="segmented">{(["off", "reduced", "full"] as const).map((value) => <button className={effects === value ? "selected" : ""} aria-pressed={effects === value} key={value} onClick={() => setEffectsPreference(value)}>{value[0]!.toUpperCase() + value.slice(1)}</button>)}</div></div>
+        </section>
+        <details className="menu-group"><summary>Characters, sound, and badges</summary>
+          <div className="view-row"><span>Narration</span><div className="segmented">{(["off", "brief", "full"] as const).map((value) => <button className={narration === value ? "selected" : ""} aria-pressed={narration === value} key={value} onClick={() => setNarrationPreference(value)}>{value[0]!.toUpperCase() + value.slice(1)}</button>)}</div></div>
+          <button className={voiceAudio ? "selected" : ""} onClick={() => setVoiceAudioPreference(!voiceAudio)}>{voiceAudio ? "Mute advisor voice" : "Enable advisor voice"}</button><small>Uses AI-generated speech through the configured OpenAI key when available; narrated text is sent to OpenAI. Otherwise uses a device voice. No actor or character voice is cloned.</small>
+          <button className={music ? "selected" : ""} onClick={toggleMusic}>{music ? "Mute music" : "Enable generative music"}</button><input type="range" min="0" max="100" value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))} aria-label="Music volume"/>
+          <h3>Character</h3>{publicModes(state?.modes).map(({ mode: item, label }) => <button className={item.name === state?.character ? "selected" : ""} key={item.name} onClick={() => switchMode(item.name)}><b>{label}</b><small>{item.personality}</small></button>)}
+          <button onClick={(event) => { setMenu(false); overlayOrigin.current = event.currentTarget; void runQuick("badges"); }}>Badges · {state?.badge_summary.count ?? 0}</button>
+          <button onClick={(event) => openOverlay("dojo", event.currentTarget)}>Themes</button>
+        </details>
+      </nav>}
     </header>
 
-    <nav className="pane-switcher primary-flow" aria-label="Primary workflow"><button aria-current={activePane === "intelligence" ? "page" : undefined} onClick={() => { setInspectorOpen(false); go("intelligence"); }}>INVESTIGATE</button><button aria-current={activePane === "dossier" ? "page" : undefined} onClick={() => { setInspectorOpen(true); go("dossier"); }}>EVIDENCE</button><button aria-current={activePane === "artifact-field" ? "page" : undefined} onClick={() => { setInspectorOpen(true); go("artifact-field"); }}>VISUALIZE</button><button className="more-control" aria-expanded={menu} onClick={() => setMenu((current) => !current)}>MORE</button></nav>
 
-    <section className="voice-strip"><b>{publicModeLabel(state?.character).toUpperCase()}</b><span>{mode?.greeting || "Cockpit link established."}</span><i>{mode?.pursuit_title ?? "THE HUNT"}</i></section>
+    {narration === "full" && mode?.greeting && <section className="voice-strip"><b>{publicModeLabel(state?.character)}</b><span>{mode.greeting}</span></section>}
 
-    <section id="investigate" tabIndex={-1} data-focus-context="command" className={`command-rail ${commandFocused ? "has-focus" : ""}`} onPointerDown={(event) => { const target = event.target as HTMLElement; if (!target.closest("button,input,textarea,select,a,[contenteditable='true']")) { commandInputRef.current?.focus(); } }}><form onSubmit={investigate}><span className="prompt">INVESTIGATE OR ASK</span><div className="command-combobox"><input ref={commandInputRef} value={target} onChange={(event) => setTarget(event.target.value)} onFocus={() => setCommandFocused(true)} onBlur={() => window.setTimeout(() => setCommandFocused(false), 120)} onKeyDown={commandKeyDown} placeholder="Indicator, command, search, or analyst question" aria-label="Investigation target" role="combobox" aria-autocomplete="list" aria-expanded={commandFocused && completions.length > 0} aria-controls="command-completions" aria-activedescendant={completionIndex >= 0 ? `completion-${completionIndex}` : undefined}/>{commandFocused && completions.length > 0 && <div id="command-completions" className="command-completions" role="listbox">{completions.slice(0, 10).map((completion, index) => <button type="button" role="option" id={`completion-${index}`} aria-selected={completionIndex === index} className={completionIndex === index ? "selected" : ""} key={completion} onMouseDown={(event) => event.preventDefault()} onClick={() => chooseCompletion(completion)}><b>{completion}</b></button>)}</div>}</div><button disabled={active}>{active ? `WORKING ${elapsed}s` : "INVESTIGATE"}</button>{active && investigationId && <button type="button" className="cancel" onClick={cancelInvestigation}>CANCEL</button>}</form>{error && <div className="error">⚠ FAULT · {error}</div>}<small className="command-hint">Tab completes · / focuses command · F6 moves focus · ? opens help when the command is empty</small>{investigationQueue.length > 0 && <section className="investigation-queue" aria-label={`Investigation queue for ${state?.workspace ?? "current workspace"}`}><header><b>INVESTIGATION QUEUE · {state?.workspace}</b><span>{investigationQueue.filter((item) => item.status === "pending").length} PENDING</span><button disabled={active || !investigationQueue.some((item) => item.status === "pending")} onClick={() => void runQueue(false)}>RUN NEXT</button><button disabled={active || !investigationQueue.some((item) => item.status === "pending")} onClick={() => void runQueue(true)}>RUN ALL</button><button disabled={active} onClick={() => setInvestigationQueue((current) => current.filter((item) => item.status === "pending" || item.status === "running"))}>CLEAR FINISHED</button></header><ol>{investigationQueue.map((item, index) => <li key={`${item.target}-${item.addedAt}`}><span className={`queue-state ${item.status}`}>{item.status}</span><b title={`${item.target} · workspace ${item.workspace}`}>{item.target}</b>{item.error && <small>{item.error}</small>}<div><button disabled={active || index === 0} onClick={() => moveQueue(item.addedAt, -1)} aria-label={`Move ${item.target} earlier`}>↑</button><button disabled={active || index === investigationQueue.length - 1} onClick={() => moveQueue(item.addedAt, 1)} aria-label={`Move ${item.target} later`}>↓</button><button disabled={active || item.status === "running"} onClick={() => setInvestigationQueue((current) => current.filter((candidate) => candidate !== item))}>REMOVE</button>{item.status === "failed" && <button disabled={active} onClick={() => setInvestigationQueue((current) => current.map((candidate) => candidate === item ? {...candidate, status: "pending", error: undefined} : candidate))}>RETRY</button>}</div></li>)}</ol></section>}</section>
+    <section id="investigate" tabIndex={-1} data-focus-context="command" className={`command-rail ${commandFocused ? "has-focus" : ""}`} onPointerDown={(event) => { const target = event.target as HTMLElement; if (!target.closest("button,input,textarea,select,a,[contenteditable='true']")) { commandInputRef.current?.focus(); } }}><form onSubmit={investigate}><div className="command-combobox"><input ref={commandInputRef} value={target} onChange={(event) => setTarget(event.target.value)} onFocus={() => setCommandFocused(true)} onBlur={() => window.setTimeout(() => setCommandFocused(false), 120)} onKeyDown={commandKeyDown} placeholder="Indicator, command, search, or analyst question" aria-label="Investigation target" role="combobox" aria-autocomplete="list" aria-expanded={commandFocused && target.trim() !== "" && completions.length > 0} aria-controls="command-completions" aria-activedescendant={completionIndex >= 0 ? `completion-${completionIndex}` : undefined}/>{commandFocused && target.trim() !== "" && completions.length > 0 && <div id="command-completions" className="command-completions" role="listbox">{completions.slice(0, 10).map((completion, index) => <button type="button" role="option" id={`completion-${index}`} aria-selected={completionIndex === index} className={completionIndex === index ? "selected" : ""} key={completion} onMouseDown={(event) => event.preventDefault()} onClick={() => chooseCompletion(completion)}><b>{completion}</b></button>)}</div>}</div><button disabled={active}>{active ? `Working ${elapsed}s` : "Investigate"}</button>{active && investigationId && <button type="button" className="cancel" onClick={cancelInvestigation}>Cancel</button>}</form>{error && <div className="error">⚠ FAULT · {error}</div>}{commandFocused && !target && <small className="command-hint"><kbd>Tab</kbd> completes · <kbd>/</kbd> focuses · <kbd>?</kbd> help</small>}{investigationQueue.length > 0 && <section className="investigation-queue" aria-label={`Investigation queue for ${state?.workspace ?? "current workspace"}`}><header><b>INVESTIGATION QUEUE · {state?.workspace}</b><span>{investigationQueue.filter((item) => item.status === "pending").length} PENDING</span><button disabled={active || !investigationQueue.some((item) => item.status === "pending")} onClick={() => void runQueue(false)}>RUN NEXT</button><button disabled={active || !investigationQueue.some((item) => item.status === "pending")} onClick={() => void runQueue(true)}>RUN ALL</button><button disabled={active} onClick={() => setInvestigationQueue((current) => current.filter((item) => item.status === "pending" || item.status === "running"))}>CLEAR FINISHED</button></header><ol>{investigationQueue.map((item, index) => <li key={`${item.target}-${item.addedAt}`}><span className={`queue-state ${item.status}`}>{item.status}</span><b title={`${item.target} · workspace ${item.workspace}`}>{item.target}</b>{item.error && <small>{item.error}</small>}<div><button disabled={active || index === 0} onClick={() => moveQueue(item.addedAt, -1)} aria-label={`Move ${item.target} earlier`}>↑</button><button disabled={active || index === investigationQueue.length - 1} onClick={() => moveQueue(item.addedAt, 1)} aria-label={`Move ${item.target} later`}>↓</button><button disabled={active || item.status === "running"} onClick={() => setInvestigationQueue((current) => current.filter((candidate) => candidate !== item))}>REMOVE</button>{item.status === "failed" && <button disabled={active} onClick={() => setInvestigationQueue((current) => current.map((candidate) => candidate === item ? {...candidate, status: "pending", error: undefined} : candidate))}>RETRY</button>}</div></li>)}</ol></section>}</section>
 
-    <section id="investigate-intake" data-focus-context="intake" className="investigate-intake" hidden={activePane !== "intelligence"}>
-      {state?.workspace && <DocumentIntake key={state.workspace} workspace={state.workspace}
+    <div className="workspace-body">
+    <section id="sources" data-focus-context="intake" data-pane="sources" className={`investigate-intake pane ${maximized === "sources" ? "pane-maximized" : ""}`} hidden={!solo && (activePane === "dossier" || activePane === "artifact-field") && maximized !== "sources"} onFocusCapture={() => { if (!solo) setActivePane("sources"); }}>
+      {state?.workspace && <DocumentIntake key={state.workspace} workspace={state.workspace} controls={<PaneControls id="sources" chrome={chrome}/>}
         onChanged={refresh} onWorkflowEvent={handleIntakeWorkflow}
         onUseIndicator={(value) => { setTarget(value); setWorkflowHelpVisible(false); requestAnimationFrame(() => commandInputRef.current?.focus()); }}/> }
     </section>
 
-    {state?.pursuit_brief && <div data-focus-context="brief">
+    {state?.pursuit_brief && <div id="brief" data-focus-context="brief" data-pane="brief" className={`pane ${maximized === "brief" ? "pane-maximized" : ""}`} hidden={!solo && (activePane === "dossier" || activePane === "artifact-field") && maximized !== "brief"} onFocusCapture={() => { if (!solo) setActivePane("brief"); }}>
       <PursuitBrief
+        controls={<PaneControls id="brief" chrome={chrome}/>}
         brief={state.pursuit_brief}
         localQueuePending={investigationQueue.filter((item) => item.status === "pending").length}
         active={active}
@@ -1156,7 +1213,6 @@ export default function Cockpit() {
       />
     </div>}
 
-    {guidanceProfile.level === "novice" && <section className="novice-question-entry"><b>NOVICE PRACTICE</b><p>What data do you have? What happened? Build questions through a guided Q&amp;A, then review and save them.</p><button onClick={() => { setWorkflowHelpVisible(false); openFullWorkbench(); }}>BUILD INVESTIGATIVE QUESTIONS · Q&amp;A</button></section>}
 
 
     <section data-focus-context="systems" className={`telemetry-rack ${collapsed.systems ? "collapsed" : ""}`} id="systems" tabIndex={-1}>
@@ -1170,18 +1226,19 @@ export default function Cockpit() {
     </section>
 
     <section className="cockpit-grid">
-      <article data-focus-context="activity" className={`panel feed-panel ${collapsed.intelligence ? "collapsed" : ""}`} id="intelligence" tabIndex={-1}><PanelTitle id="intelligence" title="INVESTIGATION ACTIVITY" status={`${taskGroups.length} TASKS · ${feed.length} EVENTS`} collapsed={collapsed.intelligence} maximized={maximized === "intelligence"} onToggle={() => togglePane("intelligence")} onMaximize={() => toggleMaximize("intelligence")}/><div id="intelligence-content" className="feed" ref={feedRef} tabIndex={0} aria-label="Scrollable intelligence feed" onScroll={(event) => { const node = event.currentTarget; setReviewingHistory(node.scrollHeight - node.scrollTop - node.clientHeight > 32); }}>
-        {(state?.analysis || state?.frameworks) && <details ref={fullWorkbenchRef} className="full-workbench" id="full-workbench" tabIndex={-1}><summary><span><b>FULL SCIENTIFIC WORKBENCH</b><small>Questions, competing explanations, contradictions, confidence, requirements, and framework mappings</small></span><i>OPEN</i></summary><div>{state?.analysis && <ScientificWorkbench analysis={state.analysis} workspace={state.workspace} guidanceLevel={guidanceProfile.level} onCommand={runAnalyticCommand}/>} {state?.frameworks && <FrameworkLenses frameworks={state.frameworks} onCommand={(command) => void runQuick(command)}/>}</div></details>}
-        {feed.length === 0 && <div className="standby"><div className="reticle"><i/><i/><i/></div><b>AWAITING TARGET LOCK</b><span>Evidence, retrieval briefings, and justified pivots will appear here.</span></div>}
-        {enrichmentActivity && (enrichmentActivity.data.rows.length > 0 || liveEnrichmentRows.length > 0) && <><section className="hunt-summary"><b>ENRICHMENT ACTIVITY</b><span>indicators × enrichment sources · RGB status blocks · newest activity first</span></section><TaskMatrix intent={enrichmentActivity} liveRows={liveEnrichmentRows} onSelectCell={(cell) => setExpandedTask(String(cell.enrichment ?? ""))}/></>}
+      <article data-focus-context="activity" data-pane="intelligence" className={`panel feed-panel pane ${collapsed.intelligence ? "collapsed" : ""} ${maximized === "intelligence" ? "pane-maximized" : ""}`} id="intelligence" tabIndex={-1}><PanelTitle id="intelligence" status={feed.length ? `${taskGroups.length} tasks · ${feed.length} events` : undefined} collapsed={collapsed.intelligence} onToggle={() => togglePane("intelligence")} chrome={chrome}/><div id="intelligence-content" className="feed" ref={feedRef} tabIndex={0} aria-label="Scrollable intelligence feed" onScroll={(event) => { const node = event.currentTarget; setReviewingHistory(node.scrollHeight - node.scrollTop - node.clientHeight > 32); }}>
+        {(state?.analysis || state?.frameworks) && <details ref={fullWorkbenchRef} className="full-workbench" id="full-workbench" tabIndex={-1}><summary><span><b>Workbench</b><small>Questions, competing hypotheses, contradictions, confidence, requirements, and framework mappings</small></span><i>Open</i></summary><div>{state?.analysis && <ScientificWorkbench analysis={state.analysis} workspace={state.workspace} guidanceLevel={guidanceProfile.level} onCommand={runAnalyticCommand}/>} {state?.frameworks && <FrameworkLenses frameworks={state.frameworks} onCommand={(command) => void runQuick(command)}/>}</div></details>}
+        {feed.length === 0 && !(enrichmentActivity && enrichmentActivity.data.rows.length > 0) && <p className="empty-line">No activity yet. Open or paste a report, or enter an indicator above.{guidanceProfile.level !== "novice" && <> <button type="button" className="link-button" onClick={resetGuidedWalkthrough}>Show me how</button></>}</p>}
+        {enrichmentActivity && (enrichmentActivity.data.rows.length > 0 || liveEnrichmentRows.length > 0) && <><section className="hunt-summary"><b>Enrichment</b><span>Indicators by source, newest first</span></section><TaskMatrix intent={enrichmentActivity} liveRows={liveEnrichmentRows} onSelectCell={(cell) => setExpandedTask(String(cell.enrichment ?? ""))}/></>}
         {taskGroups.filter((task) => expandedTask === task.key).map((task) => <section className="task-detail" id={`task-${task.key}`} key={task.key}><header><div><b>{task.tool}</b><small>{task.events.length} ordered transitions · {task.artifacts.length} evidence records</small></div><button onClick={() => setExpandedTask(null)}>COLLAPSE</button></header>{task.events.map((item) => <section id={`event-${item.event_id}`} className={`event ${item.content_class} state-${item.lifecycle} class-${item.event_class}`} key={item.event_id}><div className="event-head"><b>{item.lifecycle.toUpperCase()}</b><span>{item.source ?? item.event_class}</span></div><small>{item.tool} · event {item.sequence}</small>{item.briefing && <><p><label>GATHER</label>{item.briefing.artifacts}</p><p><label>WHY</label>{item.briefing.purpose}</p><p><label>WATCH</label>{item.briefing.watch_for}</p><small>Retrieval goal—not an observed finding.</small></>}{item.summary && <pre>{item.summary}</pre>}{item.reason && <p><label>STATE</label>{item.reason}</p>}{item.artifact_ids?.map((id) => { const artifact = state?.objects.find((candidate) => candidate.reference === id || candidate.stix_id === id); return <button className="evidence-link" title={artifact?.value ?? "Open stored evidence"} key={id} onClick={(event) => openDetail(id, event.currentTarget)}>OPEN {artifact?.value ?? "stored evidence"}</button>; })}</section>)}</section>)}
       </div></article>
 
       <aside className={`right-stack active-${activePane} ${inspectorOpen ? "inspector-open" : ""}`} aria-label="Contextual inspector">
-        <article data-focus-context="evidence" className={`panel instruments ${collapsed.dossier ? "collapsed" : ""}`} id="dossier" tabIndex={-1}><PanelTitle id="dossier" title="DOSSIER SUMMARY" status={`${dossier}/9 FACETS`} collapsed={collapsed.dossier} maximized={maximized === "dossier"} onToggle={() => togglePane("dossier")} onMaximize={() => toggleMaximize("dossier")}/><div id="dossier-content" className="panel-content"><dl><div><dt>WORKSPACE</dt><dd>{state?.workspace ?? "—"}</dd></div><div><dt>CHARACTER</dt><dd>{publicModeLabel(state?.character)}</dd></div><div><dt>ARTIFACTS</dt><dd>{state?.objects.length ?? 0}</dd></div><div><dt>DOSSIER</dt><dd>{dossier}/9 FILLED</dd></div></dl><div className="dossier-object" aria-label={`${dossier} of 9 dossier facets filled`}><div className="dossier-core"><b>DOSSIER</b><span>{dossierProgress}/9 mapped</span></div><div className="dossier-facets">{(state?.dossier_slots ?? Array.from({length: 9}, (_, index) => ({name: `slot ${index + 1}`, status: "empty" as const, evidence_count: 0}))).map((slot, index) => <button className={`${slot.status} ${selectedFacet === slot.name ? "selected" : ""}`} key={slot.name} data-tooltip={`${slot.name.replaceAll("_", " ")}: ${slot.status}, ${slot.evidence_count} source-backed evidence pieces. Click to inspect this plane.`} onClick={() => setSelectedFacet((current) => current === slot.name ? null : slot.name)} aria-pressed={selectedFacet === slot.name} aria-label={`${slot.name}: ${slot.status}, ${slot.evidence_count} evidence. Inspect dossier facet.`}><span>{index + 1}</span><small>{slot.name.replaceAll("_", " ")}</small></button>)}</div></div>{selectedDossierSlot && <section className="facet-evidence"><header><b>{selectedDossierSlot.name.replaceAll("_", " ").toUpperCase()}</b><button onClick={() => setSelectedFacet(null)}>CLOSE</button></header><p>{selectedDossierSlot.evidence_count} source-backed evidence pieces contribute to this dimension.</p>{selectedDossierSlot.evidence?.length ? <div>{selectedDossierSlot.evidence.map((item) => <button key={item.reference} onClick={(event) => void openDetail(item.reference, event.currentTarget)}><b title={item.value}>{item.value}</b><span>{item.type}</span></button>)}</div> : <small>No directly attributable stored evidence yet.</small>}</section>}</div></article>
-        <article data-focus-context="visualize" className={`panel chart-panel ${collapsed["artifact-field"] ? "collapsed" : ""}`} id="artifact-field" tabIndex={-1}><PanelTitle id="artifact-field" title="CHARTS & EVIDENCE" status="PYTHON INTENT / FLINT" collapsed={collapsed["artifact-field"]} maximized={maximized === "artifact-field"} onToggle={() => togglePane("artifact-field")} onMaximize={() => toggleMaximize("artifact-field")}/><div id="artifact-field-content" className="panel-content"><VisualizationWorkspace intents={state?.visualizations ?? []} theme={theme} graphLayouts={state?.graph_layouts ?? []} onGraphLayoutsChanged={refresh} onDataChanged={refresh} onOpenEvidence={(reference, origin) => void openDetail(reference, origin)}/><div className="artifact-list">{state?.objects.slice(-12).map((item) => { const queued = investigationQueue.some((entry) => entry.target === item.value && ["pending", "running"].includes(entry.status)); return <div className="artifact-row" key={item.reference} data-tooltip={`${item.value} · ${item.type} · ${item.country ? `source-backed location ${item.country}` : "location unknown"} · ${queued ? "already queued" : processedTargets.has(item.value ?? "") ? "processed previously; queue to re-run" : "new; click queue to investigate"}`}><button title={`${item.value} · ${item.country ?? "location unknown"} · open provenance`} onClick={(event) => openDetail(item.reference, event.currentTarget)}><b>{flag(item.country)} {item.known_malware ? "☠️ " : ""}{item.value}</b><span>{item.type} · {queued ? "queued" : processedTargets.has(item.value ?? "") ? "processed" : "new"}</span></button><button className="queue-indicator" onClick={() => queueIndicator(item.value)} disabled={queued} title={queued ? "Already queued" : processedTargets.has(item.value ?? "") ? "Queue a fresh investigation" : "Queue this indicator for investigation"}>{queued ? "✓ QUEUED" : processedTargets.has(item.value ?? "") ? "↻ QUEUE AGAIN" : "+ QUEUE"}</button></div>; })}</div></div></article>
+        <article data-focus-context="evidence" data-pane="dossier" className={`panel instruments pane ${collapsed.dossier ? "collapsed" : ""} ${maximized === "dossier" ? "pane-maximized" : ""}`} id="dossier" tabIndex={-1}><PanelTitle id="dossier" status={`${state?.objects.length ?? 0} indicators · ${dossier} of 9 dimensions`} collapsed={collapsed.dossier} onToggle={() => togglePane("dossier")} chrome={chrome}/><div id="dossier-content" className="panel-content"><div className="dossier-object" aria-label={`${dossier} of 9 dossier facets filled`}><div className="dossier-core"><b>DOSSIER</b><span>{dossierProgress}/9 mapped</span></div><div className="dossier-facets">{(state?.dossier_slots ?? Array.from({length: 9}, (_, index) => ({name: `slot ${index + 1}`, status: "empty" as const, evidence_count: 0}))).map((slot, index) => <button className={`${slot.status} ${selectedFacet === slot.name ? "selected" : ""}`} key={slot.name} data-tooltip={`${slot.name.replaceAll("_", " ")}: ${slot.status}, ${slot.evidence_count} source-backed evidence pieces. Click to inspect this plane.`} onClick={() => setSelectedFacet((current) => current === slot.name ? null : slot.name)} aria-pressed={selectedFacet === slot.name} aria-label={`${slot.name}: ${slot.status}, ${slot.evidence_count} evidence. Inspect dossier facet.`}><span>{index + 1}</span><small>{slot.name.replaceAll("_", " ")}</small></button>)}</div></div>{selectedDossierSlot && <section className="facet-evidence"><header><b>{selectedDossierSlot.name.replaceAll("_", " ").toUpperCase()}</b><button onClick={() => setSelectedFacet(null)}>CLOSE</button></header><p>{selectedDossierSlot.evidence_count} source-backed evidence pieces contribute to this dimension.</p>{selectedDossierSlot.evidence?.length ? <div>{selectedDossierSlot.evidence.map((item) => <button key={item.reference} onClick={(event) => void openDetail(item.reference, event.currentTarget)}><b title={item.value}>{item.value}</b><span>{item.type}</span></button>)}</div> : <small>No directly attributable stored evidence yet.</small>}</section>}</div></article>
+        <article data-focus-context="visualize" data-pane="artifact-field" className={`panel chart-panel pane ${collapsed["artifact-field"] ? "collapsed" : ""} ${maximized === "artifact-field" ? "pane-maximized" : ""}`} id="artifact-field" tabIndex={-1}><PanelTitle id="artifact-field" collapsed={collapsed["artifact-field"]} onToggle={() => togglePane("artifact-field")} chrome={chrome}/><div id="artifact-field-content" className="panel-content"><VisualizationWorkspace intents={state?.visualizations ?? []} theme={theme} graphLayouts={state?.graph_layouts ?? []} onGraphLayoutsChanged={refresh} onDataChanged={refresh} onOpenEvidence={(reference, origin) => void openDetail(reference, origin)}/><div className="artifact-list">{state?.objects.slice(-12).map((item) => { const queued = investigationQueue.some((entry) => entry.target === item.value && ["pending", "running"].includes(entry.status)); return <div className="artifact-row" key={item.reference} data-tooltip={`${item.value} · ${item.type} · ${item.country ? `source-backed location ${item.country}` : "location unknown"} · ${queued ? "already queued" : processedTargets.has(item.value ?? "") ? "processed previously; queue to re-run" : "new; click queue to investigate"}`}><button title={`${item.value} · ${item.country ?? "location unknown"} · open provenance`} onClick={(event) => openDetail(item.reference, event.currentTarget)}><b>{flag(item.country)} {item.known_malware ? "☠️ " : ""}{item.value}</b><span>{item.type} · {queued ? "queued" : processedTargets.has(item.value ?? "") ? "processed" : "new"}</span></button><button className="queue-indicator" onClick={() => queueIndicator(item.value)} disabled={queued} title={queued ? "Already queued" : processedTargets.has(item.value ?? "") ? "Queue a fresh investigation" : "Queue this indicator for investigation"}>{queued ? "Queued" : processedTargets.has(item.value ?? "") ? "Queue again" : "Queue"}</button></div>; })}</div></div></article>
       </aside>
     </section>
+    </div>
 
     {guidanceReady && workflowHelpVisible && !modalOpen && (
       <div ref={guidedHelpRef} className="guided-help-layer" style={guidedHelpStyle}>
@@ -1209,8 +1266,7 @@ export default function Cockpit() {
       <div><button onClick={() => followGuidance(guidance)}>{guidance.actionLabel}</button><button onClick={() => speakCharacterNarration(state?.character ?? "default", guidance.message)}>READ ALOUD</button><button aria-label="Dismiss field guidance" onClick={recordAnalystActivity}>DISMISS</button></div></div>
     </aside>}
     </AdvisorPortal>}
-    <footer><button title="Open contextual operator help" onClick={(event) => openOverlay("help", event.currentTarget)}>HELP ?</button></footer>
-    {help && <div className="modal-backdrop" onMouseDown={closeOverlays}><section ref={dialogRef} className="help-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="help-heading"><button className="close" aria-label="Close help" onClick={closeOverlays}>×</button><span className="eyebrow">PIVOTGLASS FIELD MANUAL · {PANE_LABELS[activePane].toUpperCase()}</span><h2 id="help-heading" tabIndex={-1}>WHAT DO YOU WANT TO DO?</h2><div className="help-tasks"><button onClick={() => { setHelp(false); followGuidedAction("frame_questions"); }}><b>BUILD INVESTIGATIVE QUESTIONS</b><span>Practice source checks, unknowns, competing explanations, and question framing through Q&amp;A.</span><kbd>CLICK / ENTER</kbd></button><button onClick={() => { setHelp(false); followGuidedAction("focus_command"); }}><b>START WITH ONE INDICATOR</b><span>Enter a domain, IP, URL, email, or hash, then choose Investigate.</span><kbd>RETURN</kbd></button><button onClick={() => { setHelp(false); followGuidedAction("focus_intake"); }}><b>ADD A REPORT OR LIST</b><span>Preview a local source, select candidate entities, then explicitly admit them with provenance.</span><kbd>CLICK / ENTER</kbd></button><button onClick={() => { setHelp(false); followGuidedAction("review_evidence"); }}><b>DRILL INTO EVIDENCE</b><span>Inspect provenance, confidence, contradictions, and incomplete Dossier dimensions.</span><kbd>CLICK / ENTER</kbd></button><button onClick={() => { openOverlay("palette"); }}><b>FIND A CONTROL</b><span>Search pane, effects, narration, audio, alert, and character commands.</span><kbd>⌘/CTRL K</kbd></button><button onClick={() => { setHelp(false); void runQuick("report"); }}><b>CREATE A REPORT</b><span>Review the workspace report, then print or save it.</span><kbd>CLICK / ENTER</kbd></button><button onClick={() => { setPaletteQuery("Export workspace"); openOverlay("palette"); }}><b>EXPORT WORKSPACE DATA</b><span>Choose JSON, CSV, STIX, or a graph format.</span><kbd>CLICK / ENTER</kbd></button></div><section className="guidance-levels" aria-label="Workflow guidance level"><header><b>WORKFLOW GUIDANCE</b><span>{guidanceProfile.completedWorkflows} WORKFLOWS COMPLETED</span></header><p>Guidance stays at your chosen level. Suggested interface guidance: {suggestedGuidanceLevel(guidanceProfile.completedWorkflows).toUpperCase()}. Workflow counts indicate interface familiarity, not analytical expertise. Choose lighter help when you are ready.</p><div>{(["novice", "adept", "expert"] as GuidanceLevel[]).map((level) => <button type="button" aria-pressed={guidanceProfile.level === level} className={guidanceProfile.level === level ? "selected" : ""} key={level} onClick={() => setGuidanceLevel(level)}><b>{level.toUpperCase()}</b><span>{level === "novice" ? "Step-by-step walkthroughs" : level === "adept" ? "Occasional contextual tips" : "No unsolicited tips"}</span></button>)}</div><button type="button" onClick={resetGuidedWalkthrough}>RESET WALKTHROUGH</button></section><ReadingControls value={reading} onChange={saveReading} onQuiet={quietWorkspace}/><dl className="keymap"><div><dt>?</dt><dd>Help when command is empty</dd></div><div><dt>/</dt><dd>Focus command input</dd></div><div><dt>F6</dt><dd>Move between command and cockpit</dd></div><div><dt>ESC</dt><dd>Close dialog or return focus to cockpit</dd></div><div><dt>TAB</dt><dd>Complete a command or move controls</dd></div></dl><p className="truth-note"><b>Reading the display:</b> queued/running describe enrichment state; succeeded means the source completed, not that a claim is true. Evidence is observed source output. Narration is interpretation and remains labeled separately. A connection is an evidence-backed relationship between graph nodes.</p><small>Help is contextual to the active pane. Actions above perform the route they describe.</small></section></div>}
+    {help && <div className="modal-backdrop" onMouseDown={closeOverlays}><section ref={dialogRef} className="help-modal" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="help-heading"><button className="close" aria-label="Close help" onClick={closeOverlays}>×</button><span className="eyebrow">PIVOTGLASS FIELD MANUAL · {PANE_LABELS[activePane].toUpperCase()}</span><h2 id="help-heading" tabIndex={-1}>WHAT DO YOU WANT TO DO?</h2><div className="help-tasks"><button onClick={() => { setHelp(false); followGuidedAction("frame_questions"); }}><b>BUILD INVESTIGATIVE QUESTIONS</b><span>Practice source checks, unknowns, competing explanations, and question framing through Q&amp;A.</span><kbd>CLICK / ENTER</kbd></button><button onClick={() => { setHelp(false); followGuidedAction("focus_command"); }}><b>START WITH ONE INDICATOR</b><span>Enter a domain, IP, URL, email, or hash, then choose Investigate.</span><kbd>RETURN</kbd></button><button onClick={() => { setHelp(false); followGuidedAction("focus_intake"); }}><b>ADD A REPORT OR LIST</b><span>Preview a local source, select candidate entities, then explicitly admit them with provenance.</span><kbd>CLICK / ENTER</kbd></button><button onClick={() => { setHelp(false); followGuidedAction("review_evidence"); }}><b>DRILL INTO EVIDENCE</b><span>Inspect provenance, confidence, contradictions, and incomplete Dossier dimensions.</span><kbd>CLICK / ENTER</kbd></button><button onClick={() => { openOverlay("palette"); }}><b>FIND A CONTROL</b><span>Search pane, effects, narration, audio, alert, and character commands.</span><kbd>⌘/CTRL K</kbd></button><button onClick={() => { setHelp(false); void runQuick("report"); }}><b>CREATE A REPORT</b><span>Review the workspace report, then print or save it.</span><kbd>CLICK / ENTER</kbd></button><button onClick={() => { setPaletteQuery("Export workspace"); openOverlay("palette"); }}><b>EXPORT WORKSPACE DATA</b><span>Choose JSON, CSV, STIX, or a graph format.</span><kbd>CLICK / ENTER</kbd></button></div><section className="guidance-levels" aria-label="Workflow guidance level"><header><b>WORKFLOW GUIDANCE</b><span>{guidanceProfile.completedWorkflows} WORKFLOWS COMPLETED</span></header><p>Guidance stays at your chosen level. Suggested interface guidance: {suggestedGuidanceLevel(guidanceProfile.completedWorkflows).toUpperCase()}. Workflow counts indicate interface familiarity, not analytical expertise. Choose lighter help when you are ready.</p><div>{(["novice", "adept", "expert"] as GuidanceLevel[]).map((level) => <button type="button" aria-pressed={guidanceProfile.level === level} className={guidanceProfile.level === level ? "selected" : ""} key={level} onClick={() => setGuidanceLevel(level)}><b>{level.toUpperCase()}</b><span>{level === "novice" ? "Step-by-step walkthroughs" : level === "adept" ? "Occasional contextual tips" : "No unsolicited tips"}</span></button>)}</div><button type="button" onClick={resetGuidedWalkthrough}>RESET WALKTHROUGH</button></section><ViewControls value={view} onChange={saveView} onQuiet={quietWorkspace}/><dl className="keymap"><div><dt>?</dt><dd>Help when command is empty</dd></div><div><dt>/</dt><dd>Focus command input</dd></div><div><dt>F6</dt><dd>Move between command and cockpit</dd></div><div><dt>ESC</dt><dd>Close dialog or return focus to cockpit</dd></div><div><dt>TAB</dt><dd>Complete a command or move controls</dd></div><div><dt>\</dt><dd>Cycle view width: column, wide, full</dd></div><div><dt>+ / −</dt><dd>Larger or smaller text</dd></div><div><dt>z</dt><dd>Maximize or restore the current pane</dd></div><div><dt>Shift Z</dt><dd>Pop the current pane out into its own window</dd></div><div><dt>⌘K</dt><dd>All commands</dd></div></dl><p className="truth-note"><b>Reading the display:</b> queued/running describe enrichment state; succeeded means the source completed, not that a claim is true. Evidence is observed source output. Narration is interpretation and remains labeled separately. A connection is an evidence-backed relationship between graph nodes.</p><small>Help is contextual to the active pane. Actions above perform the route they describe.</small></section></div>}
     {detail && <div className="detail-backdrop" onMouseDown={closeDetail}><aside ref={dialogRef} className="detail-drawer" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Evidence ${detail.value}`}><button className="close" onClick={closeDetail}>×</button><span className="eyebrow">INDICATOR DETAIL · STORED LOCAL DATA</span><h2 title={detail.value}>{detail.value}</h2><button className="queue-detail" onClick={() => void queueIndicator(detail.value)} disabled={active}>+ QUEUE FOR INVESTIGATION</button><dl><div><dt>TYPE</dt><dd>{detail.type}</dd></div><div><dt>FULL INDICATOR</dt><dd>{detail.value}</dd></div><div><dt>PURPOSE / ROLE</dt><dd>{detail.purpose.join(" · ")}</dd></div><div><dt>SOURCE MODULE</dt><dd>{detail.source_module}</dd></div><div><dt>ORIGINAL QUERY</dt><dd>{detail.original_query}</dd></div></dl>{detail.source_intelligence && <section className="source-intelligence"><header><div><span>SOURCE INTELLIGENCE</span><h3>{detail.source_intelligence.provider}</h3></div><b>{detail.source_intelligence.headline}</b></header><dl>{detail.source_intelligence.facts.map((fact) => <div key={fact.label}><dt>{fact.label}</dt><dd>{typeof fact.value === "string" || typeof fact.value === "number" || typeof fact.value === "boolean" ? String(fact.value) : <code>{JSON.stringify(fact.value)}</code>}</dd></div>)}</dl>{detail.source_intelligence.links.length > 0 && <nav aria-label={`${detail.source_intelligence.provider} external evidence links`}>{detail.source_intelligence.links.map((link) => <a href={link.url} target="_blank" rel="noreferrer" key={`${link.label}-${link.url}`}>{link.label} ↗</a>)}</nav>}{detail.source_intelligence.groups.map((group) => <details key={group.title}><summary>{group.title}</summary><pre>{JSON.stringify(group.items, null, 2)}</pre></details>)}</section>}<h3>DISCOVERY BREADCRUMBS</h3><ol className="breadcrumbs">{detail.breadcrumbs.map((crumb, index) => <li key={`${crumb.indicator}-${index}`}><b>{crumb.indicator}</b><span>{crumb.relationship}</span></li>)}</ol><h3>RELATIONSHIPS</h3>{detail.relationships.length ? <ol className="relationship-list">{detail.relationships.map((relation, index) => <li key={`${relation.indicator}-${index}`}><span>{relation.direction ?? "related"} · {relation.relationship ?? "related to"}{relation.basis ? ` · ${relation.basis}` : ""}</span><b title={relation.indicator}>{relation.indicator}</b><div>{relation.reference && <button onClick={(event) => void openDetail(relation.reference!, event.currentTarget)}>OPEN DETAIL</button>}{relation.indicator && relation.indicator !== "unavailable" && <button onClick={() => queueIndicator(relation.indicator)}>+ QUEUE</button>}</div></li>)}</ol> : <p>No explicit relationship stored.</p>}<h3>HISTORICAL COLLECTION</h3><pre>{detail.history.length ? JSON.stringify(detail.history, null, 2) : "No matching module run recorded."}</pre><h3>PROVENANCE</h3><pre>{JSON.stringify(detail.provenance, null, 2)}</pre><h3>NORMALIZED FIELDS</h3><pre>{JSON.stringify(detail.normalized, null, 2)}</pre><h3>DOSSIER CONTRIBUTIONS</h3><pre>{detail.dossier_contributions.length ? JSON.stringify(detail.dossier_contributions, null, 2) : "unavailable"}</pre><h3>ANALYST ANNOTATION</h3><div className="annotation-editor"><textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="Record a sourced observation, hypothesis, or collection note"/><button onClick={() => void saveAnnotation()} disabled={!noteText.trim()}>SAVE LINKED NOTE</button></div><h3>SAFE RAW RECORD</h3><pre>{JSON.stringify(detail.raw, null, 2)}</pre><small>Opened from stored evidence. Backend identifiers remain hidden; no network service or model was invoked.</small></aside></div>}
     {alertsOpen && <div className="modal-backdrop" onMouseDown={closeOverlays}><section ref={dialogRef} className="alert-queue" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Attention needed alerts"><button className="close" aria-label="Close alerts" onClick={closeOverlays}>×</button><span className="eyebrow">PERSISTENT ATTENTION RECORD</span><h2>ATTENTION NEEDED</h2>{alerts.alerts.length === 0 && <p>No attention records.</p>}{alerts.alerts.map((alert) => <article className={alert.acknowledged ? "acknowledged" : ""} key={alert.event_id}><header><b>{alert.event_class.replaceAll("_", " ").toUpperCase()}</b><span>{alert.severity.toUpperCase()} · {alert.acknowledged ? "ACKNOWLEDGED" : "UNREAD"}</span></header><p>{alert.summary ?? alert.reason ?? alert.source}</p><div><button onClick={() => jumpToAlert(alert)}>ORIGIN</button>{!alert.acknowledged && <button onClick={() => acknowledge(alert.event_id)}>ACKNOWLEDGE</button>}{alert.artifact_ids?.map((id) => <button key={id} onClick={(event) => openDetail(id, event.currentTarget)}>DETAILS</button>)}</div></article>)}</section></div>}
     {palette && <div className="modal-backdrop" onMouseDown={closeOverlays}><section ref={dialogRef} className="command-palette" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Command palette"><input autoFocus value={paletteQuery} onChange={(event) => setPaletteQuery(event.target.value)} placeholder="Search cockpit commands" aria-label="Search cockpit commands"/>{paletteCommands.map((command) => <button key={command.label} onClick={() => { command.run(); setPalette(false); setPaletteQuery(""); }}>{command.label}</button>)}</section></div>}

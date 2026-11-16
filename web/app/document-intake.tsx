@@ -7,7 +7,7 @@
  * Preview alone stores nothing; enrichment never runs from intake.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createIntakeRequestScope } from "./intake-review";
 import { IndicatorFocus, type FocusSource } from "./indicator-focus";
 import type { DocumentRelations, FocusCandidate } from "./focus-model";
@@ -98,8 +98,11 @@ export function DocumentIntake({
   onChanged,
   onWorkflowEvent,
   onUseIndicator,
+  controls,
 }: {
   workspace: string;
+  /** Pane controls (maximize, pop out) supplied by the cockpit's pane authority. */
+  controls?: ReactNode;
   onChanged?: () => Promise<void> | void;
   onWorkflowEvent?: (event: IntakeWorkflowEvent) => void;
   onUseIndicator?: (value: string) => void;
@@ -302,13 +305,14 @@ export function DocumentIntake({
           onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void openPreview(file); }}
           aria-label="Choose a source to review" />
         {status && <span className="intake-status" role="status">{status}</span>}
+        {controls && <span className="intake-controls">{controls}</span>}
         {pending && !focus && <>
           <button type="button" data-action="reopen-focus" onClick={() => setFocus(previewSource(pending.preview, pending.file, pending.occurrenceId))}>Reopen</button>
           {!pending.occurrenceId && <button type="button" disabled={busy} onClick={() => void store()}>Store source</button>}
         </>}
       </div>
       {pasteOpen && <div className="intake-paste">
-        <textarea autoFocus value={pasteText} onChange={(event) => setPasteText(event.target.value)} rows={5}
+        <textarea autoFocus value={pasteText} onChange={(event) => setPasteText(event.target.value)} rows={12}
           placeholder="Paste report text or an indicator list" aria-label="Pasted source text"
           onKeyDown={(event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); openPaste(); } }} />
         <button type="button" disabled={!pasteText.trim() || busy} onClick={openPaste}>Review ⌘↵</button>
@@ -323,7 +327,7 @@ export function DocumentIntake({
       <details className="document-library" open={library.length > 0 && library.length <= 6}>
         <summary>Stored sources · {libraryLoading ? "loading" : library.length}</summary>
         {libraryLoading && <p role="status">Loading the document library for {workspace}…</p>}
-        {libraryError && <div role="alert"><p>{libraryError}</p>{library.length > 0 && <small>Showing the last loaded list; it may be out of date.</small>}<button type="button" disabled={libraryLoading} onClick={() => void loadLibrary()}>RETRY LIBRARY</button></div>}
+        {libraryError && <div role="alert"><p>{libraryError}</p>{library.length > 0 && <small>Showing the last loaded list; it may be out of date.</small>}<button type="button" disabled={libraryLoading} onClick={() => void loadLibrary()}>Retry</button></div>}
         {library.length > 6 && <input value={libraryFilter} onChange={(event) => setLibraryFilter(event.target.value)} placeholder="Filter sources" aria-label="Filter stored sources" />}
         {library.length ? <ol>
           {visibleLibrary.map((item) => <li key={item.occurrence_id}>
@@ -331,7 +335,7 @@ export function DocumentIntake({
               <b title={item.filename}>{item.filename}</b>
               <span>{plural(item.candidate_count, "mention")} · {item.detected_media_type} · {new Date(item.acquired_at).toLocaleDateString()}</span>
             </button>
-            <code className="document-hash" title="SHA-256 of the stored bytes">{item.content_sha256}</code>
+            <code className="document-hash" title={`SHA-256 ${item.content_sha256}`}>{item.content_sha256.slice(0, 8)}…{item.content_sha256.slice(-8)}</code>
           </li>)}
         </ol> : !libraryLoading && !libraryError ? <p>No documents have been ingested into this workspace.</p> : null}
       </details>

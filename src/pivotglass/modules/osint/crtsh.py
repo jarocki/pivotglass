@@ -57,7 +57,6 @@ from typing import Any
 import httpx
 
 from pivotglass.core.ioc_types import detect_ioc_type
-
 from pivotglass.modules.base import (
     BaseModule,
     ModuleError,

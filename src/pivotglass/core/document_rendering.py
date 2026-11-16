@@ -42,9 +42,9 @@ from html.parser import HTMLParser
 from typing import Literal
 
 from markdown_it import MarkdownIt
+from pydantic import BaseModel, ConfigDict
 
 from pivotglass.core.document_ingestion import decode_text
-from pydantic import BaseModel, ConfigDict
 
 RENDERING_VERSION = "pivotglass-safe-render-1.0"
 MAX_RENDERED_HTML_CHARS = 4_000_000

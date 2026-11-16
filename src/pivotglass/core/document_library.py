@@ -19,12 +19,12 @@ from pivotglass.core.document_entity_extraction import (
     DocumentEntityExtractionService,
     EntityExtractionLimits,
 )
-from pivotglass.core.document_rendering import render_document
 from pivotglass.core.document_ingestion import (
     DocumentIntakeReceipt,
     DocumentIntakeService,
     DocumentLimits,
 )
+from pivotglass.core.document_rendering import render_document
 from pivotglass.models.database import (
     DocumentContent,
     DocumentEntityCandidate,

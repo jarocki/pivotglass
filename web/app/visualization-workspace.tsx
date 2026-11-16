@@ -2089,7 +2089,7 @@ export function VisualizationWorkspace({
     <section className="visualization-workspace" aria-label="Visual analysis">
       <div className="visualization-picker">
         <label>
-          <span>CHOOSE AN ANALYST QUESTION</span>
+          <span>Question</span>
           <select value={selected.intent_id} onChange={(event) => setSelectedId(event.target.value)}>
             {intents.map((intent) => (
               <option key={intent.intent_id} value={intent.intent_id}>{intent.title}</option>
@@ -2098,24 +2098,26 @@ export function VisualizationWorkspace({
         </label>
         <small>{intents.length} evidence views</small>
         <nav className="visualization-shortcuts" aria-label="Investigation views">
-          {[["pivot-trail","PROVENANCE HISTORY"],["relationship-graph","RELATIONSHIP GRAPH"],["indicator-constellation","INDICATOR COVERAGE"]].map(([id,label])=>intents.some(intent=>intent.intent_id===id)&&<button key={id} aria-pressed={selectedId===id} onClick={()=>setSelectedId(id)}>{label}</button>)}
+          {[["pivot-trail","Provenance history"],["relationship-graph","Relationship graph"],["indicator-constellation","Indicator coverage"]].map(([id,label])=>intents.some(intent=>intent.intent_id===id)&&<button key={id} aria-pressed={selectedId===id} onClick={()=>setSelectedId(id)}>{label}</button>)}
         </nav>
       </div>
       <header className="visualization-header">
         <div>
-          <span>ANALYST QUESTION</span>
+          <span>Question</span>
           <h3>{selected.question_text}</h3>
           <small>
             {selected.source_scope.description} · {selected.source_scope.record_count} records
             {selected.source_scope.timezone ? ` · ${selected.source_scope.timezone}` : ""}
           </small>
-          <aside className="visualization-explainer" aria-label="Why Pivotglass selected this visualization">
-            <b>{VISUALIZATION_VIEW_LABELS[selected.view]}</b>
-            <p><strong>Why this fits</strong> {selected.selection_rationale}</p>
-            <p><strong>How to read it</strong> {selected.reading_guide}</p>
-          </aside>
+          <details className="visualization-explainer-toggle">
+            <summary>How to read this {VISUALIZATION_VIEW_LABELS[selected.view].toLowerCase()}</summary>
+            <aside className="visualization-explainer" aria-label="Why Pivotglass selected this visualization">
+              <p><strong>Why this fits</strong> {selected.selection_rationale}</p>
+              <p><strong>How to read it</strong> {selected.reading_guide}</p>
+            </aside>
+          </details>
         </div>
-        <button onClick={() => downloadIntent(selected)}>EXPORT EXACT DATA</button>
+        <button onClick={() => downloadIntent(selected)}>Export data</button>
       </header>
       {validationError
         ? <div className="visualization-error">Rejected intent: {validationError}</div>

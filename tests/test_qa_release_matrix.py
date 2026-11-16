@@ -42,7 +42,10 @@ def test_web_music_is_local_opt_in_and_effects_have_off_path():
     assert "new AudioContext()" in engine
     assert "schedule()" in engine
     assert 'MusicPhase = "idle" | "investigating" | "caution" | "complete"' in engine
-    assert "OFF BY DEFAULT" in page
+    # Music and voice start off; motion starts reduced (#27).
+    assert "const [music, setMusic] = useState(false);" in page
+    assert "const [voiceAudio, setVoiceAudio] = useState(false);" in page
+    assert 'else setEffects("reduced");' in page
     assert "fetch(" not in engine
     assert ".effects-off .ambient-environment{display:none}" in css
 
@@ -193,7 +196,7 @@ def test_enrichment_and_constellation_share_literal_rgb_led_status_blocks():
 
     assert "<TaskMatrix intent={enrichmentActivity}" in page
     assert "liveRows={liveEnrichmentRows}" in page
-    assert "newest activity first" in page
+    assert "newest first" in page
     assert "<RGBLed status={status}" in workspace
     assert "rgbLabelForStatus(status)" in workspace
     for mapping in ("empty: [0, 0, 0]", "succeeded: [0, 255, 0]", "partial: [128, 128, 128]"):
@@ -262,7 +265,7 @@ def test_visualization_question_picker_keeps_the_analyst_question_primary():
     workspace = Path("web/app/visualization-workspace.tsx").read_text()
     styles = Path("web/app/pivotglass.css").read_text()
 
-    assert "CHOOSE AN ANALYST QUESTION" in workspace
+    assert "<span>Question</span>" in workspace
     assert '<select value={selected.intent_id}' in workspace
     assert 'className="visualization-picker"' in workspace
     assert ".visualization-picker" in styles
@@ -365,17 +368,18 @@ def test_investigate_owns_source_intake_and_selected_entity_admission():
     intake = Path("web/app/document-intake.tsx").read_text()
     focus = Path("web/app/indicator-focus.tsx").read_text()
 
-    intake_position = page.index('id="investigate-intake"')
+    intake_position = page.index('id="sources"')
     activity_position = page.index('className="cockpit-grid"')
     visualize_position = page.index('id="artifact-field"')
     assert intake_position < activity_position < visualize_position
-    assert 'hidden={activePane !== "intelligence"}' in page
+    # Sources belongs to Investigate; Evidence and Visualize own the body.
+    assert '(activePane === "dossier" || activePane === "artifact-field") && maximized !== "sources"' in page
     assert 'key={state.workspace}' in page
     # Admission sends exactly the analyst's chosen keys, bound to the case and hash.
     assert "candidate_keys: keys" in intake
     assert "expected_workspace: workspace" in intake
     assert "expected_sha256: pending.preview.content_sha256" in intake
-    assert "RETRY LIBRARY" in intake
+    assert ">Retry</button>" in intake
     assert 'data-action="use-admitted-indicator"' in intake
     # A failed admission after storage is retried against the stored occurrence.
     assert "candidate_admission_error" in intake
@@ -400,7 +404,11 @@ def test_guidance_is_persisted_graduated_and_presentation_only():
     assert "Workflow guidance is presentation, not evidence." in guidance
     assert "RESET WALKTHROUGH" in page
     assert 'data-tutorial-focus' in page
-    assert '.guided-focus-active [data-focus-context]' in styles
+    # Guidance never blurs or dims the analyst's work, and never opens unasked (#27).
+    assert '.guided-focus-active [data-focus-context]' not in styles
+    assert 'filter:blur(1.4px)' not in styles
+    assert 'level: "expert"' in profile
+    assert page.count("setWorkflowHelpVisible(true)") == 1
     assert 'placeGuidance(' in page
     # A tutorial reveals only the destination's ancestors, not every panel.
     assert 'intakeTargetFor(action)' in page

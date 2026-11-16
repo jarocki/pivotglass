@@ -89,3 +89,20 @@ test("tag palette accepts bare known values and dimension:value", () => {
   assert.deepEqual(parseTagInput("exfil", dims), { dimension: "role", value: "exfil" });
   assert.equal(indicatorKey("file-hash-md5", "ab"), "file|ab");
 });
+
+test("defangValue matches the server's shared defang cases", async () => {
+  const { defangValue } = await import("../app/focus-model.ts");
+  const { readFileSync } = await import("node:fs");
+  const fixture = JSON.parse(readFileSync(new URL("../../tests/fixtures/defang_cases.json", import.meta.url), "utf8")) as { cases: Array<{ value: string; type: string; expected: string }> };
+  for (const item of fixture.cases) assert.equal(defangValue(item.value, item.type), item.expected, item.value);
+});
+
+test("clipboard text and hex groups", async () => {
+  const { clipboardText, hexGroups } = await import("../app/focus-model.ts");
+  const items = [{ value: "203.0.113.44", entityType: "ipv4-addr" }, { value: "http://a.example/x", entityType: "url" }];
+  assert.equal(clipboardText(items, false), "203.0.113.44\nhttp://a.example/x");
+  assert.equal(clipboardText(items, true), "203[.]0[.]113[.]44\nhxxp[:]//a[.]example/x");
+  assert.deepEqual(hexGroups("e3b0c44298fc1c149afbf4c8996fb924"), ["e3b0c442", "98fc1c14", "9afbf4c8", "996fb924"]);
+  assert.equal(hexGroups("203.0.113.44"), null);
+  assert.equal(hexGroups("deadbeef"), null);
+});

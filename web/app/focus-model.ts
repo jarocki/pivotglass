@@ -185,3 +185,36 @@ export function parseTagInput(input: string, dimensions: TagDimension[]): { dime
   }
   return null;
 }
+
+/**
+ * Analyst-safe presentation form. Mirrors ``defang_indicator_value`` on the
+ * server; both are checked against tests/fixtures/defang_cases.json.
+ */
+export function defangValue(value: string, entityType: string): string {
+  const kind = entityType.toLocaleLowerCase();
+  if (kind === "url" || kind === "uri" || /^https?:\/\//i.test(value)) {
+    const scheme = value.toLocaleLowerCase().startsWith("https://") ? "hxxps" : "hxxp";
+    return `${scheme}[:]//${value.split("://").slice(1).join("://").replaceAll(".", "[.]")}`;
+  }
+  if (["email", "email-addr", "email-address"].includes(kind) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    const at = value.lastIndexOf("@");
+    if (at >= 0) return `${value.slice(0, at)}[@]${value.slice(at + 1).replaceAll(".", "[.]")}`;
+  }
+  if (["ipv4-addr", "ipv6-addr", "domain-name", "hostname", "ip"].includes(kind)) return value.replaceAll(".", "[.]");
+  return value;
+}
+
+/** Newline-separated values for the clipboard, in list order. */
+export function clipboardText(items: Array<{ value: string; entityType: string }>, defanged: boolean): string {
+  return items.map((item) => defanged ? defangValue(item.value, item.entityType) : item.value).join("\n");
+}
+
+/**
+ * Split a long hex digest into groups of 8 for reading and comparison. The
+ * groups are display-only: callers render them as adjacent spans so a copy
+ * still yields the raw digest.
+ */
+export function hexGroups(value: string): string[] | null {
+  if (!/^[0-9a-f]{24,}$/i.test(value)) return null;
+  return value.match(/.{1,8}/g) ?? null;
+}
