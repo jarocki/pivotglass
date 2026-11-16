@@ -214,3 +214,23 @@ def test_blankless_text_does_not_make_the_whole_document_one_paragraph() -> None
     cands = [{"entity_type": "ipv4-addr", "normalized_value": v, "start_char": short.find(v),
               "start_line": short[:short.find(v)].count("\n") + 1} for v in ("203.0.113.1", "203.0.113.2")]
     assert document_relations(cands, short)["ipv4-addr|203.0.113.1"]["same_paragraph"] == [{"key": "ipv4-addr|203.0.113.2"}]
+    flat = "intro 203.0.113.1\nnext 203.0.113.2"
+    cands = [{"entity_type": "ipv4-addr", "normalized_value": v, "start_char": flat.find(v),
+              "start_line": flat[:flat.find(v)].count("\n") + 1} for v in ("203.0.113.1", "203.0.113.2")]
+    assert document_relations(cands, flat)["ipv4-addr|203.0.113.1"]["same_paragraph"] == []
+
+
+def test_tags_survive_workspace_export_and_merge(tmp_path) -> None:
+    from pivotglass.core.workspace_admin import export_workspace, merge_workspaces
+
+    manager = WorkspaceManager(tmp_path)
+    manager.create("source")
+    manager.create("destination")
+    manager.switch("source")
+    IndicatorTagAuthority(manager).apply([_tag("domain-name", "evil.example", "cluster", "kit a")],
+                                         operator="analyst")
+    exported = export_workspace(manager, "source")
+    assert exported["tables"]["indicator_tag_events"][0]["value"] == "kit a"
+    assert merge_workspaces(manager, "source", "destination")["indicator_tag_events"] == 1
+    manager.switch("destination")
+    assert [(t["dimension"], t["value"]) for t in IndicatorTagAuthority(manager).current()] == [("cluster", "kit a")]

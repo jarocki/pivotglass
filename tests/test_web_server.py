@@ -772,27 +772,11 @@ def test_switch_mode_synchronizes_existing_agent_runner_persona(tmp_path):
     assert state["character"] == "the_computer"
 
 
-def test_investigate_rejects_non_indicator(tmp_path):
-    with pytest.raises(ValueError, match="recognized indicator"):
-        _service(tmp_path).investigate("not an indicator")
-
-
-def test_investigate_uses_existing_dispatch_and_execution_authorities(tmp_path):
+def test_investigation_rejects_non_indicator_without_recording_navigation(tmp_path):
     service = _service(tmp_path)
-    battery = type("Battery", (), {"tools": ("virustotal_lookup",)})()
-    with (
-        patch("pivotglass.web.server.dispatch_batteries", return_value=[battery]),
-        patch(
-            "pivotglass.web.server.execute_tool",
-            return_value=("Observed service response", None, [], []),
-        ) as execute,
-    ):
-        result = service.investigate("198.51.100.10")
-
-    assert [event["kind"] for event in result["events"]] == ["enrichment", "evidence"]
-    assert result["events"][0]["briefing"]["source"] == "VirusTotal"
-    assert result["events"][1]["summary"] == "Observed service response"
-    execute.assert_called_once()
+    with pytest.raises(ValueError, match="recognized indicator"):
+        service.start_investigation("not an indicator")
+    assert service.pivot_trail()["events"] == []
 
 
 def test_plan_payload_teaches_only_applicable_services(tmp_path):

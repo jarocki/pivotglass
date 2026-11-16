@@ -175,9 +175,13 @@ export function parseTagInput(input: string, dimensions: TagDimension[]): { dime
     const value = text.slice(colon + 1).trim();
     if (dimension && value) return { dimension: dimension.name, value };
   }
-  for (const dimension of dimensions) {
-    const match = dimension.values.find((item) => item.value === text || item.label.toLocaleLowerCase() === text);
-    if (match) return { dimension: dimension.name, value: match.value };
+  // Exact values win over labels across every dimension: "exfiltration" is the
+  // ATT&CK tactic, even though the role "exfil" is labelled "Exfiltration".
+  for (const exact of [true, false]) {
+    for (const dimension of dimensions) {
+      const match = dimension.values.find((item) => exact ? item.value === text : item.label.toLocaleLowerCase() === text);
+      if (match) return { dimension: dimension.name, value: match.value };
+    }
   }
   return null;
 }

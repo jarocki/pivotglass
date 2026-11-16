@@ -295,6 +295,8 @@ function TagPalette({ dimensions, count, onApply, onClose }: { dimensions: TagDi
   const query = input.trim().toLocaleLowerCase();
   const options = dimensions.flatMap((dimension) => dimension.values.map((item) => ({ dimension: dimension.name, dimensionLabel: dimension.label, ...item })))
     .filter((option) => !query || `${option.dimension}:${option.value} ${option.label}`.toLocaleLowerCase().includes(query.replace(/^\w+:/, (match) => match)));
+  // Exact value matches first, so Enter applies what was typed.
+  options.sort((a, b) => Number(b.value === query) - Number(a.value === query));
   const parsed = parseTagInput(input, dimensions);
   const free = !parsed && query.includes(":") ? parseTagInput(query, dimensions) : null;
   const choices = [...(parsed && !options.some((o) => o.dimension === parsed.dimension && o.value === parsed.value) ? [{ dimension: parsed.dimension, dimensionLabel: parsed.dimension, value: parsed.value, label: parsed.value }] : []), ...options].slice(0, 12);

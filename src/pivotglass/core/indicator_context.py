@@ -94,6 +94,9 @@ def document_relations(
         for index in range(len(paragraph_starts))
         if output_text.count("\n", boundaries[index], boundaries[index + 1] - 2) >= MAX_PARAGRAPH_LINES
     }
+    if len(paragraph_starts) == 1:
+        # No blank lines at all: the text has no paragraph structure to report.
+        oversized.add(0)
 
     def paragraph(offset: int) -> int:
         low, high = 0, len(paragraph_starts) - 1

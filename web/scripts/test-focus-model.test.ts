@@ -11,7 +11,7 @@ const c = (value: string, start: number, type = "domain-name"): FocusCandidate =
 });
 
 const dims: TagDimension[] = [
-  { name: "role", label: "Infrastructure role", key: "r", closed: false, ordered: false, values: [{ value: "c2", label: "C2" }, { value: "delivery", label: "Delivery" }] },
+  { name: "role", label: "Infrastructure role", key: "r", closed: false, ordered: false, values: [{ value: "c2", label: "C2" }, { value: "delivery", label: "Delivery" }, { value: "exfil", label: "Exfiltration" }] },
   { name: "tactic", label: "ATT&CK tactic", key: "a", closed: true, ordered: true, values: [
     { value: "initial-access", label: "TA0001 Initial Access" }, { value: "command-and-control", label: "TA0011 Command and Control" }, { value: "exfiltration", label: "TA0010 Exfiltration" }] },
   { name: "cluster", label: "Cluster", key: "c", closed: false, ordered: false, values: [] },
@@ -84,5 +84,8 @@ test("tag palette accepts bare known values and dimension:value", () => {
   assert.deepEqual(parseTagInput("command-and-control", dims), { dimension: "tactic", value: "command-and-control" });
   assert.deepEqual(parseTagInput("cluster: Kit A", dims), { dimension: "cluster", value: "kit a" });
   assert.equal(parseTagInput("unknownthing", dims), null);
+  // An exact value in a later dimension beats a label in an earlier one.
+  assert.deepEqual(parseTagInput("exfiltration", dims), { dimension: "tactic", value: "exfiltration" });
+  assert.deepEqual(parseTagInput("exfil", dims), { dimension: "role", value: "exfil" });
   assert.equal(indicatorKey("file-hash-md5", "ab"), "file|ab");
 });

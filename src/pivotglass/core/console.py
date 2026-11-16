@@ -536,15 +536,35 @@ class PivotglassConsole(cmd2.Cmd):
     # ------------------------------------------------------------------
 
     def do_show(self, args: str) -> None:
-        """Show module options or other info.
+        """Show available modules or the active module's options.
 
-        Usage: show options
+        Usage: show modules | show options
         """
         sub = args.strip().lower()
         if sub == "options":
             self._show_options()
+        elif sub == "modules":
+            self._show_modules()
         else:
-            self.poutput("Usage: show options")
+            self.poutput("Usage: show modules | show options")
+
+    def _show_modules(self) -> None:
+        """List every loaded module so `use <name>` has something to choose from."""
+        modules = sorted(self.plugin_mgr.list_modules(), key=lambda item: (item["type"], item["name"]))
+        if not modules:
+            self.poutput("No modules are loaded.")
+            return
+        table = Table(title=f"{len(modules)} modules", show_header=True)
+        table.add_column("Name", style="cyan")
+        table.add_column("Type", style="yellow")
+        table.add_column("Description")
+        for item in modules:
+            table.add_row(item["name"], item["type"], item["description"])
+        self.rich_console.print(table)
+
+    def do_exit(self, args: str) -> bool | None:
+        """Exit the console (same as quit)."""
+        return self.do_quit(args)
 
     def _show_options(self) -> None:
         """Render the active module's options as a Rich table."""
@@ -1005,7 +1025,10 @@ class PivotglassConsole(cmd2.Cmd):
         except RuntimeError:
             active_ws = "default"
         self.poutput(stored_msg)
-        self.poutput(f"{n_new} IoC results available for pivot in workspace '{active_ws}'.")
+        self.poutput(
+            f"{n_new} results stored in workspace '{active_ws}'. "
+            "Pivot by running `hunt <value>` on any of them."
+        )
 
     def _display_results(self, results: list[dict]) -> None:
         """Render hunt() results as a Rich table.

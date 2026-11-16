@@ -102,3 +102,29 @@ enter the same STIX and immutable-observation authority as other workspace
 entities and retain the source hash and parser transformation as provenance.
 This admission records an analyst decision; it does not assign a verdict,
 validate the source's claim, fabricate a relationship, or attribute an actor.
+
+## Rendering untrusted sources
+
+Through v1.2.0 the browser never received source bytes or source markup; it
+showed only parser text. From v1.3.0, indicator focus mode shows sources as
+their authors laid them out, which changes that boundary. The change is
+deliberate and bounded:
+
+| Format | What reaches the browser | Containment |
+| --- | --- | --- |
+| Text, CSV, JSON, JSONL, email | Parser text only, unchanged from v1.2.0 | Rendered as text; no markup is interpreted |
+| HTML, Markdown | Markup rebuilt by the server from an allowlist (`core/document_rendering.py`) | No script, event handler, style attribute, form, frame, object, image source, or link target survives. Displayed in an `<iframe sandbox="allow-same-origin">` without `allow-scripts`, under a `default-src 'none'` policy |
+| PDF | The original bytes, verified against their SHA-256 | Served only from `/api/documents/<id>/source`, only for PDFs, with `Content-Security-Policy: sandbox` and `Content-Disposition: attachment`. pdf.js 6 draws pages onto a canvas; its scripting sandbox is not loaded, so PDF JavaScript and XFA never run |
+
+A rendering cannot make a network request: there is no attribute or style
+left that names a URL. Link targets and image alt text remain visible to the
+analyst as inert labels. An unstored preview is rendered from the copy sent
+for preview (PDF: the browser's own copy) and leaves nothing behind.
+
+## Indicator tags
+
+Tags are analyst classification, stored as append-only events in the active
+workspace (`indicator_tag_events`, schema v13). They are keyed by indicator
+type and value, so they follow an indicator across sources and through
+admission. They are included in workspace export and merge. A tag never
+becomes evidence and is never sent to an enrichment provider.

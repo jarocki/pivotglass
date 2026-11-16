@@ -33,7 +33,7 @@ source, challenge an explanation, and communicate a bounded judgment.
 | Install, launch, and check the version | [Quick Start](QUICKSTART.md) |
 | Practice without credentials or provider traffic | [Offline learning case](LEARNING_WORKSPACE.md) |
 | Turn incomplete context into useful questions | [Guided question walkthrough](#walkthrough-from-reported-context-to-a-question) |
-| Bring a report or indicator list into a case | [Document intake](#preview-ingest-and-revisit-a-document) |
+| Bring a report or indicator list into a case | [Document intake](#review-a-source-in-indicator-focus-mode) |
 | Trace where an indicator or grouping came from | [Evidence and provenance](#evidence-and-provenance), then [relationship graph](#relationship-graph) |
 | Compare explanations and challenge assumptions | [Scientific method and SATs](analysis/README.md) |
 | Read a chart without overstating it | [Visualization examples](analysis/VISUALIZATIONS.md) |
@@ -443,74 +443,118 @@ same plotted rows as CSV, or the complete relationship nodes and edges as JSON.
 See the [Visualization guide](VISUALIZATION_GUIDE.md) for the complete
 question-to-view policy and the analytical guardrails for every chart family.
 
-### Preview, ingest, and revisit a document
+### Review a source in indicator focus mode
 
-Open **Investigate**, then expand **Add indicators & reports** beneath the
-Pursuit Brief. The workflow is deliberately review-first:
+Open **Investigate**. The **Sources** bar sits directly under the command
+field. Choose **Open file…**, drop a report anywhere on the bar, or choose
+**Paste text** for an indicator list or an excerpt. The source opens at once
+in indicator focus mode; nothing is stored yet.
 
-1. Choose a file and select **Preview locally**. This creates no stored state.
-2. Review the parser result and expand **Entity candidates**.
-3. Check only the visible candidates that belong in the workspace.
-4. Select **Ingest source + add entities**, or **Ingest source only** when the
-   report belongs in the library but none of its strings should be admitted.
-   Separate receipts confirm source storage and entity admission.
+Focus mode fills the window. The left side lists each distinct indicator once,
+in the order the source first mentions it. The right side shows the source as
+its author laid it out: HTML and Markdown rendered, PDF pages drawn, and text,
+CSV, JSON, and email shown as parsed text. The focused indicator is outlined
+and scrolled into view; every other occurrence of a known indicator is lightly
+marked.
 
-The library remains beneath the intake controls after refresh and restart. It
-shows display-safe metadata rather than returning the original bytes to the
-browser. The content-addressed original lives beside the active workspace
-database and is removed only by an exact-confirmed workspace clear or delete.
+![v1.3.0 focus mode on a synthetic HTML report: indicator list, rendered source, focused C2 address, and the details-on-demand card](media/pivotglass-focus-hover-v1.3.0.png)
 
-Select **Review stored source** on any library entry to reopen its parser
-receipt, full SHA-256, and candidate list. Candidates that were not admitted
-the first time can be selected and admitted later; the source is not copied
-again. A preview-only source remains intentionally session-local because its
-bytes have not been explicitly stored.
+Hover any indicator, in the list or in the source, for **details on demand**.
+The translucent card separates what is known by its basis:
 
-![v0.9.9 local preview shows two selected synthetic candidates, exact spans, full URL values, and the explicit admission action](media/pivotglass-intake-v1.0.0.png)
+| Section | Basis | Meaning |
+| --- | --- | --- |
+| Analyst tags | Analyst | Tags recorded on this indicator in this case |
+| Workspace | Evidence | Whether the indicator is already an entity, its stored relationships, which sources observed it, and when it was last investigated |
+| Other sources | Evidence | Other stored documents that mention it; identical bytes stored twice count once |
+| Derived from the value | Structure | A URL's host, an email's domain, a parent domain, or a subdomain also found in this source |
+| Nearby in this source | Position only | Indicators on the same line or in the same short paragraph. Nearness is a reading aid, not a relationship |
 
-![v0.9.9 persistent library and stored-source review show the source hash and separate candidate review](media/pivotglass-library-v1.0.0.png)
+Press `i` to pin the card for the focused indicator; a pinned card can move
+focus to any related indicator or prepare an investigation.
 
-The intake accepts an explicitly selected file up to 10 MiB and has qualified
-parsers for text, Markdown, HTML, CSV, JSON, JSONL, and RFC 5322 email. JSON is
-recognized by content, extension, or structured MIME type. UTF-8, UTF-16, and
-UTF-32 byte signatures are supported, and strict line-delimited records inside
-a `.json` file receive an explicit JSONL fallback receipt. Duplicate keys and
-malformed records are never silently dropped or repaired: bounded raw text may
-remain reviewable with a warning, while non-finite numbers, excessive nesting,
-and other unsafe input fail closed. HTML
-scripts, styles, templates, and external references are not run. Email
-attachments are named as skipped rather than silently treated as parsed. PDF
-input is recognized and hashed, but text extraction and OCR remain unqualified
-and are reported as such.
+Focus mode is keyboard-first:
 
-The preview returns the sanitized filename, media type, byte count, content
-hash, parser version, parse state, bounded text, warnings, errors, and skipped
-content. Until one of the explicit **Ingest source** actions is selected, it is temporary and
-local: it creates no document record, evidence, entity, relationship, graph
-edge, or model request. Parsed text proves only what the selected source
-contained; it does not prove the source's claims.
+| Key | Action |
+| --- | --- |
+| `j` / `k` or arrows | Next or previous indicator |
+| `n` / `p` | Next or previous mention of the same indicator |
+| `space` | Select or deselect |
+| `a` | Admit the selection, or the focused indicator when nothing is selected |
+| `t` | Tag the selection or the focused indicator |
+| `g` | Cycle grouping: source order, type, then each tag dimension |
+| `/` | Filter by value, type, or `dimension:value` such as `role:c2` |
+| `v` | Switch between the rendered source and exact parser text |
+| `Enter` | Close focus mode and put the indicator in the command field |
+| `Esc` | Close the card, the palette, or focus mode |
 
-Expand **Entity candidates** beneath the parser output to inspect deterministic
-matches. Each candidate exposes its raw and normalized value, entity type,
-parser-output line/column, character and UTF-8 byte span, and rule/version. The
-browser bounds extraction at 2,000 candidates and displays 50 per page. Use
-**Previous** and **Next** to review every page. **Select this page** is additive;
-it preserves earlier selections without selecting unseen pages. Source-only
-admission stores those candidates for review.
-The stored-source library can be filtered by filename, source type, parse state,
-or media type and sorted by date, name, or candidate count. Reopened source
-candidates can be filtered, sorted, selected by visible page or all matches,
-and paged before explicit admission.
-When the analyst explicitly selects candidates, Pivotglass admits only those
-strings as provenanced workspace entities. It still does not validate the
-report's claims, assign a verdict, create a threat relationship, or attribute
-an actor.
+**Admitting** stores the source and adds the selected indicators to the case
+in one step, with provenance. **Store source** keeps the source without
+admitting anything. A later admission from the same source reuses the stored
+occurrence; the bytes are never stored twice. If storage succeeds but
+admission is interrupted, the error says so and admitting again retries
+against the stored source. Admission never runs enrichment. Investigating an
+indicator stays an explicit choice.
 
-Source storage and entity admission have separate receipts. If source storage
-succeeds but selected entity admission is interrupted, the interface keeps the
-source receipt visible and offers **Retry entity admission**. The retry refers
-to the same occurrence and selection keys, so it neither stores a second source
-copy nor duplicates already admitted entities.
+#### Tag along several dimensions
+
+Tags give the analyst a multidimensional clustering without a model choosing
+membership. Each tag places one indicator on one dimension:
+
+| Dimension | Values |
+| --- | --- |
+| Infrastructure role | c2, delivery, staging, exfil, phishing, hosting, victim, benign, or a new value |
+| ATT&CK tactic | The 14 Enterprise tactics, TA0043 Reconnaissance through TA0040 Impact |
+| Cluster | Any analyst-chosen name, such as `cluster:glass harbor` |
+| Review status | needs-pivot, reviewed, false-positive |
+
+Press `t`, type a value such as `c2`, `initial-access`, or `cluster:kit a`,
+and press Enter. Group by **ATT&CK tactic** to read the indicators in
+attack-path order: tactics follow the ATT&CK matrix, an indicator with two
+tactics appears under both, and untagged indicators come last. Click a tag
+chip to remove it.
+
+![v1.3.0 indicators grouped by ATT&CK tactic in attack-path order, with role and cluster tags](media/pivotglass-focus-grouped-v1.3.0.png)
+
+Tags belong to the indicator, not the document. A tag applied while reviewing
+one report appears wherever that indicator is mentioned and remains after
+admission. Every change is an append-only record of who tagged what and when.
+A tag is analyst judgment; it is never presented as observed evidence.
+
+#### Stored sources
+
+**Stored sources** under the Sources bar lists every stored document with its
+full SHA-256. Select one to reopen it in focus mode with its earlier
+admissions marked. The content-addressed original lives beside the active
+workspace database and is removed only by an exact-confirmed workspace clear
+or delete.
+
+#### Formats and limits
+
+Sources up to 10 MiB are accepted. Text, Markdown, HTML, CSV, JSON, JSONL,
+RFC 5322 email, and PDF have qualified parsers. JSON is recognized by content,
+extension, or structured MIME type. UTF-8, UTF-16, and UTF-32 byte signatures
+are supported. Duplicate keys and malformed records are never silently dropped
+or repaired. PDF text is extracted page by page with `[page N]` markers;
+pages without a text layer (scans) are named, not OCRed. An unreadable PDF can
+still be stored as source evidence. Extraction is bounded at 2,000 candidates.
+
+![v1.3.0 PDF pages drawn in focus mode with the focused indicator highlighted on the page](media/pivotglass-focus-pdf-v1.3.0.png)
+
+Rendered sources are hostile content and are shown under these rules:
+
+- HTML and Markdown are rebuilt from an allowlist on the server. Scripts,
+  event handlers, styles, forms, frames, and embedded objects are removed.
+  Nothing in a rendering can fetch from the network. Images become labelled
+  placeholders, and links are inert, with the original target shown on hover.
+- The rendering is displayed in a sandboxed frame that is not allowed to run
+  script, so even a sanitizer mistake cannot execute code.
+- PDF pages are drawn by pdf.js. PDF JavaScript and XFA forms are never run.
+- When a rendered layout cannot locate an indicator exactly, focus mode says
+  so and offers the exact parser-text view. It never guesses a location.
+
+Parsed text proves only what the source contained. It does not prove the
+source's claims.
 
 ![v0.9.9 provenance history records document admission, a joint promotion group, and two candidate branches with the complete URL](media/pivotglass-history-v1.0.0.png)
 

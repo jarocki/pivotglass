@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-15
+
+### Added
+
+- Indicator focus mode. Opening, dropping, or pasting a source opens it full
+  screen with its indicator list beside the rendered source. The focused
+  indicator is highlighted and scrolled into view, and every later occurrence
+  of a known indicator is marked. Keyboard: `j`/`k` move, `n`/`p` mention,
+  `space` select, `a` admit, `t` tag, `g` group, `/` filter, `v` rendered or
+  text view, `Enter` prepare investigation, `Esc` close.
+- Details on demand. Hovering an indicator shows a translucent card with what
+  the case already knows (entity, relationships, observing sources, other
+  stored sources, tags, last investigation) and what this source shows
+  (structural derivations, nearby indicators labelled "position only"). The
+  card is backed by one batch indicator-context endpoint.
+- Multidimensional indicator tags: infrastructure role, ATT&CK tactic,
+  cluster, and review status. Tags follow the indicator across sources and
+  through admission, can be grouped and filtered, and are exported and merged
+  with the workspace. Grouping by ATT&CK tactic orders indicators along the
+  attack path.
+- Safe rendered previews of HTML, Markdown, and PDF sources. HTML and
+  Markdown are rebuilt from an allowlist and shown in a sandboxed frame that
+  cannot run script. PDF pages are drawn by pdf.js.
+- PDF text extraction with page markers. PDFs now yield indicator candidates.
+  Pages without a text layer are named.
+- Paste text or an indicator list directly as a source.
+- REPL `show modules` and `exit`.
+
+### Changed
+
+- Intake is one step: preview opens focus mode, and admitting stores the
+  source and the selected indicators together. Intake sits directly under the
+  command field.
+- Removed slogan text from the cockpit masthead and footer. The masthead now
+  shows the active workspace.
+- Workspace schema v13 adds `indicator_tag_events`. The export format and the
+  supported migration range now derive from the schema version.
+- Next.js 16.4.3 and `source-map-js` 1.2.2 resolve build-environment
+  advisories. See `docs/WEB_SUPPLY_CHAIN.md`.
+- The data-safety boundary now covers sanitized source markup and PDF bytes
+  in the browser. See `docs/DATA_SAFETY.md`.
+
+### Fixed
+
+- crt.sh results no longer store email addresses, certificate labels, or case
+  and trailing-dot duplicates as `domain-name` observations.
+- An unreadable PDF is stored as partial source evidence instead of failing
+  ingestion.
+- Starting an investigation validates the target before recording a pivot
+  trail event.
+- The REPL `hunt` result names a real pivot action.
+
+### Removed
+
+- The unused synchronous web investigation path, which returned undecoded
+  diagnostic markers. All surfaces use the streaming investigation path.
+
 ## [1.2.0] - 2026-09-30
 
 ### Added

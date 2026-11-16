@@ -1514,11 +1514,6 @@ class WebCockpitService:
             self.ctx.workspace_mgr.get_module_runs(),
         )
 
-    def investigate(self, target: str) -> dict[str, Any]:
-        """Run deterministic applicable batteries and return grounded events."""
-        with self._investigation_lock:
-            return self._investigate_locked(target)
-
     def start_investigation(
         self,
         target: str,
@@ -1526,8 +1521,9 @@ class WebCockpitService:
         origin_request_id: str | None = None,
     ) -> dict[str, Any]:
         """Start an investigation and return immediately with a resumable cursor."""
-        PivotTrailAuthority(self.ctx.workspace_mgr).record_indicator(target)
+        # Validate before recording navigation so rejected input leaves no trail.
         target_type, tools = self.plan(target)
+        PivotTrailAuthority(self.ctx.workspace_mgr).record_indicator(target)
         record = self.investigations.create(target, target_type)
         self.investigations.append(
             record.investigation_id,
@@ -1840,43 +1836,6 @@ class WebCockpitService:
                     final_state.value,
                     investigation_id=investigation_id,
                 )
-
-    def _investigate_locked(self, target: str) -> dict[str, Any]:
-        """Execute one investigation while holding the service mutation lock."""
-        target_type, tools = self.plan(target)
-
-        events: list[dict[str, Any]] = []
-        for tool_name in tools:
-            schema = self._tool_schemas.get(tool_name)
-            if schema is None:
-                continue
-            parameters = schema.get("parameters", {})
-            properties = parameters.get("properties", {})
-            required = parameters.get("required", ())
-            argument_name = required[0] if required else next(iter(properties), "target")
-            briefing = BRIEFINGS.get(tool_name)
-            events.append(
-                {
-                    "kind": "enrichment",
-                    "tool": tool_name,
-                    "source": briefing.source if briefing else tool_name,
-                    "briefing": asdict(briefing) if briefing else None,
-                }
-            )
-            summary, celebration, _badges, _challenges = execute_tool(
-                self.ctx, tool_name, {argument_name: target}
-            )
-            events.append(
-                {
-                    "kind": "evidence",
-                    "tool": tool_name,
-                    "source": briefing.source if briefing else tool_name,
-                    "summary": summary,
-                    "celebration": celebration,
-                }
-            )
-
-        return {"target": target, "target_type": target_type, "events": events}
 
     def plan(self, target: str) -> tuple[str, list[str]]:
         """Return the deterministic service plan without executing tools."""
