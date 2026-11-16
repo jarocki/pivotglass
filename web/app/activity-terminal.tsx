@@ -106,12 +106,12 @@ export function ActivityTerminal({
   return (
     <section className="activity-terminal" aria-label="Activity and errors terminal">
       <header>
-        <div><b>ACTIVITY &amp; ERRORS</b><span>{visible.length} VISIBLE · {activity.registry.state.toUpperCase()}</span></div>
+        <div><b>Activity &amp; errors</b><span>{visible.length} VISIBLE · {activity.registry.state.toUpperCase()}</span></div>
         <div className="activity-controls">
-          <label>SHOW <select aria-label="Activity severity" value={severity} onChange={(event) => setSeverity(event.target.value)}><option value="all">all</option><option value="info">info</option><option value="warning">warning</option><option value="error">error</option></select></label>
-          <button onClick={togglePause}>{paused ? "RESUME FOLLOW" : "PAUSE FOLLOW"}</button>
-          <button onClick={() => setClearedThrough(sourceEvents.length)}>CLEAR VIEW</button>
-          <button onClick={download}>DOWNLOAD SANITIZED</button>
+          <label>Show <select aria-label="Activity severity" value={severity} onChange={(event) => setSeverity(event.target.value)}><option value="all">all</option><option value="info">info</option><option value="warning">warning</option><option value="error">error</option></select></label>
+          <button onClick={togglePause}>{paused ? "Resume follow" : "Pause follow"}</button>
+          <button onClick={() => setClearedThrough(sourceEvents.length)}>Clear view</button>
+          <button onClick={download}>Download sanitized</button>
         </div>
       </header>
       <div className="activity-scroll" ref={viewport} tabIndex={0} aria-label="Scrollable activity history">
@@ -128,7 +128,7 @@ export function ActivityTerminal({
         ))}
       </div>
       <details className="authority-registry">
-        <summary><b>OPERATIONAL AUTHORITIES</b><span>{activity.registry.counts.ready ?? 0} READY · {activity.registry.counts.degraded ?? 0} DEGRADED · {activity.registry.counts.missing_configuration ?? 0} MISSING CONFIG</span></summary>
+        <summary><b>Operational authorities</b><span>{activity.registry.counts.ready ?? 0} READY · {activity.registry.counts.degraded ?? 0} DEGRADED · {activity.registry.counts.missing_configuration ?? 0} MISSING CONFIG</span></summary>
         <p>{activity.registry.offline_behavior}</p>
         <div>{activity.registry.authorities.map((authority) => (
           <article key={authority.id}>

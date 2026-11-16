@@ -128,7 +128,8 @@ query, creates a relationship, accepts an analytical proposal, changes
 confidence, attributes activity to an actor, or publishes externally.
 
 Primary navigation is deliberately limited to the **Investigate**,
-**Evidence**, and **Visualize** tabs in the top bar. **Menu** holds view
+**Evidence**, and **Visualize** tabs in the top bar. **Menu**, at the top left, opens a drawer
+with view
 controls, tools (all commands, status and attention, the workbench, models and
 API keys, reports, export), appearance, and, under **Characters, sound, and
 badges**, the character voices, music, badges, and themes. Choose
@@ -1157,7 +1158,7 @@ PIVOTGLASS_TUI_HIGH_CONTRAST=1 pivotglass tui
 
 ## View, reading, and attention
 
-Open **Menu → View** (also in Help) to fit the cockpit to your screen and eyes.
+Open **Menu** (top left) **→ View** (also in Help) to fit the cockpit to your screen and eyes.
 The choices persist in this browser and apply to every Pivotglass window.
 
 | Control | Choices | Keys |

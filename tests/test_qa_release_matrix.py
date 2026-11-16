@@ -106,8 +106,8 @@ def test_scientific_workbench_exposes_conflicts_without_auto_promoting_them():
     workbench = Path("web/app/scientific-workbench.tsx").read_text()
     rigor = Path("src/pivotglass/core/analytic_rigor.py").read_text()
 
-    assert "CONFIDENCE &amp; CONTRADICTION REVIEW" in workbench
-    assert "RECORD CONTRADICTION" in workbench
+    assert "Confidence &amp; contradiction review" in workbench
+    assert "Record contradiction" in workbench
     assert "METHOD-DERIVED · NOT YET RECORDED" in workbench
     assert "dependence_group_count" in workbench
     assert '"content_class": "method_derived_suggestion"' in rigor
@@ -305,7 +305,7 @@ def test_field_guidance_is_idle_gated_character_voiced_and_not_evidence():
     assert "evidence: false" in guidance
     assert "ANALYST ADVISOR · NARRATION, NOT EVIDENCE" in page
     assert "CharacterAdvisorArtwork" in page
-    assert "READ ALOUD" in page
+    assert "Read aloud" in page
     assert "pivotglass.narration.audio" in page
     for character in (
         "chuck_norris",
@@ -402,7 +402,7 @@ def test_guidance_is_persisted_graduated_and_presentation_only():
     assert 'completedWorkflows >= 12' in profile
     assert 'type GuidanceLevel = "novice" | "adept" | "expert"' in profile
     assert "Workflow guidance is presentation, not evidence." in guidance
-    assert "RESET WALKTHROUGH" in page
+    assert "Reset walkthrough" in page
     assert 'data-tutorial-focus' in page
     # Guidance never blurs or dims the analyst's work, and never opens unasked (#27).
     assert '.guided-focus-active [data-focus-context]' not in styles
@@ -423,7 +423,7 @@ def test_guidance_is_persisted_graduated_and_presentation_only():
     assert 'max-height:calc(100vh - 24px)' in styles
     assert '.guided-help-layer{top:auto' not in styles
     assert 'border:3px solid var(--focus-ring)' in styles
-    assert 'GUIDED NEXT STEP' in guidance
+    assert 'Guided next step' in guidance
     assert '.guide-kicker{' in styles
     assert '@media(prefers-reduced-motion:reduce)' in styles
 

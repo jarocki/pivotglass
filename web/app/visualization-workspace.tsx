@@ -165,7 +165,7 @@ function FlintCanvas({
     <div className="flint-canvas">
       {intent.view === "histogram" && (
         <label className="histogram-bins">
-          <span>BINS</span>
+          <span>Bins</span>
           <input
             aria-label="Histogram bin count"
             type="range"
@@ -190,7 +190,7 @@ function FlintCanvas({
 function VisualizationEmpty({ intent }: { intent: VisualizationIntent }) {
   return (
     <div className="visualization-empty">
-      <b>NO DATA IN SCOPE</b>
+      <b>No data in scope</b>
       <span>{intent.source_scope.description}</span>
     </div>
   );
@@ -1010,7 +1010,7 @@ export function TaskMatrix({
       )}
       {rowIds.length === 0 && (
         <div className="visualization-empty">
-          <b>NO INDICATORS MATCH</b>
+          <b>No indicators match</b>
           <span>Adjust or reset the Constellation filters.</span>
         </div>
       )}
@@ -1580,16 +1580,16 @@ function RelationshipGraph({
           <span className="graph-zoom-controls" aria-label="Graph zoom controls">
             <button onClick={() => updateZoom(1.2)} aria-label="Zoom relationship graph in">＋</button>
             <button onClick={() => updateZoom(1 / 1.2)} aria-label="Zoom relationship graph out">－</button>
-            <button onClick={() => { checkpointPresentation(); setViewport({ x: 0, y: 0, scale: 1 }); }}>CENTER</button>
+            <button onClick={() => { checkpointPresentation(); setViewport({ x: 0, y: 0, scale: 1 }); }}>Center</button>
           </span>
         )}
         <span className="graph-history-controls" aria-label="Graph presentation history">
-          <button onClick={undoPresentation} disabled={undoStack.length === 0}>UNDO VIEW</button>
-          <button onClick={redoPresentation} disabled={redoStack.length === 0}>REDO VIEW</button>
+          <button onClick={undoPresentation} disabled={undoStack.length === 0}>Undo view</button>
+          <button onClick={redoPresentation} disabled={redoStack.length === 0}>Redo view</button>
         </span>
         {selectedRefs.length > 0 && <span>{selectedRefs.length} selected</span>}
         {hiddenRefs.size > 0 && (
-          <button onClick={() => { checkpointPresentation(); setCollapsedRefs(new Set()); }}>SHOW ALL CONNECTIONS</button>
+          <button onClick={() => { checkpointPresentation(); setCollapsedRefs(new Set()); }}>Show all connections</button>
         )}
         {(query || selectedRefs.length > 0 || collapsedRefs.size > 0) && (
           <button onClick={() => {
@@ -1597,7 +1597,7 @@ function RelationshipGraph({
             setQuery("");
             setSelectedRefs([]);
             setCollapsedRefs(new Set());
-          }}>RESET VIEW</button>
+          }}>Reset view</button>
         )}
       </div>
       <div className="graph-layout-controls" aria-label="Saved graph presentations">
@@ -1622,19 +1622,19 @@ function RelationshipGraph({
           />
         </label>
         <button onClick={() => void saveLayout()} disabled={layoutBusy || !layoutName.trim()}>
-          SAVE VIEW
+          Save view
         </button>
         <button
           onClick={() => void deleteLayout()}
           disabled={layoutBusy || !layouts.some((layout) => layout.name === layoutName.trim())}
         >
-          DELETE VIEW
+          Delete view
         </button>
         {layoutMessage && <small role="status">{layoutMessage}</small>}
       </div>
       {intent.data.edges.length === 0 ? (
         <section className="unconnected-graph" aria-label="Unconnected stored indicators">
-          <b>NO RELATIONSHIP EDGES IN SCOPE</b>
+          <b>No relationship edges in scope</b>
           <span>
             {intent.data.nodes.length} indicators remain visible as unconnected evidence.
             No relationship is inferred from proximity.
@@ -1805,7 +1805,8 @@ function RelationshipGraph({
                   <foreignObject x="-76" y="-12" width="152" height={Math.max(48, Math.ceil((labels[node.reference] ?? node.label).length / 20) * 15 + 12)}>
                     <div className="graph-full-label">{labels[node.reference] ?? node.label}</div>
                   </foreignObject>
-                  <text className="node-type" textAnchor="middle" y="11">{node.entity_type}</text>
+                  {/* The type sits below both the circle and the (possibly wrapped) label, so the two never overprint. */}
+                  <text className="node-type" textAnchor="middle" y={Math.max(degree.get(node.reference) ? 26 : 21, Math.ceil((labels[node.reference] ?? node.label).length / 20) * 17) + 16}>{node.entity_type}</text>
                 </g>
               );
             })}
@@ -1831,8 +1832,8 @@ function RelationshipGraph({
                 <span>{edge.annotation || "No analyst annotation recorded."}</span>
                 <small>{edge.assertion_id}</small>
                 <div>
-                  <button onClick={() => beginRelationCorrection("revise", edge)}>REVISE</button>
-                  <button onClick={() => beginRelationCorrection("retract", edge)}>RETRACT</button>
+                  <button onClick={() => beginRelationCorrection("revise", edge)}>Revise</button>
+                  <button onClick={() => beginRelationCorrection("retract", edge)}>Retract</button>
                 </div>
               </article>
             ))}
@@ -1859,7 +1860,7 @@ function RelationshipGraph({
           }}>
             UNPIN SELECTED
           </button>
-          <button onClick={() => setSelectedRefs([])}>CLEAR SELECTION</button>
+          <button onClick={() => setSelectedRefs([])}>Clear selection</button>
         </div>
       )}
       {selectedNodes.length === 2 && relationCorrection?.mode !== "retract" && (
@@ -1872,8 +1873,8 @@ function RelationshipGraph({
         >
           <b>
             {relationCorrection?.mode === "revise"
-              ? "REVISE ANALYST RELATION"
-              : "ANNOTATED ANALYST RELATION"}
+              ? "Revise analyst relation"
+              : "Annotated analyst relation"}
           </b>
           <span>
             {selectedNodes[0].label} → {selectedNodes[1].label}
@@ -1899,10 +1900,10 @@ function RelationshipGraph({
             />
           </label>
           <button disabled={relationBusy || !relationAnnotation.trim()}>
-            {relationCorrection?.mode === "revise" ? "SAVE REVISION" : "RECORD JUDGMENT"}
+            {relationCorrection?.mode === "revise" ? "Save revision" : "Record judgment"}
           </button>
           {relationCorrection && (
-            <button type="button" onClick={() => setRelationCorrection(null)}>CANCEL</button>
+            <button type="button" onClick={() => setRelationCorrection(null)}>Cancel</button>
           )}
           <small>
             {relationCorrection?.mode === "revise"
@@ -1920,7 +1921,7 @@ function RelationshipGraph({
             void recordManualRelation();
           }}
         >
-          <b>RETRACT ANALYST RELATION</b>
+          <b>Retract analyst relation</b>
           <span>
             {shortLabel(labels[relationCorrection.edge.source] ?? graphLabels.get(relationCorrection.edge.source) ?? relationCorrection.edge.source, 28)} {relationCorrection.edge.relationship} {shortLabel(labels[relationCorrection.edge.target] ?? graphLabels.get(relationCorrection.edge.target) ?? relationCorrection.edge.target, 28)}
           </span>
@@ -1934,8 +1935,8 @@ function RelationshipGraph({
               required
             />
           </label>
-          <button disabled={relationBusy || !relationAnnotation.trim()}>CONFIRM RETRACTION</button>
-          <button type="button" onClick={() => setRelationCorrection(null)}>CANCEL</button>
+          <button disabled={relationBusy || !relationAnnotation.trim()}>Confirm retraction</button>
+          <button type="button" onClick={() => setRelationCorrection(null)}>Cancel</button>
           <small>The assertion is withdrawn from the active graph, never deleted from its audit history.</small>
           {relationMessage && <small role="status">{relationMessage}</small>}
         </form>
@@ -1956,13 +1957,13 @@ function RelationshipGraph({
               return next;
             });
           }}>
-            {pinned.has(selectedNode.reference) ? "UNPIN FROM VIEW" : "PIN IN VIEW"}
+            {pinned.has(selectedNode.reference) ? "Unpin from view" : "Pin in view"}
           </button>
           {(degree.get(selectedNode.reference) ?? 0) > 0 && (
             <button onClick={() => toggleNeighborhood(selectedNode.reference)}>
               {collapsedRefs.has(selectedNode.reference)
-                ? "EXPAND DIRECT CONNECTIONS"
-                : "COLLAPSE DIRECT CONNECTIONS"}
+                ? "Expand direct connections"
+                : "Collapse direct connections"}
             </button>
           )}
           <label className="graph-display-label">

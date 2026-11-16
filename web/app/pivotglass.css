@@ -113,7 +113,7 @@ to{transform:translate3d(0,calc(100vh + 110%),0)}
 .panel::before,.panel::after{content:"";position:absolute;z-index:2;width:28px;height:8px;top:-1px;border-top:2px solid var(--heading)}
 .panel::before{left:-1px;border-left:2px solid var(--heading)}
 .panel::after{right:-1px;border-right:2px solid var(--heading)}
-.panel-title{height:36px;padding:0 12px;border-bottom:1px solid color-mix(in srgb,var(--line) 40%,transparent);color:var(--heading);letter-spacing:.02em;font-size:var(--fs-xs)}
+.panel-title{padding:0 12px;border-bottom:1px solid color-mix(in srgb,var(--line) 40%,transparent);color:var(--heading);letter-spacing:.02em;font-size:var(--fs-xs)}
 .panel-title small{color:var(--dim)}
 .panel-actions{display:flex;align-items:center;gap:8px}
 .collapse-button{border:1px solid color-mix(in srgb,var(--line) 42%,transparent);background:#02080b;color:var(--heading);padding:4px 6px;font-size:var(--fs-xs);letter-spacing:.02em;cursor:pointer}
@@ -777,7 +777,7 @@ main::before{opacity:.045}
 .panel::before,.panel::after{display:none}
 .cockpit-grid{gap:16px}
 .right-stack{gap:16px}
-.panel-title{height:42px;padding-inline:14px}
+.panel-title{padding-inline:14px}
 .feed{height:calc(100% - 42px);padding:14px;gap:11px}
 .focus-status{border:1px solid color-mix(in srgb,var(--focus-ring) 52%,transparent);border-radius:999px;padding:4px 7px;color:var(--focus-ring);font-size:var(--fs-xs);letter-spacing:.02em;white-space:nowrap}
 main:focus-visible{outline:3px solid var(--focus-ring);outline-offset:-6px}
@@ -1017,7 +1017,7 @@ main>.guided-help-layer{position:fixed;z-index:19000;top:12px;left:12px;width:mi
 .brief-open-work,.brief-recent-change{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-width:0}.brief-open-work>b,.brief-recent-change>b{color:var(--heading);font-size:var(--fs-xs);letter-spacing:.02em}.brief-open-work span{padding:4px 7px;border-radius:999px;background:var(--control);font-size:var(--fs-xs)}.brief-open-work span.attention{color:#f3a65a}.brief-recent-change span{overflow:hidden;font-size:var(--fs-xs);text-overflow:ellipsis;white-space:nowrap}
 .brief-workbench-link{padding:7px 9px;border:0;background:transparent;color:var(--dim);font-size:var(--fs-xs);font-weight:700;cursor:pointer}.brief-workbench-link:hover{color:var(--accent)}
 .full-workbench{border:1px solid color-mix(in srgb,var(--line) 28%,transparent);border-radius:12px;background:var(--control)}
-.full-workbench>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;cursor:pointer;list-style:none}.full-workbench>summary::-webkit-details-marker{display:none}.full-workbench>summary>span{display:grid;gap:3px}.full-workbench>summary b{color:var(--heading);font-size:var(--fs-xs);letter-spacing:.02em}.full-workbench>summary small{color:var(--dim);font-size:var(--fs-xs)}.full-workbench>summary i{color:var(--accent);font-size:var(--fs-xs);font-style:normal}.full-workbench[open]>summary i{font-size:0}.full-workbench[open]>summary i::after{content:"CLOSE";font-size:var(--fs-xs)}.full-workbench>div{display:grid;gap:10px;padding:0 10px 10px}
+.full-workbench>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;cursor:pointer;list-style:none}.full-workbench>summary::-webkit-details-marker{display:none}.full-workbench>summary>span{display:grid;gap:3px}.full-workbench>summary b{color:var(--heading);font-size:var(--fs-xs);letter-spacing:.02em}.full-workbench>summary small{color:var(--dim);font-size:var(--fs-xs)}.full-workbench>summary i{color:var(--accent);font-size:var(--fs-xs);font-style:normal}.full-workbench[open]>summary i{font-size:0}.full-workbench[open]>summary i::after{content:"Close";font-size:var(--fs-xs)}.full-workbench>div{display:grid;gap:10px;padding:0 10px 10px}
 
 @media(max-width:900px){
 .brief-progress{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -1114,10 +1114,7 @@ main>.guided-help-layer{position:fixed;z-index:19000;top:12px;left:12px;width:mi
 .document-library input{width:100%;margin:8px 0 4px;min-height:32px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
 .document-library ol{display:grid;gap:4px;max-height:240px;margin:6px 0 0;padding:0;overflow:auto;list-style:none}
 .document-library li{display:grid;gap:2px}
-.document-library .library-open{display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;border-color:transparent;background:transparent}
 .document-library .library-open:hover{border-color:var(--line)}
-.document-library .library-open b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
-.document-library .library-open span{flex:none;color:var(--dim);font-size:var(--fs-xs)}
 .document-hash{padding:0 11px;color:color-mix(in srgb,var(--dim) 70%,transparent);font-size:var(--fs-xs);overflow-wrap:anywhere;word-break:break-all}
 
 /* ---- Indicator focus mode (#12) ---- */
@@ -1213,8 +1210,6 @@ main:not(.effects-full) .fog-band{display:none}
 main:not(.effects-full) .pulse{animation:none}
 
 /* Masthead: one 48px bar holding brand, workspace, tabs, status, menu, help. */
-.masthead{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:16px;min-height:48px;padding:0 0 8px;border-bottom:1px solid var(--hairline)}
-.brand{display:flex;align-items:baseline;gap:10px;min-width:0;text-align:left}
 .brand h1{margin:0;font-size:var(--fs-lg);font-weight:650;letter-spacing:.12em;text-transform:uppercase;text-shadow:none;color:var(--heading)}
 .workspace-chip{overflow:hidden;max-width:24ch;padding:1px 9px;border:1px solid var(--hairline);border-radius:999px;color:var(--dim);font-size:var(--fs-sm);text-overflow:ellipsis;white-space:nowrap}
 .masthead .pane-switcher{width:auto;margin:0;gap:2px;overflow:visible;position:static;background:none;backdrop-filter:none}
@@ -1224,24 +1219,10 @@ main:not(.effects-full) .pulse{animation:none}
 .masthead .system-state{color:var(--dim);font-size:var(--fs-sm);font-family:var(--font-ui)}
 .masthead button.system-state.attention{padding:4px 10px;border:1px solid color-mix(in srgb,var(--warn) 60%,transparent);border-radius:999px;background:color-mix(in srgb,var(--warn) 10%,transparent);color:var(--warn);cursor:pointer}
 .lamp{box-shadow:none}.lamp.warn{background:var(--warn)}
-.masthead .menu-button,.masthead .help-button{min-height:32px;padding:5px 12px;border:1px solid var(--hairline);border-radius:6px;background:var(--control);color:var(--ink);font-size:var(--fs-sm);font-family:var(--font-ui)}
-.masthead .help-button{min-width:32px;padding-inline:0;font-weight:700}
-.masthead .deck-menu{top:calc(100% + 4px);right:0;left:auto;width:min(400px,calc(100vw - 24px));max-height:calc(100dvh - 80px);padding:12px;border:1px solid var(--hairline);border-radius:10px;background:var(--elevated);box-shadow:0 18px 50px var(--shadow)}
-.deck-menu .menu-group{display:grid;gap:4px;margin-top:10px;padding-top:10px;border-top:1px solid var(--hairline)}
-.deck-menu h3,.deck-menu summary{margin:0 0 2px;color:var(--dim);font-size:var(--fs-xs);font-weight:600}
-.deck-menu summary{cursor:pointer;padding:4px 0}
-.deck-menu .menu-group>button,.deck-menu details>button{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:32px;padding:6px 8px;border:0;border-radius:6px;background:none;color:var(--ink);font-size:var(--fs-md);text-align:left}
-.deck-menu .menu-group>button:hover,.deck-menu details>button:hover{background:var(--control)}
-.deck-menu kbd{color:var(--dim);font-size:var(--fs-xs)}
 .view-controls{display:grid;gap:8px;margin:0;padding:0;border:0}
 .view-controls legend{margin-bottom:4px;color:var(--dim);font-size:var(--fs-xs);font-weight:600}
 .view-row{display:grid;grid-template-columns:72px 1fr;align-items:center;gap:8px}
 .view-row>span{color:var(--dim);font-size:var(--fs-sm)}
-.view-row .segmented{display:flex;gap:0;border:1px solid var(--hairline);border-radius:6px;overflow:hidden}
-.view-row .segmented button{flex:1;min-height:30px;padding:4px 6px;border:0;border-radius:0;background:none;color:var(--dim);font-size:var(--fs-sm);letter-spacing:0}
-.view-row .segmented button+button{border-left:1px solid var(--hairline)}
-.view-row .segmented button.selected{background:color-mix(in srgb,var(--accent) 16%,var(--control));color:var(--ink)}
-.view-controls>button{justify-self:start;min-height:30px;padding:4px 10px;border:1px solid var(--hairline);border-radius:6px;background:none;color:var(--ink);font-size:var(--fs-sm)}
 .view-spotlight{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:var(--fs-sm)}
 .view-controls small,.deck-menu details small{color:var(--dim);font-size:var(--fs-xs);line-height:1.45}
 
@@ -1337,3 +1318,88 @@ main[data-solo]>.masthead,main[data-solo]>.command-rail,main[data-solo]>.voice-s
 /* Indicator values stay whole: the row header is wide enough for a typical
    domain, and long values wrap rather than truncate. */
 .task-matrix tbody th{min-width:min(28ch,40vw)}
+
+/* ===== v1.3.0 QA round: containment, left menu drawer, explicit controls ===== */
+/* Grid and flex children may shrink below their content; long values wrap or
+   truncate inside their own pane instead of widening the column. */
+.workspace-body>*,.cockpit-grid>*,.document-intake,.pursuit-brief,.panel{min-width:0}
+@media (min-width:1360px){
+  main:not([data-width="column"]):not([data-solo]) .workspace-body:has(>#sources:not([hidden])){grid-template-columns:minmax(0,5fr) minmax(0,7fr)}
+}
+.document-library .library-open{display:grid;grid-template-columns:minmax(0,1fr);gap:1px;width:100%;min-width:0;text-align:left;border-color:transparent;background:transparent}
+.document-library .library-open b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.document-library .library-open span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim);font-size:var(--fs-xs)}
+.document-library .document-hash{padding-left:12px}
+.intake-bar>*{min-width:0}
+
+/* Masthead: Menu at the left, then the name and workspace; tabs centred. */
+.masthead{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:16px;min-height:48px;padding:0 0 8px;border-bottom:1px solid var(--hairline)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0;text-align:left}
+.masthead .menu-button,.masthead .help-button{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:5px 12px;border:1px solid color-mix(in srgb,var(--line) 55%,transparent);border-radius:7px;background:var(--control);color:var(--ink);font-size:var(--fs-sm);font-family:var(--font-ui);font-weight:600;cursor:pointer}
+.masthead .menu-button[aria-expanded="true"]{border-color:var(--accent);color:var(--accent)}
+.masthead .help-button{min-width:34px;justify-content:center;padding-inline:0}
+
+/* Menu: a left drawer. Headings are plain labels; every control looks like one. */
+.menu-backdrop{position:fixed;inset:0;z-index:15000;background:color-mix(in srgb,#000 45%,transparent)}
+.masthead .deck-menu{position:fixed;inset:0 auto 0 0;z-index:15001;display:grid;align-content:start;gap:14px;width:min(380px,92vw);max-height:none;overflow:auto;padding:14px 16px 24px;border:0;border-right:1px solid var(--hairline);border-radius:0;background:var(--elevated);box-shadow:12px 0 40px var(--shadow)}
+.menu-head{display:flex;align-items:center;justify-content:space-between}
+.menu-head b{color:var(--heading);font-size:var(--fs-lg)}
+.menu-close{min-width:34px;min-height:34px;border:1px solid var(--hairline);border-radius:7px;background:var(--control);color:var(--ink);cursor:pointer}
+.deck-menu .menu-group{display:grid;gap:6px;margin:0;padding:12px 0 0;border-top:1px solid var(--hairline)}
+.deck-menu h3,.view-controls legend,.deck-menu details>summary{margin:0 0 2px;color:var(--dim);font-size:var(--fs-xs);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.deck-menu details>summary{padding:4px 0;cursor:pointer;text-transform:none;letter-spacing:0;font-size:var(--fs-sm);color:var(--ink)}
+.deck-menu .menu-item,.deck-menu .menu-toggle,.deck-menu .menu-choice,.view-controls>button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:38px;padding:7px 12px;border:1px solid color-mix(in srgb,var(--line) 40%,transparent);border-radius:7px;background:var(--control);color:var(--ink);font-size:var(--fs-md);font-weight:500;text-align:left;cursor:pointer}
+.deck-menu .menu-item::after{content:"›";color:var(--dim);font-size:var(--fs-lg)}
+.deck-menu .menu-item:hover,.deck-menu .menu-toggle:hover,.deck-menu .menu-choice:hover,.view-controls>button:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--control))}
+.deck-menu .menu-choice{display:grid;justify-content:stretch;gap:2px}
+.deck-menu .menu-choice small{color:var(--dim);font-size:var(--fs-xs);font-weight:400}
+.deck-menu .menu-choice.selected,.deck-menu .menu-toggle.selected{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--control))}
+.deck-menu .menu-choice.selected>b::before,.deck-menu .menu-toggle.selected::before{content:"✓ ";color:var(--accent)}
+.deck-menu kbd{color:var(--dim);font-size:var(--fs-xs)}
+.view-controls>button{justify-content:center;width:auto;justify-self:start}
+.view-row{grid-template-columns:76px minmax(0,1fr)}
+/* Segmented choices: a bordered track of buttons; the selected one is filled and ticked. */
+.view-row .segmented{display:flex;gap:4px;padding:3px;border:1px solid color-mix(in srgb,var(--line) 40%,transparent);border-radius:8px;background:var(--base);overflow:visible}
+.view-row .segmented button{flex:1 1 0;min-width:0;min-height:32px;padding:4px 6px;border:1px solid transparent;border-radius:6px;background:var(--control);color:var(--ink);font-size:var(--fs-sm);font-weight:500;letter-spacing:0;line-height:1.2;cursor:pointer}
+.view-row .segmented button:hover{border-color:color-mix(in srgb,var(--accent) 60%,transparent)}
+.view-row .segmented button.selected{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 22%,var(--control));color:var(--ink);font-weight:650}
+.view-row .segmented button.selected::before{content:"✓ ";color:var(--accent)}
+
+@media (max-width:760px){
+  .masthead{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"brand status" "tabs tabs"}
+  .masthead .brand{grid-area:brand}.masthead .status-cluster{grid-area:status}
+  .masthead .pane-switcher{grid-area:tabs;justify-self:stretch;justify-content:space-between}
+  .masthead .menu-button{padding-inline:10px}
+  .masthead .system-state:not(.attention){display:none}
+}
+/* Labels sit above full-width tracks so every option fits at any text size. */
+.masthead .deck-menu{width:min(420px,94vw)}
+.view-row{grid-template-columns:minmax(0,1fr);gap:4px}
+.view-row .segmented{flex-wrap:wrap}
+.view-row .segmented button{flex:1 1 auto;white-space:nowrap}
+.view-controls small{display:block}
+/* Pane titles wrap their actions instead of clipping them at large text. */
+.panel-title{flex-wrap:wrap;row-gap:4px}
+.panel-actions{flex-wrap:wrap;justify-content:flex-end;margin-left:auto}
+.panel-actions small{white-space:nowrap}
+.focus-view .cockpit-grid:has(.right-stack.inspector-open){grid-template-columns:minmax(0,1fr) minmax(min(380px,100%),.5fr)}
+/* Dossier dimensions: plain readable tiles, not clipped hexagons. */
+.dossier-facets{transform:none}
+.dossier-facets button{height:auto;min-height:52px;clip-path:none;border-radius:8px}
+.dossier-facets button small{white-space:normal;overflow:visible;text-overflow:clip}
+/* Character ambience (watermarks, scenery) is decoration: only with Full motion. */
+main:not(.effects-full) .ambient-environment{display:none}
+/* Day theme: tabs keep the plain underline style. */
+main.display-day .masthead .pane-switcher button{background:none;box-shadow:none;border:0;border-bottom:2px solid transparent}
+main.display-day .masthead .pane-switcher button[aria-current="page"]{border-bottom-color:var(--accent)}
+/* View controls inside Help get breathing room. */
+.help-modal .view-controls{margin-top:14px;padding-top:12px;border-top:1px solid var(--hairline)}
+/* The dossier summary label sits above the dimension tiles instead of over tile 5. */
+.dossier-object{perspective:none}
+.dossier-core{position:static;inset:auto;width:auto;height:auto;margin:0 0 8px;transform:none;clip-path:none;place-items:start;display:flex;gap:8px;align-items:baseline;background:none;border:0;box-shadow:none}
+/* Focus-mode key legend: each key stays on the same line as its action. */
+.focus-keys{display:flex;flex-wrap:wrap;gap:6px 12px}
+.focus-keys>span{white-space:nowrap}
+/* Visualization shortcuts use the standard secondary button style. */
+.visualization-shortcuts button{border:1px solid color-mix(in srgb,var(--line) 45%,transparent);border-radius:7px;background:var(--control);color:var(--ink);cursor:pointer}
+.visualization-shortcuts button[aria-pressed=true]{background:color-mix(in srgb,var(--accent) 16%,var(--control))}

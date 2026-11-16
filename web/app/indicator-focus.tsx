@@ -250,7 +250,7 @@ export function IndicatorFocus({
           </li>)}
           {!order.length && <li className="focus-empty">{indicators.length ? "No indicators match this filter." : "No indicators were found in this source."}</li>}
         </ol>
-        <p className="focus-keys" aria-label="Keyboard shortcuts"><kbd>j</kbd><kbd>k</kbd> move <kbd>n</kbd><kbd>p</kbd> mention <kbd>space</kbd> select <kbd>a</kbd> admit <kbd>c</kbd> copy <kbd>y</kbd> copy list <kbd>t</kbd> tag <kbd>i</kbd> details <kbd>g</kbd> group <kbd>/</kbd> filter <kbd>↵</kbd> investigate <kbd>esc</kbd> close</p>
+        <p className="focus-keys" aria-label="Keyboard shortcuts"><span><kbd>j</kbd><kbd>k</kbd> move</span><span><kbd>n</kbd><kbd>p</kbd> mention</span><span><kbd>space</kbd> select</span><span><kbd>a</kbd> admit</span><span><kbd>c</kbd> copy</span><span><kbd>y</kbd> copy list</span><span><kbd>t</kbd> tag</span><span><kbd>i</kbd> details</span><span><kbd>g</kbd> group</span><span><kbd>/</kbd> filter</span><span><kbd>↵</kbd> investigate</span><span><kbd>esc</kbd> close</span></p>
       </section>
       <section className="focus-source" aria-label={`Source: ${source.filename}`}>
         {focused && <div className="focus-source-head">

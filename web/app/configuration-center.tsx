@@ -165,15 +165,15 @@ export function ConfigurationCenter({ onClose }: { onClose: () => void }) {
 
   return <section className="configuration-center" role="dialog" aria-modal="true" aria-labelledby="configuration-heading">
     <button className="close" onClick={onClose} aria-label="Close configuration">×</button>
-    <span className="eyebrow">LOCAL CONTROL · SECRETS STAY OUT OF LOGS AND MODEL PROMPTS</span>
-    <h2 id="configuration-heading" tabIndex={-1}>CONFIGURATION</h2>
+    <span className="eyebrow">Local control · secrets stay out of logs and model prompts</span>
+    <h2 id="configuration-heading" tabIndex={-1}>Configuration</h2>
 
     <div className="configuration-grid">
       <article className="configuration-section">
-        <header><div><h3>AI MODEL</h3><p>{configuration.model.provider_name} · {configuration.model.model}</p></div><span className={`health-state ${configuration.model.enabled ? "ready" : "disabled"}`}>{configuration.model.enabled ? "ENABLED" : "DISABLED"}</span></header>
+        <header><div><h3>AI model</h3><p>{configuration.model.provider_name} · {configuration.model.model}</p></div><span className={`health-state ${configuration.model.enabled ? "ready" : "disabled"}`}>{configuration.model.enabled ? "Enabled" : "Disabled"}</span></header>
         <div className="configuration-actions">
-          <button onClick={() => update({ action: "model-enabled", enabled: !configuration.model.enabled })}>{configuration.model.enabled ? "DISABLE SYNTHESIS" : "ENABLE SYNTHESIS"}</button>
-          <button onClick={() => update({ action: "advisor-enabled", enabled: !configuration.model.advisor_enabled })}>{configuration.model.advisor_enabled ? "DISABLE ADVISOR" : "ENABLE ADVISOR"}</button>
+          <button onClick={() => update({ action: "model-enabled", enabled: !configuration.model.enabled })}>{configuration.model.enabled ? "Disable synthesis" : "Enable synthesis"}</button>
+          <button onClick={() => update({ action: "advisor-enabled", enabled: !configuration.model.advisor_enabled })}>{configuration.model.advisor_enabled ? "Disable advisor" : "Enable advisor"}</button>
         </div>
         <dl className="configuration-facts">
           <div><dt>Selection source</dt><dd>{configuration.model.source}</dd></div>
@@ -183,15 +183,15 @@ export function ConfigurationCenter({ onClose }: { onClose: () => void }) {
       </article>
 
       <article className="configuration-section provider-section">
-        <header><div><h3>MODEL PROVIDER</h3><p>Live checks happen only when you request them.</p></div></header>
+        <header><div><h3>Model provider</h3><p>Live checks happen only when you request them.</p></div></header>
         <label>Platform<select value={providerId} onChange={(event) => { setProviderId(event.target.value); setModels([]); setHealth(null); }}>{configuration.providers.map((item) => <option key={item.id} value={item.id}>{item.display_name}</option>)}</select></label>
         {provider?.needs_api_key && <label>New credential<input type="password" autoComplete="new-password" value={providerSecret} onChange={(event) => setProviderSecret(event.target.value)} placeholder={provider.credential_source === "missing" ? "Required" : "Leave blank to keep current"} /></label>}
         <p className="credential-note">Credential source: <b>{provider?.credential_source}</b>{provider?.credential_source === "environment" && " · environment-owned values are read-only"}</p>
         <div className="configuration-actions">
-          <button disabled={Boolean(busy)} onClick={() => check("provider", providerId)}>{busy === `check-${providerId}` ? "CHECKING…" : "CHECK ACCESS"}</button>
-          {provider?.needs_api_key && <button disabled={!providerSecret || Boolean(busy)} onClick={async () => { if (await update({ action: "provider-credential", id: providerId, secret: providerSecret, verify: true })) setProviderSecret(""); }}>SAVE + TEST</button>}
-          <button disabled={Boolean(busy)} onClick={loadModels}>{busy === "models" ? "LOADING…" : "VIEW AVAILABLE MODELS"}</button>
-          {provider?.credential_source === "config" && <button className="danger-subtle" disabled={Boolean(busy)} onClick={() => update({ action: "remove-provider-credential", id: providerId })}>REMOVE STORED KEY</button>}
+          <button disabled={Boolean(busy)} onClick={() => check("provider", providerId)}>{busy === `check-${providerId}` ? "CHECKING…" : "Check access"}</button>
+          {provider?.needs_api_key && <button disabled={!providerSecret || Boolean(busy)} onClick={async () => { if (await update({ action: "provider-credential", id: providerId, secret: providerSecret, verify: true })) setProviderSecret(""); }}>Save + test</button>}
+          <button disabled={Boolean(busy)} onClick={loadModels}>{busy === "models" ? "LOADING…" : "View available models"}</button>
+          {provider?.credential_source === "config" && <button className="danger-subtle" disabled={Boolean(busy)} onClick={() => update({ action: "remove-provider-credential", id: providerId })}>Remove stored key</button>}
         </div>
         <small>Endpoint: {provider?.endpoint}</small>
       </article>
@@ -201,28 +201,28 @@ export function ConfigurationCenter({ onClose }: { onClose: () => void }) {
     {notice && <p className="configuration-notice" role="status">{notice}</p>}
 
     {models.length > 0 && <section className="model-catalog" aria-label="Available models">
-      <header><h3>AVAILABLE MODELS</h3><span>{models.length} returned by {provider?.display_name}</span></header>
+      <header><h3>Available models</h3><span>{models.length} returned by {provider?.display_name}</span></header>
       <div className="model-cards">{models.map((model) => <article key={model.model_id} className={model.runtime_model === configuration.model.model ? "selected" : ""}>
-        <header><b>{model.model_id}</b>{model.runtime_model === configuration.model.model && <span>SELECTED</span>}</header>
+        <header><b>{model.model_id}</b>{model.runtime_model === configuration.model.model && <span>Selected</span>}</header>
         <p><strong>Strengths</strong> {model.strengths.join(" ")}</p>
         <p><strong>Limitations</strong> {model.limitations.join(" ")}</p>
-        <div className="model-tags">{model.supports_tools && <span>TOOLS</span>}{model.supports_vision && <span>VISION</span>}{model.supports_reasoning && <span>REASONING</span>}{model.context_tokens && <span>{model.context_tokens.toLocaleString()} CONTEXT</span>}</div>
-        <button disabled={Boolean(busy) || model.runtime_model === configuration.model.model} onClick={() => update({ action: "select-model", id: providerId, model_id: model.model_id })}>SELECT</button>
+        <div className="model-tags">{model.supports_tools && <span>Tools</span>}{model.supports_vision && <span>Vision</span>}{model.supports_reasoning && <span>Reasoning</span>}{model.context_tokens && <span>{model.context_tokens.toLocaleString()} CONTEXT</span>}</div>
+        <button disabled={Boolean(busy) || model.runtime_model === configuration.model.model} onClick={() => update({ action: "select-model", id: providerId, model_id: model.model_id })}>Select</button>
       </article>)}</div>
     </section>}
 
     <section className="service-catalog" aria-label="Intelligence APIs">
-      <header><h3>INTELLIGENCE APIS</h3><span>Save a credential, test access, and enable each service separately</span></header>
+      <header><h3>Intelligence APIs</h3><span>Save a credential, test access, and enable each service separately</span></header>
       <div>{configuration.services.map((service) => {
         const values = serviceSecrets[service.id] ?? service.credential_fields.map(() => "");
         return <article key={service.id}>
-          <header><div><b>{service.display_name}</b><small>{service.test_endpoint}</small></div><button onClick={() => update({ action: "service-enabled", id: service.id, enabled: !service.enabled })}>{service.enabled ? "ENABLED" : "DISABLED"}</button></header>
-          <div className="service-credential-fields">{service.credential_fields.map((field, index) => <label key={field.key}>{field.label}<span className="credential-presence">{field.credential_source === "config" ? "SAVED IN PIVOTGLASS · ••••••••" : field.credential_source === "environment" ? "SET IN ENVIRONMENT · ••••••••" : "NO VALUE SAVED"}</span><input type={field.key === "censys_org_id" ? "text" : "password"} autoComplete="new-password" value={values[index] ?? ""} onChange={(event) => setServiceSecrets((current) => ({ ...current, [service.id]: values.map((value, valueIndex) => valueIndex === index ? event.target.value : value) }))} placeholder={field.credential_source === "missing" ? field.required ? "Enter key" : "Optional" : "Enter a replacement value"} /></label>)}</div>
+          <header><div><b>{service.display_name}</b><small>{service.test_endpoint}</small></div><button onClick={() => update({ action: "service-enabled", id: service.id, enabled: !service.enabled })}>{service.enabled ? "Enabled" : "Disabled"}</button></header>
+          <div className="service-credential-fields">{service.credential_fields.map((field, index) => <label key={field.key}>{field.label}<span className="credential-presence">{field.credential_source === "config" ? "SAVED IN PIVOTGLASS · ••••••••" : field.credential_source === "environment" ? "SET IN ENVIRONMENT · ••••••••" : "No value saved"}</span><input type={field.key === "censys_org_id" ? "text" : "password"} autoComplete="new-password" value={values[index] ?? ""} onChange={(event) => setServiceSecrets((current) => ({ ...current, [service.id]: values.map((value, valueIndex) => valueIndex === index ? event.target.value : value) }))} placeholder={field.credential_source === "missing" ? field.required ? "Enter key" : "Optional" : "Enter a replacement value"} /></label>)}</div>
           <div className="configuration-actions">
-            <button disabled={Boolean(busy)} onClick={() => check("service", service.id, values)}>TEST</button>
-            <button disabled={!values.some(Boolean) || service.credential_fields.some((field, index) => field.required && !values[index] && field.credential_source === "missing") || Boolean(busy)} onClick={async () => { if (await update({ action: "service-credentials", id: service.id, values, verify: true })) setServiceSecrets((current) => ({ ...current, [service.id]: values.map(() => "") })); }}>SAVE, THEN TEST</button>
-            {service.credential_fields.some((field) => field.credential_source === "config") && <button className="danger-subtle" onClick={() => update({ action: "remove-service-credentials", id: service.id })}>REMOVE STORED</button>}
-            <a href={service.docs_url} target="_blank" rel="noreferrer">GET CREDENTIAL</a>
+            <button disabled={Boolean(busy)} onClick={() => check("service", service.id, values)}>Test</button>
+            <button disabled={!values.some(Boolean) || service.credential_fields.some((field, index) => field.required && !values[index] && field.credential_source === "missing") || Boolean(busy)} onClick={async () => { if (await update({ action: "service-credentials", id: service.id, values, verify: true })) setServiceSecrets((current) => ({ ...current, [service.id]: values.map(() => "") })); }}>Save, then test</button>
+            {service.credential_fields.some((field) => field.credential_source === "config") && <button className="danger-subtle" onClick={() => update({ action: "remove-service-credentials", id: service.id })}>Remove stored</button>}
+            <a href={service.docs_url} target="_blank" rel="noreferrer">Get credential</a>
           </div>
           {serviceOutcome[service.id] && <div className={`configuration-health ${serviceOutcome[service.id].health.state}`} role="status"><b>{serviceOutcome[service.id].saved === true ? "SAVED · " : ""}ACCESS {serviceOutcome[service.id].health.state.toUpperCase()}</b><span>{serviceOutcome[service.id].health.summary}</span></div>}
         </article>;

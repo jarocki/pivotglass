@@ -164,12 +164,12 @@ type CaptureKind =
   | "gap";
 
 const STAGES = [
-  { label: "FRAME", types: ["question", "assumption"] },
-  { label: "EXPLAIN", types: ["hypothesis", "assertion"] },
-  { label: "PREDICT", types: ["prediction", "signpost"] },
-  { label: "COLLECT", types: ["collection_requirement", "observation", "stop_condition"] },
+  { label: "Frame", types: ["question", "assumption"] },
+  { label: "Explain", types: ["hypothesis", "assertion"] },
+  { label: "Predict", types: ["prediction", "signpost"] },
+  { label: "Collect", types: ["collection_requirement", "observation", "stop_condition"] },
   { label: "TEST", types: ["method_run"] },
-  { label: "CONCLUDE", types: ["conclusion", "limitation", "knowledge_gap"] },
+  { label: "Conclude", types: ["conclusion", "limitation", "knowledge_gap"] },
 ] as const;
 
 const CAPTURE_LABELS: Record<CaptureKind, string> = {
@@ -329,8 +329,8 @@ export function ScientificWorkbench({
     <section className="scientific-workbench" aria-label="Scientific investigation workbench">
       <header>
         <div>
-          <span>SCIENTIFIC NOTEBOOK · ANALYST JUDGMENT</span>
-          <h3>{current?.title ?? "FRAME THE INVESTIGATION"}</h3>
+          <span>Scientific notebook · analyst judgment</span>
+          <h3>{current?.title ?? "Frame the investigation"}</h3>
           <p>
             {current?.purpose ?? "Begin with a question that can be tested against sourced evidence."}
           </p>
@@ -370,42 +370,42 @@ export function ScientificWorkbench({
           placeholder={kind === "question" ? "What exactly must this investigation answer?" : `Record a ${CAPTURE_LABELS[kind].toLowerCase()}…`}
           aria-label={`New ${CAPTURE_LABELS[kind]}`}
         />
-        <button disabled={busy || !statement.trim()}>{busy ? "RECORDING…" : "RECORD"}</button>
+        <button disabled={busy || !statement.trim()}>{busy ? "RECORDING…" : "Record"}</button>
       </form>
       {notice && <p className="analytic-notice" role="status">{notice}</p>}
 
       <details className="analysis-review">
-        <summary><b>REVIEW ASSUMPTIONS, EXPLANATIONS &amp; CONTRADICTIONS</b><span>{assumptions.length + analysis.hypotheses.length} records · {unresolved.length} open conflicts</span></summary>
+        <summary><b>Review assumptions, explanations &amp; contradictions</b><span>{assumptions.length + analysis.hypotheses.length} records · {unresolved.length} open conflicts</span></summary>
       <div className="analytic-columns">
         <section>
-          <header><b>ASSUMPTIONS</b><span>{assumptions.length}</span></header>
+          <header><b>Assumptions</b><span>{assumptions.length}</span></header>
           {assumptions.length === 0 && <p className="empty-copy">No assumptions exposed yet.</p>}
           {assumptions.map((item) => (
             <article key={item.id}>
-              <span>{item.author_kind === "model" ? "MODEL PROPOSAL · HUMAN REVIEW REQUIRED" : "ANALYST RECORD"}</span>
+              <span>{item.author_kind === "model" ? "Model proposal · human review required" : "Analyst record"}</span>
               <p>{item.statement}</p>
             </article>
           ))}
         </section>
 
         <section>
-          <header><b>COMPETING HYPOTHESES</b><span>{analysis.hypotheses.length}</span></header>
+          <header><b>Competing hypotheses</b><span>{analysis.hypotheses.length}</span></header>
           {analysis.hypotheses.length === 0 && <p className="empty-copy">No competing explanations recorded.</p>}
           {analysis.hypotheses.map((item) => (
             <article key={item.id}>
               <span>{item.status.toUpperCase()} · {item.author_kind.toUpperCase()}</span>
               <p>{item.statement}</p>
               <div>
-                <button disabled={busy || item.status === "retained"} onClick={() => void run(`analysis accept ${item.id}`)}>RETAIN</button>
-                <button disabled={busy || item.status === "rejected"} onClick={() => void run(`analysis reject ${item.id}`)}>REJECT</button>
-                <button disabled={busy || item.status === "suspended"} onClick={() => void run(`analysis suspend ${item.id}`)}>SUSPEND</button>
+                <button disabled={busy || item.status === "retained"} onClick={() => void run(`analysis accept ${item.id}`)}>Retain</button>
+                <button disabled={busy || item.status === "rejected"} onClick={() => void run(`analysis reject ${item.id}`)}>Reject</button>
+                <button disabled={busy || item.status === "suspended"} onClick={() => void run(`analysis suspend ${item.id}`)}>Suspend</button>
               </div>
             </article>
           ))}
         </section>
 
         <section className={unresolved.length ? "has-conflict" : ""}>
-          <header><b>CONTRADICTIONS</b><span>{unresolved.length} OPEN</span></header>
+          <header><b>Contradictions</b><span>{unresolved.length} OPEN</span></header>
           {analysis.contradictions.length === 0 && <p className="empty-copy">No explicit contradictions recorded.</p>}
           {analysis.contradictions.map((item) => (
             <article key={item.id} className={`contradiction-${item.status}`}>
@@ -420,7 +420,7 @@ export function ScientificWorkbench({
 
       <details className="ach-workspace" open={analysis.hypotheses.length > 1}>
         <summary>
-          <b>ANALYSIS OF COMPETING HYPOTHESES</b>
+          <b>Analysis of competing hypotheses</b>
           <span>{achRows.length} EVIDENCE ROWS · {analysis.hypotheses.length} HYPOTHESES</span>
         </summary>
         {analysis.hypotheses.length < 2 ? (
@@ -430,7 +430,7 @@ export function ScientificWorkbench({
         ) : (
           <div className="ach-scroll">
             <table>
-              <thead><tr><th>EVIDENCE / ASSERTION</th>{analysis.hypotheses.map((item, index) => <th key={item.id}>H{index + 1}<small>{item.statement}</small></th>)}</tr></thead>
+              <thead><tr><th>Evidence / assertion</th>{analysis.hypotheses.map((item, index) => <th key={item.id}>H{index + 1}<small>{item.statement}</small></th>)}</tr></thead>
               <tbody>{achRows.map((row) => <tr key={row.label}><th>{row.label}</th>{analysis.hypotheses.map((hypothesis) => { const link = row.cells.get(hypothesis.id); return <td className={link ? `stance-${link.stance}` : "stance-unknown"} title={link?.rationale ?? "No explicit link"} key={hypothesis.id}>{link?.stance === "supports" ? "+" : link?.stance === "contradicts" ? "−" : "·"}<small>{link?.stance ?? "unknown"}</small></td>; })}</tr>)}</tbody>
             </table>
           </div>
@@ -439,7 +439,7 @@ export function ScientificWorkbench({
 
       <details className="rigor-workspace" open={(analysis.rigor?.contradiction_candidates.length ?? 0) > 0}>
         <summary>
-          <b>CONFIDENCE &amp; CONTRADICTION REVIEW</b>
+          <b>Confidence &amp; contradiction review</b>
           <span>{analysis.rigor?.contradiction_candidates.length ?? 0} CANDIDATE CONFLICTS · {analysis.confidence.length} ASSESSMENTS</span>
         </summary>
         <p className="rigor-explainer">
@@ -448,14 +448,14 @@ export function ScientificWorkbench({
         </p>
         <div className="rigor-grid">
           <section>
-            <header><b>STRUCTURED VALUE CLAIM</b><span>ENABLES VALUE / INTERVAL REVIEW</span></header>
+            <header><b>Structured value claim</b><span>Enables value / interval review</span></header>
             <form className="rigor-form" onSubmit={recordStructuredClaim}>
-              <label>TYPE<select value={claimType} onChange={(event) => setClaimType(event.target.value)}><option value="judgment">judgment</option><option value="inferred">inferred</option><option value="assumed">assumed</option></select></label>
-              <label>SUBJECT<input value={claimSubject} onChange={(event) => setClaimSubject(event.target.value)} placeholder="indicator or analytic subject" /></label>
-              <label>PREDICATE<input value={claimPredicate} onChange={(event) => setClaimPredicate(event.target.value)} placeholder="first_seen, operator, port…" /></label>
-              <label>VALUE OR INTERVAL<input value={claimValue} onChange={(event) => setClaimValue(event.target.value)} placeholder={'scalar or {"min":1,"max":5,"unit":"days"}'} /></label>
-              <label className="wide">READABLE CLAIM<textarea value={claimStatement} onChange={(event) => setClaimStatement(event.target.value)} placeholder="State exactly what this value means and its relevant time boundary." /></label>
-              <button disabled={busy || ![claimSubject, claimPredicate, claimValue, claimStatement].every((value) => value.trim())}>RECORD CLAIM</button>
+              <label>Type<select value={claimType} onChange={(event) => setClaimType(event.target.value)}><option value="judgment">judgment</option><option value="inferred">inferred</option><option value="assumed">assumed</option></select></label>
+              <label>Subject<input value={claimSubject} onChange={(event) => setClaimSubject(event.target.value)} placeholder="indicator or analytic subject" /></label>
+              <label>Predicate<input value={claimPredicate} onChange={(event) => setClaimPredicate(event.target.value)} placeholder="first_seen, operator, port…" /></label>
+              <label>Value or interval<input value={claimValue} onChange={(event) => setClaimValue(event.target.value)} placeholder={'scalar or {"min":1,"max":5,"unit":"days"}'} /></label>
+              <label className="wide">Readable claim<textarea value={claimStatement} onChange={(event) => setClaimStatement(event.target.value)} placeholder="State exactly what this value means and its relevant time boundary." /></label>
+              <button disabled={busy || ![claimSubject, claimPredicate, claimValue, claimStatement].every((value) => value.trim())}>Record claim</button>
             </form>
             <div className="candidate-list">
               {(analysis.rigor?.contradiction_candidates.length ?? 0) === 0 && <p className="empty-copy">No unrecorded value or non-overlapping interval conflicts detected.</p>}
@@ -464,28 +464,28 @@ export function ScientificWorkbench({
                   <span>{candidate.conflict_kind.replaceAll("_", " ").toUpperCase()} · METHOD-DERIVED · NOT YET RECORDED</span>
                   <p>{candidate.summary}</p>
                   <small>NEEDED: {candidate.resolution_required}</small>
-                  <button disabled={busy} onClick={() => void run(`analysis contradiction ${candidate.left_kind} ${candidate.left_id} ${candidate.right_kind} ${candidate.right_id} ${candidate.summary} | ${candidate.resolution_required} | ${candidate.materiality}`)}>RECORD CONTRADICTION</button>
+                  <button disabled={busy} onClick={() => void run(`analysis contradiction ${candidate.left_kind} ${candidate.left_id} ${candidate.right_kind} ${candidate.right_id} ${candidate.summary} | ${candidate.resolution_required} | ${candidate.materiality}`)}>Record contradiction</button>
                 </article>
               ))}
             </div>
           </section>
 
           <section>
-            <header><b>FORMAL CONFIDENCE</b><span>LIKELIHOOD REMAINS SEPARATE</span></header>
+            <header><b>Formal confidence</b><span>Likelihood remains separate</span></header>
             <form className="rigor-form" onSubmit={recordConfidence}>
-              <label className="wide">JUDGMENT<select value={confidenceTarget} onChange={(event) => setConfidenceTarget(event.target.value)}><option value="">Choose an assertion or hypothesis</option>{judgments.map((item) => <option value={`${item.kind}:${item.id}`} key={`${item.kind}:${item.id}`}>{item.kind}: {item.label}</option>)}</select></label>
-              <label>LEVEL<select value={confidenceLevel} onChange={(event) => setConfidenceLevel(event.target.value as "low" | "moderate" | "high")}><option value="low">low</option><option value="moderate">moderate</option><option value="high">high</option></select></label>
-              <label>SOURCES<input type="number" min="0" value={sourceCount} onChange={(event) => setSourceCount(Math.max(0, Number(event.target.value)))} /></label>
-              <label>INDEPENDENT GROUPS<input type="number" min="0" value={dependenceGroups} onChange={(event) => setDependenceGroups(Math.max(0, Number(event.target.value)))} /></label>
-              <label>SOURCE QUALITY<input value={sourceQuality} onChange={(event) => setSourceQuality(event.target.value)} placeholder="access, reliability, limitations" /></label>
-              <label>INDEPENDENCE NOTES<input value={independenceNotes} onChange={(event) => setIndependenceNotes(event.target.value)} placeholder="shared upstream reporting?" /></label>
-              <label>CORROBORATION<input value={corroboration} onChange={(event) => setCorroboration(event.target.value)} placeholder="what independently agrees?" /></label>
-              <label>ASSUMPTIONS<input value={confidenceAssumptions} onChange={(event) => setConfidenceAssumptions(event.target.value)} placeholder="material assumptions" /></label>
-              <label>KNOWLEDGE GAPS<input value={confidenceGaps} onChange={(event) => setConfidenceGaps(event.target.value)} placeholder="unresolved information" /></label>
-              <label>ANALYTIC RIGOR<input value={analyticRigor} onChange={(event) => setAnalyticRigor(event.target.value)} placeholder="methods and alternatives tested" /></label>
-              <label className="wide">RATIONALE<textarea value={confidenceRationale} onChange={(event) => setConfidenceRationale(event.target.value)} placeholder="Explain why this evidentiary and logical basis warrants the selected level." /></label>
+              <label className="wide">Judgment<select value={confidenceTarget} onChange={(event) => setConfidenceTarget(event.target.value)}><option value="">Choose an assertion or hypothesis</option>{judgments.map((item) => <option value={`${item.kind}:${item.id}`} key={`${item.kind}:${item.id}`}>{item.kind}: {item.label}</option>)}</select></label>
+              <label>Level<select value={confidenceLevel} onChange={(event) => setConfidenceLevel(event.target.value as "low" | "moderate" | "high")}><option value="low">low</option><option value="moderate">moderate</option><option value="high">high</option></select></label>
+              <label>Sources<input type="number" min="0" value={sourceCount} onChange={(event) => setSourceCount(Math.max(0, Number(event.target.value)))} /></label>
+              <label>Independent groups<input type="number" min="0" value={dependenceGroups} onChange={(event) => setDependenceGroups(Math.max(0, Number(event.target.value)))} /></label>
+              <label>Source quality<input value={sourceQuality} onChange={(event) => setSourceQuality(event.target.value)} placeholder="access, reliability, limitations" /></label>
+              <label>Independence notes<input value={independenceNotes} onChange={(event) => setIndependenceNotes(event.target.value)} placeholder="shared upstream reporting?" /></label>
+              <label>Corroboration<input value={corroboration} onChange={(event) => setCorroboration(event.target.value)} placeholder="what independently agrees?" /></label>
+              <label>Assumptions<input value={confidenceAssumptions} onChange={(event) => setConfidenceAssumptions(event.target.value)} placeholder="material assumptions" /></label>
+              <label>Knowledge gaps<input value={confidenceGaps} onChange={(event) => setConfidenceGaps(event.target.value)} placeholder="unresolved information" /></label>
+              <label>Analytic rigor<input value={analyticRigor} onChange={(event) => setAnalyticRigor(event.target.value)} placeholder="methods and alternatives tested" /></label>
+              <label className="wide">Rationale<textarea value={confidenceRationale} onChange={(event) => setConfidenceRationale(event.target.value)} placeholder="Explain why this evidentiary and logical basis warrants the selected level." /></label>
               {liveConfidenceWarnings.length > 0 && <div className="rigor-warning wide" role="alert">{liveConfidenceWarnings.map((warning) => <span key={warning}>{warning}</span>)}</div>}
-              <button disabled={busy || !confidenceTarget || !confidenceRationale.trim()}>RECORD CONFIDENCE</button>
+              <button disabled={busy || !confidenceTarget || !confidenceRationale.trim()}>Record confidence</button>
             </form>
             <div className="confidence-list">
               {analysis.confidence.length === 0 && <p className="empty-copy">No formal confidence assessment recorded.</p>}
@@ -500,14 +500,14 @@ export function ScientificWorkbench({
       </details>
 
       <details className="information-review">
-        <summary><b>NEXT BEST INFORMATION</b><span>{requirementState?.suggestions.length ?? 0} method-derived suggestions · {requirementState?.requirements.length ?? 0} recorded requirements</span></summary>
+        <summary><b>Next best information</b><span>{requirementState?.suggestions.length ?? 0} method-derived suggestions · {requirementState?.requirements.length ?? 0} recorded requirements</span></summary>
       <section className="information-requirements" aria-label="Priority intelligence requirements">
         <header>
           <div>
-            <b>PRIORITY INTELLIGENCE REQUIREMENTS</b>
-            <span>WHAT INFORMATION WOULD MOST CHANGE THE JUDGMENT?</span>
+            <b>Priority intelligence requirements</b>
+            <span>What information would most change the judgment?</span>
           </div>
-          <small>DETERMINISTIC POLICY · {requirementState?.policy.id ?? "NOT AVAILABLE"}</small>
+          <small>DETERMINISTIC POLICY · {requirementState?.policy.id ?? "Not available"}</small>
         </header>
         <p className="requirement-explainer">
           An analyst-set priority controls rank. Otherwise Pivotglass scores only the declared
@@ -516,11 +516,11 @@ export function ScientificWorkbench({
         </p>
         <div className="requirement-grid">
           <section>
-            <header><b>RECORDED REQUIREMENTS</b><span>{requirementState?.requirements.length ?? 0}</span></header>
+            <header><b>Recorded requirements</b><span>{requirementState?.requirements.length ?? 0}</span></header>
             {!requirementState?.requirements.length && <p className="empty-copy">No bounded information requirements recorded.</p>}
             {requirementState?.requirements.map((item) => (
               <article key={item.id}>
-                <span>#{item.rank} · {item.priority_source === "analyst" ? "ANALYST PRIORITY" : "INFORMATION VALUE"} · {item.rank_score}/100</span>
+                <span>#{item.rank} · {item.priority_source === "analyst" ? "Analyst priority" : "Information value"} · {item.rank_score}/100</span>
                 <p>{item.statement}</p>
                 <small>
                   DECISION {item.contributions.decision_impact ?? 0} · DISCRIMINATION {item.contributions.discriminating_power ?? 0} · TIME {item.contributions.time_sensitivity ?? 0} · FEASIBILITY {item.contributions.feasibility ?? 0}
@@ -545,7 +545,7 @@ export function ScientificWorkbench({
             ))}
           </section>
           <section>
-            <header><b>NEXT BEST INFORMATION</b><span>{requirementState?.suggestions.length ?? 0}</span></header>
+            <header><b>Next best information</b><span>{requirementState?.suggestions.length ?? 0}</span></header>
             {!requirementState?.suggestions.length && <p className="empty-copy">No method-derived suggestions at this stage.</p>}
             {requirementState?.suggestions.map((item) => (
               <article key={item.id}>
@@ -553,7 +553,7 @@ export function ScientificWorkbench({
                 <p>{item.statement}</p>
                 <small>{item.rationale}</small>
                 {item.source_refs.length > 0 && <small>BASIS: {item.source_refs.map((ref) => `${ref.kind}:${ref.id}`).join(" · ")}</small>}
-                {item.adoptable && <button disabled={busy} onClick={() => void adoptSuggestion(item)}>ADOPT AS REQUIREMENT</button>}
+                {item.adoptable && <button disabled={busy} onClick={() => void adoptSuggestion(item)}>Adopt as requirement</button>}
               </article>
             ))}
           </section>

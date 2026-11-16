@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Pages without a text layer are named.
 - Paste text or an indicator list directly as a source.
 - REPL `show modules` and `exit`.
+- **Menu** moves to the top left and opens as a drawer. Section headings are
+  plain labels; every action is a bordered button, and the selected option in
+  each choice group is filled and ticked.
 - View controls under **Menu → View**: width (Column, Wide, Full), text size
   (four steps that scale every label and value, including the rendered source),
   and density. Keys: `\` cycles width, `+` and `−` change text size. One
@@ -55,7 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Interface cleanup from an eight-lens critique (see
   `docs/plans/V1.3.0_UI_CRITIQUE.md`). Every interface size is a rem token,
   so nothing renders below 12 px at the standard size. Caps, letter-spacing,
-  and monospace are now reserved for the wordmark, values, and keycaps. Pane,
+  and monospace are now reserved for the wordmark, values, and keycaps,
+  including in the workbench, help, configuration, and visualizations. Pane,
   tab, and menu labels share one vocabulary. Wide screens show Sources and
   Next step beside Activity.
 - The Pursuit Brief is now the compact **Next step** pane: one action, with
@@ -89,6 +93,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Activity pane no longer renders blank: it had deferred its own
   rendering (`content-visibility`) behind a 720 px placeholder.
 - Escape closes the menu. Command suggestions appear only while typing.
+- A long stored-source name no longer widens the Sources column and hides its
+  controls behind Activity. Grid panes now shrink to their column, and source
+  rows truncate the name with the full value on hover.
+- Pane headers wrap their controls at large text instead of clipping them;
+  graph node types no longer overprint their labels; dossier dimensions are
+  readable tiles; the menu's text-size options fit at every size.
+- The web cockpit ships a local favicon (no more 404 on every load) (#35).
 
 ### Removed
 

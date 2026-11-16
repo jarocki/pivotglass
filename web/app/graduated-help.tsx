@@ -107,7 +107,7 @@ export function GraduatedHelp({
       aria-labelledby="graduated-help-title"
       aria-describedby="graduated-help-description"
     >
-      <strong className="guide-kicker">GUIDED NEXT STEP</strong>
+      <strong className="guide-kicker">Guided next step</strong>
       <header>
         <span>{level.toUpperCase()} GUIDANCE · {content.step}</span>
         <button type="button" aria-label="Dismiss this workflow tip" onClick={onDismiss}>×</button>
@@ -117,7 +117,7 @@ export function GraduatedHelp({
       <div>
         <button type="button" onClick={() => onAction(content.action)}>{content.actionLabel}</button>
         {content.alternateAction && <button type="button" onClick={() => onAction(content.alternateAction!)}>{content.alternateLabel}</button>}
-        <button type="button" className="quiet" onClick={onDismiss}>NOT NOW</button>
+        <button type="button" className="quiet" onClick={onDismiss}>Not now</button>
       </div>
       <small>Workflow guidance is presentation, not evidence. Change or reset the guidance level in Help at any time.</small>
     </aside>
