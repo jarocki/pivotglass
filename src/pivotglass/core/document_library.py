@@ -19,6 +19,7 @@ from pivotglass.core.document_entity_extraction import (
     DocumentEntityExtractionService,
     EntityExtractionLimits,
 )
+from pivotglass.core.document_rendering import render_document
 from pivotglass.core.document_ingestion import (
     DocumentIntakeReceipt,
     DocumentIntakeService,
@@ -591,8 +592,36 @@ class DocumentLibraryService:
                     }
                     for row in candidates
                 ],
+                "rendering": render_document(
+                    self.source_bytes(occurrence_id, _content=content),
+                    media_type=occurrence.detected_media_type,
+                    output_text=parser.output_text,
+                ).model_dump(mode="json"),
                 "truth_boundary": (
                     "Stored source content and parser output are provenance. Candidate strings "
                     "remain unverified until an analyst admits or rejects them."
                 ),
             }
+
+    def source_bytes(self, occurrence_id: str, *, _content: Any = None) -> bytes:
+        """Return one stored occurrence's original bytes after hash verification."""
+
+        content = _content
+        if content is None:
+            with self._workspace.get_session() as session:
+                occurrence = session.get(DocumentOccurrence, occurrence_id)
+                if occurrence is None:
+                    raise ValueError("document was not found in the active workspace")
+                content = session.get(DocumentContent, occurrence.content_sha256)
+                if content is None:
+                    raise ValueError("stored document content is missing from the active workspace")
+        digest = content.sha256
+        root = self._workspace._content_store_path(self._workspace.active)  # noqa: SLF001
+        path = root / "sha256" / digest[:2] / digest
+        try:
+            data = path.read_bytes()
+        except FileNotFoundError:
+            raise ValueError("stored document bytes are missing from the content store") from None
+        if hashlib.sha256(data).hexdigest() != digest:
+            raise RuntimeError("Content-addressed store failed integrity verification.")
+        return data

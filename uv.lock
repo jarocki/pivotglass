@@ -981,8 +981,10 @@ source = { editable = "." }
 dependencies = [
     { name = "cmd2" },
     { name = "httpx" },
+    { name = "markdown-it-py" },
     { name = "pydantic" },
     { name = "pyfiglet" },
+    { name = "pypdf" },
     { name = "pyyaml" },
     { name = "rich" },
     { name = "sqlalchemy" },
@@ -1013,9 +1015,11 @@ requires-dist = [
     { name = "cmd2", specifier = ">=2.5" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "litellm", marker = "extra == 'agent'", specifier = ">=1.0" },
+    { name = "markdown-it-py", specifier = ">=4.0" },
     { name = "prompt-toolkit", marker = "extra == 'agent'", specifier = ">=3.0" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pyfiglet", specifier = ">=1.0" },
+    { name = "pypdf", specifier = ">=6.21.3,<7" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -1241,6 +1245,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/c3/b2/bc9c9196916376152d655522fdcebac55e66de6603a76a02bca1b6414f6c/pygments-2.20.0.tar.gz", hash = "sha256:6757cd03768053ff99f3039c1a36d6c0aa0b263438fcab17520b30a303a82b5f", size = 4955991, upload-time = "2026-03-29T13:29:33.898Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f4/7e/a72dd26f3b0f4f2bf1dd8923c85f7ceb43172af56d63c7383eb62b332364/pygments-2.20.0-py3-none-any.whl", hash = "sha256:81a9e26dd42fd28a23a2d169d86d7ac03b46e2f8b59ed4698fb4785f946d0176", size = 1231151, upload-time = "2026-03-29T13:29:30.038Z" },
+]
+
+[[package]]
+name = "pypdf"
+version = "6.21.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1e/e1/ec8f4d155c997c45917153a5521e60d6ee6389d68abdcbc8e44e564caffc/pypdf-6.21.4.tar.gz", hash = "sha256:c8817e3f888d47a087872ded69812c1ef30cacb871d6e053e0c00bbaf0bc2163", size = 7109255, upload-time = "2026-10-28T17:00:54.81Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3f/4b/77e8ad4ac42c9d93600f40541a50e9feb3a61d2bbee2d76f659346072051/pypdf-6.21.4-py3-none-any.whl", hash = "sha256:33e4fb41ca352810eb4e9838aa0d82d6888a5f8bf682f43e99cce5faa666255c", size = 410430, upload-time = "2026-10-28T17:00:53.146Z" },
 ]
 
 [[package]]

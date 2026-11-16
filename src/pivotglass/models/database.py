@@ -434,6 +434,34 @@ class PivotTrailEvent(Base):
     )
 
 
+class IndicatorTagEvent(Base):
+    """Append-only analyst classification of one indicator along one dimension.
+
+    Tags are keyed by canonical STIX type and normalized value, not by a row
+    id, so a tag applied to a document candidate before admission is the same
+    tag after admission and in every other source that mentions the value.
+    Current tag state is the latest event per (indicator, dimension, value).
+    A tag is analyst judgment; it never becomes observed evidence.
+    """
+
+    __tablename__ = "indicator_tag_events"
+
+    id = Column(String, primary_key=True)
+    entity_type = Column(String, nullable=False, index=True)
+    normalized_value = Column(Text, nullable=False, index=True)
+    dimension = Column(String, nullable=False, index=True)
+    value = Column(String, nullable=False)
+    action = Column(String, nullable=False)  # "add" | "remove"
+    note = Column(Text, nullable=True)
+    created_by = Column(String, nullable=False, default="human")
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+
+
 class EvidenceClusterSnapshot(Base):
     """Presentation snapshot used to compare graph-cluster change over time."""
 

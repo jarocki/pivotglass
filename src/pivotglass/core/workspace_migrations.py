@@ -46,6 +46,7 @@ from pivotglass.models.database import (
     DocumentParserReceipt,
     DocumentProposalDisposition,
     EvidenceClusterSnapshot,
+    IndicatorTagEvent,
     EvidenceObservation,
     EvidenceSource,
     GraphPresentationLayout,
@@ -58,7 +59,7 @@ from pivotglass.models.database import (
     WorkspaceSchemaVersion,
 )
 
-CURRENT_WORKSPACE_SCHEMA_VERSION = 12
+CURRENT_WORKSPACE_SCHEMA_VERSION = 13
 LEGACY_WORKSPACE_SCHEMA_VERSION = 1
 _VERSION_ROW_ID = 1
 
@@ -177,6 +178,7 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     immutable span-grounded analysis proposals and append-only human
     dispositions. The v11 -> v12 step adds an append-only analyst pivot trail;
     those workflow links remain distinct from observed threat relationships.
+    The v12 -> v13 step adds append-only multidimensional indicator tags.
     """
 
     tables = set(inspect(engine).get_table_names())
@@ -232,6 +234,9 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     if current == 11:  # noqa: PLR2004
         _migrate_v11_to_v12(engine)
         current = 12
+    if current == 12:  # noqa: PLR2004
+        _migrate_v12_to_v13(engine)
+        current = 13
 
     if current != CURRENT_WORKSPACE_SCHEMA_VERSION:
         raise RuntimeError(
@@ -264,19 +269,8 @@ def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
     current = _read_schema_version(engine, tables)
     if current == CURRENT_WORKSPACE_SCHEMA_VERSION:
         return MigrationPlan(current, current, False, True, None, ())
-    supported = current in {
-        LEGACY_WORKSPACE_SCHEMA_VERSION,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-    }
+    # Every version from the legacy schema up to the current one has a step.
+    supported = LEGACY_WORKSPACE_SCHEMA_VERSION <= current < CURRENT_WORKSPACE_SCHEMA_VERSION
     steps = ["create sibling backup"]
     if current == LEGACY_WORKSPACE_SCHEMA_VERSION:
         steps.extend(
@@ -359,6 +353,13 @@ def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
             (
                 "add append-only analyst pivot trail records",
                 "write schema-version 12 receipt",
+            )
+        )
+    if current <= 12:  # noqa: PLR2004
+        steps.extend(
+            (
+                "add append-only multidimensional indicator tag events",
+                "write schema-version 13 receipt",
             )
         )
     return MigrationPlan(
@@ -831,6 +832,19 @@ def _migrate_v11_to_v12(engine: Engine) -> None:
         if row is None:
             raise RuntimeError("Schema v11 workspace is missing its version receipt.")
         row.version = 12
+        row.migrated_at = datetime.now(timezone.utc)
+        session.commit()
+
+
+def _migrate_v12_to_v13(engine: Engine) -> None:
+    """Add analyst indicator tags without changing evidence or relationships."""
+
+    IndicatorTagEvent.__table__.create(engine, checkfirst=True)
+    with Session(engine) as session:
+        row = session.get(WorkspaceSchemaVersion, _VERSION_ROW_ID)
+        if row is None:
+            raise RuntimeError("Schema v12 workspace is missing its version receipt.")
+        row.version = 13
         row.migrated_at = datetime.now(timezone.utc)
         session.commit()
 

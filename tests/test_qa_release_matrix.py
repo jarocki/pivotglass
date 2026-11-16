@@ -1,5 +1,6 @@
 """Cross-interface gates for the v0.4.9 quality-assurance release."""
 
+import re
 from pathlib import Path
 
 from pivotglass.agent.tui.themes import (
@@ -362,29 +363,28 @@ def test_product_uses_enrichment_and_reserves_connection_for_graph_relations():
 def test_investigate_owns_source_intake_and_selected_entity_admission():
     page = Path("web/app/page.tsx").read_text()
     intake = Path("web/app/document-intake.tsx").read_text()
+    focus = Path("web/app/indicator-focus.tsx").read_text()
 
     intake_position = page.index('id="investigate-intake"')
     activity_position = page.index('className="cockpit-grid"')
     visualize_position = page.index('id="artifact-field"')
     assert intake_position < activity_position < visualize_position
     assert 'hidden={activePane !== "intelligence"}' in page
-    assert "candidate_keys: [...selectedCandidates]" in intake
-    assert "INGEST SOURCE + ADD" in intake
-    assert "INGEST SOURCE ONLY" in intake
-    assert "source-admission action below" in intake
-    assert "It does not declare a candidate malicious" in intake
-    assert "visibleCandidates.map" in intake
-    assert "SELECT PAGE (" in intake
-    assert "SELECT ALL MATCHES" in intake
-    assert "it never selects unseen pages" in intake
+    assert 'key={state.workspace}' in page
+    # Admission sends exactly the analyst's chosen keys, bound to the case and hash.
+    assert "candidate_keys: keys" in intake
     assert "expected_workspace: workspace" in intake
+    assert "expected_sha256: pending.preview.content_sha256" in intake
     assert "RETRY LIBRARY" in intake
     assert 'data-action="use-admitted-indicator"' in intake
-    assert 'key={state.workspace}' in page
+    # A failed admission after storage is retried against the stored occurrence.
     assert "candidate_admission_error" in intake
-    assert "RETRY ENTITY ADMISSION" in intake
-    assert "/api/documents/candidates/admit" in intake
-    assert "It does not store a second copy" in intake
+    assert "the source will not be stored twice" in intake
+    # Intake never runs enrichment; investigation is only prepared.
+    assert "/api/investigate" not in intake and "/api/investigate" not in focus
+    # Rendered sources can never run script.
+    sandboxes = re.findall(r'sandbox="([^"]*)"', focus)
+    assert sandboxes == ["allow-same-origin"]
 
 
 def test_guidance_is_persisted_graduated_and_presentation_only():
@@ -406,7 +406,8 @@ def test_guidance_is_persisted_graduated_and_presentation_only():
     assert 'intakeTargetFor(action)' in page
     assert 'querySelectorAll<HTMLDetailsElement>("details")' not in page
     navigation = Path("web/app/guidance-navigation.ts").read_text()
-    assert 'data-action=\'preview-document\'' in navigation
+    assert "data-action='choose-source'" in navigation
+    assert "data-action='reopen-focus'" in navigation
     assert 'data-action=\'use-admitted-indicator\'' in navigation
     assert 'aria-live="polite"' in guidance
     assert 'main>.guided-help-layer{position:fixed' in styles

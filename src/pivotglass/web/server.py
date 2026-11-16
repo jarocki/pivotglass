@@ -54,6 +54,9 @@ from pivotglass.core.document_entity_extraction import (
     extract_entity_candidates,
 )
 from pivotglass.core.document_ingestion import DocumentIntakeService, DocumentLimits
+from pivotglass.core.document_rendering import render_document
+from pivotglass.core.indicator_context import IndicatorContextAuthority, document_relations
+from pivotglass.core.indicator_tags import IndicatorTagAuthority, dimension_catalog
 from pivotglass.core.document_library import (
     DocumentLibraryService,
     PivotTrailAuthority,
@@ -520,6 +523,11 @@ class WebCockpitService:
         )
         return {
             **preview.model_dump(mode="json"),
+            "rendering": render_document(
+                data,
+                media_type=preview.detected_media_type,
+                output_text=preview.output_text,
+            ).model_dump(mode="json"),
             "entity_extraction": {
                 "state": candidates.state,
                 "warnings": list(candidates.warnings),
@@ -534,6 +542,7 @@ class WebCockpitService:
                     }
                     for item in candidates.candidates
                 ],
+                "relations": document_relations(candidates.candidates, preview.output_text),
                 "truth_boundary": (
                     "Candidates are temporary text matches. They are not stored evidence, "
                     "admitted entities, graph nodes, relationships, verdicts, or attribution."
@@ -693,7 +702,60 @@ class WebCockpitService:
         }
 
     def document_detail(self, occurrence_id: str) -> dict[str, Any]:
-        return DocumentLibraryService(self.ctx.workspace_mgr).detail(occurrence_id)
+        detail = DocumentLibraryService(self.ctx.workspace_mgr).detail(occurrence_id)
+        detail["relations"] = document_relations(
+            detail["candidates"], detail["parser"]["output_text"]
+        )
+        return detail
+
+    def tag_dimensions(self) -> dict[str, Any]:
+        return {"dimensions": dimension_catalog()}
+
+    def tag_indicators(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Apply analyst tag additions and removals as one validated batch."""
+
+        changes = payload.get("changes")
+        if not isinstance(changes, list):
+            raise ValueError("changes must be a list")
+        with self._command_lock:
+            self._check_document_workspace(payload)
+            tags = IndicatorTagAuthority(self.ctx.workspace_mgr).apply(
+                [item for item in changes if isinstance(item, dict)],
+                operator=str(payload.get("operator") or "local analyst"),
+            )
+        return {"workspace": self.ctx.workspace_mgr.active, "tags": tags}
+
+    def indicator_context(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Describe a batch of indicators from what the workspace already holds."""
+
+        raw = payload.get("indicators")
+        if not isinstance(raw, list):
+            raise ValueError("indicators must be a list")
+        indicators = [
+            (str(item.get("entity_type") or ""), str(item.get("normalized_value") or ""))
+            for item in raw
+            if isinstance(item, dict)
+        ]
+        occurrence = str(payload.get("occurrence_id") or "").strip() or None
+        with self._command_lock:
+            self._check_document_workspace(payload)
+            context = IndicatorContextAuthority(self.ctx.workspace_mgr).context(
+                indicators, current_occurrence_id=occurrence
+            )
+        return {"workspace": self.ctx.workspace_mgr.active, "context": context}
+
+    def document_pdf_source(self, occurrence_id: str) -> bytes:
+        """Return verified stored bytes for PDF rendering; other formats are refused."""
+
+        library = DocumentLibraryService(self.ctx.workspace_mgr)
+        record = next(
+            (item for item in library.list() if item.occurrence_id == occurrence_id), None
+        )
+        if record is None:
+            raise ValueError("document was not found in the active workspace")
+        if record.detected_media_type != "application/pdf":
+            raise ValueError("only PDF sources are served for page rendering")
+        return library.source_bytes(occurrence_id)
 
     def pivot_trail(self) -> dict[str, Any]:
         return {
@@ -1950,6 +2012,20 @@ def _handler(
             self.end_headers()
             self.wfile.write(body)
 
+        def _pdf(self, body: bytes) -> None:
+            # Only PDF bytes are ever served, and only to pdf.js via fetch. The
+            # sandbox CSP and attachment disposition stop the browser from
+            # treating the response as a same-origin document if opened directly.
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/pdf")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Content-Disposition", "attachment")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Security-Policy", "sandbox; default-src 'none'")
+            self.end_headers()
+            self.wfile.write(body)
+
         def _host_allowed(self) -> bool:
             raw_host = self.headers.get("Host", "").strip().lower()
             if raw_host.startswith("["):
@@ -1990,6 +2066,15 @@ def _handler(
             if parsed.path == "/api/documents":
                 self._json(service.document_library())
                 return
+            if parsed.path.startswith("/api/documents/") and parsed.path.endswith("/source"):
+                try:
+                    occurrence_id = parsed.path.removeprefix("/api/documents/").removesuffix(
+                        "/source"
+                    ).strip("/")
+                    self._pdf(service.document_pdf_source(occurrence_id))
+                except ValueError as exc:
+                    self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
+                return
             if parsed.path.startswith("/api/documents/"):
                 try:
                     occurrence_id = parsed.path.removeprefix("/api/documents/").strip()
@@ -1998,6 +2083,9 @@ def _handler(
                     self._json(service.document_detail(occurrence_id))
                 except ValueError as exc:
                     self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
+                return
+            if parsed.path == "/api/tags/dimensions":
+                self._json(service.tag_dimensions())
                 return
             if parsed.path == "/api/pivots":
                 self._json(service.pivot_trail())
@@ -2106,6 +2194,8 @@ def _handler(
                     "/api/documents/preview",
                     "/api/documents/ingest",
                     "/api/documents/candidates/admit",
+                    "/api/tags",
+                    "/api/indicators/context",
                     "/api/advisor/voice",
                     "/api/integrations/scot/pivot-request",
                 }
@@ -2138,6 +2228,8 @@ def _handler(
                     if parsed.path in {"/api/documents/preview", "/api/documents/ingest"}
                     else 256 * 1024
                     if parsed.path == "/api/documents/candidates/admit"
+                    else 1024 * 1024
+                    if parsed.path in {"/api/tags", "/api/indicators/context"}
                     else 16_384
                 )
                 if length > request_limit:
@@ -2202,6 +2294,12 @@ def _handler(
                         service.admit_document_candidates(payload),
                         HTTPStatus.CREATED,
                     )
+                    return
+                if parsed.path == "/api/tags":
+                    self._json(service.tag_indicators(payload), HTTPStatus.CREATED)
+                    return
+                if parsed.path == "/api/indicators/context":
+                    self._json(service.indicator_context(payload))
                     return
                 if parsed.path == "/api/mode":
                     name = str(payload.get("name", "")).strip()
