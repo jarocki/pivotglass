@@ -293,6 +293,9 @@ def test_graph_inspector_shows_saved_node_notes():
     assert "/api/graph-annotations?node_ref=" in workspace
     assert 'className="graph-node-notes"' in workspace
     assert "SAVE NODE NOTE" not in workspace
+    # Presentation-only nodes (analyst groups) are not evidence: no Open evidence, no notes.
+    assert "selectedNode.evidence !== false" in workspace
+    assert "evidence?: boolean" in Path("web/app/visualization-intent.ts").read_text()
 
 
 def test_every_selected_visualization_explains_choice_and_reading():

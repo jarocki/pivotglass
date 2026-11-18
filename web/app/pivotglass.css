@@ -1503,3 +1503,5 @@ main.display-day .masthead .pane-switcher button[aria-current="page"]{border-bot
 /* main>* pins direct children to z-index 1; dialogs must sit above the masthead (15000). */
 main>.detail-backdrop{z-index:20000!important}
 .breadcrumbs li{display:flex;flex-wrap:wrap;gap:6px}
+
+.graph-inspector-hint{flex-basis:100%;margin:2px 0 0;color:var(--dim);font-size:var(--fs-xs)}

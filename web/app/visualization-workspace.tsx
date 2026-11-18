@@ -1129,14 +1129,21 @@ function forceLayout(
 ): Record<string, GraphPoint> {
   const positions = new Map<string, GraphPoint>();
   const velocity = new Map<string, GraphPoint>();
+  // Wide canvases are common (a 1600px pane is often 3:1). Start on an ellipse and pull
+  // weaker horizontally so the settled graph uses the width instead of a central disc.
+  const aspect = Math.max(1 / 3, Math.min(3, width / Math.max(height, 1)));
   const radius = Math.min(width, height) * 0.32;
+  // Measured on a 1538×538 canvas: dividing by aspect² flattened the graph to a 6.6:1
+  // strip; dividing by aspect settles near the canvas's own proportions.
+  const gravityX = 0.0016 / Math.max(1, aspect);
+  const gravityY = 0.0016 * Math.min(1, aspect);
   nodes.forEach((node, index) => {
     const hash = stableHash(node.reference);
     const angle = (Math.PI * 2 * index) / Math.max(1, nodes.length) + (hash % 97) / 311;
     const jitter = ((hash >>> 8) % 61) - 30;
     positions.set(node.reference, {
-      x: width / 2 + Math.cos(angle) * (radius + jitter),
-      y: height / 2 + Math.sin(angle) * (radius + jitter),
+      x: width / 2 + Math.cos(angle) * (radius + jitter) * Math.max(1, aspect),
+      y: height / 2 + Math.sin(angle) * (radius + jitter) / Math.min(1, aspect),
     });
     velocity.set(node.reference, { x: 0, y: 0 });
   });
@@ -1184,8 +1191,8 @@ function forceLayout(
     for (const node of nodes) {
       const position = positions.get(node.reference)!;
       const speed = velocity.get(node.reference)!;
-      speed.x += (width / 2 - position.x) * 0.0016;
-      speed.y += (height / 2 - position.y) * 0.0016;
+      speed.x += (width / 2 - position.x) * gravityX;
+      speed.y += (height / 2 - position.y) * gravityY;
       speed.x *= 0.82;
       speed.y *= 0.82;
       // Soft bounds only: a hard clamp at the canvas edge stacked leaves into rows along the
@@ -1195,6 +1202,14 @@ function forceLayout(
     }
   }
   return Object.fromEntries(positions);
+}
+
+/** Text position for a node label on the side chosen by the collision pass. */
+function labelPlacement(side: "right" | "left" | "above" | "below", radius: number, font: number) {
+  if (side === "left") return { x: -(radius + 5), y: font / 3, textAnchor: "end" as const };
+  if (side === "above") return { x: 0, y: -(radius + 6), textAnchor: "middle" as const };
+  if (side === "below") return { x: 0, y: radius + 4 + font, textAnchor: "middle" as const };
+  return { x: radius + 5, y: font / 3, textAnchor: "start" as const };
 }
 
 function RelationshipGraph({
@@ -1250,14 +1265,19 @@ function RelationshipGraph({
   });
   // The canvas is measured, never fixed: viewBox units equal CSS pixels, so the graph fills
   // whatever space the view gives it and text never scales with the window.
-  const [size, setSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [size, setSize] = useState<{ width: number; height: number; font?: number }>({ width: 0, height: 0 });
   const canvasObserver = useRef<ResizeObserver | null>(null);
   const canvasRef = useCallback((element: HTMLDivElement | null) => {
     canvasObserver.current?.disconnect();
     if (!element) return;
     const observer = new ResizeObserver(([entry]) => {
-      const next = { width: Math.round(entry.contentRect.width), height: Math.round(entry.contentRect.height) };
-      setSize((current) => current.width === next.width && current.height === next.height ? current : next);
+      const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const next = {
+        width: Math.round(entry.contentRect.width),
+        height: Math.round(entry.contentRect.height),
+        font: Math.round(rootPx * 0.857 * 10) / 10,
+      };
+      setSize((current) => current.width === next.width && current.height === next.height && current.font === next.font ? current : next);
     });
     observer.observe(element);
     canvasObserver.current = observer;
@@ -1358,9 +1378,11 @@ function RelationshipGraph({
     .filter((node): node is NonNullable<typeof node> => Boolean(node));
   const markerId = `${intent.intent_id}-relationship-arrow`;
   const selectedNodeRef = selectedNode?.reference;
+  // Notes attach to stored indicators; presentation-only nodes (analyst groups) have none.
+  const selectedNodeTakesNotes = selectedNode?.evidence !== false;
   useEffect(() => { setNodeAnnotationMessage(""); }, [selectedNodeRef]);
   useEffect(() => {
-    if (!selectedNodeRef) {
+    if (!selectedNodeRef || !selectedNodeTakesNotes) {
       setNodeNotes([]);
       return;
     }
@@ -1370,7 +1392,7 @@ function RelationshipGraph({
       .then((result: { annotations?: GraphNodeNote[] }) => { if (live) setNodeNotes(result.annotations ?? []); })
       .catch(() => { if (live) setNodeNotes([]); });
     return () => { live = false; };
-  }, [selectedNodeRef, notesVersion]);
+  }, [selectedNodeRef, selectedNodeTakesNotes, notesVersion]);
 
   latestPresentation.current = {
     positions,
@@ -1706,6 +1728,60 @@ function RelationshipGraph({
     || Boolean(labels[reference])
     || viewport.scale >= 1.6;
 
+  type LabelSide = "right" | "left" | "above" | "below";
+  const labelSide = new Map<string, LabelSide>();
+  const topHubs = new Set([...hubRefs].slice(0, 3));
+  {
+    const font = size.font || 12;
+    const lineHeight = font * 1.25;
+    const obstacles: Array<[number, number, number, number, string]> = [];
+    for (const node of visibleNodes) {
+      if (!positions[node.reference]) continue;
+      const point = toScreen(positions[node.reference]);
+      const r = nodeRadius(node.reference);
+      obstacles.push([point.x - r, point.x + r, point.y - r, point.y + r, node.reference]);
+    }
+    const rank = (reference: string) => (selectedSet.has(reference) || reference === hovered ? 0
+      : coreRefs.has(reference) ? 1
+        : pinned.has(reference) || labels[reference] ? 2
+          : focusRefs.has(reference) ? 3 : 4);
+    const candidates = visibleNodes
+      .filter((node) => positions[node.reference] && labelled(node.reference))
+      .sort((left, right) => rank(left.reference) - rank(right.reference)
+        || (degree.get(right.reference) ?? 0) - (degree.get(left.reference) ?? 0));
+    const placed: Array<[number, number, number, number]> = [];
+    const overlaps = (box: [number, number, number, number], self: string) =>
+      placed.some((other) => box[0] < other[1] && box[1] > other[0] && box[2] < other[3] && box[3] > other[2])
+      || obstacles.some((other) => other[4] !== self
+        && box[0] < other[1] && box[1] > other[0] && box[2] < other[3] && box[3] > other[2]);
+    for (const node of candidates) {
+      const point = toScreen(positions[node.reference]);
+      const r = nodeRadius(node.reference);
+      const textWidth = shortLabel(labels[node.reference] || node.label, 44).length * font * 0.66 + 6; // bold UI text runs ~0.62em per glyph
+      const top = point.y - lineHeight / 2;
+      const boxes: Array<[LabelSide, [number, number, number, number]]> = [
+        ["right", [point.x + r + 5, point.x + r + 5 + textWidth, top, top + lineHeight]],
+        ["left", [point.x - r - 5 - textWidth, point.x - r - 5, top, top + lineHeight]],
+        ["above", [point.x - textWidth / 2, point.x + textWidth / 2, point.y - r - 4 - lineHeight, point.y - r - 4]],
+        ["below", [point.x - textWidth / 2, point.x + textWidth / 2, point.y + r + 4, point.y + r + 4 + lineHeight]],
+      ];
+      // The selection, the hovered node and the three largest hubs are always named.
+      const mustShow = rank(node.reference) <= 1 || topHubs.has(node.reference);
+      // Fallback: overprinting a node is tolerable for a must-show label; overprinting another
+      // label is not, except for the selection or hover, which may never disappear.
+      const hits = (box: [number, number, number, number], set: Array<[number, number, number, number, ...unknown[]]>) =>
+        set.filter((other) => other[4] !== node.reference
+          && box[0] < other[1] && box[1] > other[0] && box[2] < other[3] && box[3] > other[2]).length;
+      const score = (box: [number, number, number, number]) => hits(box, placed) * 100 + hits(box, obstacles);
+      const fallback = boxes.reduce((best, candidate) => score(candidate[1]) < score(best[1]) ? candidate : best);
+      const choice = boxes.find(([, box]) => !overlaps(box, node.reference))
+        ?? (rank(node.reference) <= 1 || (mustShow && hits(fallback[1], placed) === 0) ? fallback : undefined);
+      if (!choice) continue;
+      labelSide.set(node.reference, choice[0]);
+      placed.push(choice[1]);
+    }
+  }
+
   if (intent.data.nodes.length === 0) return <VisualizationEmpty intent={intent} />;
   return (
     <div
@@ -1978,8 +2054,11 @@ function RelationshipGraph({
                   <circle r={nodeRadius(node.reference)}>
                     <title>{node.label} · {node.entity_type} · {degree.get(node.reference) ?? 0} relationships</title>
                   </circle>
-                  {labelled(node.reference) && (
-                    <text className="node-label" x={nodeRadius(node.reference) + 5} y={4}>
+                  {labelSide.has(node.reference) && (
+                    <text
+                      className="node-label"
+                      {...labelPlacement(labelSide.get(node.reference)!, nodeRadius(node.reference), size.font || 12)}
+                    >
                       {shortLabel(labels[node.reference] || node.label, 44)}
                     </text>
                   )}
@@ -2022,10 +2101,13 @@ function RelationshipGraph({
               <button className="icon-button" onClick={() => setSelectedRefs([])} aria-label="Clear selection" title="Clear selection (Esc)"><Icon name="close" /></button>
             </header>
             <div className="graph-inspector-actions">
-              {onOpenEvidence && (
+              {onOpenEvidence && selectedNode.evidence !== false && (
                 <button className="primary" onClick={(event) => onOpenEvidence(selectedNode.reference, event.currentTarget)}>
                   Open evidence
                 </button>
+              )}
+              {selectedNode.evidence === false && (
+                <p className="graph-inspector-hint">Analyst bookkeeping, not evidence. Open a member node for its evidence.</p>
               )}
               <button aria-pressed={pinned.has(selectedNode.reference)} onClick={() => {
                 checkpointPresentation();
@@ -2044,6 +2126,7 @@ function RelationshipGraph({
                 </button>
               )}
             </div>
+            {selectedNodeTakesNotes && (
             <section className="graph-node-notes" aria-label="Analyst notes on this node">
               <h4>Analyst notes{nodeNotes.length ? ` · ${nodeNotes.length}` : ""}</h4>
               {nodeNotes.length ? (
@@ -2074,6 +2157,7 @@ function RelationshipGraph({
                 {nodeAnnotationMessage && <small role="status">{nodeAnnotationMessage}</small>}
               </form>
             </section>
+            )}
             <details className="graph-display-label">
               <summary>Rename on this graph</summary>
               <label>

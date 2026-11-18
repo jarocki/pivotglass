@@ -84,7 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   attention. A configured key that is rejected remains a source fault.
 - Workspace schema v13 adds `indicator_tag_events`. The export format and the
   supported migration range now derive from the schema version.
-- Next.js 16.4.3 and `source-map-js` 1.2.2 resolve build-environment
+- Next.js 16.4.5 and `source-map-js` 1.2.2 resolve build-environment
   advisories. See `docs/WEB_SUPPLY_CHAIN.md`.
 - The data-safety boundary now covers sanitized source markup and PDF bytes
   in the browser. See `docs/DATA_SAFETY.md`.
@@ -94,6 +94,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Saving a graph node note looked like it did nothing: the wide box under "Presentation label" read as the note field, the real note box was a narrow one beside it, and a saved note was never shown again.
 - The relationship graph was drawn on a fixed 760×430 canvas letterboxed into the pane, with nodes clamped into rows along its edges and labels overprinting one another.
 - The 48 drawn graph nodes were all one type (degree ties broken alphabetically); they are now dealt round-robin by type after hubs.
+- **Open evidence** on an analyst promotion group node raised "unknown evidence reference", and the note box beneath it returned 404. Graph nodes now carry an `evidence` flag from the server; group nodes show neither and say they are analyst bookkeeping.
+- On wide panes the graph settled into a central disc and left most of the width empty. The layout now follows the canvas's aspect ratio.
+- Graph labels overprinted each other around hubs. Labels are placed right, left, above, or below their node to avoid other labels; the selection, the hovered node, and the three largest hubs are always named.
 - The coverage matrix, provenance trail, and hierarchy were capped at 420–600 px regardless of window height; URLs in the coverage matrix broke mid-hostname.
 - The evidence drawer could render under the masthead.
 - crt.sh results no longer store email addresses, certificate labels, or case

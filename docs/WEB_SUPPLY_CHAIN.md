@@ -38,6 +38,13 @@ weeks old, and overrides `source-map-js` to 1.2.2 (2026-09-30).
 `npm audit` reports 0 vulnerabilities, and `npm audit signatures` verifies 21
 attested packages.
 
+On 2026-11-17 `npm audit` reported two moderate advisories in Next.js
+16.2.0–16.4.4 (GHSA-mfr8-8qww-v76h, GHSA-vc7v-qv4w-wrv8), both in the
+`'use cache'` server path a static export never runs. Next.js now fails the
+build on known advisories, so the pin moves to 16.4.5 (2026-11-03), the
+oldest fixed release that is at least two weeks old; 16.4.6 was eight days
+old. `npm audit` again reports 0 vulnerabilities.
+
 ## v0.9.8 candidate dependency update
 
 The 2026-09-27 release audit identified advisories in the previous Next.js
