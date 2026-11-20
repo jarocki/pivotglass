@@ -56,6 +56,7 @@ from typing import Any
 
 import httpx
 
+from pivotglass.core.ioc_types import detect_ioc_type
 from pivotglass.modules.base import (
     BaseModule,
     ModuleError,
@@ -202,9 +203,16 @@ class CrtSh(BaseModule):
                 # Strip wildcard prefix before dedup (DEC-MODULE-CRTSH-003)
                 if name.startswith("*."):
                     name = name[2:]
+                name = name.rstrip(".").casefold()
                 if not name or name in seen:
                     continue
                 seen.add(name)
+                # SAN and CN fields also hold email addresses, organization
+                # names, and labels such as "AS207960 Test Intermediate - x".
+                # Only real hostnames may become domain-name observations.
+                if detect_ioc_type(name) != "domain":
+                    logger.debug("crt.sh %s: skipped non-domain name %r", target, name)
+                    continue
                 sco = _build_domain_sco(name, entry)
                 results.append(sco)
                 if len(results) >= _MAX_RESULTS:

@@ -348,9 +348,9 @@ export function ThemeArcade({ character, onClose, reduced, publicModeLabel }: { 
     : identity === "Sleuth" ? <SherlockChessGame/>
     : identity === "Nightgrid" ? <NeuromancerJackInGame/>
     : <MatrixPowerGridGame/>;
-  return <section className="dojo" role="dialog" aria-modal="true" aria-label={`${identity} training diversion`}>
-    <button className="close" aria-label="Close training simulator" onClick={onClose}>×</button>
-    <span className="eyebrow">OPTIONAL DIVERSION · NO ANALYTICAL MEANING</span><h2>{identity.toUpperCase()} // {title}</h2>
+  return <section className="dojo" role="dialog" aria-modal="true" aria-label="Diversion">
+    <button className="close" aria-label="Close diversion" onClick={onClose}>×</button>
+    <span className="eyebrow">Diversion · no analytical meaning</span><h2>{identity}: {title[0] + title.slice(1).toLowerCase()}</h2>
     {game}<small className="arcade-disclaimer">Presentation only. Randomness, scores, failures, and progress never affect evidence, confidence, dossier, command, or investigation state. Esc exits.</small>
   </section>;
 }

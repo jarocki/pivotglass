@@ -50,7 +50,7 @@ def test_archive_and_binary_inputs_are_not_expanded_or_guessed() -> None:
     assert any("No qualified preview parser" in item for item in preview.skipped)
 
 
-def test_encrypted_or_ordinary_pdf_is_recognized_but_not_extracted() -> None:
+def test_unreadable_pdf_is_recognized_and_storable_without_text() -> None:
     preview = preview_document(
         b"%PDF-1.7\n1 0 obj<</Encrypt 2 0 R>>endobj\n%%EOF",
         filename="encrypted.pdf",
@@ -58,7 +58,8 @@ def test_encrypted_or_ordinary_pdf_is_recognized_but_not_extracted() -> None:
 
     assert preview.state == "partial"
     assert preview.detected_media_type == "application/pdf"
-    assert any("not qualified" in item for item in preview.skipped)
+    assert preview.output_text == ""
+    assert any("no text was extracted" in item for item in preview.skipped)
 
 
 def test_parser_exhaustion_limits_fail_or_truncate_explicitly() -> None:

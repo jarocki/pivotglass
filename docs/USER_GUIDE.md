@@ -33,7 +33,7 @@ source, challenge an explanation, and communicate a bounded judgment.
 | Install, launch, and check the version | [Quick Start](QUICKSTART.md) |
 | Practice without credentials or provider traffic | [Offline learning case](LEARNING_WORKSPACE.md) |
 | Turn incomplete context into useful questions | [Guided question walkthrough](#walkthrough-from-reported-context-to-a-question) |
-| Bring a report or indicator list into a case | [Document intake](#preview-ingest-and-revisit-a-document) |
+| Bring a report or indicator list into a case | [Document intake](#review-a-source-in-indicator-focus-mode) |
 | Trace where an indicator or grouping came from | [Evidence and provenance](#evidence-and-provenance), then [relationship graph](#relationship-graph) |
 | Compare explanations and challenge assumptions | [Scientific method and SATs](analysis/README.md) |
 | Read a chart without overstating it | [Visualization examples](analysis/VISUALIZATIONS.md) |
@@ -106,14 +106,16 @@ question or scope before more collection is justified. Follow the
 [analytical method](analysis/README.md) for the reasoning and the
 [worked example](analysis/WORKED_EXAMPLE.md) for executable practice.
 
-## The Pursuit Brief
+## The Next step pane
 
-Pivotglass opens in a focused, single-column investigation view. The Pursuit
-Brief near the top of the page answers five questions without requiring the
-analyst to assemble status from several panels:
+On a wide screen, Pivotglass opens with **Sources** and **Next step** on the
+left and **Activity** on the right; on a narrow screen they stack. The
+**Next step** pane (the Pursuit Brief in earlier releases) shows one
+deterministic action and why it matters. A dashed **Guidance** chip marks it
+as workflow guidance rather than evidence. Its summary line opens the details
+on demand:
 
-- **Now** — the active target, question, or enrichment work;
-- **Next** — one deterministic action and why it matters;
+- **Stage** — the active target, question, or enrichment work;
 - **Progress** — separate measures for evidence coverage, scientific method,
   live enrichment, and analyst review;
 - **Open work** — contradictions, knowledge gaps, pending reviews, weak Dossier
@@ -125,11 +127,14 @@ basis and permission class. Merely viewing or polling it never runs a remote
 query, creates a relationship, accepts an analytical proposal, changes
 confidence, attributes activity to an actor, or publishes externally.
 
-Primary navigation is deliberately limited to **Investigate**, **Evidence**,
-**Visualize**, and **More**. Evidence opens in an on-demand detail area.
-Configuration, system status, commands, themes, badges, and display controls
-remain under **More**. Choose **Open full workbench** when the complete
-scientific notebook and framework lenses are needed.
+Primary navigation is deliberately limited to the **Investigate**,
+**Evidence**, and **Visualize** tabs in the top bar. **Menu**, at the top left, opens a drawer
+with view
+controls, tools (all commands, status and attention, the workbench, models and
+API keys, reports, export), appearance, and, under **Characters, sound, and
+badges**, the character voices, music, badges, and the **Diversion** mini-game. Choose
+**Open workbench** when the complete scientific notebook and framework lenses
+are needed.
 
 **Investigate** is also where reports and indicator lists enter the workspace.
 Expand **Add indicators & reports**, preview a supported local file, and review
@@ -144,8 +149,10 @@ selection decision, without asserting shared adversary activity. Open
 or **Relationship Graph** to inspect analyst-grouped edges. Older promotions
 without an explicit batch record retain their source provenance.
 
-New installations begin in **Novice** guidance. Choose **BUILD INVESTIGATIVE
-QUESTIONS · Q&A**, the opening guided tip, or **Help → Build Investigative
+Guidance never opens unasked. New installations begin at **Expert**
+guidance: no tutorial tips appear until you ask for them. Choose
+**Show me how** in the empty Activity pane, **Help → Reset walkthrough**, or set
+**Novice** in Help for step-by-step tips. Choose **Help → Build Investigative
 Questions** to open the notebook's coaching session. The six prompts ask about
 available data and provenance, reported activity, how it started, scope and time,
 the decision to support, and competing explanations. **I DON'T KNOW YET** preserves
@@ -288,7 +295,7 @@ to mean the active workspace.
 
 The first indicator submitted in the command field starts applicable
 enrichment immediately. Later indicators discovered in evidence can be added
-to the investigation queue with **+ QUEUE**. **RUN NEXT** processes one queued
+to the investigation queue with **Queue**. **RUN NEXT** processes one queued
 indicator; **RUN ALL** processes the queue in order.
 
 The authoritative lifecycle is:
@@ -297,8 +304,12 @@ The authoritative lifecycle is:
 planned → queued → running → succeeded | empty | failed | skipped | canceled
 ```
 
-Lifecycle describes work, not the indicator. `succeeded` means the source
-returned successfully. `empty` means it returned no usable result. Neither
+Lifecycle describes work, not the indicator. A source that needs a credential
+you have not configured is `skipped` with the reason **not configured**; it is
+a setup state, so it neither fails the investigation nor raises attention. Add
+the key under **Menu → Models and API keys**. A key that is configured but
+rejected remains a `failed` source fault that needs attention. `succeeded`
+means the source returned successfully. `empty` means it returned no usable result. Neither
 state proves that an indicator is safe or malicious.
 
 Most integrations query intelligence already held by a provider. Pivotglass
@@ -416,8 +427,11 @@ The overall mapped value is navigation help, not confidence or a verdict.
 ## Visual Analysis
 
 Visual Analysis starts with the analyst question rather than a preferred chart
-type. Use **Choose an analyst question** to switch evidence views without
-crossing a wall of chart controls. Pivotglass currently provides:
+type. One header row holds the three views analysts open most (**Graph**,
+**Coverage**, **Provenance**, each with its record count) and a single list of
+every view; views with no records sink to the end of that list and say so. The
+selected view's question is the headline, and the visualization fills the rest
+of the window. Pivotglass currently provides:
 
 - stored evidence types, compiled through Flint as a bar chart;
 - one-Dossier completeness, compiled through Flint as a radar chart on an
@@ -443,74 +457,122 @@ same plotted rows as CSV, or the complete relationship nodes and edges as JSON.
 See the [Visualization guide](VISUALIZATION_GUIDE.md) for the complete
 question-to-view policy and the analytical guardrails for every chart family.
 
-### Preview, ingest, and revisit a document
+### Review a source in indicator focus mode
 
-Open **Investigate**, then expand **Add indicators & reports** beneath the
-Pursuit Brief. The workflow is deliberately review-first:
+Open **Investigate**. The **Sources** bar sits directly under the command
+field. Choose **Open file…**, drop a report anywhere on the bar, or choose
+**Paste text** for an indicator list or an excerpt. The source opens at once
+in indicator focus mode; nothing is stored yet.
 
-1. Choose a file and select **Preview locally**. This creates no stored state.
-2. Review the parser result and expand **Entity candidates**.
-3. Check only the visible candidates that belong in the workspace.
-4. Select **Ingest source + add entities**, or **Ingest source only** when the
-   report belongs in the library but none of its strings should be admitted.
-   Separate receipts confirm source storage and entity admission.
+Focus mode fills the window. The left side lists each distinct indicator once,
+in the order the source first mentions it. The right side shows the source as
+its author laid it out: HTML and Markdown rendered, PDF pages drawn, and text,
+CSV, JSON, and email shown as parsed text. The focused indicator is outlined
+and scrolled into view; every other occurrence of a known indicator is lightly
+marked.
 
-The library remains beneath the intake controls after refresh and restart. It
-shows display-safe metadata rather than returning the original bytes to the
-browser. The content-addressed original lives beside the active workspace
-database and is removed only by an exact-confirmed workspace clear or delete.
+![v1.3.0 focus mode on a synthetic HTML report: indicator list, rendered source, focused C2 address, and the details-on-demand card](media/pivotglass-focus-hover-v1.3.0.png)
 
-Select **Review stored source** on any library entry to reopen its parser
-receipt, full SHA-256, and candidate list. Candidates that were not admitted
-the first time can be selected and admitted later; the source is not copied
-again. A preview-only source remains intentionally session-local because its
-bytes have not been explicitly stored.
+Hover any indicator, in the list or in the source, for **details on demand**.
+The translucent card separates what is known by its basis:
 
-![v0.9.9 local preview shows two selected synthetic candidates, exact spans, full URL values, and the explicit admission action](media/pivotglass-intake-v1.0.0.png)
+| Section | Basis | Meaning |
+| --- | --- | --- |
+| Analyst tags | Analyst | Tags recorded on this indicator in this case |
+| Workspace | Evidence | Whether the indicator is already an entity, its stored relationships, which sources observed it, and when it was last investigated |
+| Other sources | Evidence | Other stored documents that mention it; identical bytes stored twice count once |
+| Derived from the value | Structure | A URL's host, an email's domain, a parent domain, or a subdomain also found in this source |
+| Nearby in this source | Position only | Indicators on the same line or in the same short paragraph. Nearness is a reading aid, not a relationship |
 
-![v0.9.9 persistent library and stored-source review show the source hash and separate candidate review](media/pivotglass-library-v1.0.0.png)
+Press `i` to pin the card for the focused indicator; a pinned card can copy
+the value, move focus to any related indicator, or prepare an investigation.
+Long hashes are shown in groups of eight characters for comparison; a copy is
+always the unbroken value. The rendered source follows your text size.
 
-The intake accepts an explicitly selected file up to 10 MiB and has qualified
-parsers for text, Markdown, HTML, CSV, JSON, JSONL, and RFC 5322 email. JSON is
-recognized by content, extension, or structured MIME type. UTF-8, UTF-16, and
-UTF-32 byte signatures are supported, and strict line-delimited records inside
-a `.json` file receive an explicit JSONL fallback receipt. Duplicate keys and
-malformed records are never silently dropped or repaired: bounded raw text may
-remain reviewable with a warning, while non-finite numbers, excessive nesting,
-and other unsafe input fail closed. HTML
-scripts, styles, templates, and external references are not run. Email
-attachments are named as skipped rather than silently treated as parsed. PDF
-input is recognized and hashed, but text extraction and OCR remain unqualified
-and are reported as such.
+Focus mode is keyboard-first:
 
-The preview returns the sanitized filename, media type, byte count, content
-hash, parser version, parse state, bounded text, warnings, errors, and skipped
-content. Until one of the explicit **Ingest source** actions is selected, it is temporary and
-local: it creates no document record, evidence, entity, relationship, graph
-edge, or model request. Parsed text proves only what the selected source
-contained; it does not prove the source's claims.
+| Key | Action |
+| --- | --- |
+| `j` / `k` or arrows | Next or previous indicator |
+| `n` / `p` | Next or previous mention of the same indicator |
+| `space` | Select or deselect |
+| `a` | Admit the selection, or the focused indicator when nothing is selected |
+| `c` | Copy the focused indicator exactly as stored |
+| `y` / `Y` | Copy the selection (or the focused indicator) one per line, defanged / exactly as stored |
+| `t` | Tag the selection or the focused indicator |
+| `g` | Cycle grouping: source order, type, then each tag dimension |
+| `/` | Filter by value, type, or `dimension:value` such as `role:c2` |
+| `v` | Switch between the rendered source and exact parser text |
+| `Enter` | Close focus mode and put the indicator in the command field |
+| `Esc` | Close the card, the palette, or focus mode |
 
-Expand **Entity candidates** beneath the parser output to inspect deterministic
-matches. Each candidate exposes its raw and normalized value, entity type,
-parser-output line/column, character and UTF-8 byte span, and rule/version. The
-browser bounds extraction at 2,000 candidates and displays 50 per page. Use
-**Previous** and **Next** to review every page. **Select this page** is additive;
-it preserves earlier selections without selecting unseen pages. Source-only
-admission stores those candidates for review.
-The stored-source library can be filtered by filename, source type, parse state,
-or media type and sorted by date, name, or candidate count. Reopened source
-candidates can be filtered, sorted, selected by visible page or all matches,
-and paged before explicit admission.
-When the analyst explicitly selects candidates, Pivotglass admits only those
-strings as provenanced workspace entities. It still does not validate the
-report's claims, assign a verdict, create a threat relationship, or attribute
-an actor.
+**Admitting** stores the source and adds the selected indicators to the case
+in one step, with provenance. **Store source** keeps the source without
+admitting anything. A later admission from the same source reuses the stored
+occurrence; the bytes are never stored twice. If storage succeeds but
+admission is interrupted, the error says so and admitting again retries
+against the stored source. Admission never runs enrichment. Investigating an
+indicator stays an explicit choice.
 
-Source storage and entity admission have separate receipts. If source storage
-succeeds but selected entity admission is interrupted, the interface keeps the
-source receipt visible and offers **Retry entity admission**. The retry refers
-to the same occurrence and selection keys, so it neither stores a second source
-copy nor duplicates already admitted entities.
+#### Tag along several dimensions
+
+Tags give the analyst a multidimensional clustering without a model choosing
+membership. Each tag places one indicator on one dimension:
+
+| Dimension | Values |
+| --- | --- |
+| Infrastructure role | c2, delivery, staging, exfil, phishing, hosting, victim, benign, or a new value |
+| ATT&CK tactic | The 14 Enterprise tactics, TA0043 Reconnaissance through TA0040 Impact |
+| Cluster | Any analyst-chosen name, such as `cluster:glass harbor` |
+| Review status | needs-pivot, reviewed, false-positive |
+
+Press `t`, type a value such as `c2`, `initial-access`, or `cluster:kit a`,
+and press Enter. Group by **ATT&CK tactic** to read the indicators in
+attack-path order: tactics follow the ATT&CK matrix, an indicator with two
+tactics appears under both, and untagged indicators come last. Click a tag
+chip to remove it.
+
+![v1.3.0 indicators grouped by ATT&CK tactic in attack-path order, with role and cluster tags](media/pivotglass-focus-grouped-v1.3.0.png)
+
+Tags belong to the indicator, not the document. A tag applied while reviewing
+one report appears wherever that indicator is mentioned and remains after
+admission. Every change is an append-only record of who tagged what and when.
+A tag is analyst judgment; it is never presented as observed evidence.
+
+#### Stored sources
+
+**Stored sources** under the Sources bar lists every stored document with its
+full SHA-256. Select one to reopen it in focus mode with its earlier
+admissions marked. The content-addressed original lives beside the active
+workspace database and is removed only by an exact-confirmed workspace clear
+or delete.
+
+#### Formats and limits
+
+Sources up to 10 MiB are accepted. Text, Markdown, HTML, CSV, JSON, JSONL,
+RFC 5322 email, and PDF have qualified parsers. JSON is recognized by content,
+extension, or structured MIME type. UTF-8, UTF-16, and UTF-32 byte signatures
+are supported. Duplicate keys and malformed records are never silently dropped
+or repaired. PDF text is extracted page by page with `[page N]` markers;
+pages without a text layer (scans) are named, not OCRed. An unreadable PDF can
+still be stored as source evidence. Extraction is bounded at 2,000 candidates.
+
+![v1.3.0 PDF pages drawn in focus mode with the focused indicator highlighted on the page](media/pivotglass-focus-pdf-v1.3.0.png)
+
+Rendered sources are hostile content and are shown under these rules:
+
+- HTML and Markdown are rebuilt from an allowlist on the server. Scripts,
+  event handlers, styles, forms, frames, and embedded objects are removed.
+  Nothing in a rendering can fetch from the network. Images become labelled
+  placeholders, and links are inert, with the original target shown on hover.
+- The rendering is displayed in a sandboxed frame that is not allowed to run
+  script, so even a sanitizer mistake cannot execute code.
+- PDF pages are drawn by pdf.js. PDF JavaScript and XFA forms are never run.
+- When a rendered layout cannot locate an indicator exactly, focus mode says
+  so and offers the exact parser-text view. It never guesses a location.
+
+Parsed text proves only what the source contained. It does not prove the
+source's claims.
 
 ![v0.9.9 provenance history records document admission, a joint promotion group, and two candidate branches with the complete URL](media/pivotglass-history-v1.0.0.png)
 
@@ -591,17 +653,25 @@ includes topology that supports both common control and shared infrastructure.
 
 ## Relationship graph
 
-The relationship graph uses actual indicator values for node labels and
-directional relationships for edges. Stored STIX relationships and conservative
-property pivots are visually distinguished. Select a node to highlight its
-neighbors. Hold Shift, Command, or Control while selecting to build a temporary
+The relationship graph fills the window and fits itself to view; it refits as
+the window changes until you pan or zoom. Node colour is indicator type, node
+size is how many relationships it has, and only hubs, the selection, and
+whatever you hover are labelled, so the largest nodes are where to look first.
+Zoom spreads nodes apart without shrinking text. Hover a node to brighten its
+neighbourhood and dim the rest. **Analyst groups** hides promotion groups,
+which are your bookkeeping rather than adversary evidence. Stored STIX
+relationships and conservative property pivots are visually distinguished.
+Select a node to open the inspector beside the graph. Hold Shift, Command, or Control while selecting to build a temporary
 multi-node set; the set can be pinned, unpinned, or cleared together. The last
 node selected remains the primary selection for its presentation label and
-evidence detail. Choose **OPEN EVIDENCE** to inspect the stored record.
+evidence detail. Choose **Open evidence** to inspect the stored record. The
+inspector also lists every analyst note on the node and adds new ones
+(`Command/Control+Enter` saves); notes are analyst context, not evidence.
+**Rename on this graph** changes only the label drawn here.
 Double-click a connected node, or use the selected-node control, to collapse or
 expand its direct connections. This changes only the bounded view: hidden
-nodes remain in the accessible inventory and exact-data export. **SHOW ALL
-CONNECTIONS** clears every temporary collapse.
+nodes remain in the accessible inventory and exact-data export. **Show all
+connections** clears every temporary collapse.
 
 With exactly two nodes selected, **ANNOTATED ANALYST RELATION** records a
 directional judgment from the first selection to the second. Enter a bounded
@@ -619,14 +689,14 @@ edit or delete observed evidence.
 
 Dragging, panning, zooming, filtering, centering, pinning, selecting, and
 collapsing change only the presentation. They do not alter evidence. Selection is deliberately
-temporary and is not included in saved layouts. Enter a layout name and choose
-**SAVE VIEW** to keep an arrangement in the active workspace. Loading an older
+temporary and is not included in saved layouts. Open **Layouts**, enter a name,
+and choose **Save** to keep an arrangement in the active workspace. Loading an older
 view reports added or absent nodes when the evidence graph has changed. Large
 workspaces use a bounded overview. If no supported edge exists, Pivotglass says
 so and keeps the evidence unconnected rather than manufacturing a relationship
 from proximity.
 
-**UNDO VIEW** and **REDO VIEW** retain up to 50 presentation checkpoints for
+The undo and redo arrows retain up to 50 presentation checkpoints for
 node movement, viewport changes, pins, display labels, and collapsed
 connections. Use `Command/Control+Z` and `Shift+Command/Control+Z` when focus is
 in the graph rather than a text field. Analytic evidence, relations, assertions,
@@ -685,7 +755,7 @@ text are not rewritten. Defanged downloads include `-defanged` in the filename.
 
 Read a consequential claim from its evidence rather than its graph position.
 If your interpretation changes, record the reason and the changed judgment.
-A saved presentation is only a view; **UNDO VIEW** cannot undo analytical work.
+A saved presentation is only a view; undo cannot reverse analytical work.
 
 | Problem discovered | Corrective action | Preserved boundary |
 | --- | --- | --- |
@@ -994,7 +1064,7 @@ for MCP configuration, authority boundaries, and remaining release gates. See [F
 the mapping and content-verification contract.
 
 The TUI-only `theme light|dark|high` command changes the current terminal
-palette. Use DECK controls for Day, Night, and contrast in Pivotglass.
+palette. Use **Menu → Appearance** for Day, Night, and contrast in Pivotglass.
 
 ### Why Pivotglass chose a visualization
 
@@ -1055,7 +1125,8 @@ Terminal playback requires `afplay` on macOS or `aplay`/`paplay` on Linux.
 ## Characters, accessibility, and sound
 
 The public deck contains Default (Analyst), Ironclad, Deep Orbit, Rascal,
-Sleuth, Nightgrid, and Code Rain. Use DECK or:
+Sleuth, Nightgrid, and Code Rain. Use **Menu → Characters, sound, and badges**
+or:
 
 ```text
 mode list
@@ -1083,8 +1154,11 @@ Initial loading, workspace changes, and muted playback remain silent; these
 gestures celebrate persisted progress but carry no analytical meaning. Neither
 path streams music or treats sound as evidence.
 
-Pivotglass provides Day, Night, high-contrast, reduced-motion, and effects-off
-controls. Terminal equivalents are:
+Pivotglass provides Day, Night, contrast, and motion controls under
+**Menu → Appearance**. Motion starts at **Reduced**: no ambient animation,
+flicker, or glow. Choose **Full** to restore the character effects, or **Off**
+for no motion at all. Narration starts at **Brief**; the character greeting
+strip appears only with **Full** narration. Terminal equivalents are:
 
 ```bash
 PIVOTGLASS_TUI_COLOR_SCHEME=light pivotglass tui
@@ -1093,36 +1167,54 @@ PIVOTGLASS_TUI_HIGH_CONTRAST=1 pivotglass tui
 
 ![v0.9.9 Code Rain presentation changes the palette while keeping the synthetic case question and uncertainty visible](media/pivotglass-themes-v1.0.0.png)
 
-## Reading, attention, and recovery
+## View, reading, and attention
 
-Open **Help → Reading & attention** (also available in **More**) to choose
-**Larger — easier reading** or the standard compact display. The preference
-persists in this browser. Browser zoom remains available. The constellation
-keeps its internal scroll area rather than making the entire page overflow.
+Open **Menu** (top left) **→ View** (also in Help) to fit the cockpit to your screen and eyes.
+The choices persist in this browser and apply to every Pivotglass window.
 
-**Dim other panels while I work** is off by default. Enabling it adds a
+| Control | Choices | Keys |
+| --- | --- | --- |
+| Width | **Column** (a 1180 px reading column), **Wide** (default, up to 1680 px, with Sources and Next step beside Activity), **Full** (the whole window) | `\` cycles |
+| Text | **Compact**, **Standard**, **Large**, **Extra large**. Every label and value scales, including the rendered source in focus mode. Standard renders nothing smaller than 12 px | `+` / `−` |
+| Density | **Comfortable** or **Compact** spacing | |
+
+![v1.3.0 wide view: Sources and Next step beside Activity; a source without a configured key is skipped, not failed](media/pivotglass-cockpit-wide-v1.3.0.png)
+
+![v1.3.0 Menu with View, Tools, and Appearance](media/pivotglass-view-menu-v1.3.0.png)
+
+Every pane (Sources, Next step, Activity, Evidence, Visualize) has the same
+icon controls at the right of its title: maximize (outward corners, `z`), pop
+out (box with an arrow, `Shift`+`Z`), and collapse (chevron). Each names its
+action on hover and to screen readers. Maximize fills the window with that
+pane; Esc or restore (inward corners) returns. A maximized Sources pane is a
+full-height paste area for long reports. Pop out opens the pane alone in its
+own browser window for a second monitor; the window title names the pane. The
+indicator evidence drawer has the same maximize and pop-out controls. Every window
+reads the same local workspace, and view changes apply to all of them.
+Browser zoom remains available.
+
+**Dim other panes while I work** is off by default. Enabling it adds a
 presentation-only spotlight when full visual effects are selected. Hover never
 moves keyboard focus. Tutorial highlighting is separate and dismissible.
 
 **Quiet workspace** turns off decorative motion, music, device voice,
 unsolicited character advice, and hover dimming. It does not hide work, errors,
-or manual Help. Set workflow guidance to **Expert** separately if you also want
-no unsolicited tutorial tips. Restore individual options in More.
+or manual Help. Restore individual options in Menu.
 
-The **Utilities** dialog (More → System status & attention) keeps Tab and
+The **Utilities** dialog (Menu → Status and attention) keeps Tab and
 Shift+Tab within its controls. Escape closes it and returns to its opener.
 Help and other modal dialogs use the same focus handling. In TUI Help, use
 Up/Down, Page Up/Page Down, Home/End, the wheel, or the scrollbar; Escape returns
 to the command input without moving your history position.
 
-For output, use **More → Create printable report** or **Help → Create a report**.
-Review before printing or saving. **Export workspace data** opens the format
+For output, use **Menu → Printable report** or **Help → Create a report**.
+Review before printing or saving. **Export workspace** opens the format
 choices; it does not export until you select JSON, CSV, STIX, or GEXF.
 
 During intake, the destination workspace is named above the file control.
 Switching workspaces clears unfinished preview and selection. Writes from a
 stale workspace are rejected before mutation. Library load failures show
-**Retry library**, not a misleading empty-library message. A stored receipt
+**Retry**, not a misleading empty-library message. A stored receipt
 and an entity-admission receipt remain separate.
 
 After selected entities are successfully admitted, **Use [indicator]** puts

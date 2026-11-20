@@ -32,7 +32,7 @@ from pivotglass.models.database import (
     DocumentParserReceipt,
 )
 
-PARSER_VERSION = "pivotglass-bounded-preview-1.2"
+PARSER_VERSION = "pivotglass-bounded-preview-1.3"
 
 
 class DocumentLimits(BaseModel):
@@ -45,6 +45,7 @@ class DocumentLimits(BaseModel):
     max_rows: int = Field(default=50_000, ge=1, le=250_000)
     max_parts: int = Field(default=100, ge=1, le=1_000)
     max_json_depth: int = Field(default=64, ge=2, le=256)
+    max_pdf_pages: int = Field(default=500, ge=1, le=5_000)
 
 
 class DocumentPreview(BaseModel):
@@ -193,7 +194,7 @@ def _detect_media_type(data: bytes, filename: str, supplied: str | None) -> str:
     return "text/plain"
 
 
-def _decode_text(data: bytes, warnings: list[str]) -> str:
+def decode_text(data: bytes, warnings: list[str]) -> str:
     try:
         return data.decode("utf-8-sig")
     except UnicodeDecodeError:
@@ -346,10 +347,10 @@ def _parse_email(data: bytes, limits: DocumentLimits) -> tuple[str, list[str], l
         media_type = part.get_content_type()
         payload = part.get_payload(decode=True) or b""
         if media_type == "text/plain":
-            text_parts.append(_decode_text(payload, warnings))
+            text_parts.append(decode_text(payload, warnings))
         elif media_type == "text/html":
             extractor = _TextExtractor()
-            extractor.feed(_decode_text(payload, warnings))
+            extractor.feed(decode_text(payload, warnings))
             text_parts.append(extractor.text())
         else:
             skipped.append(f"Unsupported message part: {media_type}")
@@ -359,6 +360,69 @@ def _parse_email(data: bytes, limits: DocumentLimits) -> tuple[str, list[str], l
         if message.get(name)
     )
     return "\n\n".join(item for item in (header, *text_parts) if item.strip()), warnings, skipped
+
+
+def _parse_pdf(
+    data: bytes,
+    limits: DocumentLimits,
+    warnings: list[str],
+    skipped: list[str],
+) -> tuple[str, Literal["parsed", "partial", "failed"]]:
+    """Extract embedded PDF text, page by page, without running PDF actions.
+
+    @decision DEC-DOC-PDF-001
+    @title Extract PDF text with pypdf; mark each page so offsets stay explainable
+    @status accepted
+    @rationale PDFs are the most common threat-report format, and v1.2.0 produced
+               no candidates from them. pypdf is pure Python, reads text operators
+               only, and never executes JavaScript or form actions. Scanned pages
+               have no text layer; they are reported, not OCRed.
+    """
+
+    from pypdf import PdfReader
+
+    try:
+        reader = PdfReader(io.BytesIO(data), strict=False)
+        if reader.is_encrypted and not reader.decrypt(""):
+            skipped.append("PDF is encrypted with a password; no text was extracted.")
+            return "", "partial"
+        pages = reader.pages
+        page_count = len(pages)
+    except Exception as exc:  # noqa: BLE001 - hostile files raise many error types
+        # Still storable as source evidence; only text extraction is unavailable.
+        skipped.append(
+            f"PDF structure could not be read, so no text was extracted: "
+            f"{type(exc).__name__}: {exc}"[:500]
+        )
+        return "", "partial"
+    state: Literal["parsed", "partial", "failed"] = "parsed"
+    parts: list[str] = []
+    textless: list[int] = []
+    total = 0
+    for index in range(min(page_count, limits.max_pdf_pages)):
+        try:
+            text = pages[index].extract_text() or ""
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(f"Page {index + 1} text could not be extracted: {type(exc).__name__}.")
+            state = "partial"
+            continue
+        if not text.strip():
+            textless.append(index + 1)
+        parts.append(f"[page {index + 1}]\n{text.strip()}")
+        total += len(parts[-1])
+        if total > limits.max_output_chars:
+            break
+    if page_count > limits.max_pdf_pages:
+        warnings.append(f"PDF page limit reached at {limits.max_pdf_pages} of {page_count} pages.")
+        state = "partial"
+    if textless:
+        shown = ", ".join(str(page) for page in textless[:20])
+        skipped.append(
+            f"{len(textless)} page(s) have no text layer (scanned or image-only): {shown}. "
+            "OCR is not performed."
+        )
+        state = "partial"
+    return "\n\n".join(parts), state
 
 
 def preview_document(
@@ -387,15 +451,15 @@ def preview_document(
     output = ""
     try:
         if media_type in {"text/plain", "text/markdown"}:
-            output = _decode_text(data, warnings)
+            output = decode_text(data, warnings)
         elif media_type == "text/html":
             extractor = _TextExtractor()
-            extractor.feed(_decode_text(data, warnings))
+            extractor.feed(decode_text(data, warnings))
             output = extractor.text()
             warnings.append("Active HTML, scripts, styles, templates, and external references were not run.")
         elif media_type in {"text/csv", "application/csv"}:
             rows: list[list[str]] = []
-            reader = csv.reader(io.StringIO(_decode_text(data, warnings)))
+            reader = csv.reader(io.StringIO(decode_text(data, warnings)))
             for index, row in enumerate(reader):
                 if index >= active_limits.max_rows:
                     warnings.append(f"CSV row limit reached at {active_limits.max_rows} rows.")
@@ -495,9 +559,9 @@ def preview_document(
             if skipped:
                 state = "partial"
         elif media_type == "application/pdf":
-            state = "partial"
-            output = "PDF document validated and stored by content hash."
-            skipped.append("PDF text extraction and OCR are not qualified in the v0.9.2 preview parser.")
+            output, pdf_state = _parse_pdf(data, active_limits, warnings, skipped)
+            if pdf_state != "parsed":
+                state = pdf_state
         else:
             state = "partial"
             output = "Document validated and stored by content hash."

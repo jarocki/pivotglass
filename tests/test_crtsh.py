@@ -680,3 +680,18 @@ class TestNoProvenance:
                     f"Provenance is workspace.store_stix_objects's authority "
                     f"(DEC-61-MODULES-EMIT-NO-PROVENANCE-001)."
                 )
+
+
+class TestCrtShRejectsNonDomainNames:
+    """Certificate name fields are not all hostnames (v1.2.0 evaluation finding)."""
+
+    def test_emails_labels_and_case_variants_are_not_domains(self):
+        body = [{"id": 1, "issuer_name": "x", "common_name": "x", "not_before": "2026-01-01T00:00:00",
+                 "not_after": "2027-01-01T00:00:00", "entry_timestamp": "2026-01-01T00:00:00",
+                 "name_value": "user@example.com\nAS207960 Test Intermediate - example.com\n"
+                               "WWW.Example.com.\nwww.example.com\n*.dev.example.com\nexample.com"}]
+        with _patched_client_get(body):
+            mod = CrtSh()
+            mod.initialize({})
+            results = asyncio.run(mod.hunt("example.com", {}))
+        assert [item["value"] for item in results] == ["www.example.com", "dev.example.com"]

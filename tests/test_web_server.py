@@ -772,27 +772,11 @@ def test_switch_mode_synchronizes_existing_agent_runner_persona(tmp_path):
     assert state["character"] == "the_computer"
 
 
-def test_investigate_rejects_non_indicator(tmp_path):
-    with pytest.raises(ValueError, match="recognized indicator"):
-        _service(tmp_path).investigate("not an indicator")
-
-
-def test_investigate_uses_existing_dispatch_and_execution_authorities(tmp_path):
+def test_investigation_rejects_non_indicator_without_recording_navigation(tmp_path):
     service = _service(tmp_path)
-    battery = type("Battery", (), {"tools": ("virustotal_lookup",)})()
-    with (
-        patch("pivotglass.web.server.dispatch_batteries", return_value=[battery]),
-        patch(
-            "pivotglass.web.server.execute_tool",
-            return_value=("Observed service response", None, [], []),
-        ) as execute,
-    ):
-        result = service.investigate("198.51.100.10")
-
-    assert [event["kind"] for event in result["events"]] == ["enrichment", "evidence"]
-    assert result["events"][0]["briefing"]["source"] == "VirusTotal"
-    assert result["events"][1]["summary"] == "Observed service response"
-    execute.assert_called_once()
+    with pytest.raises(ValueError, match="recognized indicator"):
+        service.start_investigation("not an indicator")
+    assert service.pivot_trail()["events"] == []
 
 
 def test_plan_payload_teaches_only_applicable_services(tmp_path):
@@ -1001,6 +985,79 @@ def test_web_activity_turns_tool_failure_receipt_into_sanitized_event(tmp_path):
     assert fault["next_action"] == "Configure the source credential, then retry."
     assert fault["reason"] == "API key failure"
     assert activity["registry"]["authorities"][0]["authority"] == ("Pivotglass workspace database")
+
+
+def _run_with_receipt(service, receipt):
+    record = service.investigations.create("suspect.test", "domain-name")
+    service._tool_schemas = {
+        "example_lookup": {
+            "name": "example_lookup",
+            "parameters": {"properties": {"domain": {"type": "string"}}, "required": ["domain"]},
+        }
+    }
+    with patch("pivotglass.web.server.execute_tool", return_value=(receipt, None, [], [])):
+        service._run_investigation(record.investigation_id, "suspect.test", "domain-name", ["example_lookup"])
+    return service.investigations.snapshot(record.investigation_id)
+
+
+def test_missing_api_key_is_not_configured_not_a_fault(tmp_path, monkeypatch):
+    """DEC-UNCONFIGURED-SOURCE-001: no key means skipped, with no attention record."""
+    monkeypatch.delenv("PIVOTGLASS_URLSCAN_API_KEY", raising=False)
+    monkeypatch.delenv("URLSCAN_API_KEY", raising=False)
+    service = _service(tmp_path)
+    receipt = (
+        "[USER_SAW_PANEL] [API key] Set PIVOTGLASS_URLSCAN_API_KEY or run "
+        "`pivotglass config setup`. (diag cafe1234)"
+    )
+    snapshot = _run_with_receipt(service, receipt)
+
+    skipped = [event for event in snapshot["events"] if event.get("tool") == "example_lookup"][-1]
+    assert skipped["lifecycle"] == "skipped"
+    assert skipped["event_class"] == "system"
+    assert skipped["reason"] == "not configured"
+    assert "urlscan" in skipped["next_action"].lower()
+    assert snapshot["lifecycle"] != "failed"
+    assert service.alerts()["unread_count"] == 0
+
+
+def test_paired_credential_service_resolves_through_cti_catalogue(tmp_path, monkeypatch):
+    """Censys errors do not name a key; the CTI catalogue says which are required."""
+    for name in ("PIVOTGLASS_CENSYS_PAT", "CENSYS_PAT"):
+        monkeypatch.delenv(name, raising=False)
+    service = _service(tmp_path)
+    record = service.investigations.create("203.0.113.9", "ipv4-addr")
+    service._tool_schemas = {
+        "censys_host_lookup": {
+            "name": "censys_host_lookup",
+            "parameters": {"properties": {"ip": {"type": "string"}}, "required": ["ip"]},
+        }
+    }
+    receipt = (
+        "[USER_SAW_PANEL] [API key] Set the relevant PIVOTGLASS_<SERVICE>_API_KEY env var "
+        "or run `pivotglass config setup`. (diag cafe1234)"
+    )
+    with patch("pivotglass.web.server.execute_tool", return_value=(receipt, None, [], [])):
+        service._run_investigation(
+            record.investigation_id, "203.0.113.9", "ipv4-addr", ["censys_host_lookup"]
+        )
+    snapshot = service.investigations.snapshot(record.investigation_id)
+    event = [item for item in snapshot["events"] if item.get("tool") == "censys_host_lookup"][-1]
+    assert event["lifecycle"] == "skipped"
+    assert "Censys" in event["next_action"]
+    assert service.alerts()["unread_count"] == 0
+
+
+def test_rejected_api_key_stays_a_source_fault(tmp_path, monkeypatch):
+    monkeypatch.setenv("PIVOTGLASS_URLSCAN_API_KEY", "configured-but-rejected")
+    service = _service(tmp_path)
+    receipt = (
+        "[USER_SAW_PANEL] [API key] Set PIVOTGLASS_URLSCAN_API_KEY or run "
+        "`pivotglass config setup`. (diag cafe1234)"
+    )
+    snapshot = _run_with_receipt(service, receipt)
+
+    assert any(event["event_class"] == "source_fault" for event in snapshot["events"])
+    assert service.alerts()["unread_count"] >= 1
 
 
 def test_diagnostic_detail_reads_only_sanitized_fields_from_fixed_log(tmp_path):

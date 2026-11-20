@@ -19,6 +19,8 @@ export type VisualizationNode = {
   reference: string;
   label: string;
   entity_type: string;
+  /** False for presentation-only nodes (analyst groups) with no evidence record. */
+  evidence?: boolean;
 };
 
 export type VisualizationEdge = {

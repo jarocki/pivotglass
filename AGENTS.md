@@ -42,9 +42,15 @@ replace them.
 - Preserve operator agency during automated work. Long-running hunts must
   expose meaningful state and honor supported stop, focus, add, and skip
   controls.
-- Keep the AI-augmented cyberdeck (`pivotglass`) as the primary user experience. The
-  classic console (`pivotglass basic` / `pivotglass repl`) is a supported direct-control
-  surface, not the default interface.
+- The web cockpit (`pivotglass`) is the primary user experience
+  (DEC-PRIMARY-INTERFACE-002, owner decision 2026-11-15, superseding the
+  cyberdeck-primary rule). The terminal cyberdeck and the classic console
+  (`pivotglass basic` / `pivotglass repl`) remain supported for small, quick
+  analysis sessions. The terminal UI is expected to retire over time; until a
+  retirement decision is recorded, keep it working rather than removing it.
+- The web cockpit must stay lean and adaptable: analysts choose the main-view
+  width, text size, and density, and can maximize or pop out any pane. Remove
+  decorative or marketing copy rather than adding to it.
 - Personas are durable product features. Deprecation does not authorize
   deletion, and character voice must not weaken analytical accuracy.
 

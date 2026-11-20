@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 export type PursuitBriefAction = {
   id: string;
   label: string;
@@ -88,12 +90,15 @@ export function PursuitBrief({
   active,
   onAction,
   onOpenWorkbench,
+  controls,
 }: {
   brief: PursuitBriefState;
   localQueuePending: number;
   active: boolean;
   onAction: (action: PursuitBriefAction) => void;
   onOpenWorkbench: () => void;
+  /** Pane controls (maximize, pop out) supplied by the cockpit's pane authority. */
+  controls?: ReactNode;
 }) {
   const openWork = {
     ...brief.open_work,
@@ -105,80 +110,70 @@ export function PursuitBrief({
     ? brief.subject.title
     : "Current investigation";
 
+  // Compact by design (#27): one next action is always visible; progress,
+  // open work, and recent change are details on demand. The "Guidance" chip
+  // keeps method-derived workflow visibly distinct from evidence.
   return (
     <section className="pursuit-brief" aria-labelledby="pursuit-brief-title">
       <header className="pursuit-brief-heading">
-        <div>
-          <span className="eyebrow">PURSUIT BRIEF · WORKFLOW GUIDANCE, NOT EVIDENCE</span>
-          <h2 id="pursuit-brief-title">
-            {brief.subject.question ?? "What do you want to find out?"}
-          </h2>
-          <p>
-            {brief.subject.question
-              ? `${contextLine}${target ? ` · latest target ${target}` : ""}`
-              : "Start with one concrete indicator or a question that can be tested against sourced evidence."}
-          </p>
-        </div>
-        <span className={`brief-state state-${brief.subject.workspace_state}`}>
-          {brief.subject.workspace_state.replaceAll("_", " ")}
-        </span>
+        <h2 id="pursuit-brief-title">Next step</h2>
+        <span className="guidance-chip" title="Workflow guidance derived from the investigation method. It is not evidence.">Guidance</span>
+        {brief.subject.question && <p className="brief-question" title={contextLine}>{brief.subject.question}</p>}
+        {controls}
       </header>
 
-      <div className="pursuit-brief-core">
-        <section className="brief-now" aria-label="Current investigation state">
-          <span>NOW</span>
-          <b>{active ? "Enrichment in progress" : brief.now.stage}</b>
-          <p>{active ? "Receipts are arriving in the investigation timeline." : brief.now.status}</p>
-          <small>{brief.object_count} stored observable{brief.object_count === 1 ? "" : "s"}</small>
-        </section>
-
-        <section className={`brief-next category-${brief.next_action.category}`} aria-label="Recommended next action">
-          <span>{CATEGORY_LABELS[brief.next_action.category].toUpperCase()}</span>
-          <h3>{brief.next_action.label}</h3>
+      <section className={`brief-next category-${brief.next_action.category}`} aria-label="Recommended next action">
+        <div>
+          <span className="brief-category">{CATEGORY_LABELS[brief.next_action.category]}</span>
           <p>{brief.next_action.rationale}</p>
-          <div>
-            <button className="brief-primary-action" onClick={() => onAction(brief.next_action)}>
-              {brief.next_action.label}
-            </button>
-            <small>
-              {PERMISSION_LABELS[brief.next_action.permission]}
-              {brief.next_action.basis.length ? ` · ${brief.next_action.basis.length} basis record${brief.next_action.basis.length === 1 ? "" : "s"}` : ""}
-            </small>
+        </div>
+        <button className="brief-primary-action" onClick={() => onAction(brief.next_action)}>
+          {brief.next_action.label}
+        </button>
+        <small>
+          {PERMISSION_LABELS[brief.next_action.permission]}
+          {brief.next_action.basis.length ? ` · ${brief.next_action.basis.length} basis record${brief.next_action.basis.length === 1 ? "" : "s"}` : ""}
+        </small>
+      </section>
+
+      <details className="brief-details">
+        <summary>
+          <span>{active ? "Enrichment in progress" : brief.now.stage}</span>
+          <span>{brief.object_count} indicator{brief.object_count === 1 ? "" : "s"}</span>
+          <span className={openCount ? "attention" : ""}>{openCount ? `${openCount} open item${openCount === 1 ? "" : "s"}` : "Nothing open"}</span>
+          {target && !target.startsWith("document-occurrence-") && <span>Latest target <code>{target}</code></span>}
+        </summary>
+        <div className="brief-progress" aria-label="Investigation progress measures">
+          {brief.progress.map((item) => {
+            const value = percentage(item.current, item.total);
+            const unavailable = item.total === 0;
+            const emptyLabel = item.id === "analyst_review" ? "None due" : item.id === "enrichment_work" ? "No live work" : "Not started";
+            return (
+              <section key={item.id} className={unavailable ? "unavailable" : ""}>
+                <header><b>{item.label}</b><span>{unavailable ? emptyLabel : `${item.current}/${item.total}`}</span></header>
+                <div className="brief-progress-track" aria-hidden="true"><i style={{ width: `${value}%` }} /></div>
+                <small>{item.detail}</small>
+              </section>
+            );
+          })}
+        </div>
+        <footer className="pursuit-brief-footer">
+          <div className="brief-open-work" aria-label={`${openCount} open work records`}>
+            <b>Open work</b>
+            {OPEN_WORK.map(([key, label]) => openWork[key] > 0 && (
+              <span className={key === "contradictions" || key === "failed_enrichments" ? "attention" : ""} key={key}>
+                {openWork[key]} {label}
+              </span>
+            ))}
+            {openCount === 0 && <span>Nothing requiring action</span>}
           </div>
-        </section>
-      </div>
-
-      <div className="brief-progress" aria-label="Investigation progress measures">
-        {brief.progress.map((item) => {
-          const value = percentage(item.current, item.total);
-          const unavailable = item.total === 0;
-          const emptyLabel = item.id === "analyst_review" ? "None due" : item.id === "enrichment_work" ? "No live work" : "Not started";
-          return (
-            <section key={item.id} className={unavailable ? "unavailable" : ""}>
-              <header><b>{item.label}</b><span>{unavailable ? emptyLabel : `${item.current}/${item.total}`}</span></header>
-              <div className="brief-progress-track" aria-hidden="true"><i style={{ width: `${value}%` }} /></div>
-              <small>{item.detail}</small>
-            </section>
-          );
-        })}
-      </div>
-
-      <footer className="pursuit-brief-footer">
-        <div className="brief-open-work" aria-label={`${openCount} open work records`}>
-          <b>OPEN WORK</b>
-          {OPEN_WORK.map(([key, label]) => openWork[key] > 0 && (
-            <span className={key === "contradictions" || key === "failed_enrichments" ? "attention" : ""} key={key}>
-              {openWork[key]} {label}
-            </span>
-          ))}
-          {openCount === 0 && <span>Nothing requiring action</span>}
-        </div>
-        <div className="brief-recent-change">
-          <b>RECENT CHANGE</b>
-          <span>{brief.recent_change.summary}</span>
-        </div>
-        <button className="brief-workbench-link" onClick={onOpenWorkbench}>OPEN FULL WORKBENCH</button>
-      </footer>
+          <div className="brief-recent-change">
+            <b>Recent change</b>
+            <span>{brief.recent_change.summary}</span>
+          </div>
+          <button className="brief-workbench-link" onClick={onOpenWorkbench}>Open workbench</button>
+        </footer>
+      </details>
     </section>
   );
 }

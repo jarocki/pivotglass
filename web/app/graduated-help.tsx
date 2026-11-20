@@ -42,16 +42,16 @@ const CONTENT: Record<WorkflowStage, {
   },
   file_selected: {
     step: "2 OF 5 · INSPECT",
-    title: "Preview the selected source locally",
-    body: "Preview extracts bounded text and candidate strings without changing the workspace. Review the parser warnings before admission.",
+    title: "The source opens in focus mode",
+    body: "Pivotglass reads the source locally and opens it beside its indicator list. Nothing is stored until you admit an indicator or choose Store source.",
     action: "focus_preview",
-    actionLabel: "SHOW THE PREVIEW CONTROL",
+    actionLabel: "REOPEN FOCUS MODE",
     focus: "intake",
   },
   preview_complete: {
     step: "3 OF 5 · CHOOSE",
-    title: "Select only the entities you want to admit",
-    body: "Candidates are text matches, not facts. Check the useful indicators, then ingest the source and the selected entities together with provenance.",
+    title: "Review indicators in focus mode",
+    body: "Move with j and k, hover any indicator for what this case already knows, tag with t, select with space, and admit with a. Candidates are text matches, not facts; admitting stores the source with provenance.",
     action: "review_candidates",
     actionLabel: "REVIEW CANDIDATES",
     focus: "intake",
@@ -59,9 +59,9 @@ const CONTENT: Record<WorkflowStage, {
   source_ingested: {
     step: "3 OF 5 · SOURCE STORED",
     title: "The source is stored; no entities were admitted",
-    body: "That is a valid choice. Reselect the local file and preview it again when you are ready to add candidate entities. The stored source receipt remains in the library.",
+    body: "That is a valid choice. Open it from Stored sources whenever you are ready to admit indicators; the stored bytes and parser receipt remain in the library.",
     action: "focus_intake",
-    actionLabel: "RETURN TO INTAKE",
+    actionLabel: "OPEN A SOURCE",
     focus: "intake",
   },
   entities_admitted: {
@@ -107,7 +107,7 @@ export function GraduatedHelp({
       aria-labelledby="graduated-help-title"
       aria-describedby="graduated-help-description"
     >
-      <strong className="guide-kicker">GUIDED NEXT STEP</strong>
+      <strong className="guide-kicker">Guided next step</strong>
       <header>
         <span>{level.toUpperCase()} GUIDANCE · {content.step}</span>
         <button type="button" aria-label="Dismiss this workflow tip" onClick={onDismiss}>×</button>
@@ -117,7 +117,7 @@ export function GraduatedHelp({
       <div>
         <button type="button" onClick={() => onAction(content.action)}>{content.actionLabel}</button>
         {content.alternateAction && <button type="button" onClick={() => onAction(content.alternateAction!)}>{content.alternateLabel}</button>}
-        <button type="button" className="quiet" onClick={onDismiss}>NOT NOW</button>
+        <button type="button" className="quiet" onClick={onDismiss}>Not now</button>
       </div>
       <small>Workflow guidance is presentation, not evidence. Change or reset the guidance level in Help at any time.</small>
     </aside>

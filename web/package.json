@@ -1,8 +1,10 @@
 {
   "name": "pivotglass-web",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/copy-pdf-worker.mjs",
+    "prebuild": "node scripts/copy-pdf-worker.mjs",
     "dev": "next dev",
     "build": "next build",
     "lint": "tsc --noEmit",
@@ -18,7 +20,8 @@
   "dependencies": {
     "chart.js": "4.5.1",
     "flint-chart": "0.4.0",
-    "next": "16.3.6",
+    "next": "16.4.5",
+    "pdfjs-dist": "6.4.299",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "sharp": "0.35.5"
@@ -35,6 +38,7 @@
   "overrides": {
     "nanoid": "3.3.18",
     "postcss": "8.5.23",
-    "sharp": "$sharp"
+    "sharp": "$sharp",
+    "source-map-js": "1.2.2"
   }
 }

@@ -1,5 +1,6 @@
 """Cross-interface gates for the v0.4.9 quality-assurance release."""
 
+import re
 from pathlib import Path
 
 from pivotglass.agent.tui.themes import (
@@ -41,7 +42,10 @@ def test_web_music_is_local_opt_in_and_effects_have_off_path():
     assert "new AudioContext()" in engine
     assert "schedule()" in engine
     assert 'MusicPhase = "idle" | "investigating" | "caution" | "complete"' in engine
-    assert "OFF BY DEFAULT" in page
+    # Music and voice start off; motion starts reduced (#27).
+    assert "const [music, setMusic] = useState(false);" in page
+    assert "const [voiceAudio, setVoiceAudio] = useState(false);" in page
+    assert 'else setEffects("reduced");' in page
     assert "fetch(" not in engine
     assert ".effects-off .ambient-environment{display:none}" in css
 
@@ -102,8 +106,8 @@ def test_scientific_workbench_exposes_conflicts_without_auto_promoting_them():
     workbench = Path("web/app/scientific-workbench.tsx").read_text()
     rigor = Path("src/pivotglass/core/analytic_rigor.py").read_text()
 
-    assert "CONFIDENCE &amp; CONTRADICTION REVIEW" in workbench
-    assert "RECORD CONTRADICTION" in workbench
+    assert "Confidence &amp; contradiction review" in workbench
+    assert "Record contradiction" in workbench
     assert "METHOD-DERIVED · NOT YET RECORDED" in workbench
     assert "dependence_group_count" in workbench
     assert '"content_class": "method_derived_suggestion"' in rigor
@@ -121,7 +125,7 @@ def test_public_characters_have_distinct_interactive_diversions():
     }.items():
         assert f"function {component}" in arcade
         assert title in arcade
-    assert "OPTIONAL DIVERSION · NO ANALYTICAL MEANING" in arcade
+    assert "Diversion · no analytical meaning" in arcade
     assert "publicModeLabel={publicModeLabel}" in page
 
 
@@ -192,7 +196,7 @@ def test_enrichment_and_constellation_share_literal_rgb_led_status_blocks():
 
     assert "<TaskMatrix intent={enrichmentActivity}" in page
     assert "liveRows={liveEnrichmentRows}" in page
-    assert "newest activity first" in page
+    assert "newest first" in page
     assert "<RGBLed status={status}" in workspace
     assert "rgbLabelForStatus(status)" in workspace
     for mapping in ("empty: [0, 0, 0]", "succeeded: [0, 255, 0]", "partial: [128, 128, 128]"):
@@ -261,11 +265,37 @@ def test_visualization_question_picker_keeps_the_analyst_question_primary():
     workspace = Path("web/app/visualization-workspace.tsx").read_text()
     styles = Path("web/app/pivotglass.css").read_text()
 
-    assert "CHOOSE AN ANALYST QUESTION" in workspace
+    # One header row: primary-view tabs plus a single select for every view. The analyst
+    # question is the headline, and the duplicated "Question" eyebrows are gone.
+    assert 'className="viz-bar"' in workspace
     assert '<select value={selected.intent_id}' in workspace
-    assert 'className="visualization-picker"' in workspace
-    assert ".visualization-picker" in styles
-    assert 'className="visualization-tabs"' not in workspace
+    assert workspace.count("<select value={selected.intent_id}") == 1
+    assert "<h3>{selected.question_text}</h3>" in workspace
+    assert "<span>Question</span>" not in workspace
+    assert 'className="visualization-picker"' not in workspace
+    assert ".viz-question h3" in styles
+
+
+def test_visualization_fills_the_window_instead_of_a_fixed_box():
+    workspace = Path("web/app/visualization-workspace.tsx").read_text()
+    styles = Path("web/app/pivotglass.css").read_text()
+
+    assert "function useFillHeight" in workspace
+    assert "data-viz-fill" in workspace
+    assert "const width = 760" not in workspace
+    assert "max-height:430px" not in styles
+    assert "max-height:min(54dvh,480px)" not in styles
+
+
+def test_graph_inspector_shows_saved_node_notes():
+    workspace = Path("web/app/visualization-workspace.tsx").read_text()
+
+    assert "/api/graph-annotations?node_ref=" in workspace
+    assert 'className="graph-node-notes"' in workspace
+    assert "SAVE NODE NOTE" not in workspace
+    # Presentation-only nodes (analyst groups) are not evidence: no Open evidence, no notes.
+    assert "selectedNode.evidence !== false" in workspace
+    assert "evidence?: boolean" in Path("web/app/visualization-intent.ts").read_text()
 
 
 def test_every_selected_visualization_explains_choice_and_reading():
@@ -301,7 +331,7 @@ def test_field_guidance_is_idle_gated_character_voiced_and_not_evidence():
     assert "evidence: false" in guidance
     assert "ANALYST ADVISOR · NARRATION, NOT EVIDENCE" in page
     assert "CharacterAdvisorArtwork" in page
-    assert "READ ALOUD" in page
+    assert "Read aloud" in page
     assert "pivotglass.narration.audio" in page
     for character in (
         "chuck_norris",
@@ -362,29 +392,29 @@ def test_product_uses_enrichment_and_reserves_connection_for_graph_relations():
 def test_investigate_owns_source_intake_and_selected_entity_admission():
     page = Path("web/app/page.tsx").read_text()
     intake = Path("web/app/document-intake.tsx").read_text()
+    focus = Path("web/app/indicator-focus.tsx").read_text()
 
-    intake_position = page.index('id="investigate-intake"')
+    intake_position = page.index('id="sources"')
     activity_position = page.index('className="cockpit-grid"')
     visualize_position = page.index('id="artifact-field"')
     assert intake_position < activity_position < visualize_position
-    assert 'hidden={activePane !== "intelligence"}' in page
-    assert "candidate_keys: [...selectedCandidates]" in intake
-    assert "INGEST SOURCE + ADD" in intake
-    assert "INGEST SOURCE ONLY" in intake
-    assert "source-admission action below" in intake
-    assert "It does not declare a candidate malicious" in intake
-    assert "visibleCandidates.map" in intake
-    assert "SELECT PAGE (" in intake
-    assert "SELECT ALL MATCHES" in intake
-    assert "it never selects unseen pages" in intake
-    assert "expected_workspace: workspace" in intake
-    assert "RETRY LIBRARY" in intake
-    assert 'data-action="use-admitted-indicator"' in intake
+    # Sources belongs to Investigate; Evidence and Visualize own the body.
+    assert '(activePane === "dossier" || activePane === "artifact-field") && maximized !== "sources"' in page
     assert 'key={state.workspace}' in page
+    # Admission sends exactly the analyst's chosen keys, bound to the case and hash.
+    assert "candidate_keys: keys" in intake
+    assert "expected_workspace: workspace" in intake
+    assert "expected_sha256: pending.preview.content_sha256" in intake
+    assert ">Retry</button>" in intake
+    assert 'data-action="use-admitted-indicator"' in intake
+    # A failed admission after storage is retried against the stored occurrence.
     assert "candidate_admission_error" in intake
-    assert "RETRY ENTITY ADMISSION" in intake
-    assert "/api/documents/candidates/admit" in intake
-    assert "It does not store a second copy" in intake
+    assert "the source will not be stored twice" in intake
+    # Intake never runs enrichment; investigation is only prepared.
+    assert "/api/investigate" not in intake and "/api/investigate" not in focus
+    # Rendered sources can never run script.
+    sandboxes = re.findall(r'sandbox="([^"]*)"', focus)
+    assert sandboxes == ["allow-same-origin"]
 
 
 def test_guidance_is_persisted_graduated_and_presentation_only():
@@ -398,15 +428,20 @@ def test_guidance_is_persisted_graduated_and_presentation_only():
     assert 'completedWorkflows >= 12' in profile
     assert 'type GuidanceLevel = "novice" | "adept" | "expert"' in profile
     assert "Workflow guidance is presentation, not evidence." in guidance
-    assert "RESET WALKTHROUGH" in page
+    assert "Reset walkthrough" in page
     assert 'data-tutorial-focus' in page
-    assert '.guided-focus-active [data-focus-context]' in styles
+    # Guidance never blurs or dims the analyst's work, and never opens unasked (#27).
+    assert '.guided-focus-active [data-focus-context]' not in styles
+    assert 'filter:blur(1.4px)' not in styles
+    assert 'level: "expert"' in profile
+    assert page.count("setWorkflowHelpVisible(true)") == 1
     assert 'placeGuidance(' in page
     # A tutorial reveals only the destination's ancestors, not every panel.
     assert 'intakeTargetFor(action)' in page
     assert 'querySelectorAll<HTMLDetailsElement>("details")' not in page
     navigation = Path("web/app/guidance-navigation.ts").read_text()
-    assert 'data-action=\'preview-document\'' in navigation
+    assert "data-action='choose-source'" in navigation
+    assert "data-action='reopen-focus'" in navigation
     assert 'data-action=\'use-admitted-indicator\'' in navigation
     assert 'aria-live="polite"' in guidance
     assert 'main>.guided-help-layer{position:fixed' in styles
@@ -414,7 +449,7 @@ def test_guidance_is_persisted_graduated_and_presentation_only():
     assert 'max-height:calc(100vh - 24px)' in styles
     assert '.guided-help-layer{top:auto' not in styles
     assert 'border:3px solid var(--focus-ring)' in styles
-    assert 'GUIDED NEXT STEP' in guidance
+    assert 'Guided next step' in guidance
     assert '.guide-kicker{' in styles
     assert '@media(prefers-reduced-motion:reduce)' in styles
 

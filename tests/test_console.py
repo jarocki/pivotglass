@@ -896,3 +896,14 @@ class TestConsoleDbStatusEnhanced:
         assert "Last run" in out
         assert "Last note" in out
         assert "Last badge" in out
+
+
+def test_show_modules_lists_loaded_modules(console):
+    """v1.2.0 answered `show modules` with a usage error; it now lists modules."""
+    out = run_cmd(console, "show modules")
+    assert "osint/crtsh" in out
+    assert "Usage" not in out
+
+
+def test_exit_is_an_alias_for_quit(console):
+    assert console.onecmd_plus_hooks("exit") is True

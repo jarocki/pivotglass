@@ -14,6 +14,37 @@ available publisher provenance:
    It loads no CDN scripts, fonts, telemetry, or remote UI code.
 7. The Python lockfile retains hashes for the analysis engine dependencies.
 
+## v1.3.0 dependency update
+
+Indicator focus mode adds `pdfjs-dist` 6.4.299 (released 2026-10-03) to draw
+PDF pages in the browser. Its worker is copied from the pinned package into the
+static export by `web/scripts/copy-pdf-worker.mjs` and served same-origin.
+pdf.js 6 contains no `eval` or `new Function` path, and Pivotglass never loads
+its document-scripting sandbox.
+
+`pdfjs-dist` declares `@napi-rs/canvas` as an optional native dependency for
+running pdf.js under Node. The browser bundle never loads it, so it does not
+ship to analysts, but `npm ci` installs one native binary for the build
+platform. It accounts for 12 of the 13 new npm lock entries (one wrapper plus
+11 platform packages). Removing a single optional dependency would also
+affect Next.js's optional native packages, so it is kept and recorded here.
+
+The 2026-11-15 audit found critical advisories in Next.js 16.0.0–16.4.0 and a
+high advisory in `source-map-js` 1.0.0–1.2.1 (via PostCSS). Pivotglass serves
+a static export and does not run the Next.js server at runtime, but that does
+not excuse vulnerable packages in the build environment. The release pins
+Next.js 16.4.3 (2026-10-23) instead of the newest 16.4.6, which was under two
+weeks old, and overrides `source-map-js` to 1.2.2 (2026-09-30).
+`npm audit` reports 0 vulnerabilities, and `npm audit signatures` verifies 21
+attested packages.
+
+On 2026-11-17 `npm audit` reported two moderate advisories in Next.js
+16.2.0–16.4.4 (GHSA-mfr8-8qww-v76h, GHSA-vc7v-qv4w-wrv8), both in the
+`'use cache'` server path a static export never runs. Next.js now fails the
+build on known advisories, so the pin moves to 16.4.5 (2026-11-03), the
+oldest fixed release that is at least two weeks old; 16.4.6 was eight days
+old. `npm audit` again reports 0 vulnerabilities.
+
 ## v0.9.8 candidate dependency update
 
 The 2026-09-27 release audit identified advisories in the previous Next.js

@@ -330,6 +330,9 @@ class VisualizationNode(BaseModel):
     reference: str
     label: str
     entity_type: str
+    # False for presentation-only nodes (analyst promotion groups) that have no stored
+    # evidence record; the cockpit offers "Open evidence" only when this is true.
+    evidence: bool = True
 
 
 class VisualizationEdge(BaseModel):
@@ -1628,7 +1631,7 @@ def relationship_graph_intent(
         if not members:
             continue
         all_nodes += (VisualizationNode(reference=group_ref,
-            label=str(event["to_label"]), entity_type="analyst-group"),)
+            label=str(event["to_label"]), entity_type="analyst-group", evidence=False),)
         for member in members:
             all_edges.append(VisualizationEdge(source=group_ref,
                 target=member, relationship="analyst-grouped",

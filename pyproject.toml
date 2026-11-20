@@ -1,6 +1,6 @@
 [project]
 name = "pivotglass"
-version = "1.2.0"
+version = "1.3.0"
 requires-python = ">=3.12"
 description = "Gamified framework for hunting, pivoting, and discovery of adversary infrastructure, indicators, and TTPs"
 readme = "README.md"
@@ -33,6 +33,8 @@ dependencies = [
     "pyfiglet>=1.0",
     "tomli_w>=1.0",
     "pyyaml>=6.0",
+    "pypdf>=6.21.3,<7",
+    "markdown-it-py>=4.0",
 ]
 
 [project.urls]

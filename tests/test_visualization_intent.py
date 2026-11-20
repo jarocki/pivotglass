@@ -792,6 +792,8 @@ def test_explicit_promotion_groups_project_as_analyst_edges_only():
     assert {(edge.source, edge.target) for edge in intent.data.edges} == {("group-1", "a"), ("group-1", "b")}
     assert all(edge.basis == "manual" and edge.relationship == "analyst-grouped" for edge in intent.data.edges)
     assert all("batch-event" in edge.provenance for edge in intent.data.edges)
+    # The group node is bookkeeping, not evidence: the cockpit must not offer "Open evidence".
+    assert {node.reference: node.evidence for node in intent.data.nodes} == {"group-1": False, "a": True, "b": True}
     assert relationship_graph_intent("test", graph, {"pivot_trail": events[1:]}).data.edges == ()
 
     historic = relationship_graph_intent("test", graph, {"analyst_groups": [events[0]], "pivot_trail": []})

@@ -48,6 +48,7 @@ from pivotglass.core.analytic_commands import execute_analysis_command
 from pivotglass.core.analytic_ledger import AnalyticLedger
 from pivotglass.core.analytic_rigor import build_analytic_rigor
 from pivotglass.core.command_completion import command_completions
+from pivotglass.core.config import ApiKeysConfig
 from pivotglass.core.document_entity_extraction import (
     EntityExtractionLimits,
     defang_indicator_value,
@@ -59,6 +60,7 @@ from pivotglass.core.document_library import (
     PivotTrailAuthority,
     document_candidate_selection_key,
 )
+from pivotglass.core.document_rendering import render_document
 from pivotglass.core.error_interpreter import DEBUG_LOG_PATH
 from pivotglass.core.evidence_cluster_history import EvidenceClusterHistory
 from pivotglass.core.evidence_clusters import build_evidence_clusters
@@ -72,6 +74,8 @@ from pivotglass.core.framework_perspectives import (
 from pivotglass.core.framework_projections import FrameworkProjectionAuthority
 from pivotglass.core.graph import RelationshipGraph, persisted_relationships
 from pivotglass.core.graph_presentation import GraphPresentationAuthority
+from pivotglass.core.indicator_context import IndicatorContextAuthority, document_relations
+from pivotglass.core.indicator_tags import IndicatorTagAuthority, dimension_catalog
 from pivotglass.core.information_requirements import build_information_requirements
 from pivotglass.core.integration_commands import execute_integration_command
 from pivotglass.core.investigation import (
@@ -197,6 +201,62 @@ def _tool_failure(summary: str) -> dict[str, str] | None:
             "diagnostic_id": "",
         }
     return None
+
+
+_API_KEY_FIELDS = frozenset(ApiKeysConfig.model_fields)
+_SERVICE_KEY_NAME = re.compile(r"PIVOTGLASS_([A-Z][A-Z0-9_]*)_API_KEY")
+
+
+def _compact(name: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", name.casefold())
+
+
+def _required_credentials(source: str | None, next_action: str) -> tuple[str, tuple[str, ...]] | None:
+    """Name the service and its required credential fields for one failure.
+
+    ``CTI_SERVICES`` is the authority for which credentials a service needs;
+    labels marked "optional" are not required. The enrichment's display
+    source identifies the service, and the key named in the remediation text
+    is the fallback for sources outside that catalogue.
+    """
+    if source:
+        wanted = _compact(source)
+        for spec in CTI_SERVICES:
+            if wanted and _compact(spec.display_name).startswith(wanted):
+                required = tuple(
+                    key
+                    for key, label in zip(spec.config_keys, spec.prompt_labels, strict=False)
+                    if "optional" not in label.casefold()
+                )
+                return spec.display_name, required or tuple(spec.config_keys[:1])
+    match = _SERVICE_KEY_NAME.search(next_action)
+    if match is None:
+        return None
+    key = {"vt": "virustotal"}.get(match.group(1).lower(), match.group(1).lower())
+    return (key, (key,)) if key in _API_KEY_FIELDS else None
+
+
+def _unconfigured_service(
+    failure: dict[str, str], config_mgr: Any, source: str | None = None
+) -> str | None:
+    """Return the service name when an API-key failure means no key is configured.
+
+    An ``API key`` receipt covers both missing and rejected credentials. Only
+    when every required credential for the service is resolvable and at least
+    one is absent is the failure a configuration state; a rejected key stays a
+    source fault (DEC-UNCONFIGURED-SOURCE-001).
+    """
+    if failure.get("category") != "API key":
+        return None
+    resolved = _required_credentials(source, failure.get("next_action", ""))
+    if resolved is None:
+        return None
+    service, keys = resolved
+    try:
+        missing = [key for key in keys if not config_mgr.get_api_key(key)]
+    except Exception:  # noqa: BLE001 - an unreadable key state is not "unconfigured"
+        return None
+    return service if missing else None
 
 
 def _source_web_build_is_stale(web_root: Path) -> bool:
@@ -520,6 +580,11 @@ class WebCockpitService:
         )
         return {
             **preview.model_dump(mode="json"),
+            "rendering": render_document(
+                data,
+                media_type=preview.detected_media_type,
+                output_text=preview.output_text,
+            ).model_dump(mode="json"),
             "entity_extraction": {
                 "state": candidates.state,
                 "warnings": list(candidates.warnings),
@@ -534,6 +599,7 @@ class WebCockpitService:
                     }
                     for item in candidates.candidates
                 ],
+                "relations": document_relations(candidates.candidates, preview.output_text),
                 "truth_boundary": (
                     "Candidates are temporary text matches. They are not stored evidence, "
                     "admitted entities, graph nodes, relationships, verdicts, or attribution."
@@ -693,7 +759,60 @@ class WebCockpitService:
         }
 
     def document_detail(self, occurrence_id: str) -> dict[str, Any]:
-        return DocumentLibraryService(self.ctx.workspace_mgr).detail(occurrence_id)
+        detail = DocumentLibraryService(self.ctx.workspace_mgr).detail(occurrence_id)
+        detail["relations"] = document_relations(
+            detail["candidates"], detail["parser"]["output_text"]
+        )
+        return detail
+
+    def tag_dimensions(self) -> dict[str, Any]:
+        return {"dimensions": dimension_catalog()}
+
+    def tag_indicators(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Apply analyst tag additions and removals as one validated batch."""
+
+        changes = payload.get("changes")
+        if not isinstance(changes, list):
+            raise ValueError("changes must be a list")
+        with self._command_lock:
+            self._check_document_workspace(payload)
+            tags = IndicatorTagAuthority(self.ctx.workspace_mgr).apply(
+                [item for item in changes if isinstance(item, dict)],
+                operator=str(payload.get("operator") or "local analyst"),
+            )
+        return {"workspace": self.ctx.workspace_mgr.active, "tags": tags}
+
+    def indicator_context(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Describe a batch of indicators from what the workspace already holds."""
+
+        raw = payload.get("indicators")
+        if not isinstance(raw, list):
+            raise ValueError("indicators must be a list")
+        indicators = [
+            (str(item.get("entity_type") or ""), str(item.get("normalized_value") or ""))
+            for item in raw
+            if isinstance(item, dict)
+        ]
+        occurrence = str(payload.get("occurrence_id") or "").strip() or None
+        with self._command_lock:
+            self._check_document_workspace(payload)
+            context = IndicatorContextAuthority(self.ctx.workspace_mgr).context(
+                indicators, current_occurrence_id=occurrence
+            )
+        return {"workspace": self.ctx.workspace_mgr.active, "context": context}
+
+    def document_pdf_source(self, occurrence_id: str) -> bytes:
+        """Return verified stored bytes for PDF rendering; other formats are refused."""
+
+        library = DocumentLibraryService(self.ctx.workspace_mgr)
+        record = next(
+            (item for item in library.list() if item.occurrence_id == occurrence_id), None
+        )
+        if record is None:
+            raise ValueError("document was not found in the active workspace")
+        if record.detected_media_type != "application/pdf":
+            raise ValueError("only PDF sources are served for page rendering")
+        return library.source_bytes(occurrence_id)
 
     def pivot_trail(self) -> dict[str, Any]:
         return {
@@ -1452,11 +1571,6 @@ class WebCockpitService:
             self.ctx.workspace_mgr.get_module_runs(),
         )
 
-    def investigate(self, target: str) -> dict[str, Any]:
-        """Run deterministic applicable batteries and return grounded events."""
-        with self._investigation_lock:
-            return self._investigate_locked(target)
-
     def start_investigation(
         self,
         target: str,
@@ -1464,8 +1578,9 @@ class WebCockpitService:
         origin_request_id: str | None = None,
     ) -> dict[str, Any]:
         """Start an investigation and return immediately with a resumable cursor."""
-        PivotTrailAuthority(self.ctx.workspace_mgr).record_indicator(target)
+        # Validate before recording navigation so rejected input leaves no trail.
         target_type, tools = self.plan(target)
+        PivotTrailAuthority(self.ctx.workspace_mgr).record_indicator(target)
         record = self.investigations.create(target, target_type)
         self.investigations.append(
             record.investigation_id,
@@ -1676,6 +1791,26 @@ class WebCockpitService:
                         self.ctx, tool_name, {argument_name: target}
                     )
                     failure = _tool_failure(summary)
+                    unconfigured = (
+                        _unconfigured_service(failure, self.config_mgr, source) if failure else None
+                    )
+                    if unconfigured is not None:
+                        # DEC-UNCONFIGURED-SOURCE-001: a source with no credential is
+                        # a configuration state, not a fault. It is recorded as
+                        # skipped so it never raises attention or fails the run.
+                        self.investigations.append(
+                            investigation_id,
+                            event_class=EventClass.SYSTEM,
+                            severity="info",
+                            lifecycle=LifecycleState.SKIPPED,
+                            content_class=ContentClass.SYSTEM,
+                            tool=tool_name,
+                            source=source,
+                            reason="not configured",
+                            diagnostic_category="Not configured",
+                            next_action=f"Add {unconfigured} credentials in Models and API keys to use this source.",
+                        )
+                        continue
                     if failure is not None:
                         any_failures = True
                         self.investigations.append(
@@ -1778,43 +1913,6 @@ class WebCockpitService:
                     final_state.value,
                     investigation_id=investigation_id,
                 )
-
-    def _investigate_locked(self, target: str) -> dict[str, Any]:
-        """Execute one investigation while holding the service mutation lock."""
-        target_type, tools = self.plan(target)
-
-        events: list[dict[str, Any]] = []
-        for tool_name in tools:
-            schema = self._tool_schemas.get(tool_name)
-            if schema is None:
-                continue
-            parameters = schema.get("parameters", {})
-            properties = parameters.get("properties", {})
-            required = parameters.get("required", ())
-            argument_name = required[0] if required else next(iter(properties), "target")
-            briefing = BRIEFINGS.get(tool_name)
-            events.append(
-                {
-                    "kind": "enrichment",
-                    "tool": tool_name,
-                    "source": briefing.source if briefing else tool_name,
-                    "briefing": asdict(briefing) if briefing else None,
-                }
-            )
-            summary, celebration, _badges, _challenges = execute_tool(
-                self.ctx, tool_name, {argument_name: target}
-            )
-            events.append(
-                {
-                    "kind": "evidence",
-                    "tool": tool_name,
-                    "source": briefing.source if briefing else tool_name,
-                    "summary": summary,
-                    "celebration": celebration,
-                }
-            )
-
-        return {"target": target, "target_type": target_type, "events": events}
 
     def plan(self, target: str) -> tuple[str, list[str]]:
         """Return the deterministic service plan without executing tools."""
@@ -1950,6 +2048,20 @@ def _handler(
             self.end_headers()
             self.wfile.write(body)
 
+        def _pdf(self, body: bytes) -> None:
+            # Only PDF bytes are ever served, and only to pdf.js via fetch. The
+            # sandbox CSP and attachment disposition stop the browser from
+            # treating the response as a same-origin document if opened directly.
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/pdf")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Content-Disposition", "attachment")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Security-Policy", "sandbox; default-src 'none'")
+            self.end_headers()
+            self.wfile.write(body)
+
         def _host_allowed(self) -> bool:
             raw_host = self.headers.get("Host", "").strip().lower()
             if raw_host.startswith("["):
@@ -1990,6 +2102,15 @@ def _handler(
             if parsed.path == "/api/documents":
                 self._json(service.document_library())
                 return
+            if parsed.path.startswith("/api/documents/") and parsed.path.endswith("/source"):
+                try:
+                    occurrence_id = parsed.path.removeprefix("/api/documents/").removesuffix(
+                        "/source"
+                    ).strip("/")
+                    self._pdf(service.document_pdf_source(occurrence_id))
+                except ValueError as exc:
+                    self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
+                return
             if parsed.path.startswith("/api/documents/"):
                 try:
                     occurrence_id = parsed.path.removeprefix("/api/documents/").strip()
@@ -1998,6 +2119,9 @@ def _handler(
                     self._json(service.document_detail(occurrence_id))
                 except ValueError as exc:
                     self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
+                return
+            if parsed.path == "/api/tags/dimensions":
+                self._json(service.tag_dimensions())
                 return
             if parsed.path == "/api/pivots":
                 self._json(service.pivot_trail())
@@ -2106,6 +2230,8 @@ def _handler(
                     "/api/documents/preview",
                     "/api/documents/ingest",
                     "/api/documents/candidates/admit",
+                    "/api/tags",
+                    "/api/indicators/context",
                     "/api/advisor/voice",
                     "/api/integrations/scot/pivot-request",
                 }
@@ -2138,6 +2264,8 @@ def _handler(
                     if parsed.path in {"/api/documents/preview", "/api/documents/ingest"}
                     else 256 * 1024
                     if parsed.path == "/api/documents/candidates/admit"
+                    else 1024 * 1024
+                    if parsed.path in {"/api/tags", "/api/indicators/context"}
                     else 16_384
                 )
                 if length > request_limit:
@@ -2202,6 +2330,12 @@ def _handler(
                         service.admit_document_candidates(payload),
                         HTTPStatus.CREATED,
                     )
+                    return
+                if parsed.path == "/api/tags":
+                    self._json(service.tag_indicators(payload), HTTPStatus.CREATED)
+                    return
+                if parsed.path == "/api/indicators/context":
+                    self._json(service.indicator_context(payload))
                     return
                 if parsed.path == "/api/mode":
                     name = str(payload.get("name", "")).strip()

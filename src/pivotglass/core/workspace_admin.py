@@ -17,6 +17,7 @@ from typing import Any
 from sqlalchemy import create_engine
 
 from pivotglass.core.workspace_migrations import (
+    CURRENT_WORKSPACE_SCHEMA_VERSION,
     ensure_workspace_schema,
     get_workspace_schema_version,
 )
@@ -55,6 +56,7 @@ _EXPORT_TABLES = (
     "document_proposal_dispositions",
     "evidence_cluster_snapshots",
     "pivot_trail_events",
+    "indicator_tag_events",
 )
 _JSON_COLUMNS = {
     "json_blob",
@@ -112,6 +114,7 @@ _STRING_KEY_TABLES = (
     "document_proposal_dispositions",
     "evidence_cluster_snapshots",
     "pivot_trail_events",
+    "indicator_tag_events",
 )
 
 
@@ -132,7 +135,7 @@ def export_workspace(manager: Any, name: str) -> dict[str, Any]:
     finally:
         engine.dispose()
     result: dict[str, Any] = {
-        "format": "pivotglass-workspace-v12",
+        "format": f"pivotglass-workspace-v{CURRENT_WORKSPACE_SCHEMA_VERSION}",
         "workspace": name,
         "schema_version": schema_version,
         "tables": {},

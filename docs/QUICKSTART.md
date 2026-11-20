@@ -49,11 +49,11 @@ the complete practice path; you can follow them without watching the video.
 
 You need Python 3.12 or newer, Git, and
 [uv](https://docs.astral.sh/uv/). The source tag plus its committed lockfile is
-the supported reproducible v1.2.0 installation because it reproduces the dependency
+the supported reproducible v1.3.0 installation because it reproduces the dependency
 set used for release qualification.
 
 ```bash
-git clone --branch v1.2.0 --depth 1 https://github.com/jarocki/pivotglass.git
+git clone --branch v1.3.0 --depth 1 https://github.com/jarocki/pivotglass.git
 cd pivotglass
 uv sync --extra agent --frozen
 uv run pivotglass --version
@@ -62,7 +62,7 @@ uv run pivotglass --version
 The final command should report:
 
 ```text
-pivotglass 1.2.0
+pivotglass 1.3.0
 ```
 
 The release contains the built browser interface. Node.js 20.9 or newer is
@@ -82,7 +82,7 @@ recreate the locked environment:
 
 ```bash
 git fetch --tags origin
-git checkout v1.2.0
+git checkout v1.3.0
 uv sync --extra agent --frozen
 uv run pivotglass --version
 ```
@@ -302,7 +302,7 @@ When enrichment discovers another indicator:
 
 1. Open its evidence details.
 2. Review its source, normalized fields, collection history, and relationships.
-3. Choose **+ QUEUE** if it is worth investigating.
+3. Choose **Queue** if it is worth investigating.
 4. Choose **RUN NEXT** for one queued indicator or **RUN ALL** to process the
    queue in order.
 
@@ -316,16 +316,17 @@ the enabled service before sending private or embargoed indicators.
 
 ## 6. Explore the relationship graph
 
-In **VISUAL ANALYSIS**, choose **Evidence relationships**.
+In **Visualize**, choose **Graph**.
 
 You can search by indicator or type, drag nodes, pan and zoom, select a node to
-highlight its visible neighbors, and choose **OPEN EVIDENCE** to inspect its
-provenance. Double-click a connected node, or use **COLLAPSE DIRECT
-CONNECTIONS**, to hide its immediate branches temporarily. Expand it again or
-choose **SHOW ALL CONNECTIONS** to restore the complete view. Collapsed nodes
+highlight its visible neighbors, and choose **Open evidence** in the inspector
+to inspect its provenance. Add analyst notes in the same inspector. Double-click
+a connected node, or use **Collapse connections**, to hide its immediate
+branches temporarily. Expand it again or choose **Show all connections** to
+restore the complete view. Collapsed nodes
 remain present in the accessible inventory and exact-data export.
 
-Use **UNDO VIEW** and **REDO VIEW** for layout changes, or press
+Use the undo and redo arrows for layout changes, or press
 `Command/Control+Z` and `Shift+Command/Control+Z` while focus is in the graph.
 The bounded history covers node movement, pan/zoom, pins, display labels, and
 collapsed connections. It never reverses evidence or analyst judgments.
@@ -335,7 +336,7 @@ Moving nodes changes only the layout. If no supported edge exists, Pivotglass
 shows unconnected indicators rather than implying a relationship from visual
 proximity.
 
-Enter a layout name and choose **SAVE VIEW** to keep the arrangement through
+Open **Layouts**, enter a name, and choose **Save** to keep the arrangement through
 refreshes and restarts. Saved views travel with workspace export and merge.
 Loading a view reports graph changes; it never restores old evidence or edges.
 
@@ -554,8 +555,9 @@ read results are previews until an analyst deliberately imports or cites them.
 
 ## 10. Change character and presentation
 
-Open **DECK** to choose a character, Day or Night display, contrast, motion,
-narration, and music. You can also use:
+Open **Menu** to choose view width, text size, and density; Day or Night
+display, contrast, and motion; and, under **Characters, sound, and badges**, a
+character, narration, and music. You can also use:
 
 ```text
 mode list
@@ -579,7 +581,7 @@ The Analyst Advisor appears near
 the top of the current viewport, never steals focus, and is always labeled
 **Narration, not evidence**. Its artwork combines the active character with the
 kind of advice being offered. Choose its action, select **Read Aloud**, dismiss
-it, or turn Narration off from **DECK**. Automatic Advisor voice audio is a
+it, or turn Narration off from **Menu**. Automatic Advisor voice audio is a
 separate opt-in setting. Configured OpenAI speech synthesis receives the
 narrated text, with browser or operating-system speech as a fallback. Music
 is local, and no actor or character voice is cloned.

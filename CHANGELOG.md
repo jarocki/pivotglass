@@ -7,6 +7,125 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-19
+
+### Added
+
+- Visualize is canvas-first. One header row holds Graph, Coverage, and Provenance tabs with record counts plus a single list of every view (empty views last, marked "no data"); the question is the headline; the visualization fills the rest of the window and refits on resize.
+- Relationship graph: node colour is indicator type and node size is degree, so hubs are the first thing the eye meets; only hubs, the selection, and the hovered node are labelled; hovering brightens a node's neighbourhood and dims the rest; zoom moves positions without shrinking text; a fit-to-view control; an **Analyst groups** toggle; layouts moved into a **Layouts** menu; legend and zoom float on the canvas.
+- Graph inspector docked beside the canvas: **Open evidence**, pin, collapse, the node's saved analyst notes with an add-note box (`Command/Control+Enter` saves), and **Rename on this graph** behind a disclosure.
+- The indicator evidence drawer can be maximized in place or popped out into its own window (`?solo=evidence&ref=…`).
+- Standard icon controls for maximize, restore, pop out, collapse, close, zoom, fit, undo, and redo, from one icon authority (`web/app/icons.tsx`), each with an accessible name and tooltip.
+- Indicator focus mode. Opening, dropping, or pasting a source opens it full
+  screen with its indicator list beside the rendered source. The focused
+  indicator is highlighted and scrolled into view, and every later occurrence
+  of a known indicator is marked. Keyboard: `j`/`k` move, `n`/`p` mention,
+  `space` select, `a` admit, `t` tag, `g` group, `/` filter, `v` rendered or
+  text view, `Enter` prepare investigation, `Esc` close.
+- Details on demand. Hovering an indicator shows a translucent card with what
+  the case already knows (entity, relationships, observing sources, other
+  stored sources, tags, last investigation) and what this source shows
+  (structural derivations, nearby indicators labelled "position only"). The
+  card is backed by one batch indicator-context endpoint.
+- Multidimensional indicator tags: infrastructure role, ATT&CK tactic,
+  cluster, and review status. Tags follow the indicator across sources and
+  through admission, can be grouped and filtered, and are exported and merged
+  with the workspace. Grouping by ATT&CK tactic orders indicators along the
+  attack path.
+- Safe rendered previews of HTML, Markdown, and PDF sources. HTML and
+  Markdown are rebuilt from an allowlist and shown in a sandboxed frame that
+  cannot run script. PDF pages are drawn by pdf.js.
+- PDF text extraction with page markers. PDFs now yield indicator candidates.
+  Pages without a text layer are named.
+- Paste text or an indicator list directly as a source.
+- REPL `show modules` and `exit`.
+- **Menu** moves to the top left and opens as a drawer. Section headings are
+  plain labels; every action is a bordered button, and the selected option in
+  each choice group is filled and ticked.
+- View controls under **Menu → View**: width (Column, Wide, Full), text size
+  (four steps that scale every label and value, including the rendered source),
+  and density. Keys: `\` cycles width, `+` and `−` change text size. One
+  versioned preference replaces the earlier reading setting, which migrates.
+- Every pane can be maximized in place (`z`, Esc restores) or popped out into
+  its own window (`Shift`+`Z`). A maximized Sources pane is a full-height
+  paste area.
+- Copy from focus mode: `c` copies the focused indicator, `y` copies the
+  selection defanged, `Y` exactly as stored. Defanging matches the server's
+  export rule, checked against shared test cases.
+
+### Changed
+
+- The mini-game menu item is named **Diversion** (it was "Themes").
+- Pane title controls are icons instead of the words Maximize, Pop out, and Hide.
+- Provenance timestamps show to the second; the full value is on hover.
+- Intake is one step: preview opens focus mode, and admitting stores the
+  source and the selected indicators together. Intake sits directly under the
+  command field.
+- Removed slogan text from the cockpit masthead and footer. The masthead is
+  one bar: name, workspace, the three tabs, status, Menu, and Help.
+- Interface cleanup from an eight-lens critique (see
+  `docs/plans/V1.3.0_UI_CRITIQUE.md`). Every interface size is a rem token,
+  so nothing renders below 12 px at the standard size. Caps, letter-spacing,
+  and monospace are now reserved for the wordmark, values, and keycaps,
+  including in the workbench, help, configuration, and visualizations. Pane,
+  tab, and menu labels share one vocabulary. Wide screens show Sources and
+  Next step beside Activity.
+- The Pursuit Brief is now the compact **Next step** pane: one action, with
+  progress, open work, and recent change on demand. A **Guidance** chip marks
+  it as workflow guidance rather than evidence.
+- Guidance no longer opens unasked or blurs the page. New installations start
+  at Expert guidance; a one-line **Show me how** offer stays in the empty
+  Activity pane.
+- Motion defaults to Reduced (no flicker, fog, or glow), and narration
+  defaults to Brief. Character personas keep their voice and artwork but no
+  longer skew or rotate panes.
+- An enrichment whose service has no configured credential is recorded as
+  skipped, **not configured**. It no longer counts as a failure or raises
+  attention. A configured key that is rejected remains a source fault.
+- Workspace schema v13 adds `indicator_tag_events`. The export format and the
+  supported migration range now derive from the schema version.
+- Next.js 16.4.5 and `source-map-js` 1.2.2 resolve build-environment
+  advisories. See `docs/WEB_SUPPLY_CHAIN.md`.
+- The data-safety boundary now covers sanitized source markup and PDF bytes
+  in the browser. See `docs/DATA_SAFETY.md`.
+
+### Fixed
+
+- Saving a graph node note looked like it did nothing: the wide box under "Presentation label" read as the note field, the real note box was a narrow one beside it, and a saved note was never shown again.
+- The relationship graph was drawn on a fixed 760×430 canvas letterboxed into the pane, with nodes clamped into rows along its edges and labels overprinting one another.
+- The 48 drawn graph nodes were all one type (degree ties broken alphabetically); they are now dealt round-robin by type after hubs.
+- **Open evidence** on an analyst promotion group node raised "unknown evidence reference", and the note box beneath it returned 404. Graph nodes now carry an `evidence` flag from the server; group nodes show neither and say they are analyst bookkeeping.
+- On wide panes the graph settled into a central disc and left most of the width empty. The layout now follows the canvas's aspect ratio.
+- Graph labels overprinted each other around hubs. Labels are placed right, left, above, or below their node to avoid other labels; the selection, the hovered node, and the three largest hubs are always named.
+- The coverage matrix, provenance trail, and hierarchy were capped at 420–600 px regardless of window height; URLs in the coverage matrix broke mid-hostname.
+- The evidence drawer could render under the masthead.
+- crt.sh results no longer store email addresses, certificate labels, or case
+  and trailing-dot duplicates as `domain-name` observations.
+- An unreadable PDF is stored as partial source evidence instead of failing
+  ingestion.
+- Starting an investigation validates the target before recording a pivot
+  trail event.
+- The REPL `hunt` result names a real pivot action.
+- The Activity pane no longer renders blank: it had deferred its own
+  rendering (`content-visibility`) behind a 720 px placeholder.
+- Escape closes the menu. Command suggestions appear only while typing.
+- A long stored-source name no longer widens the Sources column and hides its
+  controls behind Activity. Grid panes now shrink to their column, and source
+  rows truncate the name with the full value on hover.
+- Pane headers wrap their controls at large text instead of clipping them;
+  graph node types no longer overprint their labels; dossier dimensions are
+  readable tiles; the menu's text-size options fit at every size.
+- The web cockpit ships a local favicon (no more 404 on every load) (#35).
+
+### Removed
+
+- The twelve "recent indicator" rows with Queue buttons under every visualization (queueing remains in the evidence drawer), the duplicated "Question" labels, the "12 evidence views" count, and the empty selection placeholder under the coverage matrix.
+- The unused synchronous web investigation path, which returned undecoded
+  diagnostic markers. All surfaces use the streaming investigation path.
+- The DECK button (it duplicated More), the keyboard-focus pill, the footer
+  Help link, the always-on command hint, the "Novice practice" band, and the
+  "Awaiting target lock" art.
+
 ## [1.2.0] - 2026-09-30
 
 ### Added
