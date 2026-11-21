@@ -45,12 +45,14 @@ import re
 import stat
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+
+from pivotglass.core.service_endpoints import SERVICE_BASE_URLS
 
 if TYPE_CHECKING:
     from pivotglass.core.config import ConfigManager
@@ -73,10 +75,13 @@ class ProviderSpec:
         Human-readable name shown in the wizard UI.
     litellm_prefix:
         Prefix used when building the full litellm model string, e.g.
-        "gemini" → "gemini/gemini-2.0-flash-exp".  Empty string for providers
+        "gemini" → "gemini/gemini-3.5-flash-lite".  Empty string for providers
         where litellm accepts bare model IDs (Anthropic, OpenAI).
-    list_models_url:
-        Full URL for the provider's list-models endpoint.
+    default_base_url:
+        API base URL used when the analyst has not set an override. Request and
+        model-list URLs derive from the effective base (DEC-ENDPOINTS-001).
+    models_path:
+        List-models path relative to the base URL.
     auth_header:
         HTTP header name for the API key.  Empty string means no auth header
         (Ollama local, or Google which uses a query-param instead).
@@ -99,21 +104,39 @@ class ProviderSpec:
     id: str
     display_name: str
     litellm_prefix: str
-    list_models_url: str
+    default_base_url: str
+    models_path: str
     auth_header: str
     auth_format: str
     key_in_query: bool
     needs_api_key: bool
     models_json_path: str
     model_id_field: str
+    # True when the analyst must supply the base URL (Azure resource, generic gateway).
+    requires_base_url: bool = False
+    # One-line guidance shown beside the provider in Configuration.
+    note: str = ""
+
+    def base_url_for(self, override: str | None = None) -> str:
+        return (override or self.default_base_url).rstrip("/")
+
+    def models_url_for(self, override: str | None = None) -> str:
+        """Model-list URL under the effective base (DEC-ENDPOINTS-001)."""
+        return self.base_url_for(override) + self.models_path
+
+    @property
+    def list_models_url(self) -> str:
+        return self.models_url_for()
 
 
 PROVIDERS: list[ProviderSpec] = [
+    # Order is the terminal wizard's menu numbering; append new providers at the end.
     ProviderSpec(
         id="anthropic",
         display_name="Anthropic",
         litellm_prefix="",
-        list_models_url="https://api.anthropic.com/v1/models",
+        default_base_url="https://api.anthropic.com",
+        models_path="/v1/models",
         auth_header="x-api-key",
         auth_format="{key}",
         key_in_query=False,
@@ -125,7 +148,8 @@ PROVIDERS: list[ProviderSpec] = [
         id="openai",
         display_name="OpenAI",
         litellm_prefix="",
-        list_models_url="https://api.openai.com/v1/models",
+        default_base_url="https://api.openai.com/v1",
+        models_path="/models",
         auth_header="Authorization",
         auth_format="Bearer {key}",
         key_in_query=False,
@@ -137,7 +161,8 @@ PROVIDERS: list[ProviderSpec] = [
         id="openrouter",
         display_name="OpenRouter",
         litellm_prefix="openrouter",
-        list_models_url="https://openrouter.ai/api/v1/models",
+        default_base_url="https://openrouter.ai/api/v1",
+        models_path="/models",
         auth_header="Authorization",
         auth_format="Bearer {key}",
         key_in_query=False,
@@ -149,19 +174,22 @@ PROVIDERS: list[ProviderSpec] = [
         id="google",
         display_name="Google (Gemini)",
         litellm_prefix="gemini",
-        list_models_url="https://generativelanguage.googleapis.com/v1beta/models",
+        default_base_url="https://generativelanguage.googleapis.com/v1beta",
+        models_path="/models",
         auth_header="",
         auth_format="",
         key_in_query=True,
         needs_api_key=True,
         models_json_path="models",
         model_id_field="name",
+        note="The free tier may use prompts for training; use a paid key for case data.",
     ),
     ProviderSpec(
         id="ollama",
         display_name="Ollama (local)",
         litellm_prefix="ollama",
-        list_models_url="http://localhost:11434/api/tags",
+        default_base_url="http://localhost:11434",
+        models_path="/api/tags",
         auth_header="",
         auth_format="",
         key_in_query=False,
@@ -169,10 +197,81 @@ PROVIDERS: list[ProviderSpec] = [
         models_json_path="models",
         model_id_field="name",
     ),
+    ProviderSpec(
+        id="azure_openai",
+        display_name="Azure OpenAI / AI Foundry",
+        litellm_prefix="openai",
+        default_base_url="",
+        models_path="/models",
+        auth_header="api-key",
+        auth_format="{key}",
+        key_in_query=False,
+        needs_api_key=True,
+        models_json_path="data",
+        model_id_field="id",
+        requires_base_url=True,
+        note="Base URL is your resource's v1 endpoint, e.g. https://NAME.openai.azure.com/openai/v1",
+    ),
+    ProviderSpec(
+        id="openai_compatible",
+        display_name="OpenAI-compatible endpoint",
+        litellm_prefix="openai",
+        default_base_url="",
+        models_path="/models",
+        auth_header="Authorization",
+        auth_format="Bearer {key}",
+        key_in_query=False,
+        needs_api_key=False,
+        models_json_path="data",
+        model_id_field="id",
+        requires_base_url=True,
+        note="Any gateway or provider with an OpenAI-style /v1 API (LiteLLM proxy, Mistral, Groq, Together, xAI).",
+    ),
+    ProviderSpec(
+        id="local_openai",
+        display_name="Local OpenAI-compatible (LM Studio, MLX, llama.cpp)",
+        litellm_prefix="openai",
+        default_base_url="http://localhost:1234/v1",
+        models_path="/models",
+        auth_header="",
+        auth_format="",
+        key_in_query=False,
+        needs_api_key=False,
+        models_json_path="data",
+        model_id_field="id",
+    ),
 ]
 
 # Lookup by id for O(1) access
 PROVIDER_BY_ID: dict[str, ProviderSpec] = {p.id: p for p in PROVIDERS}
+
+# Built-in fallback when nothing is configured: local, so no case data leaves the machine.
+# qwen3.5:9b fits 16 GB machines; qwen3.6:35b is the better choice on 32 GB+ (research,
+# 2026-11-21, docs/plans/V1.4.0_ENRICHMENT_STORY_PLAN.md). qwen2.5:8b was never a real tag.
+DEFAULT_LOCAL_MODEL = "ollama/qwen3.5:9b"
+
+
+def provider_call_kwargs(config_mgr: Any, provider_id: str | None = None) -> dict[str, str]:
+    """litellm credential and endpoint kwargs for the configured provider.
+
+    One authority for every litellm call site: the stored key (which takes precedence
+    over vendor environment variables) and, when the analyst set a gateway override or
+    the provider has no fixed endpoint, ``api_base`` (DEC-ENDPOINTS-001).
+    """
+    if config_mgr is None:
+        return {}
+    selected = provider_id or config_mgr.get_agent_provider()
+    if not selected:
+        return {}
+    kwargs: dict[str, str] = {}
+    key = config_mgr.get_provider_api_key(selected)
+    if key:
+        kwargs["api_key"] = key
+    spec = PROVIDER_BY_ID.get(selected)
+    override = config_mgr.get_endpoint_override(selected)
+    if override or (spec is not None and spec.litellm_prefix == "openai" and spec.default_base_url):
+        kwargs["api_base"] = (spec.base_url_for(override) if spec else override.rstrip("/"))
+    return kwargs
 
 # ---------------------------------------------------------------------------
 # Exceptions
@@ -305,19 +404,21 @@ def _build_model_string(provider: ProviderSpec, model_id: str) -> str:
 
     Examples
     --------
-    >>> _build_model_string(PROVIDER_BY_ID["anthropic"], "claude-3-5-sonnet-20241022")
-    'claude-3-5-sonnet-20241022'
-    >>> _build_model_string(PROVIDER_BY_ID["google"], "models/gemini-2.0-flash-exp")
-    'gemini/models/gemini-2.0-flash-exp'
-    >>> _build_model_string(PROVIDER_BY_ID["ollama"], "qwen2.5:8b")
-    'ollama/qwen2.5:8b'
+    >>> _build_model_string(PROVIDER_BY_ID["anthropic"], "claude-sonnet-5-5")
+    'claude-sonnet-5-5'
+    >>> _build_model_string(PROVIDER_BY_ID["google"], "models/gemini-3.5-flash-lite")
+    'gemini/models/gemini-3.5-flash-lite'
+    >>> _build_model_string(PROVIDER_BY_ID["ollama"], "qwen3.5:9b")
+    'ollama/qwen3.5:9b'
     """
     if provider.litellm_prefix:
         return f"{provider.litellm_prefix}/{model_id}"
     return model_id
 
 
-def list_models(provider: ProviderSpec, api_key: str | None) -> list[str]:
+def list_models(
+    provider: ProviderSpec, api_key: str | None, base_url: str | None = None
+) -> list[str]:
     """Call the provider's list-models endpoint and return model id strings.
 
     Parameters
@@ -355,8 +456,13 @@ def list_models(provider: ProviderSpec, api_key: str | None) -> list[str]:
         params["key"] = api_key
 
     try:
+        models_url = provider.models_url_for(base_url)
+        if not models_url.startswith(("http://", "https://")):
+            raise ProviderConnectionError(
+                f"{provider.display_name} needs a base URL. Set it in Configuration."
+            )
         response = httpx.get(
-            provider.list_models_url,
+            models_url,
             headers=headers,
             params=params,
             timeout=15.0,
@@ -416,8 +522,10 @@ class CTIServiceSpec:
         Single-key services have one entry; Censys has two (PAT, org ID).
     prompt_labels:
         Labels shown when prompting the user for each credential in config_keys.
-    validate_url:
-        URL for the single-shot validation GET/POST request.
+    validate_path:
+        Path (and query) of the single-shot validation request, relative to the
+        service's effective base URL (core/service_endpoints, DEC-ENDPOINTS-001),
+        so a gateway override applies to the credential check as well.
     validate_method:
         Auth method to use when building the validation request:
           "query_param"    — key appended as ?key=<key>
@@ -436,11 +544,23 @@ class CTIServiceSpec:
     display_name: str
     config_keys: list[str]
     prompt_labels: list[str]
-    validate_url: str
+    validate_path: str
     validate_method: str
     validate_header_name: str
     docs_url: str
     optional_config_keys: tuple[str, ...] = ()
+
+    @property
+    def default_base_url(self) -> str:
+        return SERVICE_BASE_URLS[self.id]
+
+    def validate_url_for(self, base_url: str | None = None) -> str:
+        """Validation URL under *base_url* (an override), else the registry default."""
+        return (base_url or self.default_base_url).rstrip("/") + self.validate_path
+
+    @property
+    def validate_url(self) -> str:
+        return self.validate_url_for()
 
 
 CTI_SERVICES: list[CTIServiceSpec] = [
@@ -449,7 +569,7 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         display_name="Shodan",
         config_keys=["shodan"],
         prompt_labels=["API Key"],
-        validate_url="https://api.shodan.io/api-info?key={key}",
+        validate_path="/api-info?key={key}",
         validate_method="query_param",
         validate_header_name="",
         docs_url="https://account.shodan.io",
@@ -459,7 +579,7 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         display_name="VirusTotal",
         config_keys=["virustotal"],
         prompt_labels=["API Key"],
-        validate_url="https://www.virustotal.com/api/v3/ip_addresses/8.8.8.8",
+        validate_path="/ip_addresses/8.8.8.8",
         validate_method="header_x_apikey",
         validate_header_name="x-apikey",
         docs_url="https://www.virustotal.com/gui/my-apikey",
@@ -469,7 +589,7 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         display_name="AbuseIPDB",
         config_keys=["abuseipdb"],
         prompt_labels=["API Key"],
-        validate_url="https://api.abuseipdb.com/api/v2/check?ipAddress=176.111.173.242",
+        validate_path="/check?ipAddress=176.111.173.242",
         validate_method="header_key",
         validate_header_name="Key",
         docs_url="https://www.abuseipdb.com/account/api",
@@ -479,7 +599,7 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         display_name="HaveIBeenPwned",
         config_keys=["hibp"],
         prompt_labels=["API Key"],
-        validate_url="https://haveibeenpwned.com/api/v3/subscription/status",
+        validate_path="/subscription/status",
         validate_method="header_key",
         validate_header_name="hibp-api-key",
         docs_url="https://haveibeenpwned.com/API/Key",
@@ -489,7 +609,7 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         display_name="AlienVault OTX",
         config_keys=["otx"],
         prompt_labels=["API Key"],
-        validate_url="https://otx.alienvault.com/api/v1/user/me",
+        validate_path="/api/v1/user/me",
         validate_method="header_x_otx",
         validate_header_name="X-OTX-API-KEY",
         docs_url="https://otx.alienvault.com/settings",
@@ -499,7 +619,7 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         display_name="URLScan",
         config_keys=["urlscan"],
         prompt_labels=["API Key"],
-        validate_url="https://urlscan.io/api/v1/quotas",
+        validate_path="/api/v1/quotas",
         validate_method="header_api_key",
         validate_header_name="API-Key",
         docs_url="https://urlscan.io/user/profile/",
@@ -509,7 +629,7 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         display_name="Censys (Platform PAT)",
         config_keys=["censys_pat", "censys_org_id"],
         prompt_labels=["Personal Access Token", "Organization ID (optional for Free accounts)"],
-        validate_url="https://api.platform.censys.io/v3/global/asset/host/8.8.8.8",
+        validate_path="/v3/global/asset/host/8.8.8.8",
         validate_method="bearer",
         validate_header_name="",
         docs_url="https://app.censys.io/user/tokens",
@@ -522,7 +642,7 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         prompt_labels=["API Key"],
         # /ping checks the key itself; community/{ip} answers 404 for any IP GreyNoise
         # has not seen scanning (including 8.8.8.8), so it never proved the key.
-        validate_url="https://api.greynoise.io/ping",
+        validate_path="/ping",
         validate_method="header_key",
         validate_header_name="key",
         docs_url="https://viz.greynoise.io/account/api-key",
@@ -623,7 +743,9 @@ def _write_cti_rc_with_marker(rc_path: "Path", export_lines: list[str]) -> None:
         _os.chmod(rc_path, original_mode)
 
 
-def _validate_cti_key(spec: CTIServiceSpec, values: list[str]) -> tuple[bool, str]:
+def _validate_cti_key(
+    spec: CTIServiceSpec, values: list[str], base_url: str | None = None
+) -> tuple[bool, str]:
     """Make a single validation HTTP request and report success or failure.
 
     Parameters
@@ -645,7 +767,7 @@ def _validate_cti_key(spec: CTIServiceSpec, values: list[str]) -> tuple[bool, st
     to store the credential independently of this one-shot test.
     """
     headers: dict[str, str] = {}
-    url = spec.validate_url
+    url = spec.validate_url_for(base_url)
     key = values[0] if values else ""
 
     method = spec.validate_method
@@ -887,7 +1009,7 @@ def run_provider_wizard(
     -------
     str
         The full litellm model string the user selected (e.g.
-        "claude-3-5-sonnet-20241022", "gemini/gemini-2.0-flash-exp").
+        "claude-sonnet-5-5", "gemini/gemini-3.5-flash-lite").
         This string can be passed directly to ``AgentRunner(model=...)``.
     """
     console = Console()

@@ -827,6 +827,30 @@ LiteLLM capability metadata when available. Strengths and limitations are
 evidence-proportional notes, not rankings. A visible model can still lack
 quota, perform poorly for a case, respond slowly, or change at the provider.
 
+### API base URLs and gateways
+
+Every model provider and intelligence service shows its **API base URL** in
+Configuration. The field starts with the default; replace it to route that
+service through an API gateway or proxy (for example a LiteLLM proxy, Cloudflare
+AI Gateway, or a corporate egress gateway) and press **Save**. The credential
+test, model list, enrichment lookups, and model calls for that service all use
+the saved URL. **Use default** removes the override. Overrides must use
+`https://`; `http://` is accepted only for `localhost` gateways, and a URL may
+not contain credentials, a query, or a fragment.
+
+Providers:
+
+| Provider | Default base URL | Notes |
+|---|---|---|
+| Anthropic | `https://api.anthropic.com` | |
+| OpenAI | `https://api.openai.com/v1` | |
+| OpenRouter | `https://openrouter.ai/api/v1` | |
+| Google (Gemini) | `https://generativelanguage.googleapis.com/v1beta` | The free tier may use prompts for training; use a paid key for case data. |
+| Ollama (local) | `http://localhost:11434` | Default when nothing is configured: `ollama/qwen3.5:9b`. On 32 GB or more, `qwen3.6:35b` is stronger. |
+| Azure OpenAI / AI Foundry | none; enter your resource's v1 endpoint | e.g. `https://NAME.openai.azure.com/openai/v1` |
+| OpenAI-compatible endpoint | none; enter it | Any `/v1` OpenAI-style API: LiteLLM proxy, Mistral, Groq, Together, xAI. |
+| Local OpenAI-compatible | `http://localhost:1234/v1` | LM Studio; change the port for mlx_lm or llama.cpp server. |
+
 ![v0.9.9 Configuration distinguishes model settings from missing intelligence-service credentials; checks are explicit](media/pivotglass-configuration-v1.0.0.png)
 
 ### Model commands

@@ -719,7 +719,7 @@ def test_configuration_save_reports_validation_failure_without_discarding_key(tm
     service = _service(tmp_path)
     monkeypatch.setattr(
         "pivotglass.agent.model_control._validate_cti_key",
-        lambda spec, values: (False, "Authentication failed"),
+        lambda spec, values, base_url=None: (False, "Authentication failed"),
     )
 
     result = service.update_configuration(
@@ -736,7 +736,7 @@ def test_model_catalog_returns_live_models_with_capability_caveats(tmp_path, mon
     service = _service(tmp_path)
     monkeypatch.setattr(
         "pivotglass.agent.model_control.list_models",
-        lambda provider, key: ["local-test:8b"],
+        lambda provider, key, base_url=None: ["local-test:8b"],
     )
     monkeypatch.setattr(
         "pivotglass.agent.model_control._capability_info",
@@ -1386,3 +1386,35 @@ def test_state_remains_available_after_joint_candidate_admission(tmp_path):
     assert {row["indicator"] for row in distribution["data"]["rows"]} == {"198.51.100.82", "selected.example"}
     assert all(row["connection_count"] == 1 for row in distribution["data"]["rows"])
     assert len(service.ctx.workspace_mgr.get_stix_objects()) == 2
+
+
+def test_configuration_saves_validates_and_clears_endpoint_overrides(tmp_path):
+    service = _service(tmp_path)
+
+    result = service.update_configuration(
+        {"action": "endpoint-override", "id": "greynoise", "base_url": "https://gw.example/gn/"}
+    )
+    entry = next(s for s in result["configuration"]["services"] if s["id"] == "greynoise")
+    assert entry["base_url_override"] == "https://gw.example/gn"
+    assert entry["default_base_url"] == "https://api.greynoise.io"
+    assert entry["test_endpoint"] == "https://gw.example/gn/ping"
+
+    result = service.update_configuration(
+        {"action": "endpoint-override", "id": "openai", "base_url": "https://gw.example/openai/v1"}
+    )
+    provider = next(p for p in result["configuration"]["providers"] if p["id"] == "openai")
+    assert provider["endpoint"] == "https://gw.example/openai/v1/models"
+
+    with pytest.raises(ValueError):
+        service.update_configuration(
+            {"action": "endpoint-override", "id": "openai", "base_url": "http://gw.example"}
+        )
+    with pytest.raises(ValueError):
+        service.update_configuration(
+            {"action": "endpoint-override", "id": "not-a-service", "base_url": "https://x.example"}
+        )
+
+    result = service.update_configuration({"action": "endpoint-override", "id": "greynoise", "base_url": ""})
+    entry = next(s for s in result["configuration"]["services"] if s["id"] == "greynoise")
+    assert entry["base_url_override"] is None
+    assert entry["test_endpoint"] == "https://api.greynoise.io/ping"

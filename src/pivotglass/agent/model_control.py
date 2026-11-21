@@ -13,6 +13,7 @@ from typing import Any, Literal
 
 from pivotglass.agent.provider_setup import (
     CTI_SERVICES,
+    DEFAULT_LOCAL_MODEL,
     PROVIDER_BY_ID,
     PROVIDERS,
     ProviderAuthError,
@@ -202,7 +203,7 @@ class ModelControl:
         env_model = os.environ.get("PIVOTGLASS_MODEL")
         config_model = self.config_mgr.get_agent_model()
         effective_model = (
-            env_model or config_model or runner_model or "ollama/qwen2.5:8b"
+            env_model or config_model or runner_model or DEFAULT_LOCAL_MODEL
         )
         provider = (
             self.config_mgr.get_agent_provider()
@@ -224,7 +225,7 @@ class ModelControl:
             "enabled": enabled,
             "configured": configured,
             "provider": provider,
-            "provider_name": PROVIDER_BY_ID.get(provider, PROVIDERS[-1]).display_name,
+            "provider_name": PROVIDER_BY_ID.get(provider, PROVIDER_BY_ID["ollama"]).display_name,
             "model": effective_model,
             "model_id": _provider_model_id(provider, effective_model),
             "source": source,
@@ -246,7 +247,13 @@ class ModelControl:
                 "credential_source": self.config_mgr.get_provider_api_key_source(
                     provider.id
                 ),
-                "endpoint": provider.list_models_url,
+                "endpoint": provider.models_url_for(
+                    self.config_mgr.get_endpoint_override(provider.id)
+                ),
+                "default_base_url": provider.default_base_url,
+                "base_url_override": self.config_mgr.get_endpoint_override(provider.id),
+                "requires_base_url": provider.requires_base_url,
+                "note": provider.note,
             }
             for provider in PROVIDERS
         ]
@@ -270,7 +277,11 @@ class ModelControl:
                         for key, label, source in zip(spec.config_keys, spec.prompt_labels, sources)
                     ],
                     "docs_url": spec.docs_url,
-                    "test_endpoint": spec.validate_url.split("?", 1)[0],
+                    "test_endpoint": spec.validate_url_for(
+                        self.config_mgr.get_endpoint_override(spec.id)
+                    ).split("?", 1)[0],
+                    "default_base_url": spec.default_base_url,
+                    "base_url_override": self.config_mgr.get_endpoint_override(spec.id),
                 }
             )
         return {
@@ -297,7 +308,7 @@ class ModelControl:
                 f"{provider.display_name} credential is missing. "
                 "Open Configuration or set the provider key first."
             )
-        model_ids = list_models(provider, key)
+        model_ids = list_models(provider, key, self.config_mgr.get_endpoint_override(selected))
         return [profile_model(selected, model_id) for model_id in model_ids]
 
     def check_provider(
@@ -346,14 +357,18 @@ class ModelControl:
              else self.config_mgr.get_api_key(key) or "")
             for index, key in enumerate(spec.config_keys)
         ]
+        endpoint = spec.validate_url_for(self.config_mgr.get_endpoint_override(spec.id))
+        checked = endpoint.split("?", 1)[0]
         if any(not credentials[index] for index, key in enumerate(spec.config_keys)
                if key not in spec.optional_config_keys):
             return HealthResult(
                 "missing",
                 f"{spec.display_name} credential is incomplete.",
-                checked_endpoint=spec.validate_url.split("?", 1)[0],
+                checked_endpoint=checked,
             )
-        ok, message = _validate_cti_key(spec, credentials)
+        ok, message = _validate_cti_key(
+            spec, credentials, self.config_mgr.get_endpoint_override(spec.id)
+        )
         if "timed out" in message.lower() or "network" in message.lower():
             state: HealthState = "unreachable"
         elif ok:
@@ -362,11 +377,7 @@ class ModelControl:
             state = "invalid"
         else:
             state = "unknown"
-        return HealthResult(
-            state,
-            message,
-            checked_endpoint=spec.validate_url.split("?", 1)[0],
-        )
+        return HealthResult(state, message, checked_endpoint=checked)
 
     def select_model(
         self, model_id: str, provider_id: str | None = None

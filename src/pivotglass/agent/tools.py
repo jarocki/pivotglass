@@ -170,6 +170,7 @@ from pivotglass.core.module_credentials import (
     resolve_module_credentials as _resolve_module_credentials,
 )
 from pivotglass.core.plugin_mgr import PluginManager
+from pivotglass.core.service_endpoints import endpoint_init_config
 from pivotglass.core.streak import StreakManager
 from pivotglass.core.workspace import WorkspaceManager
 from pivotglass.dossier.predictions import (
@@ -429,6 +430,8 @@ class ToolContext:
         # See _resolve_module_credentials() for the full precedence logic
         # (DEC-AGENT-SERVICE-NAME-MAP-001, DEC-AGENT-TOOLS-003).
         init_config = _resolve_module_credentials(module_path, self.config_mgr)
+        # Gateway/proxy base-URL override for this module's service (DEC-ENDPOINTS-001).
+        init_config = {**init_config, **endpoint_init_config(self.config_mgr, getattr(mod, "service_id", ""))}
         mod.initialize(init_config)
 
         # M-4: load persisted dossier state (replaces pre-hunt infer_dossier_state_full
@@ -950,6 +953,8 @@ class ToolContext:
             # Build credentials via the shared resolver — identical to run_module().
             # (DEC-AGENT-SERVICE-NAME-MAP-001, DEC-AGENT-TOOLS-003)
             init_config = _resolve_module_credentials(module_path, self.config_mgr)
+            # Gateway/proxy base-URL override for this module's service (DEC-ENDPOINTS-001).
+            init_config = {**init_config, **endpoint_init_config(self.config_mgr, getattr(mod, "service_id", ""))}
             mod.initialize(init_config)
             try:
                 return await mod.hunt(event.value, {})

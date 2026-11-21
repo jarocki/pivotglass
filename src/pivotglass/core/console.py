@@ -61,6 +61,7 @@ from pivotglass.core.error_interpreter import interpret, render_interactive
 from pivotglass.core.graph import RelationshipGraph
 from pivotglass.core.learning_workspace import create_learning_workspace
 from pivotglass.core.plugin_mgr import PluginManager
+from pivotglass.core.service_endpoints import endpoint_init_config
 from pivotglass.core.streak import StreakManager
 from pivotglass.core.workspace import WorkspaceManager
 from pivotglass.dossier.predictions import (
@@ -945,6 +946,11 @@ class PivotglassConsole(cmd2.Cmd):
         from pivotglass.core.module_credentials import resolve_module_credentials
 
         init_config = resolve_module_credentials(module_path, self.config_mgr)
+
+        # Gateway/proxy base-URL override for this module's service (DEC-ENDPOINTS-001).
+
+        init_config = {**init_config, **endpoint_init_config(self.config_mgr, getattr(module, "service_id", ""))}
+
         module.initialize(init_config)
 
     def _hunt_ioc(self, ioc: str) -> None:

@@ -84,9 +84,9 @@ class GreyNoise(BaseModule):
     description = "Check IP classification via GreyNoise Community API"
     author = "Pivotglass"
     module_type = "osint"
+    service_id = "greynoise"  # base URL from core/service_endpoints (overridable)
     accepts = ("ipv4", "ipv6")
 
-    _API_URL = "https://api.greynoise.io/v3/community/{ip}"
 
     def __init__(self) -> None:
         super().__init__()
@@ -140,7 +140,7 @@ class GreyNoise(BaseModule):
                 "or PIVOTGLASS_GREYNOISE_API_KEY env var."
             )
 
-        url = self._API_URL.format(ip=target)
+        url = f"{self.base_url}/v3/community/{target}"
 
         async with httpx.AsyncClient() as client:
             response = await client.get(

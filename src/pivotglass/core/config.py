@@ -238,6 +238,9 @@ class GeneralConfig(BaseModel):
     agent_enabled: bool = True
     configuration_advisor_enabled: bool = True
     disabled_services: list[str] = Field(default_factory=list)
+    # API base URL overrides keyed by provider or service id (DEC-ENDPOINTS-001).
+    # Absent means the registry default in core/service_endpoints.py or ProviderSpec.
+    endpoint_overrides: dict[str, str] = Field(default_factory=dict)
     # REPL editing mode for prompt_toolkit — "vi" or "emacs".
     # None means "not configured"; defaults to "vi" at runtime.
     editing_mode: str | None = None
@@ -620,8 +623,8 @@ class ConfigManager:
         provider:
             Provider id string (e.g. "anthropic", "openai").
         model:
-            Full litellm model string (e.g. "claude-3-5-sonnet-20241022",
-            "openai/gpt-4o", "gemini/gemini-2.0-flash-exp").
+            Full litellm model string (e.g. "claude-sonnet-5-5",
+            "openai/gpt-4o", "gemini/gemini-3.5-flash-lite").
         """
         cfg = self._cache if self._cache is not None else self.load()
         cfg.general.agent_provider = provider
@@ -665,6 +668,25 @@ class ConfigManager:
         else:
             disabled.add(normalized)
         cfg.general.disabled_services = sorted(disabled)
+        self.save(cfg)
+
+    def get_endpoint_override(self, service_id: str) -> str | None:
+        """Return the analyst's base-URL override for a provider or service, if any."""
+        cfg = self._cache if self._cache is not None else self.load()
+        return cfg.general.endpoint_overrides.get(service_id.strip().lower()) or None
+
+    def set_endpoint_override(self, service_id: str, base_url: str | None) -> None:
+        """Store a validated base-URL override, or clear it with None/empty."""
+        from pivotglass.core.service_endpoints import normalize_base_url
+
+        cfg = self._cache if self._cache is not None else self.load()
+        key = service_id.strip().lower()
+        overrides = dict(cfg.general.endpoint_overrides)
+        if base_url and base_url.strip():
+            overrides[key] = normalize_base_url(base_url)
+        else:
+            overrides.pop(key, None)
+        cfg.general.endpoint_overrides = overrides
         self.save(cfg)
 
     def get_api_key_source(self, service: str) -> str:

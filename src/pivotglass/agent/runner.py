@@ -68,6 +68,10 @@ try:
 except ImportError:
     HAS_LITELLM = False
 
+from pivotglass.agent.provider_setup import (  # noqa: E402
+    DEFAULT_LOCAL_MODEL,
+    provider_call_kwargs,
+)
 from pivotglass.agent.tools import ToolContext, create_tools, execute_tool  # noqa: E402
 from pivotglass.gamification.modes import CharacterMode  # noqa: E402
 from pivotglass.gamification.phrases import voice_prompt_fragment  # noqa: E402
@@ -238,14 +242,14 @@ class AgentRunner:
 
     The runner supports multiple LLM backends via litellm. The default model
     is a local Ollama model, requiring no API key. Set model to any
-    litellm-supported string (e.g. "gpt-4o", "claude-3-5-sonnet-20241022",
-    "ollama/qwen2.5:8b").
+    litellm-supported string (e.g. "gpt-4o", "claude-sonnet-5-5",
+    "ollama/qwen3.5:9b").
 
     Model selection precedence (highest to lowest):
       1. Explicit ``model=`` argument passed to ``__init__``
       2. ``PIVOTGLASS_MODEL`` environment variable
       3. ``config_mgr.get_agent_model()`` — saved via interactive wizard
-      4. ``DEFAULT_MODEL`` class constant (``ollama/qwen2.5:8b``)
+      4. ``DEFAULT_MODEL`` class constant (``provider_setup.DEFAULT_LOCAL_MODEL``)
 
     Parameters
     ----------
@@ -262,7 +266,7 @@ class AgentRunner:
         chain and API keys are injected into litellm calls.
     """
 
-    DEFAULT_MODEL = "ollama/qwen2.5:8b"  # Local default via Ollama
+    DEFAULT_MODEL = DEFAULT_LOCAL_MODEL  # Local default via Ollama
 
     def __init__(
         self,
@@ -563,12 +567,8 @@ class AgentRunner:
             "tools": self.tools,
             "tool_choice": "auto",
         }
-        if self._config_mgr is not None:
-            provider_id = self._config_mgr.get_agent_provider()
-            if provider_id:
-                stored_key = self._config_mgr.get_provider_api_key(provider_id)
-                if stored_key:
-                    kwargs["api_key"] = stored_key
+        # Stored key and gateway base URL from the single provider authority.
+        kwargs.update(provider_call_kwargs(self._config_mgr))
         response = litellm.completion(**kwargs)
         return response.choices[0].message
 
@@ -640,12 +640,8 @@ class AgentRunner:
                 "max_tokens": max_tokens,
             }
             # Thread API key through the same path as _call_llm (DEC-M7-CELEB-001).
-            if self._config_mgr is not None:
-                provider_id = self._config_mgr.get_agent_provider()
-                if provider_id:
-                    stored_key = self._config_mgr.get_provider_api_key(provider_id)
-                    if stored_key:
-                        kwargs["api_key"] = stored_key
+            # Stored key and gateway base URL from the single provider authority.
+            kwargs.update(provider_call_kwargs(self._config_mgr))
             response = litellm.completion(**kwargs)
             msg = response.choices[0].message
             if hasattr(msg, "content") and msg.content:

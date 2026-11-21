@@ -1519,3 +1519,10 @@ main>.detail-backdrop{z-index:20000!important}
 .alert-queue .alert-empty{color:var(--dim)}
 .alert-queue .alert-toggle{border:0;background:none;color:var(--dim);padding:6px 0;cursor:pointer;font-size:var(--fs-xs);text-decoration:underline}
 .matrix-hover-tooltip{white-space:pre-line}
+
+/* Editable API base URLs (DEC-ENDPOINTS-001) */
+.base-url-field{display:grid;gap:4px;margin:6px 0}
+.base-url-field label{display:flex;gap:8px;align-items:baseline;font-size:var(--fs-xs);color:var(--dim)}
+.base-url-field>div{display:flex;gap:6px;min-width:0}
+.base-url-field input{flex:1;min-width:0;font-family:var(--font-mono);font-size:var(--fs-xs)}
+.service-test-endpoint{display:block;color:var(--dim);font-size:var(--fs-xs);overflow-wrap:anywhere}

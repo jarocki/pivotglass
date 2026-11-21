@@ -102,12 +102,12 @@ def _mock_response(status_code: int, json_body: dict) -> MagicMock:
 
 
 class TestProviderRegistry:
-    def test_five_providers_defined(self):
-        assert len(PROVIDERS) == 5
-
-    def test_provider_ids(self):
-        ids = {p.id for p in PROVIDERS}
-        assert ids == {"anthropic", "openai", "openrouter", "google", "ollama"}
+    def test_providers_defined_in_wizard_order(self):
+        # Wizard menu numbers follow this order; new providers are appended.
+        assert [p.id for p in PROVIDERS] == [
+            "anthropic", "openai", "openrouter", "google", "ollama",
+            "azure_openai", "openai_compatible", "local_openai",
+        ]
 
     def test_all_have_display_name(self):
         for p in PROVIDERS:
@@ -116,10 +116,17 @@ class TestProviderRegistry:
     def test_ollama_no_key_required(self):
         assert PROVIDER_BY_ID["ollama"].needs_api_key is False
 
-    def test_all_others_require_key(self):
+    def test_hosted_vendors_require_key_and_local_or_gateway_entries_do_not(self):
+        keyless = {"ollama", "openai_compatible", "local_openai"}
         for p in PROVIDERS:
-            if p.id != "ollama":
-                assert p.needs_api_key is True, f"{p.id} should require API key"
+            assert p.needs_api_key is (p.id not in keyless), p.id
+
+    def test_endpoints_derive_from_the_effective_base_url(self):
+        openai = PROVIDER_BY_ID["openai"]
+        assert openai.list_models_url == "https://api.openai.com/v1/models"
+        assert openai.models_url_for("https://gw.example/openai/v1/") == "https://gw.example/openai/v1/models"
+        assert PROVIDER_BY_ID["azure_openai"].requires_base_url is True
+        assert PROVIDER_BY_ID["openai_compatible"].default_base_url == ""
 
     def test_provider_by_id_lookup(self):
         assert PROVIDER_BY_ID["anthropic"].display_name == "Anthropic"
@@ -1495,3 +1502,51 @@ class TestWizardFlowWithCTI:
         assert config_mgr.get_provider_api_key("anthropic") == "sk-ant-key"
         # CTI persisted
         assert config_mgr.get_api_key("shodan") == "shdn-key"
+
+
+class TestEndpointOverrides:
+    """Gateway overrides reach model listing and every litellm call (DEC-ENDPOINTS-001)."""
+
+    def test_normalize_base_url_rules(self):
+        from pivotglass.core.service_endpoints import normalize_base_url
+
+        assert normalize_base_url(" https://gw.example/v1/ ") == "https://gw.example/v1"
+        assert normalize_base_url("http://localhost:4000") == "http://localhost:4000"
+        assert normalize_base_url("http://127.0.0.1:4000/v1") == "http://127.0.0.1:4000/v1"
+        for bad in ("http://gw.example", "ftp://gw.example", "https://user:pw@gw.example",
+                    "https://gw.example/?key=1", "gw.example", ""):
+            with pytest.raises(ValueError):
+                normalize_base_url(bad)
+
+    def test_provider_call_kwargs_use_override_and_key(self, tmp_path):
+        from pivotglass.agent.provider_setup import provider_call_kwargs
+        from pivotglass.core.config import ConfigManager
+
+        cfg = ConfigManager(config_dir=tmp_path)
+        cfg.set_agent_selection("anthropic", "claude-test")
+        assert "api_base" not in provider_call_kwargs(cfg)
+        cfg.set_endpoint_override("anthropic", "https://gw.example/anthropic/")
+        assert provider_call_kwargs(cfg)["api_base"] == "https://gw.example/anthropic"
+        cfg.set_endpoint_override("anthropic", None)
+        assert "api_base" not in provider_call_kwargs(cfg)
+
+    def test_local_openai_compatible_always_sends_its_base(self, tmp_path):
+        from pivotglass.agent.provider_setup import provider_call_kwargs
+        from pivotglass.core.config import ConfigManager
+
+        cfg = ConfigManager(config_dir=tmp_path)
+        cfg.set_agent_selection("local_openai", "openai/qwen-test")
+        assert provider_call_kwargs(cfg)["api_base"] == "http://localhost:1234/v1"
+
+    def test_cti_validation_and_modules_follow_the_override(self, tmp_path):
+        from pivotglass.agent.provider_setup import CTI_SERVICES
+        from pivotglass.modules.osint.greynoise import GreyNoise
+
+        spec = next(s for s in CTI_SERVICES if s.id == "greynoise")
+        assert spec.validate_url == "https://api.greynoise.io/ping"
+        assert spec.validate_url_for("https://gw.example/gn") == "https://gw.example/gn/ping"
+        module = GreyNoise()
+        module.initialize({})
+        assert module.base_url == "https://api.greynoise.io"
+        module.initialize({"base_url": "https://gw.example/gn"})
+        assert module.base_url == "https://gw.example/gn"

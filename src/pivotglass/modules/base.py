@@ -134,10 +134,21 @@ class BaseModule:
     author: str = ""
     module_type: str = ""
     accepts: tuple = ()
+    # Service id in core/service_endpoints.SERVICE_BASE_URLS; empty for modules
+    # without an overridable endpoint.
+    service_id: str = ""
 
     def __init__(self) -> None:
         self.options: dict[str, Any] = {}
         self._config: dict[str, Any] = {}
+
+    @property
+    def base_url(self) -> str:
+        """Effective API base URL: the analyst's override, else the registry default."""
+        from pivotglass.core.service_endpoints import SERVICE_BASE_URLS
+
+        override = self._config.get("base_url") if isinstance(self._config, dict) else None
+        return str(override or SERVICE_BASE_URLS.get(self.service_id, "")).rstrip("/")
 
     def initialize(self, config: dict[str, Any]) -> None:
         """Store config dict (API keys, timeouts, etc.) for use in hunt()."""

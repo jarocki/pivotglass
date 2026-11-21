@@ -21,6 +21,7 @@ class URLScanSearch(BaseModule):
     description = "Search existing URLScan results for a domain or IPv4 address"
     author = "Pivotglass"
     module_type = "osint"
+    service_id = "urlscan"  # base URL from core/service_endpoints (overridable)
     accepts = ("ipv4", "domain")
 
     def __init__(self) -> None:
@@ -50,7 +51,7 @@ class URLScanSearch(BaseModule):
 
         async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.get(
-                "https://urlscan.io/api/v1/search",
+                f"{self.base_url}/api/v1/search",
                 params={"q": query, "size": _MAX_SCANS},
                 headers={"api-key": key, "Accept": "application/json"},
             )

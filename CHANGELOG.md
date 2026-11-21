@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Every AI provider and intelligence service shows its API base URL in Configuration and accepts an override for an API gateway or proxy. The override applies to the credential test, model list, enrichment lookups, and model calls (#42).
+- Provider entries for Azure OpenAI / AI Foundry, any OpenAI-compatible endpoint, and a local OpenAI-compatible server (LM Studio, MLX, llama.cpp) (#43).
+
+### Changed
+
+- The built-in local model is `ollama/qwen3.5:9b`; `qwen2.5:8b` was never a published tag. Documentation examples no longer name retired models (#43).
+- LiteLLM 1.103.5 (from 1.84.0) so current Claude, OpenAI, and Gemini models carry capability and cost metadata. It adds boto3 as a dependency. `uv.lock` records a 2026-11-07 resolution cut-off so new packages are at least two weeks old.
+- Attention: acknowledged records leave the list (a toggle shows them), **Acknowledge all** clears the queue, and each record offers **Open** for its indicator and for each indicator it found, named by value.
+- Coverage-matrix row hover shows only the location (with source and date) and the dimensions that still lack evidence.
+
+### Fixed
+
+- **Acknowledge** in Attention did nothing: event ids contain `:` and arrived percent-encoded, so the server never matched them, and the failure was silent.
+- Dragging a relationship-graph node after panning or zooming made it jump away from the pointer.
+- The GreyNoise credential test returned "Unexpected status 404". It queried 8.8.8.8 on the Community API, which returns 404 for any IP not seen scanning; it now uses `/ping`, which checks the key.
+
 ### Removed
 
 - PassiveTotal / RiskIQ integration: the service no longer responds.

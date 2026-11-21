@@ -22,7 +22,7 @@ def test_service_credential_is_saved_when_validation_is_unreachable(tmp_path, mo
     control = _control(tmp_path)
     monkeypatch.setattr(
         "pivotglass.agent.model_control._validate_cti_key",
-        lambda spec, values: (False, "Network unreachable; access is unverified"),
+        lambda spec, values, base_url=None: (False, "Network unreachable; access is unverified"),
     )
 
     result = control.set_service_credentials("virustotal", ["example-secret"])
@@ -36,7 +36,7 @@ def test_service_credential_can_be_saved_without_a_live_test(tmp_path, monkeypat
     control = _control(tmp_path)
     monkeypatch.setattr(
         "pivotglass.agent.model_control._validate_cti_key",
-        lambda spec, values: pytest.fail("Live test should not run"),
+        lambda spec, values, base_url=None: pytest.fail("Live test should not run"),
     )
 
     result = control.set_service_credentials("virustotal", ["example-secret"], verify=False)
@@ -52,7 +52,7 @@ def test_service_check_uses_stored_fields_when_inputs_are_blank(tmp_path, monkey
     seen = []
     monkeypatch.setattr(
         "pivotglass.agent.model_control._validate_cti_key",
-        lambda spec, values: (seen.append(values) or True, "Validated successfully"),
+        lambda spec, values, base_url=None: (seen.append(values) or True, "Validated successfully"),
     )
 
     assert control.check_service("censys_pat", ["", ""]).state == "ready"
@@ -77,7 +77,7 @@ def test_censys_org_id_is_optional_and_can_be_added_to_stored_pat(tmp_path, monk
     seen = []
     monkeypatch.setattr(
         "pivotglass.agent.model_control._validate_cti_key",
-        lambda spec, values: (seen.append(values) or True, "Validated successfully"),
+        lambda spec, values, base_url=None: (seen.append(values) or True, "Validated successfully"),
     )
 
     first = control.set_service_credentials("censys_pat", ["pat-secret", ""])
@@ -109,7 +109,7 @@ def test_every_service_saved_credential_reaches_its_module(
     values = [f"example-{field}" for field in fields]
     monkeypatch.setattr(
         "pivotglass.agent.model_control._validate_cti_key",
-        lambda spec, credentials: (True, "Validated successfully"),
+        lambda spec, credentials, base_url=None: (True, "Validated successfully"),
     )
     control.config_mgr.set_service_enabled(service_id, True)
 
@@ -158,7 +158,7 @@ def test_model_catalog_and_selection_use_provider_visible_models(
     control.config_mgr.set_agent_selection("ollama", "ollama/old")
     monkeypatch.setattr(
         "pivotglass.agent.model_control.list_models",
-        lambda provider, key: ["qwen-test:8b", "reasoner-test:14b"],
+        lambda provider, key, base_url=None: ["qwen-test:8b", "reasoner-test:14b"],
     )
     monkeypatch.setattr(
         "pivotglass.agent.model_control._capability_info",
@@ -183,7 +183,7 @@ def test_model_selection_rejects_unlisted_model(tmp_path, monkeypatch):
     control.config_mgr.set_agent_selection("ollama", "ollama/old")
     monkeypatch.setattr(
         "pivotglass.agent.model_control.list_models",
-        lambda provider, key: ["approved:latest"],
+        lambda provider, key, base_url=None: ["approved:latest"],
     )
 
     with pytest.raises(ValueError, match="was not returned"):

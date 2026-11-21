@@ -37,7 +37,7 @@ from pivotglass.agent.model_control import (
     execute_configuration_command,
     execute_model_command,
 )
-from pivotglass.agent.provider_setup import CTI_SERVICES
+from pivotglass.agent.provider_setup import CTI_SERVICES, PROVIDER_BY_ID
 from pivotglass.agent.tools import ToolContext, create_tools, execute_tool
 from pivotglass.agent.tui.themes import (
     COCKPIT_PROFILES,
@@ -1498,6 +1498,13 @@ class WebCockpitService:
             )
             if self._runner is not None:
                 self._runner.model = selected["runtime_model"]
+        elif action == "endpoint-override":
+            # Gateway/proxy base URL for one provider or service (DEC-ENDPOINTS-001).
+            known = {spec.id for spec in CTI_SERVICES} | set(PROVIDER_BY_ID)
+            if target not in known:
+                raise ValueError(f"Unknown provider or service: {target}")
+            raw = payload.get("base_url")
+            self.config_mgr.set_endpoint_override(target, str(raw) if raw else None)
         elif action == "remove-provider-credential":
             self.config_mgr.remove_provider_api_key(target)
         elif action == "remove-service-credentials":
