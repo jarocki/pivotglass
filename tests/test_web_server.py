@@ -3,7 +3,6 @@
 import base64
 import hashlib
 import json
-from urllib.parse import quote
 import socket
 import threading
 import time
@@ -11,6 +10,7 @@ from datetime import UTC, datetime
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 from unittest.mock import MagicMock, patch
+from urllib.parse import quote
 
 import pytest
 
@@ -603,7 +603,7 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
     assert state["workspace"] == "default"
     assert state["objects"] == []
     assert "virustotal_lookup" in state["briefings"]
-    assert state["briefings"]["passivetotal_lookup"]["artifacts"].startswith("passive-DNS")
+    assert state["briefings"]["crtsh_lookup"]["artifacts"].startswith("certificate names")
     assert state["character"] == "default"
     assert len(state["dossier_slots"]) == 9
     assert {slot["status"] for slot in state["dossier_slots"]} == {"empty"}
@@ -782,12 +782,12 @@ def test_investigation_rejects_non_indicator_without_recording_navigation(tmp_pa
 
 def test_plan_payload_teaches_only_applicable_services(tmp_path):
     service = _service(tmp_path)
-    battery = type("Battery", (), {"tools": ("passivetotal_lookup",)})()
+    battery = type("Battery", (), {"tools": ("crtsh_lookup",)})()
     with patch("pivotglass.web.server.dispatch_batteries", return_value=[battery]):
         plan = service.plan_payload("suspect.test")
 
-    assert [event["tool"] for event in plan["events"]] == ["passivetotal_lookup"]
-    assert "without querying DNS" in plan["events"][0]["briefing"]["purpose"]
+    assert [event["tool"] for event in plan["events"]] == ["crtsh_lookup"]
+    assert "without resolving them" in plan["events"][0]["briefing"]["purpose"]
 
 
 def test_async_investigation_streams_lifecycle_events(tmp_path):

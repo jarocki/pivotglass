@@ -7,7 +7,7 @@ execution, result formatting, and workspace storage.
 @title Thin tool wrappers delegating to existing PursuitModule infrastructure
 @status accepted
 @rationale The existing modules (whois, dns, abuseipdb, shodan, hibp, otx, urlscan,
-           virustotal, censys_host, passivetotal) are already tested and working.
+           virustotal, censys_host) are already tested and working.
            Tool wrappers are thin adapters that: (1) accept simple string args
            from the LLM, (2) initialize the module with config, (3) call hunt(),
            (4) format + store results. No business logic duplication.
@@ -40,8 +40,7 @@ execution, result formatting, and workspace storage.
 @title Per-module credential builders for multi-key auth modules
 @status accepted
 @rationale Most modules use a single api_key, but Censys requires censys_id +
-           censys_secret and PassiveTotal requires passivetotal_user +
-           passivetotal_key. _CREDENTIAL_BUILDERS maps module paths to callables
+           censys_secret. _CREDENTIAL_BUILDERS maps module paths to callables
            that construct the full init_config dict from ConfigManager. Modules
            not in the map fall back to the legacy {"api_key": ...} pattern.
            This keeps run_module() generic while correctly threading multi-key
@@ -1187,8 +1186,8 @@ def create_tools(ctx: ToolContext) -> list[dict]:
             },
         },
         # -----------------------------------------------------------------------
-        # Three new tools added in Issue #25 / ADR-010 parity slice:
-        # VirusTotal (#7), Censys (#8), PassiveTotal (#13)
+        # Tools added in Issue #25 / ADR-010 parity slice:
+        # VirusTotal (#7), Censys (#8)
         # -----------------------------------------------------------------------
         {
             "type": "function",
@@ -1241,32 +1240,6 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                         },
                     },
                     "required": ["ip_address"],
-                },
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "passivetotal_lookup",
-                "description": (
-                    "Query PassiveTotal/RiskIQ for passive DNS records and WHOIS history "
-                    "on a domain or IP. Returns first/last seen, total DNS record count, "
-                    "related resolved IPs/domains, and optional WHOIS registrant details."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "target": {
-                            "type": "string",
-                            "description": "Domain or IP address to query",
-                        },
-                        "include_whois": {
-                            "type": "boolean",
-                            "description": "Include WHOIS history (default: true)",
-                            "default": True,
-                        },
-                    },
-                    "required": ["target"],
                 },
             },
         },
@@ -1945,7 +1918,7 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
         "osint/urlscan_search",
         lambda a: (a["target"], {}),
     ),
-    # New entries — VT/Censys/PassiveTotal parity with cmd2 console
+    # New entries — VT/Censys parity with cmd2 console
     "virustotal_lookup": (
         "cti/virustotal",
         lambda a: (a["target"], {"TARGET_TYPE": a.get("target_type", "")}),
@@ -1953,13 +1926,6 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
     "censys_host_lookup": (
         "osint/censys_host",
         lambda a: (a["ip_address"], {}),
-    ),
-    "passivetotal_lookup": (
-        "cti/passivetotal",
-        lambda a: (
-            a["target"],
-            {"INCLUDE_WHOIS": str(a.get("include_whois", True)).lower()},
-        ),
     ),
     "greynoise_lookup": (
         "osint/greynoise",

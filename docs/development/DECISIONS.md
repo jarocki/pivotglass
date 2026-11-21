@@ -1303,11 +1303,13 @@
   - Source: `src/pivotglass/modules/cti/passivetotal.py`
   - Status: accepted
   - Rationale: PassiveTotal uses HTTP Basic Auth (username:key) unlike most other
+  - Note (2026-11-21): Superseded by removal of the PassiveTotal / RiskIQ integration; the service no longer responds. Source file deleted.
 
 - **DEC-MODULE-PT-002**: Passive DNS + optional WHOIS in a single hunt() call
   - Source: `src/pivotglass/modules/cti/passivetotal.py`
   - Status: accepted
   - Rationale: The two endpoints provide complementary data. WHOIS adds registrant
+  - Note (2026-11-21): Superseded by removal of the PassiveTotal / RiskIQ integration; the service no longer responds. Source file deleted.
 
 - **DEC-MODULE-THREATFOX-001**: Single POST endpoint with JSON body; ioc_type dispatch to STIX SCO type
   - Source: `src/pivotglass/modules/cti/threatfox.py`

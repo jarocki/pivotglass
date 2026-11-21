@@ -47,27 +47,29 @@ def test_service_credential_can_be_saved_without_a_live_test(tmp_path, monkeypat
 
 def test_service_check_uses_stored_fields_when_inputs_are_blank(tmp_path, monkeypatch):
     control = _control(tmp_path)
-    control.config_mgr.set("api_keys.passivetotal_user", "analyst@example.test")
-    control.config_mgr.set("api_keys.passivetotal_key", "stored-secret")
+    control.config_mgr.set("api_keys.censys_pat", "stored-pat")
+    control.config_mgr.set("api_keys.censys_org_id", "org-123")
     seen = []
     monkeypatch.setattr(
         "pivotglass.agent.model_control._validate_cti_key",
         lambda spec, values: (seen.append(values) or True, "Validated successfully"),
     )
 
-    assert control.check_service("passivetotal", ["", ""]).state == "ready"
-    assert seen == [["analyst@example.test", "stored-secret"]]
+    assert control.check_service("censys_pat", ["", ""]).state == "ready"
+    assert seen == [["stored-pat", "org-123"]]
 
 
-def test_service_configuration_reports_each_field_without_exposing_values(tmp_path):
+def test_service_configuration_reports_each_field_without_exposing_values(tmp_path, monkeypatch):
+    for name in ("PIVOTGLASS_CENSYS_PAT", "CENSYS_PAT"):
+        monkeypatch.delenv(name, raising=False)
     control = _control(tmp_path)
-    control.config_mgr.set("api_keys.passivetotal_user", "analyst@example.test")
+    control.config_mgr.set("api_keys.censys_org_id", "org-secret-123")
 
-    service = next(item for item in control.configuration_summary()["services"] if item["id"] == "passivetotal")
+    service = next(item for item in control.configuration_summary()["services"] if item["id"] == "censys_pat")
 
     assert service["credential_source"] == "missing"
-    assert [field["credential_source"] for field in service["credential_fields"]] == ["config", "missing"]
-    assert "analyst@example.test" not in repr(service)
+    assert [field["credential_source"] for field in service["credential_fields"]] == ["missing", "config"]
+    assert "org-secret-123" not in repr(service)
 
 
 def test_censys_org_id_is_optional_and_can_be_added_to_stored_pat(tmp_path, monkeypatch):
@@ -98,7 +100,6 @@ def test_censys_org_id_is_optional_and_can_be_added_to_stored_pat(tmp_path, monk
         ("urlscan", "osint/urlscan", ["urlscan"]),
         ("censys_pat", "osint/censys_host", ["censys_pat", "censys_org_id"]),
         ("greynoise", "osint/greynoise", ["greynoise"]),
-        ("passivetotal", "cti/passivetotal", ["passivetotal_user", "passivetotal_key"]),
     ],
 )
 def test_every_service_saved_credential_reaches_its_module(
@@ -116,8 +117,6 @@ def test_every_service_saved_credential_reaches_its_module(
     module_config = resolve_module_credentials(module_path, control.config_mgr)
 
     if service_id == "censys_pat":
-        assert module_config == dict(zip(fields, values))
-    elif service_id == "passivetotal":
         assert module_config == dict(zip(fields, values))
     else:
         assert module_config == {"api_key": values[0]}

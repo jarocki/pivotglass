@@ -112,8 +112,6 @@ _PIVOTGLASS_ENV_VAR_MAP: dict[str, str] = {
     "greynoise": "PIVOTGLASS_GREYNOISE_API_KEY",
     "hibp": "PIVOTGLASS_HIBP_API_KEY",
     "otx": "PIVOTGLASS_OTX_API_KEY",
-    "passivetotal_user": "PIVOTGLASS_PASSIVETOTAL_USER",
-    "passivetotal_key": "PIVOTGLASS_PASSIVETOTAL_KEY",
     # Provider keys — Pivotglass-prefixed form
     "agent_anthropic": "PIVOTGLASS_ANTHROPIC_API_KEY",
     "agent_openai": "PIVOTGLASS_OPENAI_API_KEY",
@@ -137,8 +135,6 @@ _VENDOR_ENV_VAR_MAP: dict[str, str] = {
     "greynoise": "GREYNOISE_API_KEY",
     "hibp": "HIBP_API_KEY",
     "otx": "OTX_API_KEY",
-    "passivetotal_user": "PT_USERNAME",
-    "passivetotal_key": "PT_API_KEY",
     # Provider keys — vendor/standard env var names
     "agent_anthropic": "ANTHROPIC_API_KEY",
     "agent_openai": "OPENAI_API_KEY",
@@ -148,14 +144,12 @@ _VENDOR_ENV_VAR_MAP: dict[str, str] = {
     "scot": "SCOT_API_KEY",
 }
 
-# Backward-compat alias: old PIVOTGLASS_VT_API_KEY and PIVOTGLASS_PT_* names still honoured.
+# Backward-compat alias: old PIVOTGLASS_VT_API_KEY and PIVOTGLASS_CENSYS_API_* names still honoured.
 # These are checked as additional Pivotglass-layer fallbacks in get_api_key().
 _LEGACY_PIVOTGLASS_ENV_VAR_MAP: dict[str, list[str]] = {
     "virustotal": ["PIVOTGLASS_VT_API_KEY"],
     "censys_id": ["PIVOTGLASS_CENSYS_API_ID"],
     "censys_secret": ["PIVOTGLASS_CENSYS_API_SECRET"],
-    "passivetotal_user": ["PIVOTGLASS_PT_USER"],
-    "passivetotal_key": ["PIVOTGLASS_PT_API_KEY"],
 }
 
 
@@ -266,6 +260,10 @@ class ApiKeysConfig(BaseModel):
     stored value > PIVOTGLASS_<SERVICE>_API_KEY > <SERVICE>_API_KEY > None.
     Provider-specific keys for the agent wizard are also stored here so they
     receive the same 0600 file-permission protection as other service keys.
+
+    Unknown keys (including credentials for retired services) are ignored on
+    load by pydantic's default ``extra="ignore"`` policy, so older config files
+    keep loading; tests/test_config.py pins that behavior.
     """
 
     shodan: str = ""
@@ -279,8 +277,6 @@ class ApiKeysConfig(BaseModel):
     greynoise: str = ""
     hibp: str = ""
     otx: str = ""
-    passivetotal_user: str = ""
-    passivetotal_key: str = ""
     # Agent provider API keys — keyed by provider id ("anthropic", "openai", etc.)
     # Stored as nullable so TOML round-trips cleanly when not yet set.
     agent_anthropic: str | None = None
@@ -495,7 +491,7 @@ class ConfigManager:
         ----------
         service:
             Field name in ApiKeysConfig (e.g. "shodan", "virustotal",
-            "censys_id", "censys_secret", "passivetotal_user", "passivetotal_key").
+            "censys_id", "censys_secret", "censys_pat", "censys_org_id").
             Unknown service names fall through to None at layer 4.
         """
         # Layer 1: config-stored value (highest precedence)

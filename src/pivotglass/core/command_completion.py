@@ -46,7 +46,6 @@ MODULE_NAMES: tuple[str, ...] = (
     "urlscan",
     "hibp",
     "otx",
-    "passivetotal",
     "greynoise",
     "urlhaus",
     "threatfox",

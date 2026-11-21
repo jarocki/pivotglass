@@ -113,8 +113,9 @@ class TestGetDossierStateRegistration:
         # M-8: -start_report_interview -answer_report_question -generate_report (28);
         # M-9: +export_dossier +compare_dossier (30) — DEC-M9-TOOLCOUNT-001
         # v1.2: +shodan_dns_lookup +search_urlscan_history (31).
-        assert len(tools) == 31, (
-            f"Expected 31 tools including provider pivots, got {len(tools)}. "
+        # v1.4: -retired passive-DNS provider tool (30).
+        assert len(tools) == 30, (
+            f"Expected 30 tools including provider pivots, got {len(tools)}. "
             "If this fails, a different tool count was agreed — update this assertion."
         )
 

@@ -68,8 +68,6 @@ _CREDENTIAL_ENV_VARS = {
     "PIVOTGLASS_GREYNOISE_API_KEY", "GREYNOISE_API_KEY",
     "PIVOTGLASS_HIBP_API_KEY", "HIBP_API_KEY",
     "PIVOTGLASS_OTX_API_KEY", "OTX_API_KEY",
-    "PIVOTGLASS_PASSIVETOTAL_USER", "PIVOTGLASS_PASSIVETOTAL_KEY", "PIVOTGLASS_PT_USER", "PIVOTGLASS_PT_API_KEY",
-    "PT_USERNAME", "PT_API_KEY",
     "PIVOTGLASS_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY",
     "PIVOTGLASS_OPENAI_API_KEY", "OPENAI_API_KEY",
     "PIVOTGLASS_OPENROUTER_API_KEY", "OPENROUTER_API_KEY",
@@ -988,11 +986,11 @@ class TestCTIServicesRegistry:
 
     SERVICE_IDS = {
         "shodan", "virustotal", "abuseipdb", "hibp", "otx",
-        "urlscan", "censys_pat", "greynoise", "passivetotal",
+        "urlscan", "censys_pat", "greynoise",
     }
 
-    def test_nine_services_defined(self):
-        assert len(CTI_SERVICES) == 9
+    def test_eight_services_defined(self):
+        assert len(CTI_SERVICES) == 8
 
     def test_all_expected_service_ids_present(self):
         ids = {s.id for s in CTI_SERVICES}
@@ -1020,10 +1018,6 @@ class TestCTIServicesRegistry:
                 f"{s.id}: prompt_labels count ({len(s.prompt_labels)}) "
                 f"!= config_keys count ({len(s.config_keys)})"
             )
-
-    def test_passivetotal_has_two_keys(self):
-        pt = next(s for s in CTI_SERVICES if s.id == "passivetotal")
-        assert pt.config_keys == ["passivetotal_user", "passivetotal_key"]
 
     def test_censys_uses_pat_not_legacy_id_secret(self):
         censys = next(s for s in CTI_SERVICES if s.id == "censys_pat")
@@ -1204,21 +1198,6 @@ class TestValidateCTIKey:
         assert ok is True
         assert mock_get.call_args[1]["headers"]["X-Organization-ID"] == "org-123"
 
-    # --- PassiveTotal (basic_auth) ---
-    def test_passivetotal_200_returns_true(self):
-        spec = self._spec("passivetotal")
-        with patch("httpx.get", return_value=_mock_httpx_response(200)) as mock_get:
-            ok, msg = _validate_cti_key(spec, ["user@example.com", "pt-api-key"])
-        assert ok is True
-        call_kwargs = mock_get.call_args[1]
-        assert call_kwargs["auth"] == ("user@example.com", "pt-api-key")
-
-    def test_passivetotal_401_returns_false(self):
-        spec = self._spec("passivetotal")
-        with patch("httpx.get", return_value=_mock_httpx_response(401)):
-            ok, msg = _validate_cti_key(spec, ["bad-user", "bad-key"])
-        assert ok is False
-        assert "Authentication failed" in msg
 
     def test_generic_request_error_returns_false(self):
         spec = self._spec("shodan")
@@ -1266,14 +1245,6 @@ class TestCTIExportHelpers:
         lines = _compose_cti_export_lines({"censys_org_id": "org-123"})
         assert lines == ['export CENSYS_ORG_ID="org-123"']
 
-    def test_compose_cti_export_lines_passivetotal(self):
-        lines = _compose_cti_export_lines({
-            "passivetotal_user": "user@example.com",
-            "passivetotal_key": "pt-key",
-        })
-        assert 'export PT_USERNAME="user@example.com"' in lines
-        assert 'export PT_API_KEY="pt-key"' in lines
-
     def test_write_cti_rc_with_marker_creates_block(self, tmp_path):
         rc = tmp_path / ".zshrc"
         rc.write_text("# existing\n", encoding="utf-8")
@@ -1320,13 +1291,13 @@ class TestRunCTICredentialsWizard:
 
     def test_no_returns_empty_configured(self, tmp_path):
         """User declines CTI setup for all services → empty configured dict."""
-        # For all 9 services: user says "n" to configure prompt
+        # For all 8 services: user says "n" to configure prompt
         # run_cti_credentials_wizard iterates over services and shows
         # "Configure X? [y/N]:" for each; user replies "n" each time.
         # The wizard itself also has dotfile export prompt logic.
         config_mgr = make_config_mgr_cti(tmp_path)
-        # "n" for each of the 9 services (added greynoise)
-        inputs = ["n"] * 9
+        # "n" for each of the 8 services
+        inputs = ["n"] * 8
         with (
             patch(
                 "pivotglass.agent.provider_setup.Console.input",
@@ -1341,7 +1312,7 @@ class TestRunCTICredentialsWizard:
     def test_skip_each_service(self, tmp_path):
         """Explicit 's' (skip) for each service produces all-False result."""
         config_mgr = make_config_mgr_cti(tmp_path)
-        inputs = ["s"] * 9
+        inputs = ["s"] * 8
         with (
             patch(
                 "pivotglass.agent.provider_setup.Console.input",
@@ -1356,8 +1327,8 @@ class TestRunCTICredentialsWizard:
         """Shodan key: user enters key, validation passes, key saved to config."""
         config_mgr = make_config_mgr_cti(tmp_path)
         # For Shodan (first service): "y" configure, enter key "shdn-test"
-        # For all remaining 8 services: "n" skip (added greynoise)
-        inputs = ["y", "shdn-test"] + ["n"] * 8 + ["1"]  # save dest = 1
+        # For all remaining 7 services: "n" skip
+        inputs = ["y", "shdn-test"] + ["n"] * 7 + ["1"]  # save dest = 1
         with (
             patch(
                 "pivotglass.agent.provider_setup.Console.input",
@@ -1385,8 +1356,8 @@ class TestRunCTICredentialsWizard:
             printed_args.extend(str(a) for a in args)
 
         # For Shodan: existing key shown, user picks "k" (keep)
-        # For remaining 8: "n" (added greynoise)
-        inputs = ["k"] + ["n"] * 8
+        # For remaining 7: "n"
+        inputs = ["k"] + ["n"] * 7
         with (
             patch(
                 "pivotglass.agent.provider_setup.Console.input",
@@ -1409,7 +1380,7 @@ class TestRunCTICredentialsWizard:
         config_mgr = make_config_mgr_cti(tmp_path)
         config_mgr.set("api_keys.shodan", "existing-shodan-key")
         # "k" = keep for shodan, "n" for rest (added greynoise)
-        inputs = ["k"] + ["n"] * 8
+        inputs = ["k"] + ["n"] * 7
         with (
             patch(
                 "pivotglass.agent.provider_setup.Console.input",
@@ -1427,7 +1398,7 @@ class TestRunCTICredentialsWizard:
         # Shodan: configure, enter key, validation returns 401, save anyway=y
         # After validation failure + "save anyway=y": the wizard collects the key
         # and offers dotfile export (save_dest=1 = config only)
-        inputs = ["y", "bad-key", "y"] + ["n"] * 8 + ["1"]
+        inputs = ["y", "bad-key", "y"] + ["n"] * 7 + ["1"]
         with (
             patch(
                 "pivotglass.agent.provider_setup.Console.input",
@@ -1446,7 +1417,7 @@ class TestRunCTICredentialsWizard:
     def test_validation_failure_save_anyway_no(self, tmp_path):
         """Validation fails and user declines to save → service not configured."""
         config_mgr = make_config_mgr_cti(tmp_path)
-        inputs = ["y", "bad-key", "n"] + ["n"] * 8
+        inputs = ["y", "bad-key", "n"] + ["n"] * 7
         with (
             patch(
                 "pivotglass.agent.provider_setup.Console.input",
@@ -1461,47 +1432,6 @@ class TestRunCTICredentialsWizard:
             result = run_cti_credentials_wizard(config_mgr)
         assert result.get("shodan") is False
         assert config_mgr.get_api_key("shodan") is None
-
-    def test_multi_key_passivetotal_both_saved(self, tmp_path):
-        """PassiveTotal: both username and API key are prompted and saved."""
-        config_mgr = make_config_mgr_cti(tmp_path)
-        # Skip all 8 services before passivetotal, configure passivetotal
-        # Order: shodan, virustotal, abuseipdb, hibp, otx, urlscan, censys_pat, greynoise, passivetotal
-        inputs = ["n"] * 8 + ["y", "user@example.com", "pt-api-key"] + ["1"]
-        with (
-            patch(
-                "pivotglass.agent.provider_setup.Console.input",
-                side_effect=inputs,
-            ),
-            patch("pivotglass.agent.provider_setup.Console.print"),
-            patch(
-                "pivotglass.agent.provider_setup.httpx.get",
-                return_value=_mock_httpx_response(200),
-            ),
-        ):
-            result = run_cti_credentials_wizard(config_mgr)
-        assert result.get("passivetotal") is True
-        assert config_mgr.get_api_key("passivetotal_user") == "user@example.com"
-        assert config_mgr.get_api_key("passivetotal_key") == "pt-api-key"
-
-    def test_passivetotal_basic_auth_validation(self, tmp_path):
-        """PassiveTotal validation uses basic_auth (username, password) args."""
-        config_mgr = make_config_mgr_cti(tmp_path)
-        inputs = ["n"] * 8 + ["y", "user@example.com", "pt-api-key"] + ["1"]
-        with (
-            patch(
-                "pivotglass.agent.provider_setup.Console.input",
-                side_effect=inputs,
-            ),
-            patch("pivotglass.agent.provider_setup.Console.print"),
-            patch(
-                "pivotglass.agent.provider_setup.httpx.get",
-                return_value=_mock_httpx_response(200),
-            ) as mock_get,
-        ):
-            run_cti_credentials_wizard(config_mgr)
-        call_kwargs = mock_get.call_args[1]
-        assert call_kwargs["auth"] == ("user@example.com", "pt-api-key")
 
 
 # ---------------------------------------------------------------------------
@@ -1532,9 +1462,9 @@ class TestWizardFlowWithCTI:
         # LLM wizard inputs: provider=1 (Anthropic), key, model=1, save_dest=1
         # CTI wizard offer: y
         # Shodan: y configure, enter key
-        # Remaining 8 CTI services: n skip (added greynoise)
+        # Remaining 7 CTI services: n skip
         # CTI dotfile export: 1 (config only)
-        inputs = ["1", "sk-ant-key", "1", "1", "y", "y", "shdn-key"] + ["n"] * 8 + ["1"]
+        inputs = ["1", "sk-ant-key", "1", "1", "y", "y", "shdn-key"] + ["n"] * 7 + ["1"]
 
         # Both LLM and CTI validation use httpx.get; use side_effect to return
         # different responses. First call is the LLM list-models endpoint,

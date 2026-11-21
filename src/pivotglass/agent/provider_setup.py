@@ -394,8 +394,7 @@ def list_models(provider: ProviderSpec, api_key: str | None) -> list[str]:
 #            VirusTotal, etc.). Adding a second wizard step after LLM setup keeps
 #            the flow cohesive: user finishes LLM config, is immediately offered
 #            CTI config. Each service has a single-shot validation call that proves
-#            the key works before saving it. Multi-key services (PassiveTotal) use
-#            basic_auth validation. validate_method strings are an explicit enum to
+#            the key works before saving it. validate_method strings are an explicit enum to
 #            keep _validate_cti_key() free of magic string guessing. The dotfile
 #            export for CTI keys uses a separate marker block so LLM and CTI exports
 #            don't collide on re-runs. All 8 services are optional/skippable.
@@ -414,7 +413,7 @@ class CTIServiceSpec:
         Human-readable name shown in the wizard UI.
     config_keys:
         List of ApiKeysConfig field names that store credentials for this service.
-        Single-key services have one entry; PassiveTotal has two.
+        Single-key services have one entry; Censys has two (PAT, org ID).
     prompt_labels:
         Labels shown when prompting the user for each credential in config_keys.
     validate_url:
@@ -427,7 +426,6 @@ class CTIServiceSpec:
           "header_key"     — Key: <key>  (AbuseIPDB, HIBP)
           "header_x_otx"   — X-OTX-API-KEY: <key>
           "header_api_key" — API-Key: <key>  (URLScan)
-          "basic_auth"     — HTTP Basic Auth (username, password)
     validate_header_name:
         Header name for header_* methods. Empty string for others.
     docs_url:
@@ -529,16 +527,6 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         validate_header_name="key",
         docs_url="https://viz.greynoise.io/account/api-key",
     ),
-    CTIServiceSpec(
-        id="passivetotal",
-        display_name="PassiveTotal / RiskIQ",
-        config_keys=["passivetotal_user", "passivetotal_key"],
-        prompt_labels=["Username (email)", "API Key"],
-        validate_url="https://api.passivetotal.org/v2/account",
-        validate_method="basic_auth",
-        validate_header_name="",
-        docs_url="https://community.riskiq.com/settings",
-    ),
 ]
 
 # Map from CTI service config_key to vendor env var for dotfile export.
@@ -553,8 +541,6 @@ _CTI_ENV_VAR: dict[str, str] = {
     "censys_pat": "CENSYS_PAT",
     "censys_org_id": "CENSYS_ORG_ID",
     "greynoise": "GREYNOISE_API_KEY",
-    "passivetotal_user": "PT_USERNAME",
-    "passivetotal_key": "PT_API_KEY",
 }
 
 # Marker strings for the CTI dotfile export block — separate from the LLM block
@@ -646,7 +632,7 @@ def _validate_cti_key(spec: CTIServiceSpec, values: list[str]) -> tuple[bool, st
         The CTIServiceSpec describing how to authenticate.
     values:
         List of credential strings in the same order as spec.config_keys.
-        Single-key services have one value; PassiveTotal has [username, key].
+        Single-key services have one value; Censys has [PAT, org ID].
 
     Returns
     -------
@@ -659,7 +645,6 @@ def _validate_cti_key(spec: CTIServiceSpec, values: list[str]) -> tuple[bool, st
     to store the credential independently of this one-shot test.
     """
     headers: dict[str, str] = {}
-    auth = None
     url = spec.validate_url
     key = values[0] if values else ""
 
@@ -672,17 +657,13 @@ def _validate_cti_key(spec: CTIServiceSpec, values: list[str]) -> tuple[bool, st
             headers["X-Organization-ID"] = values[1]
     elif method in ("header_x_apikey", "header_key", "header_x_otx", "header_api_key"):
         headers[spec.validate_header_name] = key
-    elif method == "basic_auth":
-        username = values[0] if len(values) > 0 else ""
-        password = values[1] if len(values) > 1 else ""
-        auth = (username, password)
 
     if spec.id == "hibp":
         headers["user-agent"] = "Pivotglass credential check"
 
     try:
         response = httpx.get(
-            url, headers=headers, auth=auth,
+            url, headers=headers,
             timeout=10.0, follow_redirects=True,
         )
     except httpx.TimeoutException:
@@ -713,7 +694,7 @@ def _set_cti_credentials(
     config_mgr:
         ConfigManager instance to write to.
     config_keys:
-        ApiKeysConfig field names (e.g. ["shodan"] or ["passivetotal_user", "passivetotal_key"]).
+        ApiKeysConfig field names (e.g. ["shodan"] or ["censys_pat", "censys_org_id"]).
     values:
         Corresponding credential strings.
     """

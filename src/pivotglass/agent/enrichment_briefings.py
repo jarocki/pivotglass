@@ -26,11 +26,6 @@ BRIEFINGS: dict[str, EnrichmentBriefing] = {
         "Connects the indicator to community-described campaigns and threat context.",
         "named campaigns, recurring tags, recent sightings, and referenced pivots",
     ),
-    "passivetotal_lookup": EnrichmentBriefing(
-        "PassiveTotal", "passive-DNS history, co-hosted records, registration context, and temporal links",
-        "Reconstructs infrastructure changes without querying DNS from the operator host.",
-        "short-lived resolutions, shared infrastructure, and campaign-time changes",
-    ),
     "scan_url": EnrichmentBriefing(
         "URLScan", "page requests, redirects, contacted hosts, certificates, screenshots, and technologies",
         "Shows what a browser observed and reveals infrastructure loaded behind a URL.",

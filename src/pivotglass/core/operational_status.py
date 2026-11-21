@@ -18,7 +18,6 @@ SERVICE_TOOL_NAMES: dict[str, tuple[str, ...]] = {
     "urlscan": ("scan_url", "search_urlscan_history"),
     "censys_pat": ("censys_host_lookup",),
     "greynoise": ("greynoise_lookup",),
-    "passivetotal": ("passivetotal_lookup",),
     "crtsh": ("crtsh_lookup",),
     "whois": ("whois_lookup",),
 }

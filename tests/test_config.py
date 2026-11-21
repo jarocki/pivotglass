@@ -135,8 +135,6 @@ class TestRoundTrip:
         cfg.api_keys.abuseipdb = "abuse-key"
         cfg.api_keys.hibp = "hibp-key"
         cfg.api_keys.otx = "otx-key"
-        cfg.api_keys.passivetotal_user = "pt-user"
-        cfg.api_keys.passivetotal_key = "pt-key"
         mgr.save(cfg)
 
         cfg2 = mgr.load()
@@ -147,8 +145,32 @@ class TestRoundTrip:
         assert cfg2.api_keys.abuseipdb == "abuse-key"
         assert cfg2.api_keys.hibp == "hibp-key"
         assert cfg2.api_keys.otx == "otx-key"
-        assert cfg2.api_keys.passivetotal_user == "pt-user"
-        assert cfg2.api_keys.passivetotal_key == "pt-key"
+
+    def test_retired_service_keys_in_existing_config_are_ignored(self, tmp_path):
+        """A config.toml written before a service was removed still loads.
+
+        The removed PassiveTotal integration stored two api_keys fields. Pydantic's
+        default extra="ignore" drops them on load; the next save() writes the file
+        without them. Neither step may raise.
+        """
+        mgr = make_manager(tmp_path)
+        mgr._config_dir.mkdir(parents=True, exist_ok=True)
+        mgr._config_path.write_text(
+            "[api_keys]\n"
+            'shodan = "shodan-key"\n'
+            'passivetotal_user = "analyst@example.test"\n'
+            'passivetotal_key = "legacy-secret"\n'
+        )
+
+        cfg = mgr.load()
+        assert cfg.api_keys.shodan == "shodan-key"
+        assert not hasattr(cfg.api_keys, "passivetotal_user")
+        assert not hasattr(cfg.api_keys, "passivetotal_key")
+
+        mgr.save(cfg)
+        rewritten = mgr._config_path.read_text()
+        assert "shodan-key" in rewritten
+        assert "legacy-secret" not in rewritten
 
 
 # ---------------------------------------------------------------------------
@@ -282,18 +304,6 @@ class TestEnvVarOverride:
         monkeypatch.setenv("PIVOTGLASS_OTX_API_KEY", "otx-env")
         monkeypatch.delenv("OTX_API_KEY", raising=False)
         assert make_manager(tmp_path).get_api_key("otx") == "otx-env"
-
-    def test_passivetotal_user_pivotglass_env_resolves(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("PIVOTGLASS_PASSIVETOTAL_USER", "pt-user-env")
-        monkeypatch.delenv("PIVOTGLASS_PT_USER", raising=False)
-        monkeypatch.delenv("PT_USERNAME", raising=False)
-        assert make_manager(tmp_path).get_api_key("passivetotal_user") == "pt-user-env"
-
-    def test_passivetotal_key_pivotglass_env_resolves(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("PIVOTGLASS_PASSIVETOTAL_KEY", "pt-key-env")
-        monkeypatch.delenv("PIVOTGLASS_PT_API_KEY", raising=False)
-        monkeypatch.delenv("PT_API_KEY", raising=False)
-        assert make_manager(tmp_path).get_api_key("passivetotal_key") == "pt-key-env"
 
     def test_load_does_not_apply_env_to_config_object(self, tmp_path, monkeypatch):
         """load() returns raw config — env vars are NOT applied (DEC-CONFIG-003).
@@ -590,23 +600,6 @@ class TestThreeLayerPrecedence:
         assert mgr.get_api_key("censys_id") == "stored-id"
         assert mgr.get_api_key("censys_secret") == "env-secret"
 
-    def test_passivetotal_user_and_key_resolve_independently(self, tmp_path, monkeypatch):
-        """passivetotal_user and passivetotal_key can each come from different layers."""
-        mgr = make_manager(tmp_path)
-        cfg = mgr.load()
-        cfg.api_keys.passivetotal_user = "stored-user"
-        mgr.save(cfg)
-
-        monkeypatch.delenv("PIVOTGLASS_PASSIVETOTAL_USER", raising=False)
-        monkeypatch.delenv("PIVOTGLASS_PT_USER", raising=False)
-        monkeypatch.delenv("PT_USERNAME", raising=False)
-        monkeypatch.setenv("PIVOTGLASS_PASSIVETOTAL_KEY", "env-key")
-        monkeypatch.delenv("PIVOTGLASS_PT_API_KEY", raising=False)
-        monkeypatch.delenv("PT_API_KEY", raising=False)
-
-        assert mgr.get_api_key("passivetotal_user") == "stored-user"
-        assert mgr.get_api_key("passivetotal_key") == "env-key"
-
     def test_get_provider_api_key_anthropic_3_layer_chain(self, tmp_path, monkeypatch):
         """Provider key: stored config wins over both env layers."""
         mgr = make_manager(tmp_path)
@@ -705,13 +698,8 @@ class TestThreeLayerPrecedence:
         monkeypatch.delenv("PIVOTGLASS_CENSYS_API_ID", raising=False)
         monkeypatch.setenv("CENSYS_API_ID", "censys-vendor-id")
 
-        monkeypatch.delenv("PIVOTGLASS_PASSIVETOTAL_USER", raising=False)
-        monkeypatch.delenv("PIVOTGLASS_PT_USER", raising=False)
-        monkeypatch.setenv("PT_USERNAME", "pt-vendor-user")
-
         mgr = make_manager(tmp_path)
         assert mgr.get_api_key("censys_id") == "censys-vendor-id"
-        assert mgr.get_api_key("passivetotal_user") == "pt-vendor-user"
 
 
 # ---------------------------------------------------------------------------

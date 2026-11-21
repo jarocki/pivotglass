@@ -172,7 +172,7 @@ change presentation; they never remove underlying evidence.
 
 Pivotglass ships intelligence modules for Shodan, Censys, GreyNoise,
 AbuseIPDB, VirusTotal, AlienVault OTX, ThreatFox, URLhaus, MalwareBazaar,
-WHOIS, crt.sh, URLScan, PassiveTotal, and Have I Been Pwned. Availability depends
+WHOIS, crt.sh, URLScan, and Have I Been Pwned. Availability depends
 on provider access, configuration, and terms. WHOIS and crt.sh need no API key.
 
 Most modules query provider-held data. URLScan can submit a URL or domain to an

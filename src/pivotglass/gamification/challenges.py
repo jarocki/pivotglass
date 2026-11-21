@@ -252,7 +252,7 @@ class ChallengeManager:
                     "stix_type": "ipv4-addr",
                     "min_count": 1,
                 },
-                hints=["Use PassiveTotal, VirusTotal, URLScan, or Censys enrichment"],
+                hints=["Use VirusTotal, URLScan, OTX, or Censys enrichment"],
                 badge_id="badge-first-blood",
                 badge_name="First Blood",
                 badge_description="Found the first IP address in a pursuit.",

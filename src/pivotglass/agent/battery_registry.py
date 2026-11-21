@@ -83,9 +83,9 @@ DEFAULT_BATTERIES: dict[str, Battery] = {
     ),
     "behavioral_battery": Battery(
         name="behavioral_battery",
-        # Passive DNS and interaction metadata come from explicit services;
-        # Pivotglass never issues direct resolver queries from the operator host.
-        tools=("passivetotal_lookup", "scan_url"),
+        # Interaction metadata comes from explicit services; Pivotglass never
+        # issues direct resolver queries from the operator host.
+        tools=("scan_url",),
         # C-3 cross-cutting: covers both TIMING (when the actor operates) and
         # TARGETING (which assets/geographies the actor targets).
         target_slots=(DossierSlotName.TIMING, DossierSlotName.TARGETING),

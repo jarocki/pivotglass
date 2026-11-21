@@ -188,7 +188,7 @@ _DEFAULT_HINTS: list[Hint] = [
         id="hint-general-paid-004",
         text=(
             "Passive DNS records show what domains have resolved to an IP over time. "
-            "Combine PassiveTotal, VirusTotal, or OTX passive DNS to find "
+            "Combine VirusTotal or OTX passive DNS to find "
             "infrastructure that has been rotated but not fully cleaned up."
         ),
         cost=20,

@@ -289,7 +289,7 @@ class LivePane:
         Parameters
         ----------
         tool_slug:
-            Activity slug string (e.g. "virustotal", "passivetotal"), or None
+            Activity slug string (e.g. "virustotal", "greynoise_lookup"), or None
             to reset to idle. Must be str or None; any other type raises
             TypeError immediately (Sacred Practice 5 — fail loud on invalid
             input, not silently).

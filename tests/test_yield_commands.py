@@ -40,8 +40,8 @@ def test_parse_focus_with_arg():
 
 
 def test_parse_add_with_arg():
-    cmd = parse_yield("add passivetotal_lookup")
-    assert cmd == YieldCommand("add", "passivetotal_lookup")
+    cmd = parse_yield("add crtsh_lookup")
+    assert cmd == YieldCommand("add", "crtsh_lookup")
 
 
 def test_parse_skip_with_arg():

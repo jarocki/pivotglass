@@ -175,7 +175,6 @@ _TOOL_SLUG_MAP: dict[str, str] = {
     "search_urlscan_history": "scan_url",
     "virustotal_lookup": "virustotal",
     "censys_host_lookup": "censys_host_lookup",
-    "passivetotal_lookup": "passivetotal_lookup",
     "greynoise_lookup": "greynoise_lookup",
     "urlhaus_lookup": "urlhaus_lookup",
     "threatfox_lookup": "threatfox",

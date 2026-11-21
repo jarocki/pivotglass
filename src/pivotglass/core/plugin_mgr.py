@@ -49,7 +49,6 @@ _BUILTIN_MODULES: list[tuple[str, str]] = [
     ("osint/shodan_dns", "pivotglass.modules.osint.shodan_dns:ShodanDNS"),
     ("osint/censys_host", "pivotglass.modules.osint.censys_host:CensysHost"),
     ("cti/virustotal", "pivotglass.modules.cti.virustotal:VirusTotal"),
-    ("cti/passivetotal", "pivotglass.modules.cti.passivetotal:PassiveTotal"),
     ("cti/otx", "pivotglass.modules.cti.otx:AlienVaultOTX"),
     ("osint/greynoise", "pivotglass.modules.osint.greynoise:GreyNoise"),
     ("cti/urlhaus", "pivotglass.modules.cti.urlhaus:URLHaus"),
