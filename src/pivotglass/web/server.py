@@ -23,7 +23,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from rich.console import Console
 from rich.text import Text
@@ -1647,6 +1647,23 @@ class WebCockpitService:
     def alerts(self) -> dict[str, Any]:
         """Return all attention records plus unread summary."""
         alerts = self.investigations.alerts()
+        # Name each referenced artifact by its stored value so the browser can label the
+        # buttons ("Open versaweb.com") instead of repeating "Details" per STIX id.
+        wanted = {str(ref) for item in alerts for ref in (item.get("artifact_ids") or ())}
+        labels: dict[str, dict[str, str]] = {}
+        if wanted:
+            for obj in self.ctx.workspace_mgr.get_stix_objects():
+                ref = str(obj.get("id", ""))
+                if ref in wanted:
+                    value = obj.get("value") or obj.get("name") or ref
+                    labels[ref] = {"id": ref, "type": str(obj.get("type", "")), "label": str(value)}
+        for item in alerts:
+            seen: set[str] = set()
+            item["artifacts"] = [
+                labels.get(str(ref), {"id": str(ref), "type": "", "label": str(ref)})
+                for ref in (item.get("artifact_ids") or ())
+                if not (str(ref) in seen or seen.add(str(ref)))
+            ]
         unread = [item for item in alerts if not item["acknowledged"]]
         severity_rank = {"critical": 4, "error": 3, "warning": 2, "caution": 1, "info": 0}
         highest = max(
@@ -2177,7 +2194,7 @@ def _handler(
                 return
             if parsed.path.startswith("/api/investigations/") and parsed.path.endswith("/events"):
                 try:
-                    investigation_id = parsed.path.split("/")[3]
+                    investigation_id = unquote(parsed.path.split("/")[3])
                     raw_cursor = parse_qs(parsed.query).get("cursor", ["0"])[0]
                     self._json(service.investigation_events(investigation_id, int(raw_cursor)))
                 except (ValueError, IndexError) as exc:
@@ -2363,11 +2380,14 @@ def _handler(
                     self._json({"saved": True})
                     return
                 if is_cancel:
-                    investigation_id = parsed.path.split("/")[3]
+                    investigation_id = unquote(parsed.path.split("/")[3])
                     self._json(service.cancel_investigation(investigation_id))
                     return
                 if is_ack:
-                    event_id = parsed.path.removeprefix("/api/alerts/").removesuffix("/acknowledge")
+                    # Event ids contain ':' and arrive percent-encoded from the browser.
+                    event_id = unquote(
+                        parsed.path.removeprefix("/api/alerts/").removesuffix("/acknowledge")
+                    )
                     self._json(service.acknowledge_alert(event_id))
                     return
                 target = str(payload.get("target", "")).strip()

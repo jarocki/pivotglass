@@ -1505,3 +1505,17 @@ main>.detail-backdrop{z-index:20000!important}
 .breadcrumbs li{display:flex;flex-wrap:wrap;gap:6px}
 
 .graph-inspector-hint{flex-basis:100%;margin:2px 0 0;color:var(--dim);font-size:var(--fs-xs)}
+
+/* Attention dialog (v1.4.0): acknowledge dismisses; actions name what they open. */
+.alert-queue .alert-queue-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+.alert-queue .alert-queue-head h2{margin:0}
+.alert-queue .alert-queue-head .close{position:static}
+.alert-queue article header{align-items:center;gap:10px;text-transform:capitalize}
+.alert-queue article header span{margin-left:auto;text-transform:none;color:var(--dim);overflow-wrap:anywhere}
+.alert-queue article header .alert-ack{margin:0;padding:4px}
+.alert-queue .alert-actions{display:flex;flex-wrap:wrap;gap:6px}
+.alert-queue .alert-actions button{margin:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.alert-queue .alert-error{color:var(--danger,#ff7a7a);font-size:var(--fs-xs)}
+.alert-queue .alert-empty{color:var(--dim)}
+.alert-queue .alert-toggle{border:0;background:none;color:var(--dim);padding:6px 0;cursor:pointer;font-size:var(--fs-xs);text-decoration:underline}
+.matrix-hover-tooltip{white-space:pre-line}

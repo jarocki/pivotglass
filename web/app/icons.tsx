@@ -7,7 +7,7 @@
  */
 export type IconName =
   | "maximize" | "restore" | "popout" | "collapse" | "expand" | "close"
-  | "plus" | "minus" | "fit" | "undo" | "redo";
+  | "plus" | "minus" | "fit" | "undo" | "redo" | "check";
 
 const PATHS: Record<IconName, string> = {
   maximize: "M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4",
@@ -21,6 +21,7 @@ const PATHS: Record<IconName, string> = {
   fit: "M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4M7 7h6v6H7z",
   undo: "M7 5 3 9l4 4M3 9h9a5 5 0 0 1 0 10h-2",
   redo: "M13 5l4 4-4 4M17 9H8a5 5 0 0 0 0 10h2",
+  check: "M4 10.5l4 4 8-9",
 };
 
 export function Icon({ name, size = 16 }: { name: IconName; size?: number }) {

@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import json
+from urllib.parse import quote
 import socket
 import threading
 import time
@@ -953,6 +954,33 @@ def test_attention_records_can_be_acknowledged_without_deletion(tmp_path):
     assert alerts["unread_count"] == 0
     assert len(alerts["alerts"]) == 1
     assert alerts["alerts"][0]["acknowledged"] is True
+
+
+def test_browser_acknowledges_an_attention_record_by_its_encoded_event_id(tmp_path):
+    """Event ids contain ':'; the browser sends them percent-encoded (encodeURIComponent)."""
+    service = _service(tmp_path)
+    record = service.investigations.create("suspect.test", "domain-name")
+    event = service.investigations.append(
+        record.investigation_id,
+        event_class=EventClass.DISCOVERY,
+        severity="info",
+        lifecycle=LifecycleState.SUCCEEDED,
+        content_class=ContentClass.EVIDENCE,
+        summary="Found 1 indicator",
+    )
+    assert ":" in event.event_id
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(service, tmp_path))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, body = _post_json(server, f"/api/alerts/{quote(event.event_id, safe='')}/acknowledge", {})
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert status == 200, body
+    assert body["acknowledged"] is True
+    assert service.alerts()["unread_count"] == 0
 
 
 def test_web_activity_turns_tool_failure_receipt_into_sanitized_event(tmp_path):

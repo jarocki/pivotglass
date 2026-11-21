@@ -889,10 +889,18 @@ export function TaskMatrix({
               if (!row) return null;
               const label = String(row[rowField]);
               const country = row.country_source ? reportedCountry(row.country_code) : null;
-              const locationHelp = country
-                ? ` Source-reported location: ${country.name} (${country.code}), from ${displayValue(row.country_source)}, retrieved ${displayValue(row.country_observed_at)}. Infrastructure location is not actor origin.`
-                : " No source-reported country available.";
-              const indicatorHelp = `${label} · ${indicatorTypeLabel(String(row.indicator_type))} · ${displayValue(row.completeness_percent)}% coverage.${locationHelp} Open source evidence and provenance.`;
+              // The hover adds only what the row does not already show: where the infrastructure
+              // sits (and who said so) and which dimensions still lack evidence.
+              const gaps = isConstellation
+                ? columns.filter((column) => String(cells.get(`${rowId}\u0000${column}`)?.[statusField] ?? "") === "empty")
+                  .map((column) => CONSTELLATION_COLUMN_LABELS[column] ?? column)
+                : [];
+              const hintParts = [
+                country ? `${country.flag} ${country.name} · ${displayValue(row.country_source)}, ${displayValue(row.country_observed_at).slice(0, 10)}` : "",
+                gaps.length ? `No evidence yet: ${gaps.join(", ")}` : "",
+              ].filter(Boolean);
+              const rowHint = hintParts.join("\n");
+              const indicatorHelp = [`${label}, ${indicatorTypeLabel(String(row.indicator_type))}, ${displayValue(row.completeness_percent)}% coverage`, ...hintParts].join(". ");
               return (
                 <tr key={rowId}>
                   <th scope="row">
@@ -900,9 +908,9 @@ export function TaskMatrix({
                       ? (
                         <button
                           id={`${tooltipId}-row-${rowIndex}`}
-                          onPointerEnter={(event) => showHoverTip(event, indicatorHelp)}
+                          onPointerEnter={(event) => { if (rowHint) showHoverTip(event, rowHint); }}
                           onPointerLeave={scheduleHideHoverTip}
-                          onFocus={(event) => showHoverTip(event, indicatorHelp)}
+                          onFocus={(event) => { if (rowHint) showHoverTip(event, rowHint); }}
                           onBlur={() => setHoverTip(null)}
                           aria-describedby={hoverTip?.anchor.id === `${tooltipId}-row-${rowIndex}` ? tooltipId : undefined}
                           aria-label={indicatorHelp}
@@ -926,7 +934,7 @@ export function TaskMatrix({
                     const dimension = isConstellation ? CONSTELLATION_COLUMN_LABELS[column] ?? column : column.replaceAll("_", " ");
                     const evidenceCount = displayValue(cell.evidence_count);
                     const cellHelp = isConstellation
-                      ? `${label}. ${dimension}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."} ${constellationStatusHelp(status)} ${evidenceCount} source-backed evidence records contribute. Click to pin details below the grid.`
+                      ? `${label}. ${dimension}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."} ${constellationStatusHelp(status)} ${evidenceCount} source-backed evidence records.`
                       : isAch
                         ? `${column} · ${status.replaceAll("_", " ")} · ${displayValue(cell.rationale)}`
                         : `${dimension} · ${status.replaceAll("_", " ")} · latest authoritative lifecycle state`;
@@ -2046,8 +2054,11 @@ function RelationshipGraph({
                       reference: node.reference,
                       startX: event.clientX,
                       startY: event.clientY,
-                      originX: position.x,
-                      originY: position.y,
+                      // Graph coordinates, not screen: the move handler adds the pointer delta
+                      // divided by scale. Storing the screen position here made a dragged node
+                      // jump away from the pointer by the current pan offset.
+                      originX: positions[node.reference].x,
+                      originY: positions[node.reference].y,
                     });
                   }}
                 >

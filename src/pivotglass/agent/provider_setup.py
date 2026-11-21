@@ -522,7 +522,9 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         display_name="GreyNoise",
         config_keys=["greynoise"],
         prompt_labels=["API Key"],
-        validate_url="https://api.greynoise.io/v3/community/8.8.8.8",
+        # /ping checks the key itself; community/{ip} answers 404 for any IP GreyNoise
+        # has not seen scanning (including 8.8.8.8), so it never proved the key.
+        validate_url="https://api.greynoise.io/ping",
         validate_method="header_key",
         validate_header_name="key",
         docs_url="https://viz.greynoise.io/account/api-key",
