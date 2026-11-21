@@ -1765,7 +1765,7 @@ function RelationshipGraph({
     for (const node of candidates) {
       const point = toScreen(positions[node.reference]);
       const r = nodeRadius(node.reference);
-      const textWidth = shortLabel(labels[node.reference] || node.label, 44).length * font * 0.66 + 6; // bold UI text runs ~0.62em per glyph
+      const textWidth = (shortLabel(labels[node.reference] || node.label, 44).length + (node.country_code ? 3 : 0)) * font * 0.66 + 6; // bold UI text runs ~0.62em per glyph
       const top = point.y - lineHeight / 2;
       const boxes: Array<[LabelSide, [number, number, number, number]]> = [
         ["right", [point.x + r + 5, point.x + r + 5 + textWidth, top, top + lineHeight]],
@@ -2070,7 +2070,7 @@ function RelationshipGraph({
                       className="node-label"
                       {...labelPlacement(labelSide.get(node.reference)!, nodeRadius(node.reference), size.font || 12)}
                     >
-                      {shortLabel(labels[node.reference] || node.label, 44)}
+                      {node.country_code ? `${reportedCountry(node.country_code)?.flag ?? ""} ` : ""}{shortLabel(labels[node.reference] || node.label, 44)}
                     </text>
                   )}
                 </g>

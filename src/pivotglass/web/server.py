@@ -72,6 +72,7 @@ from pivotglass.core.framework_perspectives import (
     KILL_CHAIN_VERSION,
 )
 from pivotglass.core.framework_projections import FrameworkProjectionAuthority
+from pivotglass.core.geolocation import GeoDatabase
 from pivotglass.core.graph import RelationshipGraph, persisted_relationships
 from pivotglass.core.graph_presentation import GraphPresentationAuthority
 from pivotglass.core.indicator_context import IndicatorContextAuthority, document_relations
@@ -1419,7 +1420,9 @@ class WebCockpitService:
 
     def configuration(self) -> dict[str, Any]:
         """Return masked provider and intelligence-service configuration."""
-        return self.model_control.configuration_summary(getattr(self._runner, "model", None))
+        summary = self.model_control.configuration_summary(getattr(self._runner, "model", None))
+        summary["geolocation"] = GeoDatabase().status()
+        return summary
 
     def model_catalog(self, provider: str | None = None) -> dict[str, Any]:
         """Return the live account-visible catalogue with bounded capability notes."""
@@ -1498,6 +1501,12 @@ class WebCockpitService:
             )
             if self._runner is not None:
                 self._runner.model = selected["runtime_model"]
+        elif action == "geo-update":
+            # Explicit analyst request only: downloads DB-IP Lite (~65 MB) to ~/.pivotglass/geo.
+            try:
+                GeoDatabase().update()
+            except RuntimeError as exc:
+                raise ValueError(str(exc)) from exc
         elif action == "endpoint-override":
             # Gateway/proxy base URL for one provider or service (DEC-ENDPOINTS-001).
             known = {spec.id for spec in CTI_SERVICES} | set(PROVIDER_BY_ID)

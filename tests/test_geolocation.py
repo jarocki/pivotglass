@@ -88,3 +88,30 @@ def test_update_falls_back_to_last_month_and_replaces_atomically(tmp_path, monke
     assert db.path("city").read_bytes() == b"fake-mmdb"
     assert requested[0].endswith("dbip-city-lite-2026-12.mmdb.gz")
     assert not list((tmp_path / "geo").glob("*.part"))
+
+
+def test_views_use_local_location_only_when_no_source_reported_one(monkeypatch):
+    from pivotglass.core import visualization
+    from pivotglass.core.geolocation import GeoRecord
+
+    record = GeoRecord("154.86.17.52", "HK", "Hong Kong", "", "Hong Kong", 140227, "HKCIC", "DB-IP Lite 2026-11 (local)")
+    monkeypatch.setattr(visualization, "_local_geo", lambda ip: record if ip == "154.86.17.52" else None)
+
+    graph = {"nodes": [{"id": "ipv4-addr--a", "type": "ipv4-addr", "value": "154.86.17.52"},
+                       {"id": "domain-name--b", "type": "domain-name", "value": "x.example"}], "edges": []}
+    nodes = {n.reference: n for n in visualization.relationship_graph_intent("test", graph).data.nodes}
+    assert nodes["ipv4-addr--a"].country_code == "HK"
+    assert nodes["domain-name--b"].country_code == ""
+
+    objects = [
+        {"id": "ipv4-addr--a", "type": "ipv4-addr", "value": "154.86.17.52"},
+        {"id": "ipv4-addr--c", "type": "ipv4-addr", "value": "154.86.17.52", "x_country_code": "SG",
+         "x_pivotglass_source_module": "osint/abuseipdb"},
+    ]
+    intent = visualization.indicator_constellation_intent("test", objects, {"nodes": [], "edges": []})
+    rows = {row["reference"]: row for row in intent.data.rows}
+    local = next(r for r in intent.data.rows if r["country_source"].startswith("DB-IP"))
+    reported = next(r for r in intent.data.rows if r["country_source"] == "osint/abuseipdb")
+    assert (local["country_code"], local["city"], local["asn"]) == ("HK", "Hong Kong", "AS140227 HKCIC")
+    assert reported["country_code"] == "SG"  # a source-reported country is never overwritten
+    assert rows

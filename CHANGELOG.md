@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Every AI provider and intelligence service shows its API base URL in Configuration and accepts an override for an API gateway or proxy. The override applies to the credential test, model list, enrichment lookups, and model calls (#42).
 - Provider entries for Azure OpenAI / AI Foundry, any OpenAI-compatible endpoint, and a local OpenAI-compatible server (LM Studio, MLX, llama.cpp) (#43).
+- Local IP geolocation: every public IP shows a flag, country, city, and ASN in the coverage matrix, graph, and evidence drawer, from DB-IP Lite databases downloaded on request in Configuration. No case IP leaves the machine to be located (#44).
 
 ### Changed
 
@@ -21,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- OpenAI-style custom endpoints could fall back to `OPENAI_API_KEY` and send it to a gateway the analyst named; each now has its own key with no vendor fallback.
 - **Acknowledge** in Attention did nothing: event ids contain `:` and arrived percent-encoded, so the server never matched them, and the failure was silent.
 - Dragging a relationship-graph node after panning or zooming made it jump away from the pointer.
 - The GreyNoise credential test returned "Unexpected status 404". It queried 8.8.8.8 on the Community API, which returns 404 for any IP not seen scanning; it now uses `/ping`, which checks the key.

@@ -36,10 +36,18 @@ type ServiceState = {
   default_base_url: string;
   base_url_override?: string | null;
 };
+type GeolocationState = {
+  present: boolean;
+  edition?: string | null;
+  downloaded_at?: string | null;
+  directory: string;
+  attribution: string;
+};
 type ConfigurationState = {
   model: ModelState;
   providers: ProviderState[];
   services: ServiceState[];
+  geolocation?: GeolocationState;
 };
 type ModelProfile = {
   model_id: string;
@@ -269,6 +277,14 @@ export function ConfigurationCenter({ onClose }: { onClose: () => void }) {
         <div className="model-tags">{model.supports_tools && <span>Tools</span>}{model.supports_vision && <span>Vision</span>}{model.supports_reasoning && <span>Reasoning</span>}{model.context_tokens && <span>{model.context_tokens.toLocaleString()} CONTEXT</span>}</div>
         <button disabled={Boolean(busy) || model.runtime_model === configuration.model.model} onClick={() => update({ action: "select-model", id: providerId, model_id: model.model_id })}>Select</button>
       </article>)}</div>
+    </section>}
+
+    {configuration.geolocation && <section className="configuration-section geolocation-section" aria-label="Geolocation data">
+      <header><div><h3>Geolocation data</h3><p>Every public IP is located from a local database. Lookups never leave this machine.</p></div><span className={`health-state ${configuration.geolocation.present ? "ready" : "disabled"}`}>{configuration.geolocation.present ? `DB-IP Lite ${configuration.geolocation.edition}` : "Not downloaded"}</span></header>
+      <div className="configuration-actions">
+        <button disabled={Boolean(busy)} onClick={() => update({ action: "geo-update" })}>{busy === "geo-update" ? "Downloading about 65 MB…" : configuration.geolocation.present ? "Check for update" : "Download (about 65 MB)"}</button>
+      </div>
+      <small>{configuration.geolocation.attribution}. Stored in {configuration.geolocation.directory}. Location describes infrastructure, not who operates it.</small>
     </section>}
 
     <section className="service-catalog" aria-label="Intelligence APIs">

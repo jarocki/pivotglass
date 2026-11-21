@@ -21,6 +21,8 @@ export type VisualizationNode = {
   entity_type: string;
   /** False for presentation-only nodes (analyst groups) with no evidence record. */
   evidence?: boolean;
+  /** Local DB-IP country code for IP nodes, shown as a flag. */
+  country_code?: string;
 };
 
 export type VisualizationEdge = {

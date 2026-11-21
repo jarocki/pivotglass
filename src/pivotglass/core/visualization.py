@@ -334,6 +334,8 @@ class VisualizationNode(BaseModel):
     # False for presentation-only nodes (analyst promotion groups) that have no stored
     # evidence record; the cockpit offers "Open evidence" only when this is true.
     evidence: bool = True
+    # Local DB-IP country for IP nodes (DEC-GEO-LOCAL-001), drawn as a small flag.
+    country_code: str = ""
 
 
 class VisualizationEdge(BaseModel):
@@ -1587,6 +1589,13 @@ def _leading_eigenpair(matrix: list[list[float]]) -> tuple[float, list[float]]:
     return eigenvalue, vector
 
 
+def _node_country(node: dict[str, Any]) -> str:
+    if node.get("type") not in {"ipv4-addr", "ipv6-addr"}:
+        return ""
+    record = _local_geo(str(node.get("value") or ""))
+    return record.country_code if record is not None else ""
+
+
 def relationship_graph_intent(
     workspace: str,
     graph: dict[str, Any],
@@ -1599,6 +1608,7 @@ def relationship_graph_intent(
             reference=str(node.get("id", "")),
             label=str(node.get("value") or "unavailable"),
             entity_type=str(node.get("type") or "unknown"),
+            country_code=_node_country(node),
         )
         for node in graph.get("nodes", ())
         if node.get("id")

@@ -827,6 +827,19 @@ LiteLLM capability metadata when available. Strengths and limitations are
 evidence-proportional notes, not rankings. A visible model can still lack
 quota, perform poorly for a case, respond slowly, or change at the provider.
 
+### Geolocation data
+
+Every public IP shows a small flag, country, city, and network (ASN) in the
+coverage matrix, the relationship graph, and the evidence drawer. The location
+comes from local DB-IP Lite databases, so no case IP is sent anywhere to be
+located. Download them once from **Configuration → Geolocation data**
+(about 65 MB, stored in `~/.pivotglass/geo/`) and use **Check for update**
+monthly. A location reported by an enrichment source is shown in preference
+and keeps its source label; the local result is labelled with the database
+edition, e.g. `DB-IP Lite 2026-11 (local)`. Location describes where
+infrastructure is hosted, not who operates it. IP geolocation by
+[DB-IP](https://db-ip.com), licensed CC BY 4.0.
+
 ### API base URLs and gateways
 
 Every model provider and intelligence service shows its **API base URL** in
