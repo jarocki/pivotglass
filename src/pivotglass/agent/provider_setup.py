@@ -265,9 +265,13 @@ def provider_call_kwargs(config_mgr: Any, provider_id: str | None = None) -> dic
         return {}
     kwargs: dict[str, str] = {}
     key = config_mgr.get_provider_api_key(selected)
+    spec = PROVIDER_BY_ID.get(selected)
     if key:
         kwargs["api_key"] = key
-    spec = PROVIDER_BY_ID.get(selected)
+    elif spec is not None and spec.litellm_prefix == "openai":
+        # litellm's OpenAI client falls back to OPENAI_API_KEY when no key is given;
+        # never let that key travel to a gateway or local server the analyst named.
+        kwargs["api_key"] = "not-needed"
     override = config_mgr.get_endpoint_override(selected)
     if override or (spec is not None and spec.litellm_prefix == "openai" and spec.default_base_url):
         kwargs["api_base"] = (spec.base_url_for(override) if spec else override.rstrip("/"))

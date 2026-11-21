@@ -1526,3 +1526,4 @@ main>.detail-backdrop{z-index:20000!important}
 .base-url-field>div{display:flex;gap:6px;min-width:0}
 .base-url-field input{flex:1;min-width:0;font-family:var(--font-mono);font-size:var(--fs-xs)}
 .service-test-endpoint{display:block;color:var(--dim);font-size:var(--fs-xs);overflow-wrap:anywhere}
+.base-url-warning{color:var(--warn,#e8b04a);font-size:var(--fs-xs)}

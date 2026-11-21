@@ -286,6 +286,11 @@ class ApiKeysConfig(BaseModel):
     agent_openai: str | None = None
     agent_openrouter: str | None = None
     agent_google: str | None = None
+    # Keys for endpoints the analyst names (DEC-ENDPOINTS-001). Deliberately no vendor
+    # environment fallback: OPENAI_API_KEY must never be sent to a third-party gateway.
+    agent_azure_openai: str | None = None
+    agent_openai_compatible: str | None = None
+    agent_local_openai: str | None = None
     synapse: str | None = None
     scot: str | None = None
 
@@ -603,6 +608,9 @@ class ConfigManager:
         "openai": "agent_openai",
         "openrouter": "agent_openrouter",
         "google": "agent_google",
+        "azure_openai": "agent_azure_openai",
+        "openai_compatible": "agent_openai_compatible",
+        "local_openai": "agent_local_openai",
     }
 
     def get_agent_provider(self) -> str | None:
@@ -705,9 +713,12 @@ class ConfigManager:
 
     def get_provider_api_key_source(self, provider_id: str) -> str:
         """Return the selected provider credential source without exposing it."""
-        if provider_id == "ollama":
-            return "not-required"
         field = self._PROVIDER_KEY_FIELD.get(provider_id)
+        if provider_id == "ollama" or (
+            provider_id in {"openai_compatible", "local_openai"}
+            and field is not None and self.get_api_key_source(field) == "missing"
+        ):
+            return "not-required"
         if field is None:
             return "missing"
         return self.get_api_key_source(field)

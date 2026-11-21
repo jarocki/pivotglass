@@ -17,6 +17,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from pivotglass.core.evidence_detail import evidence_ref
+from pivotglass.core.geolocation import GeoDatabase, GeoRecord, default_geo_dir
 from pivotglass.dossier.slot_inference import infer_dossier_state
 from pivotglass.dossier.slots import DossierSlotName
 
@@ -620,6 +621,20 @@ def _last_seen(item: dict[str, Any]) -> str:
     return ""
 
 
+_GEO_DB: GeoDatabase | None = None
+
+
+def _local_geo_db() -> GeoDatabase:
+    global _GEO_DB
+    if _GEO_DB is None or _GEO_DB.directory != default_geo_dir():
+        _GEO_DB = GeoDatabase()
+    return _GEO_DB
+
+
+def _local_geo(value: str) -> GeoRecord | None:
+    return _local_geo_db().lookup(value)
+
+
 def indicator_constellation_intent(
     workspace: str,
     objects: list[dict[str, Any]],
@@ -678,6 +693,18 @@ def indicator_constellation_intent(
         ):
             country_code = ""
             country_source = ""
+        observed_at = str(item.get("x_pivotglass_fetched_at") or "")
+        city = asn_label = ""
+        # Every public IP gets a location: local DB-IP Lite when no source reported one
+        # (DEC-GEO-LOCAL-001). The source label names the database edition.
+        if str(item.get("type")) in {"ipv4-addr", "ipv6-addr"}:
+            geo = _local_geo(indicator)
+            if geo is not None:
+                if not country_code and geo.country_code:
+                    country_code, country_source = geo.country_code, geo.source
+                    observed_at = _local_geo_db().status().get("downloaded_at") or ""
+                city = geo.city
+                asn_label = f"AS{geo.asn} {geo.as_org}".strip() if geo.asn else geo.as_org
         scope_ids = {stix_id, *adjacency.get(stix_id, ())}
         connected_evidence = [
             objects_by_id[scope_id] for scope_id in sorted(scope_ids) if scope_id in objects_by_id
@@ -708,7 +735,9 @@ def indicator_constellation_intent(
                     "indicator_type": str(item.get("type", "unknown")),
                     "country_code": country_code.upper(),
                     "country_source": country_source,
-                    "country_observed_at": str(item.get("x_pivotglass_fetched_at") or ""),
+                    "country_observed_at": observed_at,
+                    "city": city,
+                    "asn": asn_label,
                     "dimension": dimension.value,
                     "status": slot.status.value,
                     "evidence_count": slot.evidence_count,
@@ -745,6 +774,8 @@ def indicator_constellation_intent(
             "country_code": "Category",
             "country_source": "Category",
             "country_observed_at": "DateTime",
+            "city": "Name",
+            "asn": "Name",
             "dimension": "Category",
             "status": "Status",
             "evidence_count": "Count",
@@ -756,9 +787,11 @@ def indicator_constellation_intent(
         table_columns=(
             VisualizationTableColumn(key="indicator", label="Indicator"),
             VisualizationTableColumn(key="indicator_type", label="IoC type"),
-            VisualizationTableColumn(key="country_code", label="Source-reported country"),
+            VisualizationTableColumn(key="country_code", label="Country"),
             VisualizationTableColumn(key="country_source", label="Country source"),
             VisualizationTableColumn(key="country_observed_at", label="Country retrieved at"),
+            VisualizationTableColumn(key="city", label="City (local DB)"),
+            VisualizationTableColumn(key="asn", label="ASN (local DB)"),
             VisualizationTableColumn(key="dimension", label="Investigation dimension"),
             VisualizationTableColumn(key="status", label="Completeness"),
             VisualizationTableColumn(key="evidence_count", label="Evidence records"),

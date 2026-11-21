@@ -86,6 +86,9 @@ function BaseUrlField({ id, label, defaultUrl, override, required, busy, onSave 
   const changed = normalized !== effective;
   // Saving the default (or nothing) clears the override instead of storing a copy.
   const save = () => onSave(!normalized || normalized === defaultUrl ? null : normalized);
+  const hostOf = (value: string) => { try { return new URL(value).host; } catch { return ""; } };
+  const newHost = changed ? hostOf(normalized) : "";
+  const redirected = Boolean(newHost) && newHost !== hostOf(defaultUrl);
   return <div className="base-url-field">
     <label htmlFor={`base-url-${id}`}>{label}{!override && defaultUrl && <span className="credential-presence">Default</span>}{override && <span className="credential-presence">Gateway override</span>}</label>
     <div>
@@ -102,6 +105,7 @@ function BaseUrlField({ id, label, defaultUrl, override, required, busy, onSave 
       {changed && <button disabled={busy} onClick={() => void save()}>Save</button>}
       {override && !changed && <button disabled={busy} onClick={() => void onSave(null)}>{defaultUrl ? "Use default" : "Clear"}</button>}
     </div>
+    {redirected && <small className="base-url-warning" role="note">Requests — and any saved key for this service — will go to <b>{newHost}</b>. Save only a gateway you control or trust.</small>}
   </div>;
 }
 
@@ -231,11 +235,11 @@ export function ConfigurationCenter({ onClose }: { onClose: () => void }) {
       <article className="configuration-section provider-section">
         <header><div><h3>Model provider</h3><p>Live checks happen only when you request them.</p></div></header>
         <label>Platform<select value={providerId} onChange={(event) => { setProviderId(event.target.value); setModels([]); setHealth(null); }}>{configuration.providers.map((item) => <option key={item.id} value={item.id}>{item.display_name}</option>)}</select></label>
-        {provider?.needs_api_key && <label>New credential<input type="password" autoComplete="new-password" value={providerSecret} onChange={(event) => setProviderSecret(event.target.value)} placeholder={provider.credential_source === "missing" ? "Required" : "Leave blank to keep current"} /></label>}
+        {provider && provider.id !== "ollama" && <label>{provider.needs_api_key ? "New credential" : "Gateway key (optional)"}<input type="password" autoComplete="new-password" value={providerSecret} onChange={(event) => setProviderSecret(event.target.value)} placeholder={provider.needs_api_key && provider.credential_source === "missing" ? "Required" : "Leave blank to keep current"} /></label>}
         <p className="credential-note">Credential source: <b>{provider?.credential_source}</b>{provider?.credential_source === "environment" && " · environment-owned values are read-only"}</p>
         <div className="configuration-actions">
           <button disabled={Boolean(busy)} onClick={() => check("provider", providerId)}>{busy === `check-${providerId}` ? "CHECKING…" : "Check access"}</button>
-          {provider?.needs_api_key && <button disabled={!providerSecret || Boolean(busy)} onClick={async () => { if (await update({ action: "provider-credential", id: providerId, secret: providerSecret, verify: true })) setProviderSecret(""); }}>Save + test</button>}
+          {provider && provider.id !== "ollama" && <button disabled={!providerSecret || Boolean(busy)} onClick={async () => { if (await update({ action: "provider-credential", id: providerId, secret: providerSecret, verify: true })) setProviderSecret(""); }}>Save + test</button>}
           <button disabled={Boolean(busy)} onClick={loadModels}>{busy === "models" ? "LOADING…" : "View available models"}</button>
           {provider?.credential_source === "config" && <button className="danger-subtle" disabled={Boolean(busy)} onClick={() => update({ action: "remove-provider-credential", id: providerId })}>Remove stored key</button>}
         </div>

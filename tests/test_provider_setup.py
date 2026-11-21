@@ -1550,3 +1550,34 @@ class TestEndpointOverrides:
         assert module.base_url == "https://api.greynoise.io"
         module.initialize({"base_url": "https://gw.example/gn"})
         assert module.base_url == "https://gw.example/gn"
+
+
+class TestGatewayKeyIsolation:
+    """Security: a vendor key from the environment never reaches a named gateway."""
+
+    @pytest.mark.parametrize("provider_id", ["openai_compatible", "local_openai", "azure_openai"])
+    def test_openai_env_key_is_not_sent_to_custom_endpoints(self, tmp_path, monkeypatch, provider_id):
+        from pivotglass.agent.provider_setup import provider_call_kwargs
+        from pivotglass.core.config import ConfigManager
+
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-real-openai-key")
+        monkeypatch.setenv("PIVOTGLASS_OPENAI_API_KEY", "sk-real-openai-key")
+        cfg = ConfigManager(config_dir=tmp_path)
+        cfg.set_agent_selection(provider_id, "openai/some-model")
+        cfg.set_endpoint_override(provider_id, "https://gateway.example/v1")
+
+        kwargs = provider_call_kwargs(cfg)
+
+        assert kwargs["api_base"] == "https://gateway.example/v1"
+        assert kwargs["api_key"] != "sk-real-openai-key"
+        assert cfg.get_provider_api_key(provider_id) is None
+
+    def test_a_key_saved_for_the_gateway_is_used(self, tmp_path):
+        from pivotglass.agent.provider_setup import provider_call_kwargs
+        from pivotglass.core.config import ConfigManager
+
+        cfg = ConfigManager(config_dir=tmp_path)
+        cfg.set_agent_selection("openai_compatible", "openai/m")
+        cfg.set_endpoint_override("openai_compatible", "https://gateway.example/v1")
+        cfg.set_provider_api_key("openai_compatible", "gateway-key")
+        assert provider_call_kwargs(cfg)["api_key"] == "gateway-key"
