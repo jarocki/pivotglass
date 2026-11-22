@@ -626,29 +626,33 @@ class AgentRunner:
             Narration text on success, or None on LLM failure. Callers (narrate_celebration)
             handle None by returning None themselves, falling back to ASCII art.
         """
-        if not HAS_LITELLM:
-            return None
-
         try:
-            messages = [
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": prompt},
-            ]
-            kwargs: dict = {
-                "model": self.model,
-                "messages": messages,
-                "max_tokens": max_tokens,
-            }
-            # Thread API key through the same path as _call_llm (DEC-M7-CELEB-001).
-            # Stored key and gateway base URL from the single provider authority.
-            kwargs.update(provider_call_kwargs(self._config_mgr))
-            response = litellm.completion(**kwargs)
-            msg = response.choices[0].message
-            if hasattr(msg, "content") and msg.content:
-                return msg.content
-            return None
+            return self.complete(self.system_prompt, prompt, max_tokens=max_tokens) or None
         except Exception:  # noqa: BLE001
             return None
+
+    def complete(self, system: str, prompt: str, *, max_tokens: int) -> str:
+        """Single-turn completion with an explicit system prompt; raises on failure.
+
+        No tools and no conversation mutation. Analytic callers (hypothesis
+        proposals) pass their own system prompt so persona voice never shapes
+        an inference, and they surface failures instead of swallowing them.
+        Key and gateway base URL come from the single provider authority.
+        """
+        if not HAS_LITELLM:
+            raise RuntimeError("litellm is not installed")
+        kwargs: dict = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+            "max_tokens": max_tokens,
+        }
+        kwargs.update(provider_call_kwargs(self._config_mgr))
+        response = litellm.completion(**kwargs)
+        message = response.choices[0].message
+        return str(getattr(message, "content", "") or "")
 
     def handle_input(self, text: str, status_bar: "_StatusHook | None" = None) -> str:
         """Route user input from the TUI through the priority chain.

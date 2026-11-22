@@ -371,9 +371,20 @@ class WebCockpitService:
         pivot_trail = PivotTrailAuthority(self.ctx.workspace_mgr).list()
         analysis["pivot_trail"] = pivot_trail
         analysis["analyst_groups"] = PivotTrailAuthority(self.ctx.workspace_mgr).list_groups()
-        visualization_analysis = {
-            **analysis,
-            "observations": self.ctx.workspace_mgr.get_observations(),
+        observations = self.ctx.workspace_mgr.get_observations()
+        visualization_analysis = {**analysis, "observations": observations}
+        # Labels for the observations model proposals cite, so the workbench can
+        # show what each puzzle piece rests on (DEC-HYPOTHESIS-PROPOSALS-001).
+        cited = {
+            ref
+            for item in analysis["lifecycle_items"]
+            for stance in ("supports", "contradicts")
+            for ref in ((item.get("criteria") or {}).get("model_proposal") or {}).get(stance, [])
+        }
+        analysis["observation_labels"] = {
+            row["id"]: f"{row['entity_value'] or row['entity_ref']} · {row['source_module']} · {str(row['fetched_at'])[:10]}"
+            for row in observations
+            if row["id"] in cited
         }
         investigation_snapshots = self.investigations.snapshots()
         visualizations = build_visualization_intents(
@@ -1408,15 +1419,68 @@ class WebCockpitService:
         # authority as the TUI. Its router intercepts local verbs and tools
         # before asking the configured LLM to synthesize.
         with self._command_lock:
-            if self._runner is None:
-                from pivotglass.agent.runner import AgentRunner
-
-                self._runner = AgentRunner(
-                    tool_context=self.ctx,
-                    config_mgr=self.config_mgr,
-                )
-            response = self._runner.handle_input(stripped)
+            response = self._agent_runner().handle_input(stripped)
         return {"kind": "text", "title": "Pivotglass analysis", "text": response, "synthesized": True}
+
+    def _agent_runner(self) -> Any:
+        """The one AgentRunner shared by chat and analytic model calls."""
+        if self._runner is None:
+            from pivotglass.agent.runner import AgentRunner
+
+            self._runner = AgentRunner(tool_context=self.ctx, config_mgr=self.config_mgr)
+        return self._runner
+
+    def propose_hypotheses(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Ask the configured model for evidence-cited hypotheses (DEC-HYPOTHESIS-PROPOSALS-001).
+
+        Evidence is read under the command lock, the model is called without it
+        (a slow model must not freeze the cockpit), and proposals are recorded
+        only if the workspace is still the one the evidence came from.
+        """
+        from pivotglass.core.hypothesis_proposals import (
+            RESPONSE_TOKENS,
+            SYSTEM_PROMPT,
+            finish_round,
+            prepare_round,
+        )
+
+        if not self.config_mgr.is_agent_enabled():
+            raise ValueError("Turn on an AI model in Configuration to get hypothesis proposals.")
+        geo = GeoDatabase()
+
+        def located(ip: str) -> str:
+            record = geo.lookup(ip)
+            if record is None:
+                return ""
+            place = ", ".join(part for part in (record.city, record.country_code) if part)
+            return f"{place} AS{record.asn} {record.as_org}".strip() if record.asn else place
+
+        with self._command_lock:
+            workspace = self.ctx.workspace_mgr.active
+            ledger = AnalyticLedger(self.ctx.workspace_mgr)
+            round_ = prepare_round(
+                ledger,
+                question_id=str(payload.get("question_id") or "").strip() or None,
+                observations=self.ctx.workspace_mgr.get_observations(),
+                objects=self.ctx.workspace_mgr.get_stix_objects(),
+                relationships=persisted_relationships(self.ctx.workspace_mgr),
+                local_location=located,
+            )
+            runner = self._agent_runner()
+        try:
+            reply = runner.complete(SYSTEM_PROMPT, round_.brief.prompt, max_tokens=RESPONSE_TOKENS)
+        except Exception as exc:  # noqa: BLE001 - report the provider's reason, briefly
+            from pivotglass.agent.provider_setup import provider_call_kwargs
+
+            reason = str(exc)
+            key = str(provider_call_kwargs(self.config_mgr).get("api_key") or "")
+            if len(key) >= 8:
+                reason = reason.replace(key, "[redacted]")  # some providers echo the key
+            raise RuntimeError(f"The model call failed: {type(exc).__name__}: {reason[:200]}") from exc
+        with self._command_lock:
+            if self.ctx.workspace_mgr.active != workspace:
+                raise ValueError("The workspace changed while the model was working; nothing was recorded.")
+            return finish_round(AnalyticLedger(self.ctx.workspace_mgr), round_, reply, model=str(runner.model))
 
     def configuration(self) -> dict[str, Any]:
         """Return masked provider and intelligence-service configuration."""
@@ -2265,6 +2329,7 @@ def _handler(
                     "/api/documents/candidates/admit",
                     "/api/tags",
                     "/api/indicators/context",
+                    "/api/analysis/propose-hypotheses",
                     "/api/advisor/voice",
                     "/api/integrations/scot/pivot-request",
                 }
@@ -2366,6 +2431,12 @@ def _handler(
                     return
                 if parsed.path == "/api/tags":
                     self._json(service.tag_indicators(payload), HTTPStatus.CREATED)
+                    return
+                if parsed.path == "/api/analysis/propose-hypotheses":
+                    try:
+                        self._json(service.propose_hypotheses(payload), HTTPStatus.CREATED)
+                    except RuntimeError as exc:
+                        self._json({"error": str(exc)}, HTTPStatus.BAD_GATEWAY)
                     return
                 if parsed.path == "/api/indicators/context":
                     self._json(service.indicator_context(payload))

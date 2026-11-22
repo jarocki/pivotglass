@@ -405,7 +405,17 @@ class AnalyticLedger:
         statement: str,
         *,
         author_kind: AuthorKind = AuthorKind.HUMAN,
+        model_proposal: dict[str, Any] | None = None,
     ) -> str:
+        """Record a hypothesis; a model proposal keeps its citations on the lifecycle item.
+
+        ``model_proposal`` (DEC-HYPOTHESIS-PROPOSALS-001) holds the model's cited
+        observation ids (``supports`` / ``contradicts``), missing pieces, and
+        rationale. Citations stay inference until an analyst retains the
+        hypothesis; only then do they become evidence links.
+        """
+        if model_proposal is not None and author_kind is not AuthorKind.MODEL:
+            raise ValueError("Only a model-authored hypothesis carries a model proposal.")
         hypothesis_id = _new_id("hypothesis")
         cleaned_statement = _required(statement, "hypothesis")
         with self._workspace.get_session() as session:
@@ -454,9 +464,29 @@ class AnalyticLedger:
                 record_id=hypothesis_id,
                 statement=cleaned_statement,
                 author_kind=author_kind,
+                criteria={"model_proposal": model_proposal} if model_proposal else None,
+                evidence_refs=[
+                    {"kind": "observation", "id": ref, "stance": stance, "basis": "model_citation"}
+                    for stance in ("supports", "contradicts")
+                    for ref in (model_proposal or {}).get(stance, [])
+                ],
             )
             session.commit()
         return hypothesis_id
+
+    def investigation_for_record(self, record_kind: str, record_id: str) -> str:
+        """Return the investigation id a ledger record's lifecycle item belongs to."""
+
+        with self._workspace.get_session() as session:
+            row = session.execute(
+                select(AnalyticLifecycleItem).where(
+                    AnalyticLifecycleItem.record_kind == record_kind,
+                    AnalyticLifecycleItem.record_id == record_id,
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                raise ValueError(f"No lifecycle item for {record_kind} {record_id}")
+            return str(row.investigation_id)
 
     def add_lifecycle_item(
         self,
@@ -1361,6 +1391,42 @@ class AnalyticLedger:
                 }[status]
                 lifecycle.status = lifecycle_status.value
                 lifecycle.updated_at = datetime.now(timezone.utc)
+                proposal = (lifecycle.criteria or {}).get("model_proposal")
+                if proposal and status is not HypothesisStatus.PROPOSED:
+                    lifecycle.analyst_disposition = (
+                        AnalystDisposition.ACCEPTED.value
+                        if status is HypothesisStatus.RETAINED
+                        else AnalystDisposition.REJECTED.value
+                        if status is HypothesisStatus.REJECTED
+                        else lifecycle.analyst_disposition
+                    )
+                if (
+                    proposal
+                    and status is HypothesisStatus.RETAINED
+                    and not (lifecycle.criteria or {}).get("citations_linked")
+                ):
+                    # Retaining is the analyst's acceptance of the cited evidence
+                    # (DEC-HYPOTHESIS-PROPOSALS-001); links name both parties.
+                    rationale = str(proposal.get("rationale") or "").strip()[:500]
+                    for stance in (EvidenceStance.SUPPORTS, EvidenceStance.CONTRADICTS):
+                        for ref in proposal.get(stance.value, []):
+                            if session.get(EvidenceObservation, ref) is None:
+                                continue
+                            session.add(
+                                AnalyticEvidenceLink(
+                                    source_kind="observation",
+                                    source_id=ref,
+                                    target_kind="hypothesis",
+                                    target_id=hypothesis_id,
+                                    stance=stance.value,
+                                    rationale=(
+                                        "Analyst retained a model proposal citing this "
+                                        f"observation ({proposal.get('model', 'model')})"
+                                        + (f": {rationale}" if rationale else "")
+                                    ),
+                                )
+                            )
+                    lifecycle.criteria = {**(lifecycle.criteria or {}), "citations_linked": True}
                 lifecycle.resolved_at = (
                     None
                     if lifecycle_status is LifecycleItemStatus.OPEN

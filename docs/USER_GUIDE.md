@@ -380,6 +380,36 @@ A dimension may be:
 These are coverage states. They are not confidence, severity, attribution, or a
 malware verdict.
 
+### Puzzle pieces: AI-proposed hypotheses
+
+Once you have recorded the investigation question and collected some evidence,
+open **Workbench → Review assumptions, explanations & contradictions** and
+choose **Propose with AI**. The configured model reads a brief of the newest
+150 observations (indicator, source, date, the key facts each source returned,
+known-good labels, and local location) plus the stored relationships and the
+hypotheses you already have. It proposes up to four competing explanations,
+including a mundane one when the evidence allows it.
+
+Each proposal is marked **AI proposal · inference** and shows:
+
+- the observations it cites as support, and any that cut against it;
+- the missing pieces that would most change the picture, which are also added
+  as collection requirements awaiting your review; and
+- the model's short rationale.
+
+Pivotglass checks every citation against the brief. A proposal that cites
+evidence it was not given, or that cites no supporting evidence, is discarded
+before you see it. Text from sources is passed to the model as data inside a
+fenced block, and the model is told not to follow instructions found there.
+
+Nothing a model proposes is evidence. **Retain** is your acceptance: only then
+do the cited observations become evidence links, each recording that you
+retained a model proposal. **Reject** discards it; **Suspend** sets it aside.
+The Dossier shows a **Puzzle pieces** line with retained hypotheses and the
+proposals awaiting review. The model runs only when you ask, so you control cost,
+timing, and which provider sees the case; with a cloud provider, the brief is
+sent to that provider.
+
 ## Investigation Constellation
 
 The Investigation Constellation is the persistent coverage table in Visual

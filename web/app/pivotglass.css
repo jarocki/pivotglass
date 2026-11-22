@@ -1540,3 +1540,18 @@ main>.detail-backdrop{z-index:20000!important}
 .detail-known button{font-size:.85em}
 .relationship-nodes>g.known-benign circle,.relationship-nodes>g.known-scanner circle{stroke-dasharray:3 2;opacity:.7}
 .relationship-nodes>g.known-benign .node-label,.relationship-nodes>g.known-scanner .node-label{opacity:.7}
+
+/* AI hypothesis proposals (DEC-HYPOTHESIS-PROPOSALS-001): inference, visibly. */
+.analytic-columns .propose-hypotheses{justify-self:start;padding:4px 8px;border:1px solid color-mix(in srgb,var(--inference, var(--accent)) 60%,transparent);border-radius:6px;background:transparent;color:var(--inference, var(--heading));font-size:var(--fs-xs);cursor:pointer}
+.analytic-columns .propose-hypotheses:disabled{opacity:.5;cursor:default}
+.analytic-columns article.model-proposal>div.proposal-basis{display:grid}
+article.model-proposal{border-left:3px solid var(--inference, var(--accent))}
+article.model-proposal>span{color:var(--inference, var(--accent))}
+.proposal-basis{display:grid;gap:4px;font-size:.9em}
+.proposal-basis dl{display:grid;gap:4px;margin:0}
+.proposal-basis dt{font-weight:700;font-size:.85em}
+.proposal-basis dd{margin:0;display:flex;flex-wrap:wrap;gap:4px}
+.proposal-basis ul{margin:0;padding-left:1.1em}
+.proposal-basis .proposal-note{opacity:.75}
+.dossier-puzzle{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin:6px 0 0;font-size:.9em}
+.dossier-puzzle button{margin-left:auto}
