@@ -314,6 +314,33 @@ _RDAP_DOMAIN = {
 }
 
 
+@pytest.mark.parametrize("location", [
+    "http://rdap.verisign.com/com/v1/domain/example.com",  # downgrade
+    "https://127.0.0.1/domain/example.com",
+    "https://169.254.169.254/latest/meta-data",
+    "https://10.0.0.5/domain/example.com",
+    "https://localhost/domain/example.com",
+])
+async def test_rdap_refuses_redirects_to_local_or_plain_http_targets(location):
+    requested = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        return httpx.Response(302, headers={"Location": location})
+
+    with pytest.raises(ModuleError, match="refused"):
+        await _module(Rdap, handler).hunt("example.com", {})
+    assert len(requested) == 1  # the unsafe hop is never requested
+
+
+async def test_rdap_stops_after_bounded_redirects():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(302, headers={"Location": "https://rdap.example-registry.net/next"})
+
+    with pytest.raises(ModuleError, match="too many times"):
+        await _module(Rdap, handler).hunt("example.com", {})
+
+
 async def test_rdap_domain_follows_bootstrap_redirect_and_records_registration():
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.host == "rdap.org":

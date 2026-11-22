@@ -23,8 +23,9 @@ rdap.arin.net), which the module follows.
 
 from __future__ import annotations
 
+import ipaddress
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 import httpx
 
@@ -33,6 +34,19 @@ from pivotglass.modules.base import BaseModule, ModuleError
 from pivotglass.modules.keyless_http import json_body, keyless_get, unexpected_status
 
 SOURCE = "RDAP"
+
+
+def _require_public_https(url: str) -> None:
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower()
+    if parts.scheme != "https" or not host or host == "localhost" or host.endswith(".localhost"):
+        raise ModuleError(f"{SOURCE} redirected to a non-https or local address; refused.")
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return
+    if not address.is_global:
+        raise ModuleError(f"{SOURCE} redirected to a private or reserved address; refused.")
 _MAX_NAMESERVERS = 13
 _SCO_TYPES = {"domain": "domain-name", "ipv4": "ipv4-addr", "ipv6": "ipv6-addr"}
 
@@ -94,6 +108,24 @@ class Rdap(BaseModule):
             "TARGET": {"required": True, "description": "Domain or IP address", "default": ""},
         }
 
+    async def _get_following_registry_redirects(self, url: str) -> httpx.Response:
+        """GET *url*, following at most two redirects to public https registry servers.
+
+        rdap.org answers with a redirect to the authoritative registry. Each hop
+        is checked before it is requested: https only, and the host must not be
+        a literal private, loopback, link-local or reserved address, nor
+        localhost, so a hostile bootstrap answer cannot steer a request inward.
+        """
+        for _hop in range(3):
+            response = await keyless_get(SOURCE, url, follow_redirects=False, transport=self.transport)
+            if response.status_code not in {301, 302, 303, 307, 308}:
+                return response
+            location = response.headers.get("Location", "")
+            next_url = str(response.url.join(location)) if location else ""
+            _require_public_https(next_url)
+            url = next_url
+        raise ModuleError(f"{SOURCE} redirected too many times; no result recorded.")
+
     async def hunt(self, target: str, options: dict[str, Any]) -> list[dict]:
         target = target.strip().rstrip(".").lower()
         kind = detect_ioc_type(target) or ""
@@ -101,11 +133,8 @@ class Rdap(BaseModule):
         if sco_type is None:
             raise ModuleError(f"{SOURCE} accepts a domain or IP address; '{target}' is neither.")
         path = "domain" if kind == "domain" else "ip"
-        response = await keyless_get(
-            SOURCE,
-            f"{self.base_url}/{path}/{quote(target, safe='.:')}",
-            follow_redirects=True,
-            transport=self.transport,
+        response = await self._get_following_registry_redirects(
+            f"{self.base_url}/{path}/{quote(target, safe='.:')}"
         )
         if response.status_code == 404:
             return []
