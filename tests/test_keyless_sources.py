@@ -553,3 +553,9 @@ def test_caller_cannot_forge_hashlookup_provenance(tmp_path: Path):
 
     [stored] = _stored_files(ctx)
     assert stored["x_pivotglass_source_module"] == "import/stix-bundle"
+
+
+def test_keyless_requests_keep_tls_verification_on():
+    """DEC-RDAP-REDIRECT-001 relies on certificate checks to stop a rebound registry name."""
+    source = Path(__file__).parents[1].joinpath("src/pivotglass/modules/keyless_http.py").read_text()
+    assert "verify=" not in source

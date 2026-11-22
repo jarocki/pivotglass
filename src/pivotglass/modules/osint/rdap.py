@@ -34,7 +34,13 @@ rdap.arin.net), which the module follows.
            resolution of its own (the no-direct-DNS invariant,
            tests/test_no_direct_dns.py); an earlier resolve-and-check layer was
            removed because httpx resolves again on connect, so it never closed
-           the rebinding window it was meant to. The bootstrap fetch goes direct
+           the rebinding window it was meant to. If a listed name is made to
+           resolve inward, TLS verification (httpx default, kept on by
+           keyless_http) fails the handshake before any request bytes are
+           sent, unless the inward service holds a publicly trusted
+           certificate for the registry name. A connect-time peer-address
+           check was rejected: behind a configured proxy the peer is the
+           proxy, often a private address. The bootstrap fetch goes direct
            to data.iana.org, not through a base-URL override.
 """
 
