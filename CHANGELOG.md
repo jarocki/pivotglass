@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Local IP geolocation: every public IP shows a flag, country, city, and ASN in the coverage matrix, graph, and evidence drawer, from DB-IP Lite databases downloaded on request in Configuration. No case IP leaves the machine to be located (#44).
 - Known-good recognition: public resolvers, revocation servers, empty-file and other false-positive hashes, research scanners, and shared cloud, CDN, shortener and dynamic-DNS infrastructure are labelled offline from a bundled MISP warninglist subset (CC0), with the list and version, in focus mode, the coverage matrix, the graph, and the evidence drawer. Known-good and scanner matches can be set aside (tagged *Benign / noise*) one at a time or for a whole source; shared infrastructure and sinkholes are context only (#45).
 - AI-proposed hypotheses (the Dossier's puzzle pieces): **Propose with AI** in the Workbench asks the configured model for up to four competing hypotheses, each citing the observations that support or contradict it and naming the missing pieces to check next. Citations are validated against the brief the model received; anything uncited or fabricated is dropped. Proposals are inference until the analyst retains one, which turns its citations into evidence links. Missing pieces become collection requirements awaiting review. The Dossier shows retained hypotheses and pending proposals (#47).
+- Keyless context sources, each a module with its own base URL, Enabled toggle, and reachability test in Configuration (#46): Mnemonic passive DNS (`osint/mnemonic_pdns`, resolutions with first/last seen), Shodan InternetDB (`osint/shodan_internetdb`, ports, hostnames, CPEs, tags, CVEs), SANS ISC (`osint/sans_isc`, DShield reports and feed membership), RDAP (`osint/rdap`, registration dates, registrar, nameservers, IP network ownership; no personal contact data), and the Wayback Machine (`osint/wayback`, first/last capture and capture months). "No data" answers (InternetDB and RDAP 404, an empty passive DNS or archive result) record nothing instead of failing; quota answers (HTTP 429, Mnemonic's 402) are reported as rate limits.
+- CIRCL hashlookup (`cti/hashlookup`): a known file (NSRL and other known-software sets) is context, not a verdict. A hash in no set records nothing (#45).
 
 ### Changed
 
@@ -24,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- File evidence that carries several hashes (MalwareBazaar, CIRCL hashlookup) could not be stored: the STIX conversion passed `hashes` twice and raised `TypeError`. The supplied hashes are now merged with the queried one.
 - OpenAI-style custom endpoints could fall back to `OPENAI_API_KEY` and send it to a gateway the analyst named; each now has its own key with no vendor fallback.
 - **Acknowledge** in Attention did nothing: event ids contain `:` and arrived percent-encoded, so the server never matched them, and the failure was silent.
 - Dragging a relationship-graph node after panning or zooming made it jump away from the pointer.

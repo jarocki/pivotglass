@@ -223,6 +223,8 @@ def _required_credentials(source: str | None, next_action: str) -> tuple[str, tu
     if source:
         wanted = _compact(source)
         for spec in CTI_SERVICES:
+            if not spec.needs_credential:
+                continue  # keyless sources are never "unconfigured"
             if wanted and _compact(spec.display_name).startswith(wanted):
                 required = tuple(
                     key

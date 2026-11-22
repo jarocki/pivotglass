@@ -292,7 +292,7 @@ export function ConfigurationCenter({ onClose }: { onClose: () => void }) {
       <div>{configuration.services.map((service) => {
         const values = serviceSecrets[service.id] ?? service.credential_fields.map(() => "");
         return <article key={service.id}>
-          <header><div><b>{service.display_name}</b></div><button onClick={() => update({ action: "service-enabled", id: service.id, enabled: !service.enabled })}>{service.enabled ? "Enabled" : "Disabled"}</button></header>
+          <header><div><b>{service.display_name}</b>{service.credential_fields.length === 0 && <small> · no key needed</small>}</div><button onClick={() => update({ action: "service-enabled", id: service.id, enabled: !service.enabled })}>{service.enabled ? "Enabled" : "Disabled"}</button></header>
           <BaseUrlField
             id={service.id}
             label="API base URL"
@@ -305,9 +305,9 @@ export function ConfigurationCenter({ onClose }: { onClose: () => void }) {
           <div className="service-credential-fields">{service.credential_fields.map((field, index) => <label key={field.key}>{field.label}<span className="credential-presence">{field.credential_source === "config" ? "SAVED IN PIVOTGLASS · ••••••••" : field.credential_source === "environment" ? "SET IN ENVIRONMENT · ••••••••" : "No value saved"}</span><input type={field.key === "censys_org_id" ? "text" : "password"} autoComplete="new-password" value={values[index] ?? ""} onChange={(event) => setServiceSecrets((current) => ({ ...current, [service.id]: values.map((value, valueIndex) => valueIndex === index ? event.target.value : value) }))} placeholder={field.credential_source === "missing" ? field.required ? "Enter key" : "Optional" : "Enter a replacement value"} /></label>)}</div>
           <div className="configuration-actions">
             <button disabled={Boolean(busy)} onClick={() => check("service", service.id, values)}>Test</button>
-            <button disabled={!values.some(Boolean) || service.credential_fields.some((field, index) => field.required && !values[index] && field.credential_source === "missing") || Boolean(busy)} onClick={async () => { if (await update({ action: "service-credentials", id: service.id, values, verify: true })) setServiceSecrets((current) => ({ ...current, [service.id]: values.map(() => "") })); }}>Save, then test</button>
+            {service.credential_fields.length > 0 && <button disabled={!values.some(Boolean) || service.credential_fields.some((field, index) => field.required && !values[index] && field.credential_source === "missing") || Boolean(busy)} onClick={async () => { if (await update({ action: "service-credentials", id: service.id, values, verify: true })) setServiceSecrets((current) => ({ ...current, [service.id]: values.map(() => "") })); }}>Save, then test</button>}
             {service.credential_fields.some((field) => field.credential_source === "config") && <button className="danger-subtle" onClick={() => update({ action: "remove-service-credentials", id: service.id })}>Remove stored</button>}
-            <a href={service.docs_url} target="_blank" rel="noreferrer">Get credential</a>
+            <a href={service.docs_url} target="_blank" rel="noreferrer">{service.credential_fields.length > 0 ? "Get credential" : "API docs"}</a>
           </div>
           {serviceOutcome[service.id] && <div className={`configuration-health ${serviceOutcome[service.id].health.state}`} role="status"><b>{serviceOutcome[service.id].saved === true ? "SAVED · " : ""}ACCESS {serviceOutcome[service.id].health.state.toUpperCase()}</b><span>{serviceOutcome[service.id].health.summary}</span></div>}
         </article>;

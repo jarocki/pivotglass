@@ -51,6 +51,12 @@ MODULE_NAMES: tuple[str, ...] = (
     "threatfox",
     "malwarebazaar",
     "crtsh",
+    "mnemonic_pdns",
+    "shodan_internetdb",
+    "sans_isc",
+    "rdap",
+    "wayback",
+    "hashlookup",
 )
 
 

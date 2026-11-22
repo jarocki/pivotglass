@@ -60,6 +60,12 @@ urlhaus = "pivotglass.modules.cti.urlhaus:URLHaus"
 threatfox = "pivotglass.modules.cti.threatfox:ThreatFox"
 malwarebazaar = "pivotglass.modules.cti.malwarebazaar:MalwareBazaar"
 crtsh = "pivotglass.modules.osint.crtsh:CrtSh"
+mnemonic_pdns = "pivotglass.modules.osint.mnemonic_pdns:MnemonicPassiveDNS"
+shodan_internetdb = "pivotglass.modules.osint.shodan_internetdb:ShodanInternetDB"
+sans_isc = "pivotglass.modules.osint.sans_isc:SansIsc"
+rdap = "pivotglass.modules.osint.rdap:Rdap"
+wayback = "pivotglass.modules.osint.wayback:Wayback"
+hashlookup = "pivotglass.modules.cti.hashlookup:HashLookup"
 
 [build-system]
 requires = ["hatchling"]

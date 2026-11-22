@@ -105,12 +105,23 @@ def create_email(value: str, **kwargs) -> EmailAddress:
     return EmailAddress(value=value, **kwargs)
 
 
-def create_file(value: str, **kwargs) -> File:
-    """Create a file SCO while retaining the analyst-facing hash value."""
+def create_file(value: str = "", **kwargs) -> File:
+    """Create a file SCO while retaining the analyst-facing hash value.
+
+    Modules that know several hashes for one file (MalwareBazaar, hashlookup)
+    pass ``hashes``; it is merged with the hash implied by *value* rather than
+    colliding with it. Without *value*, the strongest supplied hash becomes the
+    analyst-facing value.
+    """
     length_to_algorithm = {32: "MD5", 40: "SHA-1", 64: "SHA-256"}
-    algorithm = length_to_algorithm.get(len(value), "SHA-256")
+    hashes = dict(kwargs.pop("hashes", None) or {})
+    if value:
+        hashes.setdefault(length_to_algorithm.get(len(value), "SHA-256"), value)
+    else:
+        value = next((hashes[key] for key in ("SHA-256", "SHA-1", "MD5") if hashes.get(key)), "")
+        value = value or next(iter(hashes.values()), "")
     return File(
-        hashes={algorithm: value},
+        hashes=hashes,
         x_indicator_value=value,
         allow_custom=True,
         **kwargs,

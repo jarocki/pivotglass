@@ -924,6 +924,22 @@ Providers:
 | OpenAI-compatible endpoint | none; enter it | Any `/v1` OpenAI-style API: LiteLLM proxy, Mistral, Groq, Together, xAI. |
 | Local OpenAI-compatible | `http://localhost:1234/v1` | LM Studio; change the port for mlx_lm or llama.cpp server. |
 
+Keyless context sources need no credential. They appear under Intelligence
+APIs with an Enabled toggle, a base URL, and a **Test** that queries a public
+value (8.8.8.8 or example.com). Each sends the User-Agent `pivotglass/<version>`
+and nothing that identifies you. A source with nothing on record returns no
+result rather than an error; their findings are context from the named source,
+never a verdict.
+
+| Service (id) | Default base URL | Accepts | What it records |
+|---|---|---|---|
+| Mnemonic passive DNS (`mnemonic_pdns`) | `https://api.mnemonic.no` | domain, IP | Historical resolutions with first/last seen and counts. Public tier: 10 requests per minute, 1000 per day, TLP:WHITE data only; so it is not an auto-pivot source. |
+| Shodan InternetDB (`shodan_internetdb`) | `https://internetdb.shodan.io` | IP | Open ports, hostnames, CPEs, Shodan tags, and CVEs Shodan associates with the reported versions (not confirmed). Refreshed weekly. |
+| SANS ISC (`sans_isc`) | `https://isc.sans.edu/api` | IPv4 | DShield sensor reports and targets, first/last reported, AS, network, and ISC feeds the address appears in (for example open resolvers). |
+| RDAP (`rdap`) | `https://rdap.org` | domain, IP | Registrar, registration, expiry, and last-changed dates, status, nameservers; for IPs the network name, range, country, and registrant or abuse organisation. rdap.org redirects to the authoritative registry; personal names, e-mail addresses, and phone numbers are not recorded. |
+| Wayback Machine (`wayback`) | `https://web.archive.org` | domain, URL | First and last capture with archive links and the number of months with captures. |
+| CIRCL hashlookup (`hashlookup`) | `https://hashlookup.circl.lu` | MD5, SHA-1, SHA-256 | Known file (NSRL and other known-software sets), context not a verdict: matched sets, file name, product, trust score, and any known-malicious annotation. |
+
 ![v0.9.9 Configuration distinguishes model settings from missing intelligence-service credentials; checks are explicit](media/pivotglass-configuration-v1.0.0.png)
 
 ### Model commands
@@ -1006,8 +1022,10 @@ config configure
 ```
 
 Disabling a source prevents it from running while preserving its stored
-credential. WHOIS and crt.sh require no API credential; the system WHOIS module
-does require a local `whois` executable.
+credential. WHOIS, crt.sh, and the keyless context sources (Mnemonic passive
+DNS, Shodan InternetDB, SANS ISC, RDAP, Wayback Machine, CIRCL hashlookup)
+require no API credential; the system WHOIS module does require a local `whois`
+executable.
 
 Common non-interactive overrides include:
 

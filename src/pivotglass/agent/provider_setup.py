@@ -507,7 +507,18 @@ def list_models(
 #            the key works before saving it. validate_method strings are an explicit enum to
 #            keep _validate_cti_key() free of magic string guessing. The dotfile
 #            export for CTI keys uses a separate marker block so LLM and CTI exports
-#            don't collide on re-runs. All 8 services are optional/skippable.
+#            don't collide on re-runs. Every keyed service is optional/skippable.
+#
+# @decision DEC-CTI-KEYLESS-SERVICES-001
+# @title Keyless context sources live in CTI_SERVICES with no credential fields
+# @status accepted
+# @rationale Configuration's service list, enable/disable, base-URL overrides,
+#            and the operational registry all key off CTI_SERVICES. A second
+#            list for keyless sources would be a parallel authority, so keyless
+#            sources are specs with empty config_keys (needs_credential False):
+#            the wizard skips them, configuration reports credential_source
+#            "not-required", and the test is a plain reachability request
+#            (validate_method "none") against a public, non-case value.
 
 
 @dataclass(frozen=True)
@@ -538,6 +549,7 @@ class CTIServiceSpec:
           "header_key"     — Key: <key>  (AbuseIPDB, HIBP)
           "header_x_otx"   — X-OTX-API-KEY: <key>
           "header_api_key" — API-Key: <key>  (URLScan)
+          "none"           — no credential (keyless context sources)
     validate_header_name:
         Header name for header_* methods. Empty string for others.
     docs_url:
@@ -565,6 +577,11 @@ class CTIServiceSpec:
     @property
     def validate_url(self) -> str:
         return self.validate_url_for()
+
+    @property
+    def needs_credential(self) -> bool:
+        """False for keyless context sources, which have no credential fields."""
+        return bool(self.config_keys)
 
 
 CTI_SERVICES: list[CTIServiceSpec] = [
@@ -650,6 +667,70 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         validate_method="header_key",
         validate_header_name="key",
         docs_url="https://viz.greynoise.io/account/api-key",
+    ),
+    # Keyless context sources (#46, #45; DEC-CTI-KEYLESS-SERVICES-001): no
+    # credential fields, so they appear in Configuration for enable/disable,
+    # base-URL override, and a reachability test, and the wizard skips them.
+    # The test queries a public, non-case value.
+    CTIServiceSpec(
+        id="mnemonic_pdns",
+        display_name="Mnemonic passive DNS",
+        config_keys=[],
+        prompt_labels=[],
+        validate_path="/pdns/v3/example.com?limit=1",
+        validate_method="none",
+        validate_header_name="",
+        docs_url="https://docs.mnemonic.no/service-integration-guides/passivedns/docs/public/01-public_api.html",
+    ),
+    CTIServiceSpec(
+        id="shodan_internetdb",
+        display_name="Shodan InternetDB",
+        config_keys=[],
+        prompt_labels=[],
+        validate_path="/8.8.8.8",
+        validate_method="none",
+        validate_header_name="",
+        docs_url="https://internetdb.shodan.io/",
+    ),
+    CTIServiceSpec(
+        id="sans_isc",
+        display_name="SANS ISC",
+        config_keys=[],
+        prompt_labels=[],
+        validate_path="/ip/8.8.8.8?json",
+        validate_method="none",
+        validate_header_name="",
+        docs_url="https://isc.sans.edu/api/",
+    ),
+    CTIServiceSpec(
+        id="rdap",
+        display_name="RDAP",
+        config_keys=[],
+        prompt_labels=[],
+        validate_path="/domain/example.com",
+        validate_method="none",
+        validate_header_name="",
+        docs_url="https://about.rdap.org/",
+    ),
+    CTIServiceSpec(
+        id="wayback",
+        display_name="Wayback Machine",
+        config_keys=[],
+        prompt_labels=[],
+        validate_path="/cdx/search/cdx?url=example.com&output=json&limit=1",
+        validate_method="none",
+        validate_header_name="",
+        docs_url="https://archive.org/developers/wayback-cdx-server.html",
+    ),
+    CTIServiceSpec(
+        id="hashlookup",
+        display_name="CIRCL hashlookup",
+        config_keys=[],
+        prompt_labels=[],
+        validate_path="/info",
+        validate_method="none",
+        validate_header_name="",
+        docs_url="https://www.circl.lu/services/hashlookup/",
     ),
 ]
 
@@ -786,6 +867,11 @@ def _validate_cti_key(
 
     if spec.id == "hibp":
         headers["user-agent"] = "Pivotglass credential check"
+    if not spec.needs_credential:
+        # Keyless sources: SANS ISC asks for a descriptive User-Agent; no contact detail.
+        from pivotglass.modules.keyless_http import USER_AGENT
+
+        headers["User-Agent"] = USER_AGENT
 
     try:
         response = httpx.get(
@@ -807,6 +893,8 @@ def _validate_cti_key(
         return False, "Access forbidden (HTTP 403); check account permissions, plan, and organization"
     if response.status_code >= 400:
         return False, f"Unexpected status {response.status_code}"
+    if not spec.needs_credential:
+        return True, "Reachable; no credential is required"
     return True, "Validated successfully"
 
 
@@ -859,6 +947,8 @@ def run_cti_credentials_wizard(
     saved_values: dict[str, str] = {}
 
     for spec in CTI_SERVICES:
+        if not spec.needs_credential:
+            continue  # keyless context sources have nothing to configure here
         # Check if any credential is already set for this service
         existing: list[str] = []
         for key in spec.config_keys:

@@ -1372,6 +1372,136 @@ def create_tools(ctx: ToolContext) -> list[dict]:
         {
             "type": "function",
             "function": {
+                "name": "mnemonic_pdns_lookup",
+                "description": (
+                    "Passive DNS history from Mnemonic's public tier (no API key; 10 requests "
+                    "per minute). For a domain, returns the addresses and names it resolved to; for an IP, "
+                    "the names that resolved to it; each record has first/last seen and observation count. "
+                    "Resolution history is infrastructure context, not evidence of malice."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": "Domain name or IP address",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum records to return (1-1000, default 100)",
+                        },
+                    },
+                    "required": ["target"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "internetdb_lookup",
+                "description": (
+                    "Shodan InternetDB summary for an IP (no API key): open ports, hostnames, "
+                    "CPEs, Shodan tags, and CVEs Shodan associates with the reported software versions "
+                    "(unconfirmed). Returns nothing when Shodan holds no data for the address."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "ip_address": {
+                            "type": "string",
+                            "description": "IPv4 or IPv6 address",
+                        },
+                    },
+                    "required": ["ip_address"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "sans_isc_lookup",
+                "description": (
+                    "SANS Internet Storm Center (DShield) record for an IPv4 address (no API key): "
+                    "sensor report and target counts, first/last reported, AS number, name, country, network, "
+                    "and the ISC feeds the address appears in. Feed membership is context, not a verdict."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "ip_address": {
+                            "type": "string",
+                            "description": "IPv4 address",
+                        },
+                    },
+                    "required": ["ip_address"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "rdap_lookup",
+                "description": (
+                    "Registration data via RDAP (no API key). For a domain: registrar, registration, "
+                    "expiry, and last-changed dates, status codes, nameservers. For an IP: network name, handle, "
+                    "range, country, and registrant/abuse organisation. Personal contact data is never recorded."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": "Domain name or IP address",
+                        },
+                    },
+                    "required": ["target"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "wayback_lookup",
+                "description": (
+                    "Wayback Machine capture history for a domain or URL (no API key): first and "
+                    "last capture times with archive links and the number of months with captures."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": "Domain name or URL",
+                        },
+                    },
+                    "required": ["target"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "hashlookup_lookup",
+                "description": (
+                    "Check a file hash against CIRCL hashlookup's known-software sets (NSRL, "
+                    "Linux distribution packages, and others; no API key). A match means the file is known "
+                    "software: context, not a verdict. Returns nothing when the hash is in no set."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "hash_value": {
+                            "type": "string",
+                            "description": "MD5, SHA-1, or SHA-256 hash",
+                        },
+                    },
+                    "required": ["hash_value"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "get_workspace_summary",
                 "description": (
                     "Get a summary of the current workspace — total indicators, "
@@ -1952,6 +2082,31 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
     "crtsh_lookup": (
         "osint/crtsh",
         lambda a: (a["domain"], {}),
+    ),
+    # Keyless context sources (#46, #45)
+    "mnemonic_pdns_lookup": (
+        "osint/mnemonic_pdns",
+        lambda a: (a["target"], {"LIMIT": str(a.get("limit", 100))}),
+    ),
+    "internetdb_lookup": (
+        "osint/shodan_internetdb",
+        lambda a: (a["ip_address"], {}),
+    ),
+    "sans_isc_lookup": (
+        "osint/sans_isc",
+        lambda a: (a["ip_address"], {}),
+    ),
+    "rdap_lookup": (
+        "osint/rdap",
+        lambda a: (a["target"], {}),
+    ),
+    "wayback_lookup": (
+        "osint/wayback",
+        lambda a: (a["target"], {}),
+    ),
+    "hashlookup_lookup": (
+        "cti/hashlookup",
+        lambda a: (a["hash_value"], {}),
     ),
 }
 

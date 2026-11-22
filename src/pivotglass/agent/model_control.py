@@ -268,6 +268,7 @@ class ModelControl:
                     "display_name": spec.display_name,
                     "enabled": self.config_mgr.is_service_enabled(spec.id),
                     "credential_source": (
+                        "not-required" if not spec.needs_credential else
                         "missing" if "missing" in sources else
                         sources[0] if len(set(sources)) == 1 else "mixed"
                     ),
@@ -654,7 +655,7 @@ def execute_configuration_command(
         for service in summary["services"]:
             lines.append(
                 f"  {'ON ' if service['enabled'] else 'OFF'} "
-                f"{service['id']:<14} {service['credential_source']}"
+                f"{service['id']:<18} {service['credential_source']}"
             )
         lines.append(
             "\nCredentials are masked; environment-owned credentials are read-only."

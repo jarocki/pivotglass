@@ -55,6 +55,13 @@ _BUILTIN_MODULES: list[tuple[str, str]] = [
     ("cti/threatfox", "pivotglass.modules.cti.threatfox:ThreatFox"),
     ("cti/malwarebazaar", "pivotglass.modules.cti.malwarebazaar:MalwareBazaar"),
     ("osint/crtsh", "pivotglass.modules.osint.crtsh:CrtSh"),
+    # Keyless context sources (#46, #45)
+    ("osint/mnemonic_pdns", "pivotglass.modules.osint.mnemonic_pdns:MnemonicPassiveDNS"),
+    ("osint/shodan_internetdb", "pivotglass.modules.osint.shodan_internetdb:ShodanInternetDB"),
+    ("osint/sans_isc", "pivotglass.modules.osint.sans_isc:SansIsc"),
+    ("osint/rdap", "pivotglass.modules.osint.rdap:Rdap"),
+    ("osint/wayback", "pivotglass.modules.osint.wayback:Wayback"),
+    ("cti/hashlookup", "pivotglass.modules.cti.hashlookup:HashLookup"),
 ]
 
 

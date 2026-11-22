@@ -31,6 +31,13 @@ SERVICE_BASE_URLS: dict[str, str] = {
     "urlscan": "https://urlscan.io",
     "censys_pat": "https://api.platform.censys.io",
     "greynoise": "https://api.greynoise.io",
+    # Keyless context sources (no credential; base URL still overridable).
+    "mnemonic_pdns": "https://api.mnemonic.no",
+    "shodan_internetdb": "https://internetdb.shodan.io",
+    "sans_isc": "https://isc.sans.edu/api",
+    "rdap": "https://rdap.org",
+    "wayback": "https://web.archive.org",
+    "hashlookup": "https://hashlookup.circl.lu",
 }
 
 

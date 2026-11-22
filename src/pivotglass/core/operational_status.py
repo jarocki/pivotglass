@@ -20,6 +20,12 @@ SERVICE_TOOL_NAMES: dict[str, tuple[str, ...]] = {
     "greynoise": ("greynoise_lookup",),
     "crtsh": ("crtsh_lookup",),
     "whois": ("whois_lookup",),
+    "mnemonic_pdns": ("mnemonic_pdns_lookup",),
+    "shodan_internetdb": ("internetdb_lookup",),
+    "sans_isc": ("sans_isc_lookup",),
+    "rdap": ("rdap_lookup",),
+    "wayback": ("wayback_lookup",),
+    "hashlookup": ("hashlookup_lookup",),
 }
 
 

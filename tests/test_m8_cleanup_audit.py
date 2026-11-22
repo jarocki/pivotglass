@@ -145,8 +145,8 @@ class TestToolCatalogPostM8:
         from pivotglass.agent.tools import create_tools
 
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 30, (
-            f"Expected 30 tools, got {len(tools)}. "
+        assert len(tools) == 36, (
+            f"Expected 36 tools (v1.4 added six keyless context sources), got {len(tools)}. "
             "M-8 removed start_report_interview, answer_report_question, generate_report. "
             "M-9 added export_dossier, compare_dossier (DEC-M9-TOOLCOUNT-001)."
         )
@@ -182,7 +182,7 @@ class TestToolCatalogPostM8:
 
         tools = create_tools(tmp_ctx)
         roundtripped = json.loads(json.dumps(tools))
-        assert len(roundtripped) == 30
+        assert len(roundtripped) == 36
 
     def test_execute_generate_dossier_report_no_style_param(self, tmp_ctx):
         """_execute_generate_dossier_report(ctx) call signature is (ctx,) only."""

@@ -995,13 +995,23 @@ class TestCTIServicesRegistry:
         "shodan", "virustotal", "abuseipdb", "hibp", "otx",
         "urlscan", "censys_pat", "greynoise",
     }
+    # Keyless context sources: listed for enable/disable and base URL, no credential.
+    KEYLESS_IDS = {
+        "mnemonic_pdns", "shodan_internetdb", "sans_isc", "rdap", "wayback", "hashlookup",
+    }
 
-    def test_eight_services_defined(self):
-        assert len(CTI_SERVICES) == 8
+    def test_eight_keyed_services_defined(self):
+        assert len([s for s in CTI_SERVICES if s.needs_credential]) == 8
 
     def test_all_expected_service_ids_present(self):
         ids = {s.id for s in CTI_SERVICES}
-        assert ids == self.SERVICE_IDS
+        assert ids == self.SERVICE_IDS | self.KEYLESS_IDS
+
+    def test_keyless_services_have_no_credential(self):
+        for s in CTI_SERVICES:
+            assert s.needs_credential == (s.id in self.SERVICE_IDS)
+            if not s.needs_credential:
+                assert s.validate_method == "none"
 
     def test_all_have_display_name(self):
         for s in CTI_SERVICES:
@@ -1015,9 +1025,10 @@ class TestCTIServicesRegistry:
         for s in CTI_SERVICES:
             assert s.docs_url, f"{s.id} missing docs_url"
 
-    def test_all_have_config_keys(self):
+    def test_all_keyed_services_have_config_keys(self):
         for s in CTI_SERVICES:
-            assert s.config_keys, f"{s.id} missing config_keys"
+            if s.id in self.SERVICE_IDS:
+                assert s.config_keys, f"{s.id} missing config_keys"
 
     def test_all_have_prompt_labels_matching_config_keys(self):
         for s in CTI_SERVICES:

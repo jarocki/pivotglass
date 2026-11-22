@@ -184,6 +184,12 @@ _TOOL_SLUG_MAP: dict[str, str] = {
     "threatfox_lookup": "threatfox",
     "malwarebazaar_lookup": "malwarebazaar_lookup",
     "crtsh_lookup": "crtsh_lookup",
+    "mnemonic_pdns_lookup": "mnemonic_pdns_lookup",
+    "internetdb_lookup": "internetdb_lookup",
+    "sans_isc_lookup": "sans_isc_lookup",
+    "rdap_lookup": "rdap_lookup",
+    "wayback_lookup": "wayback_lookup",
+    "hashlookup_lookup": "hashlookup_lookup",
     # workspace / meta tools — all use "default_tool" slug (no activity phrase)
     "get_workspace_summary": "default_tool",
     "search_workspace": "default_tool",

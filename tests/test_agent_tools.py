@@ -164,9 +164,9 @@ class TestCreateTools:
         assert isinstance(tools, list)
 
     def test_returns_twenty_two_tools(self, tmp_ctx):
-        """create_tools returns 30 definitions."""
+        """create_tools returns 36 definitions (v1.4: +6 keyless context sources)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 30
+        assert len(tools) == 36
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -216,6 +216,13 @@ class TestCreateTools:
             "threatfox_lookup",
             "malwarebazaar_lookup",
             "crtsh_lookup",
+            # v1.4 keyless context sources (#46, #45)
+            "mnemonic_pdns_lookup",
+            "internetdb_lookup",
+            "sans_isc_lookup",
+            "rdap_lookup",
+            "wayback_lookup",
+            "hashlookup_lookup",
             # Workspace tools
             "get_workspace_summary",
             "search_workspace",
@@ -265,7 +272,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 30
+        assert len(roundtripped) == 36
 
     # --- New tool schema tests ---
 
@@ -684,8 +691,8 @@ class TestModuleMap:
     """_MODULE_MAP contains entries for the module-backed tools."""
 
     def test_module_map_has_eleven_entries(self):
-        """_MODULE_MAP has exactly 15 entries."""
-        assert len(_MODULE_MAP) == 15
+        """_MODULE_MAP has exactly 21 entries (v1.4: +6 keyless context sources)."""
+        assert len(_MODULE_MAP) == 21
 
     def test_module_map_contains_new_tools(self):
         """_MODULE_MAP contains virustotal_lookup and censys_host_lookup."""
@@ -1314,7 +1321,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 30
+        assert len(r.tools) == 36
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""
