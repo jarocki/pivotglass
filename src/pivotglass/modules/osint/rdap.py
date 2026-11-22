@@ -28,17 +28,19 @@ rdap.arin.net), which the module follows.
            and per-hop address checks alone leave DNS rebinding and encoding
            tricks open. The authority is IANA's RDAP bootstrap registry
            (data.iana.org/rdap, fetched on first use and cached for a day): a
-           hop must be https to a host it lists, at most two hops. As defence in
-           depth the host must also resolve only to public addresses, with IPv4
-           embedded in IPv6 (mapped, 6to4, Teredo, NAT64) checked. The bootstrap
-           fetch goes direct to data.iana.org, not through a base-URL override.
+           hop must be https to a host name it lists, at most two hops. IP
+           literals are refused. Registry hosts are operated by registries and
+           RIRs, so their DNS is not attacker-controlled. The module does no DNS
+           resolution of its own (the no-direct-DNS invariant,
+           tests/test_no_direct_dns.py); an earlier resolve-and-check layer was
+           removed because httpx resolves again on connect, so it never closed
+           the rebinding window it was meant to. The bootstrap fetch goes direct
+           to data.iana.org, not through a base-URL override.
 """
 
 from __future__ import annotations
 
-import asyncio
 import ipaddress
-import socket
 import time
 from typing import Any
 from urllib.parse import quote, urlsplit
@@ -56,8 +58,6 @@ IANA_BOOTSTRAP = "https://data.iana.org/rdap"
 _BOOTSTRAP_FILES = ("dns", "ipv4", "ipv6", "asn")
 _BOOTSTRAP_TTL = 24 * 3600.0
 _bootstrap_cache: tuple[float, frozenset[str]] | None = None
-# NAT64 prefixes (RFC 6052, RFC 8215) carry an IPv4 address in the low 32 bits.
-_NAT64 = (ipaddress.ip_network("64:ff9b::/96"), ipaddress.ip_network("64:ff9b:1::/48"))
 
 
 async def _registry_hosts() -> frozenset[str]:
@@ -82,47 +82,24 @@ async def _registry_hosts() -> frozenset[str]:
     return _bootstrap_cache[1]
 
 
-async def _resolve_host(host: str) -> list[str]:
-    """Every address *host* resolves to (patched in tests)."""
-    loop = asyncio.get_running_loop()
-    infos = await loop.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
-    return sorted({info[4][0] for info in infos})
-
-
-def _is_public(text: str) -> bool:
-    """Global address, with IPv4 embedded in IPv6 (mapped, 6to4, Teredo, NAT64) checked too."""
-    address = ipaddress.ip_address(text.split("%", 1)[0])
-    if not address.is_global:
-        return False
-    if isinstance(address, ipaddress.IPv6Address):
-        embedded = [address.ipv4_mapped, address.sixtofour, address.teredo[1] if address.teredo else None]
-        embedded += [ipaddress.IPv4Address(int(address) & 0xFFFFFFFF) for net in _NAT64 if address in net]
-        if any(item is not None and not item.is_global for item in embedded):
-            return False
-    return True
-
-
 async def _require_registry_https(url: str) -> None:
-    """Refuse a redirect hop unless it is https to an IANA-listed RDAP registry host.
+    """Refuse a redirect hop unless it is https to an IANA-listed RDAP registry host name.
 
-    The allowlist is the authority (DEC-RDAP-REDIRECT-001): registry hosts are
-    operated by registries and RIRs, so neither a hostile bootstrap answer nor a
-    DNS name an attacker controls can steer a request inward. As defence in
-    depth the host must also resolve only to public addresses, IPv4 embedded in
-    IPv6 included.
+    The allowlist is the authority (DEC-RDAP-REDIRECT-001): neither a hostile
+    bootstrap answer nor a name an attacker controls can steer a request inward.
     """
     parts = urlsplit(url)
     host = (parts.hostname or "").lower().rstrip(".")
     if parts.scheme != "https" or not host:
         raise ModuleError(f"{SOURCE} redirected to a non-https address; refused.")
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    else:
+        raise ModuleError(f"{SOURCE} redirected to a bare IP address; refused.")
     if host not in await _registry_hosts():
         raise ModuleError(f"{SOURCE} redirected to {host}, which is not an IANA-listed RDAP server; refused.")
-    try:
-        addresses = await _resolve_host(host)
-    except OSError as exc:
-        raise ModuleError(f"{SOURCE} redirect host could not be resolved; refused.") from exc
-    if not addresses or not all(_is_public(item) for item in addresses):
-        raise ModuleError(f"{SOURCE} redirected to a private or reserved address; refused.")
 
 
 _MAX_NAMESERVERS = 13
@@ -187,7 +164,7 @@ class Rdap(BaseModule):
         }
 
     async def _get_following_registry_redirects(self, url: str) -> httpx.Response:
-        """GET *url*, following at most two redirects to public https registry servers.
+        """GET *url*, following at most two redirects to IANA-listed https registry servers.
 
         rdap.org answers with a redirect to the authoritative registry. Each hop
         is checked before it is requested (see ``_require_registry_https``), so a
