@@ -12,15 +12,17 @@ cloud, CDN, shortener or dynamic-DNS infrastructure.
            A curated MISP warninglist subset (CC0 1.0) ships with the package so
            recognition is offline and deterministic; ``scripts/update_warninglists.py``
            refreshes it once per minor release and records the upstream commit.
-           CIRCL hashlookup evidence (``cti/hashlookup``) is read from stored
-           objects, so online knowledge enters only as cited evidence. Every
+           CIRCL hashlookup evidence is read from stored objects, and only from
+           objects written by the ``cti/hashlookup`` module, so online knowledge
+           enters only as cited evidence and imported data cannot whitewash a hash. Every
            match names its list and version. Categories carry their own meaning:
            ``benign`` and ``scanner`` may be set aside (tagged role=benign by the
            analyst); ``shared`` and ``sinkhole`` are context that often matters
            *more*, not less (malware on a cloud host, a domain taken over by a
            sinkhole), so they are never offered for set-aside. A subdomain of a
            popular site is shared infrastructure, not known good: attackers abuse
-           subdomains of popular hosting. A hash that hashlookup knows but that a
+           subdomains of popular hosting; the same holds for every list's parent-domain
+           match (only an explicit leading-dot suffix entry covers subdomains). A hash that hashlookup knows but that a
            source also lists as malicious is ``contested``.
 """
 
@@ -79,6 +81,7 @@ CATEGORIES: dict[str, dict[str, Any]] = {
 
 _HASH = re.compile(r"^(?:[0-9a-f]{32}|[0-9a-f]{40}|[0-9a-f]{56}|[0-9a-f]{64}|[0-9a-f]{128})$")
 _POPULARITY_LIST = "tranco10k"
+HASHLOOKUP_MODULE = "cti/hashlookup"
 
 
 @dataclass(frozen=True)
@@ -226,9 +229,13 @@ def known_matches(entity_type: str, value: str) -> list[KnownMatch]:
             if list_id == _POPULARITY_LIST and kind == "url":
                 match = _make(index, list_id, matched, category="shared",
                               label=f"Hosted on popular site {matched}")
-            elif list_id == _POPULARITY_LIST and not exact:
-                match = _make(index, list_id, matched, category="shared",
-                              label=f"Subdomain of popular site {matched}")
+            elif not exact and not matched.startswith("."):
+                # A parent-domain match is never whole-domain trust: anyone who
+                # controls a subdomain can host anything. Only an explicit
+                # leading-dot suffix entry (dynamic DNS) covers subdomains.
+                label = (f"Subdomain of popular site {matched}" if list_id == _POPULARITY_LIST
+                         else f"Subdomain of {matched} ({SELECTED_LISTS[list_id][2]})")
+                match = _make(index, list_id, matched, category="shared", label=label)
             else:
                 match = _make(index, list_id, matched)
             # Prefer an exact match over a parent-domain match from the same list.
@@ -266,7 +273,9 @@ def object_matches(obj: dict[str, Any]) -> list[KnownMatch]:
     else:
         for match in known_matches(entity_type, str(obj.get("value") or "")):
             matches.setdefault((match.list_id, match.category), match)
-    if obj.get("x_hashlookup_known"):
+    # Trust hashlookup properties only on objects the cti/hashlookup module wrote;
+    # an imported bundle could otherwise carry x_hashlookup_* to whitewash a hash.
+    if obj.get("x_hashlookup_known") and obj.get("x_pivotglass_source_module") == HASHLOOKUP_MODULE:
         sources = [str(item) for item in obj.get("x_hashlookup_sources") or [] if str(item)]
         flagged = [str(item) for item in obj.get("x_hashlookup_known_malicious") or [] if str(item)]
         product = str(obj.get("x_hashlookup_product") or obj.get("name") or "").strip()
@@ -279,7 +288,7 @@ def object_matches(obj: dict[str, Any]) -> list[KnownMatch]:
             category="contested" if flagged else "benign",
             label=label + (f"; reported malicious by {', '.join(flagged[:3])}" if flagged else ""),
             matched=(_hashes_of(obj) or [""])[0],
-            source=str(obj.get("x_pivotglass_source_module") or "cti/hashlookup"),
+            source=HASHLOOKUP_MODULE,
         )
         matches[(match.list_id, match.category)] = match
     return sorted(matches.values(), key=_rank)

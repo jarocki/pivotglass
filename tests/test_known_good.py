@@ -55,6 +55,9 @@ def test_shared_infrastructure_is_context_and_never_offered_for_set_aside():
     assert subdomain.label == "Subdomain of popular site blogspot.com"
     assert all(m.category == "shared" for m in known_matches("url", "https://bit.ly/3xYz"))
     assert summarize(known_matches("domain-name", "x.duckdns.org"))["set_aside"] is False
+    # A parent-domain match on any benign host list is shared, never set aside.
+    crl_child = known_matches("domain-name", "attacker.ocsp.digicert.com")
+    assert crl_child and all(m.category == "shared" and not m.set_aside for m in crl_child)
 
 
 def test_unknown_and_private_values_have_no_matches():
@@ -76,6 +79,10 @@ def test_hashlookup_evidence_marks_a_known_file_unless_a_source_reports_it_malic
     match = object_matches(known_file)[0]
     assert (match.category, match.label, match.source) == ("benign", "Known file: Windows 11 (NSRL)", "cti/hashlookup")
     assert summarize([match])["set_aside"] is True
+
+    # Imported objects cannot claim hashlookup knowledge.
+    assert object_matches({**known_file, "x_pivotglass_source_module": "import/stix"}) == []
+    assert object_matches({k: v for k, v in known_file.items() if k != "x_pivotglass_source_module"}) == []
 
     contested = object_matches({**known_file, "x_hashlookup_known_malicious": ["vx-underground"]})
     assert contested[0].category == "contested"

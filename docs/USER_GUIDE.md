@@ -841,7 +841,7 @@ faded), and the evidence drawer. Each label names the list and its version.
 |---|---|---|
 | Known good | Public DNS resolver, CRL/OCSP, connectivity check, IP-echo service, security-vendor blog, Tranco top-10k site, empty-file and EICAR hashes, common IoC false positives, a file CIRCL hashlookup knows | Yes |
 | Internet scanner | Shodan, Censys, Shadowserver, Rapid7 Sonar ranges | Yes |
-| Shared infrastructure | AWS, Google Cloud, Azure, Cloudflare, Akamai, Fastly address space; URL shorteners; dynamic DNS; parking servers; a subdomain or URL of a popular site | No |
+| Shared infrastructure | AWS, Google Cloud, Azure, Cloudflare, Akamai, Fastly address space; URL shorteners; dynamic DNS; parking servers; a URL on a popular site; a subdomain of any listed domain | No |
 | Sinkhole | Known sinkhole addresses | No |
 | Known file, also reported malicious | hashlookup knows the file but a source lists it as malicious | No |
 
