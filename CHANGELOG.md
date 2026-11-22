@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-21
+
 ### Added
 
 - Every AI provider and intelligence service shows its API base URL in Configuration and accepts an override for an API gateway or proxy. The override applies to the credential test, model list, enrichment lookups, and model calls (#42).
