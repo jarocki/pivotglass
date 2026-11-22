@@ -11,6 +11,8 @@ position, and analyst judgment visibly distinct:
 ``position``      Mentioned near another indicator in the same source text.
                   Position is a reading aid, never an asserted relationship.
 ``analyst``       A tag or investigation recorded by an analyst.
+``known``         On a curated public list (MISP warninglists) or known to CIRCL
+                  hashlookup. Context the analyst may set aside, never a verdict.
 
 @decision DEC-INDICATOR-CONTEXT-001
 @title One batch context authority, fetched per document, shared by list, source and graph
@@ -30,6 +32,7 @@ from urllib.parse import urlsplit
 from sqlalchemy import or_, select
 
 from pivotglass.core.indicator_tags import IndicatorTagAuthority, canonical_entity_type
+from pivotglass.core.known_good import known_matches, object_matches
 from pivotglass.models.database import (
     DocumentEntityCandidate,
     DocumentOccurrence,
@@ -207,8 +210,10 @@ class IndicatorContextAuthority:
                 "documents": [],
                 "tags": [],
                 "investigated_at": None,
+                # Curated-list recognition (DEC-KNOWN-GOOD-001); basis "reference list".
+                "known": [match.to_dict() for match in known_matches(entity_type, value)],
             }
-            for key in wanted
+            for key, (entity_type, value) in wanted.items()
         }
         if not wanted:
             return result
@@ -223,6 +228,13 @@ class IndicatorContextAuthority:
                     if key in result:
                         entities[row.id] = row
                         result[key]["entity"] = {"id": row.id, "type": row.type}
+                        # Stored hashlookup evidence adds "known file" context.
+                        listed = {item["list_id"] for item in result[key]["known"]}
+                        result[key]["known"].extend(
+                            match.to_dict()
+                            for match in object_matches({**(row.json_blob or {}), "type": row.type})
+                            if match.list_id not in listed
+                        )
             ids = sorted(entities)
             ref_to_key = {
                 row_id: indicator_key(row.type, row.value or "") for row_id, row in entities.items()

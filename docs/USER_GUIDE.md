@@ -827,6 +827,36 @@ LiteLLM capability metadata when available. Strengths and limitations are
 evidence-proportional notes, not rankings. A visible model can still lack
 quota, perform poorly for a case, respond slowly, or change at the provider.
 
+### Known-good and shared infrastructure
+
+Reports and pivots pull in indicators that are not malicious: public DNS
+resolvers such as `8.8.8.8`, certificate revocation servers, the hash of an
+empty file, research scanners. Pivotglass recognises them offline against a
+bundled subset of the [MISP warninglists](https://github.com/MISP/misp-warninglists)
+(CC0 1.0) and labels them wherever the indicator appears: the focus-mode list
+and details card, the coverage matrix, the relationship graph (dashed and
+faded), and the evidence drawer. Each label names the list and its version.
+
+| Label | Examples | Can be set aside |
+|---|---|---|
+| Known good | Public DNS resolver, CRL/OCSP, connectivity check, IP-echo service, security-vendor blog, Tranco top-10k site, empty-file and EICAR hashes, common IoC false positives, a file CIRCL hashlookup knows | Yes |
+| Internet scanner | Shodan, Censys, Shadowserver, Rapid7 Sonar ranges | Yes |
+| Shared infrastructure | AWS, Google Cloud, Azure, Cloudflare, Akamai, Fastly address space; URL shorteners; dynamic DNS; parking servers; a subdomain or URL of a popular site | No |
+| Sinkhole | Known sinkhole addresses | No |
+| Known file, also reported malicious | hashlookup knows the file but a source lists it as malicious | No |
+
+A label is context, never a verdict. **Set aside** (on a known indicator in the
+evidence drawer, or **Set aside N known** in focus mode for the whole source)
+tags it *Benign / noise* with a note naming the list, so you can filter it out;
+remove the tag to bring it back. Shared infrastructure is never offered for set
+aside: malware is hosted on cloud services and popular platforms, and a
+subdomain of `blogspot.com` is not `blogspot.com`. A sinkhole match usually
+means the domain was malicious and has been taken over.
+
+The bundle is refreshed each minor release with
+`uv run python scripts/update_warninglists.py`, which records the upstream
+commit.
+
 ### Geolocation data
 
 Every public IP shows a small flag, country, city, and network (ASN) in the

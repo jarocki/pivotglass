@@ -1527,3 +1527,16 @@ main>.detail-backdrop{z-index:20000!important}
 .base-url-field input{flex:1;min-width:0;font-family:var(--font-mono);font-size:var(--fs-xs)}
 .service-test-endpoint{display:block;color:var(--dim);font-size:var(--fs-xs);overflow-wrap:anywhere}
 .base-url-warning{color:var(--warn,#e8b04a);font-size:var(--fs-xs)}
+
+/* Known-good recognition (DEC-KNOWN-GOOD-001): list matches are context, never verdicts. */
+.listed{font-style:normal;font-size:.85em;border-radius:3px;padding:0 .35em;border:1px solid var(--line);color:var(--muted, var(--text))}
+.listed-benign,.listed-scanner{border-style:dashed}
+.listed-shared{color:var(--heading)}
+.listed-sinkhole,.listed-contested{color:var(--warn, var(--accent));border-color:currentColor}
+.focus-row-meta .listed{margin-left:.25em}
+.known-section li{display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.known-section small,.detail-known small{opacity:.75}
+.detail-known dd{display:flex;flex-wrap:wrap;gap:.4em;align-items:center}
+.detail-known button{font-size:.85em}
+.relationship-nodes>g.known-benign circle,.relationship-nodes>g.known-scanner circle{stroke-dasharray:3 2;opacity:.7}
+.relationship-nodes>g.known-benign .node-label,.relationship-nodes>g.known-scanner .node-label{opacity:.7}

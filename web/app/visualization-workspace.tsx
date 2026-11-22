@@ -897,6 +897,7 @@ export function TaskMatrix({
                 : [];
               const hintParts = [
                 country ? `${country.flag} ${country.name} · ${displayValue(row.country_source)}, ${displayValue(row.country_observed_at).slice(0, 10)}` : "",
+                row.known ? `Known: ${displayValue(row.known)} · ${displayValue(row.known_source)}` : "",
                 gaps.length ? `No evidence yet: ${gaps.join(", ")}` : "",
               ].filter(Boolean);
               const rowHint = hintParts.join("\n");
@@ -921,6 +922,7 @@ export function TaskMatrix({
                             <small>
                               {country && <span className="constellation-country" aria-label={`Source-reported location: ${country.name}`}><span aria-hidden="true">{country.flag}</span> {country.code}</span>}
                               {indicatorTypeLabel(String(row.indicator_type))} · {displayValue(row.completeness_percent)}% coverage
+                              {row.known ? <span className={`listed listed-${displayValue(row.known_category)}`}> · {displayValue(row.known)}</span> : null}
                             </small>
                           )}
                         </button>
@@ -2021,6 +2023,7 @@ function RelationshipGraph({
                     focusRefs.size > 0 && !focusRefs.has(node.reference) ? "dim" : "",
                     node.reference === hovered ? "hovered" : "",
                     `type-${node.entity_type.replaceAll(/[^a-z0-9-]/gi, "-")}`,
+                    node.known_category ? `known-${node.known_category}` : "",
                   ].join(" ")}
                   role="button"
                   tabIndex={0}
@@ -2063,7 +2066,7 @@ function RelationshipGraph({
                   }}
                 >
                   <circle r={nodeRadius(node.reference)}>
-                    <title>{node.label} · {node.entity_type} · {degree.get(node.reference) ?? 0} relationships</title>
+                    <title>{node.label} · {node.entity_type} · {degree.get(node.reference) ?? 0} relationships{node.known_label ? ` · known: ${node.known_label} (list match, not a verdict)` : ""}</title>
                   </circle>
                   {labelSide.has(node.reference) && (
                     <text

@@ -23,6 +23,9 @@ export type VisualizationNode = {
   evidence?: boolean;
   /** Local DB-IP country code for IP nodes, shown as a flag. */
   country_code?: string;
+  /** Curated-list recognition (benign, scanner, shared, sinkhole, contested). */
+  known_category?: string;
+  known_label?: string;
 };
 
 export type VisualizationEdge = {

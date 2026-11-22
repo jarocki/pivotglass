@@ -286,7 +286,15 @@ def project_evidence(
         "conflicting_observations": matched.get("x_pivotglass_conflicting_observations", []),
         "next_pivots": matched.get("x_pivotglass_next_pivots", []),
         "location": _local_location(matched),
+        "known": _known(matched),
     }
+
+
+def _known(matched: dict[str, Any]) -> list[dict[str, Any]]:
+    """Curated-list and hashlookup recognition (DEC-KNOWN-GOOD-001), as context."""
+    from pivotglass.core.known_good import object_matches
+
+    return [match.to_dict() for match in object_matches(matched)]
 
 
 def _local_location(matched: dict[str, Any]) -> dict[str, Any] | None:

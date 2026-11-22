@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Every AI provider and intelligence service shows its API base URL in Configuration and accepts an override for an API gateway or proxy. The override applies to the credential test, model list, enrichment lookups, and model calls (#42).
 - Provider entries for Azure OpenAI / AI Foundry, any OpenAI-compatible endpoint, and a local OpenAI-compatible server (LM Studio, MLX, llama.cpp) (#43).
 - Local IP geolocation: every public IP shows a flag, country, city, and ASN in the coverage matrix, graph, and evidence drawer, from DB-IP Lite databases downloaded on request in Configuration. No case IP leaves the machine to be located (#44).
+- Known-good recognition: public resolvers, revocation servers, empty-file and other false-positive hashes, research scanners, and shared cloud, CDN, shortener and dynamic-DNS infrastructure are labelled offline from a bundled MISP warninglist subset (CC0), with the list and version, in focus mode, the coverage matrix, the graph, and the evidence drawer. Known-good and scanner matches can be set aside (tagged *Benign / noise*) one at a time or for a whole source; shared infrastructure and sinkholes are context only (#45).
 
 ### Changed
 
