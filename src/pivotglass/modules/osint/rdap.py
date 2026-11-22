@@ -19,6 +19,19 @@ rdap.arin.net), which the module follows.
            e-mail addresses, phone numbers, and individuals' names are never
            copied. ``x_rdap_server`` records which authoritative server answered.
            Registration data describes administration, not intent.
+
+@decision DEC-RDAP-REDIRECT-001
+@title Follow a bootstrap redirect only to an IANA-listed registry host
+@status accepted
+@rationale Security review 2026-11-21: following any redirect let a hostile or
+           compromised bootstrap answer steer a request to a private address,
+           and per-hop address checks alone leave DNS rebinding and encoding
+           tricks open. The authority is IANA's RDAP bootstrap registry
+           (data.iana.org/rdap, fetched on first use and cached for a day): a
+           hop must be https to a host it lists, at most two hops. As defence in
+           depth the host must also resolve only to public addresses, with IPv4
+           embedded in IPv6 (mapped, 6to4, Teredo, NAT64) checked. The bootstrap
+           fetch goes direct to data.iana.org, not through a base-URL override.
 """
 
 from __future__ import annotations
@@ -26,6 +39,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import socket
+import time
 from typing import Any
 from urllib.parse import quote, urlsplit
 
@@ -38,6 +52,36 @@ from pivotglass.modules.keyless_http import json_body, keyless_get, unexpected_s
 SOURCE = "RDAP"
 
 
+IANA_BOOTSTRAP = "https://data.iana.org/rdap"
+_BOOTSTRAP_FILES = ("dns", "ipv4", "ipv6", "asn")
+_BOOTSTRAP_TTL = 24 * 3600.0
+_bootstrap_cache: tuple[float, frozenset[str]] | None = None
+# NAT64 prefixes (RFC 6052, RFC 8215) carry an IPv4 address in the low 32 bits.
+_NAT64 = (ipaddress.ip_network("64:ff9b::/96"), ipaddress.ip_network("64:ff9b:1::/48"))
+
+
+async def _registry_hosts() -> frozenset[str]:
+    """Hosts of every RDAP server in the IANA bootstrap registry (cached for a day; patched in tests)."""
+    global _bootstrap_cache
+    now = time.monotonic()
+    if _bootstrap_cache is not None and now - _bootstrap_cache[0] < _BOOTSTRAP_TTL:
+        return _bootstrap_cache[1]
+    hosts: set[str] = set()
+    for name in _BOOTSTRAP_FILES:
+        response = await keyless_get(f"{SOURCE} bootstrap", f"{IANA_BOOTSTRAP}/{name}.json")
+        if response.status_code != 200:
+            raise unexpected_status(f"{SOURCE} bootstrap", response)
+        for service in json_body(f"{SOURCE} bootstrap", response).get("services", []):
+            for url in service[-1] if isinstance(service, list) and service else []:
+                parts = urlsplit(str(url))
+                if parts.scheme == "https" and parts.hostname:
+                    hosts.add(parts.hostname.lower().rstrip("."))
+    if not hosts:
+        raise ModuleError(f"{SOURCE} bootstrap registry is empty; no result recorded.")
+    _bootstrap_cache = (now, frozenset(hosts))
+    return _bootstrap_cache[1]
+
+
 async def _resolve_host(host: str) -> list[str]:
     """Every address *host* resolves to (patched in tests)."""
     loop = asyncio.get_running_loop()
@@ -45,34 +89,39 @@ async def _resolve_host(host: str) -> list[str]:
     return sorted({info[4][0] for info in infos})
 
 
-async def _require_public_https(url: str) -> None:
-    """Refuse a redirect hop that is not https to a public registry host.
+def _is_public(text: str) -> bool:
+    """Global address, with IPv4 embedded in IPv6 (mapped, 6to4, Teredo, NAT64) checked too."""
+    address = ipaddress.ip_address(text.split("%", 1)[0])
+    if not address.is_global:
+        return False
+    if isinstance(address, ipaddress.IPv6Address):
+        embedded = [address.ipv4_mapped, address.sixtofour, address.teredo[1] if address.teredo else None]
+        embedded += [ipaddress.IPv4Address(int(address) & 0xFFFFFFFF) for net in _NAT64 if address in net]
+        if any(item is not None and not item.is_global for item in embedded):
+            return False
+    return True
 
-    Checks the literal host (canonical dotted-quad or IPv6 only; bare numeric
-    or hex forms such as ``2130706433`` are refused), names ending in
-    ``localhost``, and every address a hostname resolves to. A DNS answer that
-    changes between this check and the request (rebinding) is not prevented;
-    the bootstrap service chooses these hosts, which bounds that risk.
+
+async def _require_registry_https(url: str) -> None:
+    """Refuse a redirect hop unless it is https to an IANA-listed RDAP registry host.
+
+    The allowlist is the authority (DEC-RDAP-REDIRECT-001): registry hosts are
+    operated by registries and RIRs, so neither a hostile bootstrap answer nor a
+    DNS name an attacker controls can steer a request inward. As defence in
+    depth the host must also resolve only to public addresses, IPv4 embedded in
+    IPv6 included.
     """
     parts = urlsplit(url)
     host = (parts.hostname or "").lower().rstrip(".")
-    if parts.scheme != "https" or not host or host == "localhost" or host.endswith(".localhost"):
-        raise ModuleError(f"{SOURCE} redirected to a non-https or local address; refused.")
+    if parts.scheme != "https" or not host:
+        raise ModuleError(f"{SOURCE} redirected to a non-https address; refused.")
+    if host not in await _registry_hosts():
+        raise ModuleError(f"{SOURCE} redirected to {host}, which is not an IANA-listed RDAP server; refused.")
     try:
-        literal = ipaddress.ip_address(host)
-    except ValueError:
-        literal = None
-    if literal is not None:
-        addresses = [str(literal)]
-    else:
-        last_label = host.rsplit(".", 1)[-1]
-        if "." not in host or not any(char.isalpha() for char in last_label) or ":" in host:
-            raise ModuleError(f"{SOURCE} redirected to a non-standard host; refused.")
-        try:
-            addresses = await _resolve_host(host)
-        except OSError as exc:
-            raise ModuleError(f"{SOURCE} redirect host could not be resolved; refused.") from exc
-    if not addresses or not all(ipaddress.ip_address(item.split("%", 1)[0]).is_global for item in addresses):
+        addresses = await _resolve_host(host)
+    except OSError as exc:
+        raise ModuleError(f"{SOURCE} redirect host could not be resolved; refused.") from exc
+    if not addresses or not all(_is_public(item) for item in addresses):
         raise ModuleError(f"{SOURCE} redirected to a private or reserved address; refused.")
 
 
@@ -141,7 +190,7 @@ class Rdap(BaseModule):
         """GET *url*, following at most two redirects to public https registry servers.
 
         rdap.org answers with a redirect to the authoritative registry. Each hop
-        is checked before it is requested (see ``_require_public_https``), so a
+        is checked before it is requested (see ``_require_registry_https``), so a
         hostile bootstrap answer cannot steer a request inward.
         """
         for _hop in range(3):
@@ -150,7 +199,7 @@ class Rdap(BaseModule):
                 return response
             location = response.headers.get("Location", "")
             next_url = str(response.url.join(location)) if location else ""
-            await _require_public_https(next_url)
+            await _require_registry_https(next_url)
             url = next_url
         raise ModuleError(f"{SOURCE} redirected too many times; no result recorded.")
 

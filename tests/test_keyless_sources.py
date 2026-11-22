@@ -323,13 +323,16 @@ _RDAP_DOMAIN = {
     "https://localhost./domain/example.com",
     "https://2130706433/domain/example.com",  # 127.0.0.1 as a bare integer
     "https://0x7f.1/domain/example.com",
-    "https://internal-registry.example/domain/example.com",  # resolves to 10.1.2.3
+    "https://internal-registry.example/domain/example.com",  # listed, but resolves to 10.1.2.3
+    "https://nat64-registry.example/domain/example.com",  # resolves to NAT64 of 127.0.0.1
+    "https://attacker.example/domain/example.com",  # public, but not an IANA-listed RDAP server
 ])
 async def test_rdap_refuses_redirects_to_local_or_plain_http_targets(location, monkeypatch):
     from pivotglass.modules.osint import rdap
 
     async def resolve(host):
-        return ["10.1.2.3"] if host == "internal-registry.example" else ["192.0.2.10"]
+        return {"internal-registry.example": ["10.1.2.3"],
+                "nat64-registry.example": ["64:ff9b::7f00:1"]}.get(host, ["93.184.215.14"])
 
     monkeypatch.setattr(rdap, "_resolve_host", resolve)
     requested = []
@@ -351,7 +354,22 @@ def _public_registry_dns(monkeypatch):
     async def resolve(host):
         return ["93.184.215.14"]
 
+    async def registries():
+        return frozenset({"rdap.verisign.com", "rdap.arin.net", "rdap.example-registry.net",
+                          "internal-registry.example", "nat64-registry.example"})
+
     monkeypatch.setattr(rdap, "_resolve_host", resolve)
+    monkeypatch.setattr(rdap, "_registry_hosts", registries)
+
+
+def test_embedded_ipv4_is_classified_by_its_ipv4_address():
+    from pivotglass.modules.osint.rdap import _is_public
+
+    assert _is_public("2001:4860:4860::8888") is True
+    assert _is_public("::ffff:10.0.0.1") is False  # IPv4-mapped
+    assert _is_public("64:ff9b::a00:1") is False  # NAT64 of 10.0.0.1
+    assert _is_public("2002:0a00:0001::1") is False  # 6to4 of 10.0.0.1
+    assert _is_public("8.8.8.8") is True and _is_public("192.168.1.1") is False
 
 
 async def test_rdap_stops_after_bounded_redirects():
