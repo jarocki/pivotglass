@@ -140,8 +140,6 @@ _PIVOTGLASS_ENV_NAMES: dict[str, str] = {
     "hibp": "PIVOTGLASS_HIBP_API_KEY",
     "otx": "PIVOTGLASS_OTX_API_KEY",
     "censys_pat": "PIVOTGLASS_CENSYS_PAT",
-    "passivetotal_user": "PIVOTGLASS_PASSIVETOTAL_USER",
-    "passivetotal_key": "PIVOTGLASS_PASSIVETOTAL_KEY",
     "greynoise": "PIVOTGLASS_GREYNOISE_API_KEY",
 }
 
@@ -155,8 +153,6 @@ _VENDOR_ENV_NAMES: dict[str, str] = {
     "hibp": "HIBP_API_KEY",
     "otx": "OTX_API_KEY",
     "censys_pat": "CENSYS_PAT",
-    "passivetotal_user": "PT_USERNAME",
-    "passivetotal_key": "PT_API_KEY",
     "greynoise": "GREYNOISE_API_KEY",
 }
 
@@ -245,8 +241,6 @@ def _resolve_keys(cm: Any) -> dict[str, tuple[str, str]]:
     _add("hibp", cm.get_api_key("hibp"))
     _add("otx", cm.get_api_key("otx"))
     _add("censys_pat", cm.get_censys_pat())
-    _add("passivetotal_user", cm.get_api_key("passivetotal_user"))
-    _add("passivetotal_key", cm.get_api_key("passivetotal_key"))
     _add("greynoise", cm.get_api_key("greynoise"))
 
     return results
@@ -451,28 +445,6 @@ def _run_otx(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]:
         if mod is None:
             return FAIL, "module not found", 0
         mod.initialize({"api_key": val})
-        results = asyncio.run(_run_module(mod, target, {}))
-        return PASS, "", len(results)
-    except AuthenticationError as exc:
-        return SKIP, f"auth: {exc}", 0
-    except Exception as exc:
-        return FAIL, _fmt_exc(exc, verbose), 0
-
-
-def _run_passivetotal(target: str, keys: dict, verbose: bool) -> tuple[str, str, int]:
-    user, _ = keys.get("passivetotal_user", ("", ""))
-    key, _ = keys.get("passivetotal_key", ("", ""))
-    if not user or not key:
-        return SKIP, "no API key configured", 0
-    try:
-        from pivotglass.core.plugin_mgr import PluginManager
-
-        mgr = PluginManager()
-        mgr.load_plugins()
-        mod = mgr.get_module("cti/passivetotal")
-        if mod is None:
-            return FAIL, "module not found", 0
-        mod.initialize({"passivetotal_user": user, "passivetotal_key": key})
         results = asyncio.run(_run_module(mod, target, {}))
         return PASS, "", len(results)
     except AuthenticationError as exc:
@@ -732,11 +704,6 @@ def main() -> int:
         ("osint/hibp", lambda: _run_hibp(email_target, keys, args.verbose), email_target),
         ("cti/virustotal", lambda: _run_virustotal(ip_target, keys, args.verbose), ip_target),
         ("cti/otx", lambda: _run_otx(ip_target, keys, args.verbose), ip_target),
-        (
-            "cti/passivetotal",
-            lambda: _run_passivetotal(domain_target, keys, args.verbose),
-            domain_target,
-        ),
         ("osint/greynoise", lambda: _run_greynoise(ip_target, keys, args.verbose), ip_target),
         ("cti/urlhaus", lambda: _run_urlhaus(domain_target, args.verbose), domain_target),
         ("cti/threatfox", lambda: _run_threatfox(ip_target, args.verbose), ip_target),

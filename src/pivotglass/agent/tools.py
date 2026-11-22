@@ -7,7 +7,7 @@ execution, result formatting, and workspace storage.
 @title Thin tool wrappers delegating to existing PursuitModule infrastructure
 @status accepted
 @rationale The existing modules (whois, dns, abuseipdb, shodan, hibp, otx, urlscan,
-           virustotal, censys_host, passivetotal) are already tested and working.
+           virustotal, censys_host) are already tested and working.
            Tool wrappers are thin adapters that: (1) accept simple string args
            from the LLM, (2) initialize the module with config, (3) call hunt(),
            (4) format + store results. No business logic duplication.
@@ -40,8 +40,7 @@ execution, result formatting, and workspace storage.
 @title Per-module credential builders for multi-key auth modules
 @status accepted
 @rationale Most modules use a single api_key, but Censys requires censys_id +
-           censys_secret and PassiveTotal requires passivetotal_user +
-           passivetotal_key. _CREDENTIAL_BUILDERS maps module paths to callables
+           censys_secret. _CREDENTIAL_BUILDERS maps module paths to callables
            that construct the full init_config dict from ConfigManager. Modules
            not in the map fall back to the legacy {"api_key": ...} pattern.
            This keeps run_module() generic while correctly threading multi-key
@@ -171,6 +170,7 @@ from pivotglass.core.module_credentials import (
     resolve_module_credentials as _resolve_module_credentials,
 )
 from pivotglass.core.plugin_mgr import PluginManager
+from pivotglass.core.service_endpoints import endpoint_init_config
 from pivotglass.core.streak import StreakManager
 from pivotglass.core.workspace import WorkspaceManager
 from pivotglass.dossier.predictions import (
@@ -430,6 +430,8 @@ class ToolContext:
         # See _resolve_module_credentials() for the full precedence logic
         # (DEC-AGENT-SERVICE-NAME-MAP-001, DEC-AGENT-TOOLS-003).
         init_config = _resolve_module_credentials(module_path, self.config_mgr)
+        # Gateway/proxy base-URL override for this module's service (DEC-ENDPOINTS-001).
+        init_config = {**init_config, **endpoint_init_config(self.config_mgr, getattr(mod, "service_id", ""))}
         mod.initialize(init_config)
 
         # M-4: load persisted dossier state (replaces pre-hunt infer_dossier_state_full
@@ -951,6 +953,8 @@ class ToolContext:
             # Build credentials via the shared resolver — identical to run_module().
             # (DEC-AGENT-SERVICE-NAME-MAP-001, DEC-AGENT-TOOLS-003)
             init_config = _resolve_module_credentials(module_path, self.config_mgr)
+            # Gateway/proxy base-URL override for this module's service (DEC-ENDPOINTS-001).
+            init_config = {**init_config, **endpoint_init_config(self.config_mgr, getattr(mod, "service_id", ""))}
             mod.initialize(init_config)
             try:
                 return await mod.hunt(event.value, {})
@@ -1187,8 +1191,8 @@ def create_tools(ctx: ToolContext) -> list[dict]:
             },
         },
         # -----------------------------------------------------------------------
-        # Three new tools added in Issue #25 / ADR-010 parity slice:
-        # VirusTotal (#7), Censys (#8), PassiveTotal (#13)
+        # Tools added in Issue #25 / ADR-010 parity slice:
+        # VirusTotal (#7), Censys (#8)
         # -----------------------------------------------------------------------
         {
             "type": "function",
@@ -1241,32 +1245,6 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                         },
                     },
                     "required": ["ip_address"],
-                },
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "passivetotal_lookup",
-                "description": (
-                    "Query PassiveTotal/RiskIQ for passive DNS records and WHOIS history "
-                    "on a domain or IP. Returns first/last seen, total DNS record count, "
-                    "related resolved IPs/domains, and optional WHOIS registrant details."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "target": {
-                            "type": "string",
-                            "description": "Domain or IP address to query",
-                        },
-                        "include_whois": {
-                            "type": "boolean",
-                            "description": "Include WHOIS history (default: true)",
-                            "default": True,
-                        },
-                    },
-                    "required": ["target"],
                 },
             },
         },
@@ -1388,6 +1366,136 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                         },
                     },
                     "required": ["domain"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "mnemonic_pdns_lookup",
+                "description": (
+                    "Passive DNS history from Mnemonic's public tier (no API key; 10 requests "
+                    "per minute). For a domain, returns the addresses and names it resolved to; for an IP, "
+                    "the names that resolved to it; each record has first/last seen and observation count. "
+                    "Resolution history is infrastructure context, not evidence of malice."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": "Domain name or IP address",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum records to return (1-1000, default 100)",
+                        },
+                    },
+                    "required": ["target"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "internetdb_lookup",
+                "description": (
+                    "Shodan InternetDB summary for an IP (no API key): open ports, hostnames, "
+                    "CPEs, Shodan tags, and CVEs Shodan associates with the reported software versions "
+                    "(unconfirmed). Returns nothing when Shodan holds no data for the address."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "ip_address": {
+                            "type": "string",
+                            "description": "IPv4 or IPv6 address",
+                        },
+                    },
+                    "required": ["ip_address"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "sans_isc_lookup",
+                "description": (
+                    "SANS Internet Storm Center (DShield) record for an IPv4 address (no API key): "
+                    "sensor report and target counts, first/last reported, AS number, name, country, network, "
+                    "and the ISC feeds the address appears in. Feed membership is context, not a verdict."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "ip_address": {
+                            "type": "string",
+                            "description": "IPv4 address",
+                        },
+                    },
+                    "required": ["ip_address"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "rdap_lookup",
+                "description": (
+                    "Registration data via RDAP (no API key). For a domain: registrar, registration, "
+                    "expiry, and last-changed dates, status codes, nameservers. For an IP: network name, handle, "
+                    "range, country, and registrant/abuse organisation. Personal contact data is never recorded."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": "Domain name or IP address",
+                        },
+                    },
+                    "required": ["target"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "wayback_lookup",
+                "description": (
+                    "Wayback Machine capture history for a domain or URL (no API key): first and "
+                    "last capture times with archive links and the number of months with captures."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": "Domain name or URL",
+                        },
+                    },
+                    "required": ["target"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "hashlookup_lookup",
+                "description": (
+                    "Check a file hash against CIRCL hashlookup's known-software sets (NSRL, "
+                    "Linux distribution packages, and others; no API key). A match means the file is known "
+                    "software: context, not a verdict. Returns nothing when the hash is in no set."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "hash_value": {
+                            "type": "string",
+                            "description": "MD5, SHA-1, or SHA-256 hash",
+                        },
+                    },
+                    "required": ["hash_value"],
                 },
             },
         },
@@ -1945,7 +2053,7 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
         "osint/urlscan_search",
         lambda a: (a["target"], {}),
     ),
-    # New entries — VT/Censys/PassiveTotal parity with cmd2 console
+    # New entries — VT/Censys parity with cmd2 console
     "virustotal_lookup": (
         "cti/virustotal",
         lambda a: (a["target"], {"TARGET_TYPE": a.get("target_type", "")}),
@@ -1953,13 +2061,6 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
     "censys_host_lookup": (
         "osint/censys_host",
         lambda a: (a["ip_address"], {}),
-    ),
-    "passivetotal_lookup": (
-        "cti/passivetotal",
-        lambda a: (
-            a["target"],
-            {"INCLUDE_WHOIS": str(a.get("include_whois", True)).lower()},
-        ),
     ),
     "greynoise_lookup": (
         "osint/greynoise",
@@ -1981,6 +2082,31 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
     "crtsh_lookup": (
         "osint/crtsh",
         lambda a: (a["domain"], {}),
+    ),
+    # Keyless context sources (#46, #45)
+    "mnemonic_pdns_lookup": (
+        "osint/mnemonic_pdns",
+        lambda a: (a["target"], {"LIMIT": str(a.get("limit", 100))}),
+    ),
+    "internetdb_lookup": (
+        "osint/shodan_internetdb",
+        lambda a: (a["ip_address"], {}),
+    ),
+    "sans_isc_lookup": (
+        "osint/sans_isc",
+        lambda a: (a["ip_address"], {}),
+    ),
+    "rdap_lookup": (
+        "osint/rdap",
+        lambda a: (a["target"], {}),
+    ),
+    "wayback_lookup": (
+        "osint/wayback",
+        lambda a: (a["target"], {}),
+    ),
+    "hashlookup_lookup": (
+        "cti/hashlookup",
+        lambda a: (a["hash_value"], {}),
     ),
 }
 

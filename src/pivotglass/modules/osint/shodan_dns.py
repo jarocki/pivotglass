@@ -25,6 +25,7 @@ class ShodanDNS(BaseModule):
     description = "Query Shodan DNS records and subdomains for a domain"
     author = "Pivotglass"
     module_type = "osint"
+    service_id = "shodan"  # base URL from core/service_endpoints (overridable)
     accepts = ("domain",)
 
     def __init__(self) -> None:
@@ -43,7 +44,7 @@ class ShodanDNS(BaseModule):
         if not key:
             raise AuthenticationError("Shodan API key is not configured.")
         history = str(options.get("HISTORY", "false")).lower() == "true"
-        url = f"https://api.shodan.io/dns/domain/{quote(target, safe='.') }"
+        url = f"{self.base_url}/dns/domain/{quote(target, safe='.') }"
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
                 url,

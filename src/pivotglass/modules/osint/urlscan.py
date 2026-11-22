@@ -105,7 +105,6 @@ from pivotglass.modules.base import (
 
 logger = logging.getLogger(__name__)
 
-_SUBMIT_URL = "https://urlscan.io/api/v1/scan/"
 _LIST_CAP = 15
 
 
@@ -139,6 +138,7 @@ class URLScan(BaseModule):
     description = "Submit and analyze URLs via URLScan.io"
     author = "Pivotglass"
     module_type = "osint"
+    service_id = "urlscan"  # base URL from core/service_endpoints (overridable)
     accepts = ("url", "domain")
 
     def __init__(self) -> None:
@@ -261,7 +261,7 @@ class URLScan(BaseModule):
             if tags:
                 payload["tags"] = tags
             submit_resp = await client.post(
-                _SUBMIT_URL,
+                f"{self.base_url}/api/v1/scan/",
                 json=payload,
                 headers=headers,
             )
@@ -289,7 +289,7 @@ class URLScan(BaseModule):
             except ValueError as exc:
                 raise ValueError("URLScan submission did not return a valid scan ID") from exc
             # Never forward the API key to a URL supplied in a response body.
-            result_url = f"https://urlscan.io/api/v1/result/{scan_uuid}/"
+            result_url = f"{self.base_url}/api/v1/result/{scan_uuid}/"
 
             logger.debug("URLScan submitted %s -> uuid=%s", target, scan_uuid)
 

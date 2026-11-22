@@ -98,7 +98,6 @@ from pivotglass.modules.base import (
 logger = logging.getLogger(__name__)
 
 # New Censys Platform API (as of 2026-05). See DEC-MODULE-CENSYS-005.
-_API_BASE = "https://api.platform.censys.io"
 _HOST_PATH = "/v3/global/asset/host/{ip}"
 
 # Legacy endpoint that now returns 302 with no Location header.
@@ -130,6 +129,7 @@ class CensysHost(BaseModule):
     description = "Query Censys for host information, services, and certificates"
     author = "Pivotglass"
     module_type = "osint"
+    service_id = "censys_pat"  # base URL from core/service_endpoints (overridable)
     accepts = ("ipv4", "ipv6")
 
     def __init__(self) -> None:
@@ -220,7 +220,7 @@ class CensysHost(BaseModule):
                 "or export PIVOTGLASS_CENSYS_PAT=<token>."
             )
 
-        url = f"{_API_BASE}{_HOST_PATH.format(ip=target)}"
+        url = f"{self.base_url}{_HOST_PATH.format(ip=target)}"
 
         org_id = (
             self._config.get("censys_org_id", "")

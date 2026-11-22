@@ -285,7 +285,28 @@ def project_evidence(
         "supporting_observations": matched.get("x_pivotglass_supporting_observations", []),
         "conflicting_observations": matched.get("x_pivotglass_conflicting_observations", []),
         "next_pivots": matched.get("x_pivotglass_next_pivots", []),
+        "location": _local_location(matched),
+        "known": _known(matched),
     }
+
+
+def _known(matched: dict[str, Any]) -> list[dict[str, Any]]:
+    """Curated-list and hashlookup recognition (DEC-KNOWN-GOOD-001), as context."""
+    from pivotglass.core.known_good import object_matches
+
+    return [match.to_dict() for match in object_matches(matched)]
+
+
+def _local_location(matched: dict[str, Any]) -> dict[str, Any] | None:
+    """Local DB-IP location for an IP (DEC-GEO-LOCAL-001); None for other types."""
+    if matched.get("type") not in {"ipv4-addr", "ipv6-addr"}:
+        return None
+    from pivotglass.core.geolocation import ATTRIBUTION, GeoDatabase, flag_emoji
+
+    record = GeoDatabase().lookup(str(matched.get("value", "")))
+    if record is None:
+        return None
+    return {**record.to_dict(), "flag": flag_emoji(record.country_code), "attribution": ATTRIBUTION}
 
 
 def list_evidence(objects: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:

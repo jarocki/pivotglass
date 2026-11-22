@@ -60,7 +60,6 @@ from pivotglass.modules.base import (
 
 logger = logging.getLogger(__name__)
 
-_API_BASE = "https://haveibeenpwned.com/api/v3/breachedaccount"
 _USER_AGENT = f"pivotglass/{__version__}"
 
 
@@ -92,6 +91,7 @@ class HIBP(BaseModule):
     description = "Check email addresses against HaveIBeenPwned breach database"
     author = "Pivotglass"
     module_type = "osint"
+    service_id = "hibp"  # base URL from core/service_endpoints (overridable)
     accepts = ("email",)
 
     def __init__(self) -> None:
@@ -163,7 +163,7 @@ class HIBP(BaseModule):
         if truncate:
             params["truncateResponse"] = "true"
 
-        url = f"{_API_BASE}/{target}"
+        url = f"{self.base_url}/breachedaccount/{target}"
 
         async with httpx.AsyncClient() as client:
             response = await client.get(

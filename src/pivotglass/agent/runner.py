@@ -68,6 +68,10 @@ try:
 except ImportError:
     HAS_LITELLM = False
 
+from pivotglass.agent.provider_setup import (  # noqa: E402
+    DEFAULT_LOCAL_MODEL,
+    provider_call_kwargs,
+)
 from pivotglass.agent.tools import ToolContext, create_tools, execute_tool  # noqa: E402
 from pivotglass.gamification.modes import CharacterMode  # noqa: E402
 from pivotglass.gamification.phrases import voice_prompt_fragment  # noqa: E402
@@ -175,12 +179,17 @@ _TOOL_SLUG_MAP: dict[str, str] = {
     "search_urlscan_history": "scan_url",
     "virustotal_lookup": "virustotal",
     "censys_host_lookup": "censys_host_lookup",
-    "passivetotal_lookup": "passivetotal_lookup",
     "greynoise_lookup": "greynoise_lookup",
     "urlhaus_lookup": "urlhaus_lookup",
     "threatfox_lookup": "threatfox",
     "malwarebazaar_lookup": "malwarebazaar_lookup",
     "crtsh_lookup": "crtsh_lookup",
+    "mnemonic_pdns_lookup": "mnemonic_pdns_lookup",
+    "internetdb_lookup": "internetdb_lookup",
+    "sans_isc_lookup": "sans_isc_lookup",
+    "rdap_lookup": "rdap_lookup",
+    "wayback_lookup": "wayback_lookup",
+    "hashlookup_lookup": "hashlookup_lookup",
     # workspace / meta tools — all use "default_tool" slug (no activity phrase)
     "get_workspace_summary": "default_tool",
     "search_workspace": "default_tool",
@@ -239,14 +248,14 @@ class AgentRunner:
 
     The runner supports multiple LLM backends via litellm. The default model
     is a local Ollama model, requiring no API key. Set model to any
-    litellm-supported string (e.g. "gpt-4o", "claude-3-5-sonnet-20241022",
-    "ollama/qwen2.5:8b").
+    litellm-supported string (e.g. "gpt-4o", "claude-sonnet-5-5",
+    "ollama/qwen3.5:9b").
 
     Model selection precedence (highest to lowest):
       1. Explicit ``model=`` argument passed to ``__init__``
       2. ``PIVOTGLASS_MODEL`` environment variable
       3. ``config_mgr.get_agent_model()`` — saved via interactive wizard
-      4. ``DEFAULT_MODEL`` class constant (``ollama/qwen2.5:8b``)
+      4. ``DEFAULT_MODEL`` class constant (``provider_setup.DEFAULT_LOCAL_MODEL``)
 
     Parameters
     ----------
@@ -263,7 +272,7 @@ class AgentRunner:
         chain and API keys are injected into litellm calls.
     """
 
-    DEFAULT_MODEL = "ollama/qwen2.5:8b"  # Local default via Ollama
+    DEFAULT_MODEL = DEFAULT_LOCAL_MODEL  # Local default via Ollama
 
     def __init__(
         self,
@@ -564,12 +573,8 @@ class AgentRunner:
             "tools": self.tools,
             "tool_choice": "auto",
         }
-        if self._config_mgr is not None:
-            provider_id = self._config_mgr.get_agent_provider()
-            if provider_id:
-                stored_key = self._config_mgr.get_provider_api_key(provider_id)
-                if stored_key:
-                    kwargs["api_key"] = stored_key
+        # Stored key and gateway base URL from the single provider authority.
+        kwargs.update(provider_call_kwargs(self._config_mgr))
         response = litellm.completion(**kwargs)
         return response.choices[0].message
 
@@ -627,33 +632,33 @@ class AgentRunner:
             Narration text on success, or None on LLM failure. Callers (narrate_celebration)
             handle None by returning None themselves, falling back to ASCII art.
         """
-        if not HAS_LITELLM:
-            return None
-
         try:
-            messages = [
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": prompt},
-            ]
-            kwargs: dict = {
-                "model": self.model,
-                "messages": messages,
-                "max_tokens": max_tokens,
-            }
-            # Thread API key through the same path as _call_llm (DEC-M7-CELEB-001).
-            if self._config_mgr is not None:
-                provider_id = self._config_mgr.get_agent_provider()
-                if provider_id:
-                    stored_key = self._config_mgr.get_provider_api_key(provider_id)
-                    if stored_key:
-                        kwargs["api_key"] = stored_key
-            response = litellm.completion(**kwargs)
-            msg = response.choices[0].message
-            if hasattr(msg, "content") and msg.content:
-                return msg.content
-            return None
+            return self.complete(self.system_prompt, prompt, max_tokens=max_tokens) or None
         except Exception:  # noqa: BLE001
             return None
+
+    def complete(self, system: str, prompt: str, *, max_tokens: int) -> str:
+        """Single-turn completion with an explicit system prompt; raises on failure.
+
+        No tools and no conversation mutation. Analytic callers (hypothesis
+        proposals) pass their own system prompt so persona voice never shapes
+        an inference, and they surface failures instead of swallowing them.
+        Key and gateway base URL come from the single provider authority.
+        """
+        if not HAS_LITELLM:
+            raise RuntimeError("litellm is not installed")
+        kwargs: dict = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+            "max_tokens": max_tokens,
+        }
+        kwargs.update(provider_call_kwargs(self._config_mgr))
+        response = litellm.completion(**kwargs)
+        message = response.choices[0].message
+        return str(getattr(message, "content", "") or "")
 
     def handle_input(self, text: str, status_bar: "_StatusHook | None" = None) -> str:
         """Route user input from the TUI through the priority chain.

@@ -18,7 +18,7 @@ import {
   filterIndicators, groupIndicators, groupMentions, indexTags, locateInSegments, occurrenceOrdinal,
   parseTagInput, type DocumentRelations, type FocusCandidate, type FocusIndicator, type IndicatorContext,
   type Tag, type TagDimension,
-  clipboardText, hexGroups,
+  canSetAside, clipboardText, hexGroups,
 } from "./focus-model";
 
 export type FocusRendering = { kind: "text" | "html" | "pdf"; anchoring: "exact" | "ordinal"; html: string | null; notes: string[] };
@@ -40,7 +40,7 @@ export type FocusSource = {
 type Hover = { key: string; x: number; y: number; pinned: boolean };
 type ViewMode = "rendered" | "text";
 
-const EMPTY_CONTEXT: IndicatorContext = { entity: null, relationships: [], observed_by: [], documents: [], tags: [], investigated_at: null };
+const EMPTY_CONTEXT: IndicatorContext = { entity: null, relationships: [], observed_by: [], documents: [], tags: [], investigated_at: null, known: [] };
 
 export function IndicatorFocus({
   source, workspace, admittedKeys, busy, status, onClose, onAdmit, onStore, onInvestigate,
@@ -118,7 +118,7 @@ export function IndicatorFocus({
 
   const targets = useCallback(() => selected.size ? [...selected] : focusKey ? [focusKey] : [], [selected, focusKey]);
 
-  const applyTags = useCallback(async (changes: Array<{ key: string; dimension: string; value: string; action: "add" | "remove" }>) => {
+  const applyTags = useCallback(async (changes: Array<{ key: string; dimension: string; value: string; action: "add" | "remove"; note?: string }>) => {
     if (!changes.length) return;
     setTagError("");
     try {
@@ -126,7 +126,7 @@ export function IndicatorFocus({
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ expected_workspace: workspace, operator: "local analyst", changes: changes.map((change) => {
           const item = byKey.get(change.key)!;
-          return { entity_type: item.entityType, normalized_value: item.value, dimension: change.dimension, value: change.value, action: change.action };
+          return { entity_type: item.entityType, normalized_value: item.value, dimension: change.dimension, value: change.value, action: change.action, note: change.note };
         }) }),
       });
       const result = await response.json() as { tags?: Tag[]; error?: string };
@@ -141,6 +141,13 @@ export function IndicatorFocus({
       setTagError(reason instanceof Error ? reason.message : "Tags were not saved.");
     }
   }, [workspace, byKey]);
+
+  const setAsideKeys = useMemo(() => indicators.filter((item) => canSetAside(context[item.key])).map((item) => item.key), [indicators, context]);
+  /** Tag known-good and scanner indicators role:benign, noting which list matched. */
+  const setAside = useCallback((keys: string[]) => applyTags(keys.map((key) => {
+    const match = context[key]?.known?.[0];
+    return { key, dimension: "role", value: "benign", action: "add" as const, note: match ? `Set aside: ${match.label} (${match.source})` : undefined };
+  })), [applyTags, context]);
 
   const admit = useCallback(async () => {
     const keys = targets().flatMap((key) => byKey.get(key)?.mentions.map((item) => item.selection_key) ?? []);
@@ -225,6 +232,7 @@ export function IndicatorFocus({
         <button className={view === "text" ? "selected" : ""} onClick={() => setView("text")}>Text</button>
       </div>}
       {!source.stored && onStore && <button disabled={busy} onClick={() => void onStore()}>Store source</button>}
+      {setAsideKeys.length > 0 && <button title="Tag public resolvers, revocation servers, empty-file hashes, research scanners and similar list matches as Benign / noise. Shared cloud and CDN space is not included." onClick={() => void setAside(setAsideKeys)}>Set aside {setAsideKeys.length} known</button>}
       <button className="primary" disabled={busy || (!selectionCount && !focusKey)} onClick={() => void admit()}>
         {busy ? "Saving…" : selectionCount ? `Admit ${selectionCount}` : "Admit current"}
       </button>
@@ -302,6 +310,7 @@ function IndicatorRow({ item, focused, selected, admitted, context, relations, o
         {item.mentions.length > 1 && <i>×{item.mentions.length}</i>}
         {admitted && <i className="admitted" title="Admitted to this workspace">✓ in case</i>}
         {!admitted && known > 0 && <i className="known" title="Already a workspace entity">known</i>}
+        {context?.known?.[0] && <i className={`listed listed-${context.known[0].category}`} title={`${context.known[0].category_label}: ${context.known.map((match) => `${match.label} (${match.source})`).join("; ")}. Context, not a verdict.`}>{context.known[0].label}</i>}
         {elsewhere > 0 && <i className="elsewhere" title="Also mentioned in other stored sources">{elsewhere} other src</i>}
         {linked > 0 && <i className="linked" title="Relationships and structural links">{linked} links</i>}
       </span>
@@ -589,12 +598,13 @@ function HoverCard({ hover, item, context, relations, byKey, dimensions, onFocus
     <li key={`${peer.key}${peer.relation ?? ""}`}><button onClick={() => onFocus(peer.key)}>{peer.relation && <em>{peer.relation}</em>}<code>{label(peer.key)}</code></button></li>);
   const ctx = context;
   const dimensionLabel = (name: string) => dimensions.find((item) => item.name === name)?.label ?? name;
-  const empty = !ctx?.entity && !ctx?.relationships.length && !ctx?.observed_by.length && !ctx?.documents.length && !ctx?.tags.length
+  const empty = !ctx?.known?.length && !ctx?.entity && !ctx?.relationships.length && !ctx?.observed_by.length && !ctx?.documents.length && !ctx?.tags.length
     && !relations?.structural.length && !relations?.same_line.length && !relations?.same_paragraph.length;
   return <div ref={ref} className={`hover-card ${hover.pinned ? "pinned" : ""}`} role="tooltip" style={position}>
     <header><code>{item.value}</code><span>{item.entityType}{item.mentions.length > 1 ? ` · ${item.mentions.length} mentions here (n/p)` : ""}</span>
       {hover.pinned && <button aria-label="Close details" onClick={onClose}>✕</button>}</header>
     {ctx === undefined && <p className="dim">Loading what the workspace knows…</p>}
+    {ctx?.known?.length ? <section className="known-section"><h4>Known <small>list match, not a verdict</small></h4><ul>{ctx.known.map((match) => <li key={match.list_id + match.category}><em className={`listed listed-${match.category}`}>{match.category_label}</em><span>{match.label}</span><small>{match.source}</small></li>)}</ul></section> : null}
     {ctx?.tags.length ? <section><h4>Analyst tags</h4><p>{ctx.tags.map((tag) => <span key={`${tag.dimension}${tag.value}`} className={`tag tag-${tag.dimension}`} title={`${dimensionLabel(tag.dimension)} · ${tag.created_by ?? ""}${tag.note ? ` · ${tag.note}` : ""}`}>{tag.value}</span>)}</p></section> : null}
     {ctx && <section><h4>Workspace</h4>
       <p>{ctx.entity ? "Entity in this case" : "Not in this case yet"}{ctx.investigated_at ? ` · investigated ${new Date(ctx.investigated_at).toLocaleString()}` : ""}</p>

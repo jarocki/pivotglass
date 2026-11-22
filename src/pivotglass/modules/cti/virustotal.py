@@ -65,6 +65,7 @@ class VirusTotal(BaseModule):
     description: str = "Query VirusTotal v3 for file, URL, IP, and domain analysis"
     author: str = "Pivotglass"
     module_type: str = "cti"
+    service_id = "virustotal"  # base URL from core/service_endpoints (overridable)
     accepts = ("ipv4", "ipv6", "domain", "url", "md5", "sha1", "sha256")
 
     def __init__(self) -> None:
@@ -136,7 +137,7 @@ class VirusTotal(BaseModule):
 
     def _build_url(self, target: str, target_type: str) -> str:
         """Build VT v3 API URL for the target."""
-        base = "https://www.virustotal.com/api/v3"
+        base = self.base_url
         if target_type == "ip":
             return f"{base}/ip_addresses/{target}"
         if target_type == "domain":

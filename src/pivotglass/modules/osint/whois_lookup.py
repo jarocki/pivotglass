@@ -9,7 +9,7 @@
            never fall back to an operating-system resolver: direct DNS queries from the
            operator host are forbidden. DNS and hosting metadata must come
            from explicit intelligence services such as DomainTools, DNSDB,
-           URLScan, VirusTotal, PassiveTotal, or Censys.
+           URLScan, VirusTotal, or Censys.
            Full python-whois or ipwhois integration can replace this in a
            future issue once the dependency is approved.
 

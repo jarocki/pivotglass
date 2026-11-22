@@ -1,6 +1,6 @@
 [project]
 name = "pivotglass"
-version = "1.3.0"
+version = "1.4.0"
 requires-python = ">=3.12"
 description = "Gamified framework for hunting, pivoting, and discovery of adversary infrastructure, indicators, and TTPs"
 readme = "README.md"
@@ -35,6 +35,7 @@ dependencies = [
     "pyyaml>=6.0",
     "pypdf>=6.21.3,<7",
     "markdown-it-py>=4.0",
+    "maxminddb>=2.6",
 ]
 
 [project.urls]
@@ -54,12 +55,17 @@ otx = "pivotglass.modules.cti.otx:AlienVaultOTX"
 shodan_ip = "pivotglass.modules.osint.shodan_ip:ShodanIP"
 censys_host = "pivotglass.modules.osint.censys_host:CensysHost"
 virustotal = "pivotglass.modules.cti.virustotal:VirusTotal"
-passivetotal = "pivotglass.modules.cti.passivetotal:PassiveTotal"
 greynoise = "pivotglass.modules.osint.greynoise:GreyNoise"
 urlhaus = "pivotglass.modules.cti.urlhaus:URLHaus"
 threatfox = "pivotglass.modules.cti.threatfox:ThreatFox"
 malwarebazaar = "pivotglass.modules.cti.malwarebazaar:MalwareBazaar"
 crtsh = "pivotglass.modules.osint.crtsh:CrtSh"
+mnemonic_pdns = "pivotglass.modules.osint.mnemonic_pdns:MnemonicPassiveDNS"
+shodan_internetdb = "pivotglass.modules.osint.shodan_internetdb:ShodanInternetDB"
+sans_isc = "pivotglass.modules.osint.sans_isc:SansIsc"
+rdap = "pivotglass.modules.osint.rdap:Rdap"
+wayback = "pivotglass.modules.osint.wayback:Wayback"
+hashlookup = "pivotglass.modules.cti.hashlookup:HashLookup"
 
 [build-system]
 requires = ["hatchling"]
@@ -93,3 +99,9 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I"]
 ignore = ["E501"]
+
+[tool.uv]
+# Supply-chain policy: resolve only package versions published at least two weeks
+# before the last deliberate dependency review. Move this date forward on purpose
+# when reviewing upgrades (see docs/WEB_SUPPLY_CHAIN.md for the npm equivalent).
+exclude-newer = "2026-11-07T00:00:00Z"

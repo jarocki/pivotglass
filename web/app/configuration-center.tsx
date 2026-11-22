@@ -20,6 +20,10 @@ type ProviderState = {
   needs_api_key: boolean;
   credential_source: CredentialSource;
   endpoint: string;
+  default_base_url: string;
+  base_url_override?: string | null;
+  requires_base_url?: boolean;
+  note?: string;
 };
 type ServiceState = {
   id: string;
@@ -29,11 +33,21 @@ type ServiceState = {
   credential_fields: Array<{ key: string; label: string; credential_source: CredentialSource; required: boolean }>;
   docs_url: string;
   test_endpoint: string;
+  default_base_url: string;
+  base_url_override?: string | null;
+};
+type GeolocationState = {
+  present: boolean;
+  edition?: string | null;
+  downloaded_at?: string | null;
+  directory: string;
+  attribution: string;
 };
 type ConfigurationState = {
   model: ModelState;
   providers: ProviderState[];
   services: ServiceState[];
+  geolocation?: GeolocationState;
 };
 type ModelProfile = {
   model_id: string;
@@ -57,6 +71,50 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error ?? `Request failed (${response.status})`);
   return payload as T;
+}
+
+/**
+ * API base URL for one provider or service. The registry default is shown as the
+ * placeholder; saving stores only an override (gateway or proxy), and Reset clears it.
+ */
+function BaseUrlField({ id, label, defaultUrl, override, required, busy, onSave }: {
+  id: string;
+  label: string;
+  defaultUrl: string;
+  override?: string | null;
+  required?: boolean;
+  busy: boolean;
+  onSave: (value: string | null) => Promise<boolean>;
+}) {
+  // The field shows the effective URL as real text: the override, else the default.
+  const effective = override ?? defaultUrl;
+  const [draft, setDraft] = useState(effective);
+  useEffect(() => { setDraft(effective); }, [effective]);
+  const normalized = draft.trim().replace(/\/+$/, "");
+  const changed = normalized !== effective;
+  // Saving the default (or nothing) clears the override instead of storing a copy.
+  const save = () => onSave(!normalized || normalized === defaultUrl ? null : normalized);
+  const hostOf = (value: string) => { try { return new URL(value).host; } catch { return ""; } };
+  const newHost = changed ? hostOf(normalized) : "";
+  const redirected = Boolean(newHost) && newHost !== hostOf(defaultUrl);
+  return <div className="base-url-field">
+    <label htmlFor={`base-url-${id}`}>{label}{!override && defaultUrl && <span className="credential-presence">Default</span>}{override && <span className="credential-presence">Gateway override</span>}</label>
+    <div>
+      <input
+        id={`base-url-${id}`}
+        type="url"
+        inputMode="url"
+        spellCheck={false}
+        value={draft}
+        placeholder={required ? "Required: https://…" : "https://…"}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => { if (event.key === "Enter" && changed) void save(); }}
+      />
+      {changed && <button disabled={busy} onClick={() => void save()}>Save</button>}
+      {override && !changed && <button disabled={busy} onClick={() => void onSave(null)}>{defaultUrl ? "Use default" : "Clear"}</button>}
+    </div>
+    {redirected && <small className="base-url-warning" role="note">Requests — and any saved key for this service — will go to <b>{newHost}</b>. Save only a gateway you control or trust.</small>}
+  </div>;
 }
 
 export function ConfigurationCenter({ onClose }: { onClose: () => void }) {
@@ -185,15 +243,25 @@ export function ConfigurationCenter({ onClose }: { onClose: () => void }) {
       <article className="configuration-section provider-section">
         <header><div><h3>Model provider</h3><p>Live checks happen only when you request them.</p></div></header>
         <label>Platform<select value={providerId} onChange={(event) => { setProviderId(event.target.value); setModels([]); setHealth(null); }}>{configuration.providers.map((item) => <option key={item.id} value={item.id}>{item.display_name}</option>)}</select></label>
-        {provider?.needs_api_key && <label>New credential<input type="password" autoComplete="new-password" value={providerSecret} onChange={(event) => setProviderSecret(event.target.value)} placeholder={provider.credential_source === "missing" ? "Required" : "Leave blank to keep current"} /></label>}
+        {provider && provider.id !== "ollama" && <label>{provider.needs_api_key ? "New credential" : "Gateway key (optional)"}<input type="password" autoComplete="new-password" value={providerSecret} onChange={(event) => setProviderSecret(event.target.value)} placeholder={provider.needs_api_key && provider.credential_source === "missing" ? "Required" : "Leave blank to keep current"} /></label>}
         <p className="credential-note">Credential source: <b>{provider?.credential_source}</b>{provider?.credential_source === "environment" && " · environment-owned values are read-only"}</p>
         <div className="configuration-actions">
           <button disabled={Boolean(busy)} onClick={() => check("provider", providerId)}>{busy === `check-${providerId}` ? "CHECKING…" : "Check access"}</button>
-          {provider?.needs_api_key && <button disabled={!providerSecret || Boolean(busy)} onClick={async () => { if (await update({ action: "provider-credential", id: providerId, secret: providerSecret, verify: true })) setProviderSecret(""); }}>Save + test</button>}
+          {provider && provider.id !== "ollama" && <button disabled={!providerSecret || Boolean(busy)} onClick={async () => { if (await update({ action: "provider-credential", id: providerId, secret: providerSecret, verify: true })) setProviderSecret(""); }}>Save + test</button>}
           <button disabled={Boolean(busy)} onClick={loadModels}>{busy === "models" ? "LOADING…" : "View available models"}</button>
           {provider?.credential_source === "config" && <button className="danger-subtle" disabled={Boolean(busy)} onClick={() => update({ action: "remove-provider-credential", id: providerId })}>Remove stored key</button>}
         </div>
-        <small>Endpoint: {provider?.endpoint}</small>
+        {provider && <BaseUrlField
+          id={provider.id}
+          label="API base URL"
+          defaultUrl={provider.default_base_url}
+          override={provider.base_url_override}
+          required={provider.requires_base_url}
+          busy={Boolean(busy)}
+          onSave={(value) => update({ action: "endpoint-override", id: provider.id, base_url: value })}
+        />}
+        {provider?.note && <p className="credential-note">{provider.note}</p>}
+        <small>Models list: {provider?.endpoint}</small>
       </article>
     </div>
 
@@ -211,18 +279,35 @@ export function ConfigurationCenter({ onClose }: { onClose: () => void }) {
       </article>)}</div>
     </section>}
 
+    {configuration.geolocation && <section className="configuration-section geolocation-section" aria-label="Geolocation data">
+      <header><div><h3>Geolocation data</h3><p>Every public IP is located from a local database. Lookups never leave this machine.</p></div><span className={`health-state ${configuration.geolocation.present ? "ready" : "disabled"}`}>{configuration.geolocation.present ? `DB-IP Lite ${configuration.geolocation.edition}` : "Not downloaded"}</span></header>
+      <div className="configuration-actions">
+        <button disabled={Boolean(busy)} onClick={() => update({ action: "geo-update" })}>{busy === "geo-update" ? "Downloading about 65 MB…" : configuration.geolocation.present ? "Check for update" : "Download (about 65 MB)"}</button>
+      </div>
+      <small>{configuration.geolocation.attribution}. Stored in {configuration.geolocation.directory}. Location describes infrastructure, not who operates it.</small>
+    </section>}
+
     <section className="service-catalog" aria-label="Intelligence APIs">
       <header><h3>Intelligence APIs</h3><span>Save a credential, test access, and enable each service separately</span></header>
       <div>{configuration.services.map((service) => {
         const values = serviceSecrets[service.id] ?? service.credential_fields.map(() => "");
         return <article key={service.id}>
-          <header><div><b>{service.display_name}</b><small>{service.test_endpoint}</small></div><button onClick={() => update({ action: "service-enabled", id: service.id, enabled: !service.enabled })}>{service.enabled ? "Enabled" : "Disabled"}</button></header>
+          <header><div><b>{service.display_name}</b>{service.credential_fields.length === 0 && <small> · no key needed</small>}</div><button onClick={() => update({ action: "service-enabled", id: service.id, enabled: !service.enabled })}>{service.enabled ? "Enabled" : "Disabled"}</button></header>
+          <BaseUrlField
+            id={service.id}
+            label="API base URL"
+            defaultUrl={service.default_base_url}
+            override={service.base_url_override}
+            busy={Boolean(busy)}
+            onSave={(value) => update({ action: "endpoint-override", id: service.id, base_url: value })}
+          />
+          <small className="service-test-endpoint">Test: {service.test_endpoint}</small>
           <div className="service-credential-fields">{service.credential_fields.map((field, index) => <label key={field.key}>{field.label}<span className="credential-presence">{field.credential_source === "config" ? "SAVED IN PIVOTGLASS · ••••••••" : field.credential_source === "environment" ? "SET IN ENVIRONMENT · ••••••••" : "No value saved"}</span><input type={field.key === "censys_org_id" ? "text" : "password"} autoComplete="new-password" value={values[index] ?? ""} onChange={(event) => setServiceSecrets((current) => ({ ...current, [service.id]: values.map((value, valueIndex) => valueIndex === index ? event.target.value : value) }))} placeholder={field.credential_source === "missing" ? field.required ? "Enter key" : "Optional" : "Enter a replacement value"} /></label>)}</div>
           <div className="configuration-actions">
             <button disabled={Boolean(busy)} onClick={() => check("service", service.id, values)}>Test</button>
-            <button disabled={!values.some(Boolean) || service.credential_fields.some((field, index) => field.required && !values[index] && field.credential_source === "missing") || Boolean(busy)} onClick={async () => { if (await update({ action: "service-credentials", id: service.id, values, verify: true })) setServiceSecrets((current) => ({ ...current, [service.id]: values.map(() => "") })); }}>Save, then test</button>
+            {service.credential_fields.length > 0 && <button disabled={!values.some(Boolean) || service.credential_fields.some((field, index) => field.required && !values[index] && field.credential_source === "missing") || Boolean(busy)} onClick={async () => { if (await update({ action: "service-credentials", id: service.id, values, verify: true })) setServiceSecrets((current) => ({ ...current, [service.id]: values.map(() => "") })); }}>Save, then test</button>}
             {service.credential_fields.some((field) => field.credential_source === "config") && <button className="danger-subtle" onClick={() => update({ action: "remove-service-credentials", id: service.id })}>Remove stored</button>}
-            <a href={service.docs_url} target="_blank" rel="noreferrer">Get credential</a>
+            <a href={service.docs_url} target="_blank" rel="noreferrer">{service.credential_fields.length > 0 ? "Get credential" : "API docs"}</a>
           </div>
           {serviceOutcome[service.id] && <div className={`configuration-health ${serviceOutcome[service.id].health.state}`} role="status"><b>{serviceOutcome[service.id].saved === true ? "SAVED · " : ""}ACCESS {serviceOutcome[service.id].health.state.toUpperCase()}</b><span>{serviceOutcome[service.id].health.summary}</span></div>}
         </article>;

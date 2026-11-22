@@ -40,8 +40,8 @@ def test_parse_focus_with_arg():
 
 
 def test_parse_add_with_arg():
-    cmd = parse_yield("add passivetotal_lookup")
-    assert cmd == YieldCommand("add", "passivetotal_lookup")
+    cmd = parse_yield("add crtsh_lookup")
+    assert cmd == YieldCommand("add", "crtsh_lookup")
 
 
 def test_parse_skip_with_arg():
@@ -151,7 +151,7 @@ def test_skip_removes_tool_from_queue():
     run.run("test.example")
 
     assert "check_breaches" not in executed
-    assert len(executed) == 2  # whois_lookup and crtsh_lookup ran
+    assert len(executed) == len(battery.tools) - 1  # every tool except the skipped one ran
 
 
 # ---------------------------------------------------------------------------
@@ -179,8 +179,8 @@ def test_add_appends_tool_to_queue():
     run.run("test.example")
 
     assert "dns_resolve" in executed
-    # 3 original + 1 added = 4 total executions
-    assert len(executed) == 4
+    # every battery tool plus the one added
+    assert len(executed) == len(battery.tools) + 1
 
 
 # ---------------------------------------------------------------------------

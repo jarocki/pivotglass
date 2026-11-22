@@ -1622,10 +1622,15 @@ _KNOWN_ACTIVITY_SLUGS: frozenset[str] = frozenset(
         "check_breaches",
         "scan_url",
         "censys_host_lookup",
-        "passivetotal_lookup",
         "greynoise_lookup",
         "urlhaus_lookup",
         "malwarebazaar_lookup",
+        "mnemonic_pdns_lookup",
+        "internetdb_lookup",
+        "sans_isc_lookup",
+        "rdap_lookup",
+        "wayback_lookup",
+        "hashlookup_lookup",
     }
 )
 

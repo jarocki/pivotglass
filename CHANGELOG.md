@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-21
+
+### Added
+
+- Every AI provider and intelligence service shows its API base URL in Configuration and accepts an override for an API gateway or proxy. The override applies to the credential test, model list, enrichment lookups, and model calls (#42).
+- Provider entries for Azure OpenAI / AI Foundry, any OpenAI-compatible endpoint, and a local OpenAI-compatible server (LM Studio, MLX, llama.cpp) (#43).
+- Local IP geolocation: every public IP shows a flag, country, city, and ASN in the coverage matrix, graph, and evidence drawer, from DB-IP Lite databases downloaded on request in Configuration. No case IP leaves the machine to be located (#44).
+- Known-good recognition: public resolvers, revocation servers, empty-file and other false-positive hashes, research scanners, and shared cloud, CDN, shortener and dynamic-DNS infrastructure are labelled offline from a bundled MISP warninglist subset (CC0), with the list and version, in focus mode, the coverage matrix, the graph, and the evidence drawer. Known-good and scanner matches can be set aside (tagged *Benign / noise*) one at a time or for a whole source; shared infrastructure and sinkholes are context only (#45).
+- AI-proposed hypotheses (the Dossier's puzzle pieces): **Propose with AI** in the Workbench asks the configured model for up to four competing hypotheses, each citing the observations that support or contradict it and naming the missing pieces to check next. Citations are validated against the brief the model received; anything uncited or fabricated is dropped. Proposals are inference until the analyst retains one, which turns its citations into evidence links. Missing pieces become collection requirements awaiting review. The Dossier shows retained hypotheses and pending proposals (#47).
+- Keyless context sources, each a module with its own base URL, Enabled toggle, and reachability test in Configuration (#46): Mnemonic passive DNS (`osint/mnemonic_pdns`, resolutions with first/last seen), Shodan InternetDB (`osint/shodan_internetdb`, ports, hostnames, CPEs, tags, CVEs), SANS ISC (`osint/sans_isc`, DShield reports and feed membership), RDAP (`osint/rdap`, registration dates, registrar, nameservers, IP network ownership; no personal contact data), and the Wayback Machine (`osint/wayback`, first/last capture and capture months). "No data" answers (InternetDB and RDAP 404, an empty passive DNS or archive result) record nothing instead of failing; quota answers (HTTP 429, Mnemonic's 402) are reported as rate limits.
+- CIRCL hashlookup (`cti/hashlookup`): a known file (NSRL and other known-software sets) is context, not a verdict. A hash in no set records nothing (#45).
+
+### Changed
+
+- The built-in local model is `ollama/qwen3.5:9b`; `qwen2.5:8b` was never a published tag. Documentation examples no longer name retired models (#43).
+- LiteLLM 1.103.5 (from 1.84.0) so current Claude, OpenAI, and Gemini models carry capability and cost metadata. It adds boto3 as a dependency. `uv.lock` records a 2026-11-07 resolution cut-off so new packages are at least two weeks old.
+- Attention: acknowledged records leave the list (a toggle shows them), **Acknowledge all** clears the queue, and each record offers **Open** for its indicator and for each indicator it found, named by value.
+- Coverage-matrix row hover shows only the location (with source and date) and the dimensions that still lack evidence.
+
+### Fixed
+
+- File evidence that carries several hashes (MalwareBazaar, CIRCL hashlookup) could not be stored: the STIX conversion passed `hashes` twice and raised `TypeError`. The supplied hashes are now merged with the queried one.
+- OpenAI-style custom endpoints could fall back to `OPENAI_API_KEY` and send it to a gateway the analyst named; each now has its own key with no vendor fallback.
+- **Acknowledge** in Attention did nothing: event ids contain `:` and arrived percent-encoded, so the server never matched them, and the failure was silent.
+- Dragging a relationship-graph node after panning or zooming made it jump away from the pointer.
+- The GreyNoise credential test returned "Unexpected status 404". It queried 8.8.8.8 on the Community API, which returns 404 for any IP not seen scanning; it now uses `/ping`, which checks the key.
+
+### Removed
+
+- PassiveTotal / RiskIQ integration: the service no longer responds.
+
 ## [1.3.0] - 2026-11-19
 
 ### Added

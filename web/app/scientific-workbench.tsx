@@ -150,7 +150,12 @@ export type AnalyticSnapshot = {
   method_runs?: AnalyticMethodRun[];
   information_requirements?: InformationRequirementState;
   rigor?: AnalyticRigorState;
+  /** Labels for observations cited by model proposals. */
+  observation_labels?: Record<string, string>;
 };
+
+/** A model proposal's basis, kept on the hypothesis lifecycle item (DEC-HYPOTHESIS-PROPOSALS-001). */
+type ModelProposal = { model: string; generated_at: string; supports: string[]; contradicts: string[]; missing: string[]; rationale: string };
 
 type CaptureKind =
   | "question"
@@ -189,11 +194,14 @@ export function ScientificWorkbench({
   onCommand,
   workspace,
   guidanceLevel,
+  onProposeHypotheses,
 }: {
   workspace: string;
   guidanceLevel: GuidanceLevel;
   analysis: AnalyticSnapshot;
   onCommand: (command: string) => Promise<string>;
+  /** Ask the configured model for evidence-cited hypotheses; resolves to a notice. */
+  onProposeHypotheses?: () => Promise<string>;
 }) {
   const [kind, setKind] = useState<CaptureKind>("question");
   const [statement, setStatement] = useState("");
@@ -266,6 +274,25 @@ export function ScientificWorkbench({
       setBusy(false);
     }
   }
+
+  async function propose() {
+    if (!onProposeHypotheses) return;
+    setBusy(true);
+    setNotice("Asking the configured model for hypotheses…");
+    try {
+      setNotice(await onProposeHypotheses());
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+  const proposalFor = (hypothesisId: string): ModelProposal | null => {
+    const item = analysis.lifecycle_items.find((entry) => entry.record_kind === "hypothesis" && entry.record_id === hypothesisId);
+    const basis = item?.criteria?.model_proposal;
+    return basis && typeof basis === "object" ? basis as ModelProposal : null;
+  };
+  const observationLabel = (id: string) => analysis.observation_labels?.[id] ?? id;
 
   async function capture(event: FormEvent) {
     event.preventDefault();
@@ -390,18 +417,33 @@ export function ScientificWorkbench({
 
         <section>
           <header><b>Competing hypotheses</b><span>{analysis.hypotheses.length}</span></header>
+            {onProposeHypotheses && <button type="button" className="propose-hypotheses" disabled={busy || !analysis.questions.length}
+              title={analysis.questions.length ? "The configured AI reads the collected evidence and proposes hypotheses that cite it. Proposals are inference until you retain them." : "Record the investigation question first."}
+              onClick={() => void propose()}>Propose with AI</button>}
           {analysis.hypotheses.length === 0 && <p className="empty-copy">No competing explanations recorded.</p>}
-          {analysis.hypotheses.map((item) => (
-            <article key={item.id}>
-              <span>{item.status.toUpperCase()} · {item.author_kind.toUpperCase()}</span>
+          {analysis.hypotheses.map((item) => {
+            const proposal = proposalFor(item.id);
+            return (
+            <article key={item.id} className={proposal ? "model-proposal" : undefined}>
+              <span>{item.status.toUpperCase()} · {proposal ? `AI PROPOSAL · INFERENCE · ${proposal.model}` : item.author_kind.toUpperCase()}</span>
               <p>{item.statement}</p>
+              {proposal && <div className="proposal-basis">
+                {proposal.rationale && <small>{proposal.rationale}</small>}
+                <dl>
+                  <div><dt>Cites as support</dt><dd>{proposal.supports.map((ref) => <code key={ref}>{observationLabel(ref)}</code>)}</dd></div>
+                  {proposal.contradicts.length > 0 && <div><dt>Cuts against</dt><dd>{proposal.contradicts.map((ref) => <code key={ref}>{observationLabel(ref)}</code>)}</dd></div>}
+                  {proposal.missing.length > 0 && <div><dt>Missing pieces</dt><dd><ul>{proposal.missing.map((entry) => <li key={entry}>{entry}</li>)}</ul></dd></div>}
+                </dl>
+                {item.status === "proposed" && <small className="proposal-note">Retain to accept these citations as evidence links; reject to discard.</small>}
+              </div>}
               <div>
                 <button disabled={busy || item.status === "retained"} onClick={() => void run(`analysis accept ${item.id}`)}>Retain</button>
                 <button disabled={busy || item.status === "rejected"} onClick={() => void run(`analysis reject ${item.id}`)}>Reject</button>
                 <button disabled={busy || item.status === "suspended"} onClick={() => void run(`analysis suspend ${item.id}`)}>Suspend</button>
               </div>
             </article>
-          ))}
+            );
+          })}
         </section>
 
         <section className={unresolved.length ? "has-conflict" : ""}>

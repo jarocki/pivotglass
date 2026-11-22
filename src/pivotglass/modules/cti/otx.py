@@ -89,7 +89,6 @@ from pivotglass.modules.base import (
 
 logger = logging.getLogger(__name__)
 
-_BASE_URL = "https://otx.alienvault.com"
 
 
 class AlienVaultOTX(BaseModule):
@@ -109,6 +108,7 @@ class AlienVaultOTX(BaseModule):
     description = "Query AlienVault OTX for threat intelligence on IPs and domains"
     author = "Pivotglass"
     module_type = "cti"
+    service_id = "otx"  # base URL from core/service_endpoints (overridable)
     accepts = ("ipv4", "ipv6", "domain")
 
     def __init__(self) -> None:
@@ -224,7 +224,7 @@ class AlienVaultOTX(BaseModule):
         )
 
         async with httpx.AsyncClient(
-            base_url=_BASE_URL, headers=headers, timeout=timeout
+            base_url=self.base_url, headers=headers, timeout=timeout
         ) as client:
             # 1. General endpoint — always queried.
             # TimeoutException here means we cannot build a real primary SCO;

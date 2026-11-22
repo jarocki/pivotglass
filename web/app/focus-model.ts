@@ -33,7 +33,18 @@ export type IndicatorContext = {
   documents: Array<{ occurrence_id: string; filename: string; mentions: number; copies: number; admitted: boolean }>;
   tags: Tag[];
   investigated_at: string | null;
+  /** Curated-list / hashlookup recognition: context, never a verdict (DEC-KNOWN-GOOD-001). */
+  known?: KnownMatch[];
 };
+
+export type KnownMatch = { list_id: string; category: "benign" | "scanner" | "shared" | "sinkhole" | "contested"; label: string; matched: string; source: string; set_aside: boolean; category_label: string };
+
+/** True when the analyst may set this indicator aside as known good or scanner noise. */
+export function canSetAside(context?: IndicatorContext): boolean {
+  const known = context?.known ?? [];
+  return known.length > 0 && known[0].set_aside && !known.some((item) => item.category === "contested")
+    && !(context?.tags ?? []).some((tag) => tag.dimension === "role" && tag.value === "benign");
+}
 
 export type FocusIndicator = {
   key: string;

@@ -92,17 +92,6 @@ class TestResolveModuleCredentials:
         result = resolve_module_credentials("osint/censys_host", cfg)
         assert result == {"censys_pat": "", "censys_org_id": ""}
 
-    def test_passivetotal_uses_credential_builder(self):
-        """passivetotal uses CREDENTIAL_BUILDERS — multi-key auth."""
-        # @mock-exempt: ConfigManager is external I/O boundary
-        cfg = Mock()
-        cfg.get_api_key.side_effect = lambda key: {
-            "passivetotal_user": "pt-user",
-            "passivetotal_key": "pt-key",
-        }.get(key)
-        result = resolve_module_credentials("cti/passivetotal", cfg)
-        assert result == {"passivetotal_user": "pt-user", "passivetotal_key": "pt-key"}
-
     def test_unknown_module_path_falls_back_to_path_tail(self):
         """A module not in SERVICE_NAMES or CREDENTIAL_BUILDERS uses the path tail."""
         # @mock-exempt: ConfigManager is external I/O boundary
@@ -180,7 +169,6 @@ class TestCredentialBuilders:
     def test_censys_and_passivetotal_are_registered(self):
         """Multi-key modules must be present."""
         assert "osint/censys_host" in CREDENTIAL_BUILDERS
-        assert "cti/passivetotal" in CREDENTIAL_BUILDERS
 
     def test_virustotal_not_in_credential_builders(self):
         """Single-key modules use the SERVICE_NAMES path, not CREDENTIAL_BUILDERS."""

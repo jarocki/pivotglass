@@ -10,10 +10,10 @@ def test_every_battery_tool_has_an_enrichment_briefing():
 
 
 def test_briefing_teaches_artifacts_purpose_and_analyst_focus():
-    card = render_briefing("passivetotal_lookup", "suspect.test")
+    card = render_briefing("crtsh_lookup", "suspect.test")
     assert all(label in card for label in ("GATHER", "WHY", "WATCH"))
-    assert "passive-DNS history" in card
-    assert "without querying DNS from the operator host" in card
+    assert "certificate names" in card
+    assert "without resolving them" in card
 
 
 def test_briefing_does_not_claim_results_before_response():

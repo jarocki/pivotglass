@@ -112,8 +112,6 @@ _PIVOTGLASS_ENV_VAR_MAP: dict[str, str] = {
     "greynoise": "PIVOTGLASS_GREYNOISE_API_KEY",
     "hibp": "PIVOTGLASS_HIBP_API_KEY",
     "otx": "PIVOTGLASS_OTX_API_KEY",
-    "passivetotal_user": "PIVOTGLASS_PASSIVETOTAL_USER",
-    "passivetotal_key": "PIVOTGLASS_PASSIVETOTAL_KEY",
     # Provider keys — Pivotglass-prefixed form
     "agent_anthropic": "PIVOTGLASS_ANTHROPIC_API_KEY",
     "agent_openai": "PIVOTGLASS_OPENAI_API_KEY",
@@ -137,8 +135,6 @@ _VENDOR_ENV_VAR_MAP: dict[str, str] = {
     "greynoise": "GREYNOISE_API_KEY",
     "hibp": "HIBP_API_KEY",
     "otx": "OTX_API_KEY",
-    "passivetotal_user": "PT_USERNAME",
-    "passivetotal_key": "PT_API_KEY",
     # Provider keys — vendor/standard env var names
     "agent_anthropic": "ANTHROPIC_API_KEY",
     "agent_openai": "OPENAI_API_KEY",
@@ -148,14 +144,12 @@ _VENDOR_ENV_VAR_MAP: dict[str, str] = {
     "scot": "SCOT_API_KEY",
 }
 
-# Backward-compat alias: old PIVOTGLASS_VT_API_KEY and PIVOTGLASS_PT_* names still honoured.
+# Backward-compat alias: old PIVOTGLASS_VT_API_KEY and PIVOTGLASS_CENSYS_API_* names still honoured.
 # These are checked as additional Pivotglass-layer fallbacks in get_api_key().
 _LEGACY_PIVOTGLASS_ENV_VAR_MAP: dict[str, list[str]] = {
     "virustotal": ["PIVOTGLASS_VT_API_KEY"],
     "censys_id": ["PIVOTGLASS_CENSYS_API_ID"],
     "censys_secret": ["PIVOTGLASS_CENSYS_API_SECRET"],
-    "passivetotal_user": ["PIVOTGLASS_PT_USER"],
-    "passivetotal_key": ["PIVOTGLASS_PT_API_KEY"],
 }
 
 
@@ -244,6 +238,9 @@ class GeneralConfig(BaseModel):
     agent_enabled: bool = True
     configuration_advisor_enabled: bool = True
     disabled_services: list[str] = Field(default_factory=list)
+    # API base URL overrides keyed by provider or service id (DEC-ENDPOINTS-001).
+    # Absent means the registry default in core/service_endpoints.py or ProviderSpec.
+    endpoint_overrides: dict[str, str] = Field(default_factory=dict)
     # REPL editing mode for prompt_toolkit — "vi" or "emacs".
     # None means "not configured"; defaults to "vi" at runtime.
     editing_mode: str | None = None
@@ -266,6 +263,10 @@ class ApiKeysConfig(BaseModel):
     stored value > PIVOTGLASS_<SERVICE>_API_KEY > <SERVICE>_API_KEY > None.
     Provider-specific keys for the agent wizard are also stored here so they
     receive the same 0600 file-permission protection as other service keys.
+
+    Unknown keys (including credentials for retired services) are ignored on
+    load by pydantic's default ``extra="ignore"`` policy, so older config files
+    keep loading; tests/test_config.py pins that behavior.
     """
 
     shodan: str = ""
@@ -279,14 +280,17 @@ class ApiKeysConfig(BaseModel):
     greynoise: str = ""
     hibp: str = ""
     otx: str = ""
-    passivetotal_user: str = ""
-    passivetotal_key: str = ""
     # Agent provider API keys — keyed by provider id ("anthropic", "openai", etc.)
     # Stored as nullable so TOML round-trips cleanly when not yet set.
     agent_anthropic: str | None = None
     agent_openai: str | None = None
     agent_openrouter: str | None = None
     agent_google: str | None = None
+    # Keys for endpoints the analyst names (DEC-ENDPOINTS-001). Deliberately no vendor
+    # environment fallback: OPENAI_API_KEY must never be sent to a third-party gateway.
+    agent_azure_openai: str | None = None
+    agent_openai_compatible: str | None = None
+    agent_local_openai: str | None = None
     synapse: str | None = None
     scot: str | None = None
 
@@ -495,7 +499,7 @@ class ConfigManager:
         ----------
         service:
             Field name in ApiKeysConfig (e.g. "shodan", "virustotal",
-            "censys_id", "censys_secret", "passivetotal_user", "passivetotal_key").
+            "censys_id", "censys_secret", "censys_pat", "censys_org_id").
             Unknown service names fall through to None at layer 4.
         """
         # Layer 1: config-stored value (highest precedence)
@@ -604,6 +608,9 @@ class ConfigManager:
         "openai": "agent_openai",
         "openrouter": "agent_openrouter",
         "google": "agent_google",
+        "azure_openai": "agent_azure_openai",
+        "openai_compatible": "agent_openai_compatible",
+        "local_openai": "agent_local_openai",
     }
 
     def get_agent_provider(self) -> str | None:
@@ -624,8 +631,8 @@ class ConfigManager:
         provider:
             Provider id string (e.g. "anthropic", "openai").
         model:
-            Full litellm model string (e.g. "claude-3-5-sonnet-20241022",
-            "openai/gpt-4o", "gemini/gemini-2.0-flash-exp").
+            Full litellm model string (e.g. "claude-sonnet-5-5",
+            "openai/gpt-4o", "gemini/gemini-3.5-flash-lite").
         """
         cfg = self._cache if self._cache is not None else self.load()
         cfg.general.agent_provider = provider
@@ -671,6 +678,25 @@ class ConfigManager:
         cfg.general.disabled_services = sorted(disabled)
         self.save(cfg)
 
+    def get_endpoint_override(self, service_id: str) -> str | None:
+        """Return the analyst's base-URL override for a provider or service, if any."""
+        cfg = self._cache if self._cache is not None else self.load()
+        return cfg.general.endpoint_overrides.get(service_id.strip().lower()) or None
+
+    def set_endpoint_override(self, service_id: str, base_url: str | None) -> None:
+        """Store a validated base-URL override, or clear it with None/empty."""
+        from pivotglass.core.service_endpoints import normalize_base_url
+
+        cfg = self._cache if self._cache is not None else self.load()
+        key = service_id.strip().lower()
+        overrides = dict(cfg.general.endpoint_overrides)
+        if base_url and base_url.strip():
+            overrides[key] = normalize_base_url(base_url)
+        else:
+            overrides.pop(key, None)
+        cfg.general.endpoint_overrides = overrides
+        self.save(cfg)
+
     def get_api_key_source(self, service: str) -> str:
         """Return ``config``, ``environment``, or ``missing`` without exposing a key."""
         cfg = self._cache if self._cache is not None else self.load()
@@ -687,9 +713,12 @@ class ConfigManager:
 
     def get_provider_api_key_source(self, provider_id: str) -> str:
         """Return the selected provider credential source without exposing it."""
-        if provider_id == "ollama":
-            return "not-required"
         field = self._PROVIDER_KEY_FIELD.get(provider_id)
+        if provider_id == "ollama" or (
+            provider_id in {"openai_compatible", "local_openai"}
+            and field is not None and self.get_api_key_source(field) == "missing"
+        ):
+            return "not-required"
         if field is None:
             return "missing"
         return self.get_api_key_source(field)

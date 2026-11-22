@@ -21,10 +21,10 @@ LLM integration.
            layer is exercised; the module's network layer is bypassed.
 
 @decision DEC-TEST-AGENT-002
-@title Credential builder tests verify multi-key init_config for Censys/PT
+@title Credential builder tests verify multi-key init_config for Censys
 @status accepted
-@rationale Censys and PassiveTotal use multi-key auth (censys_id+censys_secret,
-           passivetotal_user+passivetotal_key). Tests verify run_module() calls
+@rationale Censys uses multi-key auth (censys_pat + optional censys_org_id).
+           Tests verify run_module() calls
            module.initialize() with the correct keys — not just {"api_key": ...}.
            This proves DEC-AGENT-TOOLS-003 is wired correctly end-to-end.
 """
@@ -108,19 +108,6 @@ SAMPLE_CENSYS_RESULTS = [
     }
 ]
 
-SAMPLE_PT_RESULTS = [
-    {
-        "type": "domain-name",
-        "value": "evil.example.com",
-        "x_first_seen": "2020-01-01 00:00:00",
-        "x_last_seen": "2024-01-01 00:00:00",
-        "x_record_count": 42,
-    },
-    {"type": "ipv4-addr", "value": "1.2.3.4"},
-    {"type": "ipv4-addr", "value": "5.6.7.8"},
-]
-
-
 # ---------------------------------------------------------------------------
 # ToolContext initialization
 # ---------------------------------------------------------------------------
@@ -155,7 +142,6 @@ class TestToolContextInit:
         # New modules wired in this slice
         assert "cti/virustotal" in module_names
         assert "osint/censys_host" in module_names
-        assert "cti/passivetotal" in module_names
 
     def test_config_loaded(self, tmp_ctx):
         """Config loads with defaults when no config file exists."""
@@ -178,9 +164,9 @@ class TestCreateTools:
         assert isinstance(tools, list)
 
     def test_returns_twenty_two_tools(self, tmp_ctx):
-        """create_tools returns 29 definitions after direct-DNS removal."""
+        """create_tools returns 36 definitions (v1.4: +6 keyless context sources)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 31
+        assert len(tools) == 36
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -220,10 +206,9 @@ class TestCreateTools:
             "otx_threat_intel",
             "scan_url",
             "search_urlscan_history",
-            # New tools — VT/Censys/PassiveTotal parity
+            # New tools — VT/Censys parity
             "virustotal_lookup",
             "censys_host_lookup",
-            "passivetotal_lookup",
             # GreyNoise Community API IP classification
             "greynoise_lookup",
             # F61 keyless hunters
@@ -231,6 +216,13 @@ class TestCreateTools:
             "threatfox_lookup",
             "malwarebazaar_lookup",
             "crtsh_lookup",
+            # v1.4 keyless context sources (#46, #45)
+            "mnemonic_pdns_lookup",
+            "internetdb_lookup",
+            "sans_isc_lookup",
+            "rdap_lookup",
+            "wayback_lookup",
+            "hashlookup_lookup",
             # Workspace tools
             "get_workspace_summary",
             "search_workspace",
@@ -280,7 +272,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 31
+        assert len(roundtripped) == 36
 
     # --- New tool schema tests ---
 
@@ -302,16 +294,6 @@ class TestCreateTools:
         params = tool["function"]["parameters"]
         assert "ip_address" in params["properties"]
         assert "ip_address" in params["required"]
-
-    def test_passivetotal_lookup_has_required_target(self, tmp_ctx):
-        """passivetotal_lookup tool has 'target' as a required parameter."""
-        tools = create_tools(tmp_ctx)
-        tool = next(t for t in tools if t["function"]["name"] == "passivetotal_lookup")
-        params = tool["function"]["parameters"]
-        assert "target" in params["properties"]
-        assert "target" in params["required"]
-        # include_whois is optional
-        assert "include_whois" in params["properties"]
 
     def test_greynoise_lookup_has_required_ip_address(self, tmp_ctx):
         """greynoise_lookup tool has 'ip_address' as a required parameter."""
@@ -481,35 +463,6 @@ class TestExecuteToolDispatch:
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             execute_tool(tmp_ctx, "censys_host_lookup", {"ip_address": "8.8.8.8"})
         mock_mod.hunt.assert_called_once_with("8.8.8.8", {})
-
-    def test_passivetotal_lookup_dispatches(self, tmp_ctx):
-        """execute_tool('passivetotal_lookup') runs cti/passivetotal module."""
-        mock_mod = self._make_mock_module(SAMPLE_PT_RESULTS)
-        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod) as mock_get:
-            summary, _celebration, _badges, _challenges = execute_tool(
-                tmp_ctx, "passivetotal_lookup", {"target": "evil.example.com"}
-            )
-            assert isinstance(summary, str)
-            assert "Found" in summary
-            mock_get.assert_called_once_with("cti/passivetotal")
-
-    def test_passivetotal_lookup_passes_include_whois_true(self, tmp_ctx):
-        """execute_tool('passivetotal_lookup') defaults INCLUDE_WHOIS to 'true'."""
-        mock_mod = self._make_mock_module(SAMPLE_PT_RESULTS)
-        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            execute_tool(tmp_ctx, "passivetotal_lookup", {"target": "evil.example.com"})
-        mock_mod.hunt.assert_called_once_with("evil.example.com", {"INCLUDE_WHOIS": "true"})
-
-    def test_passivetotal_lookup_passes_include_whois_false(self, tmp_ctx):
-        """execute_tool('passivetotal_lookup') passes INCLUDE_WHOIS=false when requested."""
-        mock_mod = self._make_mock_module(SAMPLE_PT_RESULTS)
-        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            execute_tool(
-                tmp_ctx,
-                "passivetotal_lookup",
-                {"target": "evil.example.com", "include_whois": False},
-            )
-        mock_mod.hunt.assert_called_once_with("evil.example.com", {"INCLUDE_WHOIS": "false"})
 
 
 # ---------------------------------------------------------------------------
@@ -687,9 +640,8 @@ class TestCredentialBuilders:
     """_CREDENTIAL_BUILDERS supplies correct init_config for multi-key modules."""
 
     def test_credential_builders_keys_present(self):
-        """_CREDENTIAL_BUILDERS contains entries for censys_host and passivetotal."""
+        """_CREDENTIAL_BUILDERS contains the censys_host entry."""
         assert "osint/censys_host" in _CREDENTIAL_BUILDERS
-        assert "cti/passivetotal" in _CREDENTIAL_BUILDERS
 
     def test_censys_builder_returns_censys_pat(self, tmp_ctx):
         """Censys credential builder produces censys_pat key (PAT-based auth, resolves #45)."""
@@ -698,15 +650,6 @@ class TestCredentialBuilders:
         assert "censys_pat" in config
         # Should be a string (empty when not configured)
         assert isinstance(config["censys_pat"], str)
-
-    def test_passivetotal_builder_returns_user_and_key(self, tmp_ctx):
-        """PassiveTotal credential builder produces passivetotal_user and passivetotal_key."""
-        builder = _CREDENTIAL_BUILDERS["cti/passivetotal"]
-        config = builder(tmp_ctx.config_mgr)
-        assert "passivetotal_user" in config
-        assert "passivetotal_key" in config
-        assert isinstance(config["passivetotal_user"], str)
-        assert isinstance(config["passivetotal_key"], str)
 
     def test_run_module_uses_censys_credentials(self, tmp_ctx):
         """run_module initializes censys_host with censys_pat (PAT-based auth, resolves #45)."""
@@ -723,20 +666,6 @@ class TestCredentialBuilders:
         assert "censys_pat" in init_arg
         assert "censys_id" not in init_arg
         assert "censys_secret" not in init_arg
-
-    def test_run_module_uses_passivetotal_credentials(self, tmp_ctx):
-        """run_module initializes passivetotal with passivetotal_user + passivetotal_key."""
-        mock_mod = MagicMock()
-        mock_mod.hunt = AsyncMock(return_value=SAMPLE_PT_RESULTS)
-        mock_mod.initialize = MagicMock()
-        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            tmp_ctx.run_module("cti/passivetotal", "evil.example.com", {})
-
-        mock_mod.initialize.assert_called_once()
-        init_arg = mock_mod.initialize.call_args[0][0]
-        assert "api_key" not in init_arg
-        assert "passivetotal_user" in init_arg
-        assert "passivetotal_key" in init_arg
 
     def test_virustotal_uses_legacy_api_key_path(self, tmp_ctx):
         """VirusTotal uses the standard api_key path (not _CREDENTIAL_BUILDERS)."""
@@ -759,17 +688,16 @@ class TestCredentialBuilders:
 
 
 class TestModuleMap:
-    """_MODULE_MAP contains entries for all 11 module-backed tools."""
+    """_MODULE_MAP contains entries for the module-backed tools."""
 
     def test_module_map_has_eleven_entries(self):
-        """_MODULE_MAP has exactly 15 entries (11 prior + 4 keyless hunters F61)."""
-        assert len(_MODULE_MAP) == 16
+        """_MODULE_MAP has exactly 21 entries (v1.4: +6 keyless context sources)."""
+        assert len(_MODULE_MAP) == 21
 
     def test_module_map_contains_new_tools(self):
-        """_MODULE_MAP contains virustotal_lookup, censys_host_lookup, passivetotal_lookup."""
+        """_MODULE_MAP contains virustotal_lookup and censys_host_lookup."""
         assert "virustotal_lookup" in _MODULE_MAP
         assert "censys_host_lookup" in _MODULE_MAP
-        assert "passivetotal_lookup" in _MODULE_MAP
 
     def test_virustotal_maps_to_correct_path(self):
         """virustotal_lookup maps to cti/virustotal."""
@@ -780,11 +708,6 @@ class TestModuleMap:
         """censys_host_lookup maps to osint/censys_host."""
         module_path, _ = _MODULE_MAP["censys_host_lookup"]
         assert module_path == "osint/censys_host"
-
-    def test_passivetotal_maps_to_correct_path(self):
-        """passivetotal_lookup maps to cti/passivetotal."""
-        module_path, _ = _MODULE_MAP["passivetotal_lookup"]
-        assert module_path == "cti/passivetotal"
 
 
 # ---------------------------------------------------------------------------
@@ -872,39 +795,8 @@ class TestNewToolsProductionSequence:
         # Celebration present for non-zero scoring
         assert celebration is not None
 
-    def test_passivetotal_full_sequence(self, tmp_ctx):
-        """Full PT sequence: tools -> execute -> multi-key init -> workspace -> scoring."""
-        tools = create_tools(tmp_ctx)
-        assert "passivetotal_lookup" in {t["function"]["name"] for t in tools}
-
-        mock_mod = self._make_mock_module(SAMPLE_PT_RESULTS)
-        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            summary, celebration, _badges, _challenges = execute_tool(
-                tmp_ctx,
-                "passivetotal_lookup",
-                {"target": "evil.example.com", "include_whois": True},
-            )
-
-        assert isinstance(summary, str)
-        assert "Found" in summary
-
-        # Verify INCLUDE_WHOIS was passed as string "true"
-        mock_mod.hunt.assert_called_once_with("evil.example.com", {"INCLUDE_WHOIS": "true"})
-
-        # Verify multi-key credentials
-        init_arg = mock_mod.initialize.call_args[0][0]
-        assert "passivetotal_user" in init_arg
-        assert "passivetotal_key" in init_arg
-
-        # Multiple related indicators should score
-        score = tmp_ctx.workspace_mgr.get_total_score()
-        assert score > 0
-
-        # Celebration present for non-zero scoring
-        assert celebration is not None
-
     def test_all_ten_tools_in_module_map_are_dispatchable(self, tmp_ctx):
-        """All 10 _MODULE_MAP entries can be dispatched without KeyError."""
+        """These core _MODULE_MAP entries can be dispatched without KeyError."""
         # Maps tool name to minimal valid arguments
         arg_map = {
             "dns_resolve": {"domain": "example.com"},
@@ -916,7 +808,6 @@ class TestNewToolsProductionSequence:
             "scan_url": {"url": "http://example.com"},
             "virustotal_lookup": {"target": "1.2.3.4"},
             "censys_host_lookup": {"ip_address": "1.2.3.4"},
-            "passivetotal_lookup": {"target": "evil.example.com"},
         }
 
         mock_mod = MagicMock()
@@ -1430,7 +1321,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 31
+        assert len(r.tools) == 36
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""
@@ -3449,23 +3340,6 @@ class TestServiceNameMap:
         assert config["censys_pat"] == "censys-env-pat"
         assert "censys_id" not in config
         assert "censys_secret" not in config
-
-    def test_credential_builders_env_fallback_passivetotal(self, tmp_ctx, monkeypatch):
-        """PassiveTotal credential builder falls back to vendor env vars when config is empty."""
-        monkeypatch.delenv("PIVOTGLASS_PASSIVETOTAL_USER", raising=False)
-        monkeypatch.delenv("PIVOTGLASS_PT_USER", raising=False)
-        monkeypatch.setenv("PT_USERNAME", "pt-vendor-user")
-        monkeypatch.delenv("PIVOTGLASS_PASSIVETOTAL_KEY", raising=False)
-        monkeypatch.delenv("PIVOTGLASS_PT_API_KEY", raising=False)
-        monkeypatch.setenv("PT_API_KEY", "pt-vendor-key")
-
-        from pivotglass.agent.tools import _CREDENTIAL_BUILDERS
-
-        builder = _CREDENTIAL_BUILDERS["cti/passivetotal"]
-        config = builder(tmp_ctx.config_mgr)
-
-        assert config["passivetotal_user"] == "pt-vendor-user"
-        assert config["passivetotal_key"] == "pt-vendor-key"
 
     def test_shodan_key_resolves_from_env_via_run_module(self, tmp_ctx, monkeypatch):
         """End-to-end: SHODAN_API_KEY in env reaches module.initialize() via run_module.

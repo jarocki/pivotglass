@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  filterIndicators, groupIndicators, groupMentions, indexTags, indicatorKey,
+  canSetAside, filterIndicators, groupIndicators, groupMentions, indexTags, indicatorKey,
   locateInSegments, occurrenceOrdinal, parseTagInput, type FocusCandidate, type TagDimension,
 } from "../app/focus-model.ts";
 
@@ -105,4 +105,15 @@ test("clipboard text and hex groups", async () => {
   assert.deepEqual(hexGroups("e3b0c44298fc1c149afbf4c8996fb924"), ["e3b0c442", "98fc1c14", "9afbf4c8", "996fb924"]);
   assert.equal(hexGroups("203.0.113.44"), null);
   assert.equal(hexGroups("deadbeef"), null);
+});
+
+test("only uncontested known-good or scanner matches can be set aside, once", () => {
+  const base = { entity: null, relationships: [], observed_by: [], documents: [], tags: [], investigated_at: null };
+  const resolver = { list_id: "public-dns-v4", category: "benign" as const, label: "Public DNS resolver", matched: "8.8.8.8/32", source: "MISP warninglist public-dns-v4 v1", set_aside: true, category_label: "Known good" };
+  const cloud = { ...resolver, list_id: "amazon-aws", category: "shared" as const, set_aside: false };
+  assert.equal(canSetAside({ ...base, known: [resolver] }), true);
+  assert.equal(canSetAside({ ...base, known: [cloud] }), false);
+  assert.equal(canSetAside({ ...base, known: [resolver, { ...resolver, category: "contested", set_aside: false }] }), false);
+  assert.equal(canSetAside({ ...base, known: [resolver], tags: [{ entity_type: "ipv4-addr", normalized_value: "8.8.8.8", dimension: "role", value: "benign" }] }), false);
+  assert.equal(canSetAside(undefined), false);
 });

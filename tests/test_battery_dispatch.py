@@ -234,7 +234,7 @@ def test_battery_run_fires_events():
     bus.subscribe(BatteryToolFinished, events.append)
     bus.subscribe(BatteryFinished, events.append)
 
-    battery = DEFAULT_BATTERIES["identity_battery"]  # has 3 tools
+    battery = DEFAULT_BATTERIES["identity_battery"]
     calls: list[str] = []
 
     def fake_executor(tool_name: str, target: str) -> str:
@@ -250,8 +250,9 @@ def test_battery_run_fires_events():
     finished = [e for e in events if isinstance(e, BatteryFinished)]
 
     assert len(started) == 1
-    assert len(tool_started) == 3, f"identity_battery has 3 tools; got {len(tool_started)}"
-    assert len(tool_finished) == 3
+    expected = len(battery.tools)
+    assert len(tool_started) == expected, f"identity_battery has {expected} tools; got {len(tool_started)}"
+    assert len(tool_finished) == expected
     assert len(finished) == 1
 
     # All 3 tools were executed

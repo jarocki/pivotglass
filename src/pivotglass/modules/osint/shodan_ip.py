@@ -63,7 +63,6 @@ from pivotglass.modules.base import (
 
 logger = logging.getLogger(__name__)
 
-_API_BASE = "https://api.shodan.io"
 
 
 class ShodanIP(BaseModule):
@@ -84,6 +83,7 @@ class ShodanIP(BaseModule):
     description = "Query Shodan for IP host information, open ports, and vulnerabilities"
     author = "Pivotglass"
     module_type = "osint"
+    service_id = "shodan"  # base URL from core/service_endpoints (overridable)
     accepts = ("ipv4", "ipv6")
 
     def __init__(self) -> None:
@@ -149,7 +149,7 @@ class ShodanIP(BaseModule):
 
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{_API_BASE}/shodan/host/{target}",
+                f"{self.base_url}/shodan/host/{target}",
                 params=params,
                 timeout=30.0,
             )

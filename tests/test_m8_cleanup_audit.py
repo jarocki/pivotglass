@@ -141,12 +141,12 @@ class TestToolCatalogPostM8:
     """The current catalog preserves the M-8 cleanup and adds provider pivots."""
 
     def test_tool_count_is_28(self, tmp_ctx):
-        """The M-9 catalog plus two explicit provider pivots is 31."""
+        """The M-9 catalog plus two provider pivots, minus one retired provider tool, is 30."""
         from pivotglass.agent.tools import create_tools
 
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 31, (
-            f"Expected 31 tools, got {len(tools)}. "
+        assert len(tools) == 36, (
+            f"Expected 36 tools (v1.4 added six keyless context sources), got {len(tools)}. "
             "M-8 removed start_report_interview, answer_report_question, generate_report. "
             "M-9 added export_dossier, compare_dossier (DEC-M9-TOOLCOUNT-001)."
         )
@@ -182,7 +182,7 @@ class TestToolCatalogPostM8:
 
         tools = create_tools(tmp_ctx)
         roundtripped = json.loads(json.dumps(tools))
-        assert len(roundtripped) == 31
+        assert len(roundtripped) == 36
 
     def test_execute_generate_dossier_report_no_style_param(self, tmp_ctx):
         """_execute_generate_dossier_report(ctx) call signature is (ctx,) only."""

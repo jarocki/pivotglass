@@ -53,14 +53,24 @@ _APPLIES_TO_ANY: str = "__any__"
 DEFAULT_BATTERIES: dict[str, Battery] = {
     "identity_battery": Battery(
         name="identity_battery",
-        tools=("whois_lookup", "crtsh_lookup", "check_breaches"),
+        # rdap_lookup, wayback_lookup and mnemonic_pdns_lookup are keyless
+        # registration, capture, and resolution history for domains (#46).
+        tools=(
+            "whois_lookup", "crtsh_lookup", "check_breaches",
+            "rdap_lookup", "wayback_lookup", "mnemonic_pdns_lookup",
+        ),
         target_slots=(DossierSlotName.IDENTITY,),
         applies_to=("domain-name", "email-addr"),
         hypothesis_hint="registrant + certificate + breach exposure",
     ),
     "infrastructure_battery": Battery(
         name="infrastructure_battery",
-        tools=("shodan_host_lookup", "censys_host_lookup"),
+        # Keyless IP context (#46): open services, DShield reports, network
+        # registration, and passive DNS names.
+        tools=(
+            "shodan_host_lookup", "censys_host_lookup", "internetdb_lookup",
+            "sans_isc_lookup", "rdap_lookup", "mnemonic_pdns_lookup",
+        ),
         target_slots=(DossierSlotName.INFRASTRUCTURE,),
         applies_to=("ipv4-addr", "ipv6-addr"),
         hypothesis_hint="hosted infrastructure fingerprint",
@@ -76,16 +86,17 @@ DEFAULT_BATTERIES: dict[str, Battery] = {
     ),
     "payload_battery": Battery(
         name="payload_battery",
-        tools=("urlhaus_lookup", "threatfox_lookup", "malwarebazaar_lookup"),
+        # hashlookup_lookup marks known software (NSRL etc.): context, not a verdict.
+        tools=("urlhaus_lookup", "threatfox_lookup", "malwarebazaar_lookup", "hashlookup_lookup"),
         target_slots=(DossierSlotName.TTPS,),
         applies_to=("file", "url"),
         hypothesis_hint="known-malicious payload family",
     ),
     "behavioral_battery": Battery(
         name="behavioral_battery",
-        # Passive DNS and interaction metadata come from explicit services;
-        # Pivotglass never issues direct resolver queries from the operator host.
-        tools=("passivetotal_lookup", "scan_url"),
+        # Interaction metadata comes from explicit services; Pivotglass never
+        # issues direct resolver queries from the operator host.
+        tools=("scan_url",),
         # C-3 cross-cutting: covers both TIMING (when the actor operates) and
         # TARGETING (which assets/geographies the actor targets).
         target_slots=(DossierSlotName.TIMING, DossierSlotName.TARGETING),

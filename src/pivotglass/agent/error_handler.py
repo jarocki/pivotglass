@@ -53,6 +53,8 @@ from typing import TYPE_CHECKING
 from rich.console import Console
 from rich.panel import Panel
 
+from pivotglass.agent.provider_setup import DEFAULT_LOCAL_MODEL
+
 if TYPE_CHECKING:
     from pivotglass.core.config import ConfigManager
 
@@ -315,6 +317,12 @@ def debug_llm_explain(
         }
         if resolved_key:
             kwargs["api_key"] = resolved_key
+        if config_mgr is not None:
+            from pivotglass.agent.provider_setup import provider_call_kwargs
+
+            base = provider_call_kwargs(config_mgr).get("api_base")
+            if base:
+                kwargs["api_base"] = base
 
         response = litellm.completion(**kwargs)
         raw = (response.choices[0].message.content or "").strip()
@@ -386,7 +394,7 @@ def handle_error(
 
     # Stage 2: LLM explainer for unknown errors
     if friendly is None:
-        model = getattr(runner, "model", None) or "ollama/qwen2.5:8b"
+        model = getattr(runner, "model", None) or DEFAULT_LOCAL_MODEL
         api_key: str | None = None
         if config_mgr is not None:
             provider_id = config_mgr.get_agent_provider()

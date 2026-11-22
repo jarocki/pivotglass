@@ -28,8 +28,8 @@ def _artifact(path: Path, content: bytes) -> Path:
 
 
 def test_release_trust_bundle_covers_both_exact_lockfiles(tmp_path: Path) -> None:
-    wheel = _artifact(tmp_path / "pivotglass-1.3.0-py3-none-any.whl", b"wheel")
-    source = _artifact(tmp_path / "pivotglass-1.3.0.tar.gz", b"source")
+    wheel = _artifact(tmp_path / "pivotglass-1.4.0-py3-none-any.whl", b"wheel")
+    source = _artifact(tmp_path / "pivotglass-1.4.0.tar.gz", b"source")
     output = tmp_path / "trust"
 
     receipt = generate(
@@ -39,14 +39,14 @@ def test_release_trust_bundle_covers_both_exact_lockfiles(tmp_path: Path) -> Non
         timestamp=TIMESTAMP,
     )
 
-    assert receipt["version"] == "1.3.0"
-    assert receipt["python_components"] == 78
+    assert receipt["version"] == "1.4.0"
+    assert receipt["python_components"] == 89  # +boto3 stack (litellm), maxminddb
     assert receipt["node_components"] == 76
-    assert receipt["total_components"] == 154
+    assert receipt["total_components"] == 165
 
     with (output / LICENSE_FILENAME).open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
-    assert len(rows) == 154
+    assert len(rows) == 165
     assert {row["ecosystem"] for row in rows} == {"PyPI", "npm"}
     assert all(row["name"] and row["version"] and row["license"] for row in rows)
     assert not any(row["license"].lower() in {"unknown", "noassertion"} for row in rows)
@@ -57,14 +57,14 @@ def test_release_trust_bundle_covers_both_exact_lockfiles(tmp_path: Path) -> Non
     assert sbom["bomFormat"] == "CycloneDX"
     assert sbom["specVersion"] == "1.5"
     assert sbom["metadata"]["timestamp"] == TIMESTAMP
-    assert sbom["metadata"]["component"]["version"] == "1.3.0"
-    assert len(sbom["components"]) == 154
+    assert sbom["metadata"]["component"]["version"] == "1.4.0"
+    assert len(sbom["components"]) == 165
     properties = {item["name"]: item["value"] for item in sbom["metadata"]["properties"]}
     assert "wheel metadata uses compatible version ranges" in properties[
         "pivotglass:python-install-boundary"
     ]
     refs = {component["bom-ref"] for component in sbom["components"]}
-    assert len(refs) == 154
+    assert len(refs) == 165
     assert all(dependency["ref"] not in refs or set(dependency["dependsOn"]) <= refs for dependency in sbom["dependencies"])
     assert 1 < len(sbom["dependencies"][0]["dependsOn"]) < 140
 

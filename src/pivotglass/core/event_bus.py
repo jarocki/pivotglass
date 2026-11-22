@@ -96,6 +96,12 @@ DEFAULT_SUBSCRIPTIONS: dict[str, list[str]] = {
     "cti/threatfox": ["ipv4-addr", "domain-name", "url", "file"],
     "cti/malwarebazaar": ["file"],
     "osint/crtsh": ["domain-name"],
+    # Keyless context sources. Mnemonic passive DNS is deliberately absent: its
+    # public tier allows 10 requests per minute, which a cascade would exhaust.
+    "osint/shodan_internetdb": ["ipv4-addr", "ipv6-addr"],
+    "osint/sans_isc": ["ipv4-addr"],
+    "osint/rdap": ["domain-name"],
+    "cti/hashlookup": ["file"],
 }
 
 

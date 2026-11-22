@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 from unittest.mock import MagicMock, patch
+from urllib.parse import quote
 
 import pytest
 
@@ -602,7 +603,7 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
     assert state["workspace"] == "default"
     assert state["objects"] == []
     assert "virustotal_lookup" in state["briefings"]
-    assert state["briefings"]["passivetotal_lookup"]["artifacts"].startswith("passive-DNS")
+    assert state["briefings"]["crtsh_lookup"]["artifacts"].startswith("certificate names")
     assert state["character"] == "default"
     assert len(state["dossier_slots"]) == 9
     assert {slot["status"] for slot in state["dossier_slots"]} == {"empty"}
@@ -718,7 +719,7 @@ def test_configuration_save_reports_validation_failure_without_discarding_key(tm
     service = _service(tmp_path)
     monkeypatch.setattr(
         "pivotglass.agent.model_control._validate_cti_key",
-        lambda spec, values: (False, "Authentication failed"),
+        lambda spec, values, base_url=None: (False, "Authentication failed"),
     )
 
     result = service.update_configuration(
@@ -735,7 +736,7 @@ def test_model_catalog_returns_live_models_with_capability_caveats(tmp_path, mon
     service = _service(tmp_path)
     monkeypatch.setattr(
         "pivotglass.agent.model_control.list_models",
-        lambda provider, key: ["local-test:8b"],
+        lambda provider, key, base_url=None: ["local-test:8b"],
     )
     monkeypatch.setattr(
         "pivotglass.agent.model_control._capability_info",
@@ -781,12 +782,12 @@ def test_investigation_rejects_non_indicator_without_recording_navigation(tmp_pa
 
 def test_plan_payload_teaches_only_applicable_services(tmp_path):
     service = _service(tmp_path)
-    battery = type("Battery", (), {"tools": ("passivetotal_lookup",)})()
+    battery = type("Battery", (), {"tools": ("crtsh_lookup",)})()
     with patch("pivotglass.web.server.dispatch_batteries", return_value=[battery]):
         plan = service.plan_payload("suspect.test")
 
-    assert [event["tool"] for event in plan["events"]] == ["passivetotal_lookup"]
-    assert "without querying DNS" in plan["events"][0]["briefing"]["purpose"]
+    assert [event["tool"] for event in plan["events"]] == ["crtsh_lookup"]
+    assert "without resolving them" in plan["events"][0]["briefing"]["purpose"]
 
 
 def test_async_investigation_streams_lifecycle_events(tmp_path):
@@ -953,6 +954,33 @@ def test_attention_records_can_be_acknowledged_without_deletion(tmp_path):
     assert alerts["unread_count"] == 0
     assert len(alerts["alerts"]) == 1
     assert alerts["alerts"][0]["acknowledged"] is True
+
+
+def test_browser_acknowledges_an_attention_record_by_its_encoded_event_id(tmp_path):
+    """Event ids contain ':'; the browser sends them percent-encoded (encodeURIComponent)."""
+    service = _service(tmp_path)
+    record = service.investigations.create("suspect.test", "domain-name")
+    event = service.investigations.append(
+        record.investigation_id,
+        event_class=EventClass.DISCOVERY,
+        severity="info",
+        lifecycle=LifecycleState.SUCCEEDED,
+        content_class=ContentClass.EVIDENCE,
+        summary="Found 1 indicator",
+    )
+    assert ":" in event.event_id
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _handler(service, tmp_path))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, body = _post_json(server, f"/api/alerts/{quote(event.event_id, safe='')}/acknowledge", {})
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert status == 200, body
+    assert body["acknowledged"] is True
+    assert service.alerts()["unread_count"] == 0
 
 
 def test_web_activity_turns_tool_failure_receipt_into_sanitized_event(tmp_path):
@@ -1358,3 +1386,35 @@ def test_state_remains_available_after_joint_candidate_admission(tmp_path):
     assert {row["indicator"] for row in distribution["data"]["rows"]} == {"198.51.100.82", "selected.example"}
     assert all(row["connection_count"] == 1 for row in distribution["data"]["rows"])
     assert len(service.ctx.workspace_mgr.get_stix_objects()) == 2
+
+
+def test_configuration_saves_validates_and_clears_endpoint_overrides(tmp_path):
+    service = _service(tmp_path)
+
+    result = service.update_configuration(
+        {"action": "endpoint-override", "id": "greynoise", "base_url": "https://gw.example/gn/"}
+    )
+    entry = next(s for s in result["configuration"]["services"] if s["id"] == "greynoise")
+    assert entry["base_url_override"] == "https://gw.example/gn"
+    assert entry["default_base_url"] == "https://api.greynoise.io"
+    assert entry["test_endpoint"] == "https://gw.example/gn/ping"
+
+    result = service.update_configuration(
+        {"action": "endpoint-override", "id": "openai", "base_url": "https://gw.example/openai/v1"}
+    )
+    provider = next(p for p in result["configuration"]["providers"] if p["id"] == "openai")
+    assert provider["endpoint"] == "https://gw.example/openai/v1/models"
+
+    with pytest.raises(ValueError):
+        service.update_configuration(
+            {"action": "endpoint-override", "id": "openai", "base_url": "http://gw.example"}
+        )
+    with pytest.raises(ValueError):
+        service.update_configuration(
+            {"action": "endpoint-override", "id": "not-a-service", "base_url": "https://x.example"}
+        )
+
+    result = service.update_configuration({"action": "endpoint-override", "id": "greynoise", "base_url": ""})
+    entry = next(s for s in result["configuration"]["services"] if s["id"] == "greynoise")
+    assert entry["base_url_override"] is None
+    assert entry["test_endpoint"] == "https://api.greynoise.io/ping"

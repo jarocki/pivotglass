@@ -1505,3 +1505,53 @@ main>.detail-backdrop{z-index:20000!important}
 .breadcrumbs li{display:flex;flex-wrap:wrap;gap:6px}
 
 .graph-inspector-hint{flex-basis:100%;margin:2px 0 0;color:var(--dim);font-size:var(--fs-xs)}
+
+/* Attention dialog (v1.4.0): acknowledge dismisses; actions name what they open. */
+.alert-queue .alert-queue-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+.alert-queue .alert-queue-head h2{margin:0}
+.alert-queue .alert-queue-head .close{position:static}
+.alert-queue article header{align-items:center;gap:10px;text-transform:capitalize}
+.alert-queue article header span{margin-left:auto;text-transform:none;color:var(--dim);overflow-wrap:anywhere}
+.alert-queue article header .alert-ack{margin:0;padding:4px}
+.alert-queue .alert-actions{display:flex;flex-wrap:wrap;gap:6px}
+.alert-queue .alert-actions button{margin:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.alert-queue .alert-error{color:var(--danger,#ff7a7a);font-size:var(--fs-xs)}
+.alert-queue .alert-empty{color:var(--dim)}
+.alert-queue .alert-toggle{border:0;background:none;color:var(--dim);padding:6px 0;cursor:pointer;font-size:var(--fs-xs);text-decoration:underline}
+.matrix-hover-tooltip{white-space:pre-line}
+
+/* Editable API base URLs (DEC-ENDPOINTS-001) */
+.base-url-field{display:grid;gap:4px;margin:6px 0}
+.base-url-field label{display:flex;gap:8px;align-items:baseline;font-size:var(--fs-xs);color:var(--dim)}
+.base-url-field>div{display:flex;gap:6px;min-width:0}
+.base-url-field input{flex:1;min-width:0;font-family:var(--font-mono);font-size:var(--fs-xs)}
+.service-test-endpoint{display:block;color:var(--dim);font-size:var(--fs-xs);overflow-wrap:anywhere}
+.base-url-warning{color:var(--warn,#e8b04a);font-size:var(--fs-xs)}
+
+/* Known-good recognition (DEC-KNOWN-GOOD-001): list matches are context, never verdicts. */
+.listed{font-style:normal;font-size:.85em;border-radius:3px;padding:0 .35em;border:1px solid var(--line);color:var(--muted, var(--text))}
+.listed-benign,.listed-scanner{border-style:dashed}
+.listed-shared{color:var(--heading)}
+.listed-sinkhole,.listed-contested{color:var(--warn, var(--accent));border-color:currentColor}
+.focus-row-meta .listed{margin-left:.25em}
+.known-section li{display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.known-section small,.detail-known small{opacity:.75}
+.detail-known dd{display:flex;flex-wrap:wrap;gap:.4em;align-items:center}
+.detail-known button{font-size:.85em}
+.relationship-nodes>g.known-benign circle,.relationship-nodes>g.known-scanner circle{stroke-dasharray:3 2;opacity:.7}
+.relationship-nodes>g.known-benign .node-label,.relationship-nodes>g.known-scanner .node-label{opacity:.7}
+
+/* AI hypothesis proposals (DEC-HYPOTHESIS-PROPOSALS-001): inference, visibly. */
+.analytic-columns .propose-hypotheses{justify-self:start;padding:4px 8px;border:1px solid color-mix(in srgb,var(--inference, var(--accent)) 60%,transparent);border-radius:6px;background:transparent;color:var(--inference, var(--heading));font-size:var(--fs-xs);cursor:pointer}
+.analytic-columns .propose-hypotheses:disabled{opacity:.5;cursor:default}
+.analytic-columns article.model-proposal>div.proposal-basis{display:grid}
+article.model-proposal{border-left:3px solid var(--inference, var(--accent))}
+article.model-proposal>span{color:var(--inference, var(--accent))}
+.proposal-basis{display:grid;gap:4px;font-size:.9em}
+.proposal-basis dl{display:grid;gap:4px;margin:0}
+.proposal-basis dt{font-weight:700;font-size:.85em}
+.proposal-basis dd{margin:0;display:flex;flex-wrap:wrap;gap:4px}
+.proposal-basis ul{margin:0;padding-left:1.1em}
+.proposal-basis .proposal-note{opacity:.75}
+.dossier-puzzle{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin:6px 0 0;font-size:.9em}
+.dossier-puzzle button{margin-left:auto}

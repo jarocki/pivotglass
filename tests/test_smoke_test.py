@@ -99,8 +99,6 @@ def _make_cm(
     hibp: str = "",
     otx: str = "",
     censys_pat: str | None = None,
-    passivetotal_user: str = "",
-    passivetotal_key: str = "",
 ) -> "ConfigManager":  # noqa: F821
     """Return a ConfigManager loaded from *tmp_dir* with the given api_keys pre-set.
 
@@ -120,8 +118,6 @@ def _make_cm(
     cfg.api_keys.hibp = hibp
     cfg.api_keys.otx = otx
     cfg.api_keys.censys_pat = censys_pat
-    cfg.api_keys.passivetotal_user = passivetotal_user
-    cfg.api_keys.passivetotal_key = passivetotal_key
     cm.save(cfg)
     # Re-load so the cache is fully populated from the file (same as production)
     cm.load()
@@ -256,21 +252,6 @@ class TestSkipWhenNoKey:
         status, msg, count = smoke._run_otx("8.8.8.8", keys, verbose=False)
         assert status == smoke.SKIP
 
-    def test_passivetotal_skips_without_user(self, smoke):
-        """_run_passivetotal returns SKIP when user is missing."""
-        keys = {"passivetotal_user": ("", ""), "passivetotal_key": ("mykey", "env")}
-        status, msg, count = smoke._run_passivetotal("google.com", keys, verbose=False)
-        assert status == smoke.SKIP
-
-    def test_passivetotal_skips_without_key(self, smoke):
-        """_run_passivetotal returns SKIP when key is missing."""
-        keys = {
-            "passivetotal_user": ("user@example.com", "env"),
-            "passivetotal_key": ("", ""),
-        }
-        status, msg, count = smoke._run_passivetotal("google.com", keys, verbose=False)
-        assert status == smoke.SKIP
-
 
 # ---------------------------------------------------------------------------
 # Exit code semantics
@@ -297,8 +278,6 @@ class TestExitCodeSemantics:
                 "hibp",
                 "virustotal",
                 "otx",
-                "passivetotal_user",
-                "passivetotal_key",
             ]
         }
 
@@ -570,10 +549,6 @@ class TestResolveKeys:
             "VT_API_KEY",
             "OTX_API_KEY",
             "PIVOTGLASS_OTX_API_KEY",
-            "PIVOTGLASS_PASSIVETOTAL_USER",
-            "PT_USERNAME",
-            "PIVOTGLASS_PASSIVETOTAL_KEY",
-            "PT_API_KEY",
             "GREYNOISE_API_KEY",
             "PIVOTGLASS_GREYNOISE_API_KEY",
         ]

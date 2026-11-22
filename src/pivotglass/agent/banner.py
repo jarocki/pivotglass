@@ -467,7 +467,7 @@ class StatusBar:
 
     Usage::
 
-        with StatusBar(console, mode_name="deckard", model_display="ollama/qwen2.5:8b",
+        with StatusBar(console, mode_name="deckard", model_display="ollama/qwen3.5:9b",
                        workspace_mgr=wm) as bar:
             bar.set_activity("virustotal")
             response = runner.chat(user_input)

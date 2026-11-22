@@ -37,7 +37,6 @@ def test_domain_dispatch_uses_intelligence_services_not_dns():
     assert {
         "virustotal_lookup",
         "otx_threat_intel",
-        "passivetotal_lookup",
         "scan_url",
     }.issubset(tools)
 

@@ -26,11 +26,6 @@ BRIEFINGS: dict[str, EnrichmentBriefing] = {
         "Connects the indicator to community-described campaigns and threat context.",
         "named campaigns, recurring tags, recent sightings, and referenced pivots",
     ),
-    "passivetotal_lookup": EnrichmentBriefing(
-        "PassiveTotal", "passive-DNS history, co-hosted records, registration context, and temporal links",
-        "Reconstructs infrastructure changes without querying DNS from the operator host.",
-        "short-lived resolutions, shared infrastructure, and campaign-time changes",
-    ),
     "scan_url": EnrichmentBriefing(
         "URLScan", "page requests, redirects, contacted hosts, certificates, screenshots, and technologies",
         "Shows what a browser observed and reveals infrastructure loaded behind a URL.",
@@ -85,6 +80,36 @@ BRIEFINGS: dict[str, EnrichmentBriefing] = {
         "MalwareBazaar", "sample hashes, file metadata, signatures, tags, delivery context, and family labels",
         "Enriches a file indicator and exposes related samples for cluster analysis.",
         "signature agreement, family clusters, delivery method, and sample recency",
+    ),
+    "mnemonic_pdns_lookup": EnrichmentBriefing(
+        "Mnemonic passive DNS", "historical resolutions with first/last seen and observation counts",
+        "Shows which names and addresses were linked over time, without resolving anything now.",
+        "short-lived resolutions, shared hosting, recent changes, and partial (undated) records",
+    ),
+    "internetdb_lookup": EnrichmentBriefing(
+        "Shodan InternetDB", "open ports, hostnames, CPEs, Shodan tags, and associated CVEs",
+        "Gives a quick, keyless exposure summary for an address.",
+        "weekly refresh lag, CVEs inferred from versions (unconfirmed), and shared hostnames",
+    ),
+    "sans_isc_lookup": EnrichmentBriefing(
+        "SANS ISC", "DShield sensor reports, targets, first/last reported, AS, and ISC feed membership",
+        "Shows whether sensors saw the address scanning or attacking, and when.",
+        "report volume versus recency, benign feeds such as open resolvers, and AS context",
+    ),
+    "rdap_lookup": EnrichmentBriefing(
+        "RDAP", "registrar, registration and expiry dates, status, nameservers, and IP network ownership",
+        "Establishes registration chronology from the authoritative registry or RIR.",
+        "recent registration, near expiry, unusual status codes, and reassigned networks",
+    ),
+    "wayback_lookup": EnrichmentBriefing(
+        "Wayback Machine", "first and last archived capture and months with captures",
+        "Shows how long content has existed at the name or URL.",
+        "capture gaps, a recent first capture, and archive coverage limits",
+    ),
+    "hashlookup_lookup": EnrichmentBriefing(
+        "CIRCL hashlookup", "membership in known-software sets (NSRL, distribution packages), file name, and product",
+        "Recognises known software so analysts can set it aside; context, not a verdict.",
+        "trust score, which set matched, and known-malicious annotations",
     ),
 }
 

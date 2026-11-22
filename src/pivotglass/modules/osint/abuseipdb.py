@@ -61,9 +61,9 @@ class AbuseIPDB(BaseModule):
     description = "Check IP reputation via AbuseIPDB"
     author = "Pivotglass"
     module_type = "osint"
+    service_id = "abuseipdb"  # base URL from core/service_endpoints (overridable)
     accepts = ("ipv4", "ipv6")
 
-    _API_URL = "https://api.abuseipdb.com/api/v2/check"
 
     def __init__(self) -> None:
         super().__init__()
@@ -131,7 +131,7 @@ class AbuseIPDB(BaseModule):
 
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                self._API_URL,
+                f"{self.base_url}/check",
                 params={
                     "ipAddress": target,
                     "maxAgeInDays": max_age,

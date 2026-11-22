@@ -270,7 +270,7 @@ def test_state6_yield_stop_updates_hint():
     bus.publish(
         BatteryStarted(
             battery_name="behavioral_battery",
-            tools=("passivetotal_lookup", "scan_url"),
+            tools=("scan_url",),
             target_slots=("timing",),
             reason="test",
         )

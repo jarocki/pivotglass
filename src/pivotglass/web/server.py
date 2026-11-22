@@ -23,7 +23,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from rich.console import Console
 from rich.text import Text
@@ -37,7 +37,7 @@ from pivotglass.agent.model_control import (
     execute_configuration_command,
     execute_model_command,
 )
-from pivotglass.agent.provider_setup import CTI_SERVICES
+from pivotglass.agent.provider_setup import CTI_SERVICES, PROVIDER_BY_ID
 from pivotglass.agent.tools import ToolContext, create_tools, execute_tool
 from pivotglass.agent.tui.themes import (
     COCKPIT_PROFILES,
@@ -72,6 +72,7 @@ from pivotglass.core.framework_perspectives import (
     KILL_CHAIN_VERSION,
 )
 from pivotglass.core.framework_projections import FrameworkProjectionAuthority
+from pivotglass.core.geolocation import GeoDatabase
 from pivotglass.core.graph import RelationshipGraph, persisted_relationships
 from pivotglass.core.graph_presentation import GraphPresentationAuthority
 from pivotglass.core.indicator_context import IndicatorContextAuthority, document_relations
@@ -222,6 +223,8 @@ def _required_credentials(source: str | None, next_action: str) -> tuple[str, tu
     if source:
         wanted = _compact(source)
         for spec in CTI_SERVICES:
+            if not spec.needs_credential:
+                continue  # keyless sources are never "unconfigured"
             if wanted and _compact(spec.display_name).startswith(wanted):
                 required = tuple(
                     key
@@ -370,9 +373,20 @@ class WebCockpitService:
         pivot_trail = PivotTrailAuthority(self.ctx.workspace_mgr).list()
         analysis["pivot_trail"] = pivot_trail
         analysis["analyst_groups"] = PivotTrailAuthority(self.ctx.workspace_mgr).list_groups()
-        visualization_analysis = {
-            **analysis,
-            "observations": self.ctx.workspace_mgr.get_observations(),
+        observations = self.ctx.workspace_mgr.get_observations()
+        visualization_analysis = {**analysis, "observations": observations}
+        # Labels for the observations model proposals cite, so the workbench can
+        # show what each puzzle piece rests on (DEC-HYPOTHESIS-PROPOSALS-001).
+        cited = {
+            ref
+            for item in analysis["lifecycle_items"]
+            for stance in ("supports", "contradicts")
+            for ref in ((item.get("criteria") or {}).get("model_proposal") or {}).get(stance, [])
+        }
+        analysis["observation_labels"] = {
+            row["id"]: f"{row['entity_value'] or row['entity_ref']} · {row['source_module']} · {str(row['fetched_at'])[:10]}"
+            for row in observations
+            if row["id"] in cited
         }
         investigation_snapshots = self.investigations.snapshots()
         visualizations = build_visualization_intents(
@@ -1407,19 +1421,74 @@ class WebCockpitService:
         # authority as the TUI. Its router intercepts local verbs and tools
         # before asking the configured LLM to synthesize.
         with self._command_lock:
-            if self._runner is None:
-                from pivotglass.agent.runner import AgentRunner
-
-                self._runner = AgentRunner(
-                    tool_context=self.ctx,
-                    config_mgr=self.config_mgr,
-                )
-            response = self._runner.handle_input(stripped)
+            response = self._agent_runner().handle_input(stripped)
         return {"kind": "text", "title": "Pivotglass analysis", "text": response, "synthesized": True}
+
+    def _agent_runner(self) -> Any:
+        """The one AgentRunner shared by chat and analytic model calls."""
+        if self._runner is None:
+            from pivotglass.agent.runner import AgentRunner
+
+            self._runner = AgentRunner(tool_context=self.ctx, config_mgr=self.config_mgr)
+        return self._runner
+
+    def propose_hypotheses(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Ask the configured model for evidence-cited hypotheses (DEC-HYPOTHESIS-PROPOSALS-001).
+
+        Evidence is read under the command lock, the model is called without it
+        (a slow model must not freeze the cockpit), and proposals are recorded
+        only if the workspace is still the one the evidence came from.
+        """
+        from pivotglass.core.hypothesis_proposals import (
+            RESPONSE_TOKENS,
+            SYSTEM_PROMPT,
+            finish_round,
+            prepare_round,
+        )
+
+        if not self.config_mgr.is_agent_enabled():
+            raise ValueError("Turn on an AI model in Configuration to get hypothesis proposals.")
+        geo = GeoDatabase()
+
+        def located(ip: str) -> str:
+            record = geo.lookup(ip)
+            if record is None:
+                return ""
+            place = ", ".join(part for part in (record.city, record.country_code) if part)
+            return f"{place} AS{record.asn} {record.as_org}".strip() if record.asn else place
+
+        with self._command_lock:
+            workspace = self.ctx.workspace_mgr.active
+            ledger = AnalyticLedger(self.ctx.workspace_mgr)
+            round_ = prepare_round(
+                ledger,
+                question_id=str(payload.get("question_id") or "").strip() or None,
+                observations=self.ctx.workspace_mgr.get_observations(),
+                objects=self.ctx.workspace_mgr.get_stix_objects(),
+                relationships=persisted_relationships(self.ctx.workspace_mgr),
+                local_location=located,
+            )
+            runner = self._agent_runner()
+        try:
+            reply = runner.complete(SYSTEM_PROMPT, round_.brief.prompt, max_tokens=RESPONSE_TOKENS)
+        except Exception as exc:  # noqa: BLE001 - report the provider's reason, briefly
+            from pivotglass.agent.provider_setup import provider_call_kwargs
+
+            reason = str(exc)
+            key = str(provider_call_kwargs(self.config_mgr).get("api_key") or "")
+            if len(key) >= 8:
+                reason = reason.replace(key, "[redacted]")  # some providers echo the key
+            raise RuntimeError(f"The model call failed: {type(exc).__name__}: {reason[:200]}") from exc
+        with self._command_lock:
+            if self.ctx.workspace_mgr.active != workspace:
+                raise ValueError("The workspace changed while the model was working; nothing was recorded.")
+            return finish_round(AnalyticLedger(self.ctx.workspace_mgr), round_, reply, model=str(runner.model))
 
     def configuration(self) -> dict[str, Any]:
         """Return masked provider and intelligence-service configuration."""
-        return self.model_control.configuration_summary(getattr(self._runner, "model", None))
+        summary = self.model_control.configuration_summary(getattr(self._runner, "model", None))
+        summary["geolocation"] = GeoDatabase().status()
+        return summary
 
     def model_catalog(self, provider: str | None = None) -> dict[str, Any]:
         """Return the live account-visible catalogue with bounded capability notes."""
@@ -1498,6 +1567,19 @@ class WebCockpitService:
             )
             if self._runner is not None:
                 self._runner.model = selected["runtime_model"]
+        elif action == "geo-update":
+            # Explicit analyst request only: downloads DB-IP Lite (~65 MB) to ~/.pivotglass/geo.
+            try:
+                GeoDatabase().update()
+            except RuntimeError as exc:
+                raise ValueError(str(exc)) from exc
+        elif action == "endpoint-override":
+            # Gateway/proxy base URL for one provider or service (DEC-ENDPOINTS-001).
+            known = {spec.id for spec in CTI_SERVICES} | set(PROVIDER_BY_ID)
+            if target not in known:
+                raise ValueError(f"Unknown provider or service: {target}")
+            raw = payload.get("base_url")
+            self.config_mgr.set_endpoint_override(target, str(raw) if raw else None)
         elif action == "remove-provider-credential":
             self.config_mgr.remove_provider_api_key(target)
         elif action == "remove-service-credentials":
@@ -1647,6 +1729,23 @@ class WebCockpitService:
     def alerts(self) -> dict[str, Any]:
         """Return all attention records plus unread summary."""
         alerts = self.investigations.alerts()
+        # Name each referenced artifact by its stored value so the browser can label the
+        # buttons ("Open versaweb.com") instead of repeating "Details" per STIX id.
+        wanted = {str(ref) for item in alerts for ref in (item.get("artifact_ids") or ())}
+        labels: dict[str, dict[str, str]] = {}
+        if wanted:
+            for obj in self.ctx.workspace_mgr.get_stix_objects():
+                ref = str(obj.get("id", ""))
+                if ref in wanted:
+                    value = obj.get("value") or obj.get("name") or ref
+                    labels[ref] = {"id": ref, "type": str(obj.get("type", "")), "label": str(value)}
+        for item in alerts:
+            seen: set[str] = set()
+            item["artifacts"] = [
+                labels.get(str(ref), {"id": str(ref), "type": "", "label": str(ref)})
+                for ref in (item.get("artifact_ids") or ())
+                if not (str(ref) in seen or seen.add(str(ref)))
+            ]
         unread = [item for item in alerts if not item["acknowledged"]]
         severity_rank = {"critical": 4, "error": 3, "warning": 2, "caution": 1, "info": 0}
         highest = max(
@@ -2177,7 +2276,7 @@ def _handler(
                 return
             if parsed.path.startswith("/api/investigations/") and parsed.path.endswith("/events"):
                 try:
-                    investigation_id = parsed.path.split("/")[3]
+                    investigation_id = unquote(parsed.path.split("/")[3])
                     raw_cursor = parse_qs(parsed.query).get("cursor", ["0"])[0]
                     self._json(service.investigation_events(investigation_id, int(raw_cursor)))
                 except (ValueError, IndexError) as exc:
@@ -2232,6 +2331,7 @@ def _handler(
                     "/api/documents/candidates/admit",
                     "/api/tags",
                     "/api/indicators/context",
+                    "/api/analysis/propose-hypotheses",
                     "/api/advisor/voice",
                     "/api/integrations/scot/pivot-request",
                 }
@@ -2334,6 +2434,12 @@ def _handler(
                 if parsed.path == "/api/tags":
                     self._json(service.tag_indicators(payload), HTTPStatus.CREATED)
                     return
+                if parsed.path == "/api/analysis/propose-hypotheses":
+                    try:
+                        self._json(service.propose_hypotheses(payload), HTTPStatus.CREATED)
+                    except RuntimeError as exc:
+                        self._json({"error": str(exc)}, HTTPStatus.BAD_GATEWAY)
+                    return
                 if parsed.path == "/api/indicators/context":
                     self._json(service.indicator_context(payload))
                     return
@@ -2363,11 +2469,14 @@ def _handler(
                     self._json({"saved": True})
                     return
                 if is_cancel:
-                    investigation_id = parsed.path.split("/")[3]
+                    investigation_id = unquote(parsed.path.split("/")[3])
                     self._json(service.cancel_investigation(investigation_id))
                     return
                 if is_ack:
-                    event_id = parsed.path.removeprefix("/api/alerts/").removesuffix("/acknowledge")
+                    # Event ids contain ':' and arrive percent-encoded from the browser.
+                    event_id = unquote(
+                        parsed.path.removeprefix("/api/alerts/").removesuffix("/acknowledge")
+                    )
                     self._json(service.acknowledge_alert(event_id))
                     return
                 target = str(payload.get("target", "")).strip()

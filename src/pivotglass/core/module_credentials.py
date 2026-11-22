@@ -33,13 +33,12 @@ passed to ``PursuitModule.initialize()`` from either the chat-agent path
     via the 3-layer chain. The fix is an explicit map from module_path to
     canonical service name. None signals that the module needs no API key
     (for example, whois_lookup). Modules absent from the map fall back to the
-    path tail for forward-compat with future plugins. Multi-key modules (Censys,
-    PassiveTotal) stay in CREDENTIAL_BUILDERS and are never looked up here.
+    path tail for forward-compat with future plugins. Multi-key modules (Censys)
+    stay in CREDENTIAL_BUILDERS and are never looked up here.
 
     DEC-AGENT-TOOLS-003 — Per-module credential builders for multi-key auth
     modules. Most modules use a single api_key, but Censys requires censys_pat
-    and PassiveTotal requires passivetotal_user + passivetotal_key.
-    CREDENTIAL_BUILDERS maps module paths to callables that construct the full
+    plus an optional censys_org_id. CREDENTIAL_BUILDERS maps module paths to callables that construct the full
     init_config dict from ConfigManager. Modules not in the map fall back to
     the legacy {"api_key": ...} pattern. This keeps resolve_module_credentials()
     generic while correctly threading multi-key credentials to modules that need
@@ -88,15 +87,10 @@ CREDENTIAL_BUILDERS: dict[str, Any] = {
         "censys_pat": cfg.get_censys_pat() or "",
         "censys_org_id": cfg.get_api_key("censys_org_id") or "",
     },
-    "cti/passivetotal": lambda cfg: {
-        "passivetotal_user": cfg.get_api_key("passivetotal_user") or "",
-        "passivetotal_key": cfg.get_api_key("passivetotal_key") or "",
-    },
 }
 
 MODULE_SERVICE_IDS: dict[str, str] = {
     "osint/censys_host": "censys_pat",
-    "cti/passivetotal": "passivetotal",
 }
 
 
@@ -113,7 +107,7 @@ def resolve_module_credentials(module_path: str, config_mgr: Any) -> dict:
     DEC-AGENT-TOOLS-003).
 
     Precedence:
-    1. ``CREDENTIAL_BUILDERS``: multi-key modules (Censys, PassiveTotal).
+    1. ``CREDENTIAL_BUILDERS``: multi-key modules (Censys).
     2. ``SERVICE_NAMES``: maps module_path to canonical service name for
        ``get_api_key()``. ``None`` means no API key needed (e.g. whois_lookup).
     3. Fallback: path tail used as service name (forward-compat with future plugins).
@@ -130,7 +124,7 @@ def resolve_module_credentials(module_path: str, config_mgr: Any) -> dict:
     dict
         init_config dict ready for ``PursuitModule.initialize()``. Empty dict
         for key-free modules; ``{"api_key": ...}`` for standard single-key
-        modules; multi-field dict for Censys/PassiveTotal.
+        modules; multi-field dict for Censys.
     """
     service_id = MODULE_SERVICE_IDS.get(
         module_path,

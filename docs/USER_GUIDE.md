@@ -380,6 +380,36 @@ A dimension may be:
 These are coverage states. They are not confidence, severity, attribution, or a
 malware verdict.
 
+### Puzzle pieces: AI-proposed hypotheses
+
+Once you have recorded the investigation question and collected some evidence,
+open **Workbench → Review assumptions, explanations & contradictions** and
+choose **Propose with AI**. The configured model reads a brief of the newest
+150 observations (indicator, source, date, the key facts each source returned,
+known-good labels, and local location) plus the stored relationships and the
+hypotheses you already have. It proposes up to four competing explanations,
+including a mundane one when the evidence allows it.
+
+Each proposal is marked **AI proposal · inference** and shows:
+
+- the observations it cites as support, and any that cut against it;
+- the missing pieces that would most change the picture, which are also added
+  as collection requirements awaiting your review; and
+- the model's short rationale.
+
+Pivotglass checks every citation against the brief. A proposal that cites
+evidence it was not given, or that cites no supporting evidence, is discarded
+before you see it. Text from sources is passed to the model as data inside a
+fenced block, and the model is told not to follow instructions found there.
+
+Nothing a model proposes is evidence. **Retain** is your acceptance: only then
+do the cited observations become evidence links, each recording that you
+retained a model proposal. **Reject** discards it; **Suspend** sets it aside.
+The Dossier shows a **Puzzle pieces** line with retained hypotheses and the
+proposals awaiting review. The model runs only when you ask, so you control cost,
+timing, and which provider sees the case; with a cloud provider, the brief is
+sent to that provider.
+
 ## Investigation Constellation
 
 The Investigation Constellation is the persistent coverage table in Visual
@@ -827,6 +857,89 @@ LiteLLM capability metadata when available. Strengths and limitations are
 evidence-proportional notes, not rankings. A visible model can still lack
 quota, perform poorly for a case, respond slowly, or change at the provider.
 
+### Known-good and shared infrastructure
+
+Reports and pivots pull in indicators that are not malicious: public DNS
+resolvers such as `8.8.8.8`, certificate revocation servers, the hash of an
+empty file, research scanners. Pivotglass recognises them offline against a
+bundled subset of the [MISP warninglists](https://github.com/MISP/misp-warninglists)
+(CC0 1.0) and labels them wherever the indicator appears: the focus-mode list
+and details card, the coverage matrix, the relationship graph (dashed and
+faded), and the evidence drawer. Each label names the list and its version.
+
+| Label | Examples | Can be set aside |
+|---|---|---|
+| Known good | Public DNS resolver, CRL/OCSP, connectivity check, IP-echo service, security-vendor blog, Tranco top-10k site, empty-file and EICAR hashes, common IoC false positives, a file CIRCL hashlookup knows | Yes |
+| Internet scanner | Shodan, Censys, Shadowserver, Rapid7 Sonar ranges | Yes |
+| Shared infrastructure | AWS, Google Cloud, Azure, Cloudflare, Akamai, Fastly address space; URL shorteners; dynamic DNS; parking servers; a URL on a popular site; a subdomain of any listed domain | No |
+| Sinkhole | Known sinkhole addresses | No |
+| Known file, also reported malicious | hashlookup knows the file but a source lists it as malicious | No |
+
+A label is context, never a verdict. **Set aside** (on a known indicator in the
+evidence drawer, or **Set aside N known** in focus mode for the whole source)
+tags it *Benign / noise* with a note naming the list, so you can filter it out;
+remove the tag to bring it back. Shared infrastructure is never offered for set
+aside: malware is hosted on cloud services and popular platforms, and a
+subdomain of `blogspot.com` is not `blogspot.com`. A sinkhole match usually
+means the domain was malicious and has been taken over.
+
+The bundle is refreshed each minor release with
+`uv run python scripts/update_warninglists.py`, which records the upstream
+commit.
+
+### Geolocation data
+
+Every public IP shows a small flag, country, city, and network (ASN) in the
+coverage matrix, the relationship graph, and the evidence drawer. The location
+comes from local DB-IP Lite databases, so no case IP is sent anywhere to be
+located. Download them once from **Configuration → Geolocation data**
+(about 65 MB, stored in `~/.pivotglass/geo/`) and use **Check for update**
+monthly. A location reported by an enrichment source is shown in preference
+and keeps its source label; the local result is labelled with the database
+edition, e.g. `DB-IP Lite 2026-11 (local)`. Location describes where
+infrastructure is hosted, not who operates it. IP geolocation by
+[DB-IP](https://db-ip.com), licensed CC BY 4.0.
+
+### API base URLs and gateways
+
+Every model provider and intelligence service shows its **API base URL** in
+Configuration. The field starts with the default; replace it to route that
+service through an API gateway or proxy (for example a LiteLLM proxy, Cloudflare
+AI Gateway, or a corporate egress gateway) and press **Save**. The credential
+test, model list, enrichment lookups, and model calls for that service all use
+the saved URL. **Use default** removes the override. Overrides must use
+`https://`; `http://` is accepted only for `localhost` gateways, and a URL may
+not contain credentials, a query, or a fragment.
+
+Providers:
+
+| Provider | Default base URL | Notes |
+|---|---|---|
+| Anthropic | `https://api.anthropic.com` | |
+| OpenAI | `https://api.openai.com/v1` | |
+| OpenRouter | `https://openrouter.ai/api/v1` | |
+| Google (Gemini) | `https://generativelanguage.googleapis.com/v1beta` | The free tier may use prompts for training; use a paid key for case data. |
+| Ollama (local) | `http://localhost:11434` | Default when nothing is configured: `ollama/qwen3.5:9b`. On 32 GB or more, `qwen3.6:35b` is stronger. |
+| Azure OpenAI / AI Foundry | none; enter your resource's v1 endpoint | e.g. `https://NAME.openai.azure.com/openai/v1` |
+| OpenAI-compatible endpoint | none; enter it | Any `/v1` OpenAI-style API: LiteLLM proxy, Mistral, Groq, Together, xAI. |
+| Local OpenAI-compatible | `http://localhost:1234/v1` | LM Studio; change the port for mlx_lm or llama.cpp server. |
+
+Keyless context sources need no credential. They appear under Intelligence
+APIs with an Enabled toggle, a base URL, and a **Test** that queries a public
+value (8.8.8.8 or example.com). Each sends the User-Agent `pivotglass/<version>`
+and nothing that identifies you. A source with nothing on record returns no
+result rather than an error; their findings are context from the named source,
+never a verdict.
+
+| Service (id) | Default base URL | Accepts | What it records |
+|---|---|---|---|
+| Mnemonic passive DNS (`mnemonic_pdns`) | `https://api.mnemonic.no` | domain, IP | Historical resolutions with first/last seen and counts. Public tier: 10 requests per minute, 1000 per day, TLP:WHITE data only; so it is not an auto-pivot source. |
+| Shodan InternetDB (`shodan_internetdb`) | `https://internetdb.shodan.io` | IP | Open ports, hostnames, CPEs, Shodan tags, and CVEs Shodan associates with the reported versions (not confirmed). Refreshed weekly. |
+| SANS ISC (`sans_isc`) | `https://isc.sans.edu/api` | IPv4 | DShield sensor reports and targets, first/last reported, AS, network, and ISC feeds the address appears in (for example open resolvers). |
+| RDAP (`rdap`) | `https://rdap.org` | domain, IP | Registrar, registration, expiry, and last-changed dates, status, nameservers; for IPs the network name, range, country, and registrant or abuse organisation. rdap.org redirects to the authoritative registry; personal names, e-mail addresses, and phone numbers are not recorded. |
+| Wayback Machine (`wayback`) | `https://web.archive.org` | domain, URL | First and last capture with archive links and the number of months with captures. |
+| CIRCL hashlookup (`hashlookup`) | `https://hashlookup.circl.lu` | MD5, SHA-1, SHA-256 | Known file (NSRL and other known-software sets), context not a verdict: matched sets, file name, product, trust score, and any known-malicious annotation. |
+
 ![v0.9.9 Configuration distinguishes model settings from missing intelligence-service credentials; checks are explicit](media/pivotglass-configuration-v1.0.0.png)
 
 ### Model commands
@@ -909,8 +1022,10 @@ config configure
 ```
 
 Disabling a source prevents it from running while preserving its stored
-credential. WHOIS and crt.sh require no API credential; the system WHOIS module
-does require a local `whois` executable.
+credential. WHOIS, crt.sh, and the keyless context sources (Mnemonic passive
+DNS, Shodan InternetDB, SANS ISC, RDAP, Wayback Machine, CIRCL hashlookup)
+require no API credential; the system WHOIS module does require a local `whois`
+executable.
 
 Common non-interactive overrides include:
 

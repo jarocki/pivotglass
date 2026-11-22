@@ -889,10 +889,19 @@ export function TaskMatrix({
               if (!row) return null;
               const label = String(row[rowField]);
               const country = row.country_source ? reportedCountry(row.country_code) : null;
-              const locationHelp = country
-                ? ` Source-reported location: ${country.name} (${country.code}), from ${displayValue(row.country_source)}, retrieved ${displayValue(row.country_observed_at)}. Infrastructure location is not actor origin.`
-                : " No source-reported country available.";
-              const indicatorHelp = `${label} · ${indicatorTypeLabel(String(row.indicator_type))} · ${displayValue(row.completeness_percent)}% coverage.${locationHelp} Open source evidence and provenance.`;
+              // The hover adds only what the row does not already show: where the infrastructure
+              // sits (and who said so) and which dimensions still lack evidence.
+              const gaps = isConstellation
+                ? columns.filter((column) => String(cells.get(`${rowId}\u0000${column}`)?.[statusField] ?? "") === "empty")
+                  .map((column) => CONSTELLATION_COLUMN_LABELS[column] ?? column)
+                : [];
+              const hintParts = [
+                country ? `${country.flag} ${country.name} · ${displayValue(row.country_source)}, ${displayValue(row.country_observed_at).slice(0, 10)}` : "",
+                row.known ? `Known: ${displayValue(row.known)} · ${displayValue(row.known_source)}` : "",
+                gaps.length ? `No evidence yet: ${gaps.join(", ")}` : "",
+              ].filter(Boolean);
+              const rowHint = hintParts.join("\n");
+              const indicatorHelp = [`${label}, ${indicatorTypeLabel(String(row.indicator_type))}, ${displayValue(row.completeness_percent)}% coverage`, ...hintParts].join(". ");
               return (
                 <tr key={rowId}>
                   <th scope="row">
@@ -900,9 +909,9 @@ export function TaskMatrix({
                       ? (
                         <button
                           id={`${tooltipId}-row-${rowIndex}`}
-                          onPointerEnter={(event) => showHoverTip(event, indicatorHelp)}
+                          onPointerEnter={(event) => { if (rowHint) showHoverTip(event, rowHint); }}
                           onPointerLeave={scheduleHideHoverTip}
-                          onFocus={(event) => showHoverTip(event, indicatorHelp)}
+                          onFocus={(event) => { if (rowHint) showHoverTip(event, rowHint); }}
                           onBlur={() => setHoverTip(null)}
                           aria-describedby={hoverTip?.anchor.id === `${tooltipId}-row-${rowIndex}` ? tooltipId : undefined}
                           aria-label={indicatorHelp}
@@ -913,6 +922,7 @@ export function TaskMatrix({
                             <small>
                               {country && <span className="constellation-country" aria-label={`Source-reported location: ${country.name}`}><span aria-hidden="true">{country.flag}</span> {country.code}</span>}
                               {indicatorTypeLabel(String(row.indicator_type))} · {displayValue(row.completeness_percent)}% coverage
+                              {row.known ? <span className={`listed listed-${displayValue(row.known_category)}`}> · {displayValue(row.known)}</span> : null}
                             </small>
                           )}
                         </button>
@@ -926,7 +936,7 @@ export function TaskMatrix({
                     const dimension = isConstellation ? CONSTELLATION_COLUMN_LABELS[column] ?? column : column.replaceAll("_", " ");
                     const evidenceCount = displayValue(cell.evidence_count);
                     const cellHelp = isConstellation
-                      ? `${label}. ${dimension}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."} ${constellationStatusHelp(status)} ${evidenceCount} source-backed evidence records contribute. Click to pin details below the grid.`
+                      ? `${label}. ${dimension}: ${CONSTELLATION_DIMENSION_HELP[column] ?? "Canonical Dossier dimension."} ${constellationStatusHelp(status)} ${evidenceCount} source-backed evidence records.`
                       : isAch
                         ? `${column} · ${status.replaceAll("_", " ")} · ${displayValue(cell.rationale)}`
                         : `${dimension} · ${status.replaceAll("_", " ")} · latest authoritative lifecycle state`;
@@ -1757,7 +1767,7 @@ function RelationshipGraph({
     for (const node of candidates) {
       const point = toScreen(positions[node.reference]);
       const r = nodeRadius(node.reference);
-      const textWidth = shortLabel(labels[node.reference] || node.label, 44).length * font * 0.66 + 6; // bold UI text runs ~0.62em per glyph
+      const textWidth = (shortLabel(labels[node.reference] || node.label, 44).length + (node.country_code ? 3 : 0)) * font * 0.66 + 6; // bold UI text runs ~0.62em per glyph
       const top = point.y - lineHeight / 2;
       const boxes: Array<[LabelSide, [number, number, number, number]]> = [
         ["right", [point.x + r + 5, point.x + r + 5 + textWidth, top, top + lineHeight]],
@@ -2013,6 +2023,7 @@ function RelationshipGraph({
                     focusRefs.size > 0 && !focusRefs.has(node.reference) ? "dim" : "",
                     node.reference === hovered ? "hovered" : "",
                     `type-${node.entity_type.replaceAll(/[^a-z0-9-]/gi, "-")}`,
+                    node.known_category ? `known-${node.known_category}` : "",
                   ].join(" ")}
                   role="button"
                   tabIndex={0}
@@ -2046,20 +2057,23 @@ function RelationshipGraph({
                       reference: node.reference,
                       startX: event.clientX,
                       startY: event.clientY,
-                      originX: position.x,
-                      originY: position.y,
+                      // Graph coordinates, not screen: the move handler adds the pointer delta
+                      // divided by scale. Storing the screen position here made a dragged node
+                      // jump away from the pointer by the current pan offset.
+                      originX: positions[node.reference].x,
+                      originY: positions[node.reference].y,
                     });
                   }}
                 >
                   <circle r={nodeRadius(node.reference)}>
-                    <title>{node.label} · {node.entity_type} · {degree.get(node.reference) ?? 0} relationships</title>
+                    <title>{node.label} · {node.entity_type} · {degree.get(node.reference) ?? 0} relationships{node.known_label ? ` · known: ${node.known_label} (list match, not a verdict)` : ""}</title>
                   </circle>
                   {labelSide.has(node.reference) && (
                     <text
                       className="node-label"
                       {...labelPlacement(labelSide.get(node.reference)!, nodeRadius(node.reference), size.font || 12)}
                     >
-                      {shortLabel(labels[node.reference] || node.label, 44)}
+                      {node.country_code ? `${reportedCountry(node.country_code)?.flag ?? ""} ` : ""}{shortLabel(labels[node.reference] || node.label, 44)}
                     </text>
                   )}
                 </g>
