@@ -14,7 +14,7 @@ downloaded bytes match the owner's release decision.
 The SBOM describes the exact Python and npm lockfiles used to qualify the source
 release and build the packaged browser. Python wheel metadata intentionally
 uses compatible version ranges, so an unconstrained wheel installer can resolve
-newer dependencies. The supported reproducible v1.4.0 install is the tagged source checkout
+newer dependencies. The supported reproducible v1.4.1 install is the tagged source checkout
 with `uv sync --frozen`; a standalone wheel install is a package-compatibility
 check, not a reproduction of the locked environment.
 
@@ -51,7 +51,7 @@ must contain only the final candidate output; do not reuse a historical
 `dist/` directory.
 
 ```bash
-PIVOTGLASS_VERSION=1.4.0
+PIVOTGLASS_VERSION=1.4.1
 PIVOTGLASS_BUNDLE="$(mktemp -d)"
 
 uv lock --check
@@ -174,7 +174,7 @@ is not a completed release.
 
 ## Current boundary
 
-The v1.4.0 candidate source tree contains the generator, deterministic tests,
+The v1.4.1 candidate source tree contains the generator, deterministic tests,
 support guidance, and this manual ceremony because release workflows are
 intentionally kept out of the public repository. The final signature and
 public readback remain publication gates until the immutable candidate has
