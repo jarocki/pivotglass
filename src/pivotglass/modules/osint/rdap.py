@@ -23,7 +23,9 @@ rdap.arin.net), which the module follows.
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
+import socket
 from typing import Any
 from urllib.parse import quote, urlsplit
 
@@ -36,17 +38,44 @@ from pivotglass.modules.keyless_http import json_body, keyless_get, unexpected_s
 SOURCE = "RDAP"
 
 
-def _require_public_https(url: str) -> None:
+async def _resolve_host(host: str) -> list[str]:
+    """Every address *host* resolves to (patched in tests)."""
+    loop = asyncio.get_running_loop()
+    infos = await loop.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+    return sorted({info[4][0] for info in infos})
+
+
+async def _require_public_https(url: str) -> None:
+    """Refuse a redirect hop that is not https to a public registry host.
+
+    Checks the literal host (canonical dotted-quad or IPv6 only; bare numeric
+    or hex forms such as ``2130706433`` are refused), names ending in
+    ``localhost``, and every address a hostname resolves to. A DNS answer that
+    changes between this check and the request (rebinding) is not prevented;
+    the bootstrap service chooses these hosts, which bounds that risk.
+    """
     parts = urlsplit(url)
-    host = (parts.hostname or "").lower()
+    host = (parts.hostname or "").lower().rstrip(".")
     if parts.scheme != "https" or not host or host == "localhost" or host.endswith(".localhost"):
         raise ModuleError(f"{SOURCE} redirected to a non-https or local address; refused.")
     try:
-        address = ipaddress.ip_address(host)
+        literal = ipaddress.ip_address(host)
     except ValueError:
-        return
-    if not address.is_global:
+        literal = None
+    if literal is not None:
+        addresses = [str(literal)]
+    else:
+        last_label = host.rsplit(".", 1)[-1]
+        if "." not in host or not any(char.isalpha() for char in last_label) or ":" in host:
+            raise ModuleError(f"{SOURCE} redirected to a non-standard host; refused.")
+        try:
+            addresses = await _resolve_host(host)
+        except OSError as exc:
+            raise ModuleError(f"{SOURCE} redirect host could not be resolved; refused.") from exc
+    if not addresses or not all(ipaddress.ip_address(item.split("%", 1)[0]).is_global for item in addresses):
         raise ModuleError(f"{SOURCE} redirected to a private or reserved address; refused.")
+
+
 _MAX_NAMESERVERS = 13
 _SCO_TYPES = {"domain": "domain-name", "ipv4": "ipv4-addr", "ipv6": "ipv6-addr"}
 
@@ -112,9 +141,8 @@ class Rdap(BaseModule):
         """GET *url*, following at most two redirects to public https registry servers.
 
         rdap.org answers with a redirect to the authoritative registry. Each hop
-        is checked before it is requested: https only, and the host must not be
-        a literal private, loopback, link-local or reserved address, nor
-        localhost, so a hostile bootstrap answer cannot steer a request inward.
+        is checked before it is requested (see ``_require_public_https``), so a
+        hostile bootstrap answer cannot steer a request inward.
         """
         for _hop in range(3):
             response = await keyless_get(SOURCE, url, follow_redirects=False, transport=self.transport)
@@ -122,7 +150,7 @@ class Rdap(BaseModule):
                 return response
             location = response.headers.get("Location", "")
             next_url = str(response.url.join(location)) if location else ""
-            _require_public_https(next_url)
+            await _require_public_https(next_url)
             url = next_url
         raise ModuleError(f"{SOURCE} redirected too many times; no result recorded.")
 

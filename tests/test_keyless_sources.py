@@ -320,8 +320,18 @@ _RDAP_DOMAIN = {
     "https://169.254.169.254/latest/meta-data",
     "https://10.0.0.5/domain/example.com",
     "https://localhost/domain/example.com",
+    "https://localhost./domain/example.com",
+    "https://2130706433/domain/example.com",  # 127.0.0.1 as a bare integer
+    "https://0x7f.1/domain/example.com",
+    "https://internal-registry.example/domain/example.com",  # resolves to 10.1.2.3
 ])
-async def test_rdap_refuses_redirects_to_local_or_plain_http_targets(location):
+async def test_rdap_refuses_redirects_to_local_or_plain_http_targets(location, monkeypatch):
+    from pivotglass.modules.osint import rdap
+
+    async def resolve(host):
+        return ["10.1.2.3"] if host == "internal-registry.example" else ["192.0.2.10"]
+
+    monkeypatch.setattr(rdap, "_resolve_host", resolve)
     requested = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -331,6 +341,17 @@ async def test_rdap_refuses_redirects_to_local_or_plain_http_targets(location):
     with pytest.raises(ModuleError, match="refused"):
         await _module(Rdap, handler).hunt("example.com", {})
     assert len(requested) == 1  # the unsafe hop is never requested
+
+
+@pytest.fixture(autouse=True)
+def _public_registry_dns(monkeypatch):
+    """Redirect hosts in these tests resolve to a public address, without the network."""
+    from pivotglass.modules.osint import rdap
+
+    async def resolve(host):
+        return ["93.184.215.14"]
+
+    monkeypatch.setattr(rdap, "_resolve_host", resolve)
 
 
 async def test_rdap_stops_after_bounded_redirects():
