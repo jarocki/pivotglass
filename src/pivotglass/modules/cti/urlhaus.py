@@ -47,8 +47,8 @@ import httpx
 
 from pivotglass.modules.base import (
     BaseModule,
-    RateLimitError,
 )
+from pivotglass.modules.cti.abusech import auth_headers, check_response
 
 logger = logging.getLogger(__name__)
 
@@ -62,10 +62,10 @@ class URLHaus(BaseModule):
     """Check URLs and hosts against the abuse.ch URLhaus malicious URL blocklist.
 
     URLhaus collects malicious URLs used for malware distribution and provides
-    a free, keyless public API for lookups. Returns STIX 2.1 url SCO dicts
+    a free public API for lookups. Returns STIX 2.1 url SCO dicts
     with x_abuse_* custom fields for each matching URL record.
 
-    No API key is required. Accepts both full URLs (https://...) and
+    Requires the shared abuse.ch Auth-Key (DEC-ABUSECH-AUTH-001). Accepts both full URLs (https://...) and
     plain host values (IP address or domain name).
 
     Returns a list of STIX 2.1 url SCO dicts with x_abuse_* custom properties.
@@ -77,10 +77,8 @@ class URLHaus(BaseModule):
     author = "Pivotglass"
     module_type = "cti"
     accepts = ("url", "domain", "md5", "sha256")
-    requires_api_key = False
-
-    _HOST_URL = "https://urlhaus-api.abuse.ch/v1/host/"
-    _URL_URL = "https://urlhaus-api.abuse.ch/v1/url/"
+    requires_api_key = True
+    service_id = "urlhaus"
 
     def __init__(self) -> None:
         super().__init__()
@@ -127,26 +125,19 @@ class URLHaus(BaseModule):
         """
         # Determine endpoint and payload by target shape
         is_url = target.startswith("http://") or target.startswith("https://")
-        endpoint = self._URL_URL if is_url else self._HOST_URL
+        endpoint = f"{self.base_url}/url/" if is_url else f"{self.base_url}/host/"
+        # URLhaus documents form fields, not a JSON body.
         payload = {"url": target} if is_url else {"host": target}
+        headers = auth_headers(self._config, "URLhaus")
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 endpoint,
-                json=payload,
-                headers={"Accept": "application/json"},
+                data=payload,
+                headers=headers,
                 timeout=TIMEOUT,
             )
-
-            if response.status_code == 429:
-                retry_header = response.headers.get("Retry-After")
-                retry_after = int(retry_header) if retry_header else None
-                raise RateLimitError(
-                    "URLhaus API rate limit exceeded.",
-                    retry_after=retry_after,
-                )
-
-            response.raise_for_status()
+            check_response(response, "URLhaus")
             data = response.json()
 
         query_status = data.get("query_status", "")

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- ThreatFox, URLhaus, and MalwareBazaar failed with a raw "401 Unauthorized": abuse.ch now requires an Auth-Key. One stored key (`api_keys.abusech`, `PIVOTGLASS_ABUSECH_API_KEY`) is sent as the `Auth-Key` header to all three. Each service now has its own Configuration card with Enabled toggle, base URL, and a **Test** (POST where the API requires it). Without a key a hunt records them as not configured. URLhaus and MalwareBazaar requests use the documented form fields (#20).
+- The connection-count histogram bins whole numbers instead of 0.1-wide slivers (#36). The coverage-similarity scatter colours points by indicator type from the same hues as the graph (#37).
+- A dossier radar with fewer than three covered facets is shown as a compact coverage list; facet names read TTPs, not Ttps (#38).
+
+### Changed
+
+- Provenance is a dense timeline, one row per event, with details on demand (#39).
+- `core/module_credentials.py` is now `core/module_config.py`.
+
 ## [1.4.1] - 2026-11-21
 
 ### Security

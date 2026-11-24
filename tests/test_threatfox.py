@@ -218,10 +218,10 @@ class TestThreatFoxMetadata:
         mod = ThreatFox()
         assert mod.module_type == "cti"
 
-    def test_requires_api_key_is_false(self):
-        """ThreatFox is keyless — requires_api_key must be False."""
+    def test_requires_the_abusech_auth_key(self):
+        """abuse.ch requires an Auth-Key since 2024 (DEC-ABUSECH-AUTH-001)."""
         mod = ThreatFox()
-        assert mod.requires_api_key is False
+        assert mod.requires_api_key is True
 
     def test_description_non_empty(self):
         mod = ThreatFox()
@@ -247,7 +247,7 @@ class TestThreatFoxIocTypeDispatch:
 
     def test_ip_port_produces_ipv4_addr(self, mock_ip_port):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         assert len(results) == 1
         assert results[0]["type"] == "ipv4-addr"
@@ -255,20 +255,20 @@ class TestThreatFoxIocTypeDispatch:
     def test_ip_port_value_is_ip_only(self, mock_ip_port):
         """For ip:port IOC, SCO value is the IP portion only (not 'IP:port')."""
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         assert results[0]["value"] == "192.168.1.1"
 
     def test_ip_port_has_x_tf_port(self, mock_ip_port):
         """ip:port SCO includes x_tf_port custom field with the port string."""
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         assert results[0]["x_tf_port"] == "4444"
 
     def test_url_ioc_produces_url_sco(self):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         with _patched_client(_URL_RESPONSE):
             results = asyncio.run(mod.hunt("http://evil.example.com/c2", {}))
         assert len(results) == 1
@@ -276,7 +276,7 @@ class TestThreatFoxIocTypeDispatch:
 
     def test_domain_ioc_produces_domain_name_sco(self):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         with _patched_client(_DOMAIN_RESPONSE):
             results = asyncio.run(mod.hunt("evil.example.com", {}))
         assert len(results) == 1
@@ -284,7 +284,7 @@ class TestThreatFoxIocTypeDispatch:
 
     def test_md5_hash_produces_file_sco_with_md5(self):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         with _patched_client(_MD5_RESPONSE):
             results = asyncio.run(mod.hunt("d41d8cd98f00b204e9800998ecf8427e", {}))
         assert len(results) == 1
@@ -294,7 +294,7 @@ class TestThreatFoxIocTypeDispatch:
     def test_sha256_hash_produces_file_sco_with_sha256(self):
         sha = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         with _patched_client(_SHA256_RESPONSE):
             results = asyncio.run(mod.hunt(sha, {}))
         assert len(results) == 1
@@ -308,7 +308,7 @@ class TestThreatFoxIocTypeDispatch:
             "data": [_make_ioc_record("some_value", "unknown_type")],
         }
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         with _patched_client(unknown_response):
             results = asyncio.run(mod.hunt("some_value", {}))
         assert results == []
@@ -324,14 +324,14 @@ class TestThreatFoxCustomFields:
 
     def test_x_tf_malware_present(self, mock_ip_port):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         assert "x_tf_malware" in results[0]
         assert results[0]["x_tf_malware"] == "Emotet"
 
     def test_x_tf_confidence_is_int(self, mock_ip_port):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         assert "x_tf_confidence" in results[0]
         assert isinstance(results[0]["x_tf_confidence"], int)
@@ -339,27 +339,27 @@ class TestThreatFoxCustomFields:
 
     def test_x_tf_first_seen_present(self, mock_ip_port):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         assert "x_tf_first_seen" in results[0]
         assert results[0]["x_tf_first_seen"] == "2026-05-01 12:00:00 UTC"
 
     def test_x_tf_last_seen_present(self, mock_ip_port):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         assert "x_tf_last_seen" in results[0]
 
     def test_x_tf_reporter_present(self, mock_ip_port):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         assert "x_tf_reporter" in results[0]
         assert results[0]["x_tf_reporter"] == "threatfox_user"
 
     def test_x_tf_tags_is_list(self, mock_ip_port):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         assert "x_tf_tags" in results[0]
         assert isinstance(results[0]["x_tf_tags"], list)
@@ -376,7 +376,7 @@ class TestThreatFoxEmptyResults:
 
     def test_no_results_returns_empty_list(self, mock_no_results):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("clean.example.com", {}))
         assert results == []
 
@@ -384,7 +384,7 @@ class TestThreatFoxEmptyResults:
         """data field missing or null returns []."""
         null_data_response = {"query_status": "ok", "data": None}
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         with _patched_client(null_data_response):
             results = asyncio.run(mod.hunt("something", {}))
         assert results == []
@@ -401,7 +401,7 @@ class TestThreatFoxDedup:
     def test_duplicate_ioc_values_deduplicated(self):
         """Two records with the same ioc_value produce one SCO."""
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         with _patched_client(_DUP_RESPONSE):
             results = asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         assert len(results) == 1
@@ -409,7 +409,7 @@ class TestThreatFoxDedup:
     def test_multi_ioc_response_preserves_distinct(self):
         """Three distinct IOC values produce three SCOs."""
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         with _patched_client(_MULTI_IOC_RESPONSE):
             results = asyncio.run(mod.hunt("query_term", {}))
         assert len(results) == 3
@@ -425,20 +425,20 @@ class TestThreatFoxRateLimit:
 
     def test_429_raises_rate_limit_error(self, mock_429):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         with pytest.raises(RateLimitError):
             asyncio.run(mod.hunt("192.168.1.1:4444", {}))
 
     def test_429_retry_after_populated(self, mock_429):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         with pytest.raises(RateLimitError) as exc_info:
             asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         assert exc_info.value.retry_after == 3600
 
     def test_429_no_header_retry_after_is_none(self, mock_429_no_header):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         with pytest.raises(RateLimitError) as exc_info:
             asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         assert exc_info.value.retry_after is None
@@ -506,20 +506,20 @@ class TestThreatFoxRequestShape:
 
     def test_method_is_post(self, mock_ip_port):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         mock_ip_port.post.assert_called_once()
 
     def test_payload_contains_search_ioc_query(self, mock_ip_port):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         call_kwargs = mock_ip_port.post.call_args.kwargs
         assert call_kwargs["json"]["query"] == "search_ioc"
 
     def test_payload_contains_search_term_as_target(self, mock_ip_port):
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         call_kwargs = mock_ip_port.post.call_args.kwargs
         assert call_kwargs["json"]["search_term"] == "192.168.1.1:4444"
@@ -559,7 +559,7 @@ class TestThreatFoxDiscovery:
         mod = mgr.get_module("cti/threatfox")
         assert mod is not None
 
-        mod.initialize({})  # keyless
+        mod.initialize({"api_key": "test-abusech-key"})  # keyless
 
         with _patched_client(_NO_RESULTS_RESPONSE):
             results = asyncio.run(mod.hunt("safe.example.com", {}))
@@ -589,7 +589,7 @@ class TestNoProvenance:
         fields would create duplicate authority and cause silent data drift.
         """
         mod = ThreatFox()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("192.168.1.1:4444", {}))
         assert len(results) > 0, "Expected non-empty results for this fixture"
         for sco in results:

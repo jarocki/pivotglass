@@ -112,6 +112,7 @@ _PIVOTGLASS_ENV_VAR_MAP: dict[str, str] = {
     "greynoise": "PIVOTGLASS_GREYNOISE_API_KEY",
     "hibp": "PIVOTGLASS_HIBP_API_KEY",
     "otx": "PIVOTGLASS_OTX_API_KEY",
+    "abusech": "PIVOTGLASS_ABUSECH_API_KEY",
     # Provider keys — Pivotglass-prefixed form
     "agent_anthropic": "PIVOTGLASS_ANTHROPIC_API_KEY",
     "agent_openai": "PIVOTGLASS_OPENAI_API_KEY",
@@ -135,6 +136,7 @@ _VENDOR_ENV_VAR_MAP: dict[str, str] = {
     "greynoise": "GREYNOISE_API_KEY",
     "hibp": "HIBP_API_KEY",
     "otx": "OTX_API_KEY",
+    "abusech": "ABUSECH_API_KEY",
     # Provider keys — vendor/standard env var names
     "agent_anthropic": "ANTHROPIC_API_KEY",
     "agent_openai": "OPENAI_API_KEY",
@@ -280,6 +282,8 @@ class ApiKeysConfig(BaseModel):
     greynoise: str = ""
     hibp: str = ""
     otx: str = ""
+    # One abuse.ch Auth-Key for ThreatFox, URLhaus, and MalwareBazaar (DEC-ABUSECH-AUTH-001).
+    abusech: str = ""
     # Agent provider API keys — keyed by provider id ("anthropic", "openai", etc.)
     # Stored as nullable so TOML round-trips cleanly when not yet set.
     agent_anthropic: str | None = None

@@ -116,7 +116,7 @@ def test_keyless_service_can_be_disabled_and_reenabled(tmp_path: Path):
 
 @pytest.mark.parametrize("module_path,service_id", sorted(KEYLESS.items()))
 def test_disabling_a_keyless_service_stops_its_module(tmp_path: Path, module_path: str, service_id: str):
-    from pivotglass.core.module_credentials import ServiceDisabledError, resolve_module_credentials
+    from pivotglass.core.module_config import ServiceDisabledError, resolve_module_credentials
 
     config = ConfigManager(config_dir=tmp_path)
     resolve_module_credentials(module_path, config)  # enabled by default: no error

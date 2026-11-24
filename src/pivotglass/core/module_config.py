@@ -67,10 +67,10 @@ SERVICE_NAMES: dict[str, str | None] = {
     "cti/otx": "otx",
     "osint/greynoise": "greynoise",
     "osint/whois_lookup": None,  # no key needed
-    # F61 keyless modules — no API key needed (DEC-61-SCOPING-001)
-    "cti/urlhaus": None,
-    "cti/threatfox": None,
-    "cti/malwarebazaar": None,
+    # abuse.ch services share one Auth-Key (DEC-ABUSECH-AUTH-001); keyless before 2024.
+    "cti/urlhaus": "abusech",
+    "cti/threatfox": "abusech",
+    "cti/malwarebazaar": "abusech",
     "osint/crtsh": None,
 }
 
@@ -89,8 +89,12 @@ CREDENTIAL_BUILDERS: dict[str, Any] = {
     },
 }
 
+# Modules whose enabled toggle (service id) differs from the credential they read.
 MODULE_SERVICE_IDS: dict[str, str] = {
     "osint/censys_host": "censys_pat",
+    "cti/urlhaus": "urlhaus",
+    "cti/threatfox": "threatfox",
+    "cti/malwarebazaar": "malwarebazaar",
 }
 
 

@@ -549,6 +549,7 @@ class CTIServiceSpec:
           "header_key"     — Key: <key>  (AbuseIPDB, HIBP)
           "header_x_otx"   — X-OTX-API-KEY: <key>
           "header_api_key" — API-Key: <key>  (URLScan)
+          "header_auth_key"— Auth-Key: <key>  (abuse.ch)
           "none"           — no credential (keyless context sources)
     validate_header_name:
         Header name for header_* methods. Empty string for others.
@@ -565,6 +566,9 @@ class CTIServiceSpec:
     validate_header_name: str
     docs_url: str
     optional_config_keys: tuple[str, ...] = ()
+    # Form fields for a POST check, for APIs that answer GET with 405 (ThreatFox, MalwareBazaar).
+    validate_post_form: tuple[tuple[str, str], ...] = ()
+    validate_post_json: tuple[tuple[str, str | int], ...] = ()
 
     @property
     def default_base_url(self) -> str:
@@ -668,6 +672,40 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         validate_header_name="key",
         docs_url="https://viz.greynoise.io/account/api-key",
     ),
+    # abuse.ch (DEC-ABUSECH-AUTH-001): three services, one stored Auth-Key. Each
+    # card checks its own host; setting the key on one sets it for all three.
+    CTIServiceSpec(
+        id="threatfox",
+        display_name="ThreatFox",
+        config_keys=["abusech"],
+        prompt_labels=["abuse.ch Auth-Key (shared with URLhaus and MalwareBazaar)"],
+        validate_path="/",
+        validate_method="header_auth_key",
+        validate_header_name="Auth-Key",
+        docs_url="https://auth.abuse.ch/",
+        validate_post_json=(("query", "get_iocs"), ("days", 1)),
+    ),
+    CTIServiceSpec(
+        id="urlhaus",
+        display_name="URLhaus",
+        config_keys=["abusech"],
+        prompt_labels=["abuse.ch Auth-Key (shared with ThreatFox and MalwareBazaar)"],
+        validate_path="/urls/recent/limit/1/",
+        validate_method="header_auth_key",
+        validate_header_name="Auth-Key",
+        docs_url="https://auth.abuse.ch/",
+    ),
+    CTIServiceSpec(
+        id="malwarebazaar",
+        display_name="MalwareBazaar",
+        config_keys=["abusech"],
+        prompt_labels=["abuse.ch Auth-Key (shared with ThreatFox and URLhaus)"],
+        validate_path="/",
+        validate_method="header_auth_key",
+        validate_header_name="Auth-Key",
+        docs_url="https://auth.abuse.ch/",
+        validate_post_form=(("query", "get_recent"), ("selector", "time")),
+    ),
     # Keyless context sources (#46, #45; DEC-CTI-KEYLESS-SERVICES-001): no
     # credential fields, so they appear in Configuration for enable/disable,
     # base-URL override, and a reachability test, and the wizard skips them.
@@ -746,6 +784,7 @@ _CTI_ENV_VAR: dict[str, str] = {
     "censys_pat": "CENSYS_PAT",
     "censys_org_id": "CENSYS_ORG_ID",
     "greynoise": "GREYNOISE_API_KEY",
+    "abusech": "ABUSECH_API_KEY",
 }
 
 # Marker strings for the CTI dotfile export block — separate from the LLM block
@@ -862,7 +901,7 @@ def _validate_cti_key(
         headers["Authorization"] = f"Bearer {key}"
         if spec.id == "censys_pat" and len(values) > 1 and values[1]:
             headers["X-Organization-ID"] = values[1]
-    elif method in ("header_x_apikey", "header_key", "header_x_otx", "header_api_key"):
+    elif method in ("header_x_apikey", "header_key", "header_x_otx", "header_api_key", "header_auth_key"):
         headers[spec.validate_header_name] = key
 
     if spec.id == "hibp":
@@ -874,10 +913,15 @@ def _validate_cti_key(
         headers["User-Agent"] = USER_AGENT
 
     try:
-        response = httpx.get(
-            url, headers=headers,
-            timeout=10.0, follow_redirects=True,
-        )
+        if spec.validate_post_json:
+            response = httpx.post(url, headers=headers, json=dict(spec.validate_post_json), timeout=10.0)
+        elif spec.validate_post_form:
+            response = httpx.post(url, headers=headers, data=dict(spec.validate_post_form), timeout=10.0)
+        else:
+            response = httpx.get(
+                url, headers=headers,
+                timeout=10.0, follow_redirects=True,
+            )
     except httpx.TimeoutException:
         return False, "Validation timed out; access is unverified"
     except httpx.ConnectError:
@@ -889,6 +933,8 @@ def _validate_cti_key(
         return False, "Rate limited (HTTP 429); credential access is unverified"
     if response.status_code == 401:
         return False, "Authentication failed"
+    if response.status_code == 403 and "unknown_auth_key" in response.text:
+        return False, "Authentication failed (abuse.ch does not recognise this Auth-Key)"
     if response.status_code == 403:
         return False, "Access forbidden (HTTP 403); check account permissions, plan, and organization"
     if response.status_code >= 400:
@@ -949,6 +995,12 @@ def run_cti_credentials_wizard(
     for spec in CTI_SERVICES:
         if not spec.needs_credential:
             continue  # keyless context sources have nothing to configure here
+        # Services that share one credential (abuse.ch, DEC-ABUSECH-AUTH-001) are asked once.
+        sharing = [item for item in CTI_SERVICES if item.config_keys == spec.config_keys]
+        if sharing[0] is not spec:
+            configured[spec.id] = configured.get(sharing[0].id, False)
+            continue
+        label = " / ".join(item.display_name for item in sharing)
         # Check if any credential is already set for this service
         existing: list[str] = []
         for key in spec.config_keys:
@@ -963,10 +1015,10 @@ def run_cti_credentials_wizard(
                 f"{lbl}: {mask_secret(v)}" if v else f"{lbl}: (not set)"
                 for lbl, v in zip(spec.prompt_labels, existing)
             )
-            console.print(f"\n[cyan]{spec.display_name}[/cyan] — existing: {masked_display}")
+            console.print(f"\n[cyan]{label}[/cyan] — existing: {masked_display}")
             choice_raw = (
                 console.input(
-                    f"  [bold]{spec.display_name}[/bold]: Keep / Replace / Skip [K/r/s]: "
+                    f"  [bold]{label}[/bold]: Keep / Replace / Skip [K/r/s]: "
                 )
                 .strip()
                 .lower()
@@ -980,9 +1032,9 @@ def run_cti_credentials_wizard(
                 # Count existing as still configured
                 continue
         else:
-            console.print(f"\n[cyan]{spec.display_name}[/cyan] — docs: [dim]{spec.docs_url}[/dim]")
+            console.print(f"\n[cyan]{label}[/cyan] — docs: [dim]{spec.docs_url}[/dim]")
             configure_raw = (
-                console.input(f"  Configure {spec.display_name}? [y/N]: ").strip().lower()
+                console.input(f"  Configure {label}? [y/N]: ").strip().lower()
             )
             if configure_raw != "y":
                 configured[spec.id] = False
@@ -996,13 +1048,13 @@ def run_cti_credentials_wizard(
 
         if not any(values):
             console.print(
-                f"  [yellow]No credentials entered for {spec.display_name} — skipping.[/yellow]"
+                f"  [yellow]No credentials entered for {label} — skipping.[/yellow]"
             )
             configured[spec.id] = False
             continue
 
         # Validate
-        console.print(f"  [dim]Validating {spec.display_name}…[/dim]")
+        console.print(f"  [dim]Validating {label}…[/dim]")
         ok, msg = _validate_cti_key(spec, values)
         if ok:
             console.print(f"  [green]{msg}[/green]")

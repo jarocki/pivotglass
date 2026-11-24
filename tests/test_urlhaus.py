@@ -209,10 +209,10 @@ class TestURLHausMetadata:
         mod = URLHaus()
         assert mod.module_type == "cti"
 
-    def test_requires_api_key_is_false(self):
-        """URLHaus is keyless — requires_api_key must be False."""
+    def test_requires_the_abusech_auth_key(self):
+        """abuse.ch requires an Auth-Key since 2024 (DEC-ABUSECH-AUTH-001)."""
         mod = URLHaus()
-        assert mod.requires_api_key is False
+        assert mod.requires_api_key is True
 
     def test_description_non_empty(self):
         mod = URLHaus()
@@ -239,33 +239,33 @@ class TestURLHausHappyPathHost:
 
     def test_hunt_returns_list(self, mock_host_listed):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("evil.example.com", {}))
         assert isinstance(results, list)
 
     def test_hunt_host_returns_two_scos(self, mock_host_listed):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("evil.example.com", {}))
         assert len(results) == 2
 
     def test_hunt_sco_type_is_url(self, mock_host_listed):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("evil.example.com", {}))
         for sco in results:
             assert sco["type"] == "url"
 
     def test_hunt_sco_id_has_url_prefix(self, mock_host_listed):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("evil.example.com", {}))
         for sco in results:
             assert sco["id"].startswith("url--")
 
     def test_hunt_sco_value_matches_url_entries(self, mock_host_listed):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("evil.example.com", {}))
         values = {r["value"] for r in results}
         assert "http://evil.example.com/malware.exe" in values
@@ -273,7 +273,7 @@ class TestURLHausHappyPathHost:
 
     def test_hunt_sco_has_x_abuse_tags(self, mock_host_listed):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("evil.example.com", {}))
         for sco in results:
             assert "x_abuse_tags" in sco
@@ -281,19 +281,19 @@ class TestURLHausHappyPathHost:
 
     def test_hunt_sco_has_x_abuse_threat(self, mock_host_listed):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("evil.example.com", {}))
         assert results[0]["x_abuse_threat"] == "malware_download"
 
     def test_hunt_sco_has_x_abuse_reporter(self, mock_host_listed):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("evil.example.com", {}))
         assert results[0]["x_abuse_reporter"] == "reporter1"
 
     def test_hunt_sco_has_x_abuse_dateadded(self, mock_host_listed):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("evil.example.com", {}))
         assert results[0]["x_abuse_dateadded"] == "2026-05-01 12:00:00 UTC"
 
@@ -308,31 +308,31 @@ class TestURLHausHappyPathURL:
 
     def test_url_target_calls_url_endpoint(self, mock_url_listed):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         asyncio.run(mod.hunt("http://evil.example.com/malware.exe", {}))
         called_url = mock_url_listed.post.call_args.args[0]
         assert "/v1/url/" in called_url
 
     def test_url_target_sends_url_key_in_payload(self, mock_url_listed):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         asyncio.run(mod.hunt("http://evil.example.com/malware.exe", {}))
         kwargs = mock_url_listed.post.call_args.kwargs
-        assert kwargs["json"]["url"] == "http://evil.example.com/malware.exe"
+        assert kwargs["data"]["url"] == "http://evil.example.com/malware.exe"
 
     def test_host_target_calls_host_endpoint(self, mock_host_listed):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         asyncio.run(mod.hunt("evil.example.com", {}))
         called_url = mock_host_listed.post.call_args.args[0]
         assert "/v1/host/" in called_url
 
     def test_host_target_sends_host_key_in_payload(self, mock_host_listed):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         asyncio.run(mod.hunt("evil.example.com", {}))
         kwargs = mock_host_listed.post.call_args.kwargs
-        assert kwargs["json"]["host"] == "evil.example.com"
+        assert kwargs["data"]["host"] == "evil.example.com"
 
 
 # ---------------------------------------------------------------------------
@@ -345,13 +345,13 @@ class TestURLHausEmptyResults:
 
     def test_no_results_returns_empty_list(self, mock_no_results):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("clean.example.com", {}))
         assert results == []
 
     def test_whitelisted_returns_empty_list(self, mock_whitelisted):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("trusted.example.com", {}))
         assert results == []
 
@@ -365,7 +365,7 @@ class TestURLHausEmptyResults:
             return_value=mock_client,
         ):
             mod = URLHaus()
-            mod.initialize({})
+            mod.initialize({"api_key": "test-abusech-key"})
             results = asyncio.run(mod.hunt("empty.example.com", {}))
         assert results == []
 
@@ -380,20 +380,20 @@ class TestURLHausRateLimit:
 
     def test_429_raises_rate_limit_error(self, mock_429):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         with pytest.raises(RateLimitError):
             asyncio.run(mod.hunt("evil.example.com", {}))
 
     def test_429_retry_after_populated(self, mock_429):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         with pytest.raises(RateLimitError) as exc_info:
             asyncio.run(mod.hunt("evil.example.com", {}))
         assert exc_info.value.retry_after == 3600
 
     def test_429_no_header_retry_after_is_none(self, mock_429_no_header):
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         with pytest.raises(RateLimitError) as exc_info:
             asyncio.run(mod.hunt("evil.example.com", {}))
         assert exc_info.value.retry_after is None
@@ -467,7 +467,7 @@ class TestURLHausDedup:
             return_value=mock_client,
         ):
             mod = URLHaus()
-            mod.initialize({})
+            mod.initialize({"api_key": "test-abusech-key"})
             results = asyncio.run(mod.hunt("dup.example.com", {}))
         assert len(results) == 1
 
@@ -515,7 +515,7 @@ class TestURLHausDiscovery:
         mod = mgr.get_module("cti/urlhaus")
         assert mod is not None
 
-        mod.initialize({})  # keyless — no API key needed
+        mod.initialize({"api_key": "test-abusech-key"})
 
         with patch(
             "pivotglass.modules.cti.urlhaus.httpx.AsyncClient",
@@ -548,7 +548,7 @@ class TestNoProvenance:
         fields would create duplicate authority and cause silent data drift.
         """
         mod = URLHaus()
-        mod.initialize({})
+        mod.initialize({"api_key": "test-abusech-key"})
         results = asyncio.run(mod.hunt("evil.example.com", {}))
         assert len(results) > 0, "Expected non-empty results for this fixture"
         for sco in results:

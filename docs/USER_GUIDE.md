@@ -924,6 +924,19 @@ Providers:
 | OpenAI-compatible endpoint | none; enter it | Any `/v1` OpenAI-style API: LiteLLM proxy, Mistral, Groq, Together, xAI. |
 | Local OpenAI-compatible | `http://localhost:1234/v1` | LM Studio; change the port for mlx_lm or llama.cpp server. |
 
+ThreatFox, URLhaus, and MalwareBazaar need an abuse.ch Auth-Key, free from
+an abuse.ch account at `https://auth.abuse.ch/`. One key works for all three:
+enter it on any of their cards and the others use it, or set
+`PIVOTGLASS_ABUSECH_API_KEY`. Each keeps its own Enabled toggle, base URL, and
+**Test**. Without a key, a hunt records them as *not configured* rather than
+failing.
+
+| Service (id) | Default base URL |
+|---|---|
+| ThreatFox (`threatfox`) | `https://threatfox-api.abuse.ch/api/v1` |
+| URLhaus (`urlhaus`) | `https://urlhaus-api.abuse.ch/v1` |
+| MalwareBazaar (`malwarebazaar`) | `https://mb-api.abuse.ch/api/v1` |
+
 Keyless context sources need no credential. They appear under Intelligence
 APIs with an Enabled toggle, a base URL, and a **Test** that queries a public
 value (8.8.8.8 or example.com). Each sends the User-Agent `pivotglass/<version>`

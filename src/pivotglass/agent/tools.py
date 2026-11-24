@@ -160,13 +160,13 @@ from pivotglass.core.event_bus import (
     PivotConfig,
 )
 from pivotglass.core.graph import RelationshipGraph
-from pivotglass.core.module_credentials import (
+from pivotglass.core.module_config import (
     CREDENTIAL_BUILDERS as _CREDENTIAL_BUILDERS,  # noqa: F401 — re-exported for tests
 )
-from pivotglass.core.module_credentials import (
+from pivotglass.core.module_config import (
     SERVICE_NAMES as _SERVICE_NAMES,  # noqa: F401 — re-exported for tests
 )
-from pivotglass.core.module_credentials import (
+from pivotglass.core.module_config import (
     resolve_module_credentials as _resolve_module_credentials,
 )
 from pivotglass.core.plugin_mgr import PluginManager
@@ -1999,7 +1999,7 @@ def create_tools(ctx: ToolContext) -> list[dict]:
 
 # ---------------------------------------------------------------------------
 # Service-name map, credential builders, and resolver are now imported
-# from pivotglass.core.module_credentials (DEC-MODULE-CREDS-SHARED-001).
+# from pivotglass.core.module_config (DEC-MODULE-CREDS-SHARED-001).
 # The underscore-prefixed aliases above keep internal call sites unchanged.
 # ---------------------------------------------------------------------------
 

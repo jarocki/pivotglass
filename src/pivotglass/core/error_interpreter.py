@@ -89,7 +89,7 @@ from typing import TYPE_CHECKING, Callable
 from rich.console import Console
 from rich.panel import Panel
 
-from pivotglass.core.module_credentials import ServiceDisabledError
+from pivotglass.core.module_config import ServiceDisabledError
 
 if TYPE_CHECKING:
     from pivotglass.gamification.modes import CharacterMode

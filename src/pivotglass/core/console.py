@@ -917,7 +917,7 @@ class PivotglassConsole(cmd2.Cmd):
     #            on miss; modules need dict.get(key, default) (Pivotglass #98).
     #
     #            Pivotglass #98 introduces resolve_module_credentials() from
-    #            core/module_credentials.py — the same credential resolution authority
+    #            core/module_config.py — the same credential resolution authority
     #            the chat agent (agent/tools.py::run_module) has always used. Both
     #            call sites now consume the shared resolver (DEC-MODULE-CREDS-SHARED-001,
     #            Sacred Practice 12 — single rendering authority).
@@ -943,7 +943,7 @@ class PivotglassConsole(cmd2.Cmd):
             Canonical module path (e.g. "osint/shodan_ip", "cti/virustotal").
             Used to look up the per-module credential dict.
         """
-        from pivotglass.core.module_credentials import resolve_module_credentials
+        from pivotglass.core.module_config import resolve_module_credentials
 
         init_config = resolve_module_credentials(module_path, self.config_mgr)
 

@@ -175,7 +175,8 @@ AbuseIPDB, VirusTotal, AlienVault OTX, ThreatFox, URLhaus, MalwareBazaar,
 WHOIS, crt.sh, URLScan, Have I Been Pwned, Mnemonic passive DNS, Shodan
 InternetDB, SANS ISC, RDAP, the Wayback Machine, and CIRCL hashlookup.
 Availability depends on provider access, configuration, and terms. WHOIS,
-crt.sh, and the last six need no API key.
+crt.sh, and the last six need no API key; ThreatFox, URLhaus, and
+MalwareBazaar share one free abuse.ch Auth-Key.
 
 Most modules query provider-held data. URLScan can submit a URL or domain to an
 external browser-scanning service. Review enabled providers and data handling

@@ -31,6 +31,10 @@ SERVICE_BASE_URLS: dict[str, str] = {
     "urlscan": "https://urlscan.io",
     "censys_pat": "https://api.platform.censys.io",
     "greynoise": "https://api.greynoise.io",
+    # abuse.ch: three hosts, one shared Auth-Key (DEC-ABUSECH-AUTH-001).
+    "threatfox": "https://threatfox-api.abuse.ch/api/v1",
+    "urlhaus": "https://urlhaus-api.abuse.ch/v1",
+    "malwarebazaar": "https://mb-api.abuse.ch/api/v1",
     # Keyless context sources (no credential; base URL still overridable).
     "mnemonic_pdns": "https://api.mnemonic.no",
     "shodan_internetdb": "https://internetdb.shodan.io",

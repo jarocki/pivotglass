@@ -993,15 +993,16 @@ class TestCTIServicesRegistry:
 
     SERVICE_IDS = {
         "shodan", "virustotal", "abuseipdb", "hibp", "otx",
-        "urlscan", "censys_pat", "greynoise",
+        "urlscan", "censys_pat", "greynoise", "threatfox", "urlhaus", "malwarebazaar",
     }
     # Keyless context sources: listed for enable/disable and base URL, no credential.
     KEYLESS_IDS = {
         "mnemonic_pdns", "shodan_internetdb", "sans_isc", "rdap", "wayback", "hashlookup",
     }
 
-    def test_eight_keyed_services_defined(self):
-        assert len([s for s in CTI_SERVICES if s.needs_credential]) == 8
+    def test_eleven_keyed_services_defined(self):
+        # Eight vendor keys plus three abuse.ch services sharing one Auth-Key.
+        assert len([s for s in CTI_SERVICES if s.needs_credential]) == 11
 
     def test_all_expected_service_ids_present(self):
         ids = {s.id for s in CTI_SERVICES}
@@ -1309,13 +1310,13 @@ class TestRunCTICredentialsWizard:
 
     def test_no_returns_empty_configured(self, tmp_path):
         """User declines CTI setup for all services → empty configured dict."""
-        # For all 8 services: user says "n" to configure prompt
+        # For all 9 credentials (abuse.ch services share one): user says "n" to configure prompt
         # run_cti_credentials_wizard iterates over services and shows
         # "Configure X? [y/N]:" for each; user replies "n" each time.
         # The wizard itself also has dotfile export prompt logic.
         config_mgr = make_config_mgr_cti(tmp_path)
-        # "n" for each of the 8 services
-        inputs = ["n"] * 8
+        # "n" for each of the 9 credentials
+        inputs = ["n"] * 9
         with (
             patch(
                 "pivotglass.agent.provider_setup.Console.input",
@@ -1330,7 +1331,7 @@ class TestRunCTICredentialsWizard:
     def test_skip_each_service(self, tmp_path):
         """Explicit 's' (skip) for each service produces all-False result."""
         config_mgr = make_config_mgr_cti(tmp_path)
-        inputs = ["s"] * 8
+        inputs = ["s"] * 9
         with (
             patch(
                 "pivotglass.agent.provider_setup.Console.input",
@@ -1346,7 +1347,7 @@ class TestRunCTICredentialsWizard:
         config_mgr = make_config_mgr_cti(tmp_path)
         # For Shodan (first service): "y" configure, enter key "shdn-test"
         # For all remaining 7 services: "n" skip
-        inputs = ["y", "shdn-test"] + ["n"] * 7 + ["1"]  # save dest = 1
+        inputs = ["y", "shdn-test"] + ["n"] * 8 + ["1"]  # save dest = 1
         with (
             patch(
                 "pivotglass.agent.provider_setup.Console.input",
@@ -1375,7 +1376,7 @@ class TestRunCTICredentialsWizard:
 
         # For Shodan: existing key shown, user picks "k" (keep)
         # For remaining 7: "n"
-        inputs = ["k"] + ["n"] * 7
+        inputs = ["k"] + ["n"] * 8
         with (
             patch(
                 "pivotglass.agent.provider_setup.Console.input",
@@ -1398,7 +1399,7 @@ class TestRunCTICredentialsWizard:
         config_mgr = make_config_mgr_cti(tmp_path)
         config_mgr.set("api_keys.shodan", "existing-shodan-key")
         # "k" = keep for shodan, "n" for rest (added greynoise)
-        inputs = ["k"] + ["n"] * 7
+        inputs = ["k"] + ["n"] * 8
         with (
             patch(
                 "pivotglass.agent.provider_setup.Console.input",
@@ -1416,7 +1417,7 @@ class TestRunCTICredentialsWizard:
         # Shodan: configure, enter key, validation returns 401, save anyway=y
         # After validation failure + "save anyway=y": the wizard collects the key
         # and offers dotfile export (save_dest=1 = config only)
-        inputs = ["y", "bad-key", "y"] + ["n"] * 7 + ["1"]
+        inputs = ["y", "bad-key", "y"] + ["n"] * 8 + ["1"]
         with (
             patch(
                 "pivotglass.agent.provider_setup.Console.input",
@@ -1435,7 +1436,7 @@ class TestRunCTICredentialsWizard:
     def test_validation_failure_save_anyway_no(self, tmp_path):
         """Validation fails and user declines to save → service not configured."""
         config_mgr = make_config_mgr_cti(tmp_path)
-        inputs = ["y", "bad-key", "n"] + ["n"] * 7
+        inputs = ["y", "bad-key", "n"] + ["n"] * 8
         with (
             patch(
                 "pivotglass.agent.provider_setup.Console.input",
@@ -1482,7 +1483,7 @@ class TestWizardFlowWithCTI:
         # Shodan: y configure, enter key
         # Remaining 7 CTI services: n skip
         # CTI dotfile export: 1 (config only)
-        inputs = ["1", "sk-ant-key", "1", "1", "y", "y", "shdn-key"] + ["n"] * 7 + ["1"]
+        inputs = ["1", "sk-ant-key", "1", "1", "y", "y", "shdn-key"] + ["n"] * 8 + ["1"]
 
         # Both LLM and CTI validation use httpx.get; use side_effect to return
         # different responses. First call is the LLM list-models endpoint,
