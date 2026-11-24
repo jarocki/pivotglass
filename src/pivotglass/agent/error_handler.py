@@ -298,13 +298,6 @@ def debug_llm_explain(
         "Please explain this to the user."
     )
 
-    # Resolve API key from config_mgr if not supplied directly
-    resolved_key = api_key
-    if resolved_key is None and config_mgr is not None:
-        provider_id = config_mgr.get_agent_provider()
-        if provider_id:
-            resolved_key = config_mgr.get_provider_api_key(provider_id)
-
     def _call() -> FriendlyError:
         kwargs: dict = {
             "model": model,
@@ -315,14 +308,14 @@ def debug_llm_explain(
             "max_tokens": 120,
             "temperature": 0.2,
         }
-        if resolved_key:
-            kwargs["api_key"] = resolved_key
-        if config_mgr is not None:
-            from pivotglass.agent.provider_setup import provider_call_kwargs
+        # Key and endpoint come from the one authority (DEC-ENDPOINTS-001), so a
+        # custom endpoint with no stored key gets the placeholder key rather than
+        # litellm's OPENAI_API_KEY fallback. An explicit api_key still wins.
+        from pivotglass.agent.provider_setup import provider_call_kwargs
 
-            base = provider_call_kwargs(config_mgr).get("api_base")
-            if base:
-                kwargs["api_base"] = base
+        kwargs.update(provider_call_kwargs(config_mgr))
+        if api_key:
+            kwargs["api_key"] = api_key
 
         response = litellm.completion(**kwargs)
         raw = (response.choices[0].message.content or "").strip()

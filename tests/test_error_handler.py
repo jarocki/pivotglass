@@ -565,3 +565,22 @@ class TestClassifyErrorDelegation:
 
 def Path_home():
     return Path.home()
+
+
+def test_error_explainer_never_sends_the_vendor_key_to_a_named_endpoint(tmp_path, monkeypatch):
+    """Security: the explainer applies provider_call_kwargs whole, key guard included."""
+    from types import SimpleNamespace
+
+    from pivotglass.core.config import ConfigManager
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-real-openai-key")
+    cfg = ConfigManager(config_dir=tmp_path)
+    cfg.set_agent_selection("local_openai", "openai/qwen-test")
+    reply = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="Problem: x.\nFix: y."))])
+    # @mock-exempt: litellm.completion is external LLM API
+    with patch("pivotglass.agent.error_handler.litellm") as mock_litellm:
+        mock_litellm.completion.return_value = reply
+        debug_llm_explain(ValueError("boom"), model="openai/qwen-test", api_key=None, config_mgr=cfg)
+    sent = mock_litellm.completion.call_args.kwargs
+    assert sent["api_base"] == "http://localhost:1234/v1"
+    assert sent["api_key"] == "not-needed"

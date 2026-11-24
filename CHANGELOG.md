@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-21
+
+### Security
+
+- The AI error explainer took only the endpoint from the provider configuration, not its key guard. With a local or OpenAI-compatible endpoint, no stored key, and `OPENAI_API_KEY` in the environment, explaining an error could send that OpenAI key to the named endpoint. It now applies the same key and endpoint settings as every other model call. Introduced in 1.4.0 (#42).
+
 ## [1.4.0] - 2026-11-21
 
 ### Added
