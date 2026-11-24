@@ -13,8 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The connection-count histogram bins whole numbers instead of 0.1-wide slivers (#36). The coverage-similarity scatter colours points by indicator type from the same hues as the graph (#37).
 - A dossier radar with fewer than three covered facets is shown as a compact coverage list; facet names read TTPs, not Ttps (#38).
 
+### Added
+
+- `pivotglass config show|set|check|enable|disable|repair` from the terminal, using the same authority as the cockpit's config command. `config set <service>` prompts for the key without echoing it and never takes it as an argument (#19).
+
 ### Changed
 
+- Every "key not configured" message names commands that exist: Configuration, `pivotglass config set <key>`, or the `PIVOTGLASS_*` variable, from one helper. The messages that named `pivotglass config setup` and `config set api_keys.<x> <key>` are gone; a test fails if source text names a config subcommand the CLI does not accept. The LLM-provider hint names the real `PIVOTGLASS_<PROVIDER>_API_KEY` variables, and a broken `config.toml` hint says to move the file aside (#19).
 - Provenance is a dense timeline, one row per event, with details on demand (#39).
 - `core/module_credentials.py` is now `core/module_config.py`.
 

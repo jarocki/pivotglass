@@ -295,9 +295,9 @@ def _service_name_from_auth(exc: BaseException) -> str:
 def _interpret_auth(exc: BaseException) -> dict:
     svc = _service_name_from_auth(exc)
     if svc:
-        fix = f"Set PIVOTGLASS_{svc}_API_KEY or run `pivotglass config setup`."
+        fix = f"Set PIVOTGLASS_{svc}_API_KEY or run `pivotglass config set {svc.lower()}`."
     else:
-        fix = "Set the relevant PIVOTGLASS_<SERVICE>_API_KEY env var or run `pivotglass config setup`."
+        fix = "Add the key in Configuration (Menu \u2192 Models and API keys) or run `pivotglass config show`."
     return {
         "severity": "error",
         "category": "API key",
@@ -438,9 +438,12 @@ def _is_toml_error(exc: BaseException) -> bool:
 def _interpret_toml(exc: BaseException) -> dict:
     backup = Path.home() / ".pivotglass" / "config.toml.bak"
     if backup.exists():
-        fix = f"Restore from backup: `cp {backup} ~/.pivotglass/config.toml`, or run `pivotglass config setup`."
+        fix = f"Restore from backup: `cp {backup} ~/.pivotglass/config.toml`."
     else:
-        fix = "Run `pivotglass config setup` to regenerate a valid config file."
+        fix = (
+            "Move the broken file aside (`mv ~/.pivotglass/config.toml ~/.pivotglass/config.toml.broken`); "
+            "Pivotglass starts with defaults, and keys can be re-added in Configuration."
+        )
     return {
         "severity": "error",
         "category": "Config",
@@ -579,8 +582,8 @@ def _interpret_llm_provider(exc: BaseException) -> dict:
         "category": "LLM provider",
         "summary": "The LLM provider rejected the API key or configuration.",
         "suggested_fix": (
-            "Set PIVOTGLASS_AGENT_<PROVIDER>_API_KEY or run `pivotglass config setup --provider` "
-            "to reconfigure your AI provider."
+            "Choose and test the provider under Menu \u2192 Models and API keys, or set "
+            "PIVOTGLASS_<PROVIDER>_API_KEY (for example PIVOTGLASS_ANTHROPIC_API_KEY)."
         ),
     }
 

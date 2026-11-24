@@ -98,6 +98,21 @@ MODULE_SERVICE_IDS: dict[str, str] = {
 }
 
 
+def credential_remedy(config_key: str) -> str:
+    """How to supply *config_key*'s credential, naming only commands that exist (#19).
+
+    The single source for module remediation text, so messages cannot drift from
+    the CLI again. The env var name keeps error_interpreter's PIVOTGLASS_*_API_KEY
+    extraction working.
+    """
+    from pivotglass.core.config import api_key_env_var
+
+    return (
+        f"Add it in Configuration (Menu \u2192 Models and API keys), run "
+        f"`pivotglass config set {config_key}`, or set {api_key_env_var(config_key)}."
+    )
+
+
 class ServiceDisabledError(RuntimeError):
     """Raised when an operator-disabled intelligence service is invoked."""
 
@@ -137,8 +152,8 @@ def resolve_module_credentials(module_path: str, config_mgr: Any) -> dict:
     enabled_check = getattr(config_mgr, "is_service_enabled", None)
     if service_id is not None and callable(enabled_check) and not enabled_check(service_id):
         raise ServiceDisabledError(
-            f"{service_id} is disabled. Run 'config enable {service_id}' "
-            "or use Configuration in Pivotglass."
+            f"{service_id} is disabled. Enable it in Configuration or run "
+            f"`pivotglass config enable {service_id}`."
         )
 
     credential_builder = CREDENTIAL_BUILDERS.get(module_path)

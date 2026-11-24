@@ -146,6 +146,11 @@ _VENDOR_ENV_VAR_MAP: dict[str, str] = {
     "scot": "SCOT_API_KEY",
 }
 
+def api_key_env_var(service: str) -> str:
+    """The Pivotglass environment variable that supplies *service*'s key (layer 2)."""
+    return _PIVOTGLASS_ENV_VAR_MAP.get(service, f"PIVOTGLASS_{service.upper()}_API_KEY")
+
+
 # Backward-compat alias: old PIVOTGLASS_VT_API_KEY and PIVOTGLASS_CENSYS_API_* names still honoured.
 # These are checked as additional Pivotglass-layer fallbacks in get_api_key().
 _LEGACY_PIVOTGLASS_ENV_VAR_MAP: dict[str, list[str]] = {

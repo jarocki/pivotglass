@@ -10,6 +10,11 @@ Usage:
   pivotglass tui                Launch the terminal AI cyberdeck
   pivotglass basic              Launch the classic Metasploit-like REPL
   pivotglass repl               Launch the classic Metasploit-like REPL
+  pivotglass config show        List intelligence services, enabled state, and key source
+  pivotglass config set SERVICE Store a service key (prompted, never echoed or in history)
+  pivotglass config check SERVICE
+                        Test a service's key and endpoint
+  pivotglass config enable|disable SERVICE
   pivotglass migrate-home --from PATH --confirm-stopped
                         Copy a previous installation home, preserving the source
   pivotglass --version          Show the installed version
@@ -26,6 +31,36 @@ def _run_basic() -> None:
 
     console = PivotglassConsole()
     console.cmdloop()
+
+
+def _run_config(rest: list[str]) -> None:
+    """``pivotglass config ...``: the same authority as the cockpit's config command (#19)."""
+    from pivotglass.agent.model_control import (
+        ModelControl,
+        execute_configuration_command,
+        set_service_credentials,
+    )
+    from pivotglass.core.config import ConfigManager
+
+    control = ModelControl(ConfigManager())
+    if rest and rest[0].lower() == "set":
+        if len(rest) != 2:
+            print("Usage: pivotglass config set <service>   (the key is prompted, not an argument)",
+                  file=sys.stderr)
+            raise SystemExit(2)
+        if sys.stdin.isatty():
+            import getpass
+
+            reader = getpass.getpass
+        else:  # piped: one value per line, e.g. from a password manager
+            def reader(_prompt: str) -> str:
+                return sys.stdin.readline().rstrip("\n")
+        code, message = set_service_credentials(control, rest[1], reader)
+        print(message, file=sys.stderr if code else sys.stdout)
+        if code:
+            raise SystemExit(code)
+        return
+    print(execute_configuration_command(rest, control))
 
 
 def main() -> None:
@@ -67,6 +102,10 @@ def main() -> None:
         except (ValueError, OSError) as exc:
             parser.error(str(exc))
         print(f"Copied local data to {destination}. The source was preserved.")
+        return
+
+    if command == "config":
+        _run_config(args[1:])
         return
 
     if command in {"basic", "repl"}:

@@ -38,6 +38,7 @@ from typing import Any
 
 import httpx
 
+from pivotglass.core.module_config import credential_remedy
 from pivotglass.modules.base import (
     AuthenticationError,
     BaseModule,
@@ -89,7 +90,7 @@ class VirusTotal(BaseModule):
         if not api_key:
             raise AuthenticationError(
                 "VirusTotal API key not configured. "
-                "Set via 'pivotglass config set api_keys.virustotal <key>' or PIVOTGLASS_VT_API_KEY env var."
+                + credential_remedy("virustotal")
             )
 
         target_type = options.get("TARGET_TYPE", "") or self._detect_type(target)

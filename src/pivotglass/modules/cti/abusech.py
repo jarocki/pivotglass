@@ -21,9 +21,8 @@ from typing import Any
 
 import httpx
 
+from pivotglass.core.module_config import credential_remedy
 from pivotglass.modules.base import AuthenticationError, RateLimitError
-
-KEY_ENV_VAR = "PIVOTGLASS_ABUSECH_API_KEY"
 
 
 def auth_headers(config: dict[str, Any], source: str) -> dict[str, str]:
@@ -32,7 +31,7 @@ def auth_headers(config: dict[str, Any], source: str) -> dict[str, str]:
     if not api_key:
         raise AuthenticationError(
             f"{source} API key not configured: abuse.ch requires an Auth-Key. "
-            f"Add it under abuse.ch in Configuration or set {KEY_ENV_VAR}."
+            + credential_remedy("abusech")
         )
     return {"Auth-Key": api_key, "Accept": "application/json"}
 
@@ -46,6 +45,6 @@ def check_response(response: httpx.Response, source: str) -> None:
     if response.status_code in (401, 403):
         raise AuthenticationError(
             f"{source} rejected the abuse.ch API key (HTTP {response.status_code}); "
-            f"check the Auth-Key in Configuration or {KEY_ENV_VAR}."
+            f"check the stored Auth-Key with `pivotglass config check {source.lower()}`."
         )
     response.raise_for_status()

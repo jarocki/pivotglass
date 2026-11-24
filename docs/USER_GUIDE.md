@@ -852,6 +852,20 @@ polling or repopulated into the form. Environment-owned credentials remain
 read-only. Secrets must not enter command history, notes, exports, screenshots,
 or model prompts.
 
+From a terminal, the same configuration is available without the browser:
+
+```bash
+pivotglass config show               # services, enabled state, where each key comes from
+pivotglass config set greynoise      # prompts for the key without echoing it
+pivotglass config check greynoise    # tests the key and endpoint
+pivotglass config disable sans_isc   # or enable
+```
+
+`config set` takes a service id (`threatfox`) or a stored key name (`abusech`)
+and never accepts the key as an argument, so it stays out of shell history. Piped
+input is read one value per line, for example from a password manager. In the
+cockpit command bar, `config set` points here instead of accepting a key.
+
 The model catalog combines a provider's availability response with local
 LiteLLM capability metadata when available. Strengths and limitations are
 evidence-proportional notes, not rankings. A visible model can still lack

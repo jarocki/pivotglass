@@ -81,6 +81,7 @@ from typing import Any
 
 import httpx
 
+from pivotglass.core.module_config import credential_remedy
 from pivotglass.modules.base import (
     AuthenticationError,
     BaseModule,
@@ -95,7 +96,7 @@ class AlienVaultOTX(BaseModule):
     """Query AlienVault OTX for threat intelligence on IPs and domains.
 
     Requires a free API key from https://otx.alienvault.com/api. Configure via:
-      pivotglass config set api_keys.otx <key>
+      pivotglass config set otx
     or the PIVOTGLASS_OTX_API_KEY environment variable.
 
     Returns STIX 2.1 SCO dicts (plain dicts, not stix2 objects). The primary
@@ -183,8 +184,7 @@ class AlienVaultOTX(BaseModule):
         if not api_key:
             raise AuthenticationError(
                 "OTX API key not configured. "
-                "Set via 'pivotglass config set api_keys.otx <key>' "
-                "or PIVOTGLASS_OTX_API_KEY env var."
+                + credential_remedy("otx")
             )
 
         indicator_type = _detect_type(target)

@@ -55,6 +55,7 @@ from typing import Any
 
 import httpx
 
+from pivotglass.core.module_config import credential_remedy
 from pivotglass.modules.base import (
     AuthenticationError,
     BaseModule,
@@ -70,7 +71,7 @@ class ShodanIP(BaseModule):
 
     Requires a Shodan API key from https://account.shodan.io (free tier available).
     Configure via:
-      pivotglass config set api_keys.shodan <key>
+      pivotglass config set shodan
     or the PIVOTGLASS_SHODAN_API_KEY environment variable.
 
     Returns STIX 2.1 SCO dicts (plain dicts, not stix2 objects). At minimum
@@ -137,8 +138,7 @@ class ShodanIP(BaseModule):
         if not api_key:
             raise AuthenticationError(
                 "Shodan API key not configured. "
-                "Set via 'pivotglass config set api_keys.shodan <key>' "
-                "or PIVOTGLASS_SHODAN_API_KEY env var."
+                + credential_remedy("shodan")
             )
 
         minify = options.get("MINIFY", self.options["MINIFY"]["default"]).lower() == "true"
