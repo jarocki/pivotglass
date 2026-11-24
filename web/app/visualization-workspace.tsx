@@ -139,11 +139,23 @@ function FlintCanvas({
         plugins,
         scales,
       };
-      for (const dataset of themed.data.datasets ?? []) {
-        dataset.borderColor = theme.accent_color;
-        dataset.backgroundColor = `${theme.accent_color}42`;
-        dataset.pointBackgroundColor = theme.heading_color;
-        dataset.borderWidth = 2;
+      const datasets = themed.data.datasets ?? [];
+      // A series field (indicator type) keeps one colour per series, from the
+      // same type hues as the relationship graph (#37); a single series uses the accent.
+      const bySeries = Boolean(intent.fields.series) && datasets.length > 1;
+      const rootStyle = getComputedStyle(document.documentElement);
+      for (const dataset of datasets) {
+        const hue = bySeries
+          ? rootStyle.getPropertyValue(`--type-${String(dataset.label ?? "")}`).trim() || theme.dim_color
+          : theme.accent_color;
+        dataset.borderColor = hue;
+        dataset.backgroundColor = bySeries ? hue : `${hue}42`;
+        dataset.pointBackgroundColor = bySeries ? hue : theme.heading_color;
+        dataset.borderWidth = bySeries ? 1 : 2;
+      }
+      if (bySeries) {
+        const legend = (plugins.legend ?? {}) as Record<string, unknown>;
+        plugins.legend = { ...legend, display: true, labels: { ...((legend.labels ?? {}) as object), color: theme.text_color } };
       }
       chart = new Chart(canvas.current, themed as never);
     } catch (reason) {

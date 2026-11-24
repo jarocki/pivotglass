@@ -224,6 +224,10 @@ export function compileFlintChartjs(
   const chartType = FLINT_CHART_TYPES[intent.view];
   if (!chartType) throw new Error(`No allow-listed Flint chart for ${intent.view}`);
 
+  if (intent.view === "histogram" && intent.semantic_types[intent.fields.value] === "Count") {
+    return countHistogramChartjs(intent, chartProperties) as ReturnType<typeof assembleChartjs>;
+  }
+
   const encodings: Record<string, { field: string }> = {};
   if (intent.view === "histogram") {
     encodings.x = { field: intent.fields.value };
@@ -254,6 +258,67 @@ export function compileFlintChartjs(
     },
     options: { addTooltips: true },
   });
+}
+
+/**
+ * Whole-number histogram bins (#36). Flint bins every value range into
+ * fractional widths, which splits counts such as 1 and 2 across "1.0–1.5"
+ * bins with empty slivers between them. A Count field is a whole number, so
+ * each bin is one integer, or an integer-width range once the span exceeds
+ * the bin limit. Every bin between the minimum and maximum is drawn, zeros
+ * included.
+ */
+export function countHistogramBins(
+  values: number[],
+  maxBins: number,
+): { labels: string[]; counts: number[] } {
+  const whole = values.filter(Number.isFinite).map((value) => Math.round(value));
+  if (whole.length === 0) return { labels: [], counts: [] };
+  let low = whole[0];
+  let high = whole[0];
+  for (const value of whole) {
+    if (value < low) low = value;
+    if (value > high) high = value;
+  }
+  const span = high - low + 1;
+  const width = Math.max(1, Math.ceil(span / Math.max(1, maxBins)));
+  const counts = new Array<number>(Math.ceil(span / width)).fill(0);
+  for (const value of whole) counts[Math.floor((value - low) / width)] += 1;
+  const labels = counts.map((_, index) => {
+    const start = low + index * width;
+    return width === 1 ? String(start) : `${start}\u2013${start + width - 1}`;
+  });
+  return { labels, counts };
+}
+
+function columnLabel(intent: VisualizationIntent, field: string): string {
+  return intent.table_columns.find((column) => column.key === field)?.label ?? field;
+}
+
+function countHistogramChartjs(
+  intent: VisualizationIntent,
+  chartProperties: Record<string, number | string | boolean>,
+) {
+  const field = intent.fields.value;
+  const maxBins = Number(chartProperties.binCount ?? 50);
+  const { labels, counts } = countHistogramBins(
+    plottedRows(intent).map((row) => Number(row[field])),
+    maxBins,
+  );
+  const axis = (text: string) => ({ display: true, text, font: { size: 12 } });
+  return {
+    type: "bar" as const,
+    data: { labels, datasets: [{ label: "Records", data: counts, categoryPercentage: 1, barPercentage: 0.94 }] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { title: axis(columnLabel(intent, field)), ticks: { font: { size: 12 } } },
+        y: { title: axis("Records"), beginAtZero: true, ticks: { precision: 0, font: { size: 12 } } },
+      },
+      plugins: { tooltip: { enabled: true }, legend: { display: false, labels: { font: { size: 11 } } } },
+    },
+  };
 }
 
 function csvCell(value: unknown): string {

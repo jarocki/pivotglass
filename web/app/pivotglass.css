@@ -1441,11 +1441,14 @@ main.display-day .masthead .pane-switcher button[aria-current="page"]{border-bot
 .relationship-nodes circle{stroke:color-mix(in srgb,var(--ink) 35%,transparent);stroke-width:1;fill:var(--elevated)}
 .relationship-nodes .node-label{fill:var(--ink);font-size:var(--fs-xs);font-weight:600;paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round;pointer-events:none}
 .relationship-nodes>g.hovered .node-label,.relationship-nodes>g.selected .node-label{fill:var(--heading);font-weight:750}
-.type-ipv4-addr circle,.type-ipv6-addr circle,.swatch.type-ipv4-addr,.swatch.type-ipv6-addr{fill:#4f9fd9;background:#4f9fd9}
-.type-domain-name circle,.swatch.type-domain-name{fill:#3fbf9f;background:#3fbf9f}
-.type-url circle,.swatch.type-url{fill:#9a86e0;background:#9a86e0}
-.type-email-addr circle,.swatch.type-email-addr{fill:#d68ab8;background:#d68ab8}
-.type-file circle,.swatch.type-file{fill:#d9a24f;background:#d9a24f}
+/* Indicator-type hues: the one authority for the graph, swatches, and charts (#37). */
+:root{--type-ipv4-addr:#4f9fd9;--type-ipv6-addr:#4f9fd9;--type-domain-name:#3fbf9f;--type-url:#9a86e0;--type-email-addr:#d68ab8;--type-file:#d9a24f}
+.type-ipv4-addr circle,.swatch.type-ipv4-addr{fill:var(--type-ipv4-addr);background:var(--type-ipv4-addr)}
+.type-ipv6-addr circle,.swatch.type-ipv6-addr{fill:var(--type-ipv6-addr);background:var(--type-ipv6-addr)}
+.type-domain-name circle,.swatch.type-domain-name{fill:var(--type-domain-name);background:var(--type-domain-name)}
+.type-url circle,.swatch.type-url{fill:var(--type-url);background:var(--type-url)}
+.type-email-addr circle,.swatch.type-email-addr{fill:var(--type-email-addr);background:var(--type-email-addr)}
+.type-file circle,.swatch.type-file{fill:var(--type-file);background:var(--type-file)}
 .type-analyst-group circle,.swatch.type-analyst-group{fill:color-mix(in srgb,var(--dim) 30%,var(--surface));background:color-mix(in srgb,var(--dim) 30%,var(--surface))}
 .type-analyst-group circle{stroke-dasharray:3 3;stroke:var(--dim)}
 .relationship-nodes>g.neighbor circle{stroke:var(--heading);stroke-width:1.6}

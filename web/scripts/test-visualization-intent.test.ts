@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   compileFlintChartjs,
+  countHistogramBins,
   exactDataExport,
   appendGraphPresentationHistory,
   graphPresentationSnapshotsEqual,
@@ -136,4 +137,26 @@ test("CSV exact-data export neutralizes spreadsheet formulas", () => {
   assert.equal(exported.mime, "text/csv");
   assert.match(exported.content, /'=HYPERLINK/);
   assert.doesNotMatch(exported.content, /,"=HYPERLINK/);
+});
+
+test("count histograms bin on whole numbers, zero bins included (#36)", () => {
+  assert.deepEqual(countHistogramBins([0, 1, 1, 2, 2, 2, 5], 10), {
+    labels: ["0", "1", "2", "3", "4", "5"],
+    counts: [1, 2, 3, 0, 0, 1],
+  });
+  // A span wider than the bin limit gets integer-width ranges, never fractions.
+  const wide = countHistogramBins([0, 99], 10);
+  assert.equal(wide.labels[0], "0\u20139");
+  assert.equal(wide.counts.length, 10);
+  assert.deepEqual(countHistogramBins([], 10), { labels: [], counts: [] });
+
+  const intent = histogramIntent();
+  intent.data.rows = [0, 1, 1, 2].map((connection_count) => ({ indicator: "x", connection_count }));
+  const config = compileFlintChartjs(intent, { width: 640, height: 320 }) as unknown as {
+    data: { labels: string[]; datasets: Array<{ data: number[] }> };
+    options: { scales: { x: { title: { text: string } } } };
+  };
+  assert.deepEqual(config.data.labels, ["0", "1", "2"]);
+  assert.deepEqual(config.data.datasets[0].data, [1, 2, 1]);
+  assert.equal(config.options.scales.x.title.text, "Connections");
 });
