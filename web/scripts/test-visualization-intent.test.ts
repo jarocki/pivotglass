@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   compileFlintChartjs,
   countHistogramBins,
+  radarHasShape,
   exactDataExport,
   appendGraphPresentationHistory,
   graphPresentationSnapshotsEqual,
@@ -159,4 +160,17 @@ test("count histograms bin on whole numbers, zero bins included (#36)", () => {
   assert.deepEqual(config.data.labels, ["0", "1", "2"]);
   assert.deepEqual(config.data.datasets[0].data, [1, 2, 1]);
   assert.equal(config.options.scales.x.title.text, "Connections");
+});
+
+test("a radar with fewer than three non-zero spokes is drawn as bars (#38)", () => {
+  const radar = (scores: Array<number | null>): VisualizationIntent => ({
+    ...histogramIntent(),
+    view: "radar",
+    fields: { category: "facet", value: "score" },
+    semantic_types: { facet: "Category", score: "Percentage" },
+    chart_properties: {},
+    data: { rows: scores.map((score, index) => ({ facet: `f${index}`, score })), nodes: [], edges: [] },
+  });
+  assert.equal(radarHasShape(radar([100, 50, 0, 0, null])), false);
+  assert.equal(radarHasShape(radar([100, 50, 50, 0])), true);
 });

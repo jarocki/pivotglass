@@ -1014,19 +1014,7 @@ main>.guided-help-layer{position:fixed;z-index:19000;top:12px;left:12px;width:mi
 
 /* Exact IoC values remain readable in expanded and compact evidence surfaces. */
 .investigation-queue li>b,.artifact-list button b,.artifact-list button span,.task-matrix tbody th,.task-matrix tbody th button b,.visualization-selection b,.relationship-node-wrap b,.unconnected-graph button b,.facet-evidence button b,.detail-drawer h2,.detail-drawer dd,.relationship-list b,.graph-node-list b{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;max-width:none;min-width:0}
-.provenance-graph{display:grid;align-content:start;gap:16px;overflow:auto;padding:8px}
-.provenance-branch{display:grid;grid-template-columns:minmax(120px,1fr) 24px minmax(180px,2fr);align-items:center;gap:10px}
-.provenance-source,.provenance-branch li{display:grid;gap:5px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow-wrap:anywhere}
-.provenance-source{border-color:var(--accent)}
-.provenance-arrow{color:var(--accent);font-size:var(--fs-2xl)}
-.provenance-branch ol{list-style:none;margin:0;padding:0;display:grid;gap:8px;border-left:2px solid var(--accent)}
-.provenance-branch li{margin-left:10px;position:relative}
-.provenance-branch li:before{content:"";position:absolute;left:-12px;top:50%;width:10px;border-top:2px solid var(--accent)}
-.provenance-branch small,.provenance-branch p{font-size:var(--fs-sm);color:var(--dim);margin:0}
-@media(max-width:520px){.provenance-branch{grid-template-columns:1fr}.provenance-arrow{transform:rotate(90deg);justify-self:center}}
 
-.provenance-branch{align-items:start}
-.provenance-source{position:sticky;top:0}
 
 /* Guided question framing shares the notebook's analytical authority. */
 .question-coach { border:1px solid var(--accent,#52dfed); padding:1rem; margin:1rem 0; min-width:0; }
@@ -1387,8 +1375,6 @@ main.display-day .masthead .pane-switcher button[aria-current="page"]{border-bot
 .visualization-data summary{font-weight:600;color:var(--dim)}
 .constellation-selection:empty{display:none}
 .flint-canvas{position:relative;min-height:260px}
-.provenance-graph{border:1px solid var(--hairline);border-radius:8px}
-.provenance-graph time{font-variant-numeric:tabular-nums}
 
 .relationship-visualization{display:flex;flex-direction:column;gap:6px;min-width:0}
 .relationship-controls{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
@@ -1558,3 +1544,26 @@ article.model-proposal>span{color:var(--inference, var(--accent))}
 .proposal-basis .proposal-note{opacity:.75}
 .dossier-puzzle{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin:6px 0 0;font-size:.9em}
 .dossier-puzzle button{margin-left:auto}
+
+/* Facet bars: compact dossier coverage when a radar would collapse (#38). */
+.facet-bars{list-style:none;margin:0;padding:4px 0;display:grid;gap:6px;max-width:640px}
+.facet-bars li{display:grid;grid-template-columns:minmax(9ch,14ch) 1fr 16ch;align-items:center;gap:10px;font-size:var(--fs-sm)}
+.facet-bars .facet-name{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.facet-bars .facet-track{height:8px;background:transparent;border:1px dashed color-mix(in srgb,var(--dim) 45%,transparent);border-radius:2px;overflow:hidden}
+.facet-bars .facet-track>span{display:block;height:100%;background:var(--accent)}
+.facet-bars .facet-status{color:var(--dim);font-size:var(--fs-xs)}
+.facet-bars li.empty .facet-name{color:var(--dim)}
+
+/* Provenance timeline: one dense row per event, card on demand (#39). */
+.provenance-timeline{overflow:auto;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);border-radius:6px}
+.provenance-timeline table{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
+.provenance-timeline th{position:sticky;top:0;z-index:1;background:var(--surface);color:var(--dim);font-size:var(--fs-xs);font-weight:700;text-align:left;padding:6px 10px;border-bottom:1px solid color-mix(in srgb,var(--line) 40%,transparent)}
+.provenance-timeline td{padding:4px 10px;border-bottom:1px solid color-mix(in srgb,var(--line) 14%,transparent);color:var(--ink);max-width:36ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.provenance-timeline td:first-child{color:var(--dim);font-variant-numeric:tabular-nums;width:17ch}
+.provenance-timeline tbody tr:not(.provenance-card){cursor:pointer}
+.provenance-timeline tbody tr:not(.provenance-card):hover,.provenance-timeline tbody tr.open{background:color-mix(in srgb,var(--accent) 9%,transparent)}
+.provenance-timeline tbody tr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.provenance-card td{white-space:normal;max-width:none;background:color-mix(in srgb,var(--control) 60%,var(--surface))}
+.provenance-card dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(18ch,1fr));gap:6px 16px;margin:4px 0}
+.provenance-card dt{color:var(--dim);font-size:var(--fs-xs)}
+.provenance-card dd{margin:0;color:var(--ink);overflow-wrap:anywhere}

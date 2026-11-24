@@ -7,6 +7,7 @@ import { Chart, registerables } from "chart.js";
 import {
   appendGraphPresentationHistory,
   compileFlintChartjs,
+  radarHasShape,
   exactDataExport,
   graphPresentationSnapshotsEqual,
   hiddenGraphReferences,
@@ -201,6 +202,32 @@ function FlintCanvas({
   );
 }
 
+/** Compact coverage list used when a radar would have fewer than three spokes (#38). */
+function FacetBars({ intent }: { intent: VisualizationIntent }) {
+  const category = intent.fields.category;
+  const value = intent.fields.value;
+  if (intent.data.rows.length === 0) return <VisualizationEmpty intent={intent} />;
+  return (
+    <ul className="facet-bars" aria-label={intent.title}>
+      {intent.data.rows.map((row) => {
+        const raw = row[value];
+        const score = raw === null || raw === undefined ? null : Math.max(0, Math.min(100, Number(raw)));
+        const state = String(row.status ?? (score === null ? "deferred" : ""));
+        const status = COVERAGE_LABELS[state] ?? state;
+        return (
+          <li key={String(row[category])} className={score ? "" : "empty"}>
+            <span className="facet-name">{String(row[category])}</span>
+            <span className="facet-track" aria-hidden="true">
+              <span style={{ width: `${score ?? 0}%` }} />
+            </span>
+            <span className="facet-status">{status}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function VisualizationEmpty({ intent }: { intent: VisualizationIntent }) {
   return (
     <div className="visualization-empty">
@@ -324,24 +351,48 @@ function CalendarHeatmap({ intent }: { intent: VisualizationIntent }) {
   );
 }
 
+/**
+ * Provenance as a dense timeline (#39): one row per event (time, source,
+ * action, result), oldest first, so a 30-event trail fits one screen. A row
+ * opens its card (basis, actor, full timestamp) on demand.
+ */
 function PivotTrail({ intent }: { intent: VisualizationIntent }) {
+  const [open, setOpen] = useState<string | null>(null);
   if (!intent.data.rows.length) return <VisualizationEmpty intent={intent} />;
-  const branches=new Map<string, VisualizationRow[]>();
-  for(const row of intent.data.rows){
-    const key=String(row.from_ref || row.event_id);
-    branches.set(key,[...(branches.get(key)??[]),row]);
-  }
+  const rows = [...intent.data.rows].sort((left, right) =>
+    displayValue(left.timestamp).localeCompare(displayValue(right.timestamp)));
+  const words = (value: unknown) => displayValue(value).replaceAll("_", " ");
   return <div className="provenance-history">
-    <p>Arrows record source admission, analyst grouping, and investigation steps. Analyst groups preserve your joint promotion decision.</p>
-    <div className="provenance-graph" role="region" aria-label="Provenance history graph" data-viz-fill="" tabIndex={0}>
-      {[...branches].map(([key,rows])=><section className="provenance-branch" key={key}>
-        <div className="provenance-source"><small>{displayValue(rows[0].from_kind).replaceAll("_"," ")}</small><b>{displayValue(rows[0].from_label)}</b></div>
-        <span className="provenance-arrow" aria-hidden="true">→</span>
-        <ol>{rows.map((row,index)=><li key={String(row.event_id??index)}>
-          <small>{displayValue(row.action).replaceAll("_"," ")} · <time dateTime={displayValue(row.timestamp)} title={displayValue(row.timestamp)}>{displayValue(row.timestamp).slice(0, 19)}</time> · {displayValue(row.created_by)}</small>
-          <b>{displayValue(row.to_label)}</b><p>{displayValue(row.basis)}</p>
-        </li>)}</ol>
-      </section>)}
+    <p>Each row records a source admission, analyst grouping, or investigation step. Select a row for its basis.</p>
+    <div className="provenance-timeline" role="region" aria-label="Provenance timeline" data-viz-fill="" tabIndex={0}>
+      <table>
+        <thead><tr><th scope="col">Time (UTC)</th><th scope="col">Source</th><th scope="col">Action</th><th scope="col">Result</th></tr></thead>
+        <tbody>
+          {rows.map((row, index) => {
+            const id = String(row.event_id ?? index);
+            const expanded = open === id;
+            const stamp = displayValue(row.timestamp);
+            return [
+              <tr key={id} className={expanded ? "open" : ""} aria-expanded={expanded} tabIndex={0}
+                onClick={() => setOpen(expanded ? null : id)}
+                onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setOpen(expanded ? null : id); } }}>
+                <td><time dateTime={stamp} title={stamp}>{stamp.slice(0, 16).replace("T", " ")}</time></td>
+                <td title={words(row.from_kind)}>{displayValue(row.from_label)}</td>
+                <td>{words(row.action)}</td>
+                <td>{displayValue(row.to_label)}</td>
+              </tr>,
+              expanded && <tr key={`${id}-card`} className="provenance-card"><td colSpan={4}>
+                <dl>
+                  <div><dt>Basis</dt><dd>{displayValue(row.basis) || "Not recorded"}</dd></div>
+                  <div><dt>Source kind</dt><dd>{words(row.from_kind)}</dd></div>
+                  <div><dt>Recorded by</dt><dd>{displayValue(row.created_by)}</dd></div>
+                  <div><dt>Time</dt><dd>{stamp}</dd></div>
+                </dl>
+              </td></tr>,
+            ];
+          })}
+        </tbody>
+      </table>
     </div>
   </div>;
 }
@@ -2461,6 +2512,8 @@ export function VisualizationWorkspace({
   } catch (reason) {
     validationError = reason instanceof Error ? reason.message : String(reason);
   }
+  // A sparse dossier radar is drawn, and explained, as a coverage list (#38).
+  const facetList = !validationError && selected.view === "radar" && !radarHasShape(selected);
 
   return (
     <section ref={workspaceRef} className="visualization-workspace" aria-label="Visual analysis">
@@ -2495,17 +2548,26 @@ export function VisualizationWorkspace({
           <span> · {selected.source_scope.description}</span>
         </p>
         <details className="visualization-explainer-toggle">
-          <summary>How to read this {VISUALIZATION_VIEW_LABELS[selected.view].toLowerCase()}</summary>
+          <summary>How to read this {facetList ? "coverage list" : VISUALIZATION_VIEW_LABELS[selected.view].toLowerCase()}</summary>
           <aside className="visualization-explainer" aria-label="Why Pivotglass selected this visualization">
-            <p><strong>Why this fits</strong> {selected.selection_rationale}</p>
-            <p><strong>How to read it</strong> {selected.reading_guide}</p>
+            {facetList
+              ? <>
+                <p><strong>Why this fits</strong> Fewer than three facets have evidence, so a radar would have no shape to compare.</p>
+                <p><strong>How to read it</strong> One bar per facet: some evidence fills half, coverage met fills it all, a dashed outline has none. Bar length is not a confidence score.</p>
+              </>
+              : <>
+                <p><strong>Why this fits</strong> {selected.selection_rationale}</p>
+                <p><strong>How to read it</strong> {selected.reading_guide}</p>
+              </>}
           </aside>
         </details>
       </div>
       {validationError
         ? <div className="visualization-error">Rejected intent: {validationError}</div>
         : selected.renderer === "flint_chartjs"
-          ? <FlintCanvas intent={selected} theme={theme} />
+          ? facetList
+            ? <FacetBars intent={selected} />
+            : <FlintCanvas intent={selected} theme={theme} />
           : selected.view === "calendar_heatmap"
             ? <CalendarHeatmap intent={selected} />
             : selected.view === "timeline"

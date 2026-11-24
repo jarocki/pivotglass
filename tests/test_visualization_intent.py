@@ -98,6 +98,8 @@ def test_dossier_radar_keeps_deferred_facets_out_of_numeric_shape():
 
     assert [row["score"] for row in intent.data.rows] == [100, 50, None]
     assert intent.missing_data.omitted_count == 1
+    # Facet labels come from the dossier display-name authority (#38).
+    assert [row["facet"] for row in intent.data.rows] == ["Identity", "TTPs", "Timing"]
     assert "not a confidence score" in intent.caveats[-1]
 
 

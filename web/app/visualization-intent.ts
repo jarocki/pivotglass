@@ -321,6 +321,16 @@ function countHistogramChartjs(
   };
 }
 
+/**
+ * A radar needs at least three non-zero spokes to draw a readable shape (#38).
+ * With one indicator most dossier facets are empty and the polygon collapses,
+ * so the cockpit shows a compact bar list instead.
+ */
+export function radarHasShape(intent: VisualizationIntent): boolean {
+  const field = intent.fields.value;
+  return plottedRows(intent).filter((row) => Number(row[field]) > 0).length >= 3;
+}
+
 function csvCell(value: unknown): string {
   const raw = value === null || value === undefined
     ? ""

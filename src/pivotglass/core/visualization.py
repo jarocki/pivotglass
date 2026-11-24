@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pivotglass.core.evidence_detail import evidence_ref
 from pivotglass.core.geolocation import GeoDatabase, GeoRecord, default_geo_dir
 from pivotglass.core.known_good import object_matches, summarize
+from pivotglass.dossier.scoring import slot_display_name
 from pivotglass.dossier.slot_inference import infer_dossier_state
 from pivotglass.dossier.slots import DossierSlotName
 
@@ -515,7 +516,7 @@ def dossier_completeness_intent(workspace: str, slots: list[dict[str, Any]]) -> 
             omitted += 1
         rows.append(
             {
-                "facet": str(slot.get("name", "unknown")).replace("_", " "),
+                "facet": slot_display_name(str(slot.get("name", "unknown"))),
                 "score": score,
                 "status": status,
                 "evidence_count": int(slot.get("evidence_count", 0)),
