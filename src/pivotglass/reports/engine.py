@@ -94,7 +94,7 @@ def build_report(
 ) -> Report:
     """Build a report from the workspace's current authorities. Reads only; never writes."""
 
-    report_type = get_report_type(type_id)
+    report_type = get_report_type(type_id, buildable=True)
     load_builtin_elements()
     context = ReportContext(workspace_mgr, now=now or datetime.now(timezone.utc))
     context.options = {item.id: dict(item.options) for item in report_type.elements}
@@ -180,7 +180,7 @@ def issue_report(
 
     from pivotglass.models.database import ReportIssue
 
-    report_type = get_report_type(type_id)
+    report_type = get_report_type(type_id, buildable=True)
     now = now or datetime.now(timezone.utc)
     preview = build_report(workspace_mgr, report_type.id, now=now, tlp=tlp, pap=pap)
     if status is ReportStatus.FINAL and preview.pending_model_drafts:

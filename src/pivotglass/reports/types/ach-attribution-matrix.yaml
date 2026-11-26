@@ -1,0 +1,37 @@
+# Type 9. Rewritten from 09_Known_Actor_Overlap_ACH_Matrix.md.
+# Changes: the hypothesis set always includes an unattributed or new actor and
+# a deception hypothesis; evidence rows carry an Admiralty rating and
+# diagnosticity; scoring uses CC/C/N/I/II with a weighted inconsistency tally;
+# the judgment includes a sensitivity check and the signposts that would
+# change it.
+id: ach-attribution-matrix
+number: 9
+code: ACH
+title: ACH Attribution Matrix
+domain: analytical
+tier: operational
+audience: [CTI analysts, Analytic reviewers]
+purpose: >-
+  Test competing explanations of who is responsible against the evidence, and
+  record which explanation survives, why the others were rejected, and how
+  fragile the result is.
+use_when: >-
+  Two or more hypotheses compete, or an attribution will be published. Built
+  from an Analysis of Competing Hypotheses method run in the analytic ledger.
+related: [campaign-intrusion-analysis, threat-actor-profile, diamond-model-analysis]
+default_marking: {tlp: AMBER+STRICT, pap: RED}
+validity_days: 90
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - {id: ach_hypotheses}
+  - id: ach_matrix
+    guidance: >-
+      Work across rows, not down columns: score each piece of evidence against
+      every hypothesis before the next. Evidence consistent with all hypotheses
+      has low diagnosticity and is kept, but weighs little.
+  - {id: ach_judgment}
+  - {id: signposts}
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json]

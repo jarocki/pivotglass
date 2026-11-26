@@ -188,6 +188,7 @@ class ElementSpec:
     build: Builder
     markdown: MarkdownRenderer
     description: str = ""
+    options: tuple[str, ...] = ()
 
     def result(
         self,
@@ -250,5 +251,9 @@ def load_builtin_elements() -> dict[str, ElementSpec]:
     """Import the built-in element modules so their builders register."""
 
     from pivotglass.reports.elements import common, investigation  # noqa: F401
+    from pivotglass.reports.elements.planned import PLANNED
 
+    both = sorted(set(PLANNED) & set(ELEMENTS))
+    if both:
+        raise RuntimeError(f"report elements both built and planned: {', '.join(both)}")
     return ELEMENTS

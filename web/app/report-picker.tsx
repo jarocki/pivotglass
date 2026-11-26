@@ -5,7 +5,8 @@ import { useState } from "react";
 /** One entry of the server's report-type registry (reports/registry.py). */
 export type ReportTypeSummary = {
   id: string; number: number | null; code: string; title: string; domain: string; domain_label: string;
-  tier: string | null; audience: string[]; purpose: string; formats: string[];
+  tier: string | null; audience: string[]; purpose: string; use_when: string; formats: string[];
+  available: boolean; building_issues: number[];
   default_marking: { tlp: string; pap: string };
 };
 
@@ -21,7 +22,7 @@ const PAP = ["CLEAR", "GREEN", "AMBER", "RED"];
 export function ReportPicker({ types, meta, busy, onCommand }: {
   types: ReportTypeSummary[]; meta: ReportMeta; busy: boolean; onCommand: (command: string) => void;
 }) {
-  const [typeId, setTypeId] = useState(types[0]?.id ?? "investigation-report");
+  const [typeId, setTypeId] = useState(types.find((item) => item.available)?.id ?? "investigation-report");
   const chosen = types.find((item) => item.id === typeId) ?? types[0];
   const [format, setFormat] = useState("markdown");
   const [tlp, setTlp] = useState(chosen?.default_marking.tlp ?? "AMBER");
@@ -53,7 +54,7 @@ export function ReportPicker({ types, meta, busy, onCommand }: {
       <div className="report-controls">
         <label>Report
           <select value={chosen.id} disabled={busy} onChange={(event) => pick(event.target.value)}>
-            {types.map((item) => <option key={item.id} value={item.id}>{item.number ? `${item.number}. ` : ""}{item.title}</option>)}
+            {types.map((item) => <option key={item.id} value={item.id} disabled={!item.available}>{item.number ? `${item.number}. ` : ""}{item.title}{item.available ? "" : ` (not built yet: ${item.building_issues.map((n) => `#${n}`).join(", ")})`}</option>)}
           </select>
         </label>
         <label>Format

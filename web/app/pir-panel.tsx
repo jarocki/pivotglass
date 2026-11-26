@@ -18,7 +18,7 @@ export type PirState = {
   resolved_count?: number;
   conclusion_count?: number;
   open_gaps?: string[];
-  report_types?: string[];
+  report_types?: Array<{ id: string; title: string; available: boolean }>;
   next_step?: string;
 };
 
@@ -28,7 +28,6 @@ export type PirCatalogue = {
 };
 
 const MET = new Set(["satisfied", "resolved"]);
-const reportTitle = (id: string) => id.replaceAll("-", " ").replace(/^./, (c) => c.toUpperCase());
 
 export function PirPanel({ pir, catalogue, busy, onCommand }: {
   pir: PirState | undefined; catalogue: PirCatalogue | undefined; busy: boolean; onCommand: (command: string) => Promise<void>;
@@ -74,7 +73,7 @@ export function PirPanel({ pir, catalogue, busy, onCommand }: {
         <small className="pir-meta">
           {pir!.resolved_count ?? 0} of {pir!.stop_conditions?.length ?? 0} met · {pir!.conclusion_count ?? 0} accepted conclusion{pir!.conclusion_count === 1 ? "" : "s"}
           {(pir!.open_gaps?.length ?? 0) > 0 && ` · ${pir!.open_gaps!.length} open gap${pir!.open_gaps!.length === 1 ? "" : "s"}`}
-          {(pir!.report_types?.length ?? 0) > 0 && <> · Suggested reports: {pir!.report_types!.map(reportTitle).join(", ")}</>}
+          {(pir!.report_types?.length ?? 0) > 0 && <> · Suggested reports: {pir!.report_types!.map((item) => item.available ? item.title : `${item.title} (not built yet)`).join(", ")}</>}
         </small>
         <button type="button" className="pir-change" disabled={busy} onClick={() => setEditing(true)}>Change category or tier</button>
       </>}

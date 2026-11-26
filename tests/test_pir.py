@@ -21,15 +21,7 @@ from pivotglass.reports.pir import (
     pir_state,
     suggested_report_types,
 )
-
-REPORT_TYPE_IDS = {  # the 18 types of #52; the report-type registry replaces this set
-    "executive-threat-briefing", "strategic-threat-landscape", "threat-informed-risk-assessment",
-    "threat-activity-alert", "campaign-intrusion-analysis", "vulnerability-exploitation-brief",
-    "threat-actor-profile", "diamond-model-analysis", "ach-attribution-matrix",
-    "actor-capability-radar", "infrastructure-clustering-graph", "kill-chain-mapping",
-    "attack-navigator-layer", "attack-graph-tree", "forensic-intrusion-timeline",
-    "threat-hunting-package", "detection-signature-bundle", "defensive-coverage-assessment",
-}
+from pivotglass.reports.registry import report_types
 
 
 @pytest.fixture()
@@ -60,7 +52,7 @@ def test_every_category_is_complete_and_names_real_slots_sources_and_report_type
         assert set(d.preferred_sources) <= modules, (category, set(d.preferred_sources) - modules)
         assert set(d.report_types) == set(IntelligenceLevel)
         for types in d.report_types.values():
-            assert set(types) <= REPORT_TYPE_IDS, category
+            assert set(types) <= set(report_types()), category
 
 
 def test_choosing_a_category_seeds_its_stop_conditions_once(ledger: AnalyticLedger):
@@ -133,7 +125,9 @@ def test_analysis_pir_command(ledger: AnalyticLedger):
     assert len(execute_analysis_command(("pir", "categories"), manager)["data"]["categories"]) == 7
     recorded = execute_analysis_command(("pir", "brand_vip_footprint", "strategic"), manager)
     assert recorded["data"]["pir"]["level"] == "strategic"
-    assert recorded["data"]["pir"]["report_types"] == ["executive-threat-briefing"]
+    assert recorded["data"]["pir"]["report_types"] == [
+        {"id": "executive-threat-briefing", "title": "Executive Threat Briefing", "available": False}
+    ]
     with pytest.raises(ValueError, match="Unknown PIR category"):
         execute_analysis_command(("pir", "espionage"), manager)
     with pytest.raises(ValueError, match="tactical, operational, or strategic"):

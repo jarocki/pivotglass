@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from pivotglass.reports.contract import TYPE_CODE_PATTERN, OutputFormat, Pap, Tlp
 from pivotglass.reports.elements import load_builtin_elements
 from pivotglass.reports.elements.common import MANDATORY_ELEMENTS
+from pivotglass.reports.elements.planned import PLANNED
 from pivotglass.reports.pir import IntelligenceLevel
 
 SLUG = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
@@ -62,6 +63,7 @@ class TypeElement(BaseModel):
 
     id: str
     required: bool = True
+    guidance: str = ""
     options: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -76,6 +78,8 @@ class ReportType(BaseModel):
     tier: IntelligenceLevel | None = None
     audience: tuple[str, ...] = Field(min_length=1)
     purpose: str = Field(min_length=1)
+    use_when: str = ""
+    related: tuple[str, ...] = ()
     default_marking: Marking
     validity_days: int | None = Field(default=None, ge=1)
     elements: tuple[TypeElement, ...] = Field(min_length=1)
@@ -102,9 +106,14 @@ class ReportType(BaseModel):
         duplicates = sorted({i for i in ids if ids.count(i) > 1})
         if duplicates:
             raise ValueError(f"elements listed twice: {', '.join(duplicates)}")
-        unknown = [i for i in ids if i not in known]
+        unknown = [i for i in ids if i not in known and i not in PLANNED]
         if unknown:
             raise ValueError(f"undefined elements: {', '.join(unknown)}")
+        for item in self.elements:
+            accepted = known[item.id].options if item.id in known else ()
+            extra = sorted(set(item.options) - set(accepted))
+            if extra:
+                raise ValueError(f"element {item.id} does not take options: {', '.join(extra)}")
         required = {item.id for item in self.elements if item.required}
         missing = [i for i in MANDATORY_ELEMENTS if i not in required]
         if missing:
@@ -118,6 +127,20 @@ class ReportType(BaseModel):
     @property
     def required_elements(self) -> tuple[str, ...]:
         return tuple(item.id for item in self.elements if item.required)
+
+    @property
+    def planned_elements(self) -> tuple[str, ...]:
+        """Elements of this type whose builders do not exist yet (reports/elements/planned.py)."""
+
+        return tuple(item.id for item in self.elements if item.id in PLANNED)
+
+    @property
+    def available(self) -> bool:
+        return not self.planned_elements
+
+    @property
+    def building_issues(self) -> tuple[int, ...]:
+        return tuple(sorted({PLANNED[i].issue for i in self.planned_elements}))
 
 
 def _parse(name: str, text: str) -> ReportType:
@@ -148,17 +171,34 @@ def report_types() -> dict[str, ReportType]:
             if key is not None:
                 table[key] = report_type.id
         found[report_type.id] = report_type
+    for report_type in found.values():
+        unknown = [r for r in report_type.related if r not in found or r == report_type.id]
+        if unknown:
+            raise ValueError(f"report type {report_type.id}: unknown related types {', '.join(unknown)}")
     if DEFAULT_TYPE not in found:
         raise ValueError(f"the default report type {DEFAULT_TYPE} is missing")
     return dict(sorted(found.items(), key=lambda item: (item[1].number or 0, item[0])))
 
 
-def get_report_type(type_id: str) -> ReportType:
+def get_report_type(type_id: str, *, buildable: bool = False) -> ReportType:
+    """The type by id. With ``buildable``, a planned type is an error naming the issues that build it."""
+
     types = report_types()
     key = type_id.strip().casefold().replace("_", "-")
     if key not in types:
         raise ValueError(f"unknown report type {type_id!r}; run `report types` for the list")
-    return types[key]
+    report_type = types[key]
+    if buildable and not report_type.available:
+        issues = ", ".join(f"#{n}" for n in report_type.building_issues)
+        raise ValueError(
+            f"{report_type.title} is defined but not built yet: its sections "
+            f"{', '.join(report_type.planned_elements)} arrive with {issues}"
+        )
+    return report_type
+
+
+def report_title(type_id: str) -> str:
+    return get_report_type(type_id).title
 
 
 def report_type_summaries() -> list[dict[str, Any]]:
@@ -175,6 +215,9 @@ def report_type_summaries() -> list[dict[str, Any]]:
             "tier": t.tier.value if t.tier else None,
             "audience": list(t.audience),
             "purpose": t.purpose,
+            "use_when": t.use_when,
+            "available": t.available,
+            "building_issues": list(t.building_issues),
             "formats": [f.value for f in t.formats],
             "default_marking": {"tlp": t.default_marking.tlp.value, "pap": t.default_marking.pap.value},
         }

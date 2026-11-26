@@ -1,0 +1,47 @@
+# Type 1. Rewritten from cti-output-templates/01_Strategic_and_Executive/01_Executive_Threat_Briefing.md.
+# Changes: the overall risk and every judgment carry a defined likelihood and a
+# separate confidence; exposure separates organisation input from evidence;
+# recommendations have owners and due dates; gaps and sources are mandatory.
+id: executive-threat-briefing
+number: 1
+code: EXB
+title: Executive Threat Briefing
+domain: strategic
+tier: strategic
+audience: [Executive leadership, Board risk committee]
+purpose: >-
+  Tell leadership, on one page, what happened or is expected, whether the
+  organisation is affected, how sure the analysis is, and what decision or
+  resource is needed now.
+use_when: >-
+  A threat, event or vulnerability may affect the organisation and leadership
+  must decide, approve or be informed. Not for technical response: pair it with
+  a Threat Activity Alert or Vulnerability Exploitation Brief.
+related: [threat-activity-alert, vulnerability-exploitation-brief, threat-informed-risk-assessment]
+default_marking: {tlp: AMBER, pap: CLEAR}
+validity_days: 90
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - id: bluf
+    guidance: >-
+      At most two sentences, in plain language: what happened or is expected,
+      whether we are affected, and the decision needed. No jargon or indicator values.
+  - id: risk_rating
+    guidance: Overall risk on the severity scale, the one-line reason, and the confidence in it.
+  - id: key_judgments
+    guidance: >-
+      Three or fewer. Each states a likelihood term (for example "likely, 55-80%")
+      and a separate confidence level, and cites its basis.
+  - id: situational_overview
+    guidance: Who or what is behind it and what is known, in business terms. Separate what is known from what is assessed.
+  - id: org_exposure
+    guidance: >-
+      Sector and regional relevance, whether we run the affected technology, and
+      current control status. Missing organisation data is stated as missing.
+  - id: recommendations
+    guidance: Decisions and actions for leadership, each with an owner, a due date and the expected outcome.
+  - id: gaps_limitations
+    guidance: What is not known yet, how it is being collected, and when the briefing will be updated.
+  - {id: sources}
+formats: [markdown, json]

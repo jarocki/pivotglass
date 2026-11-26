@@ -1,0 +1,43 @@
+# Type 4. Rewritten from 02_Operational_and_Incident/04_Threat_Activity_Alert_Flash.md.
+# Changes: severity and confidence are separate and defined; techniques are
+# pinned to ATT&CK v19.2; triage actions carry a lookback window and owner;
+# indicators are defanged in the Markdown only, and travel unchanged in JSON
+# and STIX for blocking; example values are reserved (RFC 2606/5737).
+id: threat-activity-alert
+number: 4
+code: TAA
+title: Threat Activity Alert
+domain: operational
+tier: tactical
+audience: [SOC analysts, Incident responders]
+purpose: >-
+  Warn defenders about active, relevant activity within hours, with the
+  indicators to block, the searches to run and the conditions for escalation.
+use_when: >-
+  Activity is current and actionable. Keep it to what responders need now;
+  the full story goes in a Campaign and Intrusion Analysis Report.
+related: [campaign-intrusion-analysis, detection-signature-bundle, threat-hunting-package]
+default_marking: {tlp: AMBER, pap: GREEN}
+validity_days: 30
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - id: threat_summary
+    guidance: Two or three sentences - what, who is targeted, how it arrives, why now - with severity and its confidence.
+  - id: delivery_vector
+    guidance: Initial access and the payload or tooling it delivers, with ATT&CK IDs and citations.
+  - {id: technique_list}
+  - id: triage_actions
+    guidance: >-
+      Block (which indicators, where), Search (which logs, over what lookback
+      window) and Isolate (which host behaviour triggers it), each with an owner.
+  - id: ioc_table
+    guidance: >-
+      Indicators with their role (delivery, staging, C2), confidence and a
+      suggested expiry. Only indicators suitable for blocking belong here.
+  - id: detection_pointers
+    required: false
+    guidance: Issued detection bundles or hunting packages for this activity.
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json, stix]

@@ -842,11 +842,12 @@ draft**, **Issue final** and **Issued reports**. Markdown opens in the dialog;
 JSON and STIX download as files. **SAVE MARKDOWN** and **PRINT / SAVE PDF**
 remain for the Markdown shown.
 
-`report types` lists the available types. This release adds the report system
-and the **Investigation Report**, the complete record of a workspace's
-investigation, which replaces the former dossier report with the same content.
-The CTI report types (alerts, actor profiles, ATT&CK layers, detection bundles
-and others) are added on the same system.
+`report types` lists every type. The **Investigation Report** is the complete
+record of a workspace's investigation and replaces the former dossier report
+with the same content. Eighteen CTI report types, from the Executive Threat
+Briefing to the Defensive Coverage Assessment, are defined in the
+[report reference](reports/README.md); a type whose sections are not built yet
+is listed but will not render, and the picker shows which issue builds it.
 
 Structured technique runs retain their recorded inputs and outputs in the report,
 alongside the actual analyst disposition. A completed run may still be pending

@@ -101,7 +101,21 @@ def main() -> int:
     for error in errors:
         print(error)
     print(f"Checked {len(markdown_files(ROOT))} Markdown files; {len(errors)} broken local links/anchors.")
-    return int(bool(errors))
+    stale_reports = stale_report_docs()
+    for name in stale_reports:
+        print(f"stale generated page: docs/reports/{name}; run `uv run python scripts/gen_report_docs.py`")
+    return int(bool(errors) or bool(stale_reports))
+
+
+def stale_report_docs() -> list[str]:
+    """Generated report reference pages that differ from the definitions."""
+
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("gen_report_docs", Path(__file__).with_name("gen_report_docs.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.stale()
 
 
 if __name__ == "__main__":

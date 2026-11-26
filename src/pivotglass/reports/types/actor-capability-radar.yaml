@@ -1,0 +1,30 @@
+# Type 10. Rewritten from 10_Actor_Capability_Radar_Plot.json.
+# Changes: scores follow a published rubric with defined levels, so two
+# analysts score alike; every score cites evidence and states confidence; the
+# organisation benchmark is organisation input, absent until supplied.
+id: actor-capability-radar
+number: 10
+code: ACR
+title: Actor Capability Radar
+domain: analytical
+tier: strategic
+audience: [CTI analysts, Security leadership, Purple team]
+purpose: >-
+  Compare an actor's capability across defined axes, and optionally against
+  the organisation's own defensive maturity on the same axes.
+use_when: >-
+  Prioritising actors, briefing leadership on capability, or choosing what to
+  test in a purple-team exercise.
+related: [threat-actor-profile, defensive-coverage-assessment]
+default_marking: {tlp: AMBER, pap: CLEAR}
+validity_days: 180
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - {id: capability_rubric}
+  - {id: capability_radar}
+  - id: defense_benchmark
+    required: false
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json]

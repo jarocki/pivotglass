@@ -193,7 +193,17 @@ each type, are generated from these definitions and a fixture workspace by
 drift.
 
 The 18 starting templates in `cti-output-templates/` are source material and
-stay unchanged. #52 lists their defects. The definitions supersede them.
+stay unchanged. #52 lists their defects. The definitions supersede them; each
+YAML file's comment names its template and what changed.
+
+**Planned elements.** The definitions were written before most builders
+exist. `reports/elements/planned.py` declares each unbuilt element (id,
+title, provenance, authorities, meaning, and the issue that builds it), so the
+loader validates all 18 types now. A type with any planned element is listed
+as not built and refuses to render or issue; it never shows placeholder
+content. A builder that lands deletes its planned entry in the same change,
+and a test fails if an id is both. Worked examples are generated per type as
+its builders land.
 
 ### Element catalogue
 

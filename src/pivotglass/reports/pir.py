@@ -368,6 +368,17 @@ def suggested_report_types(
     return suggestions
 
 
+def _titled(type_ids: list[str]) -> list[dict[str, Any]]:
+    """Suggested report types with their registry titles and whether Pivotglass can build them yet."""
+
+    from pivotglass.reports.registry import get_report_type  # the registry imports this module
+
+    return [
+        {"id": t.id, "title": t.title, "available": t.available}
+        for t in (get_report_type(type_id) for type_id in type_ids)
+    ]
+
+
 def seeded_items(items: Iterable[dict[str, Any]], category: str) -> list[dict[str, Any]]:
     """Stop conditions this category seeded (and that the analyst has not withdrawn)."""
 
@@ -458,7 +469,7 @@ def build_pir_state(investigation: dict[str, Any] | None, snapshot: dict[str, An
         "open_gaps": [item.get("statement") for item in open_gaps],
         "dossier_slots": list(definition.dossier_slots),
         "preferred_sources": list(definition.preferred_sources),
-        "report_types": suggested_report_types(category, level, hypothesis_count=hypothesis_count),
+        "report_types": _titled(suggested_report_types(category, level, hypothesis_count=hypothesis_count)),
     }
 
 
