@@ -944,6 +944,9 @@ class AnalyticInvestigation(Base):
     scope = Column(Text, nullable=False)
     status = Column(String, nullable=False, default="framing", index=True)
     primary_question_id = Column(String, nullable=True, index=True)
+    # PIR category and intelligence tier (DEC-PIR-001); "unspecified" until chosen.
+    requirement_category = Column(String, nullable=False, default="unspecified", server_default="unspecified")
+    intelligence_level = Column(String, nullable=False, default="unspecified", server_default="unspecified")
     created_by = Column(String, nullable=False, default="human")
     created_at = Column(
         DateTime,

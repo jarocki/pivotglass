@@ -59,7 +59,7 @@ from pivotglass.models.database import (
     WorkspaceSchemaVersion,
 )
 
-CURRENT_WORKSPACE_SCHEMA_VERSION = 13
+CURRENT_WORKSPACE_SCHEMA_VERSION = 14
 LEGACY_WORKSPACE_SCHEMA_VERSION = 1
 _VERSION_ROW_ID = 1
 
@@ -179,6 +179,8 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     dispositions. The v11 -> v12 step adds an append-only analyst pivot trail;
     those workflow links remain distinct from observed threat relationships.
     The v12 -> v13 step adds append-only multidimensional indicator tags.
+    The v13 -> v14 step adds the PIR category and intelligence tier to each
+    investigation (DEC-PIR-001); existing investigations become "unspecified".
     """
 
     tables = set(inspect(engine).get_table_names())
@@ -237,6 +239,9 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     if current == 12:  # noqa: PLR2004
         _migrate_v12_to_v13(engine)
         current = 13
+    if current == 13:  # noqa: PLR2004
+        _migrate_v13_to_v14(engine)
+        current = 14
 
     if current != CURRENT_WORKSPACE_SCHEMA_VERSION:
         raise RuntimeError(
@@ -360,6 +365,13 @@ def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
             (
                 "add append-only multidimensional indicator tag events",
                 "write schema-version 13 receipt",
+            )
+        )
+    if current <= 13:  # noqa: PLR2004
+        steps.extend(
+            (
+                "add PIR category and intelligence tier to investigations (existing: unspecified)",
+                "write schema-version 14 receipt",
             )
         )
     return MigrationPlan(
@@ -845,6 +857,28 @@ def _migrate_v12_to_v13(engine: Engine) -> None:
         if row is None:
             raise RuntimeError("Schema v12 workspace is missing its version receipt.")
         row.version = 13
+        row.migrated_at = datetime.now(timezone.utc)
+        session.commit()
+
+
+def _migrate_v13_to_v14(engine: Engine) -> None:
+    """Add the PIR category and tier to investigations (DEC-PIR-001); no evidence changes."""
+
+    existing = {column["name"] for column in inspect(engine).get_columns("analytic_investigations")}
+    with engine.begin() as connection:
+        for column in ("requirement_category", "intelligence_level"):
+            if column not in existing:
+                connection.execute(
+                    text(
+                        f"ALTER TABLE analytic_investigations ADD COLUMN {column} "  # noqa: S608
+                        "VARCHAR NOT NULL DEFAULT 'unspecified'"
+                    )
+                )
+    with Session(engine) as session:
+        row = session.get(WorkspaceSchemaVersion, _VERSION_ROW_ID)
+        if row is None:
+            raise RuntimeError("Schema v13 workspace is missing its version receipt.")
+        row.version = 14
         row.migrated_at = datetime.now(timezone.utc)
         session.commit()
 

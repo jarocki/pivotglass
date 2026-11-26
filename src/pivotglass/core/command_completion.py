@@ -122,6 +122,7 @@ def command_completions(
             "methods",
             "contradictions",
             "priorities",
+            "pir ",
             "question ",
             "assertion ",
             "relation ",

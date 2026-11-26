@@ -29,6 +29,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from pivotglass.core.information_requirements import build_information_requirements
+from pivotglass.reports.pir import pir_state
 
 if TYPE_CHECKING:
     from pivotglass.core.workspace import WorkspaceManager
@@ -97,6 +98,8 @@ def generate_dossier_report(
 
     # --- Header ---
     lines.append("# Threat Actor Dossier Report")
+    lines.append("")
+    lines.append(_render_pir_section(pir_state(analysis)))
     lines.append("")
     lines.append("## Overview")
     lines.append("")
@@ -190,6 +193,37 @@ def generate_dossier_report(
 # ---------------------------------------------------------------------------
 # Private renderers — one per report section
 # ---------------------------------------------------------------------------
+
+
+def _render_pir_section(pir: dict) -> str:
+    """The question this report answers and the deterministic verdict (DEC-PIR-001)."""
+
+    lines = ["## Priority Intelligence Requirement", ""]
+    if pir.get("question"):
+        lines.append(f"**Question:** {_markdown(str(pir['question']))}")
+        lines.append("")
+    if pir.get("verdict") == "no_pir" and not pir.get("category_label"):
+        lines.append(f"**Verdict:** {pir['verdict_label']}. {pir.get('next_step', '')}".rstrip())
+        return "\n".join(lines)
+    lines.append(
+        f"- **Category:** {pir['category_label']} · **Tier:** {pir['level_label']} ({pir['audience']})"
+    )
+    lines.append(f"- **Verdict:** {pir['verdict_label']}")
+    lines.append(
+        f"- **Stop conditions met:** {pir['resolved_count']} of {len(pir['stop_conditions'])}"
+        f" · **Accepted conclusions:** {pir['conclusion_count']}"
+    )
+    lines.append(f"- **Collection fit ({pir['collection_fit']}):** {_markdown(pir['fit_note'])}")
+    open_stops = [stop for stop in pir["stop_conditions"] if stop["status"] not in {"satisfied", "resolved"}]
+    if open_stops:
+        lines.append("")
+        lines.append("Still needed for an answer:")
+        lines.extend(f"- {_markdown(str(stop['statement']))}" for stop in open_stops)
+    if pir.get("open_gaps"):
+        lines.append("")
+        lines.append("Open knowledge gaps:")
+        lines.extend(f"- {_markdown(str(gap))}" for gap in pir["open_gaps"])
+    return "\n".join(lines)
 
 
 def _render_dossier_slots_section(dossier_state: object | None) -> str:

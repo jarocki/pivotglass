@@ -78,6 +78,49 @@ local assets; no hosted UI is required.
    relevance.
 8. Add analyst notes, answer Dossier gaps, and generate a report or export.
 
+### State the requirement: PIR category and tier
+
+A hunt ends well when it answers a stated question for a named audience. In
+the scientific notebook, the **Priority intelligence requirement** panel takes
+two choices for the active investigation:
+
+- **Category**: what kind of question it is.
+- **Tier**: who the answer is for. Each category suggests a tier; you can
+  change it.
+
+| Category | Collection fit | What Pivotglass can and cannot collect |
+|---|---|---|
+| Threat actor and campaign tracking | strong | Infrastructure pivots and CTI feeds tie indicators to campaigns; naming the actor remains your judgment |
+| Tactics, techniques, and procedures | strong | ATT&CK mappings with evidence and your disposition; procedure detail only as far as collection reveals |
+| Brand, VIP, and digital-footprint protection | good | Lookalike domains, certificates, phishing pages, breached accounts; not underground markets or dark-web forums |
+| Vulnerability and exploitation intelligence | partial | CVEs on exposed hosts; exploitation status, EPSS and CVSS sources are not yet collected |
+| Third-party and supply-chain risk | partial | A vendor's exposure, breach records and malicious infrastructure; not compromise inside its network |
+| Geopolitical and regulatory risk | weak | Technical activity linked to an event; the geopolitical assessment needs your own sources |
+| Strategic and M&A risk | weak | A target's external exposure and breach records; not undisclosed breaches or internal persistence |
+
+| Tier | Audience | Focus |
+|---|---|---|
+| Tactical | SOC analysts and incident responders | Indicators, lures, hashes, blocking and triage |
+| Operational | Threat hunters and vulnerability management | TTPs, active exploitation, campaign infrastructure |
+| Strategic | CISO, executive leadership and the board | Trends, geopolitics, supply-chain and M&A risk |
+
+Choosing a category adds its stop conditions to the investigation: the
+specific things an answer needs. Mark each one met as the evidence supports
+it. The panel, the Pursuit Brief, and the report show the verdict:
+
+- **Answered**: every stop condition is met and a conclusion is accepted.
+- **Partially answered**: some are met, or a conclusion exists while
+  conditions remain open.
+- **Not answered by available collection**: nothing is met yet. The report
+  lists what is still needed.
+
+The verdict is computed from your records; no model decides it. Changing the
+category defers the old category's open stop conditions, keeps the met ones,
+and reopens them if you switch back. From the command bar, REPL or cyberdeck:
+`analysis pir` shows the state, `analysis pir categories` lists the
+definitions, and `analysis pir <category> [tactical|operational|strategic]`
+sets it.
+
 Natural-language questions go to the configured model only when deterministic
 local routing cannot answer them. Direct tools and stored evidence remain the
 source of observed facts. Character narration, music, effects, scores, and

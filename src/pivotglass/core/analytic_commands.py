@@ -44,6 +44,7 @@ from pivotglass.core.structured_analysis import (
 
 ANALYSIS_USAGE = (
     "Usage: analysis show|lifecycle|methods|contradictions|priorities|question <text>|"
+    "pir [categories | <category> [tactical|operational|strategic]]|"
     "assertion <inferred|assumed|judgment> <text>|"
     "claim <inferred|assumed|judgment> <subject-ref> <predicate> <value> | <statement>|"
     "relation <subject-ref> <predicate> <object-ref> | <annotation>|"
@@ -117,6 +118,20 @@ def execute_analysis_command(args: tuple[str, ...], workspace_manager: Any) -> d
             "title": "Priority intelligence requirements",
             "data": build_information_requirements(ledger.snapshot()),
         }
+    if action == "pir":
+        from pivotglass.reports.pir import catalogue, pir_state
+
+        if len(args) == 1:
+            return {"title": "Priority intelligence requirement", "data": pir_state(ledger.snapshot())}
+        if len(args) == 2 and args[1].casefold() == "categories":  # noqa: PLR2004
+            return {"title": "PIR categories and tiers", "data": catalogue()}
+        if len(args) in {2, 3}:
+            receipt = ledger.set_requirement(args[1], args[2] if len(args) == 3 else None)  # noqa: PLR2004
+            return {
+                "title": "Priority intelligence requirement recorded",
+                "data": {**receipt, "pir": pir_state(ledger.snapshot())},
+            }
+        raise ValueError("Usage: analysis pir [categories | <category> [tactical|operational|strategic]]")
     if action == "question" and len(args) >= 2:
         question_id = ledger.create_question(" ".join(args[1:]))
         return {

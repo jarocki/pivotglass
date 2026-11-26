@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A Priority Intelligence Requirement on every investigation: a category (threat actor and campaign, TTPs, brand and footprint, vulnerability, third-party, geopolitical, strategic and M&A) and a tier (tactical, operational, strategic). The category adds the stop conditions that define an answer and states honestly how well Pivotglass collection can serve it. The notebook panel, Pursuit Brief, and report show a deterministic verdict: Answered, Partially answered, or Not answered by available collection. `analysis pir` in every interface. Workspace schema v14 adds the two fields; existing investigations read "unspecified" (#60).
 - `pivotglass config show|set|check|enable|disable|repair` from the terminal, using the same authority as the cockpit's config command. `config set <service>` prompts for the key without echoing it and never takes it as an argument (#19).
 
 ### Changed

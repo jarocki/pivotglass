@@ -1567,3 +1567,20 @@ article.model-proposal>span{color:var(--inference, var(--accent))}
 .provenance-card dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(18ch,1fr));gap:6px 16px;margin:4px 0}
 .provenance-card dt{color:var(--dim);font-size:var(--fs-xs)}
 .provenance-card dd{margin:0;color:var(--ink);overflow-wrap:anywhere}
+
+/* PIR panel (DEC-PIR-001): the question's category, tier, and what an answer needs. */
+.pir-panel{display:grid;gap:8px;padding:10px;border:1px solid color-mix(in srgb,var(--line) 34%,transparent);border-left:3px solid var(--dim);border-radius:8px;background:var(--control)}
+.pir-panel.verdict-answered{border-left-color:var(--accent)}.pir-panel.verdict-partially_answered{border-left-color:#f0d96a}.pir-panel.verdict-not_answered{border-left-color:#f3a65a}
+.pir-panel>header{display:flex;align-items:start;justify-content:space-between;gap:12px}.pir-panel>header div{display:grid;gap:3px}
+.pir-panel>header span{color:var(--accent);font-size:var(--fs-xs);letter-spacing:.02em}.pir-panel>header b{color:var(--heading);font-size:var(--fs-sm)}.pir-panel>header small,.pir-meta{color:var(--dim);font-size:var(--fs-xs);line-height:1.45}
+.pir-verdict{padding:5px 8px;border:1px solid var(--line);border-radius:999px;color:var(--heading);font-size:var(--fs-xs);white-space:nowrap}
+.pir-fit,.pir-choice{margin:0;max-width:100ch;color:var(--dim);font-size:var(--fs-xs);line-height:1.45}.pir-fit b,.pir-choice b{color:var(--ink)}.pir-fit.fit-weak b,.pir-fit.fit-partial b{color:#f3a65a}.pir-choice i{display:block;margin-top:3px}
+.pir-stops{display:grid;gap:4px;margin:0;padding:0;list-style:none;counter-reset:stop}
+.pir-stops li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;padding:6px 7px;border:1px solid color-mix(in srgb,var(--line) 22%,transparent);border-radius:6px;background:var(--surface);color:var(--ink);font-size:var(--fs-xs);line-height:1.4;counter-increment:stop}
+.pir-stops li::before{content:counter(stop);display:grid;place-items:center;width:18px;height:18px;border:1px solid var(--dim);border-radius:50%;color:var(--dim);font-weight:800}
+.pir-stops li.met{color:var(--dim)}.pir-stops li.met::before{content:"✓";border-color:var(--accent);color:var(--accent)}
+.pir-panel button{min-height:28px;padding:4px 8px;border:1px solid color-mix(in srgb,var(--line) 45%,transparent);border-radius:5px;background:var(--surface);color:var(--heading);font-size:var(--fs-xs);cursor:pointer}.pir-panel button:disabled,.pir-panel select:disabled{opacity:.45;cursor:not-allowed}.pir-change{justify-self:start}
+.pir-form{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:7px}.pir-form label{display:grid;gap:4px;color:var(--dim);font-size:var(--fs-xs);letter-spacing:.02em}
+.pir-form select{min-width:0;height:34px;padding:5px;border:1px solid color-mix(in srgb,var(--line) 50%,transparent);border-radius:6px;background:var(--surface);color:var(--ink)}
+.pir-form>p,.pir-form>div,.pir-form>small{grid-column:1/-1}.pir-form>div{display:flex;gap:6px}.pir-form>small{color:var(--dim);font-size:var(--fs-xs)}
+@media(max-width:650px){.pir-form{grid-template-columns:1fr}.pir-panel>header{display:grid}.pir-verdict{justify-self:start}.pir-stops li{grid-template-columns:auto minmax(0,1fr)}.pir-stops li button{grid-column:2;justify-self:start}}

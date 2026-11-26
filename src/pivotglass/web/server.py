@@ -78,6 +78,8 @@ from pivotglass.core.graph_presentation import GraphPresentationAuthority
 from pivotglass.core.indicator_context import IndicatorContextAuthority, document_relations
 from pivotglass.core.indicator_tags import IndicatorTagAuthority, dimension_catalog
 from pivotglass.core.information_requirements import build_information_requirements
+from pivotglass.reports.pir import catalogue as pir_catalogue
+from pivotglass.reports.pir import pir_state
 from pivotglass.core.integration_commands import execute_integration_command
 from pivotglass.core.investigation import (
     ContentClass,
@@ -369,6 +371,8 @@ class WebCockpitService:
         analysis = ledger.snapshot()
         analysis["enrichment_queue"] = ledger.enrichment_requests()
         analysis["information_requirements"] = build_information_requirements(analysis)
+        analysis["pir"] = pir_state(analysis)
+        analysis["pir_catalogue"] = pir_catalogue()
         analysis["rigor"] = build_analytic_rigor(analysis)
         pivot_trail = PivotTrailAuthority(self.ctx.workspace_mgr).list()
         analysis["pivot_trail"] = pivot_trail
@@ -965,6 +969,10 @@ class WebCockpitService:
             {
                 "command": "analysis question <text>",
                 "purpose": "Record the investigation question the evidence must answer",
+            },
+            {
+                "command": "analysis pir [categories | <category> [tactical|operational|strategic]]",
+                "purpose": "Show or set the PIR category and tier; seeds the stop conditions that define an answer",
             },
             {
                 "command": "analysis assumption <text>",

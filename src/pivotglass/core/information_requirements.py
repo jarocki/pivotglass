@@ -63,11 +63,11 @@ def information_value(criteria: dict[str, Any]) -> tuple[int, dict[str, int]]:
     return sum(contributions.values()), contributions
 
 
-def build_information_requirements(snapshot: dict[str, Any]) -> dict[str, Any]:
-    """Rank persisted requirements and derive non-authoritative suggestions."""
+def active_investigation_row(snapshot: dict[str, Any]) -> dict[str, Any] | None:
+    """The newest open investigation in a ledger snapshot, else the newest of any status."""
 
     investigations = list(snapshot.get("investigations", []))
-    active = next(
+    return next(
         (
             row
             for row in reversed(investigations)
@@ -75,6 +75,12 @@ def build_information_requirements(snapshot: dict[str, Any]) -> dict[str, Any]:
         ),
         investigations[-1] if investigations else None,
     )
+
+
+def build_information_requirements(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Rank persisted requirements and derive non-authoritative suggestions."""
+
+    active = active_investigation_row(snapshot)
     investigation_id = str(active["id"]) if active else None
     lifecycle = [
         row

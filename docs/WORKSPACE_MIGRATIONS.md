@@ -92,6 +92,17 @@ entities. They are workflow provenance, not observed threat relationships, and
 do not alter any evidence record. The backup is named
 `NAME.db.pre-v11-backup` when this is the first step required.
 
+The v12-to-v13 upgrade adds the append-only `indicator_tag_events` table for
+analyst indicator tags. Tags are analyst annotations, not evidence. The backup
+is named `NAME.db.pre-v12-backup` when this is the first step required.
+
+The v13-to-v14 upgrade adds two columns to `analytic_investigations`:
+`requirement_category` and `intelligence_level`, the PIR category and tier.
+Existing investigations get `unspecified` for both, and no evidence or
+lifecycle record changes. Choosing a category later seeds that category's stop
+conditions. The backup is named `NAME.db.pre-v13-backup` when this is the
+first step required.
+
 ## Recovery
 
 If migration fails, Pivotglass leaves the prior active workspace selected and
