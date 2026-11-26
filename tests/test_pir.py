@@ -153,7 +153,7 @@ def test_v13_workspace_migrates_with_unspecified_pir(tmp_path: Path):
         conn.execute("UPDATE workspace_schema_version SET version = 13")
     migrated = WorkspaceManager(tmp_path)
     migrated.switch("old")
-    assert get_workspace_schema_version(migrated._engine) == CURRENT_WORKSPACE_SCHEMA_VERSION == 14  # noqa: SLF001
+    assert get_workspace_schema_version(migrated._engine) == CURRENT_WORKSPACE_SCHEMA_VERSION  # noqa: SLF001
     investigation = AnalyticLedger(migrated).active_investigation()
     assert investigation["requirement_category"] == "unspecified"
     assert investigation["intelligence_level"] == "unspecified"
@@ -161,14 +161,15 @@ def test_v13_workspace_migrates_with_unspecified_pir(tmp_path: Path):
 
 
 def test_report_opens_with_the_pir_and_its_verdict(ledger: AnalyticLedger):
-    from pivotglass.core.dossier_report import generate_dossier_report
+    from pivotglass.reports.engine import build_report
+    from pivotglass.reports.render import render
 
     manager = ledger._workspace  # noqa: SLF001
-    report = generate_dossier_report(manager)
+    report = render(build_report(manager))
     assert "## Priority Intelligence Requirement" in report and "No PIR recorded" in report
     ledger.create_question("Who operates the lookalike domains?")
     ledger.set_requirement("brand_vip_footprint")
-    report = generate_dossier_report(manager)
+    report = render(build_report(manager))
     section = report.split("## Overview")[0]
     assert "**Question:** Who operates the lookalike domains?" in section
     assert "Brand, VIP, and digital-footprint protection · **Tier:** Tactical" in section

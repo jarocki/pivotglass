@@ -1474,56 +1474,53 @@ class PivotglassConsole(cmd2.Cmd):
     # ------------------------------------------------------------------
 
     def do_report(self, args: str) -> None:
-        """Generate and manage investigation reports.
+        """Preview, save, issue and read back reports.
 
         Usage:
-            report [generate]   -- generate dossier report and save to workspace directory
-            report show         -- display the last generated report
+            report [generate [<type>]]  -- save a Markdown preview to the workspace directory
+            report show [<type>]        -- print a Markdown preview
+            report types | <type> [markdown|json|stix] | issue <type> [draft|final] [| summary]
+                   | history [<type>] | open <report-id> [<version>] [format]
 
-        M-8: classic interview-based report path removed (DEC-68-DOSSIER-REFRAME-008).
-        The dossier renderer is the sole report path.
-
-        Reports are Markdown files written to the active workspace directory.
+        Every form except ``generate`` and ``show`` is the shared ``report``
+        command (reports/commands.py), identical in the web cockpit and chat.
         """
+        from pivotglass.reports.commands import execute_report_command
+
         tokens = args.strip().split()
         sub = tokens[0].lower() if tokens else "generate"
-
-        if sub == "generate":
-            self._report_generate()
-        elif sub == "show":
-            self._report_show()
-        else:
-            self.poutput(f"Unknown report subcommand: '{sub}'")
-            self.poutput("Usage: report [generate|show]")
-
-    def _report_generate(self) -> None:
-        """Generate dossier report and save to a file in the workspace directory."""
         try:
-            try:
-                ws_name = self.workspace_mgr.active
-            except RuntimeError:
-                ws_name = "default"
+            if sub in {"generate", "show"}:
+                result = execute_report_command(" ".join(tokens[1:]), self.workspace_mgr)
+                if sub == "show":
+                    self.poutput(result["text"])
+                else:
+                    self._report_save(result, tokens[1] if len(tokens) > 1 else None)
+                return
+            result = execute_report_command(args, self.workspace_mgr)
+        except ValueError as exc:
+            self.poutput(str(exc))
+            return
+        if "text" in result:
+            self.poutput(result["text"])
+        else:
+            self.poutput(result["title"])
+            self.poutput(json.dumps(result["data"], indent=2, default=str))
 
-            from pivotglass.core.dossier_report import generate_dossier_report
+    def _report_save(self, result: dict, type_id: str | None) -> None:
+        """Write a Markdown preview to ``<workspace>-report.md`` (or ``<workspace>-<type>.md``)."""
 
-            workspace_dir = self.workspace_mgr._workspace_dir
-            workspace_dir.mkdir(parents=True, exist_ok=True)
-            content = generate_dossier_report(
-                self.workspace_mgr, scoring_engine=self.scoring_engine
-            )
-            output_path = workspace_dir / f"{ws_name}-report.md"
-            output_path.write_text(content, encoding="utf-8")
-            self.poutput(f"Report saved: {output_path}")
-            self._last_report_path = output_path
-        except Exception as exc:  # noqa: BLE001
-            self.poutput(f"Error generating report: {exc}")
-
-    def _report_show(self) -> None:
-        """Display the dossier report content on stdout."""
-        from pivotglass.core.dossier_report import generate_dossier_report
-
-        content = generate_dossier_report(self.workspace_mgr, scoring_engine=self.scoring_engine)
-        self.poutput(content)
+        try:
+            ws_name = self.workspace_mgr.active
+        except RuntimeError:
+            ws_name = "default"
+        workspace_dir = self.workspace_mgr._workspace_dir
+        workspace_dir.mkdir(parents=True, exist_ok=True)
+        suffix = "report" if type_id is None else type_id.casefold()
+        output_path = workspace_dir / f"{ws_name}-{suffix}.md"
+        output_path.write_text(result["text"], encoding="utf-8")
+        self.poutput(f"Report saved: {output_path}")
+        self._last_report_path = output_path
 
     # ------------------------------------------------------------------
     # sessions (stub)

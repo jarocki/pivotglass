@@ -130,12 +130,13 @@ execution, result formatting, and workspace storage.
            _build_workspace_data(). This is the identical strategy, not a new mechanism.
 
 @decision DEC-M8-CLEANUP-002
-@title generate_dossier_report is the sole report LLM tool; classic interview tools removed
-@status accepted
+@title One report LLM tool; classic interview tools removed
+@status accepted (amended v1.5.0, #50)
 @rationale DEC-68-DOSSIER-REFRAME-008 one-release deprecation runway expired at M-8.
-           start_report_interview, answer_report_question, and generate_report (classic
-           interview path) are deleted. generate_dossier_report becomes parameterless.
-           Tool count drops from 31 to 28. No interview state on ToolContext.
+           start_report_interview, answer_report_question, and the classic interview
+           generate_report were deleted. In v1.5.0 the dossier-only
+           generate_dossier_report became preview_report(report_type?), a read-only
+           preview through reports/commands.py; issuing stays an analyst command.
 """
 
 from __future__ import annotations
@@ -1897,27 +1898,28 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                 },
             },
         },
-        # -----------------------------------------------------------------------
-        # M-8: dossier report tool — DEC-M8-CLEANUP-002 (parameterless)
-        # generate_dossier_report: sole report renderer; classic path removed.
-        # Tool count: 31 -> 28 (removed start_report_interview, answer_report_question,
-        # generate_report). DEC-68-DOSSIER-REFRAME-008 deprecation runway closed.
-        # -----------------------------------------------------------------------
+        # Report preview tool (#50, DEC-REPORT-TYPES-001). Read-only: issuing a
+        # report is an analyst act through the `report issue` command, never a
+        # model tool call.
         {
             "type": "function",
             "function": {
-                "name": "generate_dossier_report",
+                "name": "preview_report",
                 "description": (
-                    "Generate the dossier-style investigation report as Markdown. "
-                    "Renders the current threat actor dossier state (9 slots), "
-                    "the predictions log (pending / validated / falsified), the "
-                    "analyst notes, and the workspace STIX summary. "
-                    "Returns the complete Markdown report as a string. "
-                    "No interview required — the dossier state is the source of truth."
+                    "Preview a report of the given type as Markdown, built from the workspace's "
+                    "evidence, analytic ledger and dossier. Each section states its provenance "
+                    "(evidence, method, analyst, model draft, organisation input) and the report "
+                    "ends with its gaps and sources. Defaults to the investigation report. "
+                    "Read-only: it never issues or records the report."
                 ),
                 "parameters": {
                     "type": "object",
-                    "properties": {},
+                    "properties": {
+                        "report_type": {
+                            "type": "string",
+                            "description": "Report type id, as listed by `report types`.",
+                        },
+                    },
                     "required": [],
                 },
             },
@@ -2253,8 +2255,8 @@ def execute_tool(
         )
 
     # M-8: dossier report tool — DEC-M8-CLEANUP-002 (parameterless post-M-8)
-    if tool_name == "generate_dossier_report":
-        return _execute_generate_dossier_report(ctx), None, [], []
+    if tool_name == "preview_report":
+        return _execute_preview_report(ctx, arguments.get("report_type")), None, [], []
 
     # M-9: export_dossier + compare_dossier (DEC-M9-TOOL-EXPORT-001 / DEC-M9-TOOL-COMPARE-001)
     if tool_name == "export_dossier":
@@ -2719,34 +2721,20 @@ def _execute_export_workspace(ctx: ToolContext, fmt: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Dossier report helper — DEC-M8-CLEANUP-002 (sole report renderer post-M-8)
+# Report preview helper (#50)
 # ---------------------------------------------------------------------------
 
 
-def _execute_generate_dossier_report(ctx: ToolContext) -> str:
-    """Generate the dossier-style investigation report as Markdown.
+def _execute_preview_report(ctx: ToolContext, report_type: str | None = None) -> str:
+    """Preview one report type as Markdown through the shared report command authority."""
 
-    M-8: parameterless — classic interview path removed (DEC-68-DOSSIER-REFRAME-008,
-    DEC-M8-CLEANUP-002). Calls core.dossier_report.generate_dossier_report()
-    directly. No interview or style argument needed.
+    from pivotglass.reports.commands import execute_report_command
 
-    Parameters
-    ----------
-    ctx:
-        The shared ToolContext providing workspace access.
-
-    Returns
-    -------
-    str
-        Complete Markdown dossier report, or an error message.
-    """
     try:
-        from pivotglass.core.dossier_report import generate_dossier_report
-
-        return generate_dossier_report(ctx.workspace_mgr)
+        return str(execute_report_command(report_type or "", ctx.workspace_mgr)["text"])
     except Exception as e:
-        logger.exception("generate_dossier_report failed")
-        return f"Error generating dossier report: {e}"
+        logger.exception("preview_report failed")
+        return f"Error generating report: {e}"
 
 
 def _execute_get_dossier_state(ctx: ToolContext) -> str:

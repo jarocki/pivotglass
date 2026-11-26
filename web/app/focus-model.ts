@@ -204,8 +204,11 @@ export function parseTagInput(input: string, dimensions: TagDimension[]): { dime
 export function defangValue(value: string, entityType: string): string {
   const kind = entityType.toLocaleLowerCase();
   if (kind === "url" || kind === "uri" || /^https?:\/\//i.test(value)) {
-    const scheme = value.toLocaleLowerCase().startsWith("https://") ? "hxxps" : "hxxp";
-    return `${scheme}[:]//${value.split("://").slice(1).join("://").replaceAll(".", "[.]")}`;
+    const separator = value.indexOf("://");
+    if (separator < 0) return value.replaceAll(".", "[.]"); // a scheme-less URL value
+    const original = value.slice(0, separator);
+    const scheme = { http: "hxxp", https: "hxxps" }[original.toLocaleLowerCase()] ?? original;
+    return `${scheme}[:]//${value.slice(separator + 3).replaceAll(".", "[.]")}`;
   }
   if (["email", "email-addr", "email-address"].includes(kind) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
     const at = value.lastIndexOf("@");

@@ -114,7 +114,9 @@ def command_completions(
     elif command == "theme":
         choices = ["light", "dark", "high"]
     elif command == "report":
-        choices = ["answer", "generate"]
+        from pivotglass.reports.registry import report_types
+
+        choices = ["generate", "types", "issue ", "history", "open ", *report_types()]
     elif command == "analysis":
         choices = [
             "show",

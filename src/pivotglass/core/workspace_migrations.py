@@ -50,6 +50,7 @@ from pivotglass.models.database import (
     EvidenceSource,
     GraphPresentationLayout,
     IndicatorTagEvent,
+    ReportIssue,
     IntegrationExecution,
     InvestigationQuestion,
     PivotTrailEvent,
@@ -59,7 +60,7 @@ from pivotglass.models.database import (
     WorkspaceSchemaVersion,
 )
 
-CURRENT_WORKSPACE_SCHEMA_VERSION = 14
+CURRENT_WORKSPACE_SCHEMA_VERSION = 15
 LEGACY_WORKSPACE_SCHEMA_VERSION = 1
 _VERSION_ROW_ID = 1
 
@@ -181,6 +182,7 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     The v12 -> v13 step adds append-only multidimensional indicator tags.
     The v13 -> v14 step adds the PIR category and intelligence tier to each
     investigation (DEC-PIR-001); existing investigations become "unspecified".
+    The v14 -> v15 step adds append-only issued-report records (#50).
     """
 
     tables = set(inspect(engine).get_table_names())
@@ -242,6 +244,9 @@ def ensure_workspace_schema(engine: Engine, db_path: Path) -> MigrationReceipt:
     if current == 13:  # noqa: PLR2004
         _migrate_v13_to_v14(engine)
         current = 14
+    if current == 14:  # noqa: PLR2004
+        _migrate_v14_to_v15(engine)
+        current = 15
 
     if current != CURRENT_WORKSPACE_SCHEMA_VERSION:
         raise RuntimeError(
@@ -372,6 +377,13 @@ def plan_workspace_migration(engine: Engine, db_path: Path) -> MigrationPlan:
             (
                 "add PIR category and intelligence tier to investigations (existing: unspecified)",
                 "write schema-version 14 receipt",
+            )
+        )
+    if current <= 14:  # noqa: PLR2004
+        steps.extend(
+            (
+                "add append-only issued-report records",
+                "write schema-version 15 receipt",
             )
         )
     return MigrationPlan(
@@ -879,6 +891,19 @@ def _migrate_v13_to_v14(engine: Engine) -> None:
         if row is None:
             raise RuntimeError("Schema v13 workspace is missing its version receipt.")
         row.version = 14
+        row.migrated_at = datetime.now(timezone.utc)
+        session.commit()
+
+
+def _migrate_v14_to_v15(engine: Engine) -> None:
+    """Add issued-report records (#50); no evidence or lifecycle record changes."""
+
+    ReportIssue.__table__.create(engine, checkfirst=True)
+    with Session(engine) as session:
+        row = session.get(WorkspaceSchemaVersion, _VERSION_ROW_ID)
+        if row is None:
+            raise RuntimeError("Schema v14 workspace is missing its version receipt.")
+        row.version = 15
         row.migrated_at = datetime.now(timezone.utc)
         session.commit()
 

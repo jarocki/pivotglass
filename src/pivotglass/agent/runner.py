@@ -203,7 +203,7 @@ _TOOL_SLUG_MAP: dict[str, str] = {
     "create_dossier_prediction": "default_tool",
     "create_dossier_note": "default_tool",
     "falsify_dossier_prediction": "default_tool",
-    "generate_dossier_report": "default_tool",
+    "preview_report": "default_tool",
     "export_dossier": "default_tool",
     "compare_dossier": "default_tool",
 }

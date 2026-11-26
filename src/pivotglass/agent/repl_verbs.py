@@ -442,7 +442,20 @@ def dispatch_repl_verb(
             "layout delete <name> --confirm <name>|annotate <node-id> | <text>|annotations [node-id]]"
         )
 
-    if name in {"search", "graph", "dossier", "gaps", "report", "hint", "challenges"}:
+    if name == "report":
+        if _workspace_mgr is None:
+            return "Workspace unavailable."
+        from pivotglass.reports.commands import execute_report_command
+
+        try:
+            result = execute_report_command(verb.args, _workspace_mgr)
+        except ValueError as exc:
+            return str(exc)
+        if "text" in result:
+            return str(result["text"])
+        return f"{result['title']}\n" + json.dumps(result["data"], indent=2, default=str)
+
+    if name in {"search", "graph", "dossier", "gaps", "hint", "challenges"}:
         if ctx is None:
             return "Command context unavailable."
         from pivotglass.agent.tools import execute_tool
@@ -452,7 +465,6 @@ def dispatch_repl_verb(
             "graph": ("render_graph", {}),
             "dossier": ("get_dossier_state", {}),
             "gaps": ("get_dossier_state", {}),
-            "report": ("generate_dossier_report", {}),
             "hint": ("get_next_hint", {"module": verb.args[0] if verb.args else None}),
             "challenges": ("list_challenges", {}),
         }

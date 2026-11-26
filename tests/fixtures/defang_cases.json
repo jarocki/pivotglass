@@ -3,6 +3,9 @@
   "cases": [
     {"value": "https://login-portal.harbor-cdn.example/auth", "type": "url", "expected": "hxxps[:]//login-portal[.]harbor-cdn[.]example/auth"},
     {"value": "http://files.harbor-cdn.example/upload", "type": "url", "expected": "hxxp[:]//files[.]harbor-cdn[.]example/upload"},
+    {"value": "files.harbor-cdn.example/upload.php", "type": "url", "expected": "files[.]harbor-cdn[.]example/upload[.]php"},
+    {"value": "ftp://files.harbor-cdn.example/a.zip", "type": "url", "expected": "ftp[:]//files[.]harbor-cdn[.]example/a[.]zip"},
+    {"value": "HTTPS://Login.harbor-cdn.example/", "type": "url", "expected": "hxxps[:]//Login[.]harbor-cdn[.]example/"},
     {"value": "ops@harbor-cdn.example", "type": "email-addr", "expected": "ops[@]harbor-cdn[.]example"},
     {"value": "203.0.113.44", "type": "ipv4-addr", "expected": "203[.]0[.]113[.]44"},
     {"value": "cdn.harbor-cdn.example", "type": "domain-name", "expected": "cdn[.]harbor-cdn[.]example"},

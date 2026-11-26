@@ -103,6 +103,15 @@ lifecycle record changes. Choosing a category later seeds that category's stop
 conditions. The backup is named `NAME.db.pre-v13-backup` when this is the
 first step required.
 
+The v14-to-v15 upgrade adds the append-only `report_issues` table. Each row is
+one issued version of a report: its ID, version, status, marking, element
+statuses, the complete JSON rendering and its SHA-256 hash. No evidence or
+lifecycle record changes. Issued reports are exported with the workspace and
+kept by `workspace clear`. Merged workspaces keep each report's original ID, so
+two source workspaces can carry the same ID; the content hash tells them apart.
+The backup is named `NAME.db.pre-v14-backup` when this is the first step
+required.
+
 ## Recovery
 
 If migration fails, Pivotglass leaves the prior active workspace selected and
@@ -136,7 +145,7 @@ workspace and exported its investigation record.
 - Corrections, retractions, and supersessions are append-only disposition
   events. They do not edit the original observation.
 - Clearing a workspace removes investigation content but retains the schema
-  receipt and external-publication audit receipts. The latter prevent a
+  receipt, external-publication audit receipts, and issued reports. The latter prevent a
   cleared or restarted workspace from silently repeating remote side effects.
 - Clear and delete do not remove sibling `*.pre-vN-backup` files or generated
   `<workspace>-report.md` files. Those are separate recovery/publication

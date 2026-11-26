@@ -242,8 +242,8 @@ class TestCreateTools:
             # M-5 note authoring + manual falsification tools
             "create_dossier_note",
             "falsify_dossier_prediction",
-            # M-7 dossier-aware report generation
-            "generate_dossier_report",
+            # Report preview (v1.5.0 #50; replaced M-7 generate_dossier_report)
+            "preview_report",
             # M-9 export + compare dossier (DEC-M9-TOOLCOUNT-001)
             "export_dossier",
             "compare_dossier",
@@ -2746,61 +2746,36 @@ class TestGraphExportWiring:
 
 
 # ---------------------------------------------------------------------------
-# TestGenerateDossierReportTool — M-7 generate_dossier_report LLM tool
+# TestPreviewReportTool — read-only report preview LLM tool (#50)
 # ---------------------------------------------------------------------------
 
 
-class TestGenerateDossierReportTool:
-    """Tests for the generate_dossier_report LLM tool (M-7 + M-8 cleanup).
+class TestPreviewReportTool:
+    """preview_report renders a report type through reports/commands.py and never issues it."""
 
-    M-8 (DEC-M8-CLEANUP-002): tool is now parameterless (style param removed,
-    classic shim deleted). generate_dossier_report always produces dossier-only output.
-
-    Production sequence:
-      execute_tool("generate_dossier_report") -> _execute_generate_dossier_report()
-        -> generate_dossier_report(workspace_mgr) -> Markdown string
-    """
-
-    def test_generate_dossier_report_registered_in_create_tools(self, tmp_ctx):
-        """generate_dossier_report is present in the create_tools() list."""
-        tools = create_tools(tmp_ctx)
-        names = {t["function"]["name"] for t in tools}
-        assert "generate_dossier_report" in names
-
-    def test_generate_dossier_report_schema_is_parameterless(self, tmp_ctx):
-        """M-8: generate_dossier_report schema has no properties or required params (DEC-M8-CLEANUP-002)."""
-        tools = create_tools(tmp_ctx)
-        tool = next(t for t in tools if t["function"]["name"] == "generate_dossier_report")
+    def test_schema_takes_an_optional_report_type(self, tmp_ctx):
+        tool = next(t for t in create_tools(tmp_ctx) if t["function"]["name"] == "preview_report")
         params = tool["function"]["parameters"]
-        assert "style" not in params.get("properties", {}), (
-            "generate_dossier_report must NOT expose 'style' property after M-8 cleanup"
-        )
-        assert len(params.get("required", [])) == 0
+        assert set(params["properties"]) == {"report_type"}
+        assert params["required"] == []
 
-    def test_generate_dossier_report_returns_string(self, tmp_ctx):
-        """execute_tool('generate_dossier_report') returns a Markdown string."""
-        summary, celebration, badges, challenges = execute_tool(
-            tmp_ctx, "generate_dossier_report", {}
-        )
-        assert isinstance(summary, str)
-        assert len(summary) > 0
-
-    def test_generate_dossier_report_contains_investigation_header(self, tmp_ctx):
-        """Dossier report output contains 'Investigation Report' header."""
-        summary, _, _, _ = execute_tool(tmp_ctx, "generate_dossier_report", {})
-        assert (
-            "Investigation Report" in summary or "Dossier" in summary or "report" in summary.lower()
-        )
-
-    def test_generate_dossier_report_includes_iocs_when_workspace_populated(self, tmp_ctx):
-        """generate_dossier_report includes IOC data from workspace when present."""
+    def test_default_is_the_investigation_report_with_defanged_indicators(self, tmp_ctx):
         tmp_ctx.workspace_mgr.store_stix_objects(
-            [{"type": "ipv4-addr", "value": "198.51.100.5"}],
-            "test/module",
-            "198.51.100.5",
+            [{"type": "ipv4-addr", "value": "198.51.100.5"}], "test/module", "198.51.100.5"
         )
-        summary, _, _, _ = execute_tool(tmp_ctx, "generate_dossier_report", {})
-        assert "198.51.100.5" in summary
+        summary, _, _, _ = execute_tool(tmp_ctx, "preview_report", {})
+        assert summary.startswith("# Investigation Report")
+        assert "198[.]51[.]100[.]5" in summary
+
+    def test_previewing_writes_no_issued_report(self, tmp_ctx):
+        from pivotglass.reports.engine import list_issues
+
+        execute_tool(tmp_ctx, "preview_report", {"report_type": "investigation-report"})
+        assert list_issues(tmp_ctx.workspace_mgr) == []
+
+    def test_unknown_type_is_an_error_message_not_a_crash(self, tmp_ctx):
+        summary, _, _, _ = execute_tool(tmp_ctx, "preview_report", {"report_type": "nope"})
+        assert summary.startswith("Error generating report: unknown report type")
 
 
 # ---------------------------------------------------------------------------

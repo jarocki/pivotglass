@@ -57,6 +57,7 @@ _EXPORT_TABLES = (
     "evidence_cluster_snapshots",
     "pivot_trail_events",
     "indicator_tag_events",
+    "report_issues",
 )
 _JSON_COLUMNS = {
     "json_blob",
@@ -86,6 +87,7 @@ _JSON_COLUMNS = {
     "alternative_explanations",
     "snapshot",
     "provenance_refs",
+    "element_statuses",
 }
 _STRING_KEY_TABLES = (
     "stix_objects",
@@ -115,6 +117,7 @@ _STRING_KEY_TABLES = (
     "evidence_cluster_snapshots",
     "pivot_trail_events",
     "indicator_tag_events",
+    "report_issues",
 )
 
 

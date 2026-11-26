@@ -78,8 +78,6 @@ from pivotglass.core.graph_presentation import GraphPresentationAuthority
 from pivotglass.core.indicator_context import IndicatorContextAuthority, document_relations
 from pivotglass.core.indicator_tags import IndicatorTagAuthority, dimension_catalog
 from pivotglass.core.information_requirements import build_information_requirements
-from pivotglass.reports.pir import catalogue as pir_catalogue
-from pivotglass.reports.pir import pir_state
 from pivotglass.core.integration_commands import execute_integration_command
 from pivotglass.core.investigation import (
     ContentClass,
@@ -108,6 +106,10 @@ from pivotglass.integrations.scot_pivot_intake import (
     authenticate_scot_pivot_request,
 )
 from pivotglass.integrations.scot_publication import validate_scot_pivot_request
+from pivotglass.reports.commands import execute_report_command
+from pivotglass.reports.pir import catalogue as pir_catalogue
+from pivotglass.reports.pir import pir_state
+from pivotglass.reports.registry import report_type_summaries
 from pivotglass.web.advisor_voice import synthesize_advisor_voice
 
 _LOG = logging.getLogger(__name__)
@@ -373,6 +375,7 @@ class WebCockpitService:
         analysis["information_requirements"] = build_information_requirements(analysis)
         analysis["pir"] = pir_state(analysis)
         analysis["pir_catalogue"] = pir_catalogue()
+        analysis["report_types"] = report_type_summaries()
         analysis["rigor"] = build_analytic_rigor(analysis)
         pivot_trail = PivotTrailAuthority(self.ctx.workspace_mgr).list()
         analysis["pivot_trail"] = pivot_trail
@@ -909,7 +912,21 @@ class WebCockpitService:
                 "purpose": "Show how the analyst moved among documents, indicators, and entities",
             },
             {"command": "note <text>", "purpose": "Save an analyst annotation"},
-            {"command": "report", "purpose": "Generate the evidence-grounded Markdown report"},
+            {"command": "report", "purpose": "Preview the investigation report (Markdown, not issued)"},
+            {"command": "report types", "purpose": "List report types, their audiences and formats"},
+            {
+                "command": "report <type> [markdown|json|stix] [tlp:<marking>] [pap:<marking>]",
+                "purpose": "Preview one report type in one format; JSON and STIX are not defanged",
+            },
+            {
+                "command": "report issue <type> [draft|final] [tlp:<marking>] [pap:<marking>] [| <change summary>]",
+                "purpose": "Issue the next version with an ID, a revision entry and a content hash",
+            },
+            {"command": "report history [<type>]", "purpose": "List issued report versions, newest first"},
+            {
+                "command": "report open <report-id> [<version>] [markdown|json|stix]",
+                "purpose": "Read an issued report back exactly as issued",
+            },
             {
                 "command": "analysis show",
                 "purpose": "Show questions, hypotheses, assertions, confidence, likelihood, and contradictions",
@@ -1373,14 +1390,26 @@ class WebCockpitService:
             self.ctx.workspace_mgr.add_note(rest)
             return {"kind": "text", "title": "Annotation saved", "text": rest}
         if command == "report":
-            summary, *_ = execute_tool(self.ctx, "generate_dossier_report", {})
+            result = execute_report_command(rest, self.ctx.workspace_mgr)
+            if "text" not in result:
+                return {"kind": "json", "title": result["title"], "data": result["data"]}
+            if result["format"] != "markdown":
+                return {
+                    "kind": "download",
+                    "title": result["title"],
+                    "filename": result["filename"],
+                    "mime": result["mime"],
+                    "content": result["text"],
+                }
             return {
                 "kind": "text",
-                "title": "Dossier report",
+                "title": result["title"],
                 "workspace": self.ctx.workspace_mgr.active,
                 "version": __version__,
-                "text": str(summary),
+                "text": result["text"],
+                "filename": result["filename"],
                 "printable": True,
+                "report": {key: result[key] for key in ("report_id", "version", "status", "marking", "complete", "missing_required")},
             }
         if command == "analysis":
             result = execute_analysis_command(tuple(rest.split()), self.ctx.workspace_mgr)

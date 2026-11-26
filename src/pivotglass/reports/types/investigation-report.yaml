@@ -1,0 +1,27 @@
+# The whole-investigation record. It replaces the former dossier report
+# (core/dossier_report.py) and is what `report` produces with no argument.
+id: investigation-report
+code: INV
+title: Investigation Report
+domain: record
+audience: [Investigating analyst, Peer reviewer]
+purpose: >-
+  The complete record of one workspace's investigation: the requirement and
+  its verdict, the analytic lifecycle, the dossier, what was collected and
+  from where, and what is still unknown.
+default_marking: {tlp: AMBER, pap: AMBER}
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - {id: overview}
+  - {id: scientific_investigation}
+  - {id: collection_summary}
+  - {id: dossier_slots}
+  - {id: legacy_predictions, required: false}
+  - {id: analyst_notes, required: false}
+  - {id: ioc_table}
+  - {id: collection_timeline}
+  - {id: statistics}
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json, stix]

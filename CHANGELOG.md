@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Defanging a URL value with no scheme (`host.example/path`) crashed the report and produced `hxxp[:]//` in the cockpit; both now defang the dots only. Non-HTTP schemes keep their name (`ftp[:]//`).
 - ThreatFox, URLhaus, and MalwareBazaar failed with a raw "401 Unauthorized": abuse.ch now requires an Auth-Key. One stored key (`api_keys.abusech`, `PIVOTGLASS_ABUSECH_API_KEY`) is sent as the `Auth-Key` header to all three. Each service now has its own Configuration card with Enabled toggle, base URL, and a **Test** (POST where the API requires it). Without a key a hunt records them as not configured. URLhaus and MalwareBazaar requests use the documented form fields (#20).
 - The connection-count histogram bins whole numbers instead of 0.1-wide slivers (#36). The coverage-similarity scatter colours points by indicator type from the same hues as the graph (#37).
 - A dossier radar with fewer than three covered facets is shown as a compact coverage list; facet names read TTPs, not Ttps (#38).
@@ -16,12 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - A Priority Intelligence Requirement on every investigation: a category (threat actor and campaign, TTPs, brand and footprint, vulnerability, third-party, geopolitical, strategic and M&A) and a tier (tactical, operational, strategic). The category adds the stop conditions that define an answer and states honestly how well Pivotglass collection can serve it. The notebook panel, Pursuit Brief, and report show a deterministic verdict: Answered, Partially answered, or Not answered by available collection. `analysis pir` in every interface. Workspace schema v14 adds the two fields; existing investigations read "unspecified" (#60).
+- A report system. Reports are assembled from elements that each state their provenance (evidence, method, analyst, model draft, organisation input); report types are validated YAML definitions. Every report carries one header contract (ID, version, DRAFT/FINAL, TLP 2.0, PAP, audience, requirement, validity, producer, Admiralty-rated sources), states Complete or Incomplete, and ends with Gaps and Limitations and Sources. Renders as Markdown (defanged), JSON and STIX 2.1 with the official TLP 2.0 marking definitions. `report issue` records an immutable, hashed, versioned issue with a revision history; `report history` and `report open` read issues back. The cockpit report dialog has a type, format and marking picker. Workspace schema v15 adds `report_issues` (#50, #51).
+- One report contract module owns the shared vocabularies: ICD 203 likelihood and confidence (reused from the analytic ledger), TLP 2.0, PAP, Admiralty source ratings, severity, control status, and a stated rule that derives coverage-gap status. Examples are checked against RFC 2606/5737/3849 reserved values (#51).
 - `pivotglass config show|set|check|enable|disable|repair` from the terminal, using the same authority as the cockpit's config command. `config set <service>` prompts for the key without echoing it and never takes it as an argument (#19).
 
 ### Changed
 
 - Every "key not configured" message names commands that exist: Configuration, `pivotglass config set <key>`, or the `PIVOTGLASS_*` variable, from one helper. The messages that named `pivotglass config setup` and `config set api_keys.<x> <key>` are gone; a test fails if source text names a config subcommand the CLI does not accept. The LLM-provider hint names the real `PIVOTGLASS_<PROVIDER>_API_KEY` variables, and a broken `config.toml` hint says to move the file aside (#19).
 - Provenance is a dense timeline, one row per event, with details on demand (#39).
+- The dossier report is now the **Investigation Report** type of the report system, with the same content plus the shared header, provenance per section, Gaps and Limitations, and Sources. `core/dossier_report.py` is removed. The LLM tool `generate_dossier_report` is now the read-only `preview_report(report_type)`; issuing stays an analyst command (#50).
 - `core/module_credentials.py` is now `core/module_config.py`.
 
 ## [1.4.1] - 2026-11-21

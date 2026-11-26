@@ -462,6 +462,41 @@ class IndicatorTagEvent(Base):
     )
 
 
+class ReportIssue(Base):
+    """One issued version of a report (#50, DEC-REPORT-ISSUE-001).
+
+    ``payload`` is the complete JSON rendering; every other format re-renders
+    from it, so an issued report reads back exactly as issued. Rows are never
+    updated: a reissue appends the next version under the same ``report_id``.
+    Like external-publication receipts, issued reports survive ``workspace
+    clear``: a disseminated report stays accountable after its sources go.
+    """
+
+    __tablename__ = "report_issues"
+
+    id = Column(String, primary_key=True)
+    report_id = Column(String, nullable=False, index=True)
+    version = Column(Integer, nullable=False)
+    type_id = Column(String, nullable=False, index=True)
+    status = Column(String, nullable=False)
+    tlp = Column(String, nullable=False)
+    pap = Column(String, nullable=False)
+    investigation_id = Column(String, nullable=True, index=True)
+    pir_category = Column(String, nullable=True)
+    complete = Column(Integer, nullable=False)
+    element_statuses = Column(JSON, nullable=False)
+    content_hash = Column(String, nullable=False)
+    payload = Column(JSON, nullable=False)
+    summary = Column(Text, nullable=False)
+    issued_by = Column(String, nullable=False, default="human")
+    issued_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+
+
 class EvidenceClusterSnapshot(Base):
     """Presentation snapshot used to compare graph-cluster change over time."""
 

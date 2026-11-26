@@ -788,7 +788,12 @@ hypothesis.
 
 ```text
 report
-report generate
+report types
+report investigation-report json tlp:green
+report issue investigation-report draft | First look for the SOC lead
+report issue investigation-report final | Added the hosting records
+report history
+report open PG-INV-2026-0001 2 stix
 export json
 export csv
 export stix
@@ -797,12 +802,51 @@ export csv --defang yes
 export json --defang no
 ```
 
-Reports are generated from the active workspace. They summarize current
-evidence and visible gaps; they do not turn absent data into findings. The
-report dialog provides **SAVE MARKDOWN** to download the exact generated text
-as a `.md` file, alongside **PRINT / SAVE PDF** through the browser. The
-Markdown download keeps headings, tables, provenance references, and limitations
-editable for a reviewed handoff; it is not a complete workspace backup.
+A report is built from the active workspace each time you ask for it. It states
+current evidence and visible gaps; it does not turn absent data into findings.
+
+**Preview and issue.** `report` (or `report <type>`) is a preview: nothing is
+recorded, and the header says "Preview — not issued". `report issue <type>`
+records an issued version: it gets an ID such as `PG-INV-2026-0001`, a version,
+DRAFT or FINAL status, an entry in the revision history, and a SHA-256 hash of
+its content. Issuing the same type again for the same investigation adds the
+next version under the same ID and keeps the marking unless you change it.
+`report open <id> [version]` reads an issued version back exactly as it was
+issued, and refuses if the stored content no longer matches its hash. Issued
+reports are kept when the workspace is cleared, like other publication records.
+A report with model drafts still awaiting review can only be issued as DRAFT.
+
+**Report header and marking.** Every report opens with its ID and status, the
+TLP 2.0 and PAP markings with their meaning, the audience, the requirement it
+addresses, the producer, and the sources. Each type has a default marking;
+`tlp:<CLEAR|GREEN|AMBER|AMBER+STRICT|RED>` and `pap:<CLEAR|GREEN|AMBER|RED>`
+override it. The report then states whether it is **Complete** or
+**Incomplete**, naming any required section that has no content.
+
+**Sections say where they come from.** Each section ends with its provenance:
+evidence (collected and cited), method (a deterministic computation), analyst
+(written by you), model draft, or organisation input. Every report ends with
+**Gaps and Limitations** (your recorded knowledge gaps and limitations, plus
+every section that came back empty or partial, and any record that could not be
+read) and **Sources** (each collection source with its runs, object count, and
+Admiralty rating). Pivotglass does not rate sources yet, so they show as F6,
+"cannot be judged".
+
+**Formats.** Markdown is for reading and defangs indicators (`hxxps[:]//`,
+`example[.]com`). JSON and STIX 2.1 are for tools and carry values unchanged.
+The STIX bundle contains the report object, the producer identity, the official
+TLP 2.0 marking definition, and the reported indicators; PAP, which STIX has no
+marking for, travels as `x_pivotglass_pap`. In the cockpit, the report dialog
+has a picker for the type, format and marking, plus **Preview**, **Issue
+draft**, **Issue final** and **Issued reports**. Markdown opens in the dialog;
+JSON and STIX download as files. **SAVE MARKDOWN** and **PRINT / SAVE PDF**
+remain for the Markdown shown.
+
+`report types` lists the available types. This release adds the report system
+and the **Investigation Report**, the complete record of a workspace's
+investigation, which replaces the former dossier report with the same content.
+The CTI report types (alerts, actor profiles, ATT&CK layers, detection bundles
+and others) are added on the same system.
 
 Structured technique runs retain their recorded inputs and outputs in the report,
 alongside the actual analyst disposition. A completed run may still be pending

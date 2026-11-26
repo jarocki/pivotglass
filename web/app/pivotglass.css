@@ -1036,7 +1036,17 @@ main>.guided-help-layer{position:fixed;z-index:19000;top:12px;left:12px;width:mi
 .question-coach button:focus-visible,.question-coach textarea:focus-visible,.question-coach input:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 
 .report-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-@media print{.command-result .report-actions{display:none}}
+@media print{.command-result .report-actions,.command-result .report-picker{display:none}}
+.report-picker{display:grid;gap:8px;margin:4px 0 12px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--line) 35%,transparent);border-radius:8px;background:var(--elevated)}
+.report-state{display:flex;flex-wrap:wrap;gap:4px 14px;margin:0;font-size:.92em}
+.report-state.incomplete span:last-child{color:var(--focus-ring)}
+.report-controls{display:grid;grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr));gap:8px}
+.report-controls label{display:grid;gap:3px;font-size:.85em;min-width:0}
+.report-controls select{min-width:0;width:100%}
+.report-purpose{opacity:.85}
+.report-buttons{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.report-buttons input{flex:1 1 220px;min-width:0}
+@media (max-width:640px){.report-controls{grid-template-columns:1fr 1fr}.report-controls label:first-child{grid-column:1/-1}}
 
 /* ---- Source intake (#17): one bar, details on demand ---- */
 .document-intake{display:grid;gap:8px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--line) 34%,transparent);border-radius:10px;background:color-mix(in srgb,var(--control) 70%,var(--surface))}

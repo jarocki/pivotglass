@@ -270,6 +270,29 @@ JSON rendering. A reissue increments the version and appends a
 revision-history entry. Issued content is immutable. This gives every report a
 verifiable identity and a real revision history, instead of a hand-typed one.
 
+Decisions made while building it (#50, #51):
+
+- **Preview and issue are separate.** `report` and `report <type>` build a
+  preview and write nothing; the header says it is not issued (no ID, version
+  0). Only `report issue` writes. The LLM tool `preview_report` can preview but
+  never issue: issuing is an analyst act.
+- **Reissue scope.** A reissue appends to the latest report of the same type
+  for the same active investigation; a different investigation gets a new ID.
+  The marking carries over unless the analyst changes it.
+- **Header, sources and gaps are built last**, after every other element, so
+  the header lists the sources and the gaps section lists every element that
+  came back empty or partial. They and `pir_verdict` are mandatory, and the
+  header must be the first element; the loader rejects a type that breaks this.
+- **Failures are reported, not hidden.** An authority that cannot be read and an
+  element builder that raises both become entries in Gaps and Limitations.
+- **Issued reports survive `workspace clear`**, like external-publication
+  receipts: a disseminated report stays accountable after its sources go. They
+  are exported, and merged by row id; IDs are not renumbered on merge.
+- **Source ratings.** Pivotglass records no Admiralty ratings yet, so every
+  source renders as F6 and the Sources element is `partial` with that gap.
+- **PAP in STIX.** STIX has no PAP marking definition; the bundle carries it as
+  `x_pivotglass_pap` on the report object.
+
 ## Organisation input (#59)
 
 The workspace stores organisation data with provenance `org_input`:
@@ -283,10 +306,11 @@ None of it is sent to a model unless the analyst allows it.
 
 ## Removal of the superseded path
 
-The current `generate_dossier_report` becomes the `investigation-report`
-type, built from the same elements. A golden test proves the new output
-carries the same facts, and then the old generator is deleted in the same
-change. The `report` command with no argument keeps producing that report.
+Done in #50. `generate_dossier_report` became the `investigation-report`
+type. Its output for a rich fixture workspace was captured before deletion
+(`tests/fixtures/reports/investigation-report.legacy.md`), and a golden test
+checks that every line of it is still present in the new report. The
+`report` command with no argument produces that report.
 
 ## Delivery order
 

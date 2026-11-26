@@ -920,8 +920,8 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
             )
             help_table.add_row(
                 "report",
-                "report / report answer N <text> / report generate",
-                "Interview-driven investigation report",
+                "report / report types / report <type> [json|stix] / report issue <type> / report history",
+                "Preview, issue and read back reports",
             )
             help_table.add_row(
                 "model",
@@ -947,33 +947,24 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
             console.print(f"[dim]Active workspace: [bold]{active_workspace}[/bold][/dim]")
             continue
 
-        # Report meta-command — M-8: sole dossier renderer; classic path removed
-        # (DEC-68-DOSSIER-REFRAME-008 / DEC-M8-CLEANUP-001).
-        # Supported forms:
-        #   report / report generate  → render dossier report as Markdown panel
+        # Report meta-command: the shared `report` command (reports/commands.py).
         if lower == "report" or lower.startswith("report "):
-            from pivotglass.agent.tools import _execute_generate_dossier_report
+            from pivotglass.reports.commands import execute_report_command
 
-            rest_lower = stripped[6:].strip().lower() if len(stripped) > 6 else ""
-
-            if rest_lower in ("", "generate"):
-                report_md = _execute_generate_dossier_report(runner.ctx)
-                if report_md.startswith("Error"):
-                    console.print(f"[yellow]{report_md}[/yellow]")
-                else:
-                    console.print(
-                        Panel(
-                            Markdown(report_md),
-                            title="[bold green]Investigation Report[/bold green]",
-                            style="green",
-                        )
-                    )
+            rest = stripped[6:].strip()
+            if rest.casefold() == "generate":
+                rest = ""
+            try:
+                result = execute_report_command(rest, runner.ctx.workspace_mgr)
+            except ValueError as exc:
+                console.print(f"[yellow]{exc}[/yellow]")
+                continue
+            if "text" not in result:
+                console.print_json(data=result["data"])
+            elif result["format"] == "markdown":
+                console.print(Panel(Markdown(result["text"]), title=f"[bold green]{result['title']}[/bold green]", style="green"))
             else:
-                console.print(
-                    f"[yellow]Unknown report subcommand: '{rest_lower}'. "
-                    "Usage: report [generate][/yellow]"
-                )
-
+                console.print(result["text"])
             continue
 
         # Model meta-commands — DEC-AGENT-CHAT-MODEL-COMMANDS-001.

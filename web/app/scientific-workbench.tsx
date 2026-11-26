@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
+import type { ReportTypeSummary } from "./report-picker";
 import { PirPanel, type PirCatalogue, type PirState } from "./pir-panel";
 import { QuestionCoach } from "./question-coach";
 import type { GuidanceLevel } from "./guidance-profile";
@@ -154,6 +155,7 @@ export type AnalyticSnapshot = {
   /** PIR category, tier and verdict for the active investigation (DEC-PIR-001). */
   pir?: PirState;
   pir_catalogue?: PirCatalogue;
+  report_types?: ReportTypeSummary[];
   /** Labels for observations cited by model proposals. */
   observation_labels?: Record<string, string>;
 };

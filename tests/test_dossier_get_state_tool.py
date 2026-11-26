@@ -109,7 +109,7 @@ class TestGetDossierStateRegistration:
         tools = create_tools(tmp_ctx)
         # M-1: 26 tools; M-2: +get_dossier_state (27); M-4: +create_dossier_prediction (28);
         # M-5: +create_dossier_note (29) +falsify_dossier_prediction (30);
-        # M-7: +generate_dossier_report (31);
+        # M-7: +generate_dossier_report (31), renamed preview_report in v1.5.0;
         # M-8: -start_report_interview -answer_report_question -generate_report (28);
         # M-9: +export_dossier +compare_dossier (30) — DEC-M9-TOOLCOUNT-001
         # v1.2: +shodan_dns_lookup +search_urlscan_history (31).
