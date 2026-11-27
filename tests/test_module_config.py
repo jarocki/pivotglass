@@ -1,4 +1,4 @@
-"""Tests for core/module_credentials.py — shared per-module credential resolver.
+"""Tests for core/module_config.py — shared per-module credential resolver.
 
 Production sequence: resolve_module_credentials(module_path, config_mgr) is called
 by both agent/tools.py::run_module (chat agent path) and core/console.py::_initialize_module
@@ -25,7 +25,7 @@ from unittest.mock import Mock  # @mock-exempt: ConfigManager is external I/O bo
 
 import pytest
 
-from pivotglass.core.module_credentials import (
+from pivotglass.core.module_config import (
     CREDENTIAL_BUILDERS,
     SERVICE_NAMES,
     ServiceDisabledError,
@@ -37,16 +37,22 @@ class TestResolveModuleCredentials:
     """Unit tests for resolve_module_credentials() precedence logic."""
 
     def test_keyless_module_returns_empty_dict(self):
-        """WHOIS and F61 modules return {} — no API key needed."""
+        """WHOIS and crt.sh return {} — no API key needed."""
         # @mock-exempt: ConfigManager is external I/O boundary
         cfg = Mock()
         assert resolve_module_credentials("osint/whois_lookup", cfg) == {}
         assert resolve_module_credentials("osint/crtsh", cfg) == {}
-        assert resolve_module_credentials("cti/threatfox", cfg) == {}
-        assert resolve_module_credentials("cti/urlhaus", cfg) == {}
-        assert resolve_module_credentials("cti/malwarebazaar", cfg) == {}
         # ConfigManager must not be called for key-free modules
         cfg.get_api_key.assert_not_called()
+
+    def test_abusech_modules_share_one_auth_key(self):
+        """ThreatFox, URLhaus and MalwareBazaar send one abuse.ch Auth-Key (#20)."""
+        # @mock-exempt: ConfigManager is external I/O boundary
+        cfg = Mock()
+        cfg.get_api_key.return_value = "abusech-key"
+        for module in ("cti/threatfox", "cti/urlhaus", "cti/malwarebazaar"):
+            assert resolve_module_credentials(module, cfg) == {"api_key": "abusech-key"}
+            cfg.get_api_key.assert_called_with("abusech")
 
     def test_single_key_module_returns_api_key_dict(self):
         """virustotal returns {"api_key": <value>} via the SERVICE_NAMES map."""
@@ -157,10 +163,11 @@ class TestServiceNamesMapping:
     def test_keyless_modules_map_to_none(self):
         """Keyless modules are mapped to None."""
         assert SERVICE_NAMES["osint/whois_lookup"] is None
-        assert SERVICE_NAMES["cti/urlhaus"] is None
-        assert SERVICE_NAMES["cti/threatfox"] is None
-        assert SERVICE_NAMES["cti/malwarebazaar"] is None
         assert SERVICE_NAMES["osint/crtsh"] is None
+
+    def test_abusech_modules_map_to_the_shared_key(self):
+        for module in ("cti/urlhaus", "cti/threatfox", "cti/malwarebazaar"):
+            assert SERVICE_NAMES[module] == "abusech"
 
 
 class TestCredentialBuilders:
