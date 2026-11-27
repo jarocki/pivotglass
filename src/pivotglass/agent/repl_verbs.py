@@ -681,7 +681,10 @@ def dispatch_repl_verb(
             return "Usage: autopivot on|off"
         enabled = verb.args[0].lower() == "on"
         ctx.set_autopivot(enabled)
-        return f"Auto-pivot {'enabled' if enabled else 'disabled'}."
+        if enabled:
+            return ("Autopivot on: after each enrichment that returns results, a depth-1 pivot run "
+                    "queries what it found. `pivot status` shows it; `pivot stop` halts it.")
+        return "Autopivot off: enrichments run alone."
 
     if name == "model":
         if config_mgr is None:

@@ -1,20 +1,40 @@
-"""Pivot policy engine — IOC filter, confidence gate, and per-cascade/session budgets.
+"""Pivot policy engine: value filter, confidence gate, and request budget.
 
-This module is the SOLE gate authority for auto-pivot decisions in the event bus.
-``PivotPolicy.evaluate`` is called by ``EventBus.publish`` before invoking any
-subscribed callback.  No inline conditionals in ``publish`` may replicate the gate
-logic: see DEC-60-PIVOT-POLICY-001.
+This module is the SOLE gate authority for automated pivots. Every
+(indicator, module) pair a pivot run (``modules/pivoting/run.py``,
+DEC-PIVOT-RUN-001) considers is decided by ``PivotPolicy.evaluate``; no caller
+re-implements a gate. Autopivot is a pivot run (DEC-PIVOT-AUTOPIVOT-001), so it
+is gated here too.
 
 @decision DEC-60-PIVOT-POLICY-001
-@title PivotPolicy.evaluate is the sole gate authority consulted by EventBus.publish
-@status accepted
-@rationale Single-source-of-truth (CLAUDE.md §12).  If gates lived inline in publish
+@title PivotPolicy.evaluate is the sole pivot gate authority (consulted by PivotRun)
+@status accepted (amended v1.5.0: the consumer is PivotRun; the event bus is retired)
+@rationale Single-source-of-truth (CLAUDE.md §12).  If gates lived inline in a caller
            AND in a policy module, two authorities would silently diverge: a future
            implementer adding a new gate would have to remember to update both paths.
            The architecture rule (CLAUDE.md "Encode authority, don't imply it") is
-           satisfied by a single explicit authority.  Tests assert that publish
-           contains no inline gate conditionals other than the enabled short-circuit
-           and the policy call.
+           satisfied by a single explicit authority.
+           History: until v1.5.0 the consumer was ``EventBus.publish`` in
+           ``core/event_bus.py`` and tests asserted publish held no inline gate
+           conditionals. The cascade was retired in favour of PivotRun
+           (DEC-PIVOT-AUTOPIVOT-001); PivotRun calls ``evaluate`` for every pair and
+           tests assert its readiness check spends nothing and decides no value.
+
+@decision DEC-PIVOT-SEED-001
+@title Analyst-named seeds skip the popularity and confidence gates, never the reserved-value gate
+@status accepted
+@rationale An analyst who types ``pivot google.com`` has decided that indicator is
+           worth asking about; the top-1k popularity rule exists to stop *automated*
+           expansion from fanning out into the web's most common domains, and a
+           typed seed carries no module confidence score to gate on. So
+           ``evaluate(..., analyst_seed=True)`` does not apply the top-1k list or the
+           confidence threshold, and records the allow as "analyst-named seed;
+           popularity gate not applied". It still refuses private, loopback and
+           link-local addresses and RFC 6761 special-use names (and the analyst's own
+           denylist): third parties know nothing useful about them, and asking can
+           leak internal addresses. The budget still applies. Children found from a
+           seed, and autopivot's seeds (which are module results, not analyst input),
+           pass every gate.
 
 @decision DEC-60-PIVOT-POLICY-002
 @title Three-gate ordering: ioc_value → confidence → budget (strict, short-circuit)
@@ -61,18 +81,20 @@ logic: see DEC-60-PIVOT-POLICY-001.
 @decision DEC-60-PIVOT-POLICY-005
 @title Dry-run mode is a kwarg on evaluate() and process_results(); returned
        decision_log entries carry a typed DecisionLogEntry TypedDict
-@status accepted
-@rationale Explicit-kwarg threading over global flag: tests can run dry and
-           non-dry side-by-side; agents that want to "preview" don't have to
-           mutate global state.  The decision-log shape is the contract — seven
-           required keys — so downstream consumers (agent LLM surfacing, future
-           Rich-table renderers, future audit logs) have a stable structure.
+@status superseded by DEC-PIVOT-AUTOPIVOT-001
+@rationale Original: explicit-kwarg threading over a global flag let tests run dry
+           and non-dry side by side, and a seven-key DecisionLogEntry gave consumers
+           a stable shape. v1.5.0: the preview is a plan-only PivotRun, which
+           evaluates every gate against its own private budget and executes nothing;
+           its ``decisions`` list (one entry per pair: value, depth, module, verdict,
+           gate, reason) is the decision log. ``evaluate`` no longer takes
+           ``dry_run`` and DecisionLogEntry/build_log_entry were removed with the bus.
 
 @decision DEC-60-PIVOT-POLICY-006
 @title max_depth REMOVED from PivotConfig; per-cascade + per-session budgets are the
        sole flow-control; auto_pivot_depth field retained in GeneralConfig for
        backward-compatible TOML round-trip only (not consulted by F60+ code)
-@status accepted
+@status accepted (amended v1.5.0)
 @rationale max_depth=2 (the pre-F60 cascade stopper) was a blunt instrument that
            stopped cascade at depth 2 regardless of the number of pivots at each
            depth.  A URLScan result with 15 CDN domains could fire 15 callbacks at
@@ -83,6 +105,10 @@ logic: see DEC-60-PIVOT-POLICY-001.
            address different failure modes: per-cascade prevents individual
            "exploding" SCOs; per-session prevents accumulated drift.  max_depth
            offered neither guarantee once a single SCO produced many indicators.
+           v1.5.0: the two counters are gone from PivotPolicy. A policy now carries
+           one request budget, set by its pivot run. ``max_per_cascade`` sizes each
+           autopivot run and ``max_per_session`` caps autopivot requests across a
+           ToolContext session (DEC-PIVOT-AUTOPIVOT-001).
 
 @decision DEC-60-PIVOT-POLICY-007
 @title User allowlist / denylist paths default to ~/.pivotglass/pivot-allowlist.txt and
@@ -106,11 +132,14 @@ import logging
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Literal
 
 from pivotglass.core.config import AutoPivotPolicyConfig
 
 logger = logging.getLogger(__name__)
+
+# The recorded reason when an analyst-named seed is allowed (DEC-PIVOT-SEED-001).
+ANALYST_SEED_REASON = "analyst-named seed; popularity gate not applied"
 
 
 # ---------------------------------------------------------------------------
@@ -158,34 +187,6 @@ _LINK_LOCAL_NETS = [
 # ---------------------------------------------------------------------------
 
 
-class DecisionLogEntry(TypedDict, total=False):
-    """Typed contract for a single pivot-policy decision record.
-
-    Seven keys are required (source_sco_id, source_sco_value, candidate_module,
-    gate, verdict, reason, depth).  One optional diagnostic field is added by M-6:
-
-    dossier_weight (float | None):
-        The slot-fill score computed by the M-6 dossier-aware ranker for this SCO,
-        or None when the ranker was not supplied to process_results.  Populated by
-        EventBus.publish after build_log_entry() returns the base entry.  Additive-
-        optional: existing consumers that only read the seven required keys see no
-        breaking change.  (DEC-M6-PIVOT-007)
-
-    (DEC-60-PIVOT-POLICY-005)
-    """
-
-    # Required keys — always present
-    source_sco_id: str
-    source_sco_value: str
-    candidate_module: str
-    gate: str
-    verdict: Literal["allow", "skip"]
-    reason: str
-    depth: int
-    # Optional M-6 diagnostic field (DEC-M6-PIVOT-007)
-    dossier_weight: float | None
-
-
 @dataclass
 class PolicyDecision:
     """Result of a single PivotPolicy.evaluate() call.
@@ -212,25 +213,27 @@ class PivotPolicy:
     Gate order (DEC-60-PIVOT-POLICY-002):
         1. ioc_value   — RFC1918 / RFC6761 / loopback / link-local / top-1k check.
         2. confidence  — x_abuse_confidence_score threshold; missing-field policy.
-        3. budget      — per-cascade + per-session counters.
+        3. budget      — the owning pivot run's request budget.
 
     Parameters
     ----------
     policy_config:
         ``AutoPivotPolicyConfig`` instance read from ``GeneralConfig.auto_pivot_policy``
         (DEC-60-PIVOT-POLICY-CONFIG-001).  Loaded once on construction; not re-read.
+    budget:
+        Requests this policy may allow before the budget gate refuses. Each pivot
+        run constructs its own policy with its own budget (DEC-PIVOT-RUN-001), so
+        the counter is never shared or reset.
 
     Notes
     -----
-    The class is intentionally stateless across calls except for the mutable budget
-    counters ``_cascade_count`` and ``_session_count``.  Session budget is reset by
-    ``reset_session_budget()`` (called from ``EventBus.clear_history()``).  Cascade
-    budget is reset by ``reset_cascade_budget()`` (called from
-    ``EventBus.process_results()`` at the start of each source-SCO processing loop).
+    The class is stateless across calls except for the request counter, which
+    ``evaluate`` increments on every allow.
     """
 
-    def __init__(self, policy_config: AutoPivotPolicyConfig) -> None:
+    def __init__(self, policy_config: AutoPivotPolicyConfig, *, budget: int) -> None:
         self._cfg = policy_config
+        self._budget = budget
         self._static_deny_domains: frozenset[str] = frozenset()
         self._user_allow_domains: frozenset[str] = frozenset()
         self._user_deny_domains: frozenset[str] = frozenset()
@@ -241,9 +244,8 @@ class PivotPolicy:
             tuple[str, str], Literal["optimistic", "pessimistic"]
         ] = {}
 
-        # Mutable budget counters
-        self._cascade_count: int = 0
-        self._session_count: int = 0
+        # Requests allowed so far (the budget gate's counter).
+        self._allowed: int = 0
 
         self._load_static_rules()
         self._load_user_lists()
@@ -321,29 +323,25 @@ class PivotPolicy:
             return frozenset()
 
     # ------------------------------------------------------------------
-    # Budget management
+    # Budget
     # ------------------------------------------------------------------
 
-    def reset_cascade_budget(self) -> None:
-        """Reset the per-cascade counter (called once per source SCO by EventBus)."""
-        self._cascade_count = 0
-
-    def reset_session_budget(self) -> None:
-        """Reset both per-cascade and per-session counters (called by clear_history())."""
-        self._cascade_count = 0
-        self._session_count = 0
-
     @property
-    def session_count(self) -> int:
-        """Pivots allowed so far in this session (read-only view of the budget gate's counter)."""
-        return self._session_count
+    def allowed_count(self) -> int:
+        """Requests allowed so far (read-only view of the budget gate's counter)."""
+        return self._allowed
 
     # ------------------------------------------------------------------
     # Gate implementations
     # ------------------------------------------------------------------
 
-    def _evaluate_ioc_value(self, sco_type: str, value: str) -> PolicyDecision | None:
+    def _evaluate_ioc_value(
+        self, sco_type: str, value: str, *, popularity: bool = True
+    ) -> PolicyDecision | None:
         """Gate 1: filter out indicators with no pivot value (DEC-60-PIVOT-POLICY-001).
+
+        ``popularity=False`` leaves out the top-1k rule only (analyst-named seeds,
+        DEC-PIVOT-SEED-001); reserved and private values are refused either way.
 
         Returns a SKIP PolicyDecision if the indicator should be filtered, else None.
 
@@ -401,7 +399,7 @@ class PivotPolicy:
             if v == "localhost" or v.startswith("localhost."):
                 return PolicyDecision("skip", "ioc_value", f"loopback hostname: {v}")
             # Static deny (top-1k popular domains)
-            if v in self._static_deny_domains:
+            if popularity and v in self._static_deny_domains:
                 return PolicyDecision("skip", "ioc_value", f"top-1k popular domain: {v}")
             return None
 
@@ -460,22 +458,14 @@ class PivotPolicy:
         return None
 
     def _evaluate_budget(self) -> PolicyDecision | None:
-        """Gate 3: per-cascade and per-session budget check (DEC-60-PIVOT-POLICY-006).
+        """Gate 3: the run's request budget (DEC-60-PIVOT-POLICY-006).
 
-        Returns a SKIP PolicyDecision if a budget is exhausted, else None.
-        Does NOT increment counters — counters are incremented by the caller on ALLOW.
+        Returns a SKIP PolicyDecision if the budget is spent, else None.
+        Does NOT increment the counter — ``evaluate`` does that on ALLOW.
         """
-        if self._cascade_count >= self._cfg.max_per_cascade:
+        if self._allowed >= self._budget:
             return PolicyDecision(
-                "skip",
-                "budget",
-                f"per-cascade budget exhausted: {self._cascade_count}/{self._cfg.max_per_cascade}",
-            )
-        if self._session_count >= self._cfg.max_per_session:
-            return PolicyDecision(
-                "skip",
-                "budget",
-                f"per-session budget exhausted: {self._session_count}/{self._cfg.max_per_session}",
+                "skip", "budget", f"request budget exhausted: {self._allowed}/{self._budget}"
             )
         return None
 
@@ -492,15 +482,14 @@ class PivotPolicy:
         sco_attrs: dict | None = None,
         depth: int = 0,
         *,
-        dry_run: bool = False,
         sco_id: str = "",
+        analyst_seed: bool = False,
     ) -> PolicyDecision:
         """Evaluate whether a candidate pivot should proceed.
 
         Gates are applied in strict order (DEC-60-PIVOT-POLICY-002).  The first
         SKIP result short-circuits evaluation; no later gates are consulted.
-        On ALLOW, the per-cascade and per-session counters are incremented unless
-        ``dry_run=True``.
+        On ALLOW, the request counter is incremented.
 
         Parameters
         ----------
@@ -517,10 +506,12 @@ class PivotPolicy:
             lookup.  Defaults to ``{}``.
         depth:
             Cascade depth (0 = first level, used for the decision log).
-        dry_run:
-            If ``True``, evaluate all gates but do NOT increment counters.
         sco_id:
-            Optional SCO identifier for the decision log entry.
+            Optional SCO identifier (unused by the gates; kept for callers' logs).
+        analyst_seed:
+            ``True`` when the analyst typed this indicator as a pivot seed. The
+            top-1k popularity rule and the confidence gate are not applied; the
+            reserved/private-value rules and the budget are (DEC-PIVOT-SEED-001).
 
         Returns
         -------
@@ -537,48 +528,23 @@ class PivotPolicy:
         if sco_type == "vulnerability" and source_module == candidate_module:
             return PolicyDecision("skip", "self_pivot", f"{candidate_module} produced this object")
 
-        # Gate 1: IOC value
-        decision = self._evaluate_ioc_value(sco_type, value)
+        # Gate 1: IOC value (popularity rule only for indicators the analyst did not name)
+        decision = self._evaluate_ioc_value(sco_type, value, popularity=not analyst_seed)
         if decision is not None:
             return decision
 
-        # Gate 2: confidence
-        decision = self._evaluate_confidence(source_module, sco_type, attrs)
-        if decision is not None:
-            return decision
+        # Gate 2: confidence (a typed seed carries no module score to gate on)
+        if not analyst_seed:
+            decision = self._evaluate_confidence(source_module, sco_type, attrs)
+            if decision is not None:
+                return decision
 
         # Gate 3: budget
         decision = self._evaluate_budget()
         if decision is not None:
             return decision
 
-        # ALLOW — increment counters (unless dry-run)
-        if not dry_run:
-            self._cascade_count += 1
-            self._session_count += 1
-
+        self._allowed += 1
+        if analyst_seed:
+            return PolicyDecision("allow", "allow", ANALYST_SEED_REASON)
         return PolicyDecision("allow", "allow", "passed all gates")
-
-    def build_log_entry(
-        self,
-        sco_id: str,
-        value: str,
-        candidate_module: str,
-        decision: PolicyDecision,
-        depth: int,
-    ) -> DecisionLogEntry:
-        """Build a typed decision-log entry from a PolicyDecision.
-
-        This factory keeps the DecisionLogEntry construction in one place so the
-        key contract (DEC-60-PIVOT-POLICY-005) is enforced here, not scattered
-        across callers.
-        """
-        return DecisionLogEntry(
-            source_sco_id=sco_id,
-            source_sco_value=value,
-            candidate_module=candidate_module,
-            gate=decision.gate,
-            verdict=decision.verdict,
-            reason=decision.reason,
-            depth=depth,
-        )

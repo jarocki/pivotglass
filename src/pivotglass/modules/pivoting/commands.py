@@ -27,6 +27,7 @@ from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from typing import Any
 
+from pivotglass.core.pivot_policy import ANALYST_SEED_REASON
 from pivotglass.modules.pivoting.run import (
     DEFAULT_BUDGET,
     DEFAULT_DEPTH,
@@ -101,6 +102,11 @@ def parse_pivot_command(text: str | tuple[str, ...] | list[str]) -> PivotCommand
 
 
 def summary_line(snapshot: dict[str, Any]) -> str:
+    if snapshot.get("plan_only"):
+        return (
+            f"Pivot plan {snapshot['run_id']} · nothing executed · "
+            f"{snapshot['requests_planned']}/{snapshot['budget']} requests would run"
+        )
     return (
         f"Pivot run {snapshot['run_id']} · {snapshot['state']} · depth {snapshot['depth_reached']}"
         f"/{snapshot['depth_limit']} · requests {snapshot['requests_used']}/{snapshot['budget']}"
@@ -109,7 +115,12 @@ def summary_line(snapshot: dict[str, Any]) -> str:
 
 
 def render_snapshot(snapshot: dict[str, Any], *, limit: int = 25) -> str:
-    lines = [summary_line(snapshot), f"Seeds: {', '.join(snapshot['seeds'])}"]
+    seeds = f"Seeds: {', '.join(snapshot['seeds'])}"
+    if snapshot.get("origin"):
+        seeds += f" (returned for {snapshot['origin']})"
+    elif any(item["reason"] == ANALYST_SEED_REASON for item in snapshot["decisions"]):
+        seeds += f" ({ANALYST_SEED_REASON})"
+    lines = [summary_line(snapshot), seeds]
     current = snapshot.get("current")
     if current:
         lines.append(f"Now: {current['value']} (depth {current['depth']})"
@@ -123,6 +134,8 @@ def render_snapshot(snapshot: dict[str, Any], *, limit: int = 25) -> str:
         for item in snapshot["requests"][-limit:]:
             if item["status"] == "failed":
                 outcome = f"failed — {item['reason']}"
+            elif item["status"] == "planned":
+                outcome = "would be requested"
             else:
                 outcome = f"{item['result_count']} results, {len(item['queued'])} queued"
                 if item.get("not_expanded"):
@@ -155,13 +168,19 @@ def format_event(event: dict[str, Any]) -> str | None:
 
     kind = event["kind"]
     if kind == "run_started":
-        return (f"◇ Pivot run {event['run_id']} started: {', '.join(event['seeds'])} · depth limit "
+        if event.get("plan_only"):
+            return f"◇ Pivot plan {event['run_id']}: {', '.join(event['seeds'])} · nothing will be executed."
+        label = f"Autopivot run {event['run_id']} (from {event['origin']})" if event.get("origin") else (
+            f"Pivot run {event['run_id']}")
+        return (f"◇ {label} started: {', '.join(event['seeds'])} · depth limit "
                 f"{event['depth_limit']} · budget {event['budget']} requests. `pivot stop` halts it.")
     if kind == "request_started":
         return f"  → [{event['request']}/{event['budget']}] d{event['depth']} {event['value']} · {event['module']}"
     if kind == "request_finished":
         line = f"    {event['result_count']} results, {len(event['queued'])} queued"
         return line + (f", {event['not_expanded']} not expanded" if event.get("not_expanded") else "")
+    if kind == "request_planned":
+        return f"  ○ [{event['request']}/{event['budget']}] d{event['depth']} {event['value']} · {event['module']}"
     if kind == "request_failed":
         return f"    failed: {event['reason']}"
     if kind == "request_skipped" and event["gate"] not in {"readiness"}:

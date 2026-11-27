@@ -884,9 +884,16 @@ class TuiApplication:
                 return
             verb = parse_repl_verb(text)
             yield_command = parse_yield(text)
-            if yield_command is not None:
-                # Yield controls must remain available while another command
-                # owns the serialized conversation/state mutation lane.
+            from pivotglass.modules.pivoting.commands import CONTROL_ACTIONS
+
+            pivot_control = (
+                verb is not None and verb.name == "pivot" and bool(verb.args)
+                and verb.args[0].lower() in CONTROL_ACTIONS
+            )
+            if yield_command is not None or pivot_control:
+                # Yield and pivot-run controls must remain available while another
+                # command (an LLM turn running autopivot, say) owns the serialized
+                # conversation/state mutation lane. Both are thread-safe.
                 result = self._runner.handle_input(text, status_bar=self._live_pane)
             else:
                 if verb is None:

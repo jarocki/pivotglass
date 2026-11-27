@@ -27,8 +27,23 @@ Unknown or ambiguous input is routed to the LLM instead.
            arguments are NOT supported (the second token onward is ignored
            and the parse returns None for safety).
 
-All character voice text is sourced from phrases.py via pick() — no
-hardcoded strings here (DEC-PHRASE-CACHE-001).
+@decision DEC-YIELD-ROUTING-001
+@title A bare steering verb targets the battery run, else the active pivot run, else says nothing is active
+@status accepted
+@rationale The cyberdeck has two steerable things: the foreground battery run
+           (bare ``stop|focus|add|skip``) and the workspace's pivot run (``pivot
+           stop|focus|add|skip``, DEC-PIVOT-RUN-001). Requiring the ``pivot``
+           prefix for one and not the other made the bare verbs silently do
+           nothing whenever only a pivot run (an analyst's, or autopivot's) was
+           active. Rule: ``pivot <verb>`` always targets the pivot run; a bare
+           verb targets the battery run when one is active, otherwise the active
+           pivot run; with neither, the reply says so rather than acknowledging a
+           no-op. Batteries keep priority because they are the foreground work the
+           analyst just started with ``use``. ``route_yield`` is the only place
+           that applies the rule.
+
+Character voice text for battery yields is sourced from phrases.py via pick()
+(DEC-PHRASE-CACHE-001); pivot-run replies are the pivot grammar's own plain text.
 """
 
 from __future__ import annotations
@@ -185,3 +200,43 @@ def dispatch_yield(
     except ValueError:
         # Unknown category: return a safe generic acknowledgement
         return f"[{cmd.primitive}]"
+
+
+NOTHING_TO_STEER = (
+    "Nothing to steer: no battery or pivot run is active. "
+    "Bare stop/focus/add/skip steer a running battery, otherwise the active pivot run."
+)
+
+
+def active_pivot_run(ctx):  # ToolContext | None -> PivotRun | None
+    """The workspace's unfinished pivot run, or None."""
+
+    registry = getattr(ctx, "pivot_runs", None)
+    if registry is None:
+        return None
+    try:
+        workspace = str(ctx.workspace_mgr.active)
+    except RuntimeError:
+        workspace = "default"
+    return registry.active(workspace)
+
+
+def route_yield(cmd: YieldCommand, *, battery_run, ctx, bus, character: str = "default") -> str:
+    """Send a bare steering verb to its target (DEC-YIELD-ROUTING-001).
+
+    The battery run when one is active (``dispatch_yield``); otherwise the active
+    pivot run, through the shared ``pivot`` grammar; otherwise a reply saying
+    nothing is active.
+    """
+
+    if battery_run is not None:
+        return dispatch_yield(cmd, battery_run, bus, character)
+    if active_pivot_run(ctx) is None:
+        return NOTHING_TO_STEER
+    from pivotglass.modules.pivoting.commands import execute_pivot_command
+
+    words = [cmd.primitive] + ([cmd.argument] if cmd.argument else [])
+    try:
+        return str(execute_pivot_command(words, ctx)["text"])
+    except ValueError as exc:
+        return str(exc)

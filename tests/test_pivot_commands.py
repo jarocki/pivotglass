@@ -134,15 +134,55 @@ def test_foreground_run_stores_evidence_and_records_trail(ctx):
     assert any("Pivot run" in line for line in lines)
 
 
-def test_run_never_cascades_through_the_event_bus(ctx, monkeypatch):
+def test_run_never_starts_autopivot_underneath_itself(ctx, monkeypatch):
+    import pivotglass.modules.pivoting.autopivot as autopivot
+
     ctx.set_autopivot(True)
 
-    async def forbidden(*_args, **_kwargs):
-        raise AssertionError("the event bus must not cascade underneath a pivot run")
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("autopivot must not start a run underneath a pivot run")
 
-    monkeypatch.setattr(ctx.event_bus, "process_results", forbidden)
+    monkeypatch.setattr(autopivot, "run_autopivot", forbidden)
     snapshot = execute_pivot_command("198.51.100.1", ctx, background=False)["data"]
     assert snapshot["state"] == "completed" and snapshot["requests_used"] == 2
+    assert ctx.autopivot_requests_used == 0
+
+
+def test_analyst_seed_skips_popularity_gate_but_children_do_not(ctx, monkeypatch):
+    monkeypatch.setitem(GRAPH, "google.com", [{"type": "domain-name", "value": "youtube.com"},
+                                              {"type": "domain-name", "value": "b.pivot-test.net"}])
+    snapshot = execute_pivot_command("google.com", ctx, background=False)["data"]
+    assert CALLS == ["google.com", "b.pivot-test.net"]
+    seed = [d for d in snapshot["decisions"] if d["value"] == "google.com"]
+    assert [(d["verdict"], d["reason"]) for d in seed] == [
+        ("allow", "analyst-named seed; popularity gate not applied")
+    ]
+    child = [d for d in snapshot["decisions"] if d["value"] == "youtube.com"]
+    assert child and child[0]["verdict"] == "skip" and "top-1k" in child[0]["reason"]
+
+
+def test_analyst_seed_still_refused_for_reserved_and_private_values(ctx):
+    snapshot = execute_pivot_command("example.com 10.1.2.3", ctx, background=False)["data"]
+    assert CALLS == [] and snapshot["requests_used"] == 0
+    reasons = {d["value"]: d["reason"] for d in snapshot["decisions"] if d["gate"] == "ioc_value"}
+    assert "RFC6761" in reasons["example.com"] and "RFC1918" in reasons["10.1.2.3"]
+
+
+def test_added_seed_is_analyst_named(ctx):
+    release, entered = threading.Event(), threading.Event()
+    HOOKS["198.51.100.1"] = lambda: (entered.set(), release.wait(5))
+    started = execute_pivot_command("198.51.100.1", ctx, background=True)
+    assert entered.wait(5)
+    execute_pivot_command("add google.com", ctx)
+    release.set()
+    run = started["run"]
+    for _ in range(300):
+        if run.finished:
+            break
+        time.sleep(0.01)
+    assert "google.com" in CALLS
+    reasons = {d["reason"] for d in run.snapshot()["decisions"] if d["value"] == "google.com"}
+    assert reasons == {"analyst-named seed; popularity gate not applied"}
 
 
 def test_background_run_controls_and_one_active_run(ctx):

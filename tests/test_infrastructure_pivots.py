@@ -16,7 +16,6 @@ from typing import Any
 import httpx
 import pytest
 
-from pivotglass.core.event_bus import DEFAULT_SUBSCRIPTIONS
 from pivotglass.core.geolocation import ATTRIBUTION, GeoDatabase
 from pivotglass.core.graph import RelationshipGraph
 from pivotglass.core.plugin_mgr import PluginManager
@@ -24,6 +23,7 @@ from pivotglass.modules.base import ModuleError
 from pivotglass.modules.osint import ip_asn
 from pivotglass.modules.osint.dns_doh import ACCEPT, DnsOverHttps
 from pivotglass.modules.osint.ip_asn import INSTALL_HINT, IpAsn
+from pivotglass.modules.pivoting.subscriptions import DEFAULT_SUBSCRIPTIONS
 
 TYPE_NUMBERS = {"A": 1, "AAAA": 28, "NS": 2, "MX": 15, "TXT": 16, "CNAME": 5}
 

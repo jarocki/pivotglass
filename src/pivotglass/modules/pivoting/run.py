@@ -1,9 +1,11 @@
 """Bounded multi-hop pivot runs: the one authority every surface uses (#22).
 
-A pivot run starts from one or more analyst-chosen indicators, queries the
-modules subscribed to each indicator's STIX type, and expands what those
-modules return, breadth first, until the analyst's depth limit or request
-budget is reached, the frontier is empty, or the analyst stops it.
+A pivot run starts from one or more seeds (indicators the analyst typed, or,
+for autopivot, what an enrichment just returned), queries the modules
+subscribed to each indicator's STIX type, and expands what those modules
+return, breadth first, until the depth limit or request budget is reached, the
+frontier is empty, or the analyst stops it. A plan-only run evaluates the same
+gates and executes nothing.
 
 @decision DEC-PIVOT-RUN-001
 @title PivotRun is the single multi-hop pivot authority for the cockpit, the REPL and the cyberdeck
@@ -19,9 +21,12 @@ budget is reached, the frontier is empty, or the analyst stops it.
            spent on a module that cannot run), then ``PivotPolicy.evaluate``, the
            sole pivot gate authority (DEC-60-PIVOT-POLICY-001: value, confidence,
            budget). The run constructs its own PivotPolicy from the configured
-           ``auto_pivot_policy`` with both budget ceilings set to the run's
-           budget, so the policy's budget gate *is* the run's budget and no second
-           counter decides anything. The run never resets the cascade counter.
+           ``auto_pivot_policy`` with the run's budget, so the policy's budget
+           gate *is* the run's budget and no second counter decides anything.
+           Analyst-typed seeds (``pivot X``, ``pivot add X``) are evaluated with
+           ``analyst_seed=True``: the popularity and confidence gates do not apply
+           to them, the reserved-value gate does (DEC-PIVOT-SEED-001). Everything a
+           module returns, and every autopivot seed, is fully gated.
 
            Budget. One request is one module call. The policy charges the budget
            when it allows a pair, immediately before the call, so a failed call
@@ -38,18 +43,18 @@ budget is reached, the frontier is empty, or the analyst stops it.
            should see the first ring of results before choosing to spend more.
            The hard maximum is 3 and the hard budget ceiling 200.
 
-           Source of modules. ``DEFAULT_SUBSCRIPTIONS`` (module -> STIX types) is
-           the one map of which module answers which indicator type for
-           automated pivots; it is keyed by module path, which is what the
+           Source of modules. ``DEFAULT_SUBSCRIPTIONS`` (module -> STIX types,
+           ``modules/pivoting/subscriptions.py``) is the one map of which module
+           answers which indicator type for automated pivots; it is keyed by module path, which is what the
            evidence path (``ToolContext.run_module``) executes, so a module added
            to it joins pivot runs with no change here. The cockpit's one-hop
            battery planner is a separate, tool-name catalogue for a single
            indicator and is deliberately not reused.
 
            Evidence. Modules run through the caller's executor; on every surface
-           that is ``ToolContext.run_module(..., cascade=False)``, so evidence and
-           provenance are stored exactly as for a one-hop enrichment and the
-           event bus cannot cascade underneath the run. The parent-child lineage
+           that is ``ToolContext.run_module(..., autopivot=False)``, so evidence and
+           provenance are stored exactly as for a one-hop enrichment and autopivot
+           cannot start a second run underneath this one. The parent-child lineage
            a run records is collection workflow ("this module, asked about X,
            returned Y"), not a claim that X and Y share an operator.
 
@@ -59,6 +64,10 @@ budget is reached, the frontier is empty, or the analyst stops it.
            descendants (and the rest of its modules if it is being expanded);
            ``focus`` expands only the focused indicators' subtrees, deferring the
            rest; ``add`` enqueues a new seed at depth 0.
+
+           Order. Within a depth the frontier is expanded in discovery order, or,
+           when ``auto_pivot_policy.dossier_aware_ranking`` is on, by the dossier
+           ranker's key (DEC-M6-PIVOT-010). Depth always sorts first.
 """
 
 from __future__ import annotations
@@ -69,12 +78,12 @@ import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol
 
 from pivotglass.core.config import AutoPivotPolicyConfig
-from pivotglass.core.event_bus import DEFAULT_SUBSCRIPTIONS
 from pivotglass.core.ioc_types import detect_ioc_type, normalize_cve
 from pivotglass.core.pivot_policy import PivotPolicy
+from pivotglass.modules.pivoting.subscriptions import DEFAULT_SUBSCRIPTIONS
 
 DEFAULT_DEPTH = 1
 MAX_DEPTH = 3
@@ -120,6 +129,14 @@ Readiness = Callable[[str], str | None]
 Listener = Callable[[dict[str, Any]], None]
 
 
+class FrontierRanker(Protocol):
+    """Orders indicators within a depth (``core/dossier_pivot.DossierPivotRanker``)."""
+
+    def score(self, sco_type: str) -> float: ...
+
+    def key(self, sco_type: str, attrs: dict[str, Any]) -> tuple[float, ...]: ...
+
+
 @dataclass
 class PivotNode:
     """One indicator in the run's frontier or history."""
@@ -132,6 +149,9 @@ class PivotNode:
     source_module: str
     sco_id: str = ""
     attrs: dict[str, Any] = field(default_factory=dict)
+    analyst_seed: bool = False
+    # For a seed taken from module results (autopivot): the indicator that module was asked about.
+    origin: str = ""
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -180,9 +200,14 @@ class PivotRun:
 
     def __init__(
         self,
-        seeds: Sequence[str],
+        seeds: Sequence[str] = (),
         *,
         executor: Executor,
+        result_seeds: Sequence[Mapping[str, Any]] = (),
+        result_source: str = "",
+        origin: str = "",
+        plan_only: bool = False,
+        ranker: FrontierRanker | None = None,
         subscriptions: Mapping[str, Iterable[str]] | None = None,
         policy_config: AutoPivotPolicyConfig | None = None,
         depth: int = DEFAULT_DEPTH,
@@ -193,8 +218,6 @@ class PivotRun:
         describe_failure: Callable[[Exception, str], str] | None = None,
         workspace: str = "",
     ) -> None:
-        if not seeds:
-            raise ValueError("a pivot run needs at least one indicator")
         self.run_id = uuid.uuid4().hex[:12]
         self.workspace = workspace
         self.depth_limit = bounded(depth, name="depth", low=1, high=MAX_DEPTH)
@@ -204,11 +227,11 @@ class PivotRun:
             module: tuple(types)
             for module, types in (DEFAULT_SUBSCRIPTIONS if subscriptions is None else subscriptions).items()
         }
-        config = policy_config or AutoPivotPolicyConfig()
         # The policy's budget gate is the run's request budget (see DEC-PIVOT-RUN-001).
-        self._policy = PivotPolicy(
-            config.model_copy(update={"max_per_cascade": self.budget, "max_per_session": self.budget})
-        )
+        self._policy = PivotPolicy(policy_config or AutoPivotPolicyConfig(), budget=self.budget)
+        self.plan_only = plan_only
+        self.origin = origin
+        self._ranker = ranker
         self._readiness = readiness
         self._listeners: list[Listener] = [listener] if listener else []
         self._on_expand = on_expand
@@ -237,6 +260,18 @@ class PivotRun:
         self.seeds: list[str] = []
         for seed in seeds:
             self._add_seed_locked(seed)
+        if origin:
+            # The indicator the seeding module was asked about is already answered:
+            # a result echoing it, at any depth, is a duplicate, not a new pivot.
+            try:
+                origin_type = indicator_type(origin)
+            except ValueError:
+                origin_type = ""
+            self._seen.add(_identity(origin_type, origin))
+        for result in result_seeds:
+            self._add_result_seed_locked(result, result_source)
+        if not self._nodes:
+            raise ValueError("a pivot run needs at least one indicator")
 
     # ------------------------------------------------------------------
     # Listeners
@@ -258,6 +293,10 @@ class PivotRun:
     # Frontier
     # ------------------------------------------------------------------
 
+    def _order(self, node: PivotNode) -> tuple[Any, ...]:
+        rank = self._ranker.key(node.stix_type, node.attrs) if self._ranker is not None else ()
+        return (node.depth, *rank, int(node.key[1:]))
+
     def _new_node(
         self, value: str, stix_type: str, depth: int, parent: str | None, source: str,
         sco_id: str = "", attrs: dict[str, Any] | None = None,
@@ -278,9 +317,29 @@ class PivotRun:
         if _identity(stix_type, value) in self._seen:
             raise ValueError(f"{value} is already in this pivot run")
         node = self._new_node(value, stix_type, 0, None, ANALYST_SOURCE)
+        node.analyst_seed = True
         self._frontier.append(node)
         self.seeds.append(value)
         return node
+
+    def _add_result_seed_locked(self, result: Mapping[str, Any], source: str) -> None:
+        """Seed from a module result (autopivot): fully gated, attributed to *source*."""
+
+        stix_type = str(result.get("type") or "")
+        value = _result_value(result)
+        if not stix_type or not value or _identity(stix_type, value) in self._seen:
+            return
+        attrs = {k: v for k, v in result.items() if k not in ("type", "value", "id")}
+        node = self._new_node(value, stix_type, 0, None, source, sco_id=str(result.get("id") or ""), attrs=attrs)
+        node.origin = self.origin
+        self.seeds.append(value)
+        if stix_type not in self._subscribed_types():
+            self._discovered.append({**node.describe(), "reason": f"no module pivots on {stix_type}"})
+        else:
+            self._frontier.append(node)
+
+    def _subscribed_types(self) -> set[str]:
+        return {stix_type for types in self._subscriptions.values() for stix_type in types}
 
     def _ancestry(self, node: PivotNode) -> list[PivotNode]:
         chain = [node]
@@ -303,7 +362,7 @@ class PivotRun:
         self._emit("indicator_skipped", **entry)
 
     def _next_node_locked(self) -> PivotNode | None:
-        self._frontier.sort(key=lambda item: (item.depth, int(item.key[1:])))
+        self._frontier.sort(key=self._order)
         for node in list(self._frontier):
             skipped_via = self._skipped_by_analyst(node)
             if skipped_via is not None:
@@ -321,7 +380,7 @@ class PivotRun:
         return None
 
     def _drain_frontier_locked(self, reason: str, gate: str) -> None:
-        for node in sorted(self._frontier, key=lambda item: (item.depth, int(item.key[1:]))):
+        for node in sorted(self._frontier, key=self._order):
             self._record_skip(node, reason, gate)
         self._frontier.clear()
 
@@ -337,7 +396,8 @@ class PivotRun:
                 raise RuntimeError("a pivot run executes once")
             self._state = STOPPING if self._stop_requested else RUNNING
             self._started_at = _now()
-        self._emit("run_started", depth_limit=self.depth_limit, budget=self.budget, seeds=list(self.seeds))
+        self._emit("run_started", depth_limit=self.depth_limit, budget=self.budget, seeds=list(self.seeds),
+                   plan_only=self.plan_only, origin=self.origin)
         final = COMPLETED
         try:
             while True:
@@ -376,7 +436,7 @@ class PivotRun:
         with self._lock:
             self._depth_reached = max(self._depth_reached, node.depth)
             self._expanded.append({**node.describe(), "modules": modules})
-        if self._on_expand is not None:
+        if self._on_expand is not None and not self.plan_only:
             parent = self._nodes.get(node.parent) if node.parent else None
             try:
                 self._on_expand(node, parent)
@@ -402,6 +462,7 @@ class PivotRun:
                 decision = self._policy.evaluate(
                     sco_type=node.stix_type, value=node.value, source_module=node.source_module,
                     candidate_module=module, sco_attrs=node.attrs, depth=node.depth, sco_id=node.sco_id,
+                    analyst_seed=node.analyst_seed,
                 )
                 self._decide(node, module, decision.verdict, decision.gate, decision.reason)
                 if decision.verdict != "allow":
@@ -411,8 +472,17 @@ class PivotRun:
                             self._record_skip(node, self._budget_reason, "budget")
                         return False
                     continue
-                number = self._policy.session_count
+                number = self._policy.allowed_count
                 requested = True
+                if self.plan_only:
+                    # Gates passed and the budget is charged, so the plan shows what a
+                    # real run would reach; nothing is executed.
+                    entry = {**node.describe(), "module": module, "request": number, "status": "planned",
+                             "result_count": 0, "queued": [], "not_expanded": 0, "artifact_ids": []}
+                    self._requests.append(entry)
+            if self.plan_only:
+                self._emit("request_planned", **entry)
+                continue
             self._emit("request_started", **node.describe(), module=module, request=number, budget=self.budget)
             try:
                 outcome = self._executor(module, node.value)
@@ -439,12 +509,14 @@ class PivotRun:
     def _decide(self, node: PivotNode, module: str, verdict: str, gate: str, reason: str) -> None:
         entry = {"key": node.key, "value": node.value, "depth": node.depth, "module": module,
                  "verdict": verdict, "gate": gate, "reason": reason}
+        if self._ranker is not None:
+            entry["dossier_weight"] = self._ranker.score(node.stix_type)
         self._decisions.append(entry)
         if verdict != "allow":
             self._emit("request_skipped", **entry)
 
     def _children_locked(self, node: PivotNode, module: str, results: list[dict]) -> tuple[list[PivotNode], int]:
-        subscribed = {stix_type for types in self._subscriptions.values() for stix_type in types}
+        subscribed = self._subscribed_types()
         queued: list[PivotNode] = []
         beyond = 0
         for result in results:
@@ -558,8 +630,9 @@ class PivotRun:
             return self._snapshot_locked()
 
     def _snapshot_locked(self) -> dict[str, Any]:
-        used = self._policy.session_count
-        frontier = sorted(self._frontier, key=lambda item: (item.depth, int(item.key[1:])))
+        allowed = self._policy.allowed_count
+        used = 0 if self.plan_only else allowed
+        frontier = sorted(self._frontier, key=self._order)
         return {
             "run_id": self.run_id,
             "workspace": self.workspace,
@@ -567,8 +640,11 @@ class PivotRun:
             "seeds": list(self.seeds),
             "depth_limit": self.depth_limit,
             "budget": self.budget,
+            "plan_only": self.plan_only,
+            "origin": self.origin,
             "requests_used": used,
-            "requests_remaining": max(0, self.budget - used),
+            "requests_planned": allowed if self.plan_only else 0,
+            "requests_remaining": max(0, self.budget - allowed),
             "depth_reached": self._depth_reached,
             "current": dict(self._current) if self._current else None,
             "focus": sorted({self._nodes[key].value for key in self._focus_keys}),

@@ -106,7 +106,7 @@ def test_budget_exhaustion_is_the_policy_budget_gate():
     assert snapshot["state"] == BUDGET_EXHAUSTED
     assert snapshot["requests_used"] == 2 and snapshot["requests_remaining"] == 0
     budget = [item for item in snapshot["decisions"] if item["gate"] == "budget"]
-    assert budget and "per-cascade budget exhausted: 2/2" in budget[0]["reason"]
+    assert budget and "request budget exhausted: 2/2" in budget[0]["reason"]
     assert [item["value"] for item in snapshot["skipped"]] == ["b.pivot-test.net", "203.0.113.1"]
     assert {item["gate"] for item in snapshot["skipped"]} == {"budget"}
 
@@ -334,3 +334,97 @@ def test_vulnerability_outputs_pivot_by_cve_name():
     stub = Stub(graph)
     PivotRun(["198.51.100.1"], executor=stub, subscriptions=subs).run()
     assert stub.calls == [("stub/ip", "198.51.100.1"), ("stub/cve", "CVE-2024-0001")]
+
+
+# ---------------------------------------------------------------------------
+# Seeds from module results, plan-only runs, frontier ranking
+# ---------------------------------------------------------------------------
+
+
+def test_result_seeds_are_fully_gated_and_attributed_to_their_module():
+    stub = Stub(TREE)
+    run = make([], stub, result_seeds=[dom("a.pivot-test.net"), dom("google.com"), ip("10.0.0.1")],
+               result_source="stub/enrich", origin="198.51.100.1", depth=1)
+    snapshot = run.run()
+    assert stub.calls == [("stub/domain", "a.pivot-test.net"), ("stub/ip", "203.0.113.1")]
+    rejected = {d["value"]: d["reason"] for d in snapshot["decisions"] if d["verdict"] == "skip"}
+    assert "top-1k" in rejected["google.com"] and "RFC1918" in rejected["10.0.0.1"]
+    assert snapshot["origin"] == "198.51.100.1"
+
+
+def test_origin_echoed_by_a_module_is_never_re_queried():
+    graph = {("stub/domain", "a.pivot-test.net"): [ip("198.51.100.1"), ip("203.0.113.7")]}
+    stub = Stub(graph)
+    make([], stub, result_seeds=[ip("198.51.100.1"), dom("a.pivot-test.net")],
+         result_source="stub/enrich", origin="198.51.100.1").run()
+    assert stub.calls == [("stub/domain", "a.pivot-test.net"), ("stub/ip", "203.0.113.7")]
+    with pytest.raises(ValueError, match="at least one indicator"):
+        make([], stub, result_seeds=[ip("198.51.100.1")], origin="198.51.100.1")
+
+
+def test_analyst_seed_decision_records_why_popularity_was_not_applied():
+    stub = Stub({})
+    snapshot = make(["google.com"], stub).run()
+    assert stub.calls == [("stub/domain", "google.com")]
+    assert snapshot["decisions"][0]["reason"] == "analyst-named seed; popularity gate not applied"
+
+
+def test_plan_only_run_evaluates_gates_and_executes_nothing():
+    stub = Stub(TREE)
+    expanded: list[str] = []
+    run = make(["198.51.100.1", "10.0.0.1"], stub, plan_only=True, budget=1,
+               on_expand=lambda node, parent: expanded.append(node.value))
+    snapshot = run.run()
+    assert stub.calls == [] and expanded == []
+    assert snapshot["plan_only"] and snapshot["requests_used"] == 0 and snapshot["requests_planned"] == 1
+    assert [(r["value"], r["status"]) for r in snapshot["requests"]] == [("198.51.100.1", "planned")]
+    assert any(d["value"] == "10.0.0.1" and d["gate"] == "ioc_value" for d in snapshot["decisions"])
+
+
+class TypeRanker:
+    """Ranks domains before IPs; records weights (stand-in for DossierPivotRanker)."""
+
+    weights = {"domain-name": 2.0, "ipv4-addr": 1.0}
+
+    def score(self, sco_type):
+        return self.weights.get(sco_type, 0.0)
+
+    def key(self, sco_type, attrs):
+        return (-self.score(sco_type), -float(attrs.get("x_abuse_confidence_score", -1)))
+
+
+def test_ranker_orders_within_a_depth_never_across_depths():
+    graph = {
+        ("stub/ip", "198.51.100.1"): [ip("203.0.113.5"), dom("a.pivot-test.net"),
+                                      ip("203.0.113.6", x_abuse_confidence_score=90)],
+    }
+    stub = Stub(graph)
+    snapshot = make(["198.51.100.1"], stub, ranker=TypeRanker()).run()
+    assert [value for _, value in stub.calls] == [
+        "198.51.100.1", "a.pivot-test.net", "203.0.113.6", "203.0.113.5",
+    ]
+    assert {d["value"]: d["dossier_weight"] for d in snapshot["decisions"]}["a.pivot-test.net"] == 2.0
+
+
+def test_fifteen_cdn_domains_are_capped_by_the_budget():
+    """A result with 15 CDN domains spends the budget, not 15 requests (DEC-60-PIVOT-POLICY-006)."""
+    stub = Stub({})
+    seeds = [dom(f"cdn{index}.pivot-test.net") for index in range(15)]
+    snapshot = make([], stub, result_seeds=seeds, result_source="stub/urlscan", budget=5).run()
+    assert len(stub.calls) == 5 and snapshot["state"] == BUDGET_EXHAUSTED
+    assert len(snapshot["skipped"]) == 10 and {item["gate"] for item in snapshot["skipped"]} == {"budget"}
+
+
+def test_default_subscriptions_have_one_home():
+    import pivotglass.modules.pivoting.run as run_module
+    from pivotglass.modules.pivoting.subscriptions import DEFAULT_SUBSCRIPTIONS
+
+    assert run_module.DEFAULT_SUBSCRIPTIONS is DEFAULT_SUBSCRIPTIONS
+    assert "ipv4-addr" in DEFAULT_SUBSCRIPTIONS["osint/abuseipdb"]
+    assert "email-addr" in DEFAULT_SUBSCRIPTIONS["osint/hibp"]
+    assert "url" in DEFAULT_SUBSCRIPTIONS["osint/urlscan"]
+
+
+def test_without_a_ranker_decisions_carry_no_dossier_weight():
+    snapshot = make(["198.51.100.1"], Stub(TREE)).run()
+    assert all("dossier_weight" not in d for d in snapshot["decisions"])

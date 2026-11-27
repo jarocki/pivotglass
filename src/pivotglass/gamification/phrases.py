@@ -1126,11 +1126,12 @@ PHRASES.update(
                 "  mode <name>         Switch character mode\n"
                 "  quit / exit / q     Exit the session\n"
                 "\n"
-                "Yield commands (steer a running battery):\n"
-                "  stop                Halt current battery\n"
-                "  focus <tool>        Focus on a single tool slot\n"
-                "  add <indicator>     Add indicator to queue\n"
-                "  skip <tool>         Skip current tool slot\n"
+                "Steering (a running battery; with no battery, the active pivot run):\n"
+                "  stop                Halt after the current step\n"
+                "  focus <tool|ioc>    Battery: run that tool next. Pivot: expand only that subtree\n"
+                "  add <tool|ioc>      Battery: queue a tool. Pivot: add a seed\n"
+                "  skip <tool|ioc>     Battery: drop a tool. Pivot: drop that indicator\n"
+                "  pivot <verb> ...    Always steers the pivot run (pivot status shows it)\n"
                 "\n"
                 "Anything else is sent to the LLM for investigation."
             ),
@@ -1144,7 +1145,7 @@ PHRASES.update(
                 "  use <ioc>  target.\n"
                 "  mode <n>   persona.\n"
                 "  quit       done.\n"
-                "  stop/focus/add/skip  steer battery.\n"
+                "  stop/focus/add/skip  steer battery. (else pivot run)\n"
                 "  [anything else]  → LLM."
             ),
         ),
@@ -1157,7 +1158,7 @@ PHRASES.update(
                 "  use <ioc>          SET TARGET GET REKT\n"
                 "  mode <name>        SWAP PERSONA ABSOLUTE UNIT\n"
                 "  quit / exit / q    RAGE QUIT GG NO RE\n"
-                "  stop/focus/add/skip  BATTERY STEERING GOES BRRR\n"
+                "  stop/focus/add/skip  BATTERY STEERING GOES BRRR (else pivot run)\n"
                 "  [anything]         SENT TO LLM GALAXY BRAIN MODE"
             ),
         ),
@@ -1170,7 +1171,7 @@ PHRASES.update(
                 "  use <ioc>           Set the investigation target\n"
                 "  mode <name>         Switch persona profile\n"
                 "  quit / exit / q     Terminate the session\n"
-                "  stop/focus/add/skip  Battery steering directives\n"
+                "  stop/focus/add/skip  Battery steering directives (else pivot run)\n"
                 "\n"
                 "All other input is forwarded to the LLM, Dave."
             ),
@@ -1184,7 +1185,7 @@ PHRASES.update(
                 "  use <ioc>    Set the target.\n"
                 "  mode <name>  Change the voice.\n"
                 "  quit         Walk away.\n"
-                "  stop/focus/add/skip — battery control.\n"
+                "  stop/focus/add/skip — battery control. (else pivot run)\n"
                 "  Anything else goes to the LLM."
             ),
         ),
@@ -1197,7 +1198,7 @@ PHRASES.update(
                 "  use <ioc>           Choose your ground\n"
                 "  mode <name>         Adapt your approach\n"
                 "  quit / exit / q     Withdraw strategically\n"
-                "  stop/focus/add/skip  Direct the battery\n"
+                "  stop/focus/add/skip  Direct the battery (else pivot run)\n"
                 "  All else flows to the LLM — the oracle."
             ),
         ),
@@ -1210,7 +1211,7 @@ PHRASES.update(
                 "  use <ioc>    Target set. It's already scared.\n"
                 "  mode <name>  Chuck Norris is every mode simultaneously.\n"
                 "  quit         Chuck Norris doesn't quit. He withdraws.\n"
-                "  stop/focus/add/skip  Battery control.\n"
+                "  stop/focus/add/skip  Battery control. (else pivot run)\n"
                 "  Anything else: LLM. Chuck Norris optional."
             ),
         ),
@@ -1223,7 +1224,7 @@ PHRASES.update(
                 "  use <ioc>           Target assignment per Form TGT-001\n"
                 "  mode <name>         Persona switch per Policy §2.1\n"
                 "  quit / exit / q     Session termination per Form EXIT-001\n"
-                "  stop/focus/add/skip  Battery directives per Policy §6.x\n"
+                "  stop/focus/add/skip  Battery directives per Policy §6.x (else pivot run)\n"
                 "  Other input: LLM per Procedure LLM-001."
             ),
         ),
@@ -1236,7 +1237,7 @@ PHRASES.update(
                 "  use <ioc>    That's my target!\n"
                 "  mode <name>  Change who we are!\n"
                 "  quit         Bye! That's my exit!\n"
-                "  stop/focus/add/skip  Battery stuff!\n"
+                "  stop/focus/add/skip  Battery stuff! (else pivot run)\n"
                 "  Anything else: LLM! I don't know you, LLM!"
             ),
         ),
@@ -1249,7 +1250,7 @@ PHRASES.update(
                 "  use <ioc>           Choose the target; the investigation follows\n"
                 "  mode <name>         Adapt your form\n"
                 "  quit / exit / q     Return to stillness\n"
-                "  stop/focus/add/skip  Direct the current\n"
+                "  stop/focus/add/skip  Direct the current (else pivot run)\n"
                 "  All else flows to the LLM — the river."
             ),
         ),
@@ -1262,7 +1263,7 @@ PHRASES.update(
                 "  use <ioc>           Set the target. Just one more thing.\n"
                 "  mode <name>         Change the voice.\n"
                 "  quit / exit / q     That's all for now.\n"
-                "  stop/focus/add/skip  Battery control. One more thing.\n"
+                "  stop/focus/add/skip  Battery control. One more thing. (else pivot run)\n"
                 "  Everything else goes to the LLM. Just one more thing."
             ),
         ),

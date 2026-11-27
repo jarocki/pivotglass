@@ -792,7 +792,8 @@ class AgentRunner:
             cmd = None
 
         if cmd is not None:
-            from pivotglass.agent.yield_commands import dispatch_yield
+            # Battery run first, else the active pivot run (DEC-YIELD-ROUTING-001).
+            from pivotglass.agent.yield_commands import route_yield
 
             character = getattr(self, "_character", "default")
             try:
@@ -800,7 +801,7 @@ class AgentRunner:
 
                 _bus = getattr(self, "_event_bus", None) or _EventBus()
                 active_run = getattr(self, "_active_battery_run", None)
-                feedback = dispatch_yield(cmd, active_run, _bus, character)
+                feedback = route_yield(cmd, battery_run=active_run, ctx=self.ctx, bus=_bus, character=character)
             except Exception:  # noqa: BLE001
                 feedback = f"[{cmd.primitive}]"
             return feedback

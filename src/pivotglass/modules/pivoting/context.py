@@ -23,8 +23,20 @@ def build_context_run(
     depth: int,
     budget: int,
     listener: Listener | None = None,
+    result_seeds: list[dict] | None = None,
+    result_source: str = "",
+    origin: str = "",
+    plan_only: bool = False,
+    dossier_state: Any = None,
 ) -> PivotRun:
-    """Return a PivotRun whose modules run through ``ctx.run_module`` with cascades off."""
+    """Return a PivotRun whose modules run through ``ctx.run_module`` with autopivot off.
+
+    ``result_seeds``/``result_source``/``origin`` seed the run from what
+    ``result_source`` returned for ``origin`` (autopivot, DEC-PIVOT-AUTOPIVOT-001).
+    When ``auto_pivot_policy.dossier_aware_ranking`` is on, the frontier is ranked
+    from ``dossier_state``, or from the workspace's dossier as it stands now
+    (DEC-M6-PIVOT-009, DEC-M6-PIVOT-010).
+    """
 
     from pivotglass.core.document_library import PivotTrailAuthority
     from pivotglass.core.error_interpreter import interpret
@@ -34,7 +46,7 @@ def build_context_run(
         # objects are never attributed to this request.
         with ctx.execution_lock:
             before = _object_ids(ctx)
-            result = ctx.run_module(module, value, cascade=False)
+            result = ctx.run_module(module, value, autopivot=False)
             if "error" in result:
                 raise RuntimeError(str(result["error"]))
             created = tuple(sorted(_object_ids(ctx) - before))
@@ -61,9 +73,23 @@ def build_context_run(
     trail = PivotTrailAuthority(ctx.workspace_mgr)
 
     def on_expand(node: PivotNode, parent: PivotNode | None) -> None:
-        if parent is None:
+        if parent is None and node.analyst_seed:
             # The analyst named this seed: an explicit investigation action.
             trail.record_indicator(node.value)
+            return
+        if parent is None:
+            # An autopivot seed: a module returned it for the enrichment's target.
+            trail.record_indicator(
+                node.value,
+                action="auto_pivoted",
+                basis=(
+                    f"Autopivot run {run.run_id} expanded this indicator: {node.source_module} "
+                    f"returned it when asked about {node.origin}. Collection workflow, not an "
+                    "observed relationship."
+                ),
+                created_by="system",
+                from_value=node.origin or None,
+            )
             return
         trail.record_indicator(
             node.value,
@@ -85,10 +111,24 @@ def build_context_run(
         workspace = str(ctx.workspace_mgr.active)
     except RuntimeError:
         workspace = "default"
+    policy_config = ctx.config.general.auto_pivot_policy
+    ranker = None
+    if policy_config.dossier_aware_ranking:
+        from pivotglass.core.dossier_pivot import make_dossier_pivot_ranker
+        from pivotglass.dossier.state import default_deferred_state, load_dossier_state
+
+        if dossier_state is None:
+            dossier_state = load_dossier_state(ctx.workspace_mgr) or default_deferred_state()
+        ranker = make_dossier_pivot_ranker(dossier_state)
     run = PivotRun(
         seeds,
         executor=execute,
-        policy_config=ctx.config.general.auto_pivot_policy,
+        result_seeds=result_seeds or (),
+        result_source=result_source,
+        origin=origin,
+        plan_only=plan_only,
+        ranker=ranker,
+        policy_config=policy_config,
         depth=depth,
         budget=budget,
         readiness=readiness,

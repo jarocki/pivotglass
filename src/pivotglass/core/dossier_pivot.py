@@ -1,4 +1,4 @@
-"""Dossier-aware candidate ranker for the auto-pivot cascade (M-6).
+"""Dossier-aware frontier ranker for pivot runs (M-6).
 
 This module is the SOLE authority for the dossier-aware ranking layer
 (DEC-M6-PIVOT-002).  It provides a pure-function API that sits ABOVE the F60
@@ -7,10 +7,11 @@ it does NOT add a 4th gate, and it does NOT modify PivotPolicy.evaluate.
 
 Public API
 ----------
-make_dossier_pivot_ranker(dossier_state) → Callable[[list[dict], str], list[dict]]
-    Returns a closure that re-orders a results list by descending slot-fill score,
-    with tie-breaking by x_abuse_confidence_score (higher first).  Stable: ties
-    preserve original input order (Python's sort is stable).
+make_dossier_pivot_ranker(dossier_state) → DossierPivotRanker
+    Returns a ranker whose ``key(sco_type, attrs)`` orders candidates by
+    descending slot-fill score, tie-broken by x_abuse_confidence_score (higher
+    first).  ``PivotRun`` sorts each depth of its frontier by this key; remaining
+    ties keep discovery order (DEC-M6-PIVOT-010).
 
 compute_slot_fill_score(sco_type, dossier_state) → float
     Pure function.  Returns Σ over slots-that-sco_type-could-fill of
@@ -29,8 +30,9 @@ Integration points (read-only)
 - dossier/slots.py::SLOT_WEIGHTS — per-slot importance weight authority
   (DEC-M1-SLOTS-WEIGHT-AUTHORITY-001).  Never copied or shadowed here.
 - dossier/slot_inference.py::DossierState — read-only snapshot from M-4 pre_dossier.
-  The ranker never calls load_dossier_state() — it consumes the snapshot that
-  agent/tools.py already loaded once per hunt (DEC-M6-PIVOT-009).
+  The ranker never calls load_dossier_state() — it consumes the snapshot its
+  caller loaded once: the enrichment's pre-hunt state for autopivot, the state
+  at run start for an analyst's ``pivot`` run (DEC-M6-PIVOT-009).
 
 @decision DEC-M6-PIVOT-001
 @title Wrap F60 with a new ranker layer above PivotPolicy (do not replace or extend it)
@@ -69,15 +71,32 @@ Integration points (read-only)
 
 @decision DEC-M6-PIVOT-009
 @title DossierState snapshot is the M-4 pre_dossier — no second load_dossier_state call
-@status accepted
+@status accepted (amended v1.5.0)
 @rationale The ranker consumes the same snapshot that M-4's hunt-site code already
            loaded once per hunt.  Mid-pass re-ranking is explicitly out of scope
            (DEC-M4-PERSIST-001 hunt-boundary semantics inherited as canon).
+           v1.5.0: autopivot still ranks with the enrichment's pre_dossier; an
+           analyst ``pivot`` run loads the state once when it is built and keeps it
+           for the whole run.
+
+@decision DEC-M6-PIVOT-010
+@title The dossier ranker orders PivotRun's frontier, within each depth
+@status accepted
+@rationale Until v1.5.0 the ranker re-ordered one module's result list before the
+           event bus cascaded over it. The cascade was retired (DEC-PIVOT-AUTOPIVOT-001)
+           and PivotRun owns the order in which indicators are expanded, so the
+           ranker moved there with the same semantics: slot-fill score descending,
+           then confidence descending, then discovery order. It ranks within a
+           depth and never across depths, so breadth-first expansion and the depth
+           limit are unchanged; it changes which indicators the budget reaches first,
+           never which gates apply. Each decision records the indicator's
+           ``dossier_weight`` (DEC-M6-PIVOT-007). ``dossier_aware_ranking = false``
+           restores pure discovery order (DEC-M6-PIVOT-008).
 """
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Any
 
 from pivotglass.dossier.slot_inference import DossierState
 from pivotglass.dossier.slots import SLOT_EVIDENCE_TYPES, SLOT_WEIGHTS, SlotStatus
@@ -141,90 +160,39 @@ def compute_slot_fill_score(sco_type: str, dossier_state: DossierState) -> float
 
 
 # ---------------------------------------------------------------------------
-# Ranker factory
+# Ranker
 # ---------------------------------------------------------------------------
 
 
-def make_dossier_pivot_ranker(
-    dossier_state: DossierState,
-) -> Callable[[list[dict], str], list[dict]]:
-    """Return a ranker closure that sorts candidate SCOs by descending slot-fill score.
+class DossierPivotRanker:
+    """Frontier ordering for a pivot run from one dossier snapshot (DEC-M6-PIVOT-010).
 
-    The returned callable has the signature::
-
-        ranker(results: list[dict], source_module: str) -> list[dict]
-
-    It returns a NEW list (input is not mutated).  Sort is stable (Python's
-    ``sorted()`` is stable) so ties in slot-fill score fall back to the original
-    input order, with a secondary tie-break on ``x_abuse_confidence_score``
-    (higher = better; missing field treated as -1) per DEC-M6-PIVOT-006.
-
-    The closure also populates a ``_dossier_weights`` side-channel dict keyed by
-    ``(sco_id, sco_value)`` so ``EventBus.publish`` can attach ``dossier_weight``
-    to each ``DecisionLogEntry`` without re-computing scores (DEC-M6-PIVOT-007).
-
-    Parameters
-    ----------
-    dossier_state:
-        The M-4 pre_dossier snapshot.  Captured once per hunt by agent/tools.py
-        and treated as immutable within the pass (DEC-M6-PIVOT-009).
-
-    Returns
-    -------
-    Callable[[list[dict], str], list[dict]]
-        A closure that accepts (results, source_module) and returns a ranked list.
+    ``score(sco_type)`` is the slot-fill score (cached per type for the snapshot);
+    ``key(sco_type, attrs)`` is the sort key PivotRun uses within a depth: lower
+    sorts first, so it is the negated (slot-fill score, confidence) pair. A
+    missing or non-numeric ``x_abuse_confidence_score`` counts as -1 so scored
+    indicators beat unscored ones in a tie (DEC-M6-PIVOT-006).
     """
-    # Pre-compute scores per SCO type for the snapshot — amortises repeated
-    # lookups when a source module returns many SCOs of the same type.
-    _score_cache: dict[str, float] = {}
 
-    def _score(sco_type: str) -> float:
-        if sco_type not in _score_cache:
-            _score_cache[sco_type] = compute_slot_fill_score(sco_type, dossier_state)
-        return _score_cache[sco_type]
+    def __init__(self, dossier_state: DossierState) -> None:
+        self._state = dossier_state
+        self._scores: dict[str, float] = {}
 
-    def ranker(results: list[dict], source_module: str) -> list[dict]:  # noqa: ARG001
-        """Rank results by descending dossier slot-fill score.
+    def score(self, sco_type: str) -> float:
+        if sco_type not in self._scores:
+            self._scores[sco_type] = compute_slot_fill_score(sco_type, self._state)
+        return self._scores[sco_type]
 
-        Parameters
-        ----------
-        results:
-            Raw SCO dicts from a hunt() call.  Each dict may contain ``type``,
-            ``value``, ``id``, and ``x_abuse_confidence_score``.
-        source_module:
-            Module that produced the results (unused in ranking; present for
-            interface parity with EventBus.process_results callers).
+    def key(self, sco_type: str, attrs: dict[str, Any]) -> tuple[float, float]:
+        raw = attrs.get("x_abuse_confidence_score")
+        try:
+            confidence = float(raw) if raw is not None else -1.0
+        except (TypeError, ValueError):
+            confidence = -1.0
+        return (-self.score(sco_type), -confidence)
 
-        Returns
-        -------
-        list[dict]
-            New list ordered by (slot_fill_score DESC, confidence DESC, original_idx ASC).
-            Empty input → empty output.
-        """
-        if not results:
-            return []
 
-        def sort_key(item: tuple[int, dict]) -> tuple[float, float]:
-            idx, sco = item
-            sco_type = sco.get("type", "")
-            slot_score = _score(sco_type)
-            # Secondary tie-break: x_abuse_confidence_score descending
-            # Missing field → -1 so scored items sort before unscored ones.
-            raw_conf = sco.get("x_abuse_confidence_score")
-            try:
-                confidence = float(raw_conf) if raw_conf is not None else -1.0
-            except (TypeError, ValueError):
-                confidence = -1.0
-            # Negate for descending sort; Python stable sort preserves original
-            # order when both keys are equal (idx tie-break is implicit).
-            return (-slot_score, -confidence)
+def make_dossier_pivot_ranker(dossier_state: DossierState) -> DossierPivotRanker:
+    """Return the frontier ranker for *dossier_state* (DEC-M6-PIVOT-001, -010)."""
 
-        ranked_pairs = sorted(enumerate(results), key=sort_key)
-        return [sco for _, sco in ranked_pairs]
-
-    # Attach the score function as a side-channel so EventBus.publish can
-    # retrieve dossier_weight values without re-importing dossier_pivot.
-    # EventBus reads ranker._score_for_type(sco_type) → float.
-    ranker._score_for_type = _score  # type: ignore[attr-defined]
-
-    return ranker
+    return DossierPivotRanker(dossier_state)

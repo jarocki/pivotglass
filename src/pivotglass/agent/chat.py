@@ -569,23 +569,24 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
                 )
             continue
 
-        # Autopivot meta-command — mirrors DEC-EVENTBUS-002 opt-in toggle.
+        # Autopivot meta-command (DEC-PIVOT-AUTOPIVOT-001): opt-in toggle.
         # Handled locally (not sent to LLM) so state changes are immediate.
         # Supported forms:
         #   autopivot          → show current state
-        #   autopivot on       → enable EventBus cascade execution
-        #   autopivot off      → disable EventBus cascade execution
+        #   autopivot on       → a depth-1 pivot run after each enrichment with results
+        #   autopivot off      → enrichments run alone
         if lower == "autopivot" or lower.startswith("autopivot "):
             sub = stripped[9:].strip().lower() if len(stripped) > 9 else ""
             if sub == "on":
                 runner.ctx.set_autopivot(True)
                 console.print(
-                    "[green]Auto-pivot enabled.[/green] Cascading modules will fire on discoveries."
+                    "[green]Autopivot on.[/green] After each enrichment that returns results, a depth-1 "
+                    "pivot run queries what it found, within auto_pivot_policy.max_per_cascade requests."
                 )
             elif sub == "off":
                 runner.ctx.set_autopivot(False)
                 console.print(
-                    "[yellow]Auto-pivot disabled.[/yellow] Running modules manually only."
+                    "[yellow]Autopivot off.[/yellow] Enrichments run alone; use `pivot <indicator>` to pivot."
                 )
             else:
                 # Status display
@@ -891,12 +892,20 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
             help_table.add_row(
                 "pivot",
                 "pivot <indicator> [depth:1-3] [budget:1-200] / pivot status|stop|skip|focus|unfocus|add",
-                "Bounded multi-hop pivot run; Ctrl-C stops it after the current request",
+                "Bounded multi-hop pivot run; Ctrl-C stops it after the current request. "
+                "Typed seeds skip the popularity gate, never the reserved/private-value gate",
             )
             help_table.add_row(
                 "autopivot",
                 "autopivot [on|off]",
-                "Toggle event-bus auto-pivot",
+                "After each enrichment with results, a depth-1 pivot run over those results "
+                "(fully gated; budget auto_pivot_policy.max_per_cascade)",
+            )
+            help_table.add_row(
+                "stop / focus / add / skip",
+                "stop / focus|add|skip <tool|indicator>",
+                "Steer the running battery; with no battery, the active pivot run. "
+                "`pivot <verb>` always targets the pivot run",
             )
             help_table.add_row(
                 "challenges",

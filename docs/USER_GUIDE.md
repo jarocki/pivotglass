@@ -399,6 +399,11 @@ add <source>     Add a source to the pending queue
 skip <source>    Remove a source from the pending queue
 ```
 
+The bare verbs steer the battery that is running. When no battery is running
+but a pivot run is active (yours or autopivot's), they steer the pivot run
+instead, with the same meaning as `pivot stop|focus|add|skip`. When neither is
+running, Pivotglass says so. `pivot <verb>` always steers the pivot run.
+
 ### Multi-hop pivoting
 
 `pivot` follows what an enrichment returns, one ring at a time, within limits
@@ -416,8 +421,7 @@ pivot add <indicator>        Add a new seed at depth 0
 ```
 
 A run starts from the indicators you name (depth 0) and asks every module that
-subscribes to each indicator's type, the same subscription map the agent's
-`autopivot` uses. Indicators the modules return become the next depth. With the
+subscribes to each indicator's type. Indicators the modules return become the next depth. With the
 default `depth:1`, Pivotglass queries your seeds and then the indicators they
 returned; anything found beyond that is recorded as *discovered, not
 expanded*. Each further level multiplies the requests, so look at the first
@@ -429,11 +433,19 @@ because it reached the service. Before each request:
 
 1. A module that is not installed, is disabled, or has no credential is
    skipped as *readiness*. It costs nothing.
-2. The pivot policy decides, as it does for `autopivot`: private, loopback,
-   link-local and reserved values (such as `example.com` or 10.0.0.0/8), very
-   popular domains, entries in your deny list, and results below the
+2. The pivot policy decides: private, loopback, link-local and reserved
+   values (such as `example.com` or 10.0.0.0/8), very popular domains (the
+   bundled top-1k list), entries in your deny list, and results below the
    confidence threshold are rejected and cost nothing. The policy's budget gate
    ends the run when the budget is spent.
+
+An indicator you type yourself, as a seed or with `pivot add`, is not held to
+the popularity or confidence rules: you decided it is worth asking about, so
+`pivot google.com` queries it, and its decisions read "analyst-named seed;
+popularity gate not applied". Private, loopback, link-local and reserved
+values are still refused, because the services know nothing useful about them
+and asking can disclose internal addresses; your deny list still applies.
+Everything the modules return from your seeds passes every rule.
 
 Every decision is kept with its reason: rejected by policy, not ready, skipped
 by you, outside your focus, beyond the depth limit, over budget, or stopped.
@@ -441,8 +453,8 @@ by you, outside your focus, beyond the depth limit, over budget, or stopped.
 modules return it.
 
 Results are stored as ordinary evidence with the module and query that
-produced them, exactly as a one-hop enrichment stores them; a run never also
-triggers `autopivot` cascades underneath itself. The parent-child lineage of a
+produced them, exactly as a one-hop enrichment stores them; a run never starts
+an autopivot run underneath itself. The parent-child lineage of a
 run is collection workflow (this module, asked about X, returned Y), not an
 observation that X and Y are related. The pivot trail (`timeline pivots`)
 records your seeds as investigated and each automated expansion as
@@ -459,6 +471,27 @@ One run can be active per workspace.
 - **Classic REPL** (`pivotglass repl`). The run executes in the foreground and
   prints each request. Ctrl-C stops it after the current request; `pivot
   status` shows the last run afterwards.
+
+When the dossier-aware ranking is on (`auto_pivot_policy.dossier_aware_ranking`,
+the default), indicators at the same depth are expanded in order of how much
+they could fill empty Dossier slots, then by confidence. Ranking changes which
+indicators a budget reaches first, never which rules apply; each decision
+records the indicator's `dossier_weight`.
+
+#### Autopivot
+
+`autopivot on` (cyberdeck and agent chat) makes every enrichment the agent runs
+that returns results start a pivot run of its own, at depth 1, seeded with
+those results rather than with the indicator you enriched. The seeds are module
+output, so every policy rule applies to them, popularity included. Its budget is
+`auto_pivot_policy.max_per_cascade` requests (default 5) per enrichment, and all
+autopivot runs in a session share `auto_pivot_policy.max_per_session` (default
+50); setting either to 0 turns the runs off and the tool summary says why. The
+run executes before the enrichment's answer returns, its summary is added to
+that answer, and it is the workspace's pivot run while it lasts: `pivot status`
+shows it and `pivot stop`, or a bare `stop` when no battery is running, halts
+it. If one of your own pivot runs is active, autopivot does not start another.
+`autopivot off` returns to single enrichments.
 
 ## Evidence and provenance
 
@@ -1471,7 +1504,7 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `badges` | Show every earned badge, its artwork, award time, and originating challenge |
 | `pivot <indicator> [depth:1-3] [budget:1-200]` | Run a bounded, policy-gated multi-hop pivot (see [Multi-hop pivoting](#multi-hop-pivoting)) |
 | `pivot status\|stop\|skip\|focus\|unfocus\|add …` | Inspect or steer the active pivot run |
-| `autopivot on\|off` | Control event-driven pivots |
+| `autopivot on\|off` | After each enrichment that returns results, run a depth-1 pivot over those results (see [Autopivot](#autopivot)) |
 | `status` | Show current workspace and character |
 | `clear` | Clear the current terminal transcript view |
 | `help` / `?` | Open command and workflow help |

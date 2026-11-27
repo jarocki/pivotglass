@@ -77,10 +77,12 @@ class TestHandleInputYieldRouting:
         """'stop' → dispatch_yield called; chat() must NOT be called.
 
         Production sequence: handle_input('stop') → parse_yield('stop') returns
-        YieldCommand('stop', None) → dispatch_yield(cmd, None, bus, character)
-        → character-voiced string returned.  _call_llm is never reached.
+        YieldCommand('stop', None) → a battery is running, so route_yield sends it
+        to dispatch_yield(cmd, battery, bus, character) → character-voiced string
+        returned (DEC-YIELD-ROUTING-001).  _call_llm is never reached.
         """
         runner = _make_runner()
+        runner._active_battery_run = object()  # a running battery owns bare verbs
 
         # @mock-exempt: AgentRunner.chat → litellm.completion() (external LLM API boundary)
         # @mock-exempt: dispatch_yield → phrase cache + EventBus pub sub; mocked to
@@ -111,6 +113,7 @@ class TestHandleInputYieldRouting:
     def test_handle_input_routes_focus_with_arg_to_dispatch_yield(self):
         """'focus whois_lookup' → dispatch_yield with YieldCommand('focus', 'whois_lookup')."""
         runner = _make_runner()
+        runner._active_battery_run = object()  # a running battery owns bare verbs
 
         # @mock-exempt: AgentRunner.chat → litellm.completion() (external LLM API boundary)
         # @mock-exempt: dispatch_yield → phrase cache + EventBus; mocked for routing isolation
