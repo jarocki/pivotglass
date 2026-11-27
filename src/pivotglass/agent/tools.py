@@ -2814,8 +2814,12 @@ def _execute_preview_report(ctx: ToolContext, report_type: str | None = None) ->
     from pivotglass.reports.render import render_markdown
 
     try:
+        from pivotglass.reports.org import OrgInputs
+
         type_id = get_report_type((report_type or DEFAULT_TYPE).strip()).id
-        return render_markdown(build_report(ctx.workspace_mgr, type_id))
+        # Organisation input reaches the model only when the analyst allowed it (DEC-ORG-INPUT-001).
+        withhold = not OrgInputs(ctx.workspace_mgr).sharing_allowed()
+        return render_markdown(build_report(ctx.workspace_mgr, type_id), withhold_org_input=withhold)
     except Exception as e:
         logger.exception("preview_report failed")
         return f"Error generating report: {e}"

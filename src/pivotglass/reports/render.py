@@ -11,7 +11,7 @@ import json
 import uuid
 from typing import Any
 
-from pivotglass.reports.contract import PROVENANCE_LABELS, OutputFormat, Tlp
+from pivotglass.reports.contract import PROVENANCE_LABELS, OutputFormat, ProvenanceClass, Tlp
 from pivotglass.reports.elements import ELEMENTS, ElementStatus, load_builtin_elements
 from pivotglass.reports.engine import Report
 from pivotglass.reports.registry import get_report_type
@@ -79,10 +79,21 @@ def render_mermaid(report: Report) -> str:
     raise ValueError(f"{report.type_id} has no graph to draw")
 
 
-def render_markdown(report: Report) -> str:
+WITHHELD = (
+    "_Withheld: this section holds organisation input, which is not shown to the model. "
+    "The analyst can allow it with `org share-with-model on`._"
+)
+
+
+def render_markdown(report: Report, *, withhold_org_input: bool = False) -> str:
+    """Markdown for people. ``withhold_org_input`` replaces sections built from organisation input (model views)."""
+
     load_builtin_elements()
     blocks: list[str] = []
     for result in report.elements:
+        if withhold_org_input and ProvenanceClass.ORG_INPUT in result.provenance:
+            blocks.append(f"## {result.title}\n\n{WITHHELD}")
+            continue
         blocks.append(ELEMENTS[result.element_id].markdown(result, OutputFormat.MARKDOWN))
         if result.element_id == "header":
             blocks.append(_completeness(report))

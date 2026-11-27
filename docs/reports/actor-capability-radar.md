@@ -30,7 +30,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
 | 3 | Capability rubric (`capability_rubric`) | yes | Method | reports/rubrics.py | built |
 | 4 | Capability scores (`capability_radar`) | yes | Analyst | actor claims (capability:<axis>), capability rubric | built |
-| 5 | Defence benchmark (`defense_benchmark`) | optional | Organisation input | organisation profile (#59) | #59 |
+| 5 | Defence benchmark (`defense_benchmark`) | optional | Organisation input | organisation profile (capability_benchmark), capability scores | built |
 | 6 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 7 | Sources (`sources`) | yes | Method | module runs | built |
 
@@ -40,7 +40,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
 - **Capability rubric.** The axes and the definition of each level 1 to 5, so scores are comparable.
 - **Capability scores.** One score per rubric axis with its citations and confidence, for a radar chart and a table.
-- **Defence benchmark.** The organisation's self-assessed level on the same axes, shown against the actor's scores. Absent until supplied; never estimated.
+- **Defence benchmark.** The organisation's self-assessed level on each rubric axis beside the actor's score.
 - **Gaps and limitations.** Recorded knowledge gaps and limitations, plus every element that came back empty or partial.
 - **Sources.** Every collection source that ran, with run and object counts and its Admiralty rating.
 

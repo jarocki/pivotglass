@@ -58,6 +58,7 @@ _EXPORT_TABLES = (
     "pivot_trail_events",
     "indicator_tag_events",
     "report_issues",
+    "organisation_inputs",
 )
 _JSON_COLUMNS = {
     "json_blob",
@@ -118,6 +119,7 @@ _STRING_KEY_TABLES = (
     "pivot_trail_events",
     "indicator_tag_events",
     "report_issues",
+    "organisation_inputs",
 )
 
 

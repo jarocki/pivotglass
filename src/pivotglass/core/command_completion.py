@@ -19,6 +19,7 @@ TOP_LEVEL_COMMANDS: tuple[str, ...] = (
     "note",
     "export",
     "report",
+    "org",
     "analysis",
     "framework",
     "integration",
@@ -120,6 +121,8 @@ def command_completions(
         from pivotglass.reports.registry import report_types
 
         choices = ["generate", "types", "issue ", "history", "open ", *report_types()]
+    elif command == "org":
+        choices = ["show", "import ", "telemetry ", "share-with-model "]
     elif command == "analysis":
         choices = [
             "show",

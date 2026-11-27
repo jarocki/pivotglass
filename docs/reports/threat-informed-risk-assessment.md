@@ -6,7 +6,7 @@ Type 3 · Strategic and executive · `threat-informed-risk-assessment` · ID pre
 
 Assess the threat to a specific system, business unit, vendor, initiative or acquisition target: who would attack it, how, how likely, with what impact, and which controls reduce the risk.
 
-**Status:** Defined, not built yet. Its sections arrive with #53, #59; until then `report threat-informed-risk-assessment` explains what is missing and renders nothing.
+**Status:** Defined, not built yet. Its sections arrive with #53; until then `report threat-informed-risk-assessment` explains what is missing and renders nothing.
 
 **Use it when:** Before a cloud migration, an acquisition, onboarding a critical vendor, or a change to a crown-jewel system. Needs the organisation profile and assets (#59); without them the report is incomplete and says so.
 
@@ -28,7 +28,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 |---:|---|---|---|---|---|
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Scope and assets (`asset_profile`) | yes | Organisation input | organisation profile (#59) | #59 |
+| 3 | Scope and assets (`asset_profile`) | yes | Organisation input | organisation profile | built |
 | 4 | Relevant threat actors (`actor_matrix`) | yes | Evidence + Analyst | hypotheses, Nucleotide aliases, dossier Capability slot | #53 |
 | 5 | Attack surface (`attack_surface`) | yes | Evidence + Organisation input | Shodan, Censys and InternetDB observations, organisation assets (#59) | #53 |
 | 6 | Risk scenarios (`risk_scenarios`) | yes | Analyst | analyst | #53 |

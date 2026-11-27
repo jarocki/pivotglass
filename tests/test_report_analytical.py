@@ -121,13 +121,14 @@ def test_diamond_events_group_by_shared_evidence_and_threads_link_shared_values(
     assert mermaid.startswith("flowchart TB") and "stroke-dasharray" in mermaid and "c2[.]example[.]net" in mermaid
 
 
-def test_capability_radar_scores_against_the_rubric_and_omits_the_unbuilt_benchmark(wm):
+def test_capability_radar_scores_against_the_rubric_and_states_a_missing_benchmark(wm):
     report = build_report(wm, "actor-capability-radar")
     scores = {s["axis"]: s["score"] for s in report.element("capability_radar").content["scores"]}
     assert scores == {"access": 3, "malware": 4, "evasion": 3, "movement": None, "infrastructure": None}
-    assert report.element("defense_benchmark") is None
+    assert report.complete  # the benchmark is optional
+    assert report.element("defense_benchmark").status.value == "empty"
     gaps = [g["gap"] for g in report.element("gaps_limitations").content["report_gaps"]]
-    assert "Defence benchmark is optional and not built yet (#59)." in gaps
+    assert "Defence benchmark: No capability benchmark in the organisation profile." in gaps
     assert any("is not scored" in g for g in gaps)
 
 

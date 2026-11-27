@@ -37,28 +37,12 @@ class PlannedElement:
 _PLANNED = (
     # --- Domain 3: analytical and attribution (#55) --------------------------
     # Built in reports/elements/analytical.py except the organisation benchmark.
-    PlannedElement(
-        "defense_benchmark", "Defence benchmark", (O,), ("organisation profile (#59)",),
-        "The organisation's self-assessed level on the same axes, shown against the actor's scores. "
-        "Absent until supplied; never estimated.", 59,
-    ),
     # --- Domain 2: operational and incident (#54, #58) ------------------------
-    PlannedElement(
-        "org_exposure", "Organisational exposure", (O, E), ("organisation profile (#59)", "observations"),
-        "Whether the organisation's sector and regions are targeted, whether it runs the affected "
-        "technology, and the status of the relevant controls. Absent organisation data is shown as "
-        "missing, never estimated.", 59,
-    ),
     # --- Domain 5: detection, hunting and posture (#57) -----------------------
     PlannedElement(
         "technique_scope", "Techniques in scope", (E, M), ("accepted mappings", "actor profiles"),
         "The ATT&CK techniques assessed and why each is in scope (observed, or attributed to an actor "
         "of concern).", 57,
-    ),
-    PlannedElement(
-        "control_matrix", "Control coverage", (O,), ("control inventory (#59)",),
-        "Per technique: the primary control, and visibility, alerting and prevention scores (0-2) with "
-        "the date and evidence of the last test.", 59,
     ),
     PlannedElement(
         "gap_list", "Coverage gaps", (M,), ("control matrix", "gap rule (reports/contract.py)"),
@@ -105,10 +89,6 @@ _PLANNED = (
         "impact on the severity scale, and the signposts that would show it unfolding.", 53,
     ),
     PlannedElement(
-        "asset_profile", "Scope and assets", (O,), ("organisation profile (#59)",),
-        "What is assessed and its critical assets and data. Absent until supplied; never estimated.", 59,
-    ),
-    PlannedElement(
         "actor_matrix", "Relevant threat actors", (E, A), ("hypotheses", "Nucleotide aliases", "dossier Capability slot"),
         "Actors relevant to the scope with motivation, intent to target, capability (rubric level) and "
         "cited precedent.", 53,
@@ -135,10 +115,6 @@ _PLANNED = (
         "its citation.", 56,
     ),
     PlannedElement(
-        "objective", "Objective", (O,), ("environment model (#59)",),
-        "The asset or outcome the attack paths lead to and why it matters.", 59,
-    ),
-    PlannedElement(
         "attack_tree", "Attack tree", (O, M), ("environment model (#59)",),
         "Paths from entry points to the objective with explicit AND and OR gates; each edge names the "
         "technique, its precondition and whether it is observed or assumed.", 56,
@@ -147,11 +123,6 @@ _PLANNED = (
         "choke_points", "Choke points", (M,), ("attack tree",),
         "Nodes every path (or most paths) must cross, computed from the tree, with the share of paths "
         "each one severs.", 56,
-    ),
-    PlannedElement(
-        "forensic_timeline", "Forensic timeline", (O, M), ("telemetry import (#59)",),
-        "Events in UTC: host, telemetry source, ATT&CK technique, summary and a reference to the raw "
-        "artifact.", 59,
     ),
     PlannedElement(
         "dwell_metrics", "Dwell and response times", (M,), ("forensic timeline",),

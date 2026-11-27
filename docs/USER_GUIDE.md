@@ -873,6 +873,25 @@ SPL, KQL and EQL hunt queries. YARA rules are built only from strings you
 supply from a sample. `report detection-signature-bundle sigma|suricata|yara`
 downloads the rule file. Nothing is shown as tested until you record a test.
 
+**Organisation input.** Some sections need facts only you have: what the
+organisation runs, which controls see which techniques, how its network
+connects, and what its logs recorded. Import them per workspace:
+
+```text
+org import org.yaml          # profile, controls and environment model
+org telemetry events.csv     # host and network events for the forensic timeline
+org show                     # what is held, from which file, when
+org share-with-model on|off  # off by default
+```
+
+The file format is in `src/pivotglass/reports/org.py` and in the example at
+`tests/fixtures/reports/org.yaml`. Controls score visibility, alerting and
+prevention 0-2; the gap status is derived from those scores, never typed.
+Telemetry timestamps must carry a time zone and are stored in UTC. Missing
+input is shown as missing in the report, never estimated. Organisation input
+is withheld from the model (its sections read "Withheld") unless you turn
+sharing on; your own report view always shows it. `workspace clear` keeps it.
+
 **Actor reports.** The Threat Actor Profile and the Actor Capability Radar read
 analyst claims about an actor, recorded as
 `analysis claim judgment actor:<name> <predicate> <value> | <basis>` (for

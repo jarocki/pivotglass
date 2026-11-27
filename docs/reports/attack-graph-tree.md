@@ -6,7 +6,7 @@ Type 14 · Attack flow and behavioral · `attack-graph-tree` · ID prefix `PG-AG
 
 Map the paths from entry points to a critical asset, show which steps must all succeed (AND) and which are alternatives (OR), and find the choke points where one control cuts the most paths.
 
-**Status:** Defined, not built yet. Its sections arrive with #56, #59; until then `report attack-graph-tree` explains what is missing and renders nothing.
+**Status:** Defined, not built yet. Its sections arrive with #56; until then `report attack-graph-tree` explains what is missing and renders nothing.
 
 **Use it when:** Protecting a crown-jewel asset or prioritising architecture work. Needs the organisation's environment model (#59); Pivotglass does not see internal networks.
 
@@ -27,7 +27,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 |---:|---|---|---|---|---|
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Objective (`objective`) | yes | Organisation input | environment model (#59) | #59 |
+| 3 | Objective (`objective`) | yes | Organisation input | environment model | built |
 | 4 | Attack tree (`attack_tree`) | yes | Organisation input + Method | environment model (#59) | #56 |
 | 5 | Choke points (`choke_points`) | yes | Method | attack tree | #56 |
 | 6 | Recommendations (`recommendations`) | yes | Analyst | report recommendations | built |
@@ -38,7 +38,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 
 - **Report header.** Report ID, version, status, marking, audience, requirement, validity and producer.
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
-- **Objective.** The asset or outcome the attack paths lead to and why it matters.
+- **Objective.** The asset or outcome the attack paths lead to, from the environment model's objective nodes.
 - **Attack tree.** Paths from entry points to the objective with explicit AND and OR gates; each edge names the technique, its precondition and whether it is observed or assumed.
 - **Choke points.** Nodes every path (or most paths) must cross, computed from the tree, with the share of paths each one severs.
 - **Recommendations.** Controls at the choke points first, each with an owner, due date and the paths it removes.

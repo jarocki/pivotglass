@@ -107,6 +107,7 @@ from pivotglass.integrations.scot_pivot_intake import (
 )
 from pivotglass.integrations.scot_publication import validate_scot_pivot_request
 from pivotglass.reports.commands import execute_report_command
+from pivotglass.reports.org import execute_org_command
 from pivotglass.reports.pir import catalogue as pir_catalogue
 from pivotglass.reports.pir import pir_state
 from pivotglass.reports.registry import report_type_summaries
@@ -915,6 +916,10 @@ class WebCockpitService:
             {"command": "note <text>", "purpose": "Save an analyst annotation"},
             {"command": "report", "purpose": "Preview the investigation report (Markdown, not issued)"},
             {"command": "report types", "purpose": "List report types, their audiences and formats"},
+            {"command": "org show", "purpose": "Show the organisation input this workspace holds"},
+            {"command": "org import <path.yaml>", "purpose": "Import the organisation profile, controls and environment model"},
+            {"command": "org telemetry <path.csv>", "purpose": "Import host and network events for the forensic timeline"},
+            {"command": "org share-with-model on|off", "purpose": "Allow or withhold organisation input from the model"},
             {
                 "command": "report <type> [markdown|json|stix] [tlp:<marking>] [pap:<marking>]",
                 "purpose": "Preview one report type in one format; JSON and STIX are not defanged",
@@ -1390,6 +1395,9 @@ class WebCockpitService:
                 raise ValueError("usage: note <text>")
             self.ctx.workspace_mgr.add_note(rest)
             return {"kind": "text", "title": "Annotation saved", "text": rest}
+        if command == "org":
+            result = execute_org_command(rest, self.ctx.workspace_mgr)
+            return {"kind": "json", "title": result["title"], "data": result["data"]}
         if command == "report":
             result = execute_report_command(rest, self.ctx.workspace_mgr)
             if "text" not in result:

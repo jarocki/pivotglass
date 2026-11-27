@@ -497,6 +497,29 @@ class ReportIssue(Base):
     )
 
 
+class OrganisationInput(Base):
+    """Analyst-supplied organisation data (#59, DEC-ORG-INPUT-001).
+
+    ``kind`` is profile, controls, environment, telemetry or policy; the
+    current value of a kind is its newest row. Rows are never updated. Kept by
+    ``workspace clear``: it describes the organisation, not one investigation.
+    """
+
+    __tablename__ = "organisation_inputs"
+
+    id = Column(String, primary_key=True)
+    kind = Column(String, nullable=False, index=True)
+    payload = Column(JSON, nullable=False)
+    source = Column(String, nullable=False)
+    created_by = Column(String, nullable=False, default="human")
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+
+
 class EvidenceClusterSnapshot(Base):
     """Presentation snapshot used to compare graph-cluster change over time."""
 

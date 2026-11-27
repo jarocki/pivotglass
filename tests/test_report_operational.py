@@ -160,6 +160,5 @@ def test_not_in_kev_is_not_called_unexploited_and_unchecked_sources_are_gaps(tmp
     assert f"{CVE}: not looked up in NVD." in meta.gaps and f"{CVE}: not looked up in FIRST EPSS." in meta.gaps
 
 
-def test_vulnerability_brief_waits_only_for_organisation_exposure():
-    report_type = get_report_type("vulnerability-exploitation-brief")
-    assert report_type.planned_elements == ("org_exposure",) and report_type.building_issues == (59,)
+def test_vulnerability_brief_is_built():
+    assert get_report_type("vulnerability-exploitation-brief").available

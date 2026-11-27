@@ -6,7 +6,7 @@ Type 1 · Strategic and executive · `executive-threat-briefing` · ID prefix `P
 
 Tell leadership, on one page, what happened or is expected, whether the organisation is affected, how sure the analysis is, and what decision or resource is needed now.
 
-**Status:** Defined, not built yet. Its sections arrive with #53, #59; until then `report executive-threat-briefing` explains what is missing and renders nothing.
+**Status:** Defined, not built yet. Its sections arrive with #53; until then `report executive-threat-briefing` explains what is missing and renders nothing.
 
 **Use it when:** A threat, event or vulnerability may affect the organisation and leadership must decide, approve or be informed. Not for technical response: pair it with a Threat Activity Alert or Vulnerability Exploitation Brief.
 
@@ -32,7 +32,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 | 4 | Overall risk (`risk_rating`) | yes | Analyst | analyst | #53 |
 | 5 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses | built |
 | 6 | Situational overview (`situational_overview`) | yes | Model draft + Analyst | cited evidence | #53 |
-| 7 | Organisational exposure (`org_exposure`) | yes | Organisation input + Evidence | organisation profile (#59), observations | #59 |
+| 7 | Organisational exposure (`org_exposure`) | yes | Organisation input + Evidence | organisation profile, control inventory, actor claims, NVD and KEV records, ATT&CK mappings | built |
 | 8 | Recommendations (`recommendations`) | yes | Analyst | report recommendations | built |
 | 9 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 10 | Sources (`sources`) | yes | Method | module runs | built |

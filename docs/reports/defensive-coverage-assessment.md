@@ -6,7 +6,7 @@ Type 18 · Detection, hunting and posture · `defensive-coverage-assessment` · 
 
 Measure how well current controls see, alert on and prevent the techniques of a threat of concern, derive the gaps by a stated rule, and plan the fixes and the tests that prove them.
 
-**Status:** Defined, not built yet. Its sections arrive with #57, #59; until then `report defensive-coverage-assessment` explains what is missing and renders nothing.
+**Status:** Defined, not built yet. Its sections arrive with #57; until then `report defensive-coverage-assessment` explains what is missing and renders nothing.
 
 **Use it when:** Planning detection engineering, justifying control investment, or preparing a purple-team exercise. Needs the control inventory (#59).
 
@@ -29,7 +29,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
 | 3 | Techniques in scope (`technique_scope`) | yes | Evidence + Method | accepted mappings, actor profiles | #57 |
-| 4 | Control coverage (`control_matrix`) | yes | Organisation input | control inventory (#59) | #59 |
+| 4 | Control coverage (`control_matrix`) | yes | Organisation input | control inventory | built |
 | 5 | Coverage gaps (`gap_list`) | yes | Method | control matrix, gap rule (reports/contract.py) | #57 |
 | 6 | Recommendations (`recommendations`) | yes | Analyst | report recommendations | built |
 | 7 | Adversary emulation plan (`emulation_plan`) | yes | Method | pinned Atomic Red Team index | #57 |
@@ -41,7 +41,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 - **Report header.** Report ID, version, status, marking, audience, requirement, validity and producer.
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
 - **Techniques in scope.** The ATT&CK techniques assessed and why each is in scope (observed, or attributed to an actor of concern).
-- **Control coverage.** Per technique: the primary control, and visibility, alerting and prevention scores (0-2) with the date and evidence of the last test.
+- **Control coverage.** Per technique: the control, visibility, alerting and prevention scores (0-2), the derived gap status, and when and how it was last tested.
 - **Coverage gaps.** Each technique's gap status derived by the stated rule, critical first.
 - **Recommendations.** The remediation plan, critical gaps first, each with an owner, a due date and the test that will confirm it.
 - **Adversary emulation plan.** Per gap, the Atomic Red Team test ID, the telemetry it should produce and the pass criteria.

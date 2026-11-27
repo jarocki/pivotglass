@@ -71,6 +71,7 @@ _FREE_ARG_VERBS: frozenset[str] = frozenset(
         "analysis",
         "framework",
         "integration",
+        "org",
     }
 )
 
@@ -516,6 +517,17 @@ def dispatch_repl_verb(
             return "Export formats: json, csv, stix, gexf."
         summary, *_ = execute_tool(ctx, "export_workspace", {"format": fmt})
         return str(summary)
+
+    if name == "org":
+        if _workspace_mgr is None:
+            return "Workspace unavailable."
+        from pivotglass.reports.org import execute_org_command
+
+        try:
+            result = execute_org_command(" ".join(verb.args), _workspace_mgr)
+        except ValueError as exc:
+            return str(exc)
+        return f"{result['title']}\n{json.dumps(result['data'], indent=2, default=str)}"
 
     if name == "analysis":
         if _workspace_mgr is None:
