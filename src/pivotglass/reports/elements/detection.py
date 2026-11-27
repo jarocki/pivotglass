@@ -70,9 +70,14 @@ def safe_indicator(kind: str, value: str) -> str | None:
 
     if kind == "ip":
         try:
-            return str(ipaddress.ip_address(value.strip()))
+            address = ipaddress.ip_address(value.strip())
         except ValueError:
             return None
+        # A scoped IPv6 address ("fe80::1%<zone>") parses with an arbitrary zone string; never allow one.
+        if "%" in value or getattr(address, "scope_id", None):
+            return None
+        text = address.compressed
+        return text if re.fullmatch(r"[0-9A-Fa-f:.]+", text) else None
     if kind == "domain":
         return value.strip().rstrip(".").lower() if _HOSTNAME.match(value.strip()) else None
     if kind == "url":
@@ -519,6 +524,8 @@ def suricata_rules(context: ReportContext, kinds: dict[str, list[str]]) -> list[
         add("domain", domain, "alert dns $HOME_NET any -> any any", "DNS query for")
         rules[-1]["text"] = rules[-1]["text"].replace("{match}", f'dns.query; content:"{_content(domain)}"; nocase; isdataat:!1,relative; ')
     for ip in kinds.get("ip", []):
+        if not re.fullmatch(r"[0-9A-Fa-f:.]+", ip):  # second layer: header text is digits, hex, colons and dots only
+            continue
         add("ip", ip, f"alert ip $HOME_NET any -> [{ip}] any", "traffic to")
         rules[-1]["text"] = rules[-1]["text"].replace("{match}", "")
     for url in kinds.get("url", []):
