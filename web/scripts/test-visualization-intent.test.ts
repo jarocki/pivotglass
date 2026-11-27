@@ -7,6 +7,8 @@ import {
   radarHasShape,
   exactDataExport,
   appendGraphPresentationHistory,
+  bundleGraphLeaves,
+  bundleReference,
   graphPresentationSnapshotsEqual,
   hiddenGraphReferences,
   updateGraphSelection,
@@ -173,4 +175,42 @@ test("a radar with fewer than three non-zero spokes is drawn as bars (#38)", () 
   });
   assert.equal(radarHasShape(radar([100, 50, 0, 0, null])), false);
   assert.equal(radarHasShape(radar([100, 50, 50, 0])), true);
+});
+
+test("same-type leaves of a hub bundle into one aggregate that keeps exact members (#41)", () => {
+  const leaf = (n: number, type = "ipv4-addr") => ({ reference: `ip${n}`, label: `192.0.2.${n}`, entity_type: type });
+  const nodes = [
+    { reference: "hub", label: "group", entity_type: "domain-name" },
+    ...Array.from({ length: 7 }, (_, n) => leaf(n)),
+    { reference: "d1", label: "a.example", entity_type: "domain-name" },
+    { reference: "other", label: "b.example", entity_type: "domain-name" },
+  ];
+  const edges = [
+    ...Array.from({ length: 7 }, (_, n) => ({ source: "hub", target: `ip${n}`, relationship: "resolves", basis: "explicit" as const, provenance: "dns" })),
+    { source: "hub", target: "d1", relationship: "related", basis: "explicit" as const, provenance: "x" },
+    { source: "d1", target: "other", relationship: "related", basis: "explicit" as const, provenance: "x" },
+  ];
+  const key = bundleReference("hub", "ipv4-addr");
+  const bundled = bundleGraphLeaves(nodes, edges);
+  const aggregate = bundled.nodes.find((node) => node.reference === key)!;
+  assert.equal(aggregate.label, "7 ipv4-addr");
+  assert.equal(aggregate.evidence, false);
+  assert.deepEqual(aggregate.bundle, { hub: "hub", members: ["ip0", "ip1", "ip2", "ip3", "ip4", "ip5", "ip6"] });
+  assert.equal(bundled.bundled.size, 7);
+  assert.ok(!bundled.nodes.some((node) => node.reference === "ip0"));
+  assert.deepEqual(bundled.edges.filter((edge) => edge.target === key).map((edge) => edge.basis), ["bundle"]);
+  // d1 is a single leaf of its type at the hub and has two connections: never bundled.
+  assert.ok(bundled.nodes.some((node) => node.reference === "d1"));
+
+  // A selected or pinned member stays out; below the minimum, nothing bundles.
+  const guarded = bundleGraphLeaves(nodes, edges, { protectedReferences: new Set(["ip0", "ip1", "ip2"]) });
+  assert.equal(guarded.bundled.size, 0);
+  const oneGuarded = bundleGraphLeaves(nodes, edges, { protectedReferences: new Set(["ip0"]) });
+  assert.equal(oneGuarded.nodes.find((node) => node.reference === key)!.bundle!.members.length, 6);
+  assert.ok(oneGuarded.nodes.some((node) => node.reference === "ip0"));
+
+  // Expanding restores the original nodes and edges exactly.
+  const expanded = bundleGraphLeaves(nodes, edges, { expanded: new Set([key]) });
+  assert.deepEqual(expanded.nodes, nodes);
+  assert.deepEqual(expanded.edges, edges);
 });

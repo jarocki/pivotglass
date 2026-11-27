@@ -26,13 +26,16 @@ export type VisualizationNode = {
   /** Curated-list recognition (benign, scanner, shared, sinkhole, contested). */
   known_category?: string;
   known_label?: string;
+  /** Present on an aggregate of a hub's same-type leaves (#41): presentation only. */
+  bundle?: { hub: string; members: string[] };
 };
 
 export type VisualizationEdge = {
   source: string;
   target: string;
   relationship: string;
-  basis: "explicit" | "property" | "manual";
+  /** "bundle" joins a hub to an aggregate of its leaves (#41): presentation, not a relationship. */
+  basis: "explicit" | "property" | "manual" | "bundle";
   provenance: string;
   assertion_id?: string | null;
   annotation?: string | null;
@@ -139,6 +142,87 @@ export function hiddenGraphReferences(
   for (const reference of collapsedRoots) hidden.delete(reference);
   for (const reference of protectedReferences) hidden.delete(reference);
   return hidden;
+}
+
+/** A hub's same-type leaves are bundled only when there are at least this many. */
+export const MIN_BUNDLE_SIZE = 5;
+
+export function bundleReference(hub: string, entityType: string): string {
+  return `bundle:${hub}|${entityType}`;
+}
+
+/**
+ * Collapse degree-1 leaves of one type around the same hub into an aggregate node (#41).
+ *
+ * Presentation only: the aggregate carries no evidence, keeps the exact member list (so
+ * counts survive), and never absorbs a selected, pinned, or analyst-group node. Expanded
+ * bundles are passed back in by reference and drawn as their members.
+ */
+export function bundleGraphLeaves(
+  nodes: readonly VisualizationNode[],
+  edges: readonly VisualizationEdge[],
+  options: {
+    expanded?: ReadonlySet<string>;
+    protectedReferences?: ReadonlySet<string>;
+    minSize?: number;
+    label?: (entityType: string, count: number) => string;
+  } = {},
+): { nodes: VisualizationNode[]; edges: VisualizationEdge[]; bundled: Map<string, string> } {
+  const minSize = options.minSize ?? MIN_BUNDLE_SIZE;
+  const expanded = options.expanded ?? new Set<string>();
+  const protectedReferences = options.protectedReferences ?? new Set<string>();
+  const byReference = new Map(nodes.map((node) => [node.reference, node]));
+  const neighbors = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    if (edge.source === edge.target) continue;
+    if (!neighbors.has(edge.source)) neighbors.set(edge.source, new Set());
+    if (!neighbors.has(edge.target)) neighbors.set(edge.target, new Set());
+    neighbors.get(edge.source)!.add(edge.target);
+    neighbors.get(edge.target)!.add(edge.source);
+  }
+  const groups = new Map<string, string[]>();
+  for (const node of nodes) {
+    const adjacent = neighbors.get(node.reference);
+    if (!adjacent || adjacent.size !== 1) continue;
+    if (protectedReferences.has(node.reference) || node.entity_type === "analyst-group" || node.bundle) continue;
+    const [hub] = adjacent;
+    if (!byReference.has(hub) || (neighbors.get(hub)?.size ?? 0) < minSize) continue;
+    const key = bundleReference(hub, node.entity_type);
+    if (expanded.has(key)) continue;
+    groups.set(key, [...(groups.get(key) ?? []), node.reference]);
+  }
+  const bundled = new Map<string, string>();
+  const aggregates: VisualizationNode[] = [];
+  const aggregateEdges: VisualizationEdge[] = [];
+  for (const [key, members] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
+    if (members.length < minSize) continue;
+    const hub = key.slice("bundle:".length, key.lastIndexOf("|"));
+    const entityType = byReference.get(members[0])!.entity_type;
+    for (const member of members) bundled.set(member, key);
+    aggregates.push({
+      reference: key,
+      label: options.label?.(entityType, members.length) ?? `${members.length} ${entityType}`,
+      entity_type: entityType,
+      evidence: false,
+      bundle: { hub, members: [...members].sort() },
+    });
+    aggregateEdges.push({
+      source: hub,
+      target: key,
+      relationship: "bundled leaves",
+      basis: "bundle",
+      provenance: `${members.length} single-connection ${entityType} nodes of this hub, drawn as one`,
+    });
+  }
+  if (!bundled.size) return { nodes: [...nodes], edges: [...edges], bundled };
+  return {
+    nodes: [...nodes.filter((node) => !bundled.has(node.reference)), ...aggregates],
+    edges: [
+      ...edges.filter((edge) => !bundled.has(edge.source) && !bundled.has(edge.target)),
+      ...aggregateEdges,
+    ],
+    bundled,
+  };
 }
 
 const FLINT_CHART_TYPES: Partial<Record<VisualizationView, string>> = {

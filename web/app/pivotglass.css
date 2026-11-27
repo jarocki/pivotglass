@@ -1429,6 +1429,9 @@ main.display-day .masthead .pane-switcher button[aria-current="page"]{border-bot
 .relationship-edges line{stroke:var(--dim);stroke-width:1;opacity:.45;vector-effect:non-scaling-stroke}
 .relationship-edges line.basis-explicit{opacity:.7;stroke-width:1.4}
 .relationship-edges line.basis-property{stroke-dasharray:5 4}
+.relationship-edges line.basis-bundle{stroke-width:3;opacity:.6}
+.graph-legend i.bundle{border-top-width:3px}
+.relationship-nodes>g.bundle circle{stroke:var(--heading);stroke-width:2;stroke-dasharray:1 2}
 .relationship-edges line.basis-manual{stroke:var(--dim);stroke-dasharray:2 3;stroke-width:1}
 .relationship-edges marker path{fill:var(--dim)}
 .relationship-edges g.focus line{stroke:var(--heading);opacity:.95;stroke-width:1.6}
@@ -1439,13 +1442,14 @@ main.display-day .masthead .pane-switcher button[aria-current="page"]{border-bot
 .relationship-nodes .node-label{fill:var(--ink);font-size:var(--fs-xs);font-weight:600;paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round;pointer-events:none}
 .relationship-nodes>g.hovered .node-label,.relationship-nodes>g.selected .node-label{fill:var(--heading);font-weight:750}
 /* Indicator-type hues: the one authority for the graph, swatches, and charts (#37). */
-:root{--type-ipv4-addr:#4f9fd9;--type-ipv6-addr:#4f9fd9;--type-domain-name:#3fbf9f;--type-url:#9a86e0;--type-email-addr:#d68ab8;--type-file:#d9a24f}
+:root{--type-ipv4-addr:#4f9fd9;--type-ipv6-addr:#4f9fd9;--type-domain-name:#3fbf9f;--type-url:#9a86e0;--type-email-addr:#d68ab8;--type-file:#d9a24f;--type-vulnerability:#d9654f}
 .type-ipv4-addr circle,.swatch.type-ipv4-addr{fill:var(--type-ipv4-addr);background:var(--type-ipv4-addr)}
 .type-ipv6-addr circle,.swatch.type-ipv6-addr{fill:var(--type-ipv6-addr);background:var(--type-ipv6-addr)}
 .type-domain-name circle,.swatch.type-domain-name{fill:var(--type-domain-name);background:var(--type-domain-name)}
 .type-url circle,.swatch.type-url{fill:var(--type-url);background:var(--type-url)}
 .type-email-addr circle,.swatch.type-email-addr{fill:var(--type-email-addr);background:var(--type-email-addr)}
 .type-file circle,.swatch.type-file{fill:var(--type-file);background:var(--type-file)}
+.type-vulnerability circle,.swatch.type-vulnerability{fill:var(--type-vulnerability);background:var(--type-vulnerability)}
 .type-analyst-group circle,.swatch.type-analyst-group{fill:color-mix(in srgb,var(--dim) 30%,var(--surface));background:color-mix(in srgb,var(--dim) 30%,var(--surface))}
 .type-analyst-group circle{stroke-dasharray:3 3;stroke:var(--dim)}
 .relationship-nodes>g.neighbor circle{stroke:var(--heading);stroke-width:1.6}

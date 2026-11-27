@@ -69,6 +69,7 @@ offers the same action beside the selected node in the graph workspace.
 In Pivotglass, open **Graph** under **Visualize**.
 Drag nodes, pan or zoom, optionally filter the visible subset, pin important
 nodes in view, and collapse or expand a selected node's direct connections.
+Same-type leaves of a hub draw as one bundle node until clicked.
 Collapsed nodes remain in the exact-data inventory and exports. Open
 **Layouts**, enter a name, and choose **Save**. The presentation is stored in the active
 workspace and survives refreshes and restarts. It is included in portable

@@ -6,6 +6,7 @@ import { Chart, registerables } from "chart.js";
 
 import {
   appendGraphPresentationHistory,
+  bundleGraphLeaves,
   compileFlintChartjs,
   radarHasShape,
   exactDataExport,
@@ -1306,6 +1307,7 @@ function RelationshipGraph({
   const [labels, setLabels] = useState<Record<string, string>>({});
   const [pinned, setPinned] = useState<Set<string>>(new Set());
   const [collapsedRefs, setCollapsedRefs] = useState<Set<string>>(new Set());
+  const [expandedBundles, setExpandedBundles] = useState<Set<string>>(new Set());
   const [undoStack, setUndoStack] = useState<GraphPresentationSnapshot[]>([]);
   const [redoStack, setRedoStack] = useState<GraphPresentationSnapshot[]>([]);
   const [layoutName, setLayoutName] = useState("");
@@ -1363,27 +1365,42 @@ function RelationshipGraph({
   const [showGroups, setShowGroups] = useState(true);
   const [nodeNotes, setNodeNotes] = useState<GraphNodeNote[]>([]);
   const [notesVersion, setNotesVersion] = useState(0);
-  const degree = new Map(intent.data.nodes.map((node) => [node.reference, 0]));
-  const graphLabels = new Map(intent.data.nodes.map((node) => [node.reference, node.label]));
-  const neighbors = new Map(intent.data.nodes.map((node) => [node.reference, new Set<string>()]));
+  const exactDegree = new Map<string, number>();
   for (const edge of intent.data.edges) {
+    exactDegree.set(edge.source, (exactDegree.get(edge.source) ?? 0) + 1);
+    exactDegree.set(edge.target, (exactDegree.get(edge.target) ?? 0) + 1);
+  }
+  const normalizedQuery = query.trim().toLowerCase();
+  const matchesQuery = (node: { label: string; entity_type: string }) =>
+    node.label.toLowerCase().includes(normalizedQuery) || node.entity_type.toLowerCase().includes(normalizedQuery);
+  // Same-type leaves of a big hub draw as one aggregate (#41). Selected, pinned and
+  // filter-matched nodes always draw on their own.
+  const graph = bundleGraphLeaves(intent.data.nodes, intent.data.edges, {
+    expanded: expandedBundles,
+    label: (type, count) => `${count} ${indicatorTypeLabel(type)}`,
+    protectedReferences: new Set([
+      ...selectedRefs, ...pinned,
+      ...(normalizedQuery ? intent.data.nodes.filter(matchesQuery).map((node) => node.reference) : []),
+    ]),
+  });
+  const degree = new Map(graph.nodes.map((node) => [node.reference, 0]));
+  const graphLabels = new Map(graph.nodes.map((node) => [node.reference, node.label]));
+  const neighbors = new Map(graph.nodes.map((node) => [node.reference, new Set<string>()]));
+  for (const edge of graph.edges) {
     degree.set(edge.source, (degree.get(edge.source) ?? 0) + 1);
     degree.set(edge.target, (degree.get(edge.target) ?? 0) + 1);
     neighbors.get(edge.source)?.add(edge.target);
     neighbors.get(edge.target)?.add(edge.source);
   }
-  const normalizedQuery = query.trim().toLowerCase();
-  const ranked = [...intent.data.nodes].sort((left, right) => {
+  const ranked = [...graph.nodes].sort((left, right) => {
     const degreeDifference = (degree.get(right.reference) ?? 0) - (degree.get(left.reference) ?? 0);
     return degreeDifference || left.label.localeCompare(right.label);
   });
   const filteredCandidates = normalizedQuery
-    ? ranked.filter((node) =>
-        node.label.toLowerCase().includes(normalizedQuery)
-        || node.entity_type.toLowerCase().includes(normalizedQuery))
+    ? ranked.filter(matchesQuery)
     : ranked;
   const protectedRefs = new Set([...selectedRefs, ...pinned]);
-  const hiddenRefs = hiddenGraphReferences(intent.data.edges, collapsedRefs, protectedRefs);
+  const hiddenRefs = hiddenGraphReferences(graph.edges, collapsedRefs, protectedRefs);
   const priorityRefs = new Set([...selectedRefs, ...pinned]);
   const groupHidden = (node: { entity_type: string }) => !showGroups && node.entity_type === "analyst-group";
   const candidates = [
@@ -1399,7 +1416,7 @@ function RelationshipGraph({
   ];
   const visibleNodes = candidates.slice(0, 48);
   const visibleIds = new Set(visibleNodes.map((node) => node.reference));
-  const visibleEdges = intent.data.edges.filter(
+  const visibleEdges = graph.edges.filter(
     (edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target),
   );
   const manualEdges = visibleEdges.filter(
@@ -1445,9 +1462,9 @@ function RelationshipGraph({
   }, [width, height]);
   const selected = selectedRefs.at(-1) ?? null;
   const selectedSet = new Set(selectedRefs);
-  const selectedNode = intent.data.nodes.find((node) => node.reference === selected);
+  const selectedNode = graph.nodes.find((node) => node.reference === selected);
   const selectedNodes = selectedRefs
-    .map((reference) => intent.data.nodes.find((node) => node.reference === reference))
+    .map((reference) => graph.nodes.find((node) => node.reference === reference))
     .filter((node): node is NonNullable<typeof node> => Boolean(node));
   const markerId = `${intent.intent_id}-relationship-arrow`;
   const selectedNodeRef = selectedNode?.reference;
@@ -1524,6 +1541,11 @@ function RelationshipGraph({
 
   const selectNode = (reference: string, additive: boolean) => {
     setSelectedRefs((current) => updateGraphSelection(current, reference, additive));
+  };
+
+  const expandBundle = (reference: string) => {
+    setExpandedBundles((current) => new Set([...current, reference]));
+    setHovered(null);
   };
 
   const toggleNeighborhood = (reference: string) => {
@@ -1882,6 +1904,7 @@ function RelationshipGraph({
         <span className="graph-count">
           {visibleNodes.length} of {intent.data.nodes.length} nodes · {visibleEdges.length} edges
           {hiddenRefs.size > 0 ? ` · ${hiddenRefs.size} collapsed` : ""}
+          {graph.bundled.size > 0 ? ` · ${graph.bundled.size} bundled` : ""}
         </span>
         {intent.data.nodes.some((node) => node.entity_type === "analyst-group") && (
           <label className="graph-toggle" title="Analyst promotion groups are your bookkeeping, not adversary evidence">
@@ -1891,6 +1914,9 @@ function RelationshipGraph({
         )}
         {hiddenRefs.size > 0 && (
           <button onClick={() => { checkpointPresentation(); setCollapsedRefs(new Set()); }}>Show all connections</button>
+        )}
+        {expandedBundles.size > 0 && (
+          <button onClick={() => setExpandedBundles(new Set())} title="Draw same-type leaves of each hub as one node again">Bundle leaves</button>
         )}
         {(query || selectedRefs.length > 0 || collapsedRefs.size > 0) && (
           <button onClick={() => {
@@ -2087,12 +2113,15 @@ function RelationshipGraph({
                     node.reference === hovered ? "hovered" : "",
                     `type-${node.entity_type.replaceAll(/[^a-z0-9-]/gi, "-")}`,
                     node.known_category ? `known-${node.known_category}` : "",
+                    node.bundle ? "bundle" : "",
                   ].join(" ")}
                   role="button"
                   tabIndex={0}
-                  aria-pressed={selectedSet.has(node.reference)}
-                  aria-label={`${labels[node.reference] ?? node.label}, ${node.entity_type}, ${degree.get(node.reference) ?? 0} relationships`}
-                  onClick={(event) => selectNode(
+                  aria-pressed={node.bundle ? undefined : selectedSet.has(node.reference)}
+                  aria-label={node.bundle
+                    ? `${node.bundle.members.length} ${node.entity_type} leaves of ${graphLabels.get(node.bundle.hub) ?? node.bundle.hub}, bundled; press to expand`
+                    : `${labels[node.reference] ?? node.label}, ${node.entity_type}, ${exactDegree.get(node.reference) ?? 0} relationships`}
+                  onClick={(event) => node.bundle ? expandBundle(node.reference) : selectNode(
                     node.reference,
                     event.shiftKey || event.metaKey || event.ctrlKey,
                   )}
@@ -2104,7 +2133,8 @@ function RelationshipGraph({
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      selectNode(
+                      if (node.bundle) expandBundle(node.reference);
+                      else selectNode(
                         node.reference,
                         event.shiftKey || event.metaKey || event.ctrlKey,
                       );
@@ -2129,7 +2159,7 @@ function RelationshipGraph({
                   }}
                 >
                   <circle r={nodeRadius(node.reference)}>
-                    <title>{node.label} · {node.entity_type} · {degree.get(node.reference) ?? 0} relationships{node.known_label ? ` · known: ${node.known_label} (list match, not a verdict)` : ""}</title>
+                    <title>{node.bundle ? `${node.bundle.members.length} ${node.entity_type} with one connection each, to ${graphLabels.get(node.bundle.hub) ?? node.bundle.hub}. Click to expand.` : `${node.label} · ${node.entity_type} · ${exactDegree.get(node.reference) ?? 0} relationships`}{node.known_label ? ` · known: ${node.known_label} (list match, not a verdict)` : ""}</title>
                   </circle>
                   {labelSide.has(node.reference) && (
                     <text
@@ -2157,12 +2187,13 @@ function RelationshipGraph({
           {visibleEdges.some((edge) => edge.basis === "explicit") && <span><i className="explicit" /> Stored relationship</span>}
           {visibleEdges.some((edge) => edge.basis === "property") && <span><i className="property" /> Property pivot</span>}
           {visibleEdges.some((edge) => edge.basis === "manual") && <span><i className="manual" /> Analyst assertion or group</span>}
+          {visibleEdges.some((edge) => edge.basis === "bundle") && <span><i className="bundle" /> Bundled leaves (click to expand)</span>}
           {[...new Set(visibleNodes.map((node) => node.entity_type))].map((type) => (
             <span key={type}><b className={`swatch type-${type.replaceAll(/[^a-z0-9-]/gi, "-")}`} /> {type}</span>
           ))}
           <details>
             <summary aria-label="Graph controls help">?</summary>
-            <p>Click a node to inspect it; Shift, Command or Control adds to the selection. Drag nodes or the background, and scroll to zoom. Double-click a node to collapse or expand its direct connections. Up to 48 nodes are drawn: hubs first, then each indicator type in turn. Everything here changes presentation only.</p>
+            <p>Click a node to inspect it; Shift, Command or Control adds to the selection. Drag nodes or the background, and scroll to zoom. Double-click a node to collapse or expand its direct connections. Five or more same-type nodes whose only connection is the same hub draw as one bundle; click it to expand. Up to 48 nodes are drawn: hubs first, then each indicator type in turn. Everything here changes presentation only.</p>
           </details>
         </div>
         </div>
@@ -2173,7 +2204,7 @@ function RelationshipGraph({
             <header>
               <div>
                 <b title={selectedNode.label}>{labels[selectedNode.reference] || selectedNode.label}</b>
-                <span>{selectedNode.entity_type} · {degree.get(selectedNode.reference) ?? 0} relationships</span>
+                <span>{selectedNode.entity_type} · {exactDegree.get(selectedNode.reference) ?? 0} relationships</span>
               </div>
               <button className="icon-button" onClick={() => setSelectedRefs([])} aria-label="Clear selection" title="Clear selection (Esc)"><Icon name="close" /></button>
             </header>
@@ -2403,8 +2434,8 @@ function RelationshipGraph({
                 <tr key={node.reference}>
                   <td>{node.label}</td>
                   <td>{node.entity_type}</td>
-                  <td>{degree.get(node.reference) ?? 0}</td>
-                  <td>{hiddenRefs.has(node.reference) ? "Collapsed" : "Visible"}</td>
+                  <td>{exactDegree.get(node.reference) ?? 0}</td>
+                  <td>{graph.bundled.has(node.reference) ? "Bundled" : hiddenRefs.has(node.reference) ? "Collapsed" : "Visible"}</td>
                 </tr>
               ))}
             </tbody>

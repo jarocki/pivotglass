@@ -746,6 +746,13 @@ expand its direct connections. This changes only the bounded view: hidden
 nodes remain in the accessible inventory and exact-data export. **Show all
 connections** clears every temporary collapse.
 
+When five or more nodes of one type connect only to the same hub (an analyst
+group of 150 addresses, a domain resolving to a pool), they draw as one bundle
+node such as "47 IPv4". Click a bundle to expand it; **Bundle leaves** draws
+them as bundles again. A selected, pinned, or filter-matched node is never
+hidden in a bundle, and the accessible inventory lists bundled nodes as
+**Bundled** with their exact relationship counts. Bundles change only the view.
+
 With exactly two nodes selected, **ANNOTATED ANALYST RELATION** records a
 directional judgment from the first selection to the second. Enter a bounded
 lowercase relationship such as `possibly-controlled-by` and a required
