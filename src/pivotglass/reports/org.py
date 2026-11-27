@@ -24,6 +24,7 @@ File format for ``org import <path>`` (YAML or JSON; every section optional)::
       technology: [{vendor: Example, product: Gateway, version: "9.1.0", where: VPN edge}]
       crown_jewels: [{name: Patient records, data: [PHI], impact: critical}]
       vendors: [{name: Example Billing, service: billing SaaS, criticality: high}]
+      external_assets: [portal.example.org, 198.51.100.0/28]
       capability_benchmark: {access: 3, malware: 3, evasion: 2, movement: 3, infrastructure: 3}
     controls:
       - {technique: T1071.001, control: Proxy, visibility: 2, alerting: 1, prevention: 0,
@@ -87,6 +88,8 @@ class Profile(_Model):
     technology: tuple[Technology, ...] = ()
     crown_jewels: tuple[CrownJewel, ...] = ()
     vendors: tuple[Vendor, ...] = ()
+    # Internet-facing domains, addresses and CIDR ranges the organisation owns.
+    external_assets: tuple[str, ...] = ()
     # Self-assessed defensive maturity on the capability rubric's axes (1-5).
     capability_benchmark: dict[str, int] = Field(default_factory=dict)
 
@@ -133,8 +136,8 @@ class EnvEdge(_Model):
 
 
 class Environment(_Model):
-    nodes: tuple[EnvNode, ...] = ()
-    edges: tuple[EnvEdge, ...] = ()
+    nodes: tuple[EnvNode, ...] = Field(default=(), max_length=500)
+    edges: tuple[EnvEdge, ...] = Field(default=(), max_length=2000)
 
     @model_validator(mode="after")
     def _connected(self) -> Environment:

@@ -72,3 +72,21 @@ def test_forensic_timeline_and_dwell_times(wm):
 def test_control_command_validates(wm):
     with pytest.raises(ValueError, match="Usage: report control"):
         execute_report_command("control delivery stopped | x", wm)
+
+
+def test_attack_scenarios_stay_bounded_on_a_wide_and_gate():
+    import time
+
+    from pivotglass.reports.elements.behavioral import MAX_SCENARIOS, attack_scenarios
+    from pivotglass.reports.org import Environment
+
+    entries = [{"id": f"e{i}", "label": f"e{i}", "kind": "entry"} for i in range(30)]
+    mids = [{"id": f"m{j}", "label": f"m{j}"} for j in range(6)]
+    env = Environment.model_validate({
+        "nodes": [*entries, *mids, {"id": "goal", "label": "goal", "kind": "objective", "gate": "AND"}],
+        "edges": [{"source": f"e{i}", "target": f"m{j}"} for i in range(30) for j in range(6)]
+        + [{"source": f"m{j}", "target": "goal"} for j in range(6)],
+    })
+    started = time.monotonic()
+    found = attack_scenarios(env, "goal")
+    assert len(found) <= MAX_SCENARIOS and time.monotonic() - started < 5  # 30**6 combinations uncapped

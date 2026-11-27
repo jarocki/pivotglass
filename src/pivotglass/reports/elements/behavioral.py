@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime
-from itertools import product
+from itertools import islice, product
 from typing import Any
 
 from pivotglass.reports.contract import CONTROL_STATUS_DEFINITIONS, OutputFormat, ProvenanceClass
@@ -181,9 +181,11 @@ def attack_scenarios(env: Any, objective: str) -> list[frozenset[str]]:
         else:
             options = [solve(p, seen | {node}) for p in incoming[node]]
             if n.gate == "AND":
-                result = [frozenset({node}).union(*combo) for combo in product(*options)] if all(options) else []
+                # Cap while combining: the full product of several large inputs is exponential.
+                combos = islice(product(*options), MAX_SCENARIOS * 4) if all(options) else ()
+                result = [frozenset({node}).union(*combo) for combo in combos]
             else:
-                result = [s | {node} for opt in options for s in opt]
+                result = [s | {node} for opt in options for s in opt[:MAX_SCENARIOS]]
         result = sorted(set(result), key=lambda s: (len(s), sorted(s)))[:MAX_SCENARIOS]
         memo[node] = result
         return result
@@ -284,6 +286,10 @@ def build_choke_points(context: ReportContext) -> ElementResult:
             for n, c in counts.items() if total and c / total >= 0.5  # noqa: PLR2004
         ]
     rows.sort(key=lambda r: (-r["share"], r["label"]))
+    capped = [labels[o] for o, sc in content["scenarios"].items() if len(sc) >= MAX_SCENARIOS]
+    cap_gap = [f"Enumeration stopped at {MAX_SCENARIOS} ways for {', '.join(capped)}; shares are approximate."] if capped else []
+    if rows and cap_gap:
+        return spec.result(ElementStatus.PARTIAL, {"choke_points": rows}, gaps=cap_gap)
     if not rows:
         return spec.result(ElementStatus.EMPTY, {"choke_points": []}, gaps=["No node lies on at least half the ways to the objective."])
     return spec.result(ElementStatus.COMPLETE, {"choke_points": rows})
