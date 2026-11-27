@@ -1409,7 +1409,10 @@ class WebCockpitService:
                 "text": result["text"],
                 "filename": result["filename"],
                 "printable": True,
-                "report": {key: result[key] for key in ("report_id", "version", "status", "marking", "complete", "missing_required")},
+                "report": {
+                    key: result[key]
+                    for key in ("type_id", "subject", "report_id", "version", "status", "marking", "complete", "missing_required")
+                },
             }
         if command == "analysis":
             result = execute_analysis_command(tuple(rest.split()), self.ctx.workspace_mgr)

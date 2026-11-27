@@ -6,7 +6,7 @@ Type 10 · Analytical and attribution · `actor-capability-radar` · ID prefix `
 
 Compare an actor's capability across defined axes, and optionally against the organisation's own defensive maturity on the same axes.
 
-**Status:** Defined, not built yet. Its sections arrive with #55, #59; until then `report actor-capability-radar` explains what is missing and renders nothing.
+**Status:** Built: `report actor-capability-radar` renders it.
 
 **Use it when:** Prioritising actors, briefing leadership on capability, or choosing what to test in a purple-team exercise.
 
@@ -28,8 +28,8 @@ In order. A required section with no content makes the report **Incomplete**, an
 |---:|---|---|---|---|---|
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Capability rubric (`capability_rubric`) | yes | Method | reports/rubrics | #55 |
-| 4 | Capability scores (`capability_radar`) | yes | Analyst | analyst scores against the rubric | #55 |
+| 3 | Capability rubric (`capability_rubric`) | yes | Method | reports/rubrics.py | built |
+| 4 | Capability scores (`capability_radar`) | yes | Analyst | actor claims (capability:<axis>), capability rubric | built |
 | 5 | Defence benchmark (`defense_benchmark`) | optional | Organisation input | organisation profile (#59) | #59 |
 | 6 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 7 | Sources (`sources`) | yes | Method | module runs | built |
@@ -38,8 +38,8 @@ In order. A required section with no content makes the report **Incomplete**, an
 
 - **Report header.** Report ID, version, status, marking, audience, requirement, validity and producer.
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
-- **Capability rubric.** The axes and the definition of each level 1 to 5 on each axis, so scores are comparable between actors and analysts.
-- **Capability scores.** One score per axis with its citations and confidence, rendered as a radar chart and a table.
+- **Capability rubric.** The axes and the definition of each level 1 to 5, so scores are comparable.
+- **Capability scores.** One score per rubric axis with its citations and confidence, for a radar chart and a table.
 - **Defence benchmark.** The organisation's self-assessed level on the same axes, shown against the actor's scores. Absent until supplied; never estimated.
 - **Gaps and limitations.** Recorded knowledge gaps and limitations, plus every element that came back empty or partial.
 - **Sources.** Every collection source that ran, with run and object counts and its Admiralty rating.

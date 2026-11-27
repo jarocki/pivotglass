@@ -1044,6 +1044,7 @@ main>.guided-help-layer{position:fixed;z-index:19000;top:12px;left:12px;width:mi
 .report-controls label{display:grid;gap:3px;font-size:.85em;min-width:0}
 .report-controls select{min-width:0;width:100%}
 .report-purpose{opacity:.85}
+.report-actor{display:grid;gap:3px;font-size:.85em}.report-actor input{min-width:0}
 .report-buttons{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .report-buttons input{flex:1 1 220px;min-width:0}
 @media (max-width:640px){.report-controls{grid-template-columns:1fr 1fr}.report-controls label:first-child{grid-column:1/-1}}

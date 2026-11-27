@@ -22,6 +22,7 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from pivotglass.reports.claims import ACTOR_SCOPED
 from pivotglass.reports.contract import TYPE_CODE_PATTERN, OutputFormat, Pap, Tlp
 from pivotglass.reports.elements import load_builtin_elements
 from pivotglass.reports.elements.common import MANDATORY_ELEMENTS
@@ -130,9 +131,15 @@ class ReportType(BaseModel):
 
     @property
     def planned_elements(self) -> tuple[str, ...]:
-        """Elements of this type whose builders do not exist yet (reports/elements/planned.py)."""
+        """Required elements of this type whose builders do not exist yet (reports/elements/planned.py)."""
 
-        return tuple(item.id for item in self.elements if item.id in PLANNED)
+        return tuple(item.id for item in self.elements if item.id in PLANNED and item.required)
+
+    @property
+    def planned_optional(self) -> tuple[str, ...]:
+        """Optional elements not built yet: the type renders without them and says so in its gaps."""
+
+        return tuple(item.id for item in self.elements if item.id in PLANNED and not item.required)
 
     @property
     def available(self) -> bool:
@@ -217,6 +224,7 @@ def report_type_summaries() -> list[dict[str, Any]]:
             "purpose": t.purpose,
             "use_when": t.use_when,
             "available": t.available,
+            "actor_scoped": any(item.id in ACTOR_SCOPED for item in t.elements),
             "building_issues": list(t.building_issues),
             "formats": [f.value for f in t.formats],
             "default_marking": {"tlp": t.default_marking.tlp.value, "pap": t.default_marking.pap.value},

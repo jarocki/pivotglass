@@ -6,7 +6,7 @@ Type 2 · Strategic and executive · `strategic-threat-landscape` · ID prefix `
 
 Summarise how the threat to the organisation changed over a period and forecast the next six to twelve months, with scenarios and the signposts that would show each one unfolding.
 
-**Status:** Defined, not built yet. Its sections arrive with #53, #54, #55; until then `report strategic-threat-landscape` explains what is missing and renders nothing.
+**Status:** Defined, not built yet. Its sections arrive with #53, #54; until then `report strategic-threat-landscape` explains what is missing and renders nothing.
 
 **Use it when:** Quarterly or annual planning, board reporting, and security-strategy reviews. Pivotglass collection sees infrastructure and indicators, not geopolitics or the wider market, so most of this report is analyst judgment; the gaps section says so.
 
@@ -29,7 +29,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
 | 3 | Period and coverage (`period_scope`) | yes | Method | module runs, observations | #53 |
-| 4 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses | #55 |
+| 4 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses | built |
 | 5 | Macro trends (`macro_trends`) | yes | Analyst + Model draft + Evidence | framework mappings over the period | #53 |
 | 6 | Sector and regional targeting (`sector_targeting`) | yes | Organisation input + Evidence | organisation profile (#59), victimology | #53 |
 | 7 | Emerging techniques (`emerging_ttps`) | optional | Analyst + Evidence | framework mappings | #53 |

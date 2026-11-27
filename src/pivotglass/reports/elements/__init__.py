@@ -67,9 +67,11 @@ class ReportContext:
     workspace_mgr: WorkspaceManager
     now: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     header: ReportHeader | None = None
+    subject: str | None = None  # e.g. "actor:Example Spider" for an actor-scoped report
     options: dict[str, dict[str, Any]] = field(default_factory=dict)
     results: dict[str, ElementResult] = field(default_factory=dict)
     load_errors: list[str] = field(default_factory=list)
+    omitted: list[str] = field(default_factory=list)  # optional sections not built yet
     _cache: dict[str, Any] = field(default_factory=dict)
 
     def _load(self, key: str, label: str, loader: Callable[[], Any], empty: Any) -> Any:
@@ -173,6 +175,51 @@ class ReportContext:
         return self._load("notes", "analyst notes", load, [])
 
 
+    @property
+    def observations(self) -> list[dict[str, Any]]:
+        return self._load("observations", "evidence observations", self.workspace_mgr.get_observations, [])
+
+    @property
+    def mappings(self) -> list[Any]:
+        def load() -> list[Any]:
+            from pivotglass.core.framework_projections import FrameworkProjectionAuthority
+
+            return FrameworkProjectionAuthority(self.workspace_mgr).list()
+
+        return self._load("mappings", "framework mappings", load, [])
+
+    @property
+    def graph(self) -> Any:
+        def load() -> Any:
+            from pivotglass.core.graph_repository import WorkspaceGraphRepository
+
+            return WorkspaceGraphRepository(self.workspace_mgr).snapshot()
+
+        return self._load("graph", "the investigation graph", load, None)
+
+    @property
+    def clusters(self) -> tuple[Any, ...]:
+        def load() -> tuple[Any, ...]:
+            from pivotglass.core.evidence_clusters import build_evidence_clusters
+
+            return build_evidence_clusters(self.workspace_mgr)
+
+        return self._load("clusters", "evidence clusters", load, ())
+
+    @property
+    def attack_catalog(self) -> Any:
+        """The pinned ATT&CK content if the operator installed it; ``None`` (not an error) if absent."""
+
+        def load() -> Any:
+            from pivotglass.core.framework_commands import default_attack_catalog_path
+            from pivotglass.core.framework_perspectives import AttackCatalog
+
+            path = default_attack_catalog_path()
+            return AttackCatalog.from_path(path) if path.is_file() else None
+
+        return self._load("attack_catalog", "the pinned ATT&CK content", load, None)
+
+
 Builder = Callable[[ReportContext], "ElementResult"]
 MarkdownRenderer = Callable[[ElementResult, OutputFormat], str]
 
@@ -250,7 +297,7 @@ def build_element(spec: ElementSpec, context: ReportContext) -> ElementResult:
 def load_builtin_elements() -> dict[str, ElementSpec]:
     """Import the built-in element modules so their builders register."""
 
-    from pivotglass.reports.elements import common, investigation  # noqa: F401
+    from pivotglass.reports.elements import analytical, common, investigation  # noqa: F401
     from pivotglass.reports.elements.planned import PLANNED
 
     both = sorted(set(PLANNED) & set(ELEMENTS))

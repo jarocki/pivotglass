@@ -849,6 +849,15 @@ Briefing to the Defensive Coverage Assessment, are defined in the
 [report reference](reports/README.md); a type whose sections are not built yet
 is listed but will not render, and the picker shows which issue builds it.
 
+**Actor reports.** The Threat Actor Profile and the Actor Capability Radar read
+analyst claims about an actor, recorded as
+`analysis claim judgment actor:<name> <predicate> <value> | <basis>` (for
+example `alias`, `motivation`, `targets-sector`, `campaign`, `uses-malware`, or
+`capability:malware 4`). Link evidence to each claim so the report can cite it.
+If more than one actor has claims, name one: `report threat-actor-profile
+actor:<name>`. The [report reference](reports/README.md#analyst-claims) lists
+every predicate and the capability rubric's axes.
+
 Structured technique runs retain their recorded inputs and outputs in the report,
 alongside the actual analyst disposition. A completed run may still be pending
 review. These are authored analytical records; field completeness does not

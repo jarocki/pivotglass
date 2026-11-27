@@ -24,6 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from pivotglass import __version__
+from pivotglass.reports.claims import ACTOR_SCOPED, actor_name, resolve_subject
 from pivotglass.reports.contract import (
     REPORT_ID_PATTERN,
     Pap,
@@ -43,6 +44,7 @@ from pivotglass.reports.elements import (
     load_builtin_elements,
 )
 from pivotglass.reports.elements.common import LATE_ELEMENTS
+from pivotglass.reports.elements.planned import PLANNED
 from pivotglass.reports.registry import ReportType, get_report_type
 
 if TYPE_CHECKING:
@@ -58,6 +60,7 @@ class Report(BaseModel):
 
     format: str = REPORT_FORMAT
     type_id: str
+    subject: str | None = None
     header: ReportHeader
     elements: tuple[ElementResult, ...]
     complete: bool
@@ -90,28 +93,41 @@ def build_report(
     now: datetime | None = None,
     tlp: Tlp | None = None,
     pap: Pap | None = None,
+    subject: str | None = None,
     _issue: _Issue | None = None,
 ) -> Report:
-    """Build a report from the workspace's current authorities. Reads only; never writes."""
+    """Build a report from the workspace's current authorities. Reads only; never writes.
+
+    ``subject`` names the actor (``actor:<name>``) for actor-scoped types; when
+    omitted and exactly one actor has claims, that actor is used.
+    """
 
     report_type = get_report_type(type_id, buildable=True)
     load_builtin_elements()
     context = ReportContext(workspace_mgr, now=now or datetime.now(timezone.utc))
+    if subject or any(item.id in ACTOR_SCOPED for item in report_type.elements):
+        context.subject = resolve_subject(context.analysis, subject)
     context.options = {item.id: dict(item.options) for item in report_type.elements}
     for item in report_type.elements:
-        if item.id not in LATE_ELEMENTS:
+        if item.id in report_type.planned_optional:
+            planned = PLANNED[item.id]
+            context.omitted.append(f"{planned.title} is optional and not built yet (#{planned.issue}).")
+        elif item.id not in LATE_ELEMENTS:
             context.results[item.id] = build_element(ELEMENTS[item.id], context)
     context.results["sources"] = build_element(ELEMENTS["sources"], context)
     context.results["gaps_limitations"] = build_element(ELEMENTS["gaps_limitations"], context)
     context.header = _header(report_type, context, tlp, pap, _issue)
     context.results["header"] = build_element(ELEMENTS["header"], context)
 
-    ordered = tuple(context.results[item.id] for item in report_type.elements)
+    ordered = tuple(context.results[item.id] for item in report_type.elements if item.id in context.results)
     missing = tuple(
-        item.id for item in report_type.elements if item.required and context.results[item.id].status is ElementStatus.EMPTY
+        item.id
+        for item in report_type.elements
+        if item.required and item.id in context.results and context.results[item.id].status is ElementStatus.EMPTY
     )
     return Report(
         type_id=report_type.id,
+        subject=context.subject,
         header=context.header,
         elements=ordered,
         complete=not missing,
@@ -143,7 +159,7 @@ def _header(
     return ReportHeader(
         report_id=issue.report_id if issue else None,
         type_id=report_type.id,
-        title=report_type.title,
+        title=f"{report_type.title}: {actor_name(context.subject)}" if context.subject else report_type.title,
         version=issue.version if issue else 0,
         status=issue.status if issue else ReportStatus.DRAFT,
         issued_at=context.now,
@@ -173,6 +189,7 @@ def issue_report(
     summary: str | None = None,
     tlp: Tlp | None = None,
     pap: Pap | None = None,
+    subject: str | None = None,
     issued_by: str = "human",
     now: datetime | None = None,
 ) -> Report:
@@ -182,18 +199,25 @@ def issue_report(
 
     report_type = get_report_type(type_id, buildable=True)
     now = now or datetime.now(timezone.utc)
-    preview = build_report(workspace_mgr, report_type.id, now=now, tlp=tlp, pap=pap)
+    preview = build_report(workspace_mgr, report_type.id, now=now, tlp=tlp, pap=pap, subject=subject)
     if status is ReportStatus.FINAL and preview.pending_model_drafts:
         raise ValueError(
             f"{preview.pending_model_drafts} model draft(s) are pending analyst review; issue as DRAFT or review them first"
         )
     investigation_id = _investigation_id(workspace_mgr)
     with _session(workspace_mgr) as session:
-        latest = session.scalars(
-            select(ReportIssue)
-            .where(ReportIssue.type_id == report_type.id, ReportIssue.investigation_id == investigation_id)
-            .order_by(ReportIssue.issued_at.desc(), ReportIssue.version.desc())
-        ).first()
+        latest = next(
+            (
+                row
+                for row in session.scalars(
+                    select(ReportIssue)
+                    .where(ReportIssue.type_id == report_type.id, ReportIssue.investigation_id == investigation_id)
+                    .order_by(ReportIssue.issued_at.desc(), ReportIssue.version.desc())
+                )
+                if row.payload.get("subject") == preview.subject
+            ),
+            None,
+        )
         if latest is None:
             report_id = format_report_id(report_type.code, now.year, _next_sequence(session, report_type.code, now.year))
             previous: tuple[Revision, ...] = ()
@@ -219,7 +243,7 @@ def issue_report(
             tlp=marking_tlp,
             pap=marking_pap,
         )
-        report = build_report(workspace_mgr, report_type.id, now=now, _issue=issue)
+        report = build_report(workspace_mgr, report_type.id, now=now, subject=preview.subject, _issue=issue)
         session.add(
             ReportIssue(
                 id=f"report-issue-{uuid.uuid4()}",

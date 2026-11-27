@@ -6,7 +6,7 @@ Type 9 · Analytical and attribution · `ach-attribution-matrix` · ID prefix `P
 
 Test competing explanations of who is responsible against the evidence, and record which explanation survives, why the others were rejected, and how fragile the result is.
 
-**Status:** Defined, not built yet. Its sections arrive with #55; until then `report ach-attribution-matrix` explains what is missing and renders nothing.
+**Status:** Built: `report ach-attribution-matrix` renders it.
 
 **Use it when:** Two or more hypotheses compete, or an attribution will be published. Built from an Analysis of Competing Hypotheses method run in the analytic ledger.
 
@@ -27,10 +27,10 @@ In order. A required section with no content makes the report **Incomplete**, an
 |---:|---|---|---|---|---|
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Competing hypotheses (`ach_hypotheses`) | yes | Analyst | analytic ledger hypotheses | #55 |
-| 4 | ACH matrix (`ach_matrix`) | yes | Analyst + Method | analysis_of_competing_hypotheses method runs | #55 |
-| 5 | ACH judgment (`ach_judgment`) | yes | Analyst + Method | analysis_of_competing_hypotheses method runs | #55 |
-| 6 | Signposts (`signposts`) | yes | Analyst | indicators_and_signposts method runs, signpost lifecycle items | #55 |
+| 3 | Competing hypotheses (`ach_hypotheses`) | yes | Analyst | analytic ledger hypotheses | built |
+| 4 | ACH matrix (`ach_matrix`) | yes | Analyst + Method | analytic ledger evidence links | built |
+| 5 | ACH judgment (`ach_judgment`) | yes | Analyst + Method | ACH matrix, analysis_of_competing_hypotheses method runs | built |
+| 6 | Signposts (`signposts`) | yes | Analyst | signpost lifecycle items, indicators_and_signposts method runs | built |
 | 7 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 8 | Sources (`sources`) | yes | Method | module runs | built |
 
@@ -38,10 +38,10 @@ In order. A required section with no content makes the report **Incomplete**, an
 
 - **Report header.** Report ID, version, status, marking, audience, requirement, validity and producer.
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
-- **Competing hypotheses.** The full hypothesis set, always including an unattributed or new actor and a deception (false-flag) hypothesis, each stated so evidence can be inconsistent with it.
+- **Competing hypotheses.** The full hypothesis set, including an unattributed actor and a deception hypothesis, each falsifiable.
 - **ACH matrix.** Work across rows, not down columns: score each piece of evidence against every hypothesis before the next. Evidence consistent with all hypotheses has low diagnosticity and is kept, but weighs little.
-- **ACH judgment.** The least-inconsistent hypothesis with likelihood and confidence, why each alternative was rejected, and a sensitivity check naming the evidence that would change the result if it were wrong or deceptive.
-- **Signposts.** Observable future developments that would raise or lower a judgment, with who watches for them.
+- **ACH judgment.** The least-inconsistent hypothesis with likelihood and confidence, the tallies of the others, a sensitivity check, and the recorded ACH run when one exists.
+- **Signposts.** Observable future developments that would raise or lower a judgment.
 - **Gaps and limitations.** Recorded knowledge gaps and limitations, plus every element that came back empty or partial.
 - **Sources.** Every collection source that ran, with run and object counts and its Admiralty rating.
 

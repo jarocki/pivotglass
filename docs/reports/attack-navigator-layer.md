@@ -6,7 +6,7 @@ Type 13 · Attack flow and behavioral · `attack-navigator-layer` · ID prefix `
 
 Show the techniques an actor or campaign uses as an ATT&CK Navigator layer, scored by how well each is evidenced, with the procedure behind each one.
 
-**Status:** Defined, not built yet. Its sections arrive with #55, #56; until then `report attack-navigator-layer` explains what is missing and renders nothing.
+**Status:** Defined, not built yet. Its sections arrive with #56; until then `report attack-navigator-layer` explains what is missing and renders nothing.
 
 **Use it when:** Comparing actors, planning detection coverage, or scoping an emulation. Only accepted framework mappings are included.
 
@@ -29,7 +29,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
 | 3 | ATT&CK Navigator layer (`navigator_layer`) | yes | Method | accepted mappings, pinned ATT&CK v19.2 | #56 |
-| 4 | ATT&CK techniques and procedures (`attack_matrix`) | yes | Evidence | accepted framework mappings, pinned ATT&CK Enterprise v19.2 | #55 |
+| 4 | ATT&CK techniques and procedures (`attack_matrix`) | yes | Evidence | accepted framework mappings, pinned ATT&CK Enterprise v19.2 | built |
 | 5 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 6 | Sources (`sources`) | yes | Method | module runs | built |
 
@@ -38,7 +38,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 - **Report header.** Report ID, version, status, marking, audience, requirement, validity and producer.
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
 - **ATT&CK Navigator layer.** A layer 4.5 file for Navigator 5.3.2 and ATT&CK 19.2: score is the number of independently sourced procedures, colour is a single gradient, and each comment carries the procedure and its citation.
-- **ATT&CK techniques and procedures.** Tactic, technique ID and name, and the observed procedure, from accepted mappings only, against the pinned ATT&CK release.
+- **ATT&CK techniques and procedures.** Tactic, technique ID and name, and the observed procedure, from accepted mappings against the pinned release.
 - **Gaps and limitations.** Recorded knowledge gaps and limitations, plus every element that came back empty or partial.
 - **Sources.** Every collection source that ran, with run and object counts and its Admiralty rating.
 

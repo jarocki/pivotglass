@@ -4,7 +4,7 @@ Grammar::
 
     report [generate]                        preview the investigation report (Markdown)
     report types                             list report types
-    report <type> [markdown|json|stix] [tlp:<x>] [pap:<x>]
+    report <type> [actor:<name>] [markdown|json|stix] [tlp:<x>] [pap:<x>]
                                              preview one type in one format
     report issue <type> [draft|final] [tlp:<x>] [pap:<x>] [| <change summary>]
                                              issue the next version and record it
@@ -26,12 +26,15 @@ from pivotglass.reports.registry import DEFAULT_TYPE, get_report_type, report_ty
 from pivotglass.reports.render import render
 
 REPORT_USAGE = (
-    "Usage: report [types | <type> [markdown|json|stix] [tlp:<marking>] [pap:<marking>] | "
-    "issue <type> [draft|final] [tlp:<marking>] [pap:<marking>] [| <change summary>] | "
+    "Usage: report [types | <type> [actor:<name>] [markdown|json|stix] [tlp:<marking>] [pap:<marking>] | "
+    "issue <type> [actor:<name>] [draft|final] [tlp:<marking>] [pap:<marking>] [| <change summary>] | "
     "history [<type>] | open <report-id> [<version>] [markdown|json|stix]]"
 )
-_MIME = {OutputFormat.MARKDOWN: "text/markdown", OutputFormat.JSON: "application/json", OutputFormat.STIX: "application/json"}
-_EXTENSION = {OutputFormat.MARKDOWN: "md", OutputFormat.JSON: "json", OutputFormat.STIX: "stix.json"}
+_MIME = {
+    OutputFormat.MARKDOWN: "text/markdown", OutputFormat.JSON: "application/json",
+    OutputFormat.STIX: "application/json", OutputFormat.MERMAID: "text/vnd.mermaid",
+}
+_EXTENSION = {OutputFormat.MARKDOWN: "md", OutputFormat.JSON: "json", OutputFormat.STIX: "stix.json", OutputFormat.MERMAID: "mmd"}
 
 
 def _options(words: list[str]) -> tuple[list[str], dict[str, Any]]:
@@ -48,10 +51,12 @@ def _options(words: list[str]) -> tuple[list[str], dict[str, Any]]:
                 choices = ", ".join(m.value for m in enum)
                 raise ValueError(f"{enum.__name__.upper()} must be one of {choices}, not {value!r}")
             found[lower[:3]] = enum(value)
-        elif lower in {f.value for f in (OutputFormat.MARKDOWN, OutputFormat.JSON, OutputFormat.STIX)}:
+        elif lower in {f.value for f in _EXTENSION}:
             found["format"] = OutputFormat(lower)
         elif lower in {"draft", "final"}:
             found["status"] = ReportStatus(lower.upper())
+        elif lower.startswith("actor:"):
+            found["subject"] = word
         else:
             rest.append(word)
     return rest, found
@@ -68,6 +73,8 @@ def _rendered(report: Any, output: OutputFormat, workspace: str) -> dict[str, An
         "text": render(report, output),
         "filename": f"{name}.{_EXTENSION[output]}",
         "mime": _MIME[output],
+        "type_id": report.type_id,
+        "subject": report.subject,
         "report_id": header.report_id,
         "version": header.version,
         "status": header.status.value,
@@ -114,6 +121,7 @@ def execute_report_command(text: str | tuple[str, ...], workspace_mgr: Any) -> d
             summary=summary.strip() or None,
             tlp=opts.get("tlp"),
             pap=opts.get("pap"),
+            subject=opts.get("subject"),
         )
         result = _rendered(report, OutputFormat.MARKDOWN, workspace)
         result["title"] = f"Issued {report.header.report_id} v{report.header.version} ({report.header.status.value})"
@@ -123,5 +131,7 @@ def execute_report_command(text: str | tuple[str, ...], workspace_mgr: Any) -> d
     if summary.strip() or "status" in opts or len(rest) > 1:
         raise ValueError(REPORT_USAGE)
     report_type = get_report_type(rest[0]) if rest else get_report_type(DEFAULT_TYPE)
-    report = build_report(workspace_mgr, report_type.id, tlp=opts.get("tlp"), pap=opts.get("pap"))
+    report = build_report(
+        workspace_mgr, report_type.id, tlp=opts.get("tlp"), pap=opts.get("pap"), subject=opts.get("subject")
+    )
     return _rendered(report, opts.get("format", OutputFormat.MARKDOWN), workspace)

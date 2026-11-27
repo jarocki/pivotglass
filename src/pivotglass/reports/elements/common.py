@@ -303,6 +303,7 @@ def build_gaps_limitations(context: ReportContext) -> ElementResult:
         for result in context.results.values()
         for gap in result.gaps
     ]
+    report_gaps += [{"element": None, "status": "omitted", "gap": note} for note in context.omitted]
     content = {
         "knowledge_gaps": pick("knowledge_gap"),
         "limitations": pick("limitation"),

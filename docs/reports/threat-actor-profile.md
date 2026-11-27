@@ -6,7 +6,7 @@ Type 7 · Analytical and attribution · `threat-actor-profile` · ID prefix `PG-
 
 A maintained reference on one actor: who it is, what it wants, whom it targets, how its operations have changed, what it uses, how its infrastructure behaves, and which techniques it uses.
 
-**Status:** Defined, not built yet. Its sections arrive with #55; until then `report threat-actor-profile` explains what is missing and renders nothing.
+**Status:** Built: `report threat-actor-profile` renders it.
 
 **Use it when:** An actor recurs in investigations or is named in a requirement. Reissue it as the dossier grows; the revision history records each change.
 
@@ -28,14 +28,14 @@ In order. A required section with no content makes the report **Incomplete**, an
 |---:|---|---|---|---|---|
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Actor identity (`actor_identity`) | yes | Evidence + Analyst | dossier Identity slot, Nucleotide aliases | #55 |
-| 4 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses | #55 |
-| 5 | Motivation and objectives (`motivation`) | yes | Evidence + Analyst | dossier Motivation slot | #55 |
-| 6 | Victimology (`victimology`) | yes | Evidence + Analyst | dossier Targeting slot | #55 |
-| 7 | Historical timeline (`historical_timeline`) | yes | Evidence | dossier Timing slot, observations | #55 |
-| 8 | Arsenal and tooling (`arsenal`) | yes | Evidence | dossier Capability slot, malware and tool observations | #55 |
-| 9 | Infrastructure and OPSEC patterns (`infra_opsec`) | yes | Evidence + Method | registration, hosting, certificate and naming observations | #55 |
-| 10 | ATT&CK techniques and procedures (`attack_matrix`) | yes | Evidence | accepted framework mappings, pinned ATT&CK Enterprise v19.2 | #55 |
+| 3 | Actor identity (`actor_identity`) | yes | Evidence + Analyst | actor claims (alias, mitre-group, origin) | built |
+| 4 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses | built |
+| 5 | Motivation and objectives (`motivation`) | yes | Evidence + Analyst | actor claims (motivation) | built |
+| 6 | Victimology (`victimology`) | yes | Evidence + Analyst | actor claims (targets-sector, targets-region) | built |
+| 7 | Historical timeline (`historical_timeline`) | yes | Evidence | actor claims (campaign), observations | built |
+| 8 | Arsenal and tooling (`arsenal`) | yes | Evidence + Analyst | actor claims (uses-malware, uses-tool), file observations | built |
+| 9 | Infrastructure and OPSEC patterns (`infra_opsec`) | yes | Evidence + Method | STIX objects | built |
+| 10 | ATT&CK techniques and procedures (`attack_matrix`) | yes | Evidence | accepted framework mappings, pinned ATT&CK Enterprise v19.2 | built |
 | 11 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 12 | Sources (`sources`) | yes | Method | module runs | built |
 
@@ -43,14 +43,14 @@ In order. A required section with no content makes the report **Incomplete**, an
 
 - **Report header.** Report ID, version, status, marking, audience, requirement, validity and producer.
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
-- **Actor identity.** The tracked name, every alias with the organisation that uses it, the MITRE group ID when one exists, and any sponsorship or origin assessment stated as a judgment, not a fact.
+- **Actor identity.** The tracked name, every alias with who uses it, the MITRE group ID when one exists, and any origin or sponsorship assessment stated as a judgment.
 - **Key judgments.** Origin or sponsorship, objectives and expected next activity, each with likelihood, separate confidence and basis.
-- **Motivation and objectives.** What the actor is trying to achieve (financial, espionage, disruption, ideology), with the evidence for it and the alternative motivations considered.
-- **Victimology.** Targeted sectors, regions, organisation sizes and roles, each with its source and period.
+- **Motivation and objectives.** financial, espionage, disruption, ideology or other; the statement gives the basis.
+- **Victimology.** Targeted sectors and regions, each with its basis and citations.
 - **Historical timeline.** Dated campaigns, tooling changes and disruptions, oldest first, each with a citation.
-- **Arsenal and tooling.** Custom malware, dual-use and living-off-the-land tools, with first and last observed use.
-- **Infrastructure and OPSEC patterns.** Repeated choices in registration, hosting, certificates, naming and timing, and the OPSEC mistakes that make the infrastructure trackable; each pattern names how often it was seen.
-- **ATT&CK techniques and procedures.** Tactic, technique ID and name, and the observed procedure, from accepted mappings only, against the pinned ATT&CK release.
+- **Arsenal and tooling.** Malware families and dual-use tools attributed by claim, and the files collected.
+- **Infrastructure and OPSEC patterns.** Attributes shared by two or more collected objects (TLD, registrar, name server, ASN, hosting, certificate issuer), with how often each was seen.
+- **ATT&CK techniques and procedures.** Tactic, technique ID and name, and the observed procedure, from accepted mappings against the pinned release.
 - **Gaps and limitations.** Recorded knowledge gaps and limitations, plus every element that came back empty or partial.
 - **Sources.** Every collection source that ran, with run and object counts and its Admiralty rating.
 

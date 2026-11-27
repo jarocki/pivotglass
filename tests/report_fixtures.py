@@ -119,3 +119,100 @@ def build_rich_workspace(root: Path, name: str = "case") -> WorkspaceManager:
         },
     )
     return wm
+
+
+ACTOR = "actor:Example-Spider"
+
+
+def build_analytical_workspace(root: Path, name: str = "case") -> WorkspaceManager:
+    """The rich workspace plus what domain-3 reports read: actor claims, mappings, ACH links, signposts."""
+
+    from pivotglass.core.analytic_ledger import (
+        AnalyticLedger,
+        AssertionType,
+        ConfidenceLevel,
+        EvidenceStance,
+        LifecycleItemType,
+        LikelihoodTerm,
+    )
+    from pivotglass.core.framework_projections import (
+        Framework,
+        FrameworkProjectionAuthority,
+        MappingOrigin,
+        MappingState,
+    )
+
+    wm = build_rich_workspace(root, name)
+    wm.store_stix_objects(
+        [
+            {"type": "domain-name", "value": "cdn.example.net", "ip": "192.0.2.44", "registrar": "Example Registrar"},
+            {"type": "domain-name", "value": "mail.example.net", "ip": "192.0.2.44", "registrar": "Example Registrar"},
+        ],
+        module_name="osint/passive_dns",
+        target="192.0.2.44",
+    )
+    ledger = AnalyticLedger(wm)
+    obs = {o["entity_value"]: o["id"] for o in wm.get_observations()}
+
+    def claim(predicate: str, value: str, statement: str, *, cite: str | None = None, kind=AssertionType.JUDGMENT) -> str:
+        assertion = ledger.create_assertion(statement, assertion_type=kind, subject_ref=ACTOR, predicate=predicate, object_value=value)
+        if cite:
+            ledger.link_evidence(source_kind="observation", source_id=obs[cite], target_kind="assertion", target_id=assertion,
+                                 stance=EvidenceStance.SUPPORTS, rationale="cited in the claim")
+        return assertion
+
+    claim("alias", "Example Spider", "Name used by Vendor A in its public reporting.", cite="c2.example.net")
+    claim("mitre-group", "G9999", "Illustrative group ID for the fixture.")
+    origin = claim("origin", "unknown-state", "Operations align with one state's working hours.", cite="c2.example.net")
+    ledger.assess_likelihood(target_kind="assertion", target_id=origin, term=LikelihoodTerm.UNLIKELY, rationale="Timing only.")
+    claim("motivation", "financial", "Ransom notes and a leak site.", cite="https://login.example.com/c2")
+    claim("targets-sector", "healthcare", "Two victims in hospital groups.", cite="operator@mail.example")
+    claim("targets-region", "Western Europe", "Victims in two EU states.", cite="operator@mail.example")
+    claim("campaign", "2026-03", "First observed loader campaign.", cite="c2.example.net")
+    claim("uses-malware", "ExampleLoader", "Custom loader seen in both intrusions.", cite="c2.example.net")
+    claim("uses-tool", "rclone", "Used for exfiltration.")
+    for axis, score in (("access", 3), ("malware", 4), ("evasion", 3)):
+        scored = claim(f"capability:{axis}", str(score), f"{axis} assessed from the loader analysis.", cite="c2.example.net")
+        ledger.assess_confidence(
+            target_kind="assertion", target_id=scored, level=ConfidenceLevel.MODERATE, rationale="One analysed sample.",
+            factors={"source_quality": "sample", "source_independence": "one", "corroboration": "none",
+                     "assumptions": [], "knowledge_gaps": [], "analytic_rigor": "rubric"},
+        )
+
+    hypotheses = {row["statement"]: row["id"] for row in ledger.snapshot()["hypotheses"]}
+    common, tenants = hypotheses["A common operator controls the infrastructure."], hypotheses["Unrelated tenants share a hosting reseller."]
+    question = ledger.snapshot()["questions"][0]["id"]
+    deception = ledger.create_hypothesis(question, "Another actor staged the overlap as a false flag.")
+    for value, target, stance in (
+        ("c2.example.net", common, EvidenceStance.SUPPORTS),
+        ("c2.example.net", tenants, EvidenceStance.CONTRADICTS),
+        ("192.0.2.44", common, EvidenceStance.SUPPORTS),
+        ("192.0.2.44", tenants, EvidenceStance.SUPPORTS),
+        ("192.0.2.44", deception, EvidenceStance.SUPPORTS),
+        ("operator@mail.example", deception, EvidenceStance.CONTRADICTS),
+    ):
+        ledger.link_evidence(source_kind="observation", source_id=obs[value], target_kind="hypothesis", target_id=target,
+                             stance=stance, rationale="fixture link")
+    investigation = ledger.active_investigation()["id"]
+    ledger.add_lifecycle_item(investigation, LifecycleItemType.SIGNPOST, "The same certificate appears on a new host.")
+
+    authority = FrameworkProjectionAuthority(wm)
+
+    def mapping(framework, version, content_id, label, refs, basis):
+        m = authority.propose(
+            framework=framework, framework_version=version, content_id=content_id, content_label=label,
+            evidence_refs=refs, basis=basis, mapper="fixture", mapper_version="1", origin=MappingOrigin.HUMAN,
+            confidence=ConfidenceLevel.MODERATE, confidence_rationale="fixture",
+        )
+        authority.disposition(m.id, MappingState.ACCEPTED)
+
+    mapping(Framework.ATTACK, "19.2", "T1071.001", "Web Protocols", [obs["https://login.example.com/c2"]], "HTTPS beacon to the C2 URL.")
+    mapping(Framework.KILL_CHAIN, "lockheed-martin-2011", "command-and-control", "Command and Control", [obs["c2.example.net"]], "C2 domain.")
+    for vertex, value, ref in (
+        ("infrastructure", "c2.example.net", "c2.example.net"),
+        ("adversary", "Example Spider", "c2.example.net"),
+        ("infrastructure", "192.0.2.44", "192.0.2.44"),
+        ("victim", "hospital-group", "192.0.2.44"),
+    ):
+        mapping(Framework.DIAMOND, "diamond-model-1.0", f"diamond:{vertex}:{value}", vertex, [obs[ref]], f"{vertex} from {ref}")
+    return wm

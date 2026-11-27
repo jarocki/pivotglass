@@ -6,7 +6,7 @@ Type 5 · Operational and incident · `campaign-intrusion-analysis` · ID prefix
 
 The complete account of one campaign or intrusion set: when it ran, whom it targeted, how it worked end to end, the infrastructure and tools behind it, who is likely responsible, and what to change.
 
-**Status:** Defined, not built yet. Its sections arrive with #54, #55; until then `report campaign-intrusion-analysis` explains what is missing and renders nothing.
+**Status:** Defined, not built yet. Its sections arrive with #54; until then `report campaign-intrusion-analysis` explains what is missing and renders nothing.
 
 **Use it when:** After an alert has been worked, or when an intrusion set has enough evidence for a full account. Attribution here is a judgment; the ACH Attribution Matrix holds the test behind it.
 
@@ -29,13 +29,13 @@ In order. A required section with no content makes the report **Incomplete**, an
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
 | 3 | Threat summary (`threat_summary`) | yes | Model draft + Analyst | cited observations | #54 |
-| 4 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses | #55 |
+| 4 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses | built |
 | 5 | Campaign timeline (`campaign_timeline`) | yes | Evidence + Method | observations | #54 |
-| 6 | Victimology (`victimology`) | yes | Evidence + Analyst | dossier Targeting slot | #55 |
+| 6 | Victimology (`victimology`) | yes | Evidence + Analyst | actor claims (targets-sector, targets-region) | built |
 | 7 | Attack narrative (`attack_narrative`) | yes | Model draft + Analyst | collection timeline, framework mappings | #54 |
 | 8 | Infrastructure (`infrastructure_breakdown`) | yes | Evidence | ASN, hosting, certificate and passive DNS observations | #54 |
-| 9 | Arsenal and tooling (`arsenal`) | yes | Evidence | dossier Capability slot, malware and tool observations | #55 |
-| 10 | ATT&CK techniques and procedures (`attack_matrix`) | optional | Evidence | accepted framework mappings, pinned ATT&CK Enterprise v19.2 | #55 |
+| 9 | Arsenal and tooling (`arsenal`) | yes | Evidence + Analyst | actor claims (uses-malware, uses-tool), file observations | built |
+| 10 | ATT&CK techniques and procedures (`attack_matrix`) | optional | Evidence | accepted framework mappings, pinned ATT&CK Enterprise v19.2 | built |
 | 11 | Recommendations (`recommendations`) | yes | Analyst | analyst | #54 |
 | 12 | Indicators of compromise (`ioc_table`) | yes | Evidence | STIX objects | built |
 | 13 | Detection and hunt pointers (`detection_pointers`) | optional | Method | issued reports | #54 |
@@ -49,11 +49,11 @@ In order. A required section with no content makes the report **Incomplete**, an
 - **Threat summary.** The campaign in three sentences - period, victims, objective - and the main defensive takeaway.
 - **Key judgments.** Attribution and objective, each with likelihood, separate confidence and basis; reference the ACH matrix if one was issued.
 - **Campaign timeline.** First and last observed activity and the phases in between, computed from sourced observations.
-- **Victimology.** Targeted sectors, regions, organisation sizes and roles, each with its source and period.
+- **Victimology.** Targeted sectors and regions, each with its basis and citations.
 - **Attack narrative.** Phase by phase from initial access to actions on objectives, each step with ATT&CK IDs and citations. State gaps; do not bridge them.
 - **Infrastructure.** Hosting providers and ASNs, certificate traits, resolution history and the role of each component (delivery, staging, C2, exfiltration).
 - **Arsenal and tooling.** Malware families and tools used in this campaign, with capability and first and last use.
-- **ATT&CK techniques and procedures.** Tactic, technique ID and name, and the observed procedure, from accepted mappings only, against the pinned ATT&CK release.
+- **ATT&CK techniques and procedures.** Tactic, technique ID and name, and the observed procedure, from accepted mappings against the pinned release.
 - **Recommendations.** Remediation and hardening steps, each with an owner and due date, in priority order.
 - **Indicators of compromise.** The campaign's full indicator set; the JSON and STIX renderings are the machine-readable appendix.
 - **Detection and hunt pointers.** References to issued detection bundles, hunting packages and Navigator layers for this activity.

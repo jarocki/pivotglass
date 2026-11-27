@@ -52,7 +52,24 @@ def render(report: Report, output: OutputFormat | str = OutputFormat.MARKDOWN) -
         return json.dumps(report.model_dump(mode="json"), indent=2, ensure_ascii=False)
     if output is OutputFormat.STIX:
         return json.dumps(render_stix(report), indent=2, ensure_ascii=False)
+    if output is OutputFormat.MERMAID:
+        return render_mermaid(report)
     raise ValueError(f"no renderer for {output.value} yet")
+
+
+def render_mermaid(report: Report) -> str:
+    """Mermaid for the graph-shaped types: the infrastructure graph, or Diamond events and threads."""
+
+    from pivotglass.reports.elements.analytical import mermaid_diamond, mermaid_infra_graph
+
+    graph = report.element("infra_graph")
+    if graph is not None:
+        return mermaid_infra_graph(graph.content)
+    events = report.element("diamond_events")
+    if events is not None:
+        threads = report.element("activity_threads")
+        return mermaid_diamond(events.content.get("events", []), threads.content.get("links", []) if threads else [])
+    raise ValueError(f"{report.type_id} has no graph to draw")
 
 
 def render_markdown(report: Report) -> str:

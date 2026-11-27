@@ -6,7 +6,7 @@ Type 8 · Analytical and attribution · `diamond-model-analysis` · ID prefix `P
 
 Decompose intrusion events into adversary, capability, infrastructure and victim, show how events connect into activity threads, and expose which vertices are known and which are inferred.
 
-**Status:** Defined, not built yet. Its sections arrive with #55; until then `report diamond-model-analysis` explains what is missing and renders nothing.
+**Status:** Built: `report diamond-model-analysis` renders it.
 
 **Use it when:** Structuring an intrusion for pivoting and comparison, or preparing evidence for attribution. One report may hold several events.
 
@@ -28,8 +28,8 @@ In order. A required section with no content makes the report **Incomplete**, an
 |---:|---|---|---|---|---|
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Diamond events (`diamond_events`) | yes | Evidence + Analyst | Diamond framework projection | #55 |
-| 4 | Activity threads (`activity_threads`) | yes | Evidence + Method | Diamond framework projection | #55 |
+| 3 | Diamond events (`diamond_events`) | yes | Evidence + Analyst | Diamond framework mappings, observations, Kill Chain mappings | built |
+| 4 | Activity threads (`activity_threads`) | yes | Evidence + Method | Diamond events | built |
 | 5 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 6 | Sources (`sources`) | yes | Method | module runs | built |
 
@@ -38,7 +38,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 - **Report header.** Report ID, version, status, marking, audience, requirement, validity and producer.
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
 - **Diamond events.** One block per event. An unknown vertex is written as unknown with the collection that would fill it; it is never guessed.
-- **Activity threads.** How events connect: the analytic pivot between each pair, whether it is an observed link or an inference, and the resulting activity group.
+- **Activity threads.** How events connect: the shared vertex between each pair, observed or inferred, and the resulting activity groups.
 - **Gaps and limitations.** Recorded knowledge gaps and limitations, plus every element that came back empty or partial.
 - **Sources.** Every collection source that ran, with run and object counts and its Admiralty rating.
 

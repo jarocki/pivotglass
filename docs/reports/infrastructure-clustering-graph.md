@@ -6,7 +6,7 @@ Type 11 · Analytical and attribution · `infrastructure-clustering-graph` · ID
 
 Show how domains, addresses, certificates and files connect, which clusters they form, and which shared attributes are worth pivoting on next.
 
-**Status:** Defined, not built yet. Its sections arrive with #55; until then `report infrastructure-clustering-graph` explains what is missing and renders nothing.
+**Status:** Built: `report infrastructure-clustering-graph` renders it.
 
 **Use it when:** Mapping an actor's or campaign's infrastructure, or deciding where to pivot next. Built from the investigation graph Pivotglass already maintains.
 
@@ -28,9 +28,9 @@ In order. A required section with no content makes the report **Incomplete**, an
 |---:|---|---|---|---|---|
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Infrastructure graph (`infra_graph`) | yes | Evidence + Method | investigation graph, evidence clusters | #55 |
-| 4 | Pivot points (`pivot_points`) | yes | Method | investigation graph | #55 |
-| 5 | Infrastructure and OPSEC patterns (`infra_opsec`) | optional | Evidence + Method | registration, hosting, certificate and naming observations | #55 |
+| 3 | Infrastructure graph (`infra_graph`) | yes | Evidence + Method | investigation graph, evidence clusters, observations | built |
+| 4 | Pivot points (`pivot_points`) | yes | Method | investigation graph | built |
+| 5 | Infrastructure and OPSEC patterns (`infra_opsec`) | optional | Evidence + Method | STIX objects | built |
 | 6 | Indicators of compromise (`ioc_table`) | optional | Evidence | STIX objects | built |
 | 7 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 8 | Sources (`sources`) | yes | Method | module runs | built |
@@ -39,9 +39,9 @@ In order. A required section with no content makes the report **Incomplete**, an
 
 - **Report header.** Report ID, version, status, marking, audience, requirement, validity and producer.
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
-- **Infrastructure graph.** Nodes (type, value, first and last seen, source), edges (relationship, time bounds, evidence, confidence) and cluster boundaries with the clustering method.
-- **Pivot points.** The shared attributes (certificate, registrant, name server, hosting, naming pattern) that join nodes into clusters, ranked by how many nodes each joins and how distinctive it is.
-- **Infrastructure and OPSEC patterns.** Repeated choices in registration, hosting, certificates, naming and timing, and the OPSEC mistakes that make the infrastructure trackable; each pattern names how often it was seen.
+- **Infrastructure graph.** Entities, connections with truth class, time bounds and evidence, and cluster boundaries with the method.
+- **Pivot points.** Entities that join two or more others, ranked by how many they join, with the relationships involved.
+- **Infrastructure and OPSEC patterns.** Attributes shared by two or more collected objects (TLD, registrar, name server, ASN, hosting, certificate issuer), with how often each was seen.
 - **Indicators of compromise.** Every collected indicator, with its type and first-seen date.
 - **Gaps and limitations.** Recorded knowledge gaps and limitations, plus every element that came back empty or partial.
 - **Sources.** Every collection source that ran, with run and object counts and its Admiralty rating.
