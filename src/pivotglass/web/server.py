@@ -76,6 +76,7 @@ from pivotglass.core.geolocation import GeoDatabase
 from pivotglass.core.graph import RelationshipGraph, persisted_relationships
 from pivotglass.core.graph_presentation import GraphPresentationAuthority
 from pivotglass.core.indicator_context import IndicatorContextAuthority, document_relations
+from pivotglass.core.indicator_export import export_indicators
 from pivotglass.core.indicator_notes import add_indicator_note, indicator_notes
 from pivotglass.core.indicator_tags import IndicatorTagAuthority, dimension_catalog
 from pivotglass.core.information_requirements import build_information_requirements
@@ -824,6 +825,28 @@ class WebCockpitService:
                 indicators, current_occurrence_id=occurrence
             )
         return {"workspace": self.ctx.workspace_mgr.active, "context": context}
+
+    def export_indicator_set(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Export the focus-mode filtered set as CSV or STIX (#33, DEC-INDICATOR-EXPORT-001)."""
+
+        raw = payload.get("indicators")
+        if not isinstance(raw, list):
+            raise ValueError("indicators must be a list")
+        indicators = [
+            (str(item.get("entity_type") or ""), str(item.get("normalized_value") or ""))
+            for item in raw
+            if isinstance(item, dict)
+        ]
+        with self._command_lock:
+            self._check_document_workspace(payload)
+            return export_indicators(
+                self.ctx.workspace_mgr,
+                indicators,
+                output=str(payload.get("format") or ""),
+                defanged=bool(payload.get("defanged")),
+                source_label=str(payload.get("source_label") or "")[:256],
+                occurrence_id=str(payload.get("occurrence_id") or "").strip() or None,
+            )
 
     def document_pdf_source(self, occurrence_id: str) -> bytes:
         """Return verified stored bytes for PDF rendering; other formats are refused."""
@@ -2392,6 +2415,7 @@ def _handler(
                     "/api/documents/candidates/admit",
                     "/api/tags",
                     "/api/indicators/context",
+                    "/api/indicators/export",
                     "/api/analysis/propose-hypotheses",
                     "/api/advisor/voice",
                     "/api/integrations/scot/pivot-request",
@@ -2426,7 +2450,7 @@ def _handler(
                     else 256 * 1024
                     if parsed.path == "/api/documents/candidates/admit"
                     else 1024 * 1024
-                    if parsed.path in {"/api/tags", "/api/indicators/context"}
+                    if parsed.path in {"/api/tags", "/api/indicators/context", "/api/indicators/export"}
                     else 16_384
                 )
                 if length > request_limit:
@@ -2500,6 +2524,9 @@ def _handler(
                         self._json(service.propose_hypotheses(payload), HTTPStatus.CREATED)
                     except RuntimeError as exc:
                         self._json({"error": str(exc)}, HTTPStatus.BAD_GATEWAY)
+                    return
+                if parsed.path == "/api/indicators/export":
+                    self._json(service.export_indicator_set(payload))
                     return
                 if parsed.path == "/api/indicators/context":
                     self._json(service.indicator_context(payload))

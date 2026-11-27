@@ -1605,3 +1605,7 @@ article.model-proposal>span{color:var(--inference, var(--accent))}
 .detail-drawer .annotation-list li{padding:6px 8px;border-left:2px solid var(--accent);background:var(--surface)}
 .detail-drawer .annotation-list li p{margin:0;color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
 .detail-drawer .annotation-list time{color:var(--dim);font-size:var(--fs-xs)}
+/* Focus-mode export of the filtered list (#33). */
+.focus-export{position:relative;display:inline-flex}
+.focus-export-menu{position:absolute;top:calc(100% + 4px);right:0;z-index:5;display:grid;gap:2px;min-width:180px;padding:4px;border:1px solid var(--line);border-radius:6px;background:var(--elevated);box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.focus-export-menu button{text-align:left;white-space:nowrap}

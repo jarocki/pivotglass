@@ -572,6 +572,7 @@ Focus mode is keyboard-first:
 | `a` | Admit the selection, or the focused indicator when nothing is selected |
 | `c` | Copy the focused indicator exactly as stored |
 | `y` / `Y` | Copy the selection (or the focused indicator) one per line, defanged / exactly as stored |
+| `e` | Export the indicators the list shows (after the filter) as CSV, defanged or live, or as a STIX 2.1 bundle. CSV columns: value, type, role, tactic, cluster, other tags, source document, observed by, first seen. STIX values are never defanged; tags, source and first seen travel as `x_pivotglass_*` properties, and values with no valid STIX form are left out and counted |
 | `t` | Tag the selection or the focused indicator |
 | `g` | Cycle grouping: source order, type, then each tag dimension |
 | `/` | Filter by value, type, or `dimension:value` such as `role:c2` |

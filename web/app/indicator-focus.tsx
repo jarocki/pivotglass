@@ -70,6 +70,7 @@ export function IndicatorFocus({
   const [located, setLocated] = useState<Record<string, boolean>>({});
   const [tagError, setTagError] = useState("");
   const [copyNotice, setCopyNotice] = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
   useEffect(() => { if (!copyNotice) return; const timer = window.setTimeout(() => setCopyNotice(""), 2400); return () => window.clearTimeout(timer); }, [copyNotice]);
   const rootRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLInputElement>(null);
@@ -165,11 +166,38 @@ export function IndicatorFocus({
     } catch { setCopyNotice("Clipboard is not available in this browser context."); }
   }, [focusKey, targets, byKey]);
 
+  /** e exports the filtered set (what the list shows) as CSV or STIX (#33). */
+  const exportSet = useCallback(async (format: "csv" | "stix", defanged: boolean) => {
+    setExportOpen(false);
+    rootRef.current?.focus();
+    if (!order.length) return;
+    try {
+      const response = await fetch("/api/indicators/export", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expected_workspace: workspace, occurrence_id: source.occurrenceId ?? null, format, defanged,
+          source_label: source.filename, indicators: order.map((item) => ({ entity_type: item.entityType, normalized_value: item.value })) }),
+      });
+      const result = await response.json() as { text?: string; media_type?: string; extension?: string; count?: number; skipped?: string[]; error?: string };
+      if (!response.ok || result.text === undefined) throw new Error(result.error ?? "Export failed.");
+      const url = URL.createObjectURL(new Blob([result.text], { type: result.media_type }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${source.filename.replace(/\.[^.]+$/, "").replace(/[^\w.-]+/g, "_") || "indicators"}-indicators.${result.extension}`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      const skipped = result.skipped?.length ? `; ${result.skipped.length} without a STIX form left out` : "";
+      setCopyNotice(`Exported ${result.count} indicators as ${format === "csv" ? `CSV${defanged ? ", defanged" : ""}` : "STIX 2.1"}${skipped}`);
+    } catch (reason) {
+      setCopyNotice(reason instanceof Error ? reason.message : "Export failed.");
+    }
+  }, [order, workspace, source.occurrenceId, source.filename]);
+
   const onKeyDown = (event: React.KeyboardEvent) => {
     const typing = (event.target as HTMLElement).closest("input,textarea,select");
     if (event.key === "Escape") {
       event.preventDefault();
       if (palette) setPalette(false);
+      else if (exportOpen) { setExportOpen(false); rootRef.current?.focus(); }
       else if (typing) (event.target as HTMLElement).blur();
       else if (hover?.pinned) setHover(null);
       else onClose();
@@ -188,6 +216,7 @@ export function IndicatorFocus({
       else if (key === "y") void copy("selection", true);
       else if (key === "Y") void copy("selection", false);
       else if (key === "t") setPalette(true);
+      else if (key === "e") setExportOpen(true);
       else if (key === "i" && focusKey) setHover((current) => current?.pinned ? null : { key: focusKey, ...anchorPoint(listRef.current, focusKey), pinned: true });
       else if (key === "/") filterRef.current?.focus();
       else if (key === "g") setGrouping((current) => { const options = ["source", "type", ...dimensions.map((item) => item.name)]; return options[(options.indexOf(current) + 1) % options.length]; });
@@ -236,6 +265,14 @@ export function IndicatorFocus({
       <button className="primary" disabled={busy || (!selectionCount && !focusKey)} onClick={() => void admit()}>
         {busy ? "Saving…" : selectionCount ? `Admit ${selectionCount}` : "Admit current"}
       </button>
+      <span className="focus-export">
+        <button aria-expanded={exportOpen} aria-haspopup="menu" disabled={!order.length} title="Export the filtered list (e)" onClick={() => setExportOpen((current) => !current)}>Export {order.length}</button>
+        {exportOpen && <span className="focus-export-menu" role="menu" aria-label={`Export ${order.length} filtered indicators`}>
+          <button role="menuitem" autoFocus onClick={() => void exportSet("csv", true)}>CSV, defanged</button>
+          <button role="menuitem" onClick={() => void exportSet("csv", false)}>CSV, live values</button>
+          <button role="menuitem" onClick={() => void exportSet("stix", false)} title="STIX values are never defanged">STIX 2.1 bundle</button>
+        </span>}
+      </span>
       <button aria-label="Close focus mode" onClick={onClose}>✕</button>
     </header>
     {(status || contextError || tagError || copyNotice) && <p className="focus-notice" role="status">{[copyNotice, status, contextError, tagError].filter(Boolean).join(" · ")}</p>}
@@ -258,7 +295,7 @@ export function IndicatorFocus({
           </li>)}
           {!order.length && <li className="focus-empty">{indicators.length ? "No indicators match this filter." : "No indicators were found in this source."}</li>}
         </ol>
-        <p className="focus-keys" aria-label="Keyboard shortcuts"><span><kbd>j</kbd><kbd>k</kbd> move</span><span><kbd>n</kbd><kbd>p</kbd> mention</span><span><kbd>space</kbd> select</span><span><kbd>a</kbd> admit</span><span><kbd>c</kbd> copy</span><span><kbd>y</kbd> copy list</span><span><kbd>t</kbd> tag</span><span><kbd>i</kbd> details</span><span><kbd>g</kbd> group</span><span><kbd>/</kbd> filter</span><span><kbd>↵</kbd> investigate</span><span><kbd>esc</kbd> close</span></p>
+        <p className="focus-keys" aria-label="Keyboard shortcuts"><span><kbd>j</kbd><kbd>k</kbd> move</span><span><kbd>n</kbd><kbd>p</kbd> mention</span><span><kbd>space</kbd> select</span><span><kbd>a</kbd> admit</span><span><kbd>c</kbd> copy</span><span><kbd>y</kbd> copy list</span><span><kbd>e</kbd> export</span><span><kbd>t</kbd> tag</span><span><kbd>i</kbd> details</span><span><kbd>g</kbd> group</span><span><kbd>/</kbd> filter</span><span><kbd>↵</kbd> investigate</span><span><kbd>esc</kbd> close</span></p>
       </section>
       <section className="focus-source" aria-label={`Source: ${source.filename}`}>
         {focused && <div className="focus-source-head">
