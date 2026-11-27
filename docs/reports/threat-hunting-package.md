@@ -29,7 +29,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
 | 3 | Hunt hypothesis (`hunt_hypothesis`) | yes | Analyst | report section text, analytic ledger hypotheses |
 | 4 | Threat context (`threat_context`) | yes | Evidence + Analyst | report section text, actor claims |
-| 5 | Required data sources (`hunt_data_sources`) | yes | Method | indicator types |
+| 5 | Required data sources (`hunt_data_sources`) | yes | Method | indicator types, ATT&CK data components |
 | 6 | Hunt queries (`hunt_queries`) | yes | Method | indicators |
 | 7 | Expected baseline and false positives (`baseline_false_positives`) | yes | Analyst | report section text |
 | 8 | Triage and escalation (`triage_playbook`) | yes | Analyst | report section text |
@@ -43,7 +43,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
 - **Hunt hypothesis.** A testable statement of adversary behaviour in this environment, with the ATT&CK technique and what result would refute it, alongside the investigation's hypotheses.
 - **Threat context.** Who uses the behaviour and why existing alerts may miss it: analyst text and the actors with claims.
-- **Required data sources.** The log sources each indicator type needs, with examples, and the hunt's time window.
+- **Required data sources.** The log sources each indicator type needs, the ATT&CK data components for the mapped techniques, and the hunt's time window.
 - **Hunt queries.** SPL, KQL and EQL generated from the indicators, untested until a validation is recorded.
 - **Expected baseline and false positives.** Legitimate activity that matches the queries and how to exclude it without blinding the hunt.
 - **Triage and escalation.** What to check for each hit and the threshold for escalating to incident response.

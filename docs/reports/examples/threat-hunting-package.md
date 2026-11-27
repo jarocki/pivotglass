@@ -150,7 +150,7 @@ _The hunt has not been run or its outcome is not recorded (`report outcome <supp
 
 - Hunt hypothesis: No hunt hypothesis is written; the investigation's hypotheses are listed for reference. (empty)
 - Threat context: No analyst text explains why existing alerts may miss this behaviour. (partial)
-- Required data sources: Data sources come from indicator types only; ATT&CK data components for the mapped techniques are not derived yet. (partial)
+- Required data sources: ATT&CK data components need the pinned ATT&CK content, which is not installed. (partial)
 - Hunt queries: 6 query(ies) not tested. (partial)
 - Expected baseline and false positives: Not written yet (`report write baseline_false_positives \| <legitimate matches and how to exclude them>`). (empty)
 - Triage and escalation: Not written yet (`report write triage_playbook \| <checks per hit and when to escalate>`). (empty)

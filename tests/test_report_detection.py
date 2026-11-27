@@ -159,3 +159,21 @@ def test_crafted_values_cannot_inject_rule_options(tmp_path):
     with pytest.raises(ValueError):
         _content("a\nb")
     assert _yara_string('a"b\nc\x01') == 'a\\"b\\nc\\x01'
+
+
+def test_hunt_data_sources_name_attack_data_components_when_content_is_installed(wm, tmp_path, monkeypatch):
+    """The hunt cites ATT&CK data components for mapped techniques, or says the content is missing."""
+    from pivotglass.reports.elements import ReportContext
+    from tests.test_framework_perspectives import _catalog
+
+    without = build_report(wm, "threat-hunting-package").element("hunt_data_sources")
+    techniques = [c["technique_id"] for c in without.content["data_components"]]
+    assert techniques == [] and any("not installed" in g for g in without.gaps)
+
+    (tmp_path / "attack").mkdir()
+    catalog = _catalog(tmp_path / "attack")
+    monkeypatch.setattr(ReportContext, "attack_catalog", property(lambda self: catalog))
+    with_catalog = build_report(wm, "threat-hunting-package").element("hunt_data_sources")
+    rows = {c["technique_id"]: c["components"] for c in with_catalog.content["data_components"]}
+    assert rows and not any("not installed" in g for g in with_catalog.gaps)
+    assert all(isinstance(components, list) for components in rows.values())

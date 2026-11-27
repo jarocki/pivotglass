@@ -207,6 +207,11 @@ def _sources_md(result: ElementResult, output: OutputFormat) -> str:
         return "\n".join([*lines, "_No indicators to hunt for._"])
     lines += ["| Data | Example log sources | Needed for |", "|---|---|---|"]
     lines += [f"| {r['data']} | {r['examples']} | {r['count']} {r['kind']} indicator(s) |" for r in rows]
+    components = result.content.get("data_components", [])
+    if components:
+        lines += ["", "ATT&CK data components that can observe the mapped techniques:", "",
+                  "| Technique | Data components |", "|---|---|"]
+        lines += [f"| {c['technique_id']} | {', '.join(f'{d} {n}' for d, n in c['components']) or 'none listed in ATT&CK'} |" for c in components]
     lines += ["", f"_Time window: the last {result.content['lookback_days']} days._"]
     return "\n".join(lines)
 
@@ -215,9 +220,9 @@ def _sources_md(result: ElementResult, output: OutputFormat) -> str:
     "hunt_data_sources",
     "Required data sources",
     (M,),
-    ("indicator types",),
+    ("indicator types", "ATT&CK data components"),
     markdown=_sources_md,
-    description="The log sources each indicator type needs, with examples, and the hunt's time window.",
+    description="The log sources each indicator type needs, the ATT&CK data components for the mapped techniques, and the hunt's time window.",
     options=("lookback_days",),
 )
 def build_hunt_data_sources(context: ReportContext) -> ElementResult:
@@ -225,10 +230,22 @@ def build_hunt_data_sources(context: ReportContext) -> ElementResult:
     kinds = blockable(context)
     rows = [{"kind": k, "data": _DATA_SOURCES[k][0], "examples": _DATA_SOURCES[k][1], "count": len(v)} for k, v in sorted(kinds.items())]
     spec = _spec("hunt_data_sources")
-    gaps = ["Data sources come from indicator types only; ATT&CK data components for the mapped techniques are not derived yet."]
-    if not rows:
-        return spec.result(ElementStatus.EMPTY, {"sources": [], "lookback_days": lookback}, gaps=["No huntable indicators."])
-    return spec.result(ElementStatus.PARTIAL, {"sources": rows, "lookback_days": lookback}, gaps=gaps)
+    techniques = sorted({m.content_id for m in context.mappings if m.framework.value == "attack" and m.state.value == "accepted"})
+    catalog = context.attack_catalog
+    components = [
+        {"technique_id": t, "components": [(d.attack_id, d.name) for d in catalog.data_components_for(t)]}
+        for t in techniques
+    ] if catalog is not None else []
+    gaps = []
+    if techniques and catalog is None:
+        gaps.append("ATT&CK data components need the pinned ATT&CK content, which is not installed.")
+    elif not techniques:
+        gaps.append("No accepted ATT&CK mapping, so no data components are derived.")
+    content = {"sources": rows, "data_components": components, "lookback_days": lookback}
+    if not rows and not components:
+        return spec.result(ElementStatus.EMPTY, content, gaps=["No huntable indicators.", *gaps])
+    return spec.result(ElementStatus.PARTIAL if gaps or not rows else ElementStatus.COMPLETE, content,
+                       gaps=gaps or ([] if rows else ["No huntable indicators."]))
 
 
 def _q(values: list[str]) -> str:
