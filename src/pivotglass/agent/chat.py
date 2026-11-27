@@ -889,6 +889,11 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
                 "Request free or paid hints",
             )
             help_table.add_row(
+                "pivot",
+                "pivot <indicator> [depth:1-3] [budget:1-200] / pivot status|stop|skip|focus|unfocus|add",
+                "Bounded multi-hop pivot run; Ctrl-C stops it after the current request",
+            )
+            help_table.add_row(
                 "autopivot",
                 "autopivot [on|off]",
                 "Toggle event-bus auto-pivot",

@@ -220,24 +220,40 @@ class PivotTrailAuthority:
             session.commit()
             return event_id
 
-    def record_indicator(self, value: str, *, action: str = "investigated") -> str:
+    def indicator_ref(self, value: str) -> tuple[str, bool]:
+        """Return the stored object id for *value* (or a stable unresolved ref) and whether it resolved."""
         normalized = value.strip()
         with self._workspace.get_session() as session:
             match = session.execute(
                 select(StixObject).where(StixObject.value == normalized).limit(1)
             ).scalar_one_or_none()
-        record_ref = (
-            match.id
-            if match is not None
-            else f"unresolved-indicator:{hashlib.sha256(normalized.encode()).hexdigest()[:24]}"
-        )
+        if match is not None:
+            return match.id, True
+        return f"unresolved-indicator:{hashlib.sha256(normalized.encode()).hexdigest()[:24]}", False
+
+    def record_indicator(
+        self,
+        value: str,
+        *,
+        action: str = "investigated",
+        basis: str = "Explicit analyst investigation action in Pivotglass.",
+        created_by: str = "human",
+        from_value: str | None = None,
+    ) -> str:
+        normalized = value.strip()
+        record_ref, resolved = self.indicator_ref(normalized)
+        from_ref = self.indicator_ref(from_value)[0] if from_value else None
         return self.record(
             to_kind="indicator",
             to_ref=record_ref,
             to_label=normalized,
             action=action,
-            basis="Explicit analyst investigation action in Pivotglass.",
-            provenance_refs=(record_ref,) if match is not None else (),
+            basis=basis,
+            provenance_refs=(record_ref,) if resolved else (),
+            from_kind="indicator" if from_value else None,
+            from_ref=from_ref,
+            from_label=from_value.strip() if from_value else None,
+            created_by=created_by,
         )
 
     def list_groups(self) -> list[dict[str, Any]]:

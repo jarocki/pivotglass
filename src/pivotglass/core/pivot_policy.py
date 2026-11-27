@@ -333,6 +333,11 @@ class PivotPolicy:
         self._cascade_count = 0
         self._session_count = 0
 
+    @property
+    def session_count(self) -> int:
+        """Pivots allowed so far in this session (read-only view of the budget gate's counter)."""
+        return self._session_count
+
     # ------------------------------------------------------------------
     # Gate implementations
     # ------------------------------------------------------------------

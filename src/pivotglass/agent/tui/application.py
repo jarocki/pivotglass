@@ -823,6 +823,8 @@ class TuiApplication:
           (invoked by the ``clear`` verb).
         - ``_event_bus``: EventBus for publishing TargetChanged events
           (invoked by the ``use <ioc>`` verb).
+        - ``_pivot_listener``: narrates a background ``pivot`` run into the
+          scrollback; its presence is what makes the verb run in the background.
 
         LivePane satisfies ``_StatusHook`` so tool-activity phrases flow to the
         live pane during LLM tool calls without the runner importing Rich.
@@ -844,6 +846,9 @@ class TuiApplication:
         # permanently on the runner class (duck-typed injection pattern).
         self._runner._scrollback_clear = self._scrollback.clear  # type: ignore[attr-defined]
         self._runner._event_bus = self._event_bus  # type: ignore[attr-defined]
+        # Pivot runs (DEC-PIVOT-RUN-001) execute in the background and narrate
+        # their progress into the scrollback, one line per meaningful event.
+        self._runner._pivot_listener = self._emit_pivot_event  # type: ignore[attr-defined]
 
         # Never run network/LLM work on prompt_toolkit's render thread. Apart
         # from freezing repaint and completion, the old synchronous call made
@@ -1144,6 +1149,13 @@ class TuiApplication:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    def _emit_pivot_event(self, event: dict) -> None:
+        from pivotglass.modules.pivoting.commands import format_event
+
+        line = format_event(event)
+        if line:
+            self.emit_scrollback(line)
 
     def emit_scrollback(self, text: str) -> None:
         """Append *text* to the scrollback buffer (thread-safe).

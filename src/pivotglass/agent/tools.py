@@ -144,6 +144,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import threading
 from typing import Any
 
 from rich.console import Console  # DEC-ERROR-ROUTING-004: ToolContext.console injection
@@ -320,6 +321,12 @@ class ToolContext:
             )
         )
         self.autopivot_enabled: bool = False
+        # Serializes run_module across threads (see run_module).
+        self.execution_lock = threading.RLock()
+        # One bounded multi-hop pivot run per workspace (DEC-PIVOT-RUN-001).
+        from pivotglass.modules.pivoting.run import PivotRunRegistry
+
+        self.pivot_runs: PivotRunRegistry = PivotRunRegistry()
 
         # Register module subscriptions from DEFAULT_SUBSCRIPTIONS so the event
         # bus knows which modules to cascade-trigger for each STIX type.
@@ -329,8 +336,27 @@ class ToolContext:
             callback = self._make_cascade_callback(module_path)
             self.event_bus.register_module_subscriptions(module_path, stix_types, callback)
 
-    def run_module(  # noqa: PLR0912
-        self, module_path: str, target: str, options: dict | None = None
+    def run_module(
+        self, module_path: str, target: str, options: dict | None = None, *, cascade: bool = True
+    ) -> dict:
+        """Run one module through the evidence path, one caller at a time.
+
+        ``cascade=False`` suppresses the event-bus auto-pivot cascade for this
+        call regardless of the ``autopivot`` toggle. The bounded pivot run
+        (``modules/pivoting``, DEC-PIVOT-RUN-001) passes it so that the run is
+        the only thing that chooses the next hop: a run with autopivot on must
+        not also cascade underneath itself.
+
+        Calls are serialized by ``execution_lock`` because a pivot run executes
+        on a background thread while the cockpit, the cyberdeck or the model may
+        call tools on the same context; the workspace scoring, dossier and
+        challenge updates below are read-modify-write sequences.
+        """
+        with self.execution_lock:
+            return self._run_module_unlocked(module_path, target, options, cascade=cascade)
+
+    def _run_module_unlocked(  # noqa: PLR0912
+        self, module_path: str, target: str, options: dict | None = None, *, cascade: bool = True
     ) -> dict:
         """Run a module and return formatted results with scoring.
 
@@ -776,7 +802,7 @@ class ToolContext:
         cascade_results: list[dict] = []
         cascade_module_count: int = 0
         decision_log: list[dict] = []
-        if (self.autopivot_enabled or dry_run) and results:
+        if cascade and (self.autopivot_enabled or dry_run) and results:
             try:
                 # M-6: build dossier-aware ranker when the config flag is True.
                 # Reuses the already-loaded pre_dossier snapshot from M-4 wiring

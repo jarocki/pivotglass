@@ -399,6 +399,67 @@ add <source>     Add a source to the pending queue
 skip <source>    Remove a source from the pending queue
 ```
 
+### Multi-hop pivoting
+
+`pivot` follows what an enrichment returns, one ring at a time, within limits
+you set. It works the same way in the web cockpit, the cyberdeck, and the
+classic REPL.
+
+```text
+pivot <indicator> [<indicator> ...] [depth:1-3] [budget:1-200]
+pivot status                 Show the run: requests, decisions, what is queued
+pivot stop                   Halt after the current request
+pivot skip <indicator>       Drop it and everything it would have led to
+pivot focus <indicator>      Expand only that indicator's subtree; others wait
+pivot unfocus                Put every queued indicator back in scope
+pivot add <indicator>        Add a new seed at depth 0
+```
+
+A run starts from the indicators you name (depth 0) and asks every module that
+subscribes to each indicator's type, the same subscription map the agent's
+`autopivot` uses. Indicators the modules return become the next depth. With the
+default `depth:1`, Pivotglass queries your seeds and then the indicators they
+returned; anything found beyond that is recorded as *discovered, not
+expanded*. Each further level multiplies the requests, so look at the first
+ring before you go deeper. The maximum depth is 3.
+
+`budget` is the maximum number of module requests (default 20, maximum 200).
+One request is one call to one module, and a request that fails still counts
+because it reached the service. Before each request:
+
+1. A module that is not installed, is disabled, or has no credential is
+   skipped as *readiness*. It costs nothing.
+2. The pivot policy decides, as it does for `autopivot`: private, loopback,
+   link-local and reserved values (such as `example.com` or 10.0.0.0/8), very
+   popular domains, entries in your deny list, and results below the
+   confidence threshold are rejected and cost nothing. The policy's budget gate
+   ends the run when the budget is spent.
+
+Every decision is kept with its reason: rejected by policy, not ready, skipped
+by you, outside your focus, beyond the depth limit, over budget, or stopped.
+`pivot status` lists them. Each indicator appears once per run, however many
+modules return it.
+
+Results are stored as ordinary evidence with the module and query that
+produced them, exactly as a one-hop enrichment stores them; a run never also
+triggers `autopivot` cascades underneath itself. The parent-child lineage of a
+run is collection workflow (this module, asked about X, returned Y), not an
+observation that X and Y are related. The pivot trail (`timeline pivots`)
+records your seeds as investigated and each automated expansion as
+`auto_pivoted`, recorded by the system rather than by you.
+
+One run can be active per workspace.
+
+- **Web cockpit.** The run streams into the investigation feed and the Activity
+  pane. **Cancel** stops it after the current request. While the feed is
+  running, the command field still accepts `pivot status`, `pivot stop`,
+  `pivot skip|focus|add <indicator>` and `pivot unfocus`.
+- **Cyberdeck.** The run executes in the background and prints one line per
+  request to the transcript; type the controls at any time.
+- **Classic REPL** (`pivotglass repl`). The run executes in the foreground and
+  prints each request. Ctrl-C stops it after the current request; `pivot
+  status` shows the last run afterwards.
+
 ## Evidence and provenance
 
 Evidence details show the actual indicator, STIX type, normalized fields,
@@ -1408,6 +1469,8 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `hint [source]` | Use optional assistance |
 | `challenges` | Show starter and pursuit-specific challenges, progress, public-reporting basis, and badge rewards |
 | `badges` | Show every earned badge, its artwork, award time, and originating challenge |
+| `pivot <indicator> [depth:1-3] [budget:1-200]` | Run a bounded, policy-gated multi-hop pivot (see [Multi-hop pivoting](#multi-hop-pivoting)) |
+| `pivot status\|stop\|skip\|focus\|unfocus\|add …` | Inspect or steer the active pivot run |
 | `autopivot on\|off` | Control event-driven pivots |
 | `status` | Show current workspace and character |
 | `clear` | Clear the current terminal transcript view |

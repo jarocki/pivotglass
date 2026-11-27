@@ -668,6 +668,61 @@ class PivotglassConsole(cmd2.Cmd):
             return
         self._hunt_ioc(arg)
 
+    def do_pivot(self, args: str) -> None:
+        """Run or steer a bounded multi-hop pivot (DEC-PIVOT-RUN-001).
+
+        Usage:
+            pivot <indicator> [<indicator> ...] [depth:1-3] [budget:1-200]
+            pivot status | stop | skip <indicator> | focus <indicator> | unfocus | add <indicator>
+
+        The run executes in the foreground and prints each request; Ctrl-C stops
+        it after the current request. ``pivot status`` shows the last run's
+        every decision. The same grammar runs in the web cockpit and the cyberdeck.
+        """
+        from pivotglass.modules.pivoting.commands import execute_pivot_command, format_event
+
+        def show(event: dict) -> None:
+            line = format_event(event)
+            if line:
+                self.poutput(line)
+
+        try:
+            result = execute_pivot_command(args, self._pivot_context(), listener=show, background=False)
+        except ValueError as exc:
+            self.poutput(str(exc))
+            return
+        if result["action"] != "start":
+            self.poutput(result["text"])
+        elif result["data"] is not None:
+            from pivotglass.modules.pivoting.commands import render_snapshot
+
+            self.poutput(render_snapshot(result["data"], limit=10))
+
+    def _pivot_context(self) -> Any:
+        """A ToolContext over this console's directories, on the active workspace.
+
+        Pivot runs execute modules through ``ToolContext.run_module`` so evidence,
+        provenance and scoring are stored exactly as in the cockpit and cyberdeck.
+        """
+        ctx = getattr(self, "_pivot_ctx", None)
+        if ctx is None:
+            from pivotglass.agent.tools import ToolContext
+
+            ctx = ToolContext(
+                config_dir=self.config_mgr._config_dir,
+                workspace_dir=self.workspace_mgr._workspace_dir,
+                streak_path=self.streak_mgr._path,
+                console=self.rich_console,
+            )
+            self._pivot_ctx = ctx
+        try:
+            active = self.workspace_mgr.active
+        except RuntimeError:
+            active = None
+        if active is not None:
+            ctx.workspace_mgr.switch(active)
+        return ctx
+
     def _execute_hunt(self) -> None:
         """Shared implementation for run and hunt commands."""
         if self._active_module is None:

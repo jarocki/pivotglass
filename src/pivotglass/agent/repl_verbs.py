@@ -64,6 +64,7 @@ _FREE_ARG_VERBS: frozenset[str] = frozenset(
         "note",
         "hint",
         "challenges",
+        "pivot",
         "autopivot",
         "model",
         "config",
@@ -657,6 +658,23 @@ def dispatch_repl_verb(
             "merge <source> <destination>|clear <name> --confirm <name>|"
             "delete <name> --confirm <name>"
         )
+
+    if name == "pivot":
+        if ctx is None:
+            return "Command context unavailable."
+        from pivotglass.modules.pivoting.commands import execute_pivot_command
+
+        # The cyberdeck installs a scrollback listener and runs pivots in the
+        # background so `pivot stop|skip|focus|add` stay typeable; without one
+        # (plain chat loop, tests) the run is foreground and Ctrl-C stops it.
+        listener = getattr(runner, "_pivot_listener", None)
+        try:
+            result = execute_pivot_command(
+                verb.args, ctx, listener=listener, background=listener is not None
+            )
+        except ValueError as exc:
+            return str(exc)
+        return str(result["text"])
 
     if name == "autopivot":
         if ctx is None or not verb.args or verb.args[0].lower() not in {"on", "off"}:

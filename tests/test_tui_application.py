@@ -549,3 +549,16 @@ def test_live_pane_renders_six_rows():
     pane = LivePane(bus=bus, mode_name="default", model_display="test")
     lines = pane.render()
     assert len(lines) == 6
+
+
+def test_pivot_events_narrate_into_scrollback():
+    """A background pivot run (#22) prints one line per meaningful event."""
+    app = _make_app()
+    app._emit_pivot_event({
+        "kind": "request_started", "request": 1, "budget": 20, "depth": 0,
+        "value": "198.51.100.1", "module": "osint/sans_isc",
+    })
+    app._emit_pivot_event({"kind": "indicator_started"})  # not worth a line
+    lines = app._scrollback.get_lines()
+    assert any("[1/20] d0 198.51.100.1 · osint/sans_isc" in line for line in lines)
+    assert sum("198.51.100.1" in line for line in lines) == 1

@@ -8,6 +8,7 @@ TOP_LEVEL_COMMANDS: tuple[str, ...] = (
     "workspace",
     "mode",
     "hint",
+    "pivot",
     "autopivot",
     "challenges",
     "badges",
@@ -262,6 +263,10 @@ def command_completions(
             "annotations",
             "annotations ",
         ]
+    elif command == "pivot":
+        from pivotglass.modules.pivoting.commands import COMPLETION_CHOICES
+
+        choices = list(COMPLETION_CHOICES)
     elif command == "autopivot":
         choices = ["on", "off"]
     elif command == "workspace":

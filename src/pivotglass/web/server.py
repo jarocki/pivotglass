@@ -109,6 +109,8 @@ from pivotglass.integrations.scot_pivot_intake import (
     authenticate_scot_pivot_request,
 )
 from pivotglass.integrations.scot_publication import validate_scot_pivot_request
+from pivotglass.modules.pivoting.commands import execute_pivot_command
+from pivotglass.modules.pivoting.run import PivotRun
 from pivotglass.reports.commands import execute_report_command
 from pivotglass.reports.elements import ReportContext
 from pivotglass.reports.elements.analytical import ach_summary
@@ -317,6 +319,8 @@ class WebCockpitService:
         self.investigations = InvestigationStore()
         self.mode_mgr = self.ctx.mode_mgr
         self._command_lock = threading.RLock()
+        # Investigation feed id -> the pivot run streaming into it (cancel = pivot stop).
+        self._pivot_feeds: dict[str, PivotRun] = {}
         self._runner: Any | None = None
         workspaces = self.ctx.workspace_mgr.list_workspaces()
         if "default" not in workspaces:
@@ -886,6 +890,14 @@ class WebCockpitService:
         return [
             {"command": "use <indicator>", "purpose": "Investigate and pivot to an indicator"},
             {
+                "command": "pivot <indicator> [<indicator> ...] [depth:1-3] [budget:1-200]",
+                "purpose": "Run a bounded multi-hop pivot: policy-gated, at most budget module requests",
+            },
+            {
+                "command": "pivot status|stop|skip <indicator>|focus <indicator>|unfocus|add <indicator>",
+                "purpose": "Inspect or steer the active pivot run; stop halts after the current request",
+            },
+            {
                 "command": "search [STIX type]",
                 "purpose": "Search evidence already in this workspace",
             },
@@ -1433,6 +1445,8 @@ class WebCockpitService:
         if command == "cluster":
             result = execute_cluster_command(rest, self.ctx.workspace_mgr)
             return {"kind": "json", "title": result["title"], "data": result["data"]}
+        if command == "pivot":
+            return self.pivot_command(rest)
         if command == "org":
             result = execute_org_command(rest, self.ctx.workspace_mgr)
             return {"kind": "json", "title": result["title"], "data": result["data"]}
@@ -1813,6 +1827,11 @@ class WebCockpitService:
             accepted = self.investigations.request_cancel(investigation_id)
         except KeyError as exc:
             raise ValueError("unknown investigation") from exc
+        pivot_run = self._pivot_feeds.get(investigation_id)
+        if pivot_run is not None:
+            # The feed's Cancel is the run's stop; the run records it and ends the feed.
+            pivot_run.stop()
+            return self.investigations.snapshot(investigation_id)
         if accepted:
             self.investigations.append(
                 investigation_id,
@@ -2110,6 +2129,127 @@ class WebCockpitService:
                     final_state.value,
                     investigation_id=investigation_id,
                 )
+
+    def pivot_command(self, rest: str) -> dict[str, Any]:
+        """Route ``pivot`` to the shared grammar; a new run streams into an investigation feed.
+
+        The run executes on a background thread under the investigation lock, so it
+        queues behind (and ahead of) one-hop investigations exactly as they queue
+        behind each other, and ``workspace switch`` stays blocked while it runs.
+        """
+        feed: dict[str, str] = {}
+
+        def attach(run: PivotRun) -> None:
+            target = run.seeds[0] if len(run.seeds) == 1 else f"{run.seeds[0]} +{len(run.seeds) - 1}"
+            record = self.investigations.create(target, "pivot-run")
+            feed["id"] = record.investigation_id
+            self._pivot_feeds[record.investigation_id] = run
+            self.investigations.append(
+                record.investigation_id,
+                event_class=EventClass.SYSTEM,
+                severity="info",
+                lifecycle=LifecycleState.PLANNED,
+                content_class=ContentClass.SYSTEM,
+                summary=(
+                    f"Pivot run {run.run_id} planned: {', '.join(run.seeds)} · depth limit "
+                    f"{run.depth_limit} · budget {run.budget} module requests."
+                ),
+                actions=("cancel",),
+            )
+            self.investigations.transition(record.investigation_id, LifecycleState.QUEUED)
+
+        def listener(event: dict[str, Any]) -> None:
+            if "id" in feed:
+                self._pivot_feed_event(feed["id"], event)
+
+        result = execute_pivot_command(
+            rest, self.ctx, listener=listener, background=True,
+            guard=self._investigation_lock, on_start=attach,
+        )
+        if result["action"] == "start":
+            return {"kind": "investigation", "snapshot": self.investigations.snapshot(feed["id"])}
+        return {"kind": "text", "title": result["title"], "text": result["text"]}
+
+    def _pivot_feed_event(self, investigation_id: str, event: dict[str, Any]) -> None:
+        """Project one pivot-run event onto the investigation feed the Activity pane reads."""
+
+        kind = event["kind"]
+        append = self.investigations.append
+        if kind == "run_started":
+            self.investigations.transition(investigation_id, LifecycleState.RUNNING)
+            return
+        if kind == "request_started":
+            append(
+                investigation_id, event_class=EventClass.SYSTEM, severity="info",
+                lifecycle=LifecycleState.RUNNING, content_class=ContentClass.SYSTEM,
+                tool=event["module"], source=event["module"], queue_position=event["request"],
+                summary=f"Depth {event['depth']} · {event['value']} · request {event['request']}/{event['budget']}",
+                actions=("cancel",),
+            )
+        elif kind == "request_finished":
+            artifacts = tuple(event["artifact_ids"])
+            queued = len(event["queued"])
+            summary = f"{event['value']} → {event['result_count']} results; {queued} queued for the next hop"
+            if event.get("not_expanded"):
+                summary += f"; {event['not_expanded']} beyond the run's scope"
+            append(
+                investigation_id,
+                event_class=EventClass.DISCOVERY if artifacts else EventClass.SYSTEM,
+                severity="info",
+                lifecycle=LifecycleState.SUCCEEDED if artifacts else LifecycleState.EMPTY,
+                content_class=ContentClass.EVIDENCE, tool=event["module"], source=event["module"],
+                result_count=len(artifacts), artifact_ids=artifacts, summary=summary,
+                reason=None if artifacts else "no new artifacts stored",
+                actions=("details",) if artifacts else (),
+            )
+        elif kind == "request_failed":
+            append(
+                investigation_id, event_class=EventClass.SOURCE_FAULT, severity="warning",
+                lifecycle=LifecycleState.FAILED, content_class=ContentClass.SYSTEM,
+                tool=event["module"], source=event["module"], summary=event["value"],
+                reason=event["reason"], retryable=False,
+            )
+        elif kind == "request_skipped":
+            append(
+                investigation_id, event_class=EventClass.SYSTEM, severity="info",
+                lifecycle=LifecycleState.SKIPPED, content_class=ContentClass.SYSTEM,
+                tool=event["module"], source=event["module"], summary=event["value"],
+                reason=f"{event['gate']}: {event['reason']}",
+            )
+        elif kind == "indicator_skipped":
+            analyst = event["gate"] in {"analyst_skip", "analyst_stop", "focus"}
+            append(
+                investigation_id,
+                event_class=EventClass.OPERATOR_ACTION if analyst else EventClass.SYSTEM,
+                severity="info", lifecycle=LifecycleState.SKIPPED, content_class=ContentClass.SYSTEM,
+                summary=f"Depth {event['depth']} · {event['value']} not expanded", reason=event["reason"],
+            )
+        elif kind == "control":
+            append(
+                investigation_id, event_class=EventClass.OPERATOR_ACTION, severity="info",
+                lifecycle=LifecycleState.RUNNING, content_class=ContentClass.SYSTEM,
+                summary=f"Analyst: pivot {event['action']} {event['detail']}".rstrip(),
+            )
+        elif kind == "run_finished":
+            snapshot = event["snapshot"]
+            stored = any(item["artifact_ids"] for item in snapshot["requests"])
+            failed = any(item["status"] == "failed" for item in snapshot["requests"])
+            final = (
+                LifecycleState.CANCELLED if event["state"] == "stopped"
+                else LifecycleState.SUCCEEDED if stored
+                else LifecycleState.FAILED if failed or event["state"] == "failed"
+                else LifecycleState.EMPTY
+            )
+            append(
+                investigation_id, event_class=EventClass.SYSTEM, severity="info", lifecycle=final,
+                content_class=ContentClass.SYSTEM,
+                summary=(
+                    f"Pivot run {event['state'].replace('_', ' ')}: {snapshot['requests_used']}/"
+                    f"{snapshot['budget']} requests, depth {snapshot['depth_reached']}/{snapshot['depth_limit']}, "
+                    f"{len(snapshot['not_expanded'])} discovered but not expanded. `pivot status` shows every decision."
+                ),
+            )
+            self.investigations.transition(investigation_id, final)
 
     def plan(self, target: str) -> tuple[str, list[str]]:
         """Return the deterministic service plan without executing tools."""

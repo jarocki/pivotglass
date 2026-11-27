@@ -1419,3 +1419,62 @@ def test_configuration_saves_validates_and_clears_endpoint_overrides(tmp_path):
     entry = next(s for s in result["configuration"]["services"] if s["id"] == "greynoise")
     assert entry["base_url_override"] is None
     assert entry["test_endpoint"] == "https://api.greynoise.io/ping"
+
+
+def test_pivot_command_streams_a_run_into_the_feed_and_cancel_stops_it(tmp_path, monkeypatch):
+    """`pivot` starts a bounded run (#22); the feed's Cancel is `pivot stop`."""
+    import pivotglass.modules.pivoting.run as pivot_run
+
+    entered, release = threading.Event(), threading.Event()
+    calls: list[str] = []
+
+    class Stub:
+        requires_api_key = False
+
+        def initialize(self, config):
+            pass
+
+        async def hunt(self, target, options):
+            calls.append(target)
+            if target == "198.51.100.1":
+                entered.set()
+                release.wait(5)
+                return [{"type": "domain-name", "value": "a.pivot-test.net"}]
+            return []
+
+    service = _service(tmp_path)
+    service.ctx.plugin_mgr.register_module("stub/ip", Stub)
+    service.ctx.plugin_mgr.register_module("stub/domain", Stub)
+    monkeypatch.setattr(
+        pivot_run, "DEFAULT_SUBSCRIPTIONS", {"stub/ip": ["ipv4-addr"], "stub/domain": ["domain-name"]}
+    )
+
+    started = service.execute_command("pivot 198.51.100.1 depth:2 budget:5")
+    assert started["kind"] == "investigation"
+    investigation_id = started["snapshot"]["investigation_id"]
+    assert "budget 5 module requests" in started["snapshot"]["events"][0]["summary"]
+    assert entered.wait(5)
+    status = service.execute_command("pivot status")
+    assert status["kind"] == "text" and "requests 1/5" in status["text"]
+    with pytest.raises(ValueError, match="already active"):
+        service.execute_command("pivot 198.51.100.2")
+    service.cancel_investigation(investigation_id)
+    release.set()
+    snapshot = started["snapshot"]
+    for _ in range(300):
+        snapshot = service.investigation_events(investigation_id)
+        if snapshot["lifecycle"] in {"succeeded", "empty", "failed", "cancelled"}:
+            break
+        time.sleep(0.01)
+
+    assert snapshot["lifecycle"] == "cancelled"
+    assert calls == ["198.51.100.1"]
+    events = snapshot["events"]
+    assert any(event["tool"] == "stub/ip" and event["lifecycle"] == "running" for event in events)
+    finished = [event for event in events if event["tool"] == "stub/ip" and event["content_class"] == "evidence"]
+    assert finished and finished[0]["artifact_ids"], "the in-flight request's evidence is kept"
+    assert any(event["reason"] == "stopped by analyst" for event in events)
+    assert "Pivot run stopped" in events[-1]["summary"]
+    with pytest.raises(ValueError, match="No active pivot run"):
+        service.execute_command("pivot stop")
+    assert service.execute_command("help")["commands"][1]["command"].startswith("pivot <indicator>")
