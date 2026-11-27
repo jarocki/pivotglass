@@ -185,7 +185,14 @@ with each indicator's type, role and tactic; click a value to open its
 evidence. Above the table, one line reads the competing hypotheses: how many
 there are, which is least inconsistent with the linked evidence, and the most
 diagnostic item scored against it. **Open ACH matrix** opens the workbench at
-the full matrix. **Evidence** fills the width with the nine dossier dimensions
+the full matrix. **Suggested clusters** proposes groups of indicators that
+share a TLS certificate or an ASN plus JARM fingerprint (strong), an identical
+nameserver set (moderate), or a registrar with registrations within 14 days
+(weak). Each is a proposal, not a finding: **Accept** tags every member with a
+cluster (optionally named) whose note records the rule and shared values;
+**Reject…** asks why and records that judgment, so the suggestion is not
+offered again. The same actions are `cluster suggest`, `cluster accept <id>
+[name]` and `cluster reject <id> | <reason>` in every interface. **Evidence** fills the width with the nine dossier dimensions
 as a list (number, dimension, coverage, evidence count); select a row to see
 the evidence behind it. **Visualize** fills the width with the chosen view.
 

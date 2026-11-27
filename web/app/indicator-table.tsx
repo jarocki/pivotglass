@@ -9,15 +9,40 @@
 
 import { useMemo, useState } from "react";
 
-import { groupIndicatorRows, type AchSummary, type Grouping, type TableIndicator, type TableTag } from "./indicator-table-model";
+import { groupIndicatorRows, type AchSummary, type ClusterSuggestion, type Grouping, type TableIndicator, type TableTag } from "./indicator-table-model";
 
-export type { AchSummary, TableTag } from "./indicator-table-model";
+export type { AchSummary, ClusterSuggestion, TableTag } from "./indicator-table-model";
 const ROWS_PER_GROUP = 12;
 
-export function IndicatorTable({ indicators, tags, ach, onOpen, onOpenAch }: {
+/** Suggested clusters (#30): proposals from shared values, accepted or rejected one by one. */
+function ClusterSuggestions({ suggestions, onCommand }: { suggestions: ClusterSuggestion[]; onCommand: (command: string) => Promise<void> }) {
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [rejecting, setRejecting] = useState<string | null>(null);
+  if (!suggestions.length) return null;
+  return <details className="cluster-suggestions">
+    <summary><b>Suggested clusters</b> <span>{suggestions.length}</span> <small>proposals from shared values, not findings</small></summary>
+    <ul>{suggestions.map((item) => <li key={item.id}>
+      <p><i className={`strength strength-${item.strength}`}>{item.strength}</i> {item.rationale}</p>
+      <p className="members">{item.members.map((m) => m.value).join(" · ")}</p>
+      <div className="actions">
+        <input aria-label={`Cluster name for suggestion ${item.id}`} placeholder="cluster name (optional)" value={names[item.id] ?? ""} onChange={(event) => setNames((current) => ({ ...current, [item.id]: event.target.value }))}/>
+        <button type="button" onClick={() => void onCommand(`cluster accept ${item.id} ${(names[item.id] ?? "").trim()}`.trim())}>Accept</button>
+        {rejecting === item.id
+          ? <><input autoFocus aria-label={`Reason for rejecting suggestion ${item.id}`} placeholder="why not one cluster?" value={reasons[item.id] ?? ""} onChange={(event) => setReasons((current) => ({ ...current, [item.id]: event.target.value }))}/>
+            <button type="button" disabled={!(reasons[item.id] ?? "").trim()} onClick={() => { void onCommand(`cluster reject ${item.id} | ${(reasons[item.id] ?? "").trim()}`); setRejecting(null); }}>Record rejection</button></>
+          : <button type="button" onClick={() => setRejecting(item.id)}>Reject…</button>}
+      </div>
+    </li>)}</ul>
+  </details>;
+}
+
+export function IndicatorTable({ indicators, tags, ach, suggestions = [], onCommand, onOpen, onOpenAch }: {
   indicators: TableIndicator[];
   tags: TableTag[];
   ach?: AchSummary | null;
+  suggestions?: ClusterSuggestion[];
+  onCommand: (command: string) => Promise<void>;
   onOpen: (reference: string, origin: HTMLElement) => void;
   onOpenAch: () => void;
 }) {
@@ -41,6 +66,7 @@ export function IndicatorTable({ indicators, tags, ach, onOpen, onOpenAch }: {
         : ach.evidence_rows ? "no evidence recorded against it" : "no evidence linked to a hypothesis yet"}</span>
       <button type="button" onClick={onOpenAch}>Open ACH matrix</button>
     </p>}
+    <ClusterSuggestions suggestions={suggestions} onCommand={onCommand}/>
     {indicators.length === 0 ? <p className="empty-line">No indicators in this workspace yet.</p> : <div className="indicator-table-groups">
       {groups.map((group) => {
         const open = expanded.has(group.key);

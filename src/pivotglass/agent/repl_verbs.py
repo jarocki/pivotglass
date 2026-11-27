@@ -72,6 +72,7 @@ _FREE_ARG_VERBS: frozenset[str] = frozenset(
         "framework",
         "integration",
         "org",
+        "cluster",
     }
 )
 
@@ -525,6 +526,17 @@ def dispatch_repl_verb(
 
         try:
             result = execute_org_command(" ".join(verb.args), _workspace_mgr)
+        except ValueError as exc:
+            return str(exc)
+        return f"{result['title']}\n{json.dumps(result['data'], indent=2, default=str)}"
+
+    if name == "cluster":
+        if _workspace_mgr is None:
+            return "Workspace unavailable."
+        from pivotglass.core.cluster_suggestions import execute_cluster_command
+
+        try:
+            result = execute_cluster_command(" ".join(verb.args), _workspace_mgr)
         except ValueError as exc:
             return str(exc)
         return f"{result['title']}\n{json.dumps(result['data'], indent=2, default=str)}"

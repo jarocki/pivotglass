@@ -47,6 +47,7 @@ from pivotglass.agent.tui.themes import (
 from pivotglass.core.analytic_commands import execute_analysis_command
 from pivotglass.core.analytic_ledger import AnalyticLedger
 from pivotglass.core.analytic_rigor import build_analytic_rigor
+from pivotglass.core.cluster_suggestions import execute_cluster_command, suggest_clusters
 from pivotglass.core.command_completion import command_completions
 from pivotglass.core.config import ApiKeysConfig
 from pivotglass.core.document_entity_extraction import (
@@ -468,6 +469,7 @@ class WebCockpitService:
             "pivot_trail": pivot_trail,
             "analysis": analysis,
             "indicator_tags": indicator_tags,
+            "cluster_suggestions": suggest_clusters(self.ctx.workspace_mgr),
             "pursuit_brief": pursuit_brief,
             "frameworks": {
                 "versions": {
@@ -1428,6 +1430,9 @@ class WebCockpitService:
                 raise ValueError("usage: note <text>")
             self.ctx.workspace_mgr.add_note(rest)
             return {"kind": "text", "title": "Annotation saved", "text": rest}
+        if command == "cluster":
+            result = execute_cluster_command(rest, self.ctx.workspace_mgr)
+            return {"kind": "json", "title": result["title"], "data": result["data"]}
         if command == "org":
             result = execute_org_command(rest, self.ctx.workspace_mgr)
             return {"kind": "json", "title": result["title"], "data": result["data"]}

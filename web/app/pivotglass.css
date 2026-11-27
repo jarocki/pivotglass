@@ -1632,3 +1632,12 @@ article.model-proposal>span{color:var(--inference, var(--accent))}
 .indicator-link{all:unset;cursor:pointer;color:var(--ink);font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block}
 .indicator-link:hover{text-decoration:underline dotted}.indicator-link:focus-visible{outline:2px solid var(--focus-ring)}
 @media(max-width:560px){.dossier-list button{grid-template-columns:2ch minmax(0,1fr) auto;row-gap:2px}.dossier-list .status{grid-column:2;grid-row:2}.dossier-list small{grid-column:3;grid-row:1}}
+/* Cluster suggestions (#30): proposals, visibly not findings. */
+.cluster-suggestions{border:1px dashed color-mix(in srgb,var(--line) 45%,transparent);border-radius:6px;padding:6px 8px;font-size:var(--fs-xs)}
+.cluster-suggestions summary{cursor:pointer;color:var(--heading)}.cluster-suggestions summary span{color:var(--ink)}.cluster-suggestions summary small{color:var(--dim)}
+.cluster-suggestions ul{display:grid;gap:8px;margin:8px 0 0;padding:0;list-style:none}
+.cluster-suggestions li{display:grid;gap:4px;padding:6px;border:1px solid color-mix(in srgb,var(--line) 25%,transparent);border-radius:5px;background:var(--control)}
+.cluster-suggestions p{margin:0;overflow-wrap:anywhere}.cluster-suggestions .members{color:var(--dim);font-family:var(--font-mono)}
+.cluster-suggestions .actions{display:flex;flex-wrap:wrap;gap:6px}.cluster-suggestions input{min-width:0;flex:1 1 140px}
+.strength{font-style:normal;padding:0 5px;border:1px solid currentColor;border-radius:3px;margin-right:4px}
+.strength-strong{color:var(--accent)}.strength-moderate{color:var(--heading)}.strength-weak{color:var(--dim);border-style:dashed}

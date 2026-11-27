@@ -1486,6 +1486,19 @@ class PivotglassConsole(cmd2.Cmd):
         self.poutput(result["title"])
         self.poutput(json.dumps(result["data"], indent=2, default=str))
 
+    def do_cluster(self, args: str) -> None:
+        """Cluster suggestions: cluster suggest | accept <id> [name] | reject <id> | <reason>."""
+
+        from pivotglass.core.cluster_suggestions import execute_cluster_command
+
+        try:
+            result = execute_cluster_command(args, self.workspace_mgr)
+        except ValueError as exc:
+            self.poutput(str(exc))
+            return
+        self.poutput(result["title"])
+        self.poutput(json.dumps(result["data"], indent=2, default=str))
+
     def do_report(self, args: str) -> None:
         """Preview, save, issue and read back reports.
 

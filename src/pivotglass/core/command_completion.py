@@ -20,6 +20,7 @@ TOP_LEVEL_COMMANDS: tuple[str, ...] = (
     "export",
     "report",
     "org",
+    "cluster",
     "analysis",
     "framework",
     "integration",
@@ -125,6 +126,8 @@ def command_completions(
         choices = ["generate", "types", "issue ", "history", "open ", *report_types()]
     elif command == "org":
         choices = ["show", "import ", "telemetry ", "share-with-model "]
+    elif command == "cluster":
+        choices = ["suggest", "accept ", "reject "]
     elif command == "analysis":
         choices = [
             "show",

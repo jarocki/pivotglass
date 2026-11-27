@@ -12,7 +12,7 @@ import { FlowMusicEngine } from "./flow-music";
 import { ThemeArcade } from "./arcade-games";
 import { Icon } from "./icons";
 import { COVERAGE_LABELS } from "./constellation-presentation";
-import { IndicatorTable, type AchSummary, type TableTag } from "./indicator-table";
+import { IndicatorTable, type AchSummary, type ClusterSuggestion, type TableTag } from "./indicator-table";
 import { ConfigurationCenter, type ConfigurationAdvisory } from "./configuration-center";
 import { ScientificWorkbench, type AnalyticSnapshot } from "./scientific-workbench";
 import { FrameworkLenses, type FrameworkState } from "./framework-lenses";
@@ -58,7 +58,7 @@ type IndicatorNote = { id: number; content: string; created_at: string | null; e
 type EvidenceDetail = { reference: string; stix_id: string; type: string; value: string; source_module: string; original_query: string; provenance: Record<string, unknown>; normalized: Record<string, unknown>; raw: Record<string, unknown>; relationships: EvidenceRelationship[]; purpose: string[]; breadcrumbs: Array<{indicator: string; relationship: string}>; history: unknown[]; dossier_contributions: unknown[]; supporting_observations: unknown[]; conflicting_observations: unknown[]; next_pivots: unknown[]; source_intelligence?: SourceIntelligence | null; notes?: IndicatorNote[]; location?: { flag: string; country_code: string; country_name: string; region: string; city: string; asn: number | null; as_org: string; source: string; attribution: string } | null; known?: KnownMatch[] };
 type BadgeAward = { badge_id: string; badge_name: string; badge_description?: string; badge_rarity?: string; badge_artwork?: string; badge_glyph?: string; challenge_id?: string; awarded_at: string };
 type ChallengeRecord = { id: string; name: string; description: string; status: string; origin?: string; subject_value?: string; points: number; progress_current?: number; progress_target?: number; progress_label?: string; evidence_basis?: Array<Record<string, unknown>>; badge?: BadgeAward };
-type State = { workspace: string; stats: Record<string, number>; objects: EvidenceCard[]; briefings: Record<string, Briefing>; character: string; modes: Mode[]; dossier_slots: DossierSlot[]; visualizations: VisualizationIntent[]; graph_layouts: GraphLayoutSummary[]; analysis: AnalyticSnapshot & { ach_summary?: AchSummary }; indicator_tags?: TableTag[]; pursuit_brief: PursuitBriefState; frameworks: FrameworkState; processed_targets: string[]; instruments: Instruments; challenges: ChallengeRecord[]; badges: BadgeAward[]; badge_summary: { count: number; latest: BadgeAward | null } };
+type State = { workspace: string; stats: Record<string, number>; objects: EvidenceCard[]; briefings: Record<string, Briefing>; character: string; modes: Mode[]; dossier_slots: DossierSlot[]; visualizations: VisualizationIntent[]; graph_layouts: GraphLayoutSummary[]; analysis: AnalyticSnapshot & { ach_summary?: AchSummary }; indicator_tags?: TableTag[]; cluster_suggestions?: ClusterSuggestion[]; pursuit_brief: PursuitBriefState; frameworks: FrameworkState; processed_targets: string[]; instruments: Instruments; challenges: ChallengeRecord[]; badges: BadgeAward[]; badge_summary: { count: number; latest: BadgeAward | null } };
 type InvestigationSnapshot = { investigation_id: string; lifecycle: Lifecycle; cursor: number; events: FeedEvent[] };
 type AlertEvent = FeedEvent & { acknowledged: boolean; investigation_id: string; target?: string; target_type?: string; artifacts?: Array<{ id: string; type: string; label: string }> };
 type AlertState = { alerts: AlertEvent[]; unread_count: number; highest_unread: string };
@@ -1288,6 +1288,7 @@ export default function Cockpit() {
     </div>}
     {!solo && <div id="indicators" data-pane="indicators" hidden={activePane === "dossier" || activePane === "artifact-field"}>
       <IndicatorTable indicators={state?.objects ?? []} tags={state?.indicator_tags ?? []} ach={state?.analysis?.ach_summary}
+        suggestions={state?.cluster_suggestions ?? []} onCommand={async (command) => { await runQuick(command); await refresh(); }}
         onOpen={(reference, origin) => void openDetail(reference, origin)} onOpenAch={openAchMatrix}/>
     </div>}
 

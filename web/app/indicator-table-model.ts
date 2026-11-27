@@ -34,3 +34,8 @@ export function groupIndicatorRows(indicators: TableIndicator[], tags: TableTag[
   }));
 }
 
+
+export type ClusterSuggestion = {
+  id: string; rule: string; strength: "strong" | "moderate" | "weak"; shared: string[];
+  members: Array<{ entity_type: string; value: string }>; rationale: string; basis: string;
+};
