@@ -259,7 +259,7 @@ export function IndicatorFocus({
       <b title={source.filename}>{source.filename}</b>
       <span>{indicators.length} indicators · {source.candidates.length} mentions · {admittedCount} in workspace{source.stored ? "" : " · not stored"}</span>
       <label><span className="sr-only">Group by</span><select value={grouping} onChange={(event) => setGrouping(event.target.value)} aria-label="Group indicators by">
-        <option value="source">Source order</option><option value="type">Type</option>
+        <option value="source">No grouping</option><option value="type">Group by type</option>
         {dimensions.map((item) => <option key={item.name} value={item.name}>{item.label}</option>)}
       </select></label>
       <label><span className="sr-only">Sort</span><select value={sort} onChange={(event) => setSort(event.target.value as FocusSort)} aria-label="Sort indicators">
@@ -532,7 +532,12 @@ pre,code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre
 .pg-media::before{content:"[" attr(data-label) "]";color:var(--dim);font-size:12px}
 mark{background:color-mix(in srgb,var(--line) 22%,transparent);color:inherit;border-radius:2px;cursor:pointer}
 mark.focused-indicator{background:color-mix(in srgb,var(--accent) 30%,transparent)}
-mark.focused{background:var(--focus);color:#000;box-shadow:0 0 0 2px var(--focus)}`;
+mark.focused{background:var(--focus);color:#000;box-shadow:0 0 0 2px var(--focus)}
+.email-headers dl{display:grid;grid-template-columns:max-content 1fr;gap:2px 10px;margin:0 0 14px;padding-bottom:10px;border-bottom:1px solid color-mix(in srgb,var(--line) 30%,transparent)}
+.email-headers dt{color:var(--dim)}.email-headers dd{margin:0;overflow-wrap:anywhere}
+.email-part{margin:0 0 16px;padding-left:10px;border-left:2px solid color-mix(in srgb,var(--line) 35%,transparent)}
+.email-part::before{display:block;margin-bottom:6px;color:var(--dim);font-size:12px}
+.email-html::before{content:"HTML part"}.email-plain::before{content:"Plain-text part"}`;
 
 function HtmlSource({ html, text, candidates, focus, onHover, onPick, onLocated }: SourceProps & { html: string; onLocated: (value: Record<string, boolean>) => void }) {
   const frame = useRef<HTMLIFrameElement>(null);

@@ -327,9 +327,22 @@ def _json_depth(value: Any) -> int:
     return maximum
 
 
-def _parse_email(data: bytes, limits: DocumentLimits) -> tuple[str, list[str], list[str]]:
+EMAIL_HEADERS = ("Date", "From", "To", "Cc", "Subject", "Message-ID")
+
+
+def email_body_parts(
+    data: bytes, limits: DocumentLimits
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]], list[str], list[str]]:
+    """Walk one message once: ``(headers, body parts, warnings, skipped)``.
+
+    The single authority for which parts of a message are read and in what
+    order, shared by text extraction and the safe rendering (#28) so that
+    ordinal anchoring sees the same parts in the same order. Each body part is
+    ``(media_type, decoded text)`` for ``text/plain`` or ``text/html``.
+    """
+
     message = BytesParser(policy=policy.default).parsebytes(data)
-    text_parts: list[str] = []
+    body: list[tuple[str, str]] = []
     warnings: list[str] = []
     skipped: list[str] = []
     parts = list(message.walk())
@@ -346,19 +359,25 @@ def _parse_email(data: bytes, limits: DocumentLimits) -> tuple[str, list[str], l
             continue
         media_type = part.get_content_type()
         payload = part.get_payload(decode=True) or b""
-        if media_type == "text/plain":
-            text_parts.append(decode_text(payload, warnings))
-        elif media_type == "text/html":
-            extractor = _TextExtractor()
-            extractor.feed(decode_text(payload, warnings))
-            text_parts.append(extractor.text())
+        if media_type in {"text/plain", "text/html"}:
+            body.append((media_type, decode_text(payload, warnings)))
         else:
             skipped.append(f"Unsupported message part: {media_type}")
-    header = "\n".join(
-        f"{name}: {message.get(name)}"
-        for name in ("Date", "From", "To", "Cc", "Subject", "Message-ID")
-        if message.get(name)
-    )
+    headers = [(name, str(message.get(name))) for name in EMAIL_HEADERS if message.get(name)]
+    return headers, body, warnings, skipped
+
+
+def _parse_email(data: bytes, limits: DocumentLimits) -> tuple[str, list[str], list[str]]:
+    headers, body, warnings, skipped = email_body_parts(data, limits)
+    text_parts: list[str] = []
+    for media_type, text in body:
+        if media_type == "text/html":
+            extractor = _TextExtractor()
+            extractor.feed(text)
+            text_parts.append(extractor.text())
+        else:
+            text_parts.append(text)
+    header = "\n".join(f"{name}: {value}" for name, value in headers)
     return "\n\n".join(item for item in (header, *text_parts) if item.strip()), warnings, skipped
 
 

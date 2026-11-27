@@ -539,8 +539,9 @@ in indicator focus mode; nothing is stored yet.
 
 Focus mode fills the window. The left side lists each distinct indicator once,
 in the order the source first mentions it. The right side shows the source as
-its author laid it out: HTML and Markdown rendered, PDF pages drawn, and text,
-CSV, JSON, and email shown as parsed text. The focused indicator is outlined
+its author laid it out: HTML and Markdown rendered, PDF pages drawn, an email
+with an HTML part rendered below its headers, and text, CSV, JSON, and
+plain-text email shown as parsed text. The focused indicator is outlined
 and scrolled into view; every other occurrence of a known indicator is lightly
 marked.
 
@@ -649,6 +650,10 @@ Rendered sources are hostile content and are shown under these rules:
 - The rendering is displayed in a sandboxed frame that is not allowed to run
   script, so even a sanitizer mistake cannot execute code.
 - PDF pages are drawn by pdf.js. PDF JavaScript and XFA forms are never run.
+- An email's HTML part goes through the same allowlist. Headers (Date, From,
+  To, Cc, Subject) are shown above it as plain text. When a message carries
+  both plain-text and HTML versions, both are shown, labelled, in message
+  order, so every mention can still be located. Attachments are not rendered.
 - When a rendered layout cannot locate an indicator exactly, focus mode says
   so and offers the exact parser-text view. It never guesses a location.
 

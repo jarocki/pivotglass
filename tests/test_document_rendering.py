@@ -128,3 +128,51 @@ def test_stored_detail_carries_rendering_and_verified_source_bytes(tmp_path) -> 
     path.write_bytes(data + b"tampered")
     with pytest.raises(RuntimeError, match="integrity"):
         service.source_bytes(occurrence)
+
+
+def _email(html_body: str, plain_body: str | None) -> bytes:
+    from email.message import EmailMessage
+
+    message = EmailMessage()
+    message["From"] = "ops@harbor-cdn.example"
+    message["To"] = "soc@example.org"
+    message["Subject"] = "Re: <script>alert(1)</script> beacon 192.0.2.10"
+    message["Date"] = "Mon, 16 Nov 2026 09:00:00 +0000"
+    if plain_body is not None:
+        message.set_content(plain_body)
+        message.add_alternative(html_body, subtype="html")
+    else:
+        message.set_content(html_body, subtype="html")
+    message.add_attachment(b"MZ", maintype="application", subtype="octet-stream", filename="loader.exe")
+    return bytes(message)
+
+
+def test_email_html_part_renders_through_the_sanitizer_with_headers_first() -> None:
+    """#28: the HTML part is sanitized, headers are escaped, and ordinals still hold."""
+
+    data = _email(HOSTILE, "Plain copy: C2 at 203.0.113.7.")
+    preview = preview_document(data, filename="message.eml")
+    rendering = render_document(data, media_type=preview.detected_media_type, output_text=preview.output_text)
+    assert (rendering.kind, rendering.anchoring) == ("html", "ordinal")
+    rendered = rendering.html or ""
+    lowered = rendered.casefold()
+    for forbidden in ("<script", "<iframe", "<img", "onload", "src=", "href=", "url("):
+        assert forbidden not in lowered, forbidden
+    assert "&lt;script&gt;" in rendered  # the subject is escaped text
+    assert rendered.index("email-headers") < rendered.index("email-plain") < rendered.index("email-html")
+    text = _visible_text(rendered)
+    for value in ("203.0.113.7", "evil-cdn.example.net", "192.0.2.10", "ops@harbor-cdn.example"):
+        assert text.count(value) == preview.output_text.count(value), value
+    assert "loader.exe" not in text
+    assert any("plain-text and HTML" in note for note in rendering.notes)
+
+
+def test_email_without_an_html_part_keeps_the_exact_text_view() -> None:
+    from email.message import EmailMessage
+
+    message = EmailMessage()
+    message["Subject"] = "plain"
+    message.set_content("C2 at 203.0.113.7")
+    data = bytes(message)
+    rendering = render_document(data, media_type="message/rfc822", output_text="x")
+    assert (rendering.kind, rendering.anchoring, rendering.html) == ("text", "exact", None)

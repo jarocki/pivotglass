@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- In focus mode the keyboard hints no longer stretch down the indicator list, and the grouping menu reads "No grouping" rather than a second "Source order".
 - Organisation input could reach the model through sections that derive from it without saying so (kill-chain telemetry, choke points, dwell times) and through gap lines; those sections now declare organisation provenance and withheld views drop their gaps. `workspace merge` no longer copies organisation input or its share-with-model consent into another workspace.
 - The model's `preview_report` tool could reach the full `report` command and issue reports or write analyst-attributed text. It now accepts only a report type and is read-only.
 - Defanging a URL value with no scheme (`host.example/path`) crashed the report and produced `hxxp[:]//` in the cockpit; both now defang the dots only. Non-HTTP schemes keep their name (`ftp[:]//`).
@@ -18,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Focus mode renders an email's HTML part through the same allowlist sanitizer and sandboxed frame as HTML reports, with the headers shown above it. A message with plain-text and HTML versions shows both, labelled, in message order, so indicator anchoring stays exact; tracking images are never fetched. The text and HTML extraction and the rendering share one walk over the message parts (#28).
 - Focus-mode triage at a glance: each row shows first seen in the workspace and the observing source; `is:new` and `is:known` filter terms; sorts by new first, first seen and value as well as source order; and **Pivot N new** queues every listed indicator not yet in the workspace. Documentation, private, loopback and other special-purpose addresses and reserved domains (RFC 2606/6761, including URLs and email addresses) are now labelled *Reserved or special-purpose value*, as context that is never offered for set-aside (#29).
 - Focus mode exports the filtered list with `e` or the Export button: CSV (defanged or live values) with role, tactic, cluster and other tags, source document, observing sources and first-seen time, or a validated STIX 2.1 bundle that keeps real values. Spreadsheet formula prefixes are neutralised. Indicator context now reports `first_seen`, the earliest evidence observation (#33).
 - The evidence drawer lists the analyst notes on an indicator and stays open after saving one. Graph node notes and drawer notes go through one store keyed by the indicator, so a note added in either place appears in both; a note must attach to an indicator stored in the workspace and is at most 4,000 characters. Existing notes already used that key and needed no migration (#40).

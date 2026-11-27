@@ -1081,9 +1081,9 @@ main>.guided-help-layer{position:fixed;z-index:19000;top:12px;left:12px;width:mi
 .focus-bar .segmented .selected{background:color-mix(in srgb,var(--line) 25%,var(--control))}
 .indicator-focus>.focus-notice{margin:0;padding:5px 14px;color:var(--dim);font-size:var(--fs-xs);border-bottom:1px solid color-mix(in srgb,var(--line) 20%,transparent)}
 .focus-body{display:grid;grid-template-columns:clamp(320px,26vw,520px) 1fr;min-height:0}
-.focus-list{display:grid;grid-template-rows:auto auto 1fr auto;min-height:0;border-right:1px solid color-mix(in srgb,var(--line) 30%,transparent)}
+.focus-list{display:flex;flex-direction:column;min-height:0;border-right:1px solid color-mix(in srgb,var(--line) 30%,transparent)}
 .focus-list>input{margin:10px;min-height:32px;padding:5px 9px;border:1px solid color-mix(in srgb,var(--line) 50%,transparent);border-radius:6px;background:var(--surface);color:var(--ink)}
-.focus-list>ol{margin:0;padding:0 0 12px;overflow:auto;list-style:none}
+.focus-list>ol{flex:1 1 auto;min-height:0;margin:0;padding:0 0 12px;overflow:auto;list-style:none}
 .focus-group>h3{position:sticky;top:0;z-index:1;margin:0;padding:6px 12px;background:var(--base);color:var(--heading);font-size:var(--fs-xs);font-weight:650;letter-spacing:.02em;border-bottom:1px solid color-mix(in srgb,var(--line) 18%,transparent)}
 .focus-group>h3 small{color:var(--dim);font-weight:400}
 .focus-group>ol{margin:0;padding:0;list-style:none}
