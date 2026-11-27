@@ -865,7 +865,15 @@ report outcome refuted | <what the hunt searched and did not find>
 report yara <sample sha256> | <reference> | <string>; <string>; <string>
 report validate <rule-or-query-id> passed | <what it was tested against>
 report control delivery detected | <telemetry source and what the control did>
+report write bluf | <two sentences for leadership>
+report risk high moderate | <why; severity, then confidence>
+report scenario most-likely likely high | <description> | <signposts>
+report risk-scenario likely critical missed | <scenario> | <recommended control> | <residual risk>
 ```
+
+Likelihood terms are the ICD 203 scale (`almost_no_chance`, `very_unlikely`,
+`unlikely`, `roughly_even_chance`, `likely`, `very_likely`, `almost_certain`);
+confidence is `low`, `moderate` or `high`, and the two are always separate.
 
 Detection content is generated from the indicators you would block: Sigma
 (status `experimental` until you record a passed validation, then `test`),

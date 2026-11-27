@@ -33,6 +33,7 @@ REPORT_PREDICATES: dict[str, str] = {
     "uses-malware": "A malware family the actor uses.",
     "uses-tool": "A dual-use or living-off-the-land tool the actor uses.",
     "exploits": "A vulnerability (CVE ID) the actor exploits.",
+    "intent": "Intent to target this organisation: high, medium or low; the statement gives the basis.",
     "capability": "capability:<axis> with a value 1-5 on the capability rubric.",
 }
 

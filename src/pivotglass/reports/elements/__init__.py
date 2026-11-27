@@ -321,6 +321,7 @@ def load_builtin_elements() -> dict[str, ElementSpec]:
         investigation,
         operational,
         organisation,
+        strategic,
         vulnerability,
     )
     from pivotglass.reports.elements.planned import PLANNED

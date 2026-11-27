@@ -126,7 +126,7 @@ def test_analysis_pir_command(ledger: AnalyticLedger):
     recorded = execute_analysis_command(("pir", "brand_vip_footprint", "strategic"), manager)
     assert recorded["data"]["pir"]["level"] == "strategic"
     assert recorded["data"]["pir"]["report_types"] == [
-        {"id": "executive-threat-briefing", "title": "Executive Threat Briefing", "available": False}
+        {"id": "executive-threat-briefing", "title": "Executive Threat Briefing", "available": True}
     ]
     with pytest.raises(ValueError, match="Unknown PIR category"):
         execute_analysis_command(("pir", "espionage"), manager)

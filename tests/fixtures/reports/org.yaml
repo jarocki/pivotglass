@@ -10,6 +10,7 @@ profile:
     - {name: ERP database, data: [finance, PHI], impact: critical}
   vendors:
     - {name: Example Billing, service: billing SaaS, criticality: high}
+  external_assets: [portal.example.org, 198.51.100.0/28]
   capability_benchmark: {access: 3, malware: 3, evasion: 2, movement: 3, infrastructure: 3}
 controls:
   - {technique: T1071.001, control: Web proxy, visibility: 2, alerting: 1, prevention: 0, last_tested: 2026-10-01, evidence: purple-team run 12}

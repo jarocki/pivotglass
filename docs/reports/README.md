@@ -8,9 +8,9 @@ Pivotglass assembles reports from sections that each state where their content c
 
 | # | Type | Tier | Audience | Marking | Status |
 |---:|---|---|---|---|---|
-| 1 | [Executive Threat Briefing](executive-threat-briefing.md) | Strategic | Executive leadership, Board risk committee | TLP:AMBER · PAP:CLEAR | needs #53 |
-| 2 | [Strategic Threat Landscape and Forecast](strategic-threat-landscape.md) | Strategic | Executive leadership, Board risk committee, Security strategy | TLP:AMBER · PAP:CLEAR | needs #53 |
-| 3 | [Threat-Informed Risk Assessment](threat-informed-risk-assessment.md) | Strategic | Risk management, Business owners, M&A and vendor-risk teams | TLP:AMBER+STRICT · PAP:CLEAR | needs #53 |
+| 1 | [Executive Threat Briefing](executive-threat-briefing.md) | Strategic | Executive leadership, Board risk committee | TLP:AMBER · PAP:CLEAR | built |
+| 2 | [Strategic Threat Landscape and Forecast](strategic-threat-landscape.md) | Strategic | Executive leadership, Board risk committee, Security strategy | TLP:AMBER · PAP:CLEAR | built |
+| 3 | [Threat-Informed Risk Assessment](threat-informed-risk-assessment.md) | Strategic | Risk management, Business owners, M&A and vendor-risk teams | TLP:AMBER+STRICT · PAP:CLEAR | built |
 
 ## Operational and incident
 
@@ -83,6 +83,7 @@ analysis claim judgment actor:<name> <predicate> <value> | <statement with its b
 | `uses-malware` | A malware family the actor uses. |
 | `uses-tool` | A dual-use or living-off-the-land tool the actor uses. |
 | `exploits` | A vulnerability (CVE ID) the actor exploits. |
+| `intent` | Intent to target this organisation: high, medium or low; the statement gives the basis. |
 | `capability` | capability:<axis> with a value 1-5 on the capability rubric. |
 
 Capability axes for `capability:<axis>`: `access`, `malware`, `evasion`, `movement`, `infrastructure`.

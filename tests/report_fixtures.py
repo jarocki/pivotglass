@@ -301,3 +301,33 @@ def build_behavioral_workspace(root: Path, name: str = "case") -> WorkspaceManag
     execute_report_command("control delivery detected | Mail gateway alert; message still delivered", wm)
     execute_report_command("control command-and-control blocked | Proxy blocked the second beacon", wm)
     return wm
+
+
+def build_strategic_workspace(root: Path, name: str = "case") -> WorkspaceManager:
+    """The behavioural workspace plus strategic judgments, scenarios, intent and an exposed owned asset."""
+
+    from pivotglass.core.analytic_ledger import AnalyticLedger, AssertionType
+    from pivotglass.reports.commands import execute_report_command
+
+    wm = build_behavioral_workspace(root, name)
+    wm.store_stix_objects(
+        [{"type": "ipv4-addr", "value": "198.51.100.5", "x_internetdb_ports": [443, 8443], "x_internetdb_vulns": ["CVE-2024-0001"]}],
+        module_name="osint/shodan_internetdb", target="198.51.100.5",
+    )
+    AnalyticLedger(wm).create_assertion(
+        "Named our parent company in a leak-site post.", assertion_type=AssertionType.JUDGMENT,
+        subject_ref=ACTOR, predicate="intent", object_value="high",
+    )
+    for command in (
+        "write bluf | An actor targeting hospital groups is exploiting our VPN gateway version. Approve emergency patching tonight.",
+        "write situational_overview | A financially motivated actor is phishing hospital staff and exploiting edge gateways.",
+        "write macro_trends | Edge-device exploitation overtook phishing as the first step in the healthcare cases seen.",
+        "write period_scope | 1 October to 26 November 2026; healthcare sector; our own collection only.",
+        "risk high moderate | Our gateway version is affected and the actor targets our sector.",
+        "scenario most-likely likely high | The actor exploits an unpatched gateway within the quarter. | New scans of our VPN range",
+        "scenario worst unlikely critical | Ransomware across clinical systems. | Domain admin logons from the jump host",
+        "scenario best roughly_even_chance low | Patching closes the gateway route first. | Gateway at 9.1.2 everywhere",
+        "risk-scenario likely critical missed | Gateway exploit leads to ERP access | Patch and segment the jump host | Medium",
+    ):
+        execute_report_command(command, wm)
+    return wm

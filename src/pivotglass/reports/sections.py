@@ -11,6 +11,9 @@ record. Report sections read them; they never become evidence.
     report yara <sample-sha256> | <reference> | <string>; <string>; ...
     report validate <rule-id> <passed|failed|not-tested> | <what was tested, against what>
     report control <kill-chain-phase> <control-status> | <telemetry source and basis>
+    report risk <severity> <low|moderate|high confidence> | <reason>
+    report scenario <most-likely|worst|best> <likelihood-term> <severity> | <description> | <signposts>
+    report risk-scenario <likelihood-term> <severity> <control-status> | <scenario> | <recommended control> | <residual risk>
 """
 
 from __future__ import annotations
@@ -25,12 +28,15 @@ from pivotglass.reports.contract import Severity
 SECTION_PREFIX = "report:"
 TEXT, SEVERITY, RECOMMENDATION = "text", "severity", "recommendation"
 OUTCOME, YARA, VALIDATION, CONTROL = "outcome", "yara-strings", "validation", "control-status"
+RISK, SCENARIO, RISK_SCENARIO = "overall-risk", "scenario", "risk-scenario"
+SCENARIO_KINDS = ("most-likely", "worst", "best")
 KILL_CHAIN_PHASE_IDS = (
     "reconnaissance", "weaponization", "delivery", "exploitation", "installation", "command-and-control", "actions-on-objectives",
 )
 WRITABLE_SECTIONS = (
     "threat_summary", "attack_narrative", "technical_mechanism", "triage_actions", "remediation_notes",
     "hunt_hypothesis", "threat_context", "baseline_false_positives", "triage_playbook",
+    "bluf", "situational_overview", "macro_trends", "period_scope",
 )
 OUTCOMES = ("supported", "refuted", "inconclusive")
 VALIDATION_RESULTS = ("passed", "failed", "not-tested")
@@ -99,6 +105,27 @@ def control_statuses(analysis: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return found
 
 
+def _structured(analysis: dict[str, Any], section: str, predicate: str) -> list[dict[str, Any]]:
+    return [
+        {**json.loads(row.get("object_value") or "{}"), "text": row["statement"], "id": row["id"], "author": row.get("author_kind")}
+        for row in _active(analysis, SECTION_PREFIX + section, predicate)
+    ]
+
+
+def overall_risk(analysis: dict[str, Any]) -> dict[str, Any] | None:
+    rows = _structured(analysis, "risk", RISK)
+    return rows[-1] if rows else None
+
+
+def scenarios(analysis: dict[str, Any]) -> list[dict[str, Any]]:
+    latest = {row["kind"]: row for row in _structured(analysis, "scenario", SCENARIO)}
+    return [latest[k] for k in SCENARIO_KINDS if k in latest]
+
+
+def risk_scenarios(analysis: dict[str, Any]) -> list[dict[str, Any]]:
+    return _structured(analysis, "risk-scenario", RISK_SCENARIO)
+
+
 def record(ledger: Any, words: list[str], rest: str) -> dict[str, Any]:
     """Run ``report write|severity|recommend|outcome|yara|validate``; returns the created assertion id and a title."""
 
@@ -151,9 +178,37 @@ def record(ledger: Any, words: list[str], rest: str) -> dict[str, Any]:
         if len(words) != 3 or words[1] not in KILL_CHAIN_PHASE_IDS or words[2] not in statuses or not rest.strip():  # noqa: PLR2004
             raise ValueError(f"Usage: report control <{'|'.join(KILL_CHAIN_PHASE_IDS)}> <{'|'.join(statuses)}> | <basis>")
         subject, predicate, value, statement = f"{SECTION_PREFIX}control:{words[1]}", CONTROL, words[2], rest.strip()
+    elif verb in {"risk", "scenario", "risk-scenario"}:
+        subject, predicate, statement, value = _judgement_record(verb, words, rest)
     else:
-        raise ValueError("Usage: report write|severity|recommend|outcome|yara|validate|control ...")
+        raise ValueError("Usage: report write|severity|recommend|outcome|yara|validate|control|risk|scenario|risk-scenario ...")
     assertion_id = ledger.create_assertion(
         statement, assertion_type=AssertionType.JUDGMENT, subject_ref=subject, predicate=predicate, object_value=value
     )
     return {"title": f"Recorded {predicate} for the report", "data": {"assertion_id": assertion_id, "subject": subject}}
+
+
+def _judgement_record(verb: str, words: list[str], rest: str) -> tuple[str, str, str, str]:
+    from pivotglass.reports.contract import ConfidenceLevel, ControlStatus, LikelihoodTerm
+
+    severities = [v.value for v in Severity]
+    terms = [t.value for t in LikelihoodTerm]
+    fields = [part.strip() for part in rest.split("|")]
+    if verb == "risk":
+        usage = f"Usage: report risk <{'|'.join(severities)}> <low|moderate|high> | <reason>"
+        if len(words) != 3 or words[1] not in severities or words[2] not in [c.value for c in ConfidenceLevel] or not rest.strip():  # noqa: PLR2004
+            raise ValueError(usage)
+        return SECTION_PREFIX + "risk", RISK, rest.strip(), json.dumps({"severity": words[1], "confidence": words[2]})
+    if verb == "scenario":
+        usage = f"Usage: report scenario <{'|'.join(SCENARIO_KINDS)}> <likelihood term> <severity> | <description> | <signposts>"
+        if len(words) != 4 or words[1] not in SCENARIO_KINDS or words[2] not in terms or words[3] not in severities or len(fields) != 2 or not all(fields):  # noqa: PLR2004
+            raise ValueError(usage)
+        value = {"kind": words[1], "likelihood": words[2], "impact": words[3], "signposts": fields[1]}
+        return SECTION_PREFIX + "scenario", SCENARIO, fields[0], json.dumps(value, sort_keys=True)
+    statuses = [c.value for c in ControlStatus]
+    usage = ("Usage: report risk-scenario <likelihood term> <severity> <control status> | <scenario> | "
+             "<recommended control> | <residual risk>")
+    if len(words) != 4 or words[1] not in terms or words[2] not in severities or words[3] not in statuses or len(fields) != 3 or not all(fields):  # noqa: PLR2004
+        raise ValueError(usage)
+    value = {"likelihood": words[1], "impact": words[2], "control_status": words[3], "recommended_control": fields[1], "residual": fields[2]}
+    return SECTION_PREFIX + "risk-scenario", RISK_SCENARIO, fields[0], json.dumps(value, sort_keys=True)

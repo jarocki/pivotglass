@@ -32,7 +32,9 @@ REPORT_USAGE = (
     "write <section> | <text> | severity <level> | <reason> | "
     "recommend <1-9> | <action> | <owner> | <due> | <outcome> | outcome <result> | <findings> | "
     "yara <sha256> | <reference> | <strings> | validate <rule-id> <passed|failed|not-tested> | <test> | "
-    "control <kill-chain-phase> <control-status> | <basis>]"
+    "control <kill-chain-phase> <control-status> | <basis> | risk <severity> <confidence> | <reason> | "
+    "scenario <kind> <likelihood> <severity> | <description> | <signposts> | "
+    "risk-scenario <likelihood> <severity> <control-status> | <scenario> | <control> | <residual>]"
 )
 _MIME = {
     OutputFormat.MARKDOWN: "text/markdown", OutputFormat.JSON: "application/json",
@@ -108,7 +110,7 @@ def execute_report_command(text: str | tuple[str, ...], workspace_mgr: Any) -> d
         words = words[1:]
     action = words[0].casefold() if words else ""
 
-    if action in {"write", "severity", "recommend", "outcome", "yara", "validate", "control"}:
+    if action in {"write", "severity", "recommend", "outcome", "yara", "validate", "control", "risk", "scenario", "risk-scenario"}:
         from pivotglass.core.analytic_ledger import AnalyticLedger
         from pivotglass.reports.sections import record
 
