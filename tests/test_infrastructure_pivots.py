@@ -281,3 +281,31 @@ def test_registrar_is_not_a_shared_property_edge():
     graph = RelationshipGraph()
     graph.build_from_workspace(objects)
     assert graph.to_dict()["edges"] == []
+
+
+def test_reported_neighbours_become_many_to_many_relationships(tmp_path):
+    """DEC-NEIGHBOUR-RELATIONSHIP-001: an IP shared by two domains, already stored, keeps both links."""
+    from pivotglass.core.graph import persisted_relationships
+    from pivotglass.core.workspace import WorkspaceManager
+
+    wm = WorkspaceManager(workspace_dir=tmp_path / "ws")
+    wm.create("case")
+    wm.switch("case")
+    wm.store_stix_objects([{"type": "ipv4-addr", "value": "192.0.2.50"}], module_name="test/first", target="x")
+    for domain in ("one.example.net", "two.example.net"):
+        wm.store_stix_objects(
+            [{"type": "domain-name", "value": domain},
+             {"type": "ipv4-addr", "value": "192.0.2.50", "x_dns_resolution_of": domain}],
+            module_name="osint/dns_doh", target=domain,
+        )
+    wm.store_stix_objects(  # the same answer again: no duplicate
+        [{"type": "domain-name", "value": "one.example.net"},
+         {"type": "ipv4-addr", "value": "192.0.2.50", "x_dns_resolution_of": "one.example.net"}],
+        module_name="osint/dns_doh", target="one.example.net",
+    )
+    values = {o["id"]: o.get("value") for o in wm.get_stix_objects()}
+    rels = [(values[r["source_ref"]], r["relationship_type"], values[r["target_ref"]]) for r in persisted_relationships(wm)]
+    assert sorted(rels) == [
+        ("192.0.2.50", "resolution-of", "one.example.net"),
+        ("192.0.2.50", "resolution-of", "two.example.net"),
+    ]

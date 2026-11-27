@@ -65,6 +65,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from pivotglass.models.database import Relationship
+from pivotglass.models.stix import NEIGHBOUR_FIELDS
 
 _LOG = logging.getLogger(__name__)
 
@@ -207,16 +208,10 @@ class RelationshipGraph:
             "x_contacted_domains": "contacts",
             "x_contacted_ips": "contacts",
             "x_contacted_urls": "contacts",
-            # Keyless infrastructure pivots (#21): the neighbour carries the field and
-            # names the queried object. Registrar is deliberately not a shared-property
-            # edge: one registrar spans millions of unrelated domains.
-            "x_rdap_nameserver_of": "nameserver-of",
-            "x_mnemonic_pdns_resolution_of": "resolution-of",
-            "x_dns_resolution_of": "resolution-of",
-            "x_dns_nameserver_of": "nameserver-of",
-            "x_dns_mail_exchanger_of": "mail-exchanger-of",
-            "x_dns_alias_of": "alias-of",
-            "x_asn_of": "announces",
+            # Neighbour fields (#21): one authority, also stored as explicit
+            # relationships (DEC-NEIGHBOUR-RELATIONSHIP-001). Registrar is deliberately
+            # not a shared-property edge: one registrar spans millions of domains.
+            **NEIGHBOUR_FIELDS,
         }
         shared_fields = {
             "sha256": "shares-sha256",

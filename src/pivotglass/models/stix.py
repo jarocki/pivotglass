@@ -207,6 +207,35 @@ _SCO_CREATORS: dict[str, object] = {
 }
 
 
+# @decision DEC-NEIGHBOUR-RELATIONSHIP-001
+# @title A neighbour a source reports is stored as an explicit relationship
+# @status accepted
+# @rationale Modules name the object a neighbour belongs to in an ``x_*_of``
+#            field (an IP that a domain resolves to, a domain's nameserver, the
+#            AS that announces an IP). A field holds one value and an existing
+#            object keeps its first fields, so an IP shared by two domains, or
+#            already in the workspace, lost the link: the shared-infrastructure
+#            case pivots exist for. At store time each such field becomes a
+#            STIX relationship with a deterministic id (carrier -> named
+#            object), many-to-many and deduplicated. The source that reported it
+#            is the provenance; it is a reported relation, not an inference.
+NEIGHBOUR_FIELDS: dict[str, str] = {
+    "x_rdap_nameserver_of": "nameserver-of",
+    "x_mnemonic_pdns_resolution_of": "resolution-of",
+    "x_dns_resolution_of": "resolution-of",
+    "x_dns_nameserver_of": "nameserver-of",
+    "x_dns_mail_exchanger_of": "mail-exchanger-of",
+    "x_dns_alias_of": "alias-of",
+    "x_asn_of": "announces",
+    "x_internetdb_hostname_of": "hostname-of",
+}
+_NEIGHBOUR_NAMESPACE = uuid.UUID("2f7d8c1e-5b8a-5c43-9d1e-4a6b0c9e7f21")
+
+
+def neighbour_relationship_id(source_ref: str, verb: str, target_ref: str) -> str:
+    return f"relationship--{uuid.uuid5(_NEIGHBOUR_NAMESPACE, f'{source_ref}|{verb}|{target_ref}')}"
+
+
 def dict_to_stix(d: dict):
     """Convert a plain dict (from module hunt()) to a STIX object.
 

@@ -110,7 +110,7 @@ from pivotglass.models.database import (
 from pivotglass.models.database import (
     Relationship as RelationshipModel,
 )
-from pivotglass.models.stix import dict_to_stix
+from pivotglass.models.stix import NEIGHBOUR_FIELDS, dict_to_stix, neighbour_relationship_id
 
 # One authority for the tables managed by the workspace-clear lifecycle.
 # Child/derived records come before the records they reference so clear remains
@@ -624,6 +624,7 @@ class WorkspaceManager:
                     )
                 )
 
+            neighbour_links: list[tuple[str, str, str]] = []
             for obj in objects:
                 # Strip caller-supplied x_pivotglass_* fields from dicts before conversion
                 # (DEC-59-STIX-PROVENANCE-001: workspace is the sole x_pivotglass_* authority)
@@ -680,7 +681,14 @@ class WorkspaceManager:
                     )
                 )
                 stored_count += 1
+                if obj_type != "relationship":
+                    neighbour_links.extend(
+                        (obj.id, verb, str(serialized[field]))
+                        for field, verb in NEIGHBOUR_FIELDS.items()
+                        if isinstance(serialized.get(field), str) and serialized[field].strip()
+                    )
 
+            self._store_neighbour_relationships(session, neighbour_links)
             run.result_count = stored_count
             session.commit()
 
@@ -1715,6 +1723,36 @@ class WorkspaceManager:
                 modules.append(module)
             blob["x_pivotglass_source_modules"] = [m for m in modules if m]
         existing.json_blob = blob
+
+    def _store_neighbour_relationships(
+        self, session: Session, links: list[tuple[str, str, str]]
+    ) -> None:
+        """Store each reported neighbour link as a relationship (DEC-NEIGHBOUR-RELATIONSHIP-001)."""
+
+        if not links:
+            return
+        import stix2
+
+        session.flush()
+        for source_ref, verb, value in links:
+            candidates = session.execute(
+                select(StixObject).where(StixObject.value == value.strip().lower().rstrip("."))
+            ).scalars().all() or session.execute(
+                select(StixObject).where(StixObject.value == value.strip())
+            ).scalars().all()
+            target = next((row for row in candidates if row.id != source_ref), None)
+            if target is None:
+                continue
+            relationship_id = neighbour_relationship_id(source_ref, verb, target.id)
+            if session.get(RelationshipModel, relationship_id) is not None:
+                continue
+            self._store_relationship(
+                session,
+                stix2.Relationship(
+                    id=relationship_id, source_ref=source_ref, target_ref=target.id,
+                    relationship_type=verb, allow_custom=True,
+                ),
+            )
 
     def _store_relationship(self, session: Session, obj) -> None:
         """Insert a STIX Relationship SRO into relationships, ignoring duplicates."""
