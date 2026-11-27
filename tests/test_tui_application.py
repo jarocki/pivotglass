@@ -330,7 +330,7 @@ def test_cockpit_hud_reports_live_functional_state():
 
     text = "".join(fragment for _style, fragment in app._get_hud_formatted())
 
-    assert "TACTICAL HUD" in text
+    assert "Hunt status" in text
     assert "ENRICH  virustotal" in text
     assert "FEED -20 lines" in text
     assert "ACTIVE" in text

@@ -102,11 +102,12 @@ class CharacterTheme:
 
 @dataclass(frozen=True)
 class CockpitProfile:
-    """Mode-specific cockpit vocabulary and perspective geometry."""
+    """Mode-specific rail glyphs framing the terminal panels.
 
-    deck_name: str
-    vehicle: str
-    hud_title: str
+    Panel labels are plain and shared by every mode (#34); the persona keeps
+    its voice, colours and rail glyphs, not decorative vehicle or HUD names.
+    """
+
     left_rail: str
     right_rail: str
 
@@ -331,34 +332,17 @@ PURSUIT_TITLES: dict[str, str] = {
 }
 
 
-_LEGACY_COCKPIT_PROFILES: dict[str, CockpitProfile] = {
-    "default": CockpitProfile("HUNT CONTROL", "Pivotglass-01 PURSUIT DECK", "TACTICAL HUD", "╲", "╱"),
-    "ninja": CockpitProfile("SHADOW SCOPE", "NIGHT-RUNNER", "SILENT TELEMETRY", "⟍", "⟋"),
-    "full_troll": CockpitProfile("THUNDERDOME", "CHAOS WAGON", "HYPE METERS", "⚡", "⚡"),
-    "drunken_master": CockpitProfile("TAVERN GYRO", "WOBBLE-CLASS SKIFF", "BALANCE BOARD", "≈", "≈"),
-    "sun_tzu": CockpitProfile("WAR TABLE", "COMMAND CHARIOT", "BATTLE MAP", "《", "》"),
-    "chuck_norris": CockpitProfile("STRIKE ARENA", "ROUNDHOUSE-1", "THREAT LOCK", "◢", "◣"),
-    "bureaucrat": CockpitProfile("CASE FILE", "FORM 27-B/6", "COMPLIANCE HUD", "┏", "┓"),
-    "bobby_hill": CockpitProfile("BACK ALLEY", "PURSE DEFENDER", "DANG-IT PANEL", "╱", "╲"),
-    "bruce_lee": CockpitProfile("FLOW DECK", "INTERCEPTOR WATER", "FLOW STATE", "〈", "〉"),
-    "columbo": CockpitProfile("PRECINCT DESK", "PEUGEOT 403", "ONE MORE THING", "⌜", "⌝"),
-    "deckard": CockpitProfile("RAIN SCOPE", "SPINNER 9732", "VOIGHT-KAMPFF HUD", "◥", "◤"),
-    "hal9000": CockpitProfile("DEEP SPACE", "DISCOVERY ONE", "HAL OPTICS", "◉", "◉"),
-    "neuromancer": CockpitProfile("THE SPRAWL", "ONO-SENDAI VII", "ICE MONITOR", "⟫", "⟪"),
-    "trinity": CockpitProfile("THE MATRIX", "NEBUCHADNEZZAR", "OPERATOR LINK", "⧹", "⧸"),
-}
-
 COCKPIT_PROFILES: dict[str, CockpitProfile] = {
-    "default": _LEGACY_COCKPIT_PROFILES["default"],
-    "ninja": _LEGACY_COCKPIT_PROFILES["ninja"],
-    "full_troll": CockpitProfile("QUIP DECK", "SIDEKICK STATION", "WIT MONITOR", "⚡", "⚡"),
-    "bureaucrat": _LEGACY_COCKPIT_PROFILES["bureaucrat"],
-    "strategist": _LEGACY_COCKPIT_PROFILES["sun_tzu"],
-    "sensei": _LEGACY_COCKPIT_PROFILES["chuck_norris"],
-    "detective": CockpitProfile("CASE DESK", "DEDUCTION LEDGER", "DEDUCTION ENGINE", "⌜", "⌝"),
-    "the_computer": CockpitProfile("DEEP ORBIT", "ORBITAL ARRAY", "LOGIC CORE", "◉", "◉"),
-    "the_sprawl": CockpitProfile("NIGHTGRID", "CITY CIRCUIT", "SIGNAL MONITOR", "⟫", "⟪"),
-    "m4tr1x": CockpitProfile("CODE RAIN", "SIGNAL DECK", "OPERATOR LINK", "⧹", "⧸"),
+    "default": CockpitProfile("╲", "╱"),
+    "ninja": CockpitProfile("⟍", "⟋"),
+    "full_troll": CockpitProfile("⚡", "⚡"),
+    "bureaucrat": CockpitProfile("┏", "┓"),
+    "strategist": CockpitProfile("《", "》"),
+    "sensei": CockpitProfile("◢", "◣"),
+    "detective": CockpitProfile("⌜", "⌝"),
+    "the_computer": CockpitProfile("◉", "◉"),
+    "the_sprawl": CockpitProfile("⟫", "⟪"),
+    "m4tr1x": CockpitProfile("⧹", "⧸"),
 }
 
 

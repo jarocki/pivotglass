@@ -629,19 +629,19 @@ class TuiApplication:
         return FormattedText(
             [
                 (f"fg:{theme.dim_color}", f" {profile.left_rail}━━ "),
-                (f"bold fg:{theme.heading_color}", f"{title} // {profile.vehicle}"),
+                (f"bold fg:{theme.heading_color}", title),
                 (f"fg:{theme.dim_color}", f" ━━{profile.right_rail} "),
             ]
         )
 
     def _get_command_title_formatted(self) -> FormattedText:
-        """Return the storyboard-inspired command-deck label."""
+        """Return the plain command-panel label (#34)."""
         mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
         theme = theme_for(mode_name)
         return FormattedText(
             [
-                (f"bold fg:{theme.accent_color}", " COMMAND DECK "),
-                (f"fg:{theme.dim_color}", "  natural language + local controls "),
+                (f"bold fg:{theme.accent_color}", " Command "),
+                (f"fg:{theme.dim_color}", "  questions, indicators, or commands "),
             ]
         )
 
@@ -649,11 +649,10 @@ class TuiApplication:
         """Return the label for activity, dossier, model, and mode telemetry."""
         mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
         theme = theme_for(mode_name)
-        profile = cockpit_for(mode_name)
         return FormattedText(
             [
-                (f"bold fg:{theme.heading_color}", f" {profile.deck_name} "),
-                (f"fg:{theme.dim_color}", f"  {profile.hud_title} · live instruments "),
+                (f"bold fg:{theme.heading_color}", " Status "),
+                (f"fg:{theme.dim_color}", "  activity, dossier, model, and mode "),
             ]
         )
 
@@ -669,7 +668,7 @@ class TuiApplication:
         active = "ACTIVE" if state["active"] else "STANDBY"
         music_state = "♪ LIVE" if self._music.status.enabled else "♪ MUTED"
         rows = [
-            f"{profile.left_rail} {profile.hud_title} {profile.right_rail}",
+            f"{profile.left_rail} Hunt status {profile.right_rail}",
             f"LOCK   {str(state['target'])[:23]}",
             f"CLASS  {str(state['target_type'])[:23]}",
             f"ENRICH  {str(state['activity'])[:17]}  q:{state['queued']}",

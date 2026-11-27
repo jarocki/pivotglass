@@ -643,7 +643,7 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
     }
     m4tr1x = next(mode for mode in state["modes"] if mode["name"] == "m4tr1x")
     assert m4tr1x["theme"]["heading_color"] == "#00ff5f"
-    assert m4tr1x["cockpit"]["vehicle"] == "SIGNAL DECK"
+    assert m4tr1x["cockpit"] == {"left_rail": "⧹", "right_rail": "⧸"}
 
 
 def test_switch_mode_reuses_canonical_character_and_cockpit_authorities(tmp_path):
@@ -654,7 +654,7 @@ def test_switch_mode_reuses_canonical_character_and_cockpit_authorities(tmp_path
     assert state["character"] == "the_computer"
     active = next(mode for mode in state["modes"] if mode["name"] == "the_computer")
     assert active["theme"]["heading_color"] == "#ff5555"
-    assert active["cockpit"]["hud_title"] == "LOGIC CORE"
+    assert active["cockpit"] == {"left_rail": "◉", "right_rail": "◉"}
 
 
 def test_completions_match_public_modes_and_workspace_context(tmp_path):

@@ -71,11 +71,13 @@ class _FakeRunner:
     model = "test/model"
 
 
-def test_every_mode_has_a_distinct_cockpit_identity() -> None:
+def test_every_mode_has_rails_and_no_decorative_panel_names() -> None:
+    """#34: panel labels are plain; modes keep only their rail glyphs."""
+    from dataclasses import fields
+
     assert len(COCKPIT_PROFILES) == 10
-    assert len({profile.vehicle for profile in COCKPIT_PROFILES.values()}) == 10
-    assert cockpit_for("the_computer").vehicle == "ORBITAL ARRAY"
-    assert cockpit_for("the_sprawl").vehicle == "CITY CIRCUIT"
+    assert [f.name for f in fields(next(iter(COCKPIT_PROFILES.values())))] == ["left_rail", "right_rail"]
+    assert cockpit_for("the_computer").left_rail == "◉"
 
 
 def _make_app(mode_name: str = "default") -> TuiApplication:

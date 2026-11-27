@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The terminal UI uses plain panel labels (Command, Status, Hunt status) instead of per-persona vehicle and HUD names such as "ORBITAL ARRAY" or "TACTICAL HUD". Personas keep their voice, colours, pursuit titles and rail glyphs. The mode payload's `cockpit` object now carries only the two rail glyphs (#34).
 - Every "key not configured" message names commands that exist: Configuration, `pivotglass config set <key>`, or the `PIVOTGLASS_*` variable, from one helper. The messages that named `pivotglass config setup` and `config set api_keys.<x> <key>` are gone; a test fails if source text names a config subcommand the CLI does not accept. The LLM-provider hint names the real `PIVOTGLASS_<PROVIDER>_API_KEY` variables, and a broken `config.toml` hint says to move the file aside (#19).
 - Provenance is a dense timeline, one row per event, with details on demand (#39).
 - The dossier report is now the **Investigation Report** type of the report system, with the same content plus the shared header, provenance per section, Gaps and Limitations, and Sources. `core/dossier_report.py` is removed. The LLM tool `generate_dossier_report` is now the read-only `preview_report(report_type)`; issuing stays an analyst command (#50).
