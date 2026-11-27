@@ -11,7 +11,7 @@ _Worked example built from the synthetic test workspace (tests/report_fixtures.p
 - **Valid until:** 2027-05-19
 - **Audience:** Threat hunters, Detection engineers, Purple team
 - **Requirement addressed:** Who controls the observed infrastructure? (Threat actor and campaign tracking, Operational)
-- **Producer:** Pivotglass 1.4.1 · workspace example
+- **Producer:** Pivotglass 1.5.0 · workspace example
 
 > TLP:AMBER: Recipients may share on a need-to-know basis within their organisation and its clients. PAP:CLEAR: No restrictions on the actions recipients may take.
 

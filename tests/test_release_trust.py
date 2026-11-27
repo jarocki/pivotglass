@@ -28,8 +28,8 @@ def _artifact(path: Path, content: bytes) -> Path:
 
 
 def test_release_trust_bundle_covers_both_exact_lockfiles(tmp_path: Path) -> None:
-    wheel = _artifact(tmp_path / "pivotglass-1.4.1-py3-none-any.whl", b"wheel")
-    source = _artifact(tmp_path / "pivotglass-1.4.1.tar.gz", b"source")
+    wheel = _artifact(tmp_path / "pivotglass-1.5.0-py3-none-any.whl", b"wheel")
+    source = _artifact(tmp_path / "pivotglass-1.5.0.tar.gz", b"source")
     output = tmp_path / "trust"
 
     receipt = generate(
@@ -39,7 +39,7 @@ def test_release_trust_bundle_covers_both_exact_lockfiles(tmp_path: Path) -> Non
         timestamp=TIMESTAMP,
     )
 
-    assert receipt["version"] == "1.4.1"
+    assert receipt["version"] == "1.5.0"
     assert receipt["python_components"] == 89  # +boto3 stack (litellm), maxminddb
     assert receipt["node_components"] == 76
     assert receipt["total_components"] == 165
@@ -57,7 +57,7 @@ def test_release_trust_bundle_covers_both_exact_lockfiles(tmp_path: Path) -> Non
     assert sbom["bomFormat"] == "CycloneDX"
     assert sbom["specVersion"] == "1.5"
     assert sbom["metadata"]["timestamp"] == TIMESTAMP
-    assert sbom["metadata"]["component"]["version"] == "1.4.1"
+    assert sbom["metadata"]["component"]["version"] == "1.5.0"
     assert len(sbom["components"]) == 165
     properties = {item["name"]: item["value"] for item in sbom["metadata"]["properties"]}
     assert "wheel metadata uses compatible version ranges" in properties[

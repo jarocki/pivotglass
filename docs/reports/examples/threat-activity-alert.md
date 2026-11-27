@@ -11,7 +11,7 @@ _Worked example built from the synthetic test workspace (tests/report_fixtures.p
 - **Valid until:** 2026-12-20
 - **Audience:** SOC analysts, Incident responders
 - **Requirement addressed:** Who controls the observed infrastructure? (Threat actor and campaign tracking, Operational)
-- **Producer:** Pivotglass 1.4.1 · workspace example
+- **Producer:** Pivotglass 1.5.0 · workspace example
 
 > TLP:AMBER: Recipients may share on a need-to-know basis within their organisation and its clients. PAP:GREEN: Active actions are allowed, such as blocking traffic or contacting the infrastructure.
 

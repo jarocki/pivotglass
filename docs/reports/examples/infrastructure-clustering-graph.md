@@ -11,7 +11,7 @@ _Worked example built from the synthetic test workspace (tests/report_fixtures.p
 - **Valid until:** 2026-12-20
 - **Audience:** CTI analysts, Threat hunters
 - **Requirement addressed:** Who controls the observed infrastructure? (Threat actor and campaign tracking, Operational)
-- **Producer:** Pivotglass 1.4.1 · workspace example
+- **Producer:** Pivotglass 1.5.0 · workspace example
 
 > TLP:AMBER: Recipients may share on a need-to-know basis within their organisation and its clients. PAP:AMBER: Passive cross-checks only (for example passive DNS or public databases) that cannot alert the adversary.
 

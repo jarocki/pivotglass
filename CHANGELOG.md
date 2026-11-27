@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-26
+
 ### Fixed
 
 - A pivot run no longer spends a request on IP to ASN when the local ASN database is not installed: the module reports that it is not ready, with the install hint, before the budget is charged.

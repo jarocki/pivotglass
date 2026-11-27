@@ -10,7 +10,7 @@ _Worked example built from the synthetic test workspace (tests/report_fixtures.p
 - **Generated:** 2026-11-20 12:00 UTC
 - **Audience:** Incident responders, Forensic analysts, Legal and compliance
 - **Requirement addressed:** Who controls the observed infrastructure? (Threat actor and campaign tracking, Operational)
-- **Producer:** Pivotglass 1.4.1 · workspace example
+- **Producer:** Pivotglass 1.5.0 · workspace example
 
 > TLP:AMBER+STRICT: Recipients may share on a need-to-know basis within their organisation only. PAP:RED: Non-detectable actions only: internal logs and offline tools, no online lookups.
 
