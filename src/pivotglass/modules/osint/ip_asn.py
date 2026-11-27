@@ -56,6 +56,11 @@ class IpAsn(BaseModule):
             "TARGET": {"required": True, "description": "IP address", "default": ""},
         }
 
+    def readiness(self) -> str | None:
+        """Why this module cannot run now, or None. Pivot runs check it before spending budget."""
+
+        return None if (self.database or GeoDatabase()).path("asn").is_file() else INSTALL_HINT
+
     async def hunt(self, target: str, options: dict[str, Any]) -> list[dict]:
         target = target.strip()
         sco_type = _SCO_TYPES.get(detect_ioc_type(target) or "")

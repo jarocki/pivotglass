@@ -64,6 +64,10 @@ def build_context_run(
             credentials = resolve_module_credentials(module, ctx.config_mgr)
         except ServiceDisabledError:
             return "disabled in Configuration"
+        # A local-data module (ip_asn) says why it cannot run, e.g. its database is missing.
+        check = getattr(instance, "readiness", None)
+        if callable(check) and isinstance(reason := check(), str) and reason:
+            return reason
         if getattr(instance, "requires_api_key", None) is False:
             return None
         if credentials and not any(str(item).strip() for item in credentials.values()):

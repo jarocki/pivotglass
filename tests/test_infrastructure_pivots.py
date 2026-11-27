@@ -220,6 +220,9 @@ def test_ip_asn_missing_database_says_how_to_install(tmp_path, monkeypatch):
     with pytest.raises(ModuleError) as caught:
         asyncio.run(module.hunt("8.8.8.8", {}))
     assert str(caught.value) == INSTALL_HINT and "Geolocation data" in INSTALL_HINT
+    # Pivot runs ask first, so a missing database is a readiness skip, not a failed request.
+    assert module.readiness() == INSTALL_HINT
+    assert _asn_module(tmp_path, monkeypatch, {}, installed=True).readiness() is None
 
 
 def test_ip_asn_rejects_non_ip(tmp_path, monkeypatch):

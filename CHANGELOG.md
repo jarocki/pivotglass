@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A pivot run no longer spends a request on IP to ASN when the local ASN database is not installed: the module reports that it is not ready, with the install hint, before the budget is charged.
 - A neighbour a source reports (an IP a domain resolves to, a nameserver, the AS announcing an IP, an InternetDB hostname) is now stored as an explicit relationship. Before, the link lived in a one-value field on the neighbour, so an IP shared by two domains, or already in the workspace, lost all but the first link in the graph.
 - In focus mode the keyboard hints no longer stretch down the indicator list, and the grouping menu reads "No grouping" rather than a second "Source order".
 - Organisation input could reach the model through sections that derive from it without saying so (kill-chain telemetry, choke points, dwell times) and through gap lines; those sections now declare organisation provenance and withheld views drop their gaps. `workspace merge` no longer copies organisation input or its share-with-model consent into another workspace.
