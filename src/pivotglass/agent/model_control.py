@@ -19,6 +19,7 @@ from pivotglass.agent.provider_setup import (
     ProviderAuthError,
     ProviderConnectionError,
     _build_model_string,
+    _set_cti_credentials,
     _validate_cti_key,
     list_models,
 )
@@ -643,6 +644,63 @@ def execute_model_command(
     )
 
 
+def credential_fields_for(target: str) -> list[tuple[str, str, bool]]:
+    """(stored key, label, required) for a service id or a stored key name (#19).
+
+    ``CTI_SERVICES`` is the authority: ``censys_pat`` names both fields, ``threatfox``
+    and ``abusech`` both name the shared abuse.ch key.
+    """
+    wanted = target.strip().lower()
+    for spec in CTI_SERVICES:
+        if spec.id == wanted and spec.needs_credential:
+            return [
+                (key, label, key not in spec.optional_config_keys)
+                for key, label in zip(spec.config_keys, spec.prompt_labels, strict=False)
+            ]
+    for spec in CTI_SERVICES:
+        if wanted in spec.config_keys:
+            index = spec.config_keys.index(wanted)
+            return [(wanted, spec.prompt_labels[index], wanted not in spec.optional_config_keys)]
+    return []
+
+
+def set_service_credentials(
+    control: ModelControl, target: str, read_secret: Any
+) -> tuple[int, str]:
+    """Store a service credential read through *read_secret* (never from arguments).
+
+    Returns ``(exit_code, message)``. The secret is never echoed, logged, or put in
+    the message; ``read_secret(prompt)`` is ``getpass.getpass`` on a terminal.
+    """
+    fields = credential_fields_for(target)
+    if not fields:
+        names = sorted(
+            {spec.id for spec in CTI_SERVICES if spec.needs_credential}
+            | {key for spec in CTI_SERVICES for key in spec.config_keys}
+        )
+        return 2, f"Unknown service or key: {target}. Available: {', '.join(names)}"
+    values: list[str] = []
+    for key, label, required in fields:
+        suffix = "" if required else " (optional; Enter to skip)"
+        value = str(read_secret(f"{label}{suffix}: ") or "").strip()
+        if required and not value:
+            return 1, f"No value entered for {label}; nothing was saved."
+        values.append(value)
+    keys = [key for key, _label, _required in fields]
+    _set_cti_credentials(control.config_mgr, keys, values)
+    wanted = target.strip().lower()
+    service = next(
+        (spec.id for spec in CTI_SERVICES if spec.id == wanted),
+        next(spec.id for spec in CTI_SERVICES if keys[0] in spec.config_keys),
+    )
+    shared = [spec.display_name for spec in CTI_SERVICES if spec.config_keys == keys and spec.id != service]
+    also = f" It is also used by {', '.join(shared)}." if shared else ""
+    return 0, (
+        f"Saved {', '.join(key for key, value in zip(keys, values) if value)} to the Pivotglass config."
+        f"{also} Test it with `pivotglass config check {service}`."
+    )
+
+
 def execute_configuration_command(
     args: tuple[str, ...] | list[str], control: ModelControl
 ) -> str:
@@ -698,9 +756,10 @@ def execute_configuration_command(
                 "config check <service-id>."
             )
         return "\n".join(lines)
-    if subcommand in {"configure", "setup"}:
+    if subcommand in {"configure", "setup", "set"}:
         return (
-            "Open CONFIGURATION in Pivotglass to enter and test secrets without "
-            "placing them in terminal history."
+            "Keys are never typed into a command line. Use Configuration (Menu \u2192 "
+            "Models and API keys), or run `pivotglass config set <service>` in a "
+            "terminal, which prompts without echoing."
         )
-    return "Usage: config show|check <service>|enable <service>|disable <service>|repair|configure"
+    return "Usage: config show|check <service>|enable <service>|disable <service>|repair|set <service>"

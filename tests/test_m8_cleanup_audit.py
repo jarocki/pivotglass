@@ -9,8 +9,8 @@ Verifies the classic-shim removal checklist (DEC-M8-CLEANUP-001..003):
 6. No --style flag in src/
 7. Classic tool names absent from agent/tools.py
 8. create_tools() returns exactly 28 tools
-9. generate_dossier_report tool has empty properties and required
-10. _execute_generate_dossier_report signature is (ctx,) — no style param
+9. the report preview tool exposes no style parameter
+10. (v1.5.0) the dossier report generator is replaced by the report system (#50)
 
 @decision DEC-TEST-M8-AUDIT-001
 @title test_m8_cleanup_audit enforces classic-shim removal invariants
@@ -23,7 +23,6 @@ Verifies the classic-shim removal checklist (DEC-M8-CLEANUP-001..003):
 
 from __future__ import annotations
 
-import inspect
 import json
 from pathlib import Path
 
@@ -145,25 +144,19 @@ class TestToolCatalogPostM8:
         from pivotglass.agent.tools import create_tools
 
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 36, (
+        assert len(tools) == 41, (
             f"Expected 36 tools (v1.4 added six keyless context sources), got {len(tools)}. "
             "M-8 removed start_report_interview, answer_report_question, generate_report. "
             "M-9 added export_dossier, compare_dossier (DEC-M9-TOOLCOUNT-001)."
         )
 
-    def test_generate_dossier_report_parameterless(self, tmp_ctx):
-        """generate_dossier_report tool has empty properties and empty required."""
+    def test_report_preview_tool_has_no_style_parameter(self, tmp_ctx):
+        """preview_report (v1.5.0, replacing generate_dossier_report) never regained style=."""
         from pivotglass.agent.tools import create_tools
 
         tools = create_tools(tmp_ctx)
-        tool = next(t for t in tools if t["function"]["name"] == "generate_dossier_report")
-        params = tool["function"]["parameters"]
-        assert params.get("properties", {}) == {}, (
-            f"generate_dossier_report should have no properties, got: {params['properties']}"
-        )
-        assert params.get("required", []) == [], (
-            f"generate_dossier_report should have no required params, got: {params['required']}"
-        )
+        tool = next(t for t in tools if t["function"]["name"] == "preview_report")
+        assert "style" not in tool["function"]["parameters"]["properties"]
 
     def test_classic_tools_absent_from_catalog(self, tmp_ctx):
         """start_report_interview, answer_report_question, generate_report not in tool list."""
@@ -182,20 +175,7 @@ class TestToolCatalogPostM8:
 
         tools = create_tools(tmp_ctx)
         roundtripped = json.loads(json.dumps(tools))
-        assert len(roundtripped) == 36
-
-    def test_execute_generate_dossier_report_no_style_param(self, tmp_ctx):
-        """_execute_generate_dossier_report(ctx) call signature is (ctx,) only."""
-        from pivotglass.agent.tools import _execute_generate_dossier_report
-
-        sig = inspect.signature(_execute_generate_dossier_report)
-        params = list(sig.parameters.keys())
-        assert params == ["ctx"], (
-            f"Expected only 'ctx', got: {params}. style= must not exist post-M-8."
-        )
-        # Confirm TypeError when style= is passed
-        with pytest.raises(TypeError):
-            _execute_generate_dossier_report(tmp_ctx, style="dossier")  # type: ignore[call-arg]
+        assert len(roundtripped) == 41
 
 
 # ---------------------------------------------------------------------------
@@ -206,15 +186,15 @@ class TestToolCatalogPostM8:
 class TestDossierReportStillWorks:
     """Dossier renderer produces valid output after classic-shim removal."""
 
-    def test_generate_dossier_report_produces_markdown(self, tmp_path):
-        """generate_dossier_report() returns non-empty dossier Markdown."""
-        from pivotglass.core.dossier_report import generate_dossier_report
+    def test_investigation_report_produces_markdown(self, tmp_path):
+        """The investigation report (successor of the dossier report) still renders."""
         from pivotglass.core.workspace import WorkspaceManager
+        from pivotglass.reports.engine import build_report
+        from pivotglass.reports.render import render
 
         wm = WorkspaceManager(workspace_dir=tmp_path / "ws")
         wm.create("audit")
         wm.switch("audit")
-        result = generate_dossier_report(wm)
-        assert isinstance(result, str)
+        result = render(build_report(wm))
         assert "## Dossier State" in result
         assert "## Predictions" in result

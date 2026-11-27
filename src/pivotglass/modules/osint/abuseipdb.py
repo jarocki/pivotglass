@@ -35,6 +35,7 @@ from typing import Any
 
 import httpx
 
+from pivotglass.core.module_config import credential_remedy
 from pivotglass.modules.base import (
     AuthenticationError,
     BaseModule,
@@ -49,7 +50,7 @@ class AbuseIPDB(BaseModule):
 
     Requires an API key from https://www.abuseipdb.com/register (free tier:
     1,000 queries/day). Configure via:
-      pivotglass config set api_keys.abuseipdb <key>
+      pivotglass config set abuseipdb
     or the PIVOTGLASS_ABUSEIPDB_API_KEY environment variable.
 
     Returns STIX 2.1 SCO dicts (plain dicts, not stix2 objects). At minimum
@@ -122,8 +123,7 @@ class AbuseIPDB(BaseModule):
         if not api_key:
             raise AuthenticationError(
                 "AbuseIPDB API key not configured. "
-                "Set via 'pivotglass config set api_keys.abuseipdb <key>' "
-                "or PIVOTGLASS_ABUSEIPDB_API_KEY env var."
+                + credential_remedy("abuseipdb")
             )
 
         max_age = int(options.get("MAX_AGE", self.options["MAX_AGE"]["default"]))

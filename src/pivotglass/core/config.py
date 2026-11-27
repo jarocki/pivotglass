@@ -112,6 +112,7 @@ _PIVOTGLASS_ENV_VAR_MAP: dict[str, str] = {
     "greynoise": "PIVOTGLASS_GREYNOISE_API_KEY",
     "hibp": "PIVOTGLASS_HIBP_API_KEY",
     "otx": "PIVOTGLASS_OTX_API_KEY",
+    "abusech": "PIVOTGLASS_ABUSECH_API_KEY",
     # Provider keys — Pivotglass-prefixed form
     "agent_anthropic": "PIVOTGLASS_ANTHROPIC_API_KEY",
     "agent_openai": "PIVOTGLASS_OPENAI_API_KEY",
@@ -135,6 +136,7 @@ _VENDOR_ENV_VAR_MAP: dict[str, str] = {
     "greynoise": "GREYNOISE_API_KEY",
     "hibp": "HIBP_API_KEY",
     "otx": "OTX_API_KEY",
+    "abusech": "ABUSECH_API_KEY",
     # Provider keys — vendor/standard env var names
     "agent_anthropic": "ANTHROPIC_API_KEY",
     "agent_openai": "OPENAI_API_KEY",
@@ -143,6 +145,11 @@ _VENDOR_ENV_VAR_MAP: dict[str, str] = {
     "synapse": "SYNAPSE_API_KEY",
     "scot": "SCOT_API_KEY",
 }
+
+def api_key_env_var(service: str) -> str:
+    """The Pivotglass environment variable that supplies *service*'s key (layer 2)."""
+    return _PIVOTGLASS_ENV_VAR_MAP.get(service, f"PIVOTGLASS_{service.upper()}_API_KEY")
+
 
 # Backward-compat alias: old PIVOTGLASS_VT_API_KEY and PIVOTGLASS_CENSYS_API_* names still honoured.
 # These are checked as additional Pivotglass-layer fallbacks in get_api_key().
@@ -159,11 +166,11 @@ _LEGACY_PIVOTGLASS_ENV_VAR_MAP: dict[str, list[str]] = {
 
 
 class AutoPivotPolicyConfig(BaseModel):
-    """Policy configuration for the auto-pivot gate engine.
+    """Policy configuration for automated pivots (pivot runs and autopivot).
 
     This submodel is the runtime read source for PivotPolicy construction
-    (DEC-60-PIVOT-POLICY-001). PivotPolicy is constructed once per EventBus
-    from this submodel and carries all five budget/threshold/path settings.
+    (DEC-60-PIVOT-POLICY-001). Each pivot run constructs its own PivotPolicy
+    from it with the run's request budget (DEC-PIVOT-RUN-001).
 
     @decision DEC-60-PIVOT-POLICY-CONFIG-001
     @title AutoPivotPolicyConfig as the canonical runtime config submodel for pivot gates
@@ -184,14 +191,16 @@ class AutoPivotPolicyConfig(BaseModel):
     (optimistic by default). (DEC-60-PIVOT-POLICY-004)"""
 
     max_per_cascade: int = Field(default=5, ge=0)
-    """Maximum allowed callbacks per single process_results invocation (one source SCO).
-    Resets per cascade. Default 5 caps a URLScan SCO yielding 15 CDN domains to 5
-    callback invocations instead of 45. (DEC-60-PIVOT-POLICY-002)"""
+    """Request budget of the autopivot run started after one enrichment (the name
+    predates v1.5.0, when that run was the event-bus cascade). Default 5 caps a
+    URLScan result yielding 15 CDN domains to 5 module requests instead of 45;
+    0 disables autopivot runs. Analyst ``pivot`` runs set their own ``budget:``.
+    (DEC-60-PIVOT-POLICY-006, DEC-PIVOT-AUTOPIVOT-001)"""
 
     max_per_session: int = Field(default=50, ge=0)
-    """Maximum allowed callbacks across the full EventBus lifetime (reset by
-    clear_history()). Default 50 provides a session-wide quota floor.
-    (DEC-60-PIVOT-POLICY-002)"""
+    """Total autopivot requests allowed across one session (one ToolContext); each
+    autopivot run's budget is capped by what remains. Default 50.
+    (DEC-60-PIVOT-POLICY-006, DEC-PIVOT-AUTOPIVOT-001)"""
 
     allowlist_path: str | None = Field(default=None)
     """Path to user-supplied pivot allowlist. Defaults to ~/.pivotglass/pivot-allowlist.txt
@@ -202,11 +211,11 @@ class AutoPivotPolicyConfig(BaseModel):
     when None. Missing file is silently treated as empty. (DEC-60-PIVOT-POLICY-007)"""
 
     dossier_aware_ranking: bool = Field(default=True)
-    """When True (default), agent/tools.py supplies a dossier-aware ranker to
-    EventBus.process_results so cascade candidates are evaluated in descending
-    slot-fill-score order. When False, candidates are evaluated in source-list order
-    (byte-identical F60 behavior). Opt-out kill switch for analysts who prefer pure
-    F60 ordering. M-6 (DEC-M6-PIVOT-008)."""
+    """When True (default), every pivot run (analyst ``pivot`` and autopivot) orders
+    each depth of its frontier by descending dossier slot-fill score, then
+    confidence (DEC-M6-PIVOT-010). When False, indicators are expanded in discovery
+    order. Ordering decides which indicators a budget reaches first, never which
+    gates apply. M-6 (DEC-M6-PIVOT-008)."""
 
 
 class GeneralConfig(BaseModel):
@@ -228,8 +237,8 @@ class GeneralConfig(BaseModel):
     auto_pivot_depth: int = Field(default=2, ge=1)
 
     auto_pivot_policy: AutoPivotPolicyConfig = Field(default_factory=AutoPivotPolicyConfig)
-    """Policy parameters for the pivot gate engine. PivotPolicy is constructed once
-    per EventBus from this submodel. (DEC-60-PIVOT-POLICY-001, DEC-60-PIVOT-POLICY-CONFIG-001)"""
+    """Policy parameters for the pivot gate engine. Each pivot run constructs its
+    PivotPolicy from this submodel. (DEC-60-PIVOT-POLICY-001, DEC-60-PIVOT-POLICY-CONFIG-001)"""
 
     # Agent provider/model selection — set by the interactive wizard.
     # None means "not configured"; wizard will prompt on first chat launch.
@@ -280,6 +289,8 @@ class ApiKeysConfig(BaseModel):
     greynoise: str = ""
     hibp: str = ""
     otx: str = ""
+    # One abuse.ch Auth-Key for ThreatFox, URLhaus, and MalwareBazaar (DEC-ABUSECH-AUTH-001).
+    abusech: str = ""
     # Agent provider API keys — keyed by provider id ("anthropic", "openai", etc.)
     # Stored as nullable so TOML round-trips cleanly when not yet set.
     agent_anthropic: str | None = None

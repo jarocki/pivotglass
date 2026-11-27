@@ -78,6 +78,49 @@ local assets; no hosted UI is required.
    relevance.
 8. Add analyst notes, answer Dossier gaps, and generate a report or export.
 
+### State the requirement: PIR category and tier
+
+A hunt ends well when it answers a stated question for a named audience. In
+the scientific notebook, the **Priority intelligence requirement** panel takes
+two choices for the active investigation:
+
+- **Category**: what kind of question it is.
+- **Tier**: who the answer is for. Each category suggests a tier; you can
+  change it.
+
+| Category | Collection fit | What Pivotglass can and cannot collect |
+|---|---|---|
+| Threat actor and campaign tracking | strong | Infrastructure pivots and CTI feeds tie indicators to campaigns; naming the actor remains your judgment |
+| Tactics, techniques, and procedures | strong | ATT&CK mappings with evidence and your disposition; procedure detail only as far as collection reveals |
+| Brand, VIP, and digital-footprint protection | good | Lookalike domains, certificates, phishing pages, breached accounts; not underground markets or dark-web forums |
+| Vulnerability and exploitation intelligence | partial | CVEs on exposed hosts; exploitation status, EPSS and CVSS sources are not yet collected |
+| Third-party and supply-chain risk | partial | A vendor's exposure, breach records and malicious infrastructure; not compromise inside its network |
+| Geopolitical and regulatory risk | weak | Technical activity linked to an event; the geopolitical assessment needs your own sources |
+| Strategic and M&A risk | weak | A target's external exposure and breach records; not undisclosed breaches or internal persistence |
+
+| Tier | Audience | Focus |
+|---|---|---|
+| Tactical | SOC analysts and incident responders | Indicators, lures, hashes, blocking and triage |
+| Operational | Threat hunters and vulnerability management | TTPs, active exploitation, campaign infrastructure |
+| Strategic | CISO, executive leadership and the board | Trends, geopolitics, supply-chain and M&A risk |
+
+Choosing a category adds its stop conditions to the investigation: the
+specific things an answer needs. Mark each one met as the evidence supports
+it. The panel, the Pursuit Brief, and the report show the verdict:
+
+- **Answered**: every stop condition is met and a conclusion is accepted.
+- **Partially answered**: some are met, or a conclusion exists while
+  conditions remain open.
+- **Not answered by available collection**: nothing is met yet. The report
+  lists what is still needed.
+
+The verdict is computed from your records; no model decides it. Changing the
+category defers the old category's open stop conditions, keeps the met ones,
+and reopens them if you switch back. From the command bar, REPL or cyberdeck:
+`analysis pir` shows the state, `analysis pir categories` lists the
+definitions, and `analysis pir <category> [tactical|operational|strategic]`
+sets it.
+
 Natural-language questions go to the configured model only when deterministic
 local routing cannot answer them. Direct tools and stored evidence remain the
 source of observed facts. Character narration, music, effects, scores, and
@@ -135,6 +178,23 @@ API keys, reports, export), appearance, and, under **Characters, sound, and
 badges**, the character voices, music, badges, and the **Diversion** mini-game. Choose
 **Open workbench** when the complete scientific notebook and framework lenses
 are needed.
+
+Each tab owns the main area. **Investigate** shows Sources, the next step,
+Activity, and a persistent **Indicators** table grouped by cluster or role tag,
+with each indicator's type, role and tactic; click a value to open its
+evidence. Above the table, one line reads the competing hypotheses: how many
+there are, which is least inconsistent with the linked evidence, and the most
+diagnostic item scored against it. **Open ACH matrix** opens the workbench at
+the full matrix. **Suggested clusters** proposes groups of indicators that
+share a TLS certificate or an ASN plus JARM fingerprint (strong), an identical
+nameserver set (moderate), or a registrar with registrations within 14 days
+(weak). Each is a proposal, not a finding: **Accept** tags every member with a
+cluster (optionally named) whose note records the rule and shared values;
+**Reject…** asks why and records that judgment, so the suggestion is not
+offered again. The same actions are `cluster suggest`, `cluster accept <id>
+[name]` and `cluster reject <id> | <reason>` in every interface. **Evidence** fills the width with the nine dossier dimensions
+as a list (number, dimension, coverage, evidence count); select a row to see
+the evidence behind it. **Visualize** fills the width with the chosen view.
 
 **Investigate** is also where reports and indicator lists enter the workspace.
 Expand **Add indicators & reports**, preview a supported local file, and review
@@ -339,6 +399,100 @@ add <source>     Add a source to the pending queue
 skip <source>    Remove a source from the pending queue
 ```
 
+The bare verbs steer the battery that is running. When no battery is running
+but a pivot run is active (yours or autopivot's), they steer the pivot run
+instead, with the same meaning as `pivot stop|focus|add|skip`. When neither is
+running, Pivotglass says so. `pivot <verb>` always steers the pivot run.
+
+### Multi-hop pivoting
+
+`pivot` follows what an enrichment returns, one ring at a time, within limits
+you set. It works the same way in the web cockpit, the cyberdeck, and the
+classic REPL.
+
+```text
+pivot <indicator> [<indicator> ...] [depth:1-3] [budget:1-200]
+pivot status                 Show the run: requests, decisions, what is queued
+pivot stop                   Halt after the current request
+pivot skip <indicator>       Drop it and everything it would have led to
+pivot focus <indicator>      Expand only that indicator's subtree; others wait
+pivot unfocus                Put every queued indicator back in scope
+pivot add <indicator>        Add a new seed at depth 0
+```
+
+A run starts from the indicators you name (depth 0) and asks every module that
+subscribes to each indicator's type. Indicators the modules return become the next depth. With the
+default `depth:1`, Pivotglass queries your seeds and then the indicators they
+returned; anything found beyond that is recorded as *discovered, not
+expanded*. Each further level multiplies the requests, so look at the first
+ring before you go deeper. The maximum depth is 3.
+
+`budget` is the maximum number of module requests (default 20, maximum 200).
+One request is one call to one module, and a request that fails still counts
+because it reached the service. Before each request:
+
+1. A module that is not installed, is disabled, or has no credential is
+   skipped as *readiness*. It costs nothing.
+2. The pivot policy decides: private, loopback, link-local and reserved
+   values (such as `example.com` or 10.0.0.0/8), very popular domains (the
+   bundled top-1k list), entries in your deny list, and results below the
+   confidence threshold are rejected and cost nothing. The policy's budget gate
+   ends the run when the budget is spent.
+
+An indicator you type yourself, as a seed or with `pivot add`, is not held to
+the popularity or confidence rules: you decided it is worth asking about, so
+`pivot google.com` queries it, and its decisions read "analyst-named seed;
+popularity gate not applied". Private, loopback, link-local and reserved
+values are still refused, because the services know nothing useful about them
+and asking can disclose internal addresses; your deny list still applies.
+Everything the modules return from your seeds passes every rule.
+
+Every decision is kept with its reason: rejected by policy, not ready, skipped
+by you, outside your focus, beyond the depth limit, over budget, or stopped.
+`pivot status` lists them. Each indicator appears once per run, however many
+modules return it.
+
+Results are stored as ordinary evidence with the module and query that
+produced them, exactly as a one-hop enrichment stores them; a run never starts
+an autopivot run underneath itself. The parent-child lineage of a
+run is collection workflow (this module, asked about X, returned Y), not an
+observation that X and Y are related. The pivot trail (`timeline pivots`)
+records your seeds as investigated and each automated expansion as
+`auto_pivoted`, recorded by the system rather than by you.
+
+One run can be active per workspace.
+
+- **Web cockpit.** The run streams into the investigation feed and the Activity
+  pane. **Cancel** stops it after the current request. While the feed is
+  running, the command field still accepts `pivot status`, `pivot stop`,
+  `pivot skip|focus|add <indicator>` and `pivot unfocus`.
+- **Cyberdeck.** The run executes in the background and prints one line per
+  request to the transcript; type the controls at any time.
+- **Classic REPL** (`pivotglass repl`). The run executes in the foreground and
+  prints each request. Ctrl-C stops it after the current request; `pivot
+  status` shows the last run afterwards.
+
+When the dossier-aware ranking is on (`auto_pivot_policy.dossier_aware_ranking`,
+the default), indicators at the same depth are expanded in order of how much
+they could fill empty Dossier slots, then by confidence. Ranking changes which
+indicators a budget reaches first, never which rules apply; each decision
+records the indicator's `dossier_weight`.
+
+#### Autopivot
+
+`autopivot on` (cyberdeck and agent chat) makes every enrichment the agent runs
+that returns results start a pivot run of its own, at depth 1, seeded with
+those results rather than with the indicator you enriched. The seeds are module
+output, so every policy rule applies to them, popularity included. Its budget is
+`auto_pivot_policy.max_per_cascade` requests (default 5) per enrichment, and all
+autopivot runs in a session share `auto_pivot_policy.max_per_session` (default
+50); setting either to 0 turns the runs off and the tool summary says why. The
+run executes before the enrichment's answer returns, its summary is added to
+that answer, and it is the workspace's pivot run while it lasts: `pivot status`
+shows it and `pivot stop`, or a bare `stop` when no battery is running, halts
+it. If one of your own pivot runs is active, autopivot does not start another.
+`autopivot off` returns to single enrichments.
+
 ## Evidence and provenance
 
 Evidence details show the actual indicator, STIX type, normalized fields,
@@ -496,8 +650,9 @@ in indicator focus mode; nothing is stored yet.
 
 Focus mode fills the window. The left side lists each distinct indicator once,
 in the order the source first mentions it. The right side shows the source as
-its author laid it out: HTML and Markdown rendered, PDF pages drawn, and text,
-CSV, JSON, and email shown as parsed text. The focused indicator is outlined
+its author laid it out: HTML and Markdown rendered, PDF pages drawn, an email
+with an HTML part rendered below its headers, and text, CSV, JSON, and
+plain-text email shown as parsed text. The focused indicator is outlined
 and scrolled into view; every other occurrence of a known indicator is lightly
 marked.
 
@@ -529,12 +684,20 @@ Focus mode is keyboard-first:
 | `a` | Admit the selection, or the focused indicator when nothing is selected |
 | `c` | Copy the focused indicator exactly as stored |
 | `y` / `Y` | Copy the selection (or the focused indicator) one per line, defanged / exactly as stored |
+| `e` | Export the indicators the list shows (after the filter) as CSV, defanged or live, or as a STIX 2.1 bundle. CSV columns: value, type, role, tactic, cluster, other tags, source document, observed by, first seen. STIX values are never defanged; tags, source and first seen travel as `x_pivotglass_*` properties, and values with no valid STIX form are left out and counted |
 | `t` | Tag the selection or the focused indicator |
 | `g` | Cycle grouping: source order, type, then each tag dimension |
-| `/` | Filter by value, type, or `dimension:value` such as `role:c2` |
+| `/` | Filter by value, type, `dimension:value` such as `role:c2`, or `is:new` / `is:known` (already a workspace entity) |
 | `v` | Switch between the rendered source and exact parser text |
 | `Enter` | Close focus mode and put the indicator in the command field |
 | `Esc` | Close the card, the palette, or focus mode |
+
+Each row shows when the indicator was first observed in this workspace (`seen`),
+which source observed it (`via`), its tags, and any list match. The **Sort**
+menu offers source order, new first, first seen (oldest), and value, so triage
+need not start from the first indicator the report happens to name. **Pivot N
+new** adds every listed indicator that is not yet in the workspace to the
+investigation queue.
 
 **Admitting** stores the source and adds the selected indicators to the case
 in one step, with provenance. **Store source** keeps the source without
@@ -552,7 +715,7 @@ membership. Each tag places one indicator on one dimension:
 | Dimension | Values |
 | --- | --- |
 | Infrastructure role | c2, delivery, staging, exfil, phishing, hosting, victim, benign, or a new value |
-| ATT&CK tactic | The 14 Enterprise tactics, TA0043 Reconnaissance through TA0040 Impact |
+| ATT&CK tactic | The 14 Enterprise tactics, TA0043 Reconnaissance through TA0040 Impact, or a technique ID such as `T1071.001` (checked against the installed ATT&CK content when present) |
 | Cluster | Any analyst-chosen name, such as `cluster:glass harbor` |
 | Review status | needs-pivot, reviewed, false-positive |
 
@@ -561,6 +724,18 @@ and press Enter. Group by **ATT&CK tactic** to read the indicators in
 attack-path order: tactics follow the ATT&CK matrix, an indicator with two
 tactics appears under both, and untagged indicators come last. Click a tag
 chip to remove it.
+
+**Visualize → Attack path lanes** places every tagged indicator in the 14
+tactic lanes, left to right. An indicator is placed by its tactic tag, by its
+technique tag through the installed ATT&CK content, or, drawn dashed, by a role
+tag that implies a stage (C2 → Command and Control, delivery and phishing →
+Initial Access, exfiltration → Exfiltration, staging → Resource Development).
+Role placements are inferences and are used only when the indicator has no
+tactic or technique tag. Indicators tagged *Benign / noise* are left out. A
+technique tag that cannot be resolved, for example because the ATT&CK content
+is not installed, is listed as not placed. An empty lane means nothing is
+tagged there, not that the stage did not happen. Click a chip to open its
+evidence.
 
 ![v1.3.0 indicators grouped by ATT&CK tactic in attack-path order, with role and cluster tags](media/pivotglass-focus-grouped-v1.3.0.png)
 
@@ -598,6 +773,10 @@ Rendered sources are hostile content and are shown under these rules:
 - The rendering is displayed in a sandboxed frame that is not allowed to run
   script, so even a sanitizer mistake cannot execute code.
 - PDF pages are drawn by pdf.js. PDF JavaScript and XFA forms are never run.
+- An email's HTML part goes through the same allowlist. Headers (Date, From,
+  To, Cc, Subject) are shown above it as plain text. When a message carries
+  both plain-text and HTML versions, both are shown, labelled, in message
+  order, so every mention can still be located. Attachments are not rendered.
 - When a rendered layout cannot locate an indicator exactly, focus mode says
   so and offers the exact parser-text view. It never guesses a location.
 
@@ -697,11 +876,20 @@ node selected remains the primary selection for its presentation label and
 evidence detail. Choose **Open evidence** to inspect the stored record. The
 inspector also lists every analyst note on the node and adds new ones
 (`Command/Control+Enter` saves); notes are analyst context, not evidence.
+The evidence drawer's **Analyst notes** section reads and writes the same
+notes, so a note added in either place appears in both.
 **Rename on this graph** changes only the label drawn here.
 Double-click a connected node, or use the selected-node control, to collapse or
 expand its direct connections. This changes only the bounded view: hidden
 nodes remain in the accessible inventory and exact-data export. **Show all
 connections** clears every temporary collapse.
+
+When five or more nodes of one type connect only to the same hub (an analyst
+group of 150 addresses, a domain resolving to a pool), they draw as one bundle
+node such as "47 IPv4". Click a bundle to expand it; **Bundle leaves** draws
+them as bundles again. A selected, pinned, or filter-matched node is never
+hidden in a bundle, and the accessible inventory lists bundled nodes as
+**Bundled** with their exact relationship counts. Bundles change only the view.
 
 With exactly two nodes selected, **ANNOTATED ANALYST RELATION** records a
 directional judgment from the first selection to the second. Enter a bounded
@@ -745,7 +933,12 @@ hypothesis.
 
 ```text
 report
-report generate
+report types
+report investigation-report json tlp:green
+report issue investigation-report draft | First look for the SOC lead
+report issue investigation-report final | Added the hosting records
+report history
+report open PG-INV-2026-0001 2 stix
 export json
 export csv
 export stix
@@ -754,12 +947,113 @@ export csv --defang yes
 export json --defang no
 ```
 
-Reports are generated from the active workspace. They summarize current
-evidence and visible gaps; they do not turn absent data into findings. The
-report dialog provides **SAVE MARKDOWN** to download the exact generated text
-as a `.md` file, alongside **PRINT / SAVE PDF** through the browser. The
-Markdown download keeps headings, tables, provenance references, and limitations
-editable for a reviewed handoff; it is not a complete workspace backup.
+A report is built from the active workspace each time you ask for it. It states
+current evidence and visible gaps; it does not turn absent data into findings.
+
+**Preview and issue.** `report` (or `report <type>`) is a preview: nothing is
+recorded, and the header says "Preview — not issued". `report issue <type>`
+records an issued version: it gets an ID such as `PG-INV-2026-0001`, a version,
+DRAFT or FINAL status, an entry in the revision history, and a SHA-256 hash of
+its content. Issuing the same type again for the same investigation adds the
+next version under the same ID and keeps the marking unless you change it.
+`report open <id> [version]` reads an issued version back exactly as it was
+issued, and refuses if the stored content no longer matches its hash. Issued
+reports are kept when the workspace is cleared, like other publication records.
+A report with model drafts still awaiting review can only be issued as DRAFT.
+
+**Report header and marking.** Every report opens with its ID and status, the
+TLP 2.0 and PAP markings with their meaning, the audience, the requirement it
+addresses, the producer, and the sources. Each type has a default marking;
+`tlp:<CLEAR|GREEN|AMBER|AMBER+STRICT|RED>` and `pap:<CLEAR|GREEN|AMBER|RED>`
+override it. The report then states whether it is **Complete** or
+**Incomplete**, naming any required section that has no content.
+
+**Sections say where they come from.** Each section ends with its provenance:
+evidence (collected and cited), method (a deterministic computation), analyst
+(written by you), model draft, or organisation input. Every report ends with
+**Gaps and Limitations** (your recorded knowledge gaps and limitations, plus
+every section that came back empty or partial, and any record that could not be
+read) and **Sources** (each collection source with its runs, object count, and
+Admiralty rating). Pivotglass does not rate sources yet, so they show as F6,
+"cannot be judged".
+
+**Formats.** Markdown is for reading and defangs indicators (`hxxps[:]//`,
+`example[.]com`). JSON and STIX 2.1 are for tools and carry values unchanged.
+The STIX bundle contains the report object, the producer identity, the official
+TLP 2.0 marking definition, and the reported indicators; PAP, which STIX has no
+marking for, travels as `x_pivotglass_pap`. In the cockpit, the report dialog
+has a picker for the type, format and marking, plus **Preview**, **Issue
+draft**, **Issue final** and **Issued reports**. Markdown opens in the dialog;
+JSON and STIX download as files. **SAVE MARKDOWN** and **PRINT / SAVE PDF**
+remain for the Markdown shown.
+
+`report types` lists every type. The **Investigation Report** is the complete
+record of a workspace's investigation and replaces the former dossier report
+with the same content. Eighteen CTI report types, from the Executive Threat
+Briefing to the Defensive Coverage Assessment, are defined in the
+[report reference](reports/README.md); a type whose sections are not built yet
+is listed but will not render, and the picker shows which issue builds it.
+
+**Writing report sections.** Some sections are yours to write. Each entry is
+recorded in the analytic ledger with you as its author:
+
+```text
+report write threat_summary | <two or three sentences>
+report write attack_narrative | <the intrusion end to end>
+report write technical_mechanism | <the flaw and its preconditions>
+report write triage_actions | <an extra triage step>
+report write remediation_notes | <compensating controls and detection>
+report severity high | <why>
+report recommend 1 | <action> | <owner> | <due YYYY-MM-DD> | <expected outcome>
+report write hunt_hypothesis | <behaviour, technique, and what would refute it>
+report outcome refuted | <what the hunt searched and did not find>
+report yara <sample sha256> | <reference> | <string>; <string>; <string>
+report validate <rule-or-query-id> passed | <what it was tested against>
+report control delivery detected | <telemetry source and what the control did>
+report write bluf | <two sentences for leadership>
+report risk high moderate | <why; severity, then confidence>
+report scenario most-likely likely high | <description> | <signposts>
+report risk-scenario likely critical missed | <scenario> | <recommended control> | <residual risk>
+```
+
+Likelihood terms are the ICD 203 scale (`almost_no_chance`, `very_unlikely`,
+`unlikely`, `roughly_even_chance`, `likely`, `very_likely`, `almost_certain`);
+confidence is `low`, `moderate` or `high`, and the two are always separate.
+
+Detection content is generated from the indicators you would block: Sigma
+(status `experimental` until you record a passed validation, then `test`),
+Suricata (sids in the local range 1000000-1999999, stable per indicator), and
+SPL, KQL and EQL hunt queries. YARA rules are built only from strings you
+supply from a sample. `report detection-signature-bundle sigma|suricata|yara`
+downloads the rule file. Nothing is shown as tested until you record a test.
+
+**Organisation input.** Some sections need facts only you have: what the
+organisation runs, which controls see which techniques, how its network
+connects, and what its logs recorded. Import them per workspace:
+
+```text
+org import org.yaml          # profile, controls and environment model
+org telemetry events.csv     # host and network events for the forensic timeline
+org show                     # what is held, from which file, when
+org share-with-model on|off  # off by default
+```
+
+The file format is in `src/pivotglass/reports/org.py` and in the example at
+`tests/fixtures/reports/org.yaml`. Controls score visibility, alerting and
+prevention 0-2; the gap status is derived from those scores, never typed.
+Telemetry timestamps must carry a time zone and are stored in UTC. Missing
+input is shown as missing in the report, never estimated. Organisation input
+is withheld from the model (its sections read "Withheld") unless you turn
+sharing on; your own report view always shows it. `workspace clear` keeps it.
+
+**Actor reports.** The Threat Actor Profile and the Actor Capability Radar read
+analyst claims about an actor, recorded as
+`analysis claim judgment actor:<name> <predicate> <value> | <basis>` (for
+example `alias`, `motivation`, `targets-sector`, `campaign`, `uses-malware`, or
+`capability:malware 4`). Link evidence to each claim so the report can cite it.
+If more than one actor has claims, name one: `report threat-actor-profile
+actor:<name>`. The [report reference](reports/README.md#analyst-claims) lists
+every predicate and the capability rubric's axes.
 
 Structured technique runs retain their recorded inputs and outputs in the report,
 alongside the actual analyst disposition. A completed run may still be pending
@@ -852,6 +1146,20 @@ polling or repopulated into the form. Environment-owned credentials remain
 read-only. Secrets must not enter command history, notes, exports, screenshots,
 or model prompts.
 
+From a terminal, the same configuration is available without the browser:
+
+```bash
+pivotglass config show               # services, enabled state, where each key comes from
+pivotglass config set greynoise      # prompts for the key without echoing it
+pivotglass config check greynoise    # tests the key and endpoint
+pivotglass config disable sans_isc   # or enable
+```
+
+`config set` takes a service id (`threatfox`) or a stored key name (`abusech`)
+and never accepts the key as an argument, so it stays out of shell history. Piped
+input is read one value per line, for example from a password manager. In the
+cockpit command bar, `config set` points here instead of accepting a key.
+
 The model catalog combines a provider's availability response with local
 LiteLLM capability metadata when available. Strengths and limitations are
 evidence-proportional notes, not rankings. A visible model can still lack
@@ -874,6 +1182,7 @@ faded), and the evidence drawer. Each label names the list and its version.
 | Shared infrastructure | AWS, Google Cloud, Azure, Cloudflare, Akamai, Fastly address space; URL shorteners; dynamic DNS; parking servers; a URL on a popular site; a subdomain of any listed domain | No |
 | Sinkhole | Known sinkhole addresses | No |
 | Known file, also reported malicious | hashlookup knows the file but a source lists it as malicious | No |
+| Reserved or special-purpose value | Documentation ranges (RFC 5737, 3849), private, loopback and other non-global addresses; `.example`, `.test`, `.invalid`, `.localhost` and `example.com/net/org` domains, URLs and email addresses. Built in, not from a warninglist | No: a private address in a report may be the victim's own host |
 
 A label is context, never a verdict. **Set aside** (on a known indicator in the
 evidence drawer, or **Set aside N known** in focus mode for the whole source)
@@ -900,6 +1209,13 @@ edition, e.g. `DB-IP Lite 2026-11 (local)`. Location describes where
 infrastructure is hosted, not who operates it. IP geolocation by
 [DB-IP](https://db-ip.com), licensed CC BY 4.0.
 
+The **IP to ASN** module (`osint/ip_asn`) also needs no key and makes no
+request: it reads the same local DB-IP Lite ASN database and records the AS
+number, AS organisation, and matching network prefix on the IP, with the AS as
+its own observation linked to the address. If the databases are not installed
+it says so instead of returning nothing. An ASN names a network operator, not
+an actor.
+
 ### API base URLs and gateways
 
 Every model provider and intelligence service shows its **API base URL** in
@@ -924,6 +1240,19 @@ Providers:
 | OpenAI-compatible endpoint | none; enter it | Any `/v1` OpenAI-style API: LiteLLM proxy, Mistral, Groq, Together, xAI. |
 | Local OpenAI-compatible | `http://localhost:1234/v1` | LM Studio; change the port for mlx_lm or llama.cpp server. |
 
+ThreatFox, URLhaus, and MalwareBazaar need an abuse.ch Auth-Key, free from
+an abuse.ch account at `https://auth.abuse.ch/`. One key works for all three:
+enter it on any of their cards and the others use it, or set
+`PIVOTGLASS_ABUSECH_API_KEY`. Each keeps its own Enabled toggle, base URL, and
+**Test**. Without a key, a hunt records them as *not configured* rather than
+failing.
+
+| Service (id) | Default base URL |
+|---|---|
+| ThreatFox (`threatfox`) | `https://threatfox-api.abuse.ch/api/v1` |
+| URLhaus (`urlhaus`) | `https://urlhaus-api.abuse.ch/v1` |
+| MalwareBazaar (`malwarebazaar`) | `https://mb-api.abuse.ch/api/v1` |
+
 Keyless context sources need no credential. They appear under Intelligence
 APIs with an Enabled toggle, a base URL, and a **Test** that queries a public
 value (8.8.8.8 or example.com). Each sends the User-Agent `pivotglass/<version>`
@@ -937,8 +1266,18 @@ never a verdict.
 | Shodan InternetDB (`shodan_internetdb`) | `https://internetdb.shodan.io` | IP | Open ports, hostnames, CPEs, Shodan tags, and CVEs Shodan associates with the reported versions (not confirmed). Refreshed weekly. |
 | SANS ISC (`sans_isc`) | `https://isc.sans.edu/api` | IPv4 | DShield sensor reports and targets, first/last reported, AS, network, and ISC feeds the address appears in (for example open resolvers). |
 | RDAP (`rdap`) | `https://rdap.org` | domain, IP | Registrar, registration, expiry, and last-changed dates, status, nameservers; for IPs the network name, range, country, and registrant or abuse organisation. rdap.org redirects to the authoritative registry; personal names, e-mail addresses, and phone numbers are not recorded. |
+| DNS over HTTPS (`dns_doh`) | `https://cloudflare-dns.com` | domain | Live A, AAAA, NS, MX, TXT, and CNAME records and the response status (NXDOMAIN is recorded, not an error). Pivotglass never resolves from your machine: Cloudflare's resolver asks the authoritative servers, so the adversary sees Cloudflare, not you; your address is visible to Cloudflare as an HTTPS client. A snapshot from one resolver at query time, not DNS history. A, AAAA, NS, MX, and CNAME answers become pivotable observations (at most 25 per type); TXT stays a property and is never parsed into indicators. |
 | Wayback Machine (`wayback`) | `https://web.archive.org` | domain, URL | First and last capture with archive links and the number of months with captures. |
 | CIRCL hashlookup (`hashlookup`) | `https://hashlookup.circl.lu` | MD5, SHA-1, SHA-256 | Known file (NSRL and other known-software sets), context not a verdict: matched sets, file name, product, trust score, and any known-malicious annotation. |
+| CISA KEV (`cisa_kev`) | `https://www.cisa.gov` | CVE | Whether the CVE is in the Known Exploited Vulnerabilities catalog, always answered: listed (date added, due date, ransomware use, vendor, product, required action) or *not listed in catalog version X*. The whole catalog is fetched once and cached for 6 hours. Listing means exploitation was observed; it does not mean a host in your case is affected. |
+| FIRST EPSS (`first_epss`) | `https://api.first.org` | CVE | Exploit Prediction Scoring System score and percentile (0-1) with the model date. A prediction of exploitation activity in the next 30 days, not an observation. No score returns no result. |
+| NVD CVE (`nvd_cve`) | `https://services.nvd.nist.gov` | CVE | English description, CVSS vectors and scores (v2.0, v3.x, v4.0) per source, CWEs, affected product versions (up to 200), and references (up to 100). Unauthenticated NVD allows 5 requests per 30 seconds; Pivotglass queues requests to stay inside that, and reports HTTP 403, 429, or 503 as *rate limited, retry later*. |
+
+A CVE identifier (`CVE-2024-0001`, any case) is an indicator type. The three vulnerability
+sources accept only CVEs. CVEs that Shodan InternetDB or the Shodan host module report
+for an IP become pivots to them. The workspace keeps one vulnerability object per CVE and
+each source's own answer as a separate evidence observation. A CVE does not fill a dossier
+slot by itself: CVEs on a scanned host describe its exposure, not an actor's tradecraft.
 
 ![v0.9.9 Configuration distinguishes model settings from missing intelligence-service credentials; checks are explicit](media/pivotglass-configuration-v1.0.0.png)
 
@@ -1023,7 +1362,8 @@ config configure
 
 Disabling a source prevents it from running while preserving its stored
 credential. WHOIS, crt.sh, and the keyless context sources (Mnemonic passive
-DNS, Shodan InternetDB, SANS ISC, RDAP, Wayback Machine, CIRCL hashlookup)
+DNS, Shodan InternetDB, SANS ISC, RDAP, Wayback Machine, CIRCL hashlookup, CISA KEV,
+FIRST EPSS, NVD CVE)
 require no API credential; the system WHOIS module does require a local `whois`
 executable.
 
@@ -1162,7 +1502,9 @@ Pivotglass and the terminal interface share this deterministic command grammar:
 | `hint [source]` | Use optional assistance |
 | `challenges` | Show starter and pursuit-specific challenges, progress, public-reporting basis, and badge rewards |
 | `badges` | Show every earned badge, its artwork, award time, and originating challenge |
-| `autopivot on\|off` | Control event-driven pivots |
+| `pivot <indicator> [depth:1-3] [budget:1-200]` | Run a bounded, policy-gated multi-hop pivot (see [Multi-hop pivoting](#multi-hop-pivoting)) |
+| `pivot status\|stop\|skip\|focus\|unfocus\|add …` | Inspect or steer the active pivot run |
+| `autopivot on\|off` | After each enrichment that returns results, run a depth-1 pivot over those results (see [Autopivot](#autopivot)) |
 | `status` | Show current workspace and character |
 | `clear` | Clear the current terminal transcript view |
 | `help` / `?` | Open command and workflow help |

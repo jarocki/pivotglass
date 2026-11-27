@@ -65,7 +65,7 @@ M-5 public API: slot 9 (Denial) now returns real status via _extract_denial().
 @status accepted
 @rationale Phase 16 §3 Slot 6 specifies: capability is inferred from absence-of-evidence
     (tools NOT pivoted to) as much as from evidence of use. DEFAULT_SUBSCRIPTIONS is
-    the canonical registry of Pivotglass-supported module types (DEC-EVENTBUS-002 opt-in bus).
+    the canonical registry of Pivotglass-supported module types (modules/pivoting/subscriptions.py).
     The extractor reads it at call time (not at import time) so that runtime additions
     to DEFAULT_SUBSCRIPTIONS are picked up without module reload.
     - observed_modules: set of distinct module_name values in module_runs.
@@ -540,7 +540,7 @@ def _extract_capability(module_runs: list[dict]) -> SlotState:
     EMPTY:   no module runs at all
     """
     # Import at call time per DEC-M2-DOSSIER-003 — picks up runtime additions
-    from pivotglass.core.event_bus import DEFAULT_SUBSCRIPTIONS
+    from pivotglass.modules.pivoting.subscriptions import DEFAULT_SUBSCRIPTIONS
 
     observed_modules: set[str] = {run.get("module_name", "") for run in module_runs}
     observed_modules.discard("")  # remove empty strings from missing module_name

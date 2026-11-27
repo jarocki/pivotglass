@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-IocType = Literal["ipv4", "ipv6", "domain", "url", "md5", "sha1", "sha256", "email"]
+IocType = Literal["ipv4", "ipv6", "domain", "url", "md5", "sha1", "sha256", "email", "cve"]
 
 _IPV4_RE = re.compile(r"^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)$")
 _IPV6_RE = re.compile(r"^[0-9a-fA-F:]+$")
@@ -28,6 +28,22 @@ _MD5_RE = re.compile(r"^[a-fA-F0-9]{32}$")
 _SHA1_RE = re.compile(r"^[a-fA-F0-9]{40}$")
 _SHA256_RE = re.compile(r"^[a-fA-F0-9]{64}$")
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+# CVE identifier: year, then a sequence number of four or more digits (CVE-2021-44228,
+# CVE-2024-0001, and the 5+ digit sequences MITRE now issues). Matched case-insensitively
+# and normalised to upper case by normalize_cve().
+_CVE_RE = re.compile(r"^CVE-\d{4}-\d{4,}$", re.IGNORECASE)
+
+
+def normalize_cve(value: str) -> str:
+    """Return the canonical (upper-case, trimmed) form of a CVE identifier.
+
+    Raises ``ValueError`` when *value* is not a CVE identifier, so a module can
+    refuse a malformed target before it reaches any service.
+    """
+    s = value.strip()
+    if not _CVE_RE.match(s):
+        raise ValueError(f"'{value}' is not a CVE identifier (expected CVE-YYYY-NNNN)")
+    return s.upper()
 
 
 def detect_ioc_type(value: str) -> IocType | None:
@@ -42,6 +58,8 @@ def detect_ioc_type(value: str) -> IocType | None:
     6. MD5 — 32 hex chars
     7. Email — contains @ with domain part
     8. Domain — validated FQDN pattern
+    9. CVE — ``CVE-YYYY-NNNN+``, case-insensitive (checked before domain; a CVE
+       contains no dot so the two cannot collide, but the order documents intent)
 
     Parameters
     ----------
@@ -70,6 +88,8 @@ def detect_ioc_type(value: str) -> IocType | None:
         return "md5"
     if _EMAIL_RE.match(s):
         return "email"
+    if _CVE_RE.match(s):
+        return "cve"
     if _DOMAIN_RE.match(s):
         return "domain"
     return None

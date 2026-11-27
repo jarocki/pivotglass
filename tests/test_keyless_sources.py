@@ -35,6 +35,7 @@ KEYLESS = {
     "osint/shodan_internetdb": "shodan_internetdb",
     "osint/sans_isc": "sans_isc",
     "osint/rdap": "rdap",
+    "osint/dns_doh": "dns_doh",
     "osint/wayback": "wayback",
     "cti/hashlookup": "hashlookup",
 }
@@ -90,7 +91,8 @@ def test_keyless_services_appear_in_configuration_without_credentials(tmp_path: 
 
 def test_keyless_specs_are_derived_from_the_one_service_list():
     keyless_specs = {spec.id for spec in CTI_SERVICES if not spec.needs_credential}
-    assert keyless_specs == set(KEYLESS.values())
+    # The vulnerability sources are keyless services too (tests/test_vulnerability_sources.py).
+    assert keyless_specs == set(KEYLESS.values()) | {"cisa_kev", "first_epss", "nvd_cve"}
 
 
 def test_base_url_override_reaches_the_request(tmp_path: Path):
@@ -116,7 +118,7 @@ def test_keyless_service_can_be_disabled_and_reenabled(tmp_path: Path):
 
 @pytest.mark.parametrize("module_path,service_id", sorted(KEYLESS.items()))
 def test_disabling_a_keyless_service_stops_its_module(tmp_path: Path, module_path: str, service_id: str):
-    from pivotglass.core.module_credentials import ServiceDisabledError, resolve_module_credentials
+    from pivotglass.core.module_config import ServiceDisabledError, resolve_module_credentials
 
     config = ConfigManager(config_dir=tmp_path)
     resolve_module_credentials(module_path, config)  # enabled by default: no error
@@ -224,7 +226,9 @@ async def test_internetdb_record():
     assert primary["x_internetdb_ports"] == [53, 443]
     assert primary["x_internetdb_tags"] == ["pqc"]
     assert primary["x_internetdb_vulns"] == ["CVE-2000-0001"]
-    assert results[1:] == [{"type": "domain-name", "value": "dns.google", "x_internetdb_hostname_of": "8.8.8.8"}]
+    assert results[1:2] == [{"type": "domain-name", "value": "dns.google", "x_internetdb_hostname_of": "8.8.8.8"}]
+    # the reported CVE is a bare pivot stub for the vulnerability modules (#58)
+    assert [r["name"] for r in results[2:]] == ["CVE-2000-0001"]
 
 
 async def test_internetdb_404_is_no_data():

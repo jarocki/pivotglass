@@ -82,6 +82,37 @@ def _catalog(tmp_path) -> AttackCatalog:
                 ],
             },
             {
+                "type": "x-mitre-data-component",
+                "id": "x-mitre-data-component--process-access",
+                "name": "Process Access",
+                "x_mitre_domains": ["enterprise-attack"],
+                "external_references": [{"source_name": "mitre-attack", "external_id": "DC0035"}],
+            },
+            {
+                "type": "x-mitre-analytic",
+                "id": "x-mitre-analytic--lsass",
+                "name": "Analytic 0001",
+                "x_mitre_log_source_references": [
+                    {"x_mitre_data_component_ref": "x-mitre-data-component--process-access",
+                     "name": "WinEventLog:Security", "channel": "EventCode=4656"}
+                ],
+            },
+            {
+                "type": "x-mitre-detection-strategy",
+                "id": "x-mitre-detection-strategy--lsass",
+                "name": "LSASS access",
+                "x_mitre_domains": ["enterprise-attack"],
+                "x_mitre_analytic_refs": ["x-mitre-analytic--lsass"],
+                "external_references": [{"source_name": "mitre-attack", "external_id": "DET0001"}],
+            },
+            {
+                "type": "relationship",
+                "id": "relationship--detects",
+                "relationship_type": "detects",
+                "source_ref": "x-mitre-detection-strategy--lsass",
+                "target_ref": "attack-pattern--credential-dumping",
+            },
+            {
                 "type": "attack-pattern",
                 "id": "attack-pattern--deprecated",
                 "name": "Deprecated",
@@ -276,3 +307,10 @@ def test_diamond_event_rejects_duplicate_core_vertices(tmp_path) -> None:
             confidence=ConfidenceLevel.LOW,
             confidence_rationale="Conflicting infrastructure assignments require separation.",
         )
+
+
+def test_data_components_follow_detection_strategies(tmp_path) -> None:
+    """ATT&CK v18+: strategy detects technique; analytics name data components."""
+    catalog = _catalog(tmp_path)
+    assert [(d.attack_id, d.name) for d in catalog.data_components_for("t1003")] == [("DC0035", "Process Access")]
+    assert catalog.data_components_for("T9999") == ()

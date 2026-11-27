@@ -5,7 +5,7 @@ export const COVERAGE_LABELS: Readonly<Record<string, string>> = {
 
 export function indicatorTypeLabel(type: string): string {
   return ({ "ipv4-addr": "IPv4", "ipv6-addr": "IPv6", "domain-name": "Domain",
-    "email-addr": "Email", url: "URL", file: "File" } as Record<string, string>)[type]
+    "email-addr": "Email", url: "URL", file: "File", vulnerability: "CVE" } as Record<string, string>)[type]
     ?? type.replaceAll("_", " ");
 }
 

@@ -210,6 +210,8 @@ class IndicatorContextAuthority:
                 "documents": [],
                 "tags": [],
                 "investigated_at": None,
+                # Earliest evidence observation of this indicator in the workspace.
+                "first_seen": None,
                 # Curated-list recognition (DEC-KNOWN-GOOD-001); basis "reference list".
                 "known": [match.to_dict() for match in known_matches(entity_type, value)],
             }
@@ -296,6 +298,9 @@ class IndicatorContextAuthority:
                     )
                     entry["count"] += 1
                     entry["latest"] = max(entry["latest"], obs.fetched_at or "")
+                    if obs.fetched_at:
+                        first = result[key]["first_seen"]
+                        result[key]["first_seen"] = min(first, obs.fetched_at) if first else obs.fetched_at
             for (key, _name), entry in sorted(seen.items(), key=lambda item: item[1]["latest"], reverse=True):
                 if len(result[key]["observed_by"]) < MAX_ITEMS_PER_SECTION:
                     result[key]["observed_by"].append(entry)

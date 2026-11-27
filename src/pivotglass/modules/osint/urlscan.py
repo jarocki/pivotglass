@@ -97,6 +97,7 @@ from uuid import UUID
 
 import httpx
 
+from pivotglass.core.module_config import credential_remedy
 from pivotglass.modules.base import (
     AuthenticationError,
     BaseModule,
@@ -116,7 +117,7 @@ class URLScan(BaseModule):
 
     Requires an API key from https://urlscan.io/ (free tier: 5,000 scans/month).
     Configure via:
-      pivotglass config set api_keys.urlscan <key>
+      pivotglass config set urlscan
     or the PIVOTGLASS_URLSCAN_API_KEY environment variable.
 
     The scan is asynchronous — submission returns a UUID, and results are
@@ -226,8 +227,7 @@ class URLScan(BaseModule):
         if not api_key:
             raise AuthenticationError(
                 "URLScan API key not configured. "
-                "Set via 'pivotglass config set api_keys.urlscan <key>' "
-                "or PIVOTGLASS_URLSCAN_API_KEY env var."
+                + credential_remedy("urlscan")
             )
 
         visibility = options.get("VISIBILITY", self.options["VISIBILITY"]["default"])

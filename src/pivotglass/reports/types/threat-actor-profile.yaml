@@ -1,0 +1,37 @@
+# Type 7. Rewritten from 03_Analytical_and_Attribution/07_Threat_Actor_Profile_Dossier.md.
+# Changes: aliases name the organisation that uses each; origin and sponsorship
+# are judgments with likelihood and confidence, not header facts; the ATT&CK
+# table comes from accepted mappings pinned to v19.2; every pattern cites how
+# often it was seen.
+id: threat-actor-profile
+number: 7
+code: TAP
+title: Threat Actor Profile
+domain: analytical
+tier: strategic
+audience: [CTI analysts, Threat hunters, Security leadership]
+purpose: >-
+  A maintained reference on one actor: who it is, what it wants, whom it
+  targets, how its operations have changed, what it uses, how its
+  infrastructure behaves, and which techniques it uses.
+use_when: >-
+  An actor recurs in investigations or is named in a requirement. Reissue it
+  as the dossier grows; the revision history records each change.
+related: [ach-attribution-matrix, actor-capability-radar, attack-navigator-layer, infrastructure-clustering-graph]
+default_marking: {tlp: AMBER, pap: AMBER}
+validity_days: 180
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - {id: actor_identity}
+  - id: key_judgments
+    guidance: Origin or sponsorship, objectives and expected next activity, each with likelihood, separate confidence and basis.
+  - {id: motivation}
+  - {id: victimology}
+  - {id: historical_timeline}
+  - {id: arsenal}
+  - {id: infra_opsec}
+  - {id: attack_matrix}
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json, stix]

@@ -1,0 +1,47 @@
+# Type 2. Rewritten from 02_Strategic_Threat_Landscape_Forecast.md.
+# Changes: the reporting window and its collection coverage are stated; scenario
+# likelihoods use the ICD 203 terms ("roughly even chance", not "even chance")
+# with impact on the severity scale; every trend cites counts or cases;
+# signposts are tracked records, not prose.
+id: strategic-threat-landscape
+number: 2
+code: STL
+title: Strategic Threat Landscape and Forecast
+domain: strategic
+tier: strategic
+audience: [Executive leadership, Board risk committee, Security strategy]
+purpose: >-
+  Summarise how the threat to the organisation changed over a period and
+  forecast the next six to twelve months, with scenarios and the signposts
+  that would show each one unfolding.
+use_when: >-
+  Quarterly or annual planning, board reporting, and security-strategy reviews.
+  Pivotglass collection sees infrastructure and indicators, not geopolitics or
+  the wider market, so most of this report is analyst judgment; the gaps
+  section says so.
+related: [executive-threat-briefing, threat-actor-profile, threat-informed-risk-assessment]
+default_marking: {tlp: AMBER, pap: CLEAR}
+validity_days: 180
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - id: period_scope
+    guidance: The reporting window, the sources collected in it, and what those sources cannot see.
+  - id: key_judgments
+    guidance: Three to five forecasts, each with a time frame, a likelihood term, a separate confidence and its basis.
+  - id: macro_trends
+    guidance: Shifts in motivation, initial access and tooling over the period, each supported by counts or cited cases.
+  - id: sector_targeting
+    guidance: Activity against our sectors and regions in the period. Without an organisation profile this section is incomplete.
+  - id: emerging_ttps
+    required: false
+    guidance: Techniques first seen or rising in the period, with first-seen dates.
+  - id: scenarios
+    guidance: >-
+      Most likely, worst and best case. Each has an ICD 203 likelihood, impact on
+      the severity scale, and the signposts that would show it is happening.
+  - id: recommendations
+    guidance: The defensive roadmap - people and process, architecture and tooling - each item with an owner and horizon.
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json]

@@ -629,19 +629,19 @@ class TuiApplication:
         return FormattedText(
             [
                 (f"fg:{theme.dim_color}", f" {profile.left_rail}━━ "),
-                (f"bold fg:{theme.heading_color}", f"{title} // {profile.vehicle}"),
+                (f"bold fg:{theme.heading_color}", title),
                 (f"fg:{theme.dim_color}", f" ━━{profile.right_rail} "),
             ]
         )
 
     def _get_command_title_formatted(self) -> FormattedText:
-        """Return the storyboard-inspired command-deck label."""
+        """Return the plain command-panel label (#34)."""
         mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
         theme = theme_for(mode_name)
         return FormattedText(
             [
-                (f"bold fg:{theme.accent_color}", " COMMAND DECK "),
-                (f"fg:{theme.dim_color}", "  natural language + local controls "),
+                (f"bold fg:{theme.accent_color}", " Command "),
+                (f"fg:{theme.dim_color}", "  questions, indicators, or commands "),
             ]
         )
 
@@ -649,11 +649,10 @@ class TuiApplication:
         """Return the label for activity, dossier, model, and mode telemetry."""
         mode_name = self._mode_mgr.active.name if self._mode_mgr is not None else "default"
         theme = theme_for(mode_name)
-        profile = cockpit_for(mode_name)
         return FormattedText(
             [
-                (f"bold fg:{theme.heading_color}", f" {profile.deck_name} "),
-                (f"fg:{theme.dim_color}", f"  {profile.hud_title} · live instruments "),
+                (f"bold fg:{theme.heading_color}", " Status "),
+                (f"fg:{theme.dim_color}", "  activity, dossier, model, and mode "),
             ]
         )
 
@@ -669,7 +668,7 @@ class TuiApplication:
         active = "ACTIVE" if state["active"] else "STANDBY"
         music_state = "♪ LIVE" if self._music.status.enabled else "♪ MUTED"
         rows = [
-            f"{profile.left_rail} {profile.hud_title} {profile.right_rail}",
+            f"{profile.left_rail} Hunt status {profile.right_rail}",
             f"LOCK   {str(state['target'])[:23]}",
             f"CLASS  {str(state['target_type'])[:23]}",
             f"ENRICH  {str(state['activity'])[:17]}  q:{state['queued']}",
@@ -824,6 +823,8 @@ class TuiApplication:
           (invoked by the ``clear`` verb).
         - ``_event_bus``: EventBus for publishing TargetChanged events
           (invoked by the ``use <ioc>`` verb).
+        - ``_pivot_listener``: narrates a background ``pivot`` run into the
+          scrollback; its presence is what makes the verb run in the background.
 
         LivePane satisfies ``_StatusHook`` so tool-activity phrases flow to the
         live pane during LLM tool calls without the runner importing Rich.
@@ -845,6 +846,9 @@ class TuiApplication:
         # permanently on the runner class (duck-typed injection pattern).
         self._runner._scrollback_clear = self._scrollback.clear  # type: ignore[attr-defined]
         self._runner._event_bus = self._event_bus  # type: ignore[attr-defined]
+        # Pivot runs (DEC-PIVOT-RUN-001) execute in the background and narrate
+        # their progress into the scrollback, one line per meaningful event.
+        self._runner._pivot_listener = self._emit_pivot_event  # type: ignore[attr-defined]
 
         # Never run network/LLM work on prompt_toolkit's render thread. Apart
         # from freezing repaint and completion, the old synchronous call made
@@ -880,9 +884,16 @@ class TuiApplication:
                 return
             verb = parse_repl_verb(text)
             yield_command = parse_yield(text)
-            if yield_command is not None:
-                # Yield controls must remain available while another command
-                # owns the serialized conversation/state mutation lane.
+            from pivotglass.modules.pivoting.commands import CONTROL_ACTIONS
+
+            pivot_control = (
+                verb is not None and verb.name == "pivot" and bool(verb.args)
+                and verb.args[0].lower() in CONTROL_ACTIONS
+            )
+            if yield_command is not None or pivot_control:
+                # Yield and pivot-run controls must remain available while another
+                # command (an LLM turn running autopivot, say) owns the serialized
+                # conversation/state mutation lane. Both are thread-safe.
                 result = self._runner.handle_input(text, status_bar=self._live_pane)
             else:
                 if verb is None:
@@ -941,6 +952,7 @@ class TuiApplication:
             "sha256": "file",
             "sha1": "file",
             "md5": "file",
+            "cve": "vulnerability",
         }
         target_type = stix_types.get(ioc_type or "", "unrecognized-type")
         batteries = dispatch_batteries(target_type, dossier_state=None)
@@ -1144,6 +1156,13 @@ class TuiApplication:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    def _emit_pivot_event(self, event: dict) -> None:
+        from pivotglass.modules.pivoting.commands import format_event
+
+        line = format_event(event)
+        if line:
+            self.emit_scrollback(line)
 
     def emit_scrollback(self, text: str) -> None:
         """Append *text* to the scrollback buffer (thread-safe).

@@ -109,7 +109,9 @@ def test_active_enrichment_is_current_work_but_failure_takes_priority():
 
 def test_progress_measures_remain_separate_and_truthful():
     analysis = _analysis(
-        investigations=[{"id": "inv-1", "title": "Test", "status": "collecting"}],
+        investigations=[
+            {"id": "inv-1", "title": "Test", "status": "collecting", "requirement_category": "ttps"}
+        ],
         questions=[{"id": "q-1", "text": "What changed?"}],
         lifecycle_items=[
             {"id": "life-1", "investigation_id": "inv-1", "item_type": "question"},
@@ -158,6 +160,7 @@ def test_current_investigation_does_not_borrow_another_questions_hypotheses():
                 "title": "Current investigation",
                 "status": "framing",
                 "primary_question_id": "q-current",
+                "requirement_category": "threat_actor_campaign",
             },
         ],
         lifecycle_items=[
@@ -183,3 +186,16 @@ def test_current_investigation_does_not_borrow_another_questions_hypotheses():
 
     assert brief["subject"]["question"] == "What changed in the current cluster?"
     assert brief["next_action"]["id"] == "add_competing_hypothesis"
+
+
+def test_a_framed_question_without_a_pir_asks_for_the_category_and_tier():
+    analysis = _analysis(
+        investigations=[{"id": "inv-1", "title": "Test", "status": "framing", "primary_question_id": "q-1"}],
+        questions=[{"id": "q-1", "text": "Who runs this infrastructure?"}],
+    )
+    brief = _build(analysis=analysis)
+    assert brief["next_action"]["id"] == "set_pir"
+    assert brief["next_action"]["value"] == "analysis pir "
+    assert brief["pir"]["verdict"] == "no_pir"
+    pir_progress = {row["id"]: row for row in brief["progress"]}["pir"]
+    assert pir_progress == {"id": "pir", "label": "PIR", "current": 0, "total": 0, "detail": "No PIR recorded"}

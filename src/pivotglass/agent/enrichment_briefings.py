@@ -101,6 +101,16 @@ BRIEFINGS: dict[str, EnrichmentBriefing] = {
         "Establishes registration chronology from the authoritative registry or RIR.",
         "recent registration, near expiry, unusual status codes, and reassigned networks",
     ),
+    "dns_lookup": EnrichmentBriefing(
+        "DNS over HTTPS", "live A, AAAA, NS, MX, TXT, and CNAME records and the response status",
+        "Resolves the name through a public resolver, so the operator host never queries DNS.",
+        "NXDOMAIN, shared nameservers or mail hosts, CNAME aliases, and resolver-specific answers",
+    ),
+    "ip_asn_lookup": EnrichmentBriefing(
+        "Local DB-IP ASN database", "AS number, AS organisation, and network prefix (offline, CC BY 4.0)",
+        "Maps the address to its network operator without sending it anywhere.",
+        "database edition age, prefix aggregation, and hosting versus transit networks",
+    ),
     "wayback_lookup": EnrichmentBriefing(
         "Wayback Machine", "first and last archived capture and months with captures",
         "Shows how long content has existed at the name or URL.",
@@ -110,6 +120,21 @@ BRIEFINGS: dict[str, EnrichmentBriefing] = {
         "CIRCL hashlookup", "membership in known-software sets (NSRL, distribution packages), file name, and product",
         "Recognises known software so analysts can set it aside; context, not a verdict.",
         "trust score, which set matched, and known-malicious annotations",
+    ),
+    "kev_lookup": EnrichmentBriefing(
+        "CISA KEV", "whether CISA lists the CVE as exploited in the wild, with date added, due date, and ransomware use",
+        "Shows whether exploitation has been observed, not whether any host in the case is affected.",
+        "listed versus not listed (with catalog version), ransomware use, and recency of the date added",
+    ),
+    "epss_lookup": EnrichmentBriefing(
+        "FIRST EPSS", "the modelled probability of exploitation in the next 30 days, its percentile, and the model date",
+        "Ranks a CVE against all others by predicted exploitation; a prediction, not an observation.",
+        "score versus percentile, the model date, and disagreement with KEV status",
+    ),
+    "nvd_cve_lookup": EnrichmentBriefing(
+        "NVD", "description, CVSS vectors and scores by source, CWEs, affected products, and references",
+        "Gives the authoritative description and severity metadata for a CVE.",
+        "score differences between sources, analysis status, and affected version ranges",
     ),
 }
 

@@ -110,7 +110,7 @@ from pivotglass.models.database import (
 from pivotglass.models.database import (
     Relationship as RelationshipModel,
 )
-from pivotglass.models.stix import dict_to_stix
+from pivotglass.models.stix import NEIGHBOUR_FIELDS, dict_to_stix, neighbour_relationship_id
 
 # One authority for the tables managed by the workspace-clear lifecycle.
 # Child/derived records come before the records they reference so clear remains
@@ -624,6 +624,7 @@ class WorkspaceManager:
                     )
                 )
 
+            neighbour_links: list[tuple[str, str, str]] = []
             for obj in objects:
                 # Strip caller-supplied x_pivotglass_* fields from dicts before conversion
                 # (DEC-59-STIX-PROVENANCE-001: workspace is the sole x_pivotglass_* authority)
@@ -661,7 +662,9 @@ class WorkspaceManager:
                         entity_ref=obj.id,
                         entity_type=obj_type or "unknown",
                         entity_value=(
+                            # A vulnerability SDO is named by its CVE, not valued.
                             serialized.get("value")
+                            or (serialized.get("name") if obj_type == "vulnerability" else None)
                             if obj_type != "relationship"
                             else serialized.get("relationship_type")
                         ),
@@ -678,7 +681,14 @@ class WorkspaceManager:
                     )
                 )
                 stored_count += 1
+                if obj_type != "relationship":
+                    neighbour_links.extend(
+                        (obj.id, verb, str(serialized[field]))
+                        for field, verb in NEIGHBOUR_FIELDS.items()
+                        if isinstance(serialized.get(field), str) and serialized[field].strip()
+                    )
 
+            self._store_neighbour_relationships(session, neighbour_links)
             run.result_count = stored_count
             session.commit()
 
@@ -1664,12 +1674,16 @@ class WorkspaceManager:
         """
         existing = session.get(StixObject, obj.id)
         if existing is not None:
+            if obj.type == "vulnerability":
+                self._merge_vulnerability(existing, json.loads(obj.serialize()), provenance)
             return  # already stored — deduplicated
         # Serialize first so deterministic-id derivation is already complete,
         # then augment the dict with provenance fields (DEC-59-STIX-PROVENANCE-002).
         json_dict = json.loads(obj.serialize())
         if provenance:
             json_dict.update(provenance)
+        if obj.type == "vulnerability" and provenance:
+            json_dict["x_pivotglass_source_modules"] = [provenance["x_pivotglass_source_module"]]
         row = StixObject(
             id=obj.id,
             type=obj.type,
@@ -1681,6 +1695,64 @@ class WorkspaceManager:
             json_blob=json_dict,
         )
         session.add(row)
+
+    # @decision DEC-WORKSPACE-VULNERABILITY-001
+    # @title One vulnerability object per CVE; each module's fields merge into it, observations keep the blobs
+    # @status accepted
+    # @rationale Three modules (cti/cisa_kev, cti/first_epss, cti/nvd_cve) and the host
+    #            scanners' CVE stubs all report the same CVE, and create_vulnerability gives
+    #            them one id. SCO dedup keeps the first writer and drops later fields, which
+    #            would leave a CVE showing only whichever module ran first. For
+    #            vulnerabilities only, a later report is merged into the stored object: keys
+    #            the report states overwrite (a module owns its x_<prefix>_* fields and
+    #            re-running it refreshes them), other keys stay, and
+    #            x_pivotglass_source_modules lists every contributor. The authoritative
+    #            per-module record is unchanged: every report still writes its own
+    #            EvidenceObservation with the full observed_blob, filterable by source_module.
+    @staticmethod
+    def _merge_vulnerability(existing: StixObject, incoming: dict, provenance: dict | None) -> None:
+        immutable = {"id", "type", "spec_version", "created"}
+        blob = dict(existing.json_blob or {})
+        for key, value in incoming.items():
+            if key not in immutable and not key.startswith("x_pivotglass_"):
+                blob[key] = value
+        if provenance:
+            module = provenance["x_pivotglass_source_module"]
+            modules = list(blob.get("x_pivotglass_source_modules") or [blob.get("x_pivotglass_source_module")])
+            if module not in modules:
+                modules.append(module)
+            blob["x_pivotglass_source_modules"] = [m for m in modules if m]
+        existing.json_blob = blob
+
+    def _store_neighbour_relationships(
+        self, session: Session, links: list[tuple[str, str, str]]
+    ) -> None:
+        """Store each reported neighbour link as a relationship (DEC-NEIGHBOUR-RELATIONSHIP-001)."""
+
+        if not links:
+            return
+        import stix2
+
+        session.flush()
+        for source_ref, verb, value in links:
+            candidates = session.execute(
+                select(StixObject).where(StixObject.value == value.strip().lower().rstrip("."))
+            ).scalars().all() or session.execute(
+                select(StixObject).where(StixObject.value == value.strip())
+            ).scalars().all()
+            target = next((row for row in candidates if row.id != source_ref), None)
+            if target is None:
+                continue
+            relationship_id = neighbour_relationship_id(source_ref, verb, target.id)
+            if session.get(RelationshipModel, relationship_id) is not None:
+                continue
+            self._store_relationship(
+                session,
+                stix2.Relationship(
+                    id=relationship_id, source_ref=source_ref, target_ref=target.id,
+                    relationship_type=verb, allow_custom=True,
+                ),
+            )
 
     def _store_relationship(self, session: Session, obj) -> None:
         """Insert a STIX Relationship SRO into relationships, ignoring duplicates."""

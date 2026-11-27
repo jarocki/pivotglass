@@ -569,23 +569,24 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
                 )
             continue
 
-        # Autopivot meta-command — mirrors DEC-EVENTBUS-002 opt-in toggle.
+        # Autopivot meta-command (DEC-PIVOT-AUTOPIVOT-001): opt-in toggle.
         # Handled locally (not sent to LLM) so state changes are immediate.
         # Supported forms:
         #   autopivot          → show current state
-        #   autopivot on       → enable EventBus cascade execution
-        #   autopivot off      → disable EventBus cascade execution
+        #   autopivot on       → a depth-1 pivot run after each enrichment with results
+        #   autopivot off      → enrichments run alone
         if lower == "autopivot" or lower.startswith("autopivot "):
             sub = stripped[9:].strip().lower() if len(stripped) > 9 else ""
             if sub == "on":
                 runner.ctx.set_autopivot(True)
                 console.print(
-                    "[green]Auto-pivot enabled.[/green] Cascading modules will fire on discoveries."
+                    "[green]Autopivot on.[/green] After each enrichment that returns results, a depth-1 "
+                    "pivot run queries what it found, within auto_pivot_policy.max_per_cascade requests."
                 )
             elif sub == "off":
                 runner.ctx.set_autopivot(False)
                 console.print(
-                    "[yellow]Auto-pivot disabled.[/yellow] Running modules manually only."
+                    "[yellow]Autopivot off.[/yellow] Enrichments run alone; use `pivot <indicator>` to pivot."
                 )
             else:
                 # Status display
@@ -889,9 +890,22 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
                 "Request free or paid hints",
             )
             help_table.add_row(
+                "pivot",
+                "pivot <indicator> [depth:1-3] [budget:1-200] / pivot status|stop|skip|focus|unfocus|add",
+                "Bounded multi-hop pivot run; Ctrl-C stops it after the current request. "
+                "Typed seeds skip the popularity gate, never the reserved/private-value gate",
+            )
+            help_table.add_row(
                 "autopivot",
                 "autopivot [on|off]",
-                "Toggle event-bus auto-pivot",
+                "After each enrichment with results, a depth-1 pivot run over those results "
+                "(fully gated; budget auto_pivot_policy.max_per_cascade)",
+            )
+            help_table.add_row(
+                "stop / focus / add / skip",
+                "stop / focus|add|skip <tool|indicator>",
+                "Steer the running battery; with no battery, the active pivot run. "
+                "`pivot <verb>` always targets the pivot run",
             )
             help_table.add_row(
                 "challenges",
@@ -920,8 +934,8 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
             )
             help_table.add_row(
                 "report",
-                "report / report answer N <text> / report generate",
-                "Interview-driven investigation report",
+                "report / report types / report <type> [json|stix] / report issue <type> / report history",
+                "Preview, issue and read back reports",
             )
             help_table.add_row(
                 "model",
@@ -947,33 +961,24 @@ def _run_legacy_chat_loop(runner: object, console: "Console", config_mgr: "Confi
             console.print(f"[dim]Active workspace: [bold]{active_workspace}[/bold][/dim]")
             continue
 
-        # Report meta-command — M-8: sole dossier renderer; classic path removed
-        # (DEC-68-DOSSIER-REFRAME-008 / DEC-M8-CLEANUP-001).
-        # Supported forms:
-        #   report / report generate  → render dossier report as Markdown panel
+        # Report meta-command: the shared `report` command (reports/commands.py).
         if lower == "report" or lower.startswith("report "):
-            from pivotglass.agent.tools import _execute_generate_dossier_report
+            from pivotglass.reports.commands import execute_report_command
 
-            rest_lower = stripped[6:].strip().lower() if len(stripped) > 6 else ""
-
-            if rest_lower in ("", "generate"):
-                report_md = _execute_generate_dossier_report(runner.ctx)
-                if report_md.startswith("Error"):
-                    console.print(f"[yellow]{report_md}[/yellow]")
-                else:
-                    console.print(
-                        Panel(
-                            Markdown(report_md),
-                            title="[bold green]Investigation Report[/bold green]",
-                            style="green",
-                        )
-                    )
+            rest = stripped[6:].strip()
+            if rest.casefold() == "generate":
+                rest = ""
+            try:
+                result = execute_report_command(rest, runner.ctx.workspace_mgr)
+            except ValueError as exc:
+                console.print(f"[yellow]{exc}[/yellow]")
+                continue
+            if "text" not in result:
+                console.print_json(data=result["data"])
+            elif result["format"] == "markdown":
+                console.print(Panel(Markdown(result["text"]), title=f"[bold green]{result['title']}[/bold green]", style="green"))
             else:
-                console.print(
-                    f"[yellow]Unknown report subcommand: '{rest_lower}'. "
-                    "Usage: report [generate][/yellow]"
-                )
-
+                console.print(result["text"])
             continue
 
         # Model meta-commands — DEC-AGENT-CHAT-MODEL-COMMANDS-001.

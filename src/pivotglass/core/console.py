@@ -668,6 +668,61 @@ class PivotglassConsole(cmd2.Cmd):
             return
         self._hunt_ioc(arg)
 
+    def do_pivot(self, args: str) -> None:
+        """Run or steer a bounded multi-hop pivot (DEC-PIVOT-RUN-001).
+
+        Usage:
+            pivot <indicator> [<indicator> ...] [depth:1-3] [budget:1-200]
+            pivot status | stop | skip <indicator> | focus <indicator> | unfocus | add <indicator>
+
+        The run executes in the foreground and prints each request; Ctrl-C stops
+        it after the current request. ``pivot status`` shows the last run's
+        every decision. The same grammar runs in the web cockpit and the cyberdeck.
+        """
+        from pivotglass.modules.pivoting.commands import execute_pivot_command, format_event
+
+        def show(event: dict) -> None:
+            line = format_event(event)
+            if line:
+                self.poutput(line)
+
+        try:
+            result = execute_pivot_command(args, self._pivot_context(), listener=show, background=False)
+        except ValueError as exc:
+            self.poutput(str(exc))
+            return
+        if result["action"] != "start":
+            self.poutput(result["text"])
+        elif result["data"] is not None:
+            from pivotglass.modules.pivoting.commands import render_snapshot
+
+            self.poutput(render_snapshot(result["data"], limit=10))
+
+    def _pivot_context(self) -> Any:
+        """A ToolContext over this console's directories, on the active workspace.
+
+        Pivot runs execute modules through ``ToolContext.run_module`` so evidence,
+        provenance and scoring are stored exactly as in the cockpit and cyberdeck.
+        """
+        ctx = getattr(self, "_pivot_ctx", None)
+        if ctx is None:
+            from pivotglass.agent.tools import ToolContext
+
+            ctx = ToolContext(
+                config_dir=self.config_mgr._config_dir,
+                workspace_dir=self.workspace_mgr._workspace_dir,
+                streak_path=self.streak_mgr._path,
+                console=self.rich_console,
+            )
+            self._pivot_ctx = ctx
+        try:
+            active = self.workspace_mgr.active
+        except RuntimeError:
+            active = None
+        if active is not None:
+            ctx.workspace_mgr.switch(active)
+        return ctx
+
     def _execute_hunt(self) -> None:
         """Shared implementation for run and hunt commands."""
         if self._active_module is None:
@@ -917,7 +972,7 @@ class PivotglassConsole(cmd2.Cmd):
     #            on miss; modules need dict.get(key, default) (Pivotglass #98).
     #
     #            Pivotglass #98 introduces resolve_module_credentials() from
-    #            core/module_credentials.py — the same credential resolution authority
+    #            core/module_config.py — the same credential resolution authority
     #            the chat agent (agent/tools.py::run_module) has always used. Both
     #            call sites now consume the shared resolver (DEC-MODULE-CREDS-SHARED-001,
     #            Sacred Practice 12 — single rendering authority).
@@ -943,7 +998,7 @@ class PivotglassConsole(cmd2.Cmd):
             Canonical module path (e.g. "osint/shodan_ip", "cti/virustotal").
             Used to look up the per-module credential dict.
         """
-        from pivotglass.core.module_credentials import resolve_module_credentials
+        from pivotglass.core.module_config import resolve_module_credentials
 
         init_config = resolve_module_credentials(module_path, self.config_mgr)
 
@@ -961,7 +1016,7 @@ class PivotglassConsole(cmd2.Cmd):
         if ioc_type is None:
             self.poutput(
                 f"Unrecognized IoC format: '{ioc}'. "
-                "Supported: IPv4, IPv6, domain, URL, MD5, SHA1, SHA256, email."
+                "Supported: IPv4, IPv6, domain, URL, MD5, SHA1, SHA256, email, CVE."
             )
             return
 
@@ -1473,57 +1528,80 @@ class PivotglassConsole(cmd2.Cmd):
     # report
     # ------------------------------------------------------------------
 
+    def do_org(self, args: str) -> None:
+        """Organisation input: org [show] | import <path> | telemetry <path> | share-with-model on|off."""
+
+        from pivotglass.reports.org import execute_org_command
+
+        try:
+            result = execute_org_command(args, self.workspace_mgr)
+        except ValueError as exc:
+            self.poutput(str(exc))
+            return
+        self.poutput(result["title"])
+        self.poutput(json.dumps(result["data"], indent=2, default=str))
+
+    def do_cluster(self, args: str) -> None:
+        """Cluster suggestions: cluster suggest | accept <id> [name] | reject <id> | <reason>."""
+
+        from pivotglass.core.cluster_suggestions import execute_cluster_command
+
+        try:
+            result = execute_cluster_command(args, self.workspace_mgr)
+        except ValueError as exc:
+            self.poutput(str(exc))
+            return
+        self.poutput(result["title"])
+        self.poutput(json.dumps(result["data"], indent=2, default=str))
+
     def do_report(self, args: str) -> None:
-        """Generate and manage investigation reports.
+        """Preview, save, issue and read back reports.
 
         Usage:
-            report [generate]   -- generate dossier report and save to workspace directory
-            report show         -- display the last generated report
+            report [generate [<type>]]  -- save a Markdown preview to the workspace directory
+            report show [<type>]        -- print a Markdown preview
+            report types | <type> [markdown|json|stix] | issue <type> [draft|final] [| summary]
+                   | history [<type>] | open <report-id> [<version>] [format]
 
-        M-8: classic interview-based report path removed (DEC-68-DOSSIER-REFRAME-008).
-        The dossier renderer is the sole report path.
-
-        Reports are Markdown files written to the active workspace directory.
+        Every form except ``generate`` and ``show`` is the shared ``report``
+        command (reports/commands.py), identical in the web cockpit and chat.
         """
+        from pivotglass.reports.commands import execute_report_command
+
         tokens = args.strip().split()
         sub = tokens[0].lower() if tokens else "generate"
-
-        if sub == "generate":
-            self._report_generate()
-        elif sub == "show":
-            self._report_show()
-        else:
-            self.poutput(f"Unknown report subcommand: '{sub}'")
-            self.poutput("Usage: report [generate|show]")
-
-    def _report_generate(self) -> None:
-        """Generate dossier report and save to a file in the workspace directory."""
         try:
-            try:
-                ws_name = self.workspace_mgr.active
-            except RuntimeError:
-                ws_name = "default"
+            if sub in {"generate", "show"}:
+                result = execute_report_command(" ".join(tokens[1:]), self.workspace_mgr)
+                if sub == "show":
+                    self.poutput(result["text"])
+                else:
+                    self._report_save(result, tokens[1] if len(tokens) > 1 else None)
+                return
+            result = execute_report_command(args, self.workspace_mgr)
+        except ValueError as exc:
+            self.poutput(str(exc))
+            return
+        if "text" in result:
+            self.poutput(result["text"])
+        else:
+            self.poutput(result["title"])
+            self.poutput(json.dumps(result["data"], indent=2, default=str))
 
-            from pivotglass.core.dossier_report import generate_dossier_report
+    def _report_save(self, result: dict, type_id: str | None) -> None:
+        """Write a Markdown preview to ``<workspace>-report.md`` (or ``<workspace>-<type>.md``)."""
 
-            workspace_dir = self.workspace_mgr._workspace_dir
-            workspace_dir.mkdir(parents=True, exist_ok=True)
-            content = generate_dossier_report(
-                self.workspace_mgr, scoring_engine=self.scoring_engine
-            )
-            output_path = workspace_dir / f"{ws_name}-report.md"
-            output_path.write_text(content, encoding="utf-8")
-            self.poutput(f"Report saved: {output_path}")
-            self._last_report_path = output_path
-        except Exception as exc:  # noqa: BLE001
-            self.poutput(f"Error generating report: {exc}")
-
-    def _report_show(self) -> None:
-        """Display the dossier report content on stdout."""
-        from pivotglass.core.dossier_report import generate_dossier_report
-
-        content = generate_dossier_report(self.workspace_mgr, scoring_engine=self.scoring_engine)
-        self.poutput(content)
+        try:
+            ws_name = self.workspace_mgr.active
+        except RuntimeError:
+            ws_name = "default"
+        workspace_dir = self.workspace_mgr._workspace_dir
+        workspace_dir.mkdir(parents=True, exist_ok=True)
+        suffix = "report" if type_id is None else type_id.casefold()
+        output_path = workspace_dir / f"{ws_name}-{suffix}.md"
+        output_path.write_text(result["text"], encoding="utf-8")
+        self.poutput(f"Report saved: {output_path}")
+        self._last_report_path = output_path
 
     # ------------------------------------------------------------------
     # sessions (stub)

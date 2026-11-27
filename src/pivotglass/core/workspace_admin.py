@@ -57,6 +57,8 @@ _EXPORT_TABLES = (
     "evidence_cluster_snapshots",
     "pivot_trail_events",
     "indicator_tag_events",
+    "report_issues",
+    "organisation_inputs",
 )
 _JSON_COLUMNS = {
     "json_blob",
@@ -86,7 +88,10 @@ _JSON_COLUMNS = {
     "alternative_explanations",
     "snapshot",
     "provenance_refs",
+    "element_statuses",
 }
+# organisation_inputs is exported but never merged: it describes one organisation,
+# and its share-with-model consent must not travel to another workspace (#59).
 _STRING_KEY_TABLES = (
     "stix_objects",
     "relationships",
@@ -115,6 +120,7 @@ _STRING_KEY_TABLES = (
     "evidence_cluster_snapshots",
     "pivot_trail_events",
     "indicator_tag_events",
+    "report_issues",
 )
 
 

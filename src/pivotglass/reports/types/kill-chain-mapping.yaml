@@ -1,0 +1,31 @@
+# Type 12. Rewritten from 04_Attack_Flow_and_Behavioral/12_Cyber_Kill_Chain_Mapping.md.
+# Changes: control status uses the shared, defined vocabulary (Not observed,
+# Logged, Detected, Blocked, Prevented, Missed, Not applicable) instead of ad
+# hoc values like "Detected (Not Blocked)"; each observed action cites
+# evidence and its ATT&CK IDs; recommendations have owners.
+id: kill-chain-mapping
+number: 12
+code: KCM
+title: Cyber Kill Chain Mapping
+domain: behavioral
+tier: operational
+audience: [SOC leadership, Incident responders, Security architecture]
+purpose: >-
+  Lay an intrusion or campaign along the seven kill-chain phases, show where
+  controls saw or stopped it and where they did not, and say where to break
+  the chain earliest.
+use_when: >-
+  After an incident or exercise, to explain control performance phase by
+  phase. Control status needs the organisation's telemetry or control input.
+related: [campaign-intrusion-analysis, defensive-coverage-assessment, attack-navigator-layer]
+default_marking: {tlp: AMBER, pap: AMBER}
+validity_days: 90
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - {id: kill_chain_table}
+  - id: recommendations
+    guidance: Where to break the chain, earliest phase first, each with an owner and due date.
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json]

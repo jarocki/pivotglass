@@ -44,7 +44,7 @@ from typing import Literal
 from markdown_it import MarkdownIt
 from pydantic import BaseModel, ConfigDict
 
-from pivotglass.core.document_ingestion import decode_text
+from pivotglass.core.document_ingestion import DocumentLimits, decode_text, email_body_parts
 
 RENDERING_VERSION = "pivotglass-safe-render-1.0"
 MAX_RENDERED_HTML_CHARS = 4_000_000
@@ -221,4 +221,44 @@ def render_document(
                 notes=("Rendered layout exceeded the display limit; showing extracted text.",),
             )
         return DocumentRendering(kind="html", anchoring="ordinal", html=rendered, notes=notes)
+    if media_type == "message/rfc822":
+        return _render_email(data)
     return DocumentRendering(kind="text", anchoring="exact")
+
+
+def _render_email(data: bytes) -> DocumentRendering:
+    """Headers, then every body part in parser order (#28).
+
+    Parts appear in the order ``output_text`` lists them, so ordinal anchoring
+    holds: a ``multipart/alternative`` message shows its plain-text and HTML
+    versions one after the other, each labelled. A message with no HTML part
+    keeps the exact plain-text view.
+    """
+
+    headers, body, _warnings, _skipped = email_body_parts(data, DocumentLimits())
+    if not any(media_type == "text/html" for media_type, _text in body):
+        return DocumentRendering(kind="text", anchoring="exact")
+    notes: list[str] = []
+    pieces = ['<header class="email-headers"><dl>']
+    for name, value in headers:
+        pieces.append(f"<dt>{html.escape(name)}:</dt><dd>{html.escape(value)}</dd>")
+    pieces.append("</dl></header>")
+    for media_type, text in body:
+        if media_type == "text/html":
+            rendered, part_notes = sanitize_html(text)
+            notes.extend(note for note in part_notes if note not in notes)
+            pieces.append(f'<section class="email-part email-html">{rendered}</section>')
+        else:
+            pieces.append(f'<section class="email-part email-plain"><pre>{html.escape(text)}</pre></section>')
+    rendered_message = "".join(pieces)
+    if len(rendered_message) > MAX_RENDERED_HTML_CHARS:
+        return DocumentRendering(
+            kind="text",
+            anchoring="exact",
+            notes=("Rendered message exceeded the display limit; showing extracted text.",),
+        )
+    if sum(media_type == "text/html" for media_type, _text in body) and any(
+        media_type == "text/plain" for media_type, _text in body
+    ):
+        notes.insert(0, "The message carries plain-text and HTML versions; both are shown in message order.")
+    return DocumentRendering(kind="html", anchoring="ordinal", html=rendered_message, notes=tuple(notes))

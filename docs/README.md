@@ -40,6 +40,8 @@ assets and are not the current tour.
   questions, evidence, analytical challenge, reports, and restart checks.
 - [User Guide](USER_GUIDE.md): interface navigation, intake, graphs, notebook,
   correction, handoff, command reference, accessibility, and audio.
+- [Report types](reports/README.md): every report type, its audience, sections,
+  provenance and marking, and the shared vocabularies (generated from the definitions).
 - [Offline learning case](LEARNING_WORKSPACE.md): exact fixture and persistence exercise.
 - [Scientific method and Structured Analytic Techniques](analysis/README.md):
   reasoning stages, technique protocols, and the distinction between recorded

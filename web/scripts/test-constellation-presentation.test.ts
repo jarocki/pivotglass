@@ -64,6 +64,7 @@ test("coverage labels distinguish absent evidence from unavailable automation", 
 test("indicator labels and country flags are recognizable without inventing geography", () => {
   assert.equal(indicatorTypeLabel("ipv6-addr"), "IPv6");
   assert.equal(indicatorTypeLabel("domain-name"), "Domain");
+  assert.equal(indicatorTypeLabel("vulnerability"), "CVE");
   assert.deepEqual(reportedCountry("DE"), { name: "Germany", flag: "🇩🇪", code: "DE" });
   for (const invalid of [null, undefined, "", "ZZ", "XX", "EU", "UN", "us", "<script>", ["US"]]) {
     assert.equal(reportedCountry(invalid), null);

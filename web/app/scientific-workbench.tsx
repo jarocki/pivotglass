@@ -2,6 +2,8 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
+import type { ReportTypeSummary } from "./report-picker";
+import { PirPanel, type PirCatalogue, type PirState } from "./pir-panel";
 import { QuestionCoach } from "./question-coach";
 import type { GuidanceLevel } from "./guidance-profile";
 
@@ -150,6 +152,10 @@ export type AnalyticSnapshot = {
   method_runs?: AnalyticMethodRun[];
   information_requirements?: InformationRequirementState;
   rigor?: AnalyticRigorState;
+  /** PIR category, tier and verdict for the active investigation (DEC-PIR-001). */
+  pir?: PirState;
+  pir_catalogue?: PirCatalogue;
+  report_types?: ReportTypeSummary[];
   /** Labels for observations cited by model proposals. */
   observation_labels?: Record<string, string>;
 };
@@ -366,6 +372,8 @@ export function ScientificWorkbench({
           {(current?.status ?? "not started").replaceAll("_", " ")}
         </b>
       </header>
+
+      <PirPanel pir={analysis.pir} catalogue={analysis.pir_catalogue} busy={busy} onCommand={run}/>
 
       <QuestionCoach key={workspace} workspace={workspace} level={guidanceLevel} onCommand={onCommand}/>
 

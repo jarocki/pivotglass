@@ -1,6 +1,6 @@
 [project]
 name = "pivotglass"
-version = "1.4.1"
+version = "1.5.0"
 requires-python = ">=3.12"
 description = "Gamified framework for hunting, pivoting, and discovery of adversary infrastructure, indicators, and TTPs"
 readme = "README.md"
@@ -62,10 +62,15 @@ malwarebazaar = "pivotglass.modules.cti.malwarebazaar:MalwareBazaar"
 crtsh = "pivotglass.modules.osint.crtsh:CrtSh"
 mnemonic_pdns = "pivotglass.modules.osint.mnemonic_pdns:MnemonicPassiveDNS"
 shodan_internetdb = "pivotglass.modules.osint.shodan_internetdb:ShodanInternetDB"
+dns_doh = "pivotglass.modules.osint.dns_doh:DnsOverHttps"
+ip_asn = "pivotglass.modules.osint.ip_asn:IpAsn"
 sans_isc = "pivotglass.modules.osint.sans_isc:SansIsc"
 rdap = "pivotglass.modules.osint.rdap:Rdap"
 wayback = "pivotglass.modules.osint.wayback:Wayback"
 hashlookup = "pivotglass.modules.cti.hashlookup:HashLookup"
+cisa_kev = "pivotglass.modules.cti.cisa_kev:CisaKev"
+first_epss = "pivotglass.modules.cti.first_epss:FirstEpss"
+nvd_cve = "pivotglass.modules.cti.nvd_cve:NvdCve"
 
 [build-system]
 requires = ["hatchling"]

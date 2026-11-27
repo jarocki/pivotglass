@@ -52,6 +52,7 @@ from typing import Any
 import httpx
 
 from pivotglass import __version__
+from pivotglass.core.module_config import credential_remedy
 from pivotglass.modules.base import (
     AuthenticationError,
     BaseModule,
@@ -72,7 +73,7 @@ class HIBP(BaseModule):
 
     Requires a HIBP API key from https://haveibeenpwned.com/API/Key (paid).
     Configure via:
-      pivotglass config set api_keys.hibp <key>
+      pivotglass config set hibp
     or the PIVOTGLASS_HIBP_API_KEY environment variable.
 
     Returns
@@ -148,8 +149,7 @@ class HIBP(BaseModule):
         if not api_key:
             raise AuthenticationError(
                 "HIBP API key not configured. "
-                "Set via 'pivotglass config set api_keys.hibp <key>' "
-                "or PIVOTGLASS_HIBP_API_KEY env var."
+                + credential_remedy("hibp")
             )
 
         truncate = options.get("TRUNCATE", self.options["TRUNCATE"]["default"]).lower() == "true"

@@ -10,7 +10,7 @@ Authentication: Bearer Personal Access Token (PAT). Obtain from
 https://app.censys.io/user/tokens (free tier available).
 
 Configure via:
-  pivotglass config set censys_pat <token>   (recommended — new Platform API)
+  pivotglass config set censys_pat   (recommended — new Platform API)
 
 Legacy credentials (censys_id + censys_secret) were used with the deprecated
 search.censys.io v2 API which now returns 302 redirects and cannot be used.
@@ -77,7 +77,7 @@ See DEC-MODULE-CENSYS-005 for the migration rationale.
            caller), falling back to PIVOTGLASS_CENSYS_PAT and CENSYS_PAT env vars directly
            via os.environ. This is the same pattern used throughout the codebase for
            service-specific credential handling. Users can set the key via:
-             pivotglass config set censys_pat <token>   (once ApiKeysConfig is updated)
+             pivotglass config set censys_pat   (once ApiKeysConfig is updated)
              export PIVOTGLASS_CENSYS_PAT=<token>        (works today without config change)
 """
 
@@ -89,6 +89,7 @@ from typing import Any
 
 import httpx
 
+from pivotglass.core.module_config import credential_remedy
 from pivotglass.modules.base import (
     AuthenticationError,
     BaseModule,
@@ -115,7 +116,7 @@ class CensysHost(BaseModule):
 
     Requires a Censys Personal Access Token from https://app.censys.io/user/tokens
     (free tier available). Configure via:
-      pivotglass config set censys_pat <token>
+      pivotglass config set censys_pat
     or:
       export PIVOTGLASS_CENSYS_PAT=<token>
 
@@ -209,15 +210,13 @@ class CensysHost(BaseModule):
                     "are no longer accepted — the search.censys.io v2 API now returns 302 "
                     "redirects and is effectively retired. "
                     "Obtain a Personal Access Token (PAT) from "
-                    "https://app.censys.io/user/tokens and configure it via: "
-                    "'pivotglass config set censys_pat <token>' or export PIVOTGLASS_CENSYS_PAT=<token>. "
-                    "See DEC-MODULE-CENSYS-005 for details."
+                    "https://app.censys.io/user/tokens. "
+                    + credential_remedy("censys_pat") + " See DEC-MODULE-CENSYS-005."
                 )
             raise AuthenticationError(
                 "Censys censys_pat not configured. "
-                "Obtain a Personal Access Token from https://app.censys.io/user/tokens "
-                "and set via 'pivotglass config set censys_pat <token>' "
-                "or export PIVOTGLASS_CENSYS_PAT=<token>."
+                "Obtain a Personal Access Token from https://app.censys.io/user/tokens. "
+                + credential_remedy("censys_pat")
             )
 
         url = f"{self.base_url}{_HOST_PATH.format(ip=target)}"

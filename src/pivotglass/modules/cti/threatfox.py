@@ -18,7 +18,7 @@ API docs: https://threatfox.abuse.ch/api/
              - 'md5_hash'   -> file SCO (hashes.MD5)
              - 'sha256_hash'-> file SCO (hashes.SHA-256)
            Unknown ioc_types are emitted as-is with a best-effort type guess.
-           No API key is required. TIMEOUT = 60.0 per project standard.
+           An abuse.ch Auth-Key is required (DEC-ABUSECH-AUTH-001). TIMEOUT = 60.0.
 
 @decision DEC-MODULE-THREATFOX-002
 @title query_status != 'ok' with empty data mapped to empty list
@@ -48,8 +48,8 @@ import httpx
 
 from pivotglass.modules.base import (
     BaseModule,
-    RateLimitError,
 )
+from pivotglass.modules.cti.abusech import auth_headers, check_response
 
 logger = logging.getLogger(__name__)
 
@@ -62,11 +62,11 @@ _THREATFOX_NS = uuid.UUID("6ba7b814-9dad-11d1-80b4-00c04fd430c8")
 class ThreatFox(BaseModule):
     """Query abuse.ch ThreatFox for threat intelligence on IPs, domains, URLs, and hashes.
 
-    ThreatFox is a free, keyless IOC sharing platform operated by abuse.ch.
+    ThreatFox is a free IOC sharing platform operated by abuse.ch.
     Returns STIX 2.1 SCO dicts typed based on the ioc_type field in each
     ThreatFox record (ipv4-addr, url, domain-name, or file).
 
-    No API key is required.
+    Requires the shared abuse.ch Auth-Key (DEC-ABUSECH-AUTH-001).
     """
 
     name = "cti/threatfox"
@@ -74,9 +74,8 @@ class ThreatFox(BaseModule):
     author = "Pivotglass"
     module_type = "cti"
     accepts = ("ipv4", "ipv6", "domain", "url", "md5", "sha1", "sha256")
-    requires_api_key = False
-
-    _API_URL = "https://threatfox-api.abuse.ch/api/v1/"
+    requires_api_key = True
+    service_id = "threatfox"
 
     def __init__(self) -> None:
         super().__init__()
@@ -127,24 +126,16 @@ class ThreatFox(BaseModule):
             For network-level failures.
         """
         payload = {"query": "search_ioc", "search_term": target}
+        headers = auth_headers(self._config, "ThreatFox")
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                self._API_URL,
+                f"{self.base_url}/",
                 json=payload,
-                headers={"Accept": "application/json"},
+                headers=headers,
                 timeout=TIMEOUT,
             )
-
-            if response.status_code == 429:
-                retry_header = response.headers.get("Retry-After")
-                retry_after = int(retry_header) if retry_header else None
-                raise RateLimitError(
-                    "ThreatFox API rate limit exceeded.",
-                    retry_after=retry_after,
-                )
-
-            response.raise_for_status()
+            check_response(response, "ThreatFox")
             data = response.json()
 
         query_status = data.get("query_status", "")

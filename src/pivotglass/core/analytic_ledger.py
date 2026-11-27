@@ -210,6 +210,91 @@ class AnalyticLedger:
             )
             return _row_dict(row) if row is not None else None
 
+    def set_requirement(
+        self,
+        category: str,
+        level: str | None = None,
+        *,
+        investigation_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Record the PIR category and tier, and seed the category's stop conditions (DEC-PIR-001).
+
+        Re-choosing the same category seeds nothing twice. Changing it defers the
+        previous category's still-open seeds, so the analyst's record of what was
+        resolved survives and no stale condition counts toward the new verdict.
+        """
+
+        from pivotglass.reports.pir import (
+            CATEGORIES,
+            PIR_SEED_KEY,
+            parse_category,
+            parse_level,
+        )
+
+        chosen = parse_category(category)
+        definition = CATEGORIES[chosen]
+        tier = parse_level(level) if level else definition.default_level
+        now = datetime.now(timezone.utc)
+        with self._workspace.get_session() as session:
+            investigation = self._ensure_investigation(session, investigation_id)
+            previous = investigation.requirement_category
+            investigation.requirement_category = chosen.value
+            investigation.intelligence_level = tier.value
+            investigation.updated_at = now
+            items = (
+                session.execute(
+                    select(AnalyticLifecycleItem).where(
+                        AnalyticLifecycleItem.investigation_id == investigation.id,
+                        AnalyticLifecycleItem.item_type == LifecycleItemType.STOP_CONDITION.value,
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            deferred = reopened = 0
+            seeded_statements = set()
+            for row in items:
+                criteria = dict(row.criteria or {})
+                seed = criteria.get(PIR_SEED_KEY)
+                if seed == chosen.value:
+                    seeded_statements.add(row.statement)
+                    # Reopen only what a category switch deferred, never an analyst deferral.
+                    if criteria.pop("pir_superseded", False):
+                        row.status = LifecycleItemStatus.OPEN.value
+                        row.resolved_at = None
+                        row.criteria = criteria
+                        row.updated_at = now
+                        reopened += 1
+                elif seed and row.status == LifecycleItemStatus.OPEN.value:
+                    row.status = LifecycleItemStatus.DEFERRED.value
+                    row.resolved_at = now
+                    row.criteria = {**criteria, "pir_superseded": True}
+                    row.updated_at = now
+                    deferred += 1
+            seeded = 0
+            for statement in definition.stop_conditions:
+                if statement in seeded_statements:
+                    continue
+                self._link_lifecycle_item(
+                    session,
+                    investigation=investigation,
+                    item_type=LifecycleItemType.STOP_CONDITION,
+                    statement=statement,
+                    author_kind=AuthorKind.SYSTEM,
+                    criteria={PIR_SEED_KEY: chosen.value},
+                )
+                seeded += 1
+            session.commit()
+            return {
+                "investigation_id": investigation.id,
+                "category": chosen.value,
+                "level": tier.value,
+                "previous_category": previous,
+                "stop_conditions_seeded": seeded,
+                "stop_conditions_deferred": deferred,
+                "stop_conditions_reopened": reopened,
+            }
+
     def create_question(
         self,
         text: str,

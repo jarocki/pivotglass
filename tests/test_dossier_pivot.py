@@ -175,33 +175,19 @@ class TestComputeSlotFillScore:
 # ---------------------------------------------------------------------------
 
 
+def _rank(ranker, results):
+    """Order results as PivotRun orders one depth: by ranker key, ties in input order."""
+    return sorted(results, key=lambda item: ranker.key(item.get("type", ""), item))
+
+
 class TestMakeDossierPivotRanker:
-    def test_returns_callable(self):
-        """P7: make_dossier_pivot_ranker returns a callable."""
-        state = _all_empty()
+    def test_key_is_negated_score_then_confidence(self):
+        """P7: key(sco_type, attrs) is (-slot_fill_score, -confidence): lower sorts first."""
+        state = _make_state({DossierSlotName.IDENTITY: SlotStatus.EMPTY})
         ranker = make_dossier_pivot_ranker(state)
-        assert callable(ranker)
-
-    def test_callable_accepts_results_and_source_module(self):
-        """P7: callable takes (results, source_module) and returns list."""
-        state = _all_empty()
-        ranker = make_dossier_pivot_ranker(state)
-        results = [_sco("email-addr", "a@b.com"), _sco("ipv4-addr", "1.2.3.4")]
-        output = ranker(results, "test/source")
-        assert isinstance(output, list)
-        assert len(output) == 2
-
-    def test_does_not_mutate_input(self):
-        """P7: ranker returns a new list; input is not mutated."""
-        state = _all_empty()
-        ranker = make_dossier_pivot_ranker(state)
-        results = [_sco("ipv4-addr", "1.2.3.4"), _sco("email-addr", "a@b.com")]
-        original_ids = [id(r) for r in results]
-        output = ranker(results, "test/source")
-        # Input order unchanged
-        assert [id(r) for r in results] == original_ids
-        # Output is a distinct list
-        assert output is not results
+        assert ranker.key("email-addr", {"x_abuse_confidence_score": 40}) == (-5.0, -40.0)
+        assert ranker.key("email-addr", {}) == (-5.0, 1.0)
+        assert ranker.key("email-addr", {"x_abuse_confidence_score": "n/a"}) == (-5.0, 1.0)
 
     def test_identity_ranks_above_infrastructure_when_identity_empty_infra_filled(self):
         """P8: email-addr (Identity=EMPTY, score=5.0) ranked before
@@ -219,7 +205,7 @@ class TestMakeDossierPivotRanker:
             _sco("domain-name", "evil.com"),
             _sco("email-addr", "actor@example.com"),
         ]
-        ranked = ranker(results, "test/source")
+        ranked = _rank(ranker, results)
         # email-addr (Identity) must come first
         assert ranked[0]["type"] == "email-addr"
         # Infrastructure pivots at the end
@@ -233,7 +219,7 @@ class TestMakeDossierPivotRanker:
         sco_a = _sco("email-addr", "a@example.com", sco_id="id-a")
         sco_b = _sco("email-addr", "b@example.com", sco_id="id-b")
         results = [sco_a, sco_b]
-        ranked = ranker(results, "test/source")
+        ranked = _rank(ranker, results)
         assert ranked[0]["id"] == "id-a"
         assert ranked[1]["id"] == "id-b"
 
@@ -247,7 +233,7 @@ class TestMakeDossierPivotRanker:
         high_conf = _sco("ipv4-addr", "5.6.7.8", sco_id="high", x_abuse_confidence_score=90)
         # Input order: low first
         results = [low_conf, high_conf]
-        ranked = ranker(results, "test/source")
+        ranked = _rank(ranker, results)
         assert ranked[0]["id"] == "high"
         assert ranked[1]["id"] == "low"
 
@@ -258,14 +244,8 @@ class TestMakeDossierPivotRanker:
         no_score = _sco("ipv4-addr", "1.2.3.4", sco_id="no-score")
         has_score = _sco("ipv4-addr", "5.6.7.8", sco_id="has-score", x_abuse_confidence_score=10)
         results = [no_score, has_score]
-        ranked = ranker(results, "test/source")
+        ranked = _rank(ranker, results)
         assert ranked[0]["id"] == "has-score"
-
-    def test_empty_results_returns_empty_list(self):
-        """P11: empty input → empty output."""
-        state = _all_empty()
-        ranker = make_dossier_pivot_ranker(state)
-        assert ranker([], "test/source") == []
 
     def test_all_filled_dossier_preserves_input_order(self):
         """When all slots are FILLED, every score is 0.0 → stable sort = input order."""
@@ -276,16 +256,14 @@ class TestMakeDossierPivotRanker:
             _sco("ipv4-addr", "1.2.3.4", sco_id="2"),
             _sco("url", "http://x.com", sco_id="3"),
         ]
-        ranked = ranker(results, "test/source")
+        ranked = _rank(ranker, results)
         assert [r["id"] for r in ranked] == ["1", "2", "3"]
 
-    def test_ranker_exposes_score_for_type_side_channel(self):
-        """make_dossier_pivot_ranker attaches _score_for_type so EventBus.publish
-        can populate dossier_weight without re-importing dossier_pivot."""
+    def test_ranker_score_is_the_dossier_weight(self):
+        """score(sco_type) is what PivotRun records as each decision's dossier_weight."""
         state = _make_state({DossierSlotName.IDENTITY: SlotStatus.EMPTY})
         ranker = make_dossier_pivot_ranker(state)
-        score_fn = getattr(ranker, "_score_for_type", None)
-        assert score_fn is not None, "ranker must expose _score_for_type side-channel"
+        score_fn = ranker.score
         assert score_fn("email-addr") == pytest.approx(5.0)
         assert score_fn("ipv4-addr") == 0.0  # Identity=EMPTY but ipv4→Infrastructure=DEFERRED
 
@@ -301,6 +279,6 @@ class TestMakeDossierPivotRanker:
             _sco("email-addr", "a@b.com", sco_id="1"),
             _sco("ipv4-addr", "1.2.3.4", sco_id="2"),
         ]
-        ranked = ranker(results, "test/source")
+        ranked = _rank(ranker, results)
         # Stable sort: original order preserved when all 0.0
         assert [r["id"] for r in ranked] == ["1", "2"]

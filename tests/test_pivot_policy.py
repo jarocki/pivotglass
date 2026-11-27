@@ -4,8 +4,8 @@
 @title 28 unit tests covering every gate rule; no mocks for internal logic
 @status accepted
 @rationale PivotPolicy is the sole gate authority (DEC-60-PIVOT-POLICY-001).
-           Tests must exercise every gate rule directly, not through the EventBus,
-           so failures are pinpointed to the gate not the bus wiring.  No mocks
+           Tests must exercise every gate rule directly, not through a pivot run,
+           so failures are pinpointed to the gate not the run's wiring.  No mocks
            are used for PivotPolicy internals — real rule evaluation is the
            production path.  User-list tests write real temp files so the
            file-loading path is exercised end-to-end.
@@ -34,18 +34,15 @@ Coverage matrix (28 tests):
     Missing score PESSIMISTIC (registry entry) skips
     Non-numeric score OPTIMISTIC pass
   Gate 3 — Budget:
-    Per-cascade budget exhaustion skips on N+1
-    Per-session budget exhaustion skips on N+1
-    Dry-run counters not incremented
-    reset_cascade_budget resets per-cascade counter
-    reset_session_budget resets both counters
+    Request budget exhaustion skips on N+1
+    Rejections do not charge the budget
   Gate ordering:
     IOC-value rejection short-circuits before confidence
     Confidence rejection short-circuits before budget
-  Decision log / dry_run:
-    build_log_entry produces all 7 required keys
-    build_log_entry skip entry values correct
-    build_log_entry allow entry values correct
+  Analyst-named seeds (DEC-PIVOT-SEED-001):
+    top-1k and low confidence allowed, with the recorded reason
+    reserved, private, loopback and user-denied values still refused
+    budget still applies
 """
 
 from __future__ import annotations
@@ -61,8 +58,7 @@ from pivotglass.core.pivot_policy import PivotPolicy
 def make_policy(
     *,
     confidence_threshold: int = 75,
-    max_per_cascade: int = 5,
-    max_per_session: int = 50,
+    budget: int = 5,
     allowlist_path: str | None = "/dev/null",
     denylist_path: str | None = "/dev/null",
 ) -> PivotPolicy:
@@ -73,12 +69,10 @@ def make_policy(
     """
     cfg = AutoPivotPolicyConfig(
         confidence_threshold=confidence_threshold,
-        max_per_cascade=max_per_cascade,
-        max_per_session=max_per_session,
         allowlist_path=allowlist_path,
         denylist_path=denylist_path,
     )
-    return PivotPolicy(cfg)
+    return PivotPolicy(cfg, budget=budget)
 
 
 def eval_ip(
@@ -89,7 +83,6 @@ def eval_ip(
     candidate_module: str = "osint/shodan_ip",
     sco_attrs: dict | None = None,
     depth: int = 0,
-    dry_run: bool = False,
 ):
     return policy.evaluate(
         sco_type=sco_type,
@@ -98,7 +91,6 @@ def eval_ip(
         candidate_module=candidate_module,
         sco_attrs=sco_attrs,
         depth=depth,
-        dry_run=dry_run,
     )
 
 
@@ -217,7 +209,7 @@ class TestGate1UserLists:
             allowlist_path=str(allow_file),
             denylist_path=str(deny_file),
         )
-        p = PivotPolicy(cfg)
+        p = PivotPolicy(cfg, budget=5)
         d = p.evaluate("ipv4-addr", "1.2.3.4", "m", "n")
         assert d.verdict == "skip"
         assert "user-deny" in d.reason
@@ -232,7 +224,7 @@ class TestGate1UserLists:
             allowlist_path=str(allow_file),
             denylist_path=str(deny_file),
         )
-        p = PivotPolicy(cfg)
+        p = PivotPolicy(cfg, budget=5)
         d = p.evaluate("domain-name", "google.com", "m", "n")
         assert d.verdict == "allow"
 
@@ -242,7 +234,7 @@ class TestGate1UserLists:
             allowlist_path="/nonexistent/allow.txt",
             denylist_path="/nonexistent/deny.txt",
         )
-        p = PivotPolicy(cfg)
+        p = PivotPolicy(cfg, budget=5)
         d = p.evaluate("ipv4-addr", "8.8.8.8", "m", "n")
         assert d.verdict == "allow"
 
@@ -309,57 +301,24 @@ class TestGate2Confidence:
 
 
 class TestGate3Budget:
-    def test_per_cascade_budget_exhausted_skips(self):
-        """The (max_per_cascade + 1)th call in one cascade is skipped."""
-        p = make_policy(max_per_cascade=3, max_per_session=100)
+    def test_budget_exhausted_skips(self):
+        """The (budget + 1)th allowed pair is skipped by the budget gate."""
+        p = make_policy(budget=3)
         for _ in range(3):
             d = p.evaluate("ipv4-addr", "8.8.8.8", "m", "n")
             assert d.verdict == "allow"
         d = p.evaluate("ipv4-addr", "8.8.8.8", "m", "n")
         assert d.verdict == "skip"
         assert d.gate == "budget"
-        assert "per-cascade" in d.reason
+        assert d.reason == "request budget exhausted: 3/3"
+        assert p.allowed_count == 3
 
-    def test_per_session_budget_exhausted_skips(self):
-        """The (max_per_session + 1)th call across resets is skipped."""
-        p = make_policy(max_per_cascade=100, max_per_session=3)
-        for _ in range(3):
-            d = p.evaluate("ipv4-addr", "8.8.8.8", "m", "n")
-            assert d.verdict == "allow"
-        d = p.evaluate("ipv4-addr", "8.8.8.8", "m", "n")
-        assert d.verdict == "skip"
-        assert d.gate == "budget"
-        assert "per-session" in d.reason
-
-    def test_dry_run_does_not_increment_counters(self):
-        """dry_run=True: policy evaluated but counters not incremented."""
-        p = make_policy(max_per_cascade=3, max_per_session=100)
-        for _ in range(10):
-            d = p.evaluate("ipv4-addr", "8.8.8.8", "m", "n", dry_run=True)
-            assert d.verdict == "allow"
-        assert p._cascade_count == 0
-        assert p._session_count == 0
-
-    def test_reset_cascade_budget(self):
-        """reset_cascade_budget resets per-cascade counter to 0, preserves session."""
-        p = make_policy(max_per_cascade=2, max_per_session=100)
-        p.evaluate("ipv4-addr", "8.8.8.8", "m", "n")
-        p.evaluate("ipv4-addr", "8.8.8.8", "m", "n")
-        assert p._cascade_count == 2
-        p.reset_cascade_budget()
-        assert p._cascade_count == 0
-        assert p._session_count == 2  # preserved
-
-    def test_reset_session_budget(self):
-        """reset_session_budget resets both cascade and session counters."""
-        p = make_policy(max_per_cascade=10, max_per_session=100)
+    def test_rejections_do_not_charge_the_budget(self):
+        p = make_policy(budget=1)
         for _ in range(5):
-            p.evaluate("ipv4-addr", "8.8.8.8", "m", "n")
-        assert p._cascade_count == 5
-        assert p._session_count == 5
-        p.reset_session_budget()
-        assert p._cascade_count == 0
-        assert p._session_count == 0
+            assert p.evaluate("ipv4-addr", "10.0.0.1", "m", "n").gate == "ioc_value"
+        assert p.allowed_count == 0
+        assert p.evaluate("ipv4-addr", "8.8.8.8", "m", "n").verdict == "allow"
 
 
 # ---------------------------------------------------------------------------
@@ -383,7 +342,7 @@ class TestGateOrdering:
 
     def test_confidence_short_circuits_budget(self):
         """Low-confidence result rejected at gate 2; budget counter not charged."""
-        p = make_policy(confidence_threshold=75, max_per_cascade=5)
+        p = make_policy(confidence_threshold=75, budget=5)
         d = p.evaluate(
             "ipv4-addr",
             "8.8.8.8",
@@ -393,52 +352,52 @@ class TestGateOrdering:
         )
         assert d.verdict == "skip"
         assert d.gate == "confidence"
-        assert p._cascade_count == 0
+        assert p.allowed_count == 0
 
 
 # ---------------------------------------------------------------------------
-# Decision log shape and build_log_entry
+# Analyst-named seeds (DEC-PIVOT-SEED-001)
 # ---------------------------------------------------------------------------
 
 
-class TestDecisionLog:
-    def test_build_log_entry_has_all_seven_keys(self):
-        """DecisionLogEntry TypedDict has all 7 required keys (DEC-60-PIVOT-POLICY-005)."""
+class TestAnalystSeed:
+    def test_top1k_domain_allowed_with_recorded_reason(self):
         p = make_policy()
-        d = p.evaluate("ipv4-addr", "8.8.8.8", "osint/urlscan", "osint/shodan_ip")
-        entry = p.build_log_entry(
-            sco_id="indicator--1234",
-            value="8.8.8.8",
-            candidate_module="osint/shodan_ip",
-            decision=d,
-            depth=1,
-        )
-        required_keys = {
-            "source_sco_id",
-            "source_sco_value",
-            "candidate_module",
-            "gate",
-            "verdict",
-            "reason",
-            "depth",
-        }
-        assert set(entry.keys()) == required_keys
+        assert p.evaluate("domain-name", "google.com", "analyst", "osint/rdap").gate == "ioc_value"
+        d = p.evaluate("domain-name", "google.com", "analyst", "osint/rdap", analyst_seed=True)
+        assert d.verdict == "allow"
+        assert d.reason == "analyst-named seed; popularity gate not applied"
 
-    def test_build_log_entry_skip_values_correct(self):
-        """Log entry for skipped RFC1918 IP captures correct verdict and gate."""
-        p = make_policy()
-        d = p.evaluate("ipv4-addr", "10.0.0.1", "m", "n")
-        entry = p.build_log_entry("id-1", "10.0.0.1", "n", d, depth=0)
-        assert entry["verdict"] == "skip"
-        assert entry["gate"] == "ioc_value"
-        assert entry["source_sco_value"] == "10.0.0.1"
-        assert entry["depth"] == 0
+    def test_confidence_gate_not_applied(self):
+        p = make_policy(confidence_threshold=75)
+        attrs = {"x_abuse_confidence_score": 5}
+        assert p.evaluate("ipv4-addr", "8.8.8.8", "m", "n", sco_attrs=attrs).gate == "confidence"
+        assert p.evaluate("ipv4-addr", "8.8.8.8", "m", "n", sco_attrs=attrs, analyst_seed=True).verdict == "allow"
 
-    def test_build_log_entry_allow_values_correct(self):
-        """Log entry for an allowed public IP captures correct verdict."""
+    def test_reserved_and_private_values_still_refused(self):
         p = make_policy()
-        d = p.evaluate("ipv4-addr", "8.8.8.8", "m", "n")
-        entry = p.build_log_entry("id-2", "8.8.8.8", "n", d, depth=2)
-        assert entry["verdict"] == "allow"
-        assert entry["gate"] == "allow"
-        assert entry["depth"] == 2
+        for sco_type, value, words in [
+            ("ipv4-addr", "10.1.2.3", "RFC1918"),
+            ("ipv4-addr", "127.0.0.1", "loopback"),
+            ("ipv6-addr", "fe80::1", "link-local"),
+            ("domain-name", "example.com", "RFC6761"),
+            ("domain-name", "printer.local", "RFC6761"),
+            ("domain-name", "localhost", "RFC6761"),
+        ]:
+            d = p.evaluate(sco_type, value, "analyst", "n", analyst_seed=True)
+            assert (d.verdict, d.gate) == ("skip", "ioc_value"), value
+            assert words in d.reason
+        assert p.allowed_count == 0
+
+    def test_user_denylist_still_applies(self, tmp_path):
+        deny = tmp_path / "deny.txt"
+        deny.write_text("google.com\n")
+        p = make_policy(denylist_path=str(deny))
+        d = p.evaluate("domain-name", "google.com", "analyst", "n", analyst_seed=True)
+        assert d.verdict == "skip" and "user-deny" in d.reason
+
+    def test_budget_still_applies(self):
+        p = make_policy(budget=1)
+        assert p.evaluate("domain-name", "google.com", "analyst", "n", analyst_seed=True).verdict == "allow"
+        d = p.evaluate("domain-name", "google.com", "analyst", "m", analyst_seed=True)
+        assert d.gate == "budget"

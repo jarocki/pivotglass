@@ -1,0 +1,29 @@
+# Type 15. Rewritten from 15_Forensic_Intrusion_Timeline.md.
+# Changes: dwell and response times are computed from the events, not typed;
+# each event references its raw artifact instead of pasting it; example
+# hosts and domains are reserved names; analyst notes are separate from the
+# recorded event.
+id: forensic-intrusion-timeline
+number: 15
+code: FIT
+title: Forensic Intrusion Timeline
+domain: behavioral
+tier: tactical
+audience: [Incident responders, Forensic analysts, Legal and compliance]
+purpose: >-
+  The ordered, sourced record of what happened during an intrusion, with the
+  dwell and response times that follow from it.
+use_when: >-
+  During and after incident response, for handover, legal hold and lessons
+  learned. Built from imported telemetry (#59); Pivotglass does not collect
+  host or network logs itself.
+related: [kill-chain-mapping, campaign-intrusion-analysis]
+default_marking: {tlp: AMBER+STRICT, pap: RED}
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - {id: forensic_timeline}
+  - {id: dwell_metrics}
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json]

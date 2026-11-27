@@ -1,0 +1,33 @@
+# Type 14. Rewritten from 14_Attack_Graph_Tree.md.
+# Changes: explicit AND/OR gates; each edge marked observed or assumed with
+# its precondition; choke points computed from the tree with the share of
+# paths each severs, rather than asserted ("severs 100% of paths").
+id: attack-graph-tree
+number: 14
+code: AGT
+title: Attack Graph and Tree
+domain: behavioral
+tier: operational
+audience: [Security architecture, Red and purple teams, Risk management]
+purpose: >-
+  Map the paths from entry points to a critical asset, show which steps must
+  all succeed (AND) and which are alternatives (OR), and find the choke points
+  where one control cuts the most paths.
+use_when: >-
+  Protecting a crown-jewel asset or prioritising architecture work. Needs the
+  organisation's environment model (#59); Pivotglass does not see internal
+  networks.
+related: [threat-informed-risk-assessment, defensive-coverage-assessment, kill-chain-mapping]
+default_marking: {tlp: AMBER+STRICT, pap: RED}
+validity_days: 90
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - {id: objective}
+  - {id: attack_tree}
+  - {id: choke_points}
+  - id: recommendations
+    guidance: Controls at the choke points first, each with an owner, due date and the paths it removes.
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json, mermaid]

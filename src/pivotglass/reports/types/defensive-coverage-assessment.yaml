@@ -1,0 +1,34 @@
+# Type 18. Rewritten from 18_Defensive_Coverage_Gap_Assessment.md.
+# Changes: one defined 0-2 scale per dimension (visibility, alerting,
+# prevention) replaces a single 0-3 scale applied to three columns; gap status
+# is derived by a stated rule, never typed; each score records when and how it
+# was last tested; emulation tests come from a pinned Atomic Red Team index.
+id: defensive-coverage-assessment
+number: 18
+code: DCA
+title: Defensive Coverage Assessment
+domain: detection
+tier: strategic
+audience: [Security leadership, Detection engineering, Purple team]
+purpose: >-
+  Measure how well current controls see, alert on and prevent the techniques
+  of a threat of concern, derive the gaps by a stated rule, and plan the fixes
+  and the tests that prove them.
+use_when: >-
+  Planning detection engineering, justifying control investment, or preparing
+  a purple-team exercise. Needs the control inventory (#59).
+related: [attack-navigator-layer, actor-capability-radar, kill-chain-mapping, threat-hunting-package]
+default_marking: {tlp: AMBER+STRICT, pap: CLEAR}
+validity_days: 90
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - {id: technique_scope}
+  - {id: control_matrix}
+  - {id: gap_list}
+  - id: recommendations
+    guidance: The remediation plan, critical gaps first, each with an owner, a due date and the test that will confirm it.
+  - {id: emulation_plan}
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json]

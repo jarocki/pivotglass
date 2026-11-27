@@ -23,6 +23,8 @@ authors. Module authors call helpers; the library handles validation.
 
 from __future__ import annotations
 
+import uuid
+
 from stix2 import (
     URL,
     Bundle,
@@ -32,7 +34,11 @@ from stix2 import (
     IPv4Address,
     IPv6Address,
     Relationship,
+    Vulnerability,
 )
+
+# Namespace for deterministic vulnerability ids (see create_vulnerability).
+_VULNERABILITY_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_OID, "pivotglass/stix/vulnerability")
 
 
 def create_ipv4(value: str, **kwargs) -> IPv4Address:
@@ -128,6 +134,24 @@ def create_file(value: str = "", **kwargs) -> File:
     )
 
 
+def create_vulnerability(**kwargs) -> Vulnerability:
+    """Create a STIX Vulnerability SDO whose id is derived from its CVE name.
+
+    SDO ids are random by default, so the same CVE reported by three modules (or
+    by two runs of one module) would become unrelated objects. A UUIDv5 over the
+    upper-cased name makes the id a function of the CVE: every module that reports
+    CVE-2024-0001 addresses the same object, which the workspace then deduplicates
+    by id exactly as it does for SCOs (DEC-WS-004, DEC-WORKSPACE-VULNERABILITY-001).
+    STIX 2.1 permits any UUID version in an SDO id.
+    """
+    name = str(kwargs.get("name", "")).strip().upper()
+    if not name:
+        raise ValueError("a vulnerability needs a name (the CVE identifier)")
+    kwargs["name"] = name
+    kwargs.setdefault("id", f"vulnerability--{uuid.uuid5(_VULNERABILITY_NAMESPACE, name)}")
+    return Vulnerability(allow_custom=True, **kwargs)
+
+
 def create_relationship(
     source_ref: str,
     target_ref: str,
@@ -183,6 +207,35 @@ _SCO_CREATORS: dict[str, object] = {
 }
 
 
+# @decision DEC-NEIGHBOUR-RELATIONSHIP-001
+# @title A neighbour a source reports is stored as an explicit relationship
+# @status accepted
+# @rationale Modules name the object a neighbour belongs to in an ``x_*_of``
+#            field (an IP that a domain resolves to, a domain's nameserver, the
+#            AS that announces an IP). A field holds one value and an existing
+#            object keeps its first fields, so an IP shared by two domains, or
+#            already in the workspace, lost the link: the shared-infrastructure
+#            case pivots exist for. At store time each such field becomes a
+#            STIX relationship with a deterministic id (carrier -> named
+#            object), many-to-many and deduplicated. The source that reported it
+#            is the provenance; it is a reported relation, not an inference.
+NEIGHBOUR_FIELDS: dict[str, str] = {
+    "x_rdap_nameserver_of": "nameserver-of",
+    "x_mnemonic_pdns_resolution_of": "resolution-of",
+    "x_dns_resolution_of": "resolution-of",
+    "x_dns_nameserver_of": "nameserver-of",
+    "x_dns_mail_exchanger_of": "mail-exchanger-of",
+    "x_dns_alias_of": "alias-of",
+    "x_asn_of": "announces",
+    "x_internetdb_hostname_of": "hostname-of",
+}
+_NEIGHBOUR_NAMESPACE = uuid.UUID("2f7d8c1e-5b8a-5c43-9d1e-4a6b0c9e7f21")
+
+
+def neighbour_relationship_id(source_ref: str, verb: str, target_ref: str) -> str:
+    return f"relationship--{uuid.uuid5(_NEIGHBOUR_NAMESPACE, f'{source_ref}|{verb}|{target_ref}')}"
+
+
 def dict_to_stix(d: dict):
     """Convert a plain dict (from module hunt()) to a STIX object.
 
@@ -192,6 +245,7 @@ def dict_to_stix(d: dict):
     - {"type": "domain-name", "value": "example.com"}
     - {"type": "url", "value": "https://example.com"}
     - {"type": "email-addr", "value": "user@example.com"}
+    - {"type": "vulnerability", "name": "CVE-2024-0001", ...} (an SDO, see create_vulnerability)
 
     Parameters
     ----------
@@ -206,6 +260,9 @@ def dict_to_stix(d: dict):
         See DEC-STIX-002 for rationale on returning the original dict.
     """
     stix_type = d.get("type", "")
+    if stix_type == "vulnerability":
+        # An SDO: named, not valued, and with no "value" to split off.
+        return create_vulnerability(**{k: v for k, v in d.items() if k != "type"})
     creator = _SCO_CREATORS.get(stix_type)
     if creator is None:
         return d  # unrecognized type -- pass through unchanged (DEC-STIX-002)

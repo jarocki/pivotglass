@@ -38,8 +38,12 @@ def defang_indicator_value(value: str, entity_type: str | None = None) -> str:
 
     kind = (entity_type or "").casefold()
     if kind in {"url", "uri"} or re.match(r"^https?://", value, re.IGNORECASE):
-        scheme = "hxxps" if value.casefold().startswith("https://") else "hxxp"
-        return scheme + "[:]//" + value.split("://", 1)[1].replace(".", "[.]")
+        scheme, separator, rest = value.partition("://")
+        if not separator:  # a scheme-less URL value: defang the host and path only
+            return value.replace(".", "[.]")
+        if scheme.casefold() in {"http", "https"}:
+            scheme = "hxxps" if scheme.casefold() == "https" else "hxxp"
+        return scheme + "[:]//" + rest.replace(".", "[.]")
     if kind in {"email", "email-addr", "email-address"} or re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", value):
         local, separator, domain = value.rpartition("@")
         if separator:

@@ -164,9 +164,9 @@ class TestCreateTools:
         assert isinstance(tools, list)
 
     def test_returns_twenty_two_tools(self, tmp_ctx):
-        """create_tools returns 36 definitions (v1.4: +6 keyless context sources)."""
+        """create_tools returns 38 definitions (v1.4: +6 keyless context sources; v1.5: +dns_lookup, +ip_asn_lookup)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 36
+        assert len(tools) == 41
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -221,8 +221,14 @@ class TestCreateTools:
             "internetdb_lookup",
             "sans_isc_lookup",
             "rdap_lookup",
+            "dns_lookup",
+            "ip_asn_lookup",
             "wayback_lookup",
             "hashlookup_lookup",
+            # v1.5 keyless vulnerability sources (#58)
+            "kev_lookup",
+            "epss_lookup",
+            "nvd_cve_lookup",
             # Workspace tools
             "get_workspace_summary",
             "search_workspace",
@@ -242,8 +248,8 @@ class TestCreateTools:
             # M-5 note authoring + manual falsification tools
             "create_dossier_note",
             "falsify_dossier_prediction",
-            # M-7 dossier-aware report generation
-            "generate_dossier_report",
+            # Report preview (v1.5.0 #50; replaced M-7 generate_dossier_report)
+            "preview_report",
             # M-9 export + compare dossier (DEC-M9-TOOLCOUNT-001)
             "export_dossier",
             "compare_dossier",
@@ -272,7 +278,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 36
+        assert len(roundtripped) == 41
 
     # --- New tool schema tests ---
 
@@ -691,8 +697,8 @@ class TestModuleMap:
     """_MODULE_MAP contains entries for the module-backed tools."""
 
     def test_module_map_has_eleven_entries(self):
-        """_MODULE_MAP has exactly 21 entries (v1.4: +6 keyless context sources)."""
-        assert len(_MODULE_MAP) == 21
+        """_MODULE_MAP has exactly 26 entries (v1.4: +6 keyless context sources; v1.5: +3 vulnerability, +DNS, +IP ASN)."""
+        assert len(_MODULE_MAP) == 26
 
     def test_module_map_contains_new_tools(self):
         """_MODULE_MAP contains virustotal_lookup and censys_host_lookup."""
@@ -1321,7 +1327,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 36
+        assert len(r.tools) == 41
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""
@@ -1966,29 +1972,22 @@ class TestHintWiring:
 
 
 # ---------------------------------------------------------------------------
-# EventBus auto-pivot wiring tests (DEC-AGENT-AUTOPIVOT-001)
+# Autopivot wiring tests (DEC-PIVOT-AUTOPIVOT-001; supersedes DEC-AGENT-AUTOPIVOT-001)
 # ---------------------------------------------------------------------------
 
 
 class TestAutopivotWiring:
-    """Tests for EventBus auto-pivot integration in ToolContext.
+    """Autopivot in ToolContext is a depth-1 pivot run over the enrichment's results.
 
     # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
-    # Cascade callbacks use the same hunt() mock pattern as other tests.
-    # EventBus.publish() is called internally — we verify its effects through
-    # ToolContext state (cascade_results returned by run_module).
 
     Covers:
-      (1) ToolContext has event_bus (EventBus) and autopivot_enabled=False by default
-      (2) set_autopivot(True) enables, set_autopivot(False) disables
-      (3) autopivot_enabled=False → cascade does not fire (cascade_results=[])
-      (4) autopivot_enabled=True + results → cascade fires (cascade_results non-empty)
-      (5) depth limit respected via PivotConfig.max_depth=0 (no second-level cascade)
-      (6) module whitelist filters cascades via PivotConfig.module_whitelist
-      (7) cascade results surfaced in tool summary ("Auto-pivoted" text)
-      (8) cascade_count key present in run_module return dict
-      (9) event_bus.subscriber_count > 0 after ToolContext init (subscriptions registered)
-      (10) compound: switch mode → enable autopivot → run tool → cascade fires
+      (1) autopivot_enabled=False by default; no event bus remains on ToolContext
+      (2) set_autopivot(True|False) toggles it
+      (3) autopivot off, or no results → no run (``autopivot`` is None)
+      (4) run_module returns ``autopivot`` and ``decision_log``, not cascade keys
+      (5) compound: switch mode → enable autopivot → run tool → run surfaced
+    Behaviour of the run itself is covered in tests/test_autopivot.py.
     """
 
     def _make_mock_module(self, results):
@@ -1998,295 +1997,70 @@ class TestAutopivotWiring:
         mock_mod.initialize = MagicMock()
         return mock_mod
 
-    # --- (1) ToolContext has event_bus and autopivot_enabled ---
-
-    def test_tool_context_has_event_bus(self, tmp_ctx):
-        """ToolContext.__init__ creates an EventBus instance on .event_bus."""
-        from pivotglass.core.event_bus import EventBus
-
-        assert hasattr(tmp_ctx, "event_bus")
-        assert isinstance(tmp_ctx.event_bus, EventBus)
-
-    def test_autopivot_disabled_by_default(self, tmp_ctx):
-        """autopivot_enabled defaults to False on a fresh ToolContext (DEC-EVENTBUS-002)."""
+    def test_autopivot_disabled_by_default_and_no_event_bus(self, tmp_ctx):
         assert tmp_ctx.autopivot_enabled is False
+        assert not hasattr(tmp_ctx, "event_bus"), "the event-bus cascade was retired"
 
-    def test_event_bus_config_disabled_by_default(self, tmp_ctx):
-        """EventBus.config.enabled matches autopivot_enabled (False) on init."""
-        assert tmp_ctx.event_bus.config.enabled is False
-
-    # --- (9) Subscriptions registered ---
-
-    def test_event_bus_has_subscriptions_after_init(self, tmp_ctx):
-        """EventBus.subscriber_count > 0 after ToolContext init (DEFAULT_SUBSCRIPTIONS wired)."""
-        assert tmp_ctx.event_bus.subscriber_count > 0
-
-    # --- (2) set_autopivot toggles state ---
-
-    def test_set_autopivot_true_enables(self, tmp_ctx):
-        """set_autopivot(True) sets autopivot_enabled=True and event_bus.config.enabled=True."""
+    def test_set_autopivot_toggles(self, tmp_ctx):
         tmp_ctx.set_autopivot(True)
         assert tmp_ctx.autopivot_enabled is True
-        assert tmp_ctx.event_bus.config.enabled is True
-
-    def test_set_autopivot_false_disables(self, tmp_ctx):
-        """set_autopivot(False) sets autopivot_enabled=False and event_bus.config.enabled=False."""
-        tmp_ctx.set_autopivot(True)
         tmp_ctx.set_autopivot(False)
         assert tmp_ctx.autopivot_enabled is False
-        assert tmp_ctx.event_bus.config.enabled is False
 
-    # --- (3) cascade does NOT fire when autopivot disabled ---
-
-    def test_cascade_not_fired_when_autopivot_disabled(self, tmp_ctx):
-        """With autopivot_enabled=False, run_module returns cascade_results=[]."""
-        assert tmp_ctx.autopivot_enabled is False  # default
-
+    def test_no_run_when_autopivot_disabled(self, tmp_ctx):
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+        assert result["autopivot"] is None and result["decision_log"] == []
+        assert mock_mod.hunt.await_count == 1
+        assert "Autopivot" not in result["summary"]
 
-        assert result["cascade_results"] == []
-        assert result["cascade_count"] == 0
-
-    def test_cascade_not_fired_when_results_empty(self, tmp_ctx):
-        """Even with autopivot enabled, empty hunt() results produce no cascades."""
+    def test_no_run_when_results_empty(self, tmp_ctx):
         tmp_ctx.set_autopivot(True)
-
         mock_mod = self._make_mock_module([])
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+        assert result["autopivot"] is None and mock_mod.hunt.await_count == 1
 
-        assert result["cascade_results"] == []
-        assert result["cascade_count"] == 0
-
-    # --- (4) cascade fires when autopivot enabled and results non-empty ---
-
-    def test_cascade_fires_when_autopivot_enabled(self, tmp_ctx):
-        """With autopivot_enabled=True and STIX results, cascade_results is non-empty.
-
-        # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
-        # We mock both the primary module (plugin_mgr.get_module) and the cascade
-        # module callbacks to verify that process_results fires subscribed callbacks
-        # for the STIX types present in SAMPLE_IP_RESULTS (ipv4-addr, domain-name).
-
-        F61 adds urlhaus + threatfox as ipv4-addr subscribers (6 total). The default
-        max_per_cascade=5 would exhaust budget before the mock callback (appended
-        last) fires. Raise the budget to 20 so the mock callback is guaranteed a
-        slot regardless of subscriber count.
-        """
-        tmp_ctx.set_autopivot(True)
-
-        # Raise per-cascade budget so the mock callback (appended last after all
-        # real module callbacks) is not blocked by budget exhaustion (F61 adds
-        # urlhaus+threatfox as ipv4-addr subscribers, raising subscriber count to 6).
-        tmp_ctx.event_bus._policy._cfg = tmp_ctx.event_bus._policy._cfg.model_copy(
-            update={"max_per_cascade": 20}
-        )
-
-        # Cascade callback mock: returns one result so cascade_results is non-empty
-        cascade_result = [{"type": "ipv4-addr", "value": "9.9.9.9"}]
-        cascade_callback = AsyncMock(return_value=cascade_result)
-
-        # Subscribe the mock callback directly for ipv4-addr so we control what fires
-        tmp_ctx.event_bus.subscribe("ipv4-addr", cascade_callback)
-
+    def test_run_module_returns_autopivot_keys(self, tmp_ctx):
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
             result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+        assert "autopivot" in result and isinstance(result["decision_log"], list)
+        assert "cascade_results" not in result and "cascade_count" not in result
 
-        # Cascade should have fired for the ipv4-addr in SAMPLE_IP_RESULTS
-        assert result["cascade_count"] > 0
-        assert len(result["cascade_results"]) > 0
-        cascade_callback.assert_called()
-
-    # --- (5) depth limit respected ---
-
-    def test_zero_cascade_budget_prevents_cascades(self, tmp_path):
-        """PivotPolicy.max_per_cascade=0 prevents any cascade from firing.
-
-        max_depth was removed in F60 (DEC-60-PIVOT-POLICY-006). Budget-based
-        flow control replaces it: max_per_cascade=0 exhausts immediately so no
-        callbacks are invoked.
-        """
-        from pivotglass.core.config import AutoPivotPolicyConfig
-        from pivotglass.core.event_bus import EventBus, PivotConfig
-
-        config_dir = tmp_path / "config"
-        workspace_dir = tmp_path / "workspaces"
-        config_dir.mkdir()
-        workspace_dir.mkdir()
-        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
-        ctx.workspace_mgr.create("default")
-        ctx.workspace_mgr.switch("default")
-
-        # Rebuild event bus with max_per_cascade=0 so budget is immediately exhausted
-        policy_cfg = AutoPivotPolicyConfig(
-            max_per_cascade=0,
-            max_per_session=1000,
-            allowlist_path="/dev/null",
-            denylist_path="/dev/null",
-        )
-        ctx.event_bus = EventBus(config=PivotConfig(enabled=False, policy=policy_cfg))
-        ctx.autopivot_enabled = False
-        ctx.set_autopivot(True)
-
-        cascade_callback = AsyncMock(return_value=[{"type": "ipv4-addr", "value": "9.9.9.9"}])
-        cascade_callback._module_path = "test"
-        ctx.event_bus.subscribe("ipv4-addr", cascade_callback)
-
-        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
-        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            result = ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
-
-        # With max_per_cascade=0, PivotPolicy budget gate blocks all callbacks
-        assert result["cascade_results"] == []
-        cascade_callback.assert_not_called()
-
-    # --- (6) module whitelist filters cascades ---
-
-    def test_module_whitelist_filters_cascade_subscriptions(self, tmp_path):
-        """PivotConfig.module_whitelist restricts which modules can subscribe.
-
-        When module_whitelist is set, register_module_subscriptions() skips
-        modules not on the list, so their callbacks never fire.
-        """
-        config_dir = tmp_path / "config"
-        workspace_dir = tmp_path / "workspaces"
-        config_dir.mkdir()
-        workspace_dir.mkdir()
-
-        # Build a ToolContext with a whitelist that excludes all DEFAULT_SUBSCRIPTIONS modules.
-        # We do this by patching PivotConfig after construction.
-        ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
-        ctx.workspace_mgr.create("default")
-        ctx.workspace_mgr.switch("default")
-
-        # Reset the event bus with a whitelist that allows NO module from DEFAULT_SUBSCRIPTIONS.
-        # This simulates a restrictive whitelist — all cascade subscriptions are excluded.
-        from pivotglass.core.event_bus import EventBus, PivotConfig
-
-        ctx.event_bus = EventBus(
-            config=PivotConfig(enabled=True, module_whitelist=["nonexistent/module"])
-        )
-        # Re-register subscriptions with the new whitelist — all should be filtered out
-        from pivotglass.core.event_bus import DEFAULT_SUBSCRIPTIONS
-
-        for module_path, stix_types in DEFAULT_SUBSCRIPTIONS.items():
-            callback = ctx._make_cascade_callback(module_path)
-            ctx.event_bus.register_module_subscriptions(module_path, stix_types, callback)
-
-        ctx.autopivot_enabled = True
-
-        # No subscriptions should have been registered (all filtered by whitelist)
-        assert ctx.event_bus.subscriber_count == 0
-
-        mock_mod = MagicMock()
-        mock_mod.hunt = AsyncMock(return_value=SAMPLE_IP_RESULTS)
-        mock_mod.initialize = MagicMock()
-        with patch.object(ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            result = ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
-
-        assert result["cascade_results"] == []
-
-    # --- (7) cascade results surface in tool summary ---
-
-    def test_cascade_summary_text_present_when_cascade_fires(self, tmp_ctx):
-        """When cascades fire, 'Auto-pivoted' text appears in run_module summary."""
-        tmp_ctx.set_autopivot(True)
-
-        cascade_result = [{"type": "ipv4-addr", "value": "9.9.9.9"}]
-        cascade_callback = AsyncMock(return_value=cascade_result)
-        tmp_ctx.event_bus.subscribe("ipv4-addr", cascade_callback)
-
-        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
-        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
-
-        if result["cascade_count"] > 0:
-            assert "Auto-pivoted" in result["summary"]
-            assert str(result["cascade_count"]) in result["summary"]
-
-    def test_cascade_summary_absent_when_autopivot_disabled(self, tmp_ctx):
-        """When autopivot is off, 'Auto-pivoted' text does NOT appear in summary."""
-        assert tmp_ctx.autopivot_enabled is False
-
-        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
-        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
-
-        assert "Auto-pivoted" not in result["summary"]
-
-    # --- (8) cascade_count key present ---
-
-    def test_run_module_returns_cascade_keys(self, tmp_ctx):
-        """run_module always returns 'cascade_results' and 'cascade_count' keys."""
-        mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
-        with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
-
-        assert "cascade_results" in result
-        assert "cascade_count" in result
-        assert isinstance(result["cascade_results"], list)
-        assert isinstance(result["cascade_count"], int)
-
-    # --- (10) Compound: switch mode → enable autopivot → run tool → cascade fires ---
-
-    def test_compound_mode_switch_autopivot_tool_run(self, tmp_ctx):
-        """Compound: switch to ninja mode, enable autopivot, run tool, cascade fires.
-
-        # @mock-exempt: hunt() on PursuitModule is an async external HTTP boundary.
+    def test_compound_mode_switch_autopivot_tool_run(self, tmp_ctx, monkeypatch):
+        """Compound: switch to ninja mode, enable autopivot, run tool, autopivot runs.
 
         Production sequence:
           (a) chat.py 'mode ninja' → mode_mgr.switch('ninja') + runner.set_character()
           (b) chat.py 'autopivot on' → ctx.set_autopivot(True)
-          (c) LLM calls execute_tool(module_tool) → run_module → cascade fires
-          (d) cascade_results non-empty → 'Auto-pivoted' in LLM summary
-
-        This crosses ModeManager, EventBus, ToolContext, and WorkspaceManager
-        boundaries in the real production call sequence.
+          (c) LLM calls a module tool → run_module → depth-1 pivot run over the results
+          (d) the run's summary line reaches the LLM summary
         """
+        import pivotglass.modules.pivoting.run as pivot_run
         from pivotglass.agent.runner import AgentRunner
 
-        # (a) Switch to ninja mode (as chat.py 'mode ninja' would do)
         runner = AgentRunner(tool_context=tmp_ctx)
         new_mode = tmp_ctx.mode_mgr.switch("ninja")
         runner.set_character(new_mode)
         assert tmp_ctx.mode_mgr.active.name == "ninja"
 
-        # (b) Enable autopivot (as chat.py 'autopivot on' would do)
         tmp_ctx.set_autopivot(True)
-        assert tmp_ctx.autopivot_enabled is True
-        assert tmp_ctx.event_bus.config.enabled is True
-
-        # Raise per-cascade budget so the mock callback (appended last after all
-        # real module callbacks) is not blocked by budget exhaustion. F61 adds
-        # urlhaus + threatfox as ipv4-addr subscribers, raising the count to 6;
-        # the default max_per_cascade=5 exhausts before the mock fires.
-        tmp_ctx.event_bus._policy._cfg = tmp_ctx.event_bus._policy._cfg.model_copy(
-            update={"max_per_cascade": 20}
-        )
-
-        # Subscribe a mock cascade callback for ipv4-addr
-        cascade_result = [{"type": "domain-name", "value": "cascade.example.com"}]
-        cascade_callback = AsyncMock(return_value=cascade_result)
-        tmp_ctx.event_bus.subscribe("ipv4-addr", cascade_callback)
-
-        # (c) Execute a module tool that produces STIX results
+        monkeypatch.setattr(pivot_run, "DEFAULT_SUBSCRIPTIONS", {"osint/shodan_internetdb": ["ipv4-addr"]})
         mock_mod = self._make_mock_module(SAMPLE_IP_RESULTS)
+        mock_mod.requires_api_key = False  # InternetDB is keyless: readiness passes
         with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-            result = tmp_ctx.run_module("osint/abuseipdb", "1.2.3.4", {})
+            result = tmp_ctx.run_module("osint/abuseipdb", "5.6.7.8", {})
 
-        # Primary results stored and scored
         assert result["total_points"] > 0
-        # Cascade fired (SAMPLE_IP_RESULTS contains ipv4-addr)
-        assert result["cascade_count"] > 0
-        cascade_callback.assert_called()
+        snapshot = result["autopivot"]
+        # Seeds are the results, not the target; the IP is asked of InternetDB, the
+        # domain has no subscriber in this map and is recorded as not expanded.
+        assert snapshot["seeds"] == ["1.2.3.4", "evil.example.com"]
+        assert snapshot["requests_used"] == 1 and mock_mod.hunt.await_count == 2
+        assert "Autopivot: Pivot run" in result["summary"]
 
-        # (d) Cascade surfaced in summary
-        assert "Auto-pivoted" in result["summary"]
-
-        # Ninja mode celebration phrase bank used
         from pivotglass.gamification.phrases import PHRASES
 
         expected_lines = {
@@ -2746,61 +2520,50 @@ class TestGraphExportWiring:
 
 
 # ---------------------------------------------------------------------------
-# TestGenerateDossierReportTool — M-7 generate_dossier_report LLM tool
+# TestPreviewReportTool — read-only report preview LLM tool (#50)
 # ---------------------------------------------------------------------------
 
 
-class TestGenerateDossierReportTool:
-    """Tests for the generate_dossier_report LLM tool (M-7 + M-8 cleanup).
+class TestPreviewReportTool:
+    """preview_report renders a report type through reports/commands.py and never issues it."""
 
-    M-8 (DEC-M8-CLEANUP-002): tool is now parameterless (style param removed,
-    classic shim deleted). generate_dossier_report always produces dossier-only output.
-
-    Production sequence:
-      execute_tool("generate_dossier_report") -> _execute_generate_dossier_report()
-        -> generate_dossier_report(workspace_mgr) -> Markdown string
-    """
-
-    def test_generate_dossier_report_registered_in_create_tools(self, tmp_ctx):
-        """generate_dossier_report is present in the create_tools() list."""
-        tools = create_tools(tmp_ctx)
-        names = {t["function"]["name"] for t in tools}
-        assert "generate_dossier_report" in names
-
-    def test_generate_dossier_report_schema_is_parameterless(self, tmp_ctx):
-        """M-8: generate_dossier_report schema has no properties or required params (DEC-M8-CLEANUP-002)."""
-        tools = create_tools(tmp_ctx)
-        tool = next(t for t in tools if t["function"]["name"] == "generate_dossier_report")
+    def test_schema_takes_an_optional_report_type(self, tmp_ctx):
+        tool = next(t for t in create_tools(tmp_ctx) if t["function"]["name"] == "preview_report")
         params = tool["function"]["parameters"]
-        assert "style" not in params.get("properties", {}), (
-            "generate_dossier_report must NOT expose 'style' property after M-8 cleanup"
-        )
-        assert len(params.get("required", [])) == 0
+        assert set(params["properties"]) == {"report_type"}
+        assert params["required"] == []
 
-    def test_generate_dossier_report_returns_string(self, tmp_ctx):
-        """execute_tool('generate_dossier_report') returns a Markdown string."""
-        summary, celebration, badges, challenges = execute_tool(
-            tmp_ctx, "generate_dossier_report", {}
-        )
-        assert isinstance(summary, str)
-        assert len(summary) > 0
-
-    def test_generate_dossier_report_contains_investigation_header(self, tmp_ctx):
-        """Dossier report output contains 'Investigation Report' header."""
-        summary, _, _, _ = execute_tool(tmp_ctx, "generate_dossier_report", {})
-        assert (
-            "Investigation Report" in summary or "Dossier" in summary or "report" in summary.lower()
-        )
-
-    def test_generate_dossier_report_includes_iocs_when_workspace_populated(self, tmp_ctx):
-        """generate_dossier_report includes IOC data from workspace when present."""
+    def test_default_is_the_investigation_report_with_defanged_indicators(self, tmp_ctx):
         tmp_ctx.workspace_mgr.store_stix_objects(
-            [{"type": "ipv4-addr", "value": "198.51.100.5"}],
-            "test/module",
-            "198.51.100.5",
+            [{"type": "ipv4-addr", "value": "198.51.100.5"}], "test/module", "198.51.100.5"
         )
-        summary, _, _, _ = execute_tool(tmp_ctx, "generate_dossier_report", {})
-        assert "198.51.100.5" in summary
+        summary, _, _, _ = execute_tool(tmp_ctx, "preview_report", {})
+        assert summary.startswith("# Investigation Report")
+        assert "198[.]51[.]100[.]5" in summary
+
+    def test_previewing_writes_no_issued_report(self, tmp_ctx):
+        from pivotglass.reports.engine import list_issues
+
+        execute_tool(tmp_ctx, "preview_report", {"report_type": "investigation-report"})
+        assert list_issues(tmp_ctx.workspace_mgr) == []
+
+    @pytest.mark.parametrize(
+        "argument",
+        ["issue investigation-report final", "write threat_summary | injected", "severity critical | injected",
+         "recommend 1 | a | b | 2026-12-01 | c"],
+    )
+    def test_the_tool_cannot_issue_or_write(self, tmp_ctx, argument):
+        from pivotglass.core.analytic_ledger import AnalyticLedger
+        from pivotglass.reports.engine import list_issues
+
+        summary, _, _, _ = execute_tool(tmp_ctx, "preview_report", {"report_type": argument})
+        assert summary.startswith("Error generating report: unknown report type")
+        assert list_issues(tmp_ctx.workspace_mgr) == []
+        assert AnalyticLedger(tmp_ctx.workspace_mgr).snapshot()["assertions"] == []
+
+    def test_unknown_type_is_an_error_message_not_a_crash(self, tmp_ctx):
+        summary, _, _, _ = execute_tool(tmp_ctx, "preview_report", {"report_type": "nope"})
+        assert summary.startswith("Error generating report: unknown report type")
 
 
 # ---------------------------------------------------------------------------
@@ -3364,69 +3127,6 @@ class TestServiceNameMap:
         init_arg = mock_mod.initialize.call_args[0][0]
         assert init_arg.get("api_key") == "shodan-from-vendor-env", (
             f"Expected 'shodan-from-vendor-env' but got: {init_arg}"
-        )
-
-    def test_cascade_callback_uses_service_name_map_for_shodan(self, tmp_ctx, monkeypatch):
-        # @mock-exempt: mock_mod replaces ShodanIPModule.hunt() — an async HTTP
-        # external service boundary (Shodan API). recording_get_api_key is a pure
-        # observation shim that calls through to the real ConfigManager.get_api_key()
-        # and records arguments; it does not replace any internal logic.
-        # get_module is patched because no live Shodan credentials or network exist.
-        """Cascade path uses _SERVICE_NAMES — 'osint/shodan_ip' resolves to 'shodan'.
-
-        Regression guard: _make_cascade_callback() previously derived the service
-        name as module_path.split('/')[-1] == 'shodan_ip', bypassing _SERVICE_NAMES
-        and causing get_api_key('shodan_ip') to return None (no such field).
-        Now both run_module() and _make_cascade_callback() delegate to
-        _resolve_module_credentials() which applies _SERVICE_NAMES uniformly.
-
-        Production sequence:
-          EventBus callback fires → _resolve_module_credentials('osint/shodan_ip') →
-          get_api_key('shodan') [NOT 'shodan_ip'] → key resolved → initialize().
-        """
-        import asyncio
-        from unittest.mock import AsyncMock, MagicMock, patch
-
-        monkeypatch.delenv("PIVOTGLASS_SHODAN_API_KEY", raising=False)
-        monkeypatch.setenv("SHODAN_API_KEY", "shodan-cascade-key")
-
-        mock_mod = MagicMock()
-        mock_mod.hunt = AsyncMock(return_value=[])
-        mock_mod.initialize = MagicMock()
-
-        # Recording shim: calls through to real get_api_key(); captures service names.
-        original_get_api_key = tmp_ctx.config_mgr.get_api_key
-        get_api_key_calls: list[str] = []
-
-        def recording_get_api_key(service: str) -> str | None:
-            get_api_key_calls.append(service)
-            return original_get_api_key(service)
-
-        with patch.object(tmp_ctx.config_mgr, "get_api_key", side_effect=recording_get_api_key):
-            with patch.object(tmp_ctx.plugin_mgr, "get_module", return_value=mock_mod):
-                from pivotglass.core.event_bus import PivotEvent
-
-                callback = tmp_ctx._make_cascade_callback("osint/shodan_ip")
-                asyncio.run(
-                    callback(
-                        PivotEvent(
-                            stix_type="ipv4-addr",
-                            value="1.2.3.4",
-                            source_module="osint/abuseipdb",
-                        )
-                    )
-                )
-
-        assert "shodan" in get_api_key_calls, (
-            f"Expected get_api_key('shodan') but got: {get_api_key_calls}"
-        )
-        assert "shodan_ip" not in get_api_key_calls, (
-            f"Regression: path-tail 'shodan_ip' used instead of _SERVICE_NAMES: {get_api_key_calls}"
-        )
-        mock_mod.initialize.assert_called_once()
-        init_arg = mock_mod.initialize.call_args[0][0]
-        assert init_arg.get("api_key") == "shodan-cascade-key", (
-            f"Expected 'shodan-cascade-key' in init_config but got: {init_arg}"
         )
 
 
@@ -4831,25 +4531,27 @@ class TestM5AgentTools:
 
 
 # ---------------------------------------------------------------------------
-# M-6: _execute_run_module dossier-aware ranker wiring (DEC-M6-PIVOT-001/008/009)
+# M-6: dossier-aware ranker wiring into autopivot runs (DEC-M6-PIVOT-008/009/010)
 # ---------------------------------------------------------------------------
 
 # @mock-exempt: module.hunt() is an async external HTTP call — same pattern as all other
-# run_module tests in this file (DEC-TEST-AGENT-001). event_bus.process_results is patched
-# to capture the ranker kwarg without triggering live API cascades. load_dossier_state is
-# patched to count calls — it is a SQLite I/O boundary.
+# run_module tests in this file (DEC-TEST-AGENT-001). PivotRun construction is wrapped
+# to capture the ranker it receives; the real run executes. load_dossier_state is
+# wrapped to count calls — it is a SQLite I/O boundary.
 
 
 class TestM6RankerWiring:
-    """M-6 tests for _execute_run_module ranker wiring in agent/tools.py.
+    """M-6 tests for the ranker that autopivot's pivot run receives.
 
     Verifies:
-    AT1: process_results is called with a ranker when dossier_aware_ranking=True (default)
-    AT2: process_results is called with ranker=None when dossier_aware_ranking=False
-    AT3: no second load_dossier_state call — reuses M-4 pre_dossier
+    AT1: dossier_aware_ranking defaults to True
+    AT2: the autopivot run gets a DossierPivotRanker when it is on, None when off
+    AT3: no second load_dossier_state call — the run reuses the M-4 pre_dossier
     """
 
-    def _make_ctx(self, tmp_path):
+    def _make_ctx(self, tmp_path, monkeypatch):
+        import pivotglass.modules.pivoting.run as pivot_run
+
         config_dir = tmp_path / "config"
         workspace_dir = tmp_path / "workspaces"
         config_dir.mkdir()
@@ -4857,150 +4559,87 @@ class TestM6RankerWiring:
         ctx = ToolContext(config_dir=config_dir, workspace_dir=workspace_dir)
         ctx.workspace_mgr.create("default")
         ctx.workspace_mgr.switch("default")
+        # A subscriber that is not installed: the run is built and ranked, then
+        # records a readiness skip instead of making a request.
+        monkeypatch.setattr(pivot_run, "DEFAULT_SUBSCRIPTIONS", {"stub/absent": ["ipv4-addr"]})
+        ctx.set_autopivot(True)
         return ctx
 
-    def test_ranker_active_flag_defaults_to_true(self, tmp_path):
-        """AT1: AutoPivotPolicyConfig.dossier_aware_ranking defaults to True.
+    def _capture_rankers(self, monkeypatch) -> list:
+        import pivotglass.modules.pivoting.context as pivot_context
 
-        Pure config assertion — no module execution needed.  This verifies
-        the M-6 feature flag is on-by-default so new workspaces get ranked
-        candidates out of the box. (DEC-M6-PIVOT-001)
-        """
-        ctx = self._make_ctx(tmp_path)
+        captured: list = []
+        real = pivot_context.PivotRun
+
+        def wrapper(*args, **kwargs):
+            captured.append(kwargs.get("ranker"))
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(pivot_context, "PivotRun", wrapper)
+        return captured
+
+    def _hunt(self, ctx):
+        # get_module returns a fresh instance per call, so the enrichment is a
+        # registered stub class rather than a patched instance (no network).
+        class _Enrich:
+            name = "stub"
+            requires_api_key = False
+
+            def initialize(self, config):
+                pass
+
+            async def hunt(self, target, options):
+                return [{"type": "ipv4-addr", "value": "5.5.5.6"}]
+
+        ctx.plugin_mgr.register_module("stub/enrich", _Enrich)
+        return ctx.run_module("stub/enrich", "5.5.5.5", {})
+
+    def test_ranker_active_flag_defaults_to_true(self, tmp_path, monkeypatch):
+        """AT1: AutoPivotPolicyConfig.dossier_aware_ranking defaults to True. (DEC-M6-PIVOT-001)"""
+        ctx = self._make_ctx(tmp_path, monkeypatch)
         assert ctx.config.general.auto_pivot_policy.dossier_aware_ranking is True
 
-    def test_ranker_wired_into_process_results(self, tmp_path):
-        """AT2: run_module passes a callable ranker when dossier_aware_ranking=True.
+    def test_ranker_wired_into_autopivot_run(self, tmp_path, monkeypatch):
+        """AT2: the autopivot run receives a DossierPivotRanker; decisions carry dossier_weight."""
+        from pivotglass.core.dossier_pivot import DossierPivotRanker
 
-        # @mock-exempt: process_results is patched to capture the ranker kwarg
-        # without triggering live policy-gate cascades; hunt is patched as an
-        # external HTTP boundary.  Only internal event-bus coordination is
-        # intercepted — no business-logic mocks. (DEC-TEST-AGENT-001)
+        ctx = self._make_ctx(tmp_path, monkeypatch)
+        captured = self._capture_rankers(monkeypatch)
+        result = self._hunt(ctx)
+        assert len(captured) == 1 and isinstance(captured[0], DossierPivotRanker)
+        assert result["decision_log"] and all("dossier_weight" in d for d in result["decision_log"])
 
-        Strategy: patch event_bus.process_results (integration seam) to capture
-        the ranker kwarg.  patch hunt (external HTTP) returns a single STIX
-        dict so the cascade branch is entered.  Verify ranker is callable and
-        exposes the _score_for_type side-channel required by DEC-M6-PIVOT-007.
-        """
-        from unittest.mock import AsyncMock, patch
-
-        ctx = self._make_ctx(tmp_path)
-        ctx.event_bus.config.enabled = True
-
-        ranker_calls: list = []
-
-        async def _capture_process_results(
-            results, source_module, depth=0, *, dry_run=False, ranker=None
-        ):
-            # @mock-exempt: seam capture only — records ranker reference; no logic replaced
-            ranker_calls.append(ranker)
-            return []
-
-        # Enable autopivot so the cascade branch is entered (production code path).
-        # Without this, process_results is never called and ranker_calls stays empty.
-        ctx.autopivot_enabled = True
-        mod = ctx.plugin_mgr.get_module("osint/whois_lookup")
-        with (
-            patch.object(
-                mod, "hunt", new=AsyncMock(return_value=[{"type": "ipv4-addr", "value": "5.5.5.5"}])
-            ),
-            patch.object(ctx.event_bus, "process_results", side_effect=_capture_process_results),
-        ):
-            assert ctx.config.general.auto_pivot_policy.dossier_aware_ranking is True
-            ctx.run_module("osint/whois_lookup", "5.5.5.5", {})
-
-        assert len(ranker_calls) == 1, "process_results must be called exactly once"
-        captured = ranker_calls[0]
-        assert captured is not None, "ranker must not be None when dossier_aware_ranking=True"
-        assert callable(captured), "ranker must be callable"
-        assert callable(getattr(captured, "_score_for_type", None)), (
-            "ranker must expose _score_for_type(sco_type) side-channel (DEC-M6-PIVOT-007)"
-        )
-
-    def test_ranker_none_when_flag_false(self, tmp_path):
-        """AT2b: run_module passes ranker=None when dossier_aware_ranking=False.
-
-        # @mock-exempt: same seam-capture pattern as AT2; hunt is external HTTP.
-        # (DEC-TEST-AGENT-001)
-        """
-        from unittest.mock import AsyncMock, patch
-
-        ctx = self._make_ctx(tmp_path)
-        ctx.event_bus.config.enabled = True
+    def test_ranker_none_when_flag_false(self, tmp_path, monkeypatch):
+        """AT2b: dossier_aware_ranking=False → the run gets no ranker (opt-out kill switch)."""
+        ctx = self._make_ctx(tmp_path, monkeypatch)
         ctx.config.general.auto_pivot_policy.dossier_aware_ranking = False
+        captured = self._capture_rankers(monkeypatch)
+        result = self._hunt(ctx)
+        assert captured == [None]
+        assert all("dossier_weight" not in d for d in result["decision_log"])
 
-        ranker_calls: list = []
+    def test_no_second_load_dossier_state_call(self, tmp_path, monkeypatch):
+        """AT3: the autopivot run ranks from the M-4 pre_dossier; no second load. (DEC-M6-PIVOT-009)"""
+        from unittest.mock import patch
 
-        async def _capture_process_results(
-            results, source_module, depth=0, *, dry_run=False, ranker=None
-        ):
-            # @mock-exempt: seam capture only
-            ranker_calls.append(ranker)
-            return []
+        import pivotglass.dossier.state as dossier_state
 
-        # Enable autopivot so the cascade branch is entered (production code path).
-        ctx.autopivot_enabled = True
-        mod = ctx.plugin_mgr.get_module("osint/whois_lookup")
-        with (
-            patch.object(
-                mod, "hunt", new=AsyncMock(return_value=[{"type": "ipv4-addr", "value": "5.5.5.5"}])
-            ),
-            patch.object(ctx.event_bus, "process_results", side_effect=_capture_process_results),
-        ):
-            ctx.run_module("osint/whois_lookup", "5.5.5.5", {})
-
-        assert len(ranker_calls) == 1
-        assert ranker_calls[0] is None, (
-            "ranker must be None when dossier_aware_ranking=False (opt-out kill switch)"
-        )
-
-    def test_no_second_load_dossier_state_call(self, tmp_path):
-        """AT3: run_module does not call load_dossier_state a second time for the ranker.
-
-        It reuses the M-4 pre_dossier snapshot loaded earlier in run_module.
-        (DEC-M6-PIVOT-009)
-
-        # @mock-exempt: hunt is patched as external HTTP boundary; load_dossier_state
-        # is a SQLite I/O boundary wrapped with a counter to verify call count.
-        # process_results is patched at the event-bus seam to avoid live cascades.
-        # (DEC-TEST-AGENT-001)
-        """
-        from unittest.mock import AsyncMock, patch
-
-        ctx = self._make_ctx(tmp_path)
-        ctx.event_bus.config.enabled = True
-
+        ctx = self._make_ctx(tmp_path, monkeypatch)
         load_call_count: list = []
-        original_load = __import__(
-            "pivotglass.dossier.state", fromlist=["load_dossier_state"]
-        ).load_dossier_state
+        original_load = dossier_state.load_dossier_state
 
         def _counting_load(wm):
             # @mock-exempt: wraps real SQLite boundary to count I/O calls
             load_call_count.append(1)
             return original_load(wm)
 
-        async def _noop_process(results, source_module, depth=0, *, dry_run=False, ranker=None):
-            # @mock-exempt: event-bus seam capture — no logic replaced
-            return []
-
-        # Enable autopivot so the cascade branch — and the load_dossier_state call
-        # inside it — is actually entered. Without this the assert would trivially
-        # pass with count=0 (no call, no second call either).
-        ctx.autopivot_enabled = True
-        mod = ctx.plugin_mgr.get_module("osint/whois_lookup")
         with (
-            patch.object(
-                mod, "hunt", new=AsyncMock(return_value=[{"type": "ipv4-addr", "value": "5.5.5.5"}])
-            ),
-            patch.object(ctx.event_bus, "process_results", side_effect=_noop_process),
-            patch(
-                "pivotglass.agent.tools.load_dossier_state",
-                side_effect=_counting_load,
-            ),
+            patch("pivotglass.agent.tools.load_dossier_state", side_effect=_counting_load),
+            patch("pivotglass.dossier.state.load_dossier_state", side_effect=_counting_load),
         ):
-            ctx.run_module("osint/whois_lookup", "5.5.5.5", {})
+            result = self._hunt(ctx)
 
+        assert result["autopivot"] is not None, "the autopivot run must have been built"
         assert len(load_call_count) == 1, (
             f"load_dossier_state must be called exactly once per hunt; got {len(load_call_count)}"
         )

@@ -77,7 +77,46 @@ CATEGORIES: dict[str, dict[str, Any]] = {
     "shared": {"label": "Shared infrastructure", "set_aside": False},
     "sinkhole": {"label": "Sinkhole", "set_aside": False},
     "contested": {"label": "Known file, also reported malicious", "set_aside": False},
+    # Special-purpose values (#29). Context only: a private address in a report
+    # may be a victim's internal host, so none of these is offered for set-aside.
+    "reserved": {"label": "Reserved or special-purpose value", "set_aside": False},
 }
+
+_RESERVED_SOURCE = "IANA special-purpose registries (RFC 6890, RFC 6761)"
+_DOCUMENTATION_NETS = tuple(ipaddress.ip_network(net) for net in (
+    "192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24", "2001:db8::/32", "3fff::/20",
+))
+_RESERVED_TLDS = {"example", "test", "invalid", "localhost", "local", "internal"}
+_RESERVED_DOMAINS = {"example.com", "example.net", "example.org"}
+
+
+def _reserved_match(kind: str, text: str) -> KnownMatch | None:
+    """Documentation, private and other non-global values: they cannot be pivoted on."""
+
+    label = ""
+    if kind in {"ipv4-addr", "ipv6-addr"}:
+        try:
+            address = ipaddress.ip_address(text)
+        except ValueError:
+            return None
+        if any(address in net for net in _DOCUMENTATION_NETS):
+            label = "Documentation address (RFC 5737/3849)"
+        elif address.is_loopback:
+            label = "Loopback address"
+        elif address.is_private:
+            label = "Private address (RFC 1918/4193)"
+        elif not address.is_global:
+            label = "Special-purpose address"
+    else:
+        host = text.rpartition("@")[2].casefold().rstrip(".") if kind == "email-addr" else _host_of(kind, text)
+        if host:
+            tld = host.rsplit(".", 1)[-1]
+            if tld in _RESERVED_TLDS or any(host == d or host.endswith(f".{d}") for d in _RESERVED_DOMAINS):
+                label = "Reserved domain (RFC 2606/6761)"
+    if not label:
+        return None
+    return KnownMatch(list_id="special-purpose", list_name="Special-purpose values", category="reserved",
+                      label=label, matched=text, source=_RESERVED_SOURCE)
 
 _HASH = re.compile(r"^(?:[0-9a-f]{32}|[0-9a-f]{40}|[0-9a-f]{56}|[0-9a-f]{64}|[0-9a-f]{128})$")
 _POPULARITY_LIST = "tranco10k"
@@ -241,10 +280,13 @@ def known_matches(entity_type: str, value: str) -> list[KnownMatch]:
             # Prefer an exact match over a parent-domain match from the same list.
             if list_id not in found or (exact and found[list_id].category == "shared"):
                 found[list_id] = match
+    reserved = _reserved_match(kind, text)
+    if reserved is not None:
+        found[reserved.list_id] = reserved
     return sorted(found.values(), key=_rank)
 
 
-_CATEGORY_ORDER = {"contested": 0, "benign": 1, "scanner": 2, "sinkhole": 3, "shared": 4}
+_CATEGORY_ORDER = {"contested": 0, "reserved": 1, "benign": 2, "scanner": 3, "sinkhole": 4, "shared": 5}
 _LIST_ORDER = {list_id: position for position, list_id in enumerate(SELECTED_LISTS)}
 
 

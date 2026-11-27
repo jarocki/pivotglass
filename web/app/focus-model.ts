@@ -33,11 +33,13 @@ export type IndicatorContext = {
   documents: Array<{ occurrence_id: string; filename: string; mentions: number; copies: number; admitted: boolean }>;
   tags: Tag[];
   investigated_at: string | null;
+  /** Earliest evidence observation in the workspace; null when never collected. */
+  first_seen?: string | null;
   /** Curated-list / hashlookup recognition: context, never a verdict (DEC-KNOWN-GOOD-001). */
   known?: KnownMatch[];
 };
 
-export type KnownMatch = { list_id: string; category: "benign" | "scanner" | "shared" | "sinkhole" | "contested"; label: string; matched: string; source: string; set_aside: boolean; category_label: string };
+export type KnownMatch = { list_id: string; category: "benign" | "scanner" | "shared" | "sinkhole" | "contested" | "reserved"; label: string; matched: string; source: string; set_aside: boolean; category_label: string };
 
 /** True when the analyst may set this indicator aside as known good or scanner noise. */
 export function canSetAside(context?: IndicatorContext): boolean {
@@ -158,11 +160,15 @@ export function groupIndicators(
   return result;
 }
 
-/** Filter by value, type, or ``dimension:value`` tag terms (all terms must match). */
-export function filterIndicators(indicators: FocusIndicator[], query: string, tags: TagIndex): FocusIndicator[] {
+/** Filter by value, type, ``dimension:value`` tag terms, or ``is:new`` / ``is:known`` (all terms must match). */
+export function filterIndicators(
+  indicators: FocusIndicator[], query: string, tags: TagIndex, isKnown: (key: string) => boolean = () => false,
+): FocusIndicator[] {
   const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   if (!terms.length) return indicators;
   return indicators.filter((item) => terms.every((term) => {
+    if (term === "is:new") return !isKnown(item.key);
+    if (term === "is:known") return isKnown(item.key);
     const own = tags.get(item.key) ?? [];
     if (term.includes(":") && !term.includes("//")) {
       const [dimension, value] = term.split(":", 2);
@@ -186,6 +192,8 @@ export function parseTagInput(input: string, dimensions: TagDimension[]): { dime
     const value = text.slice(colon + 1).trim();
     if (dimension && value) return { dimension: dimension.name, value };
   }
+  // A bare ATT&CK technique ID is a technique-level tactic tag (#31).
+  if (/^t\d{4}(\.\d{3})?$/.test(text) && dimensions.some((item) => item.name === "tactic")) return { dimension: "tactic", value: text };
   // Exact values win over labels across every dimension: "exfiltration" is the
   // ATT&CK tactic, even though the role "exfil" is labelled "Exfiltration".
   for (const exact of [true, false]) {
@@ -204,8 +212,11 @@ export function parseTagInput(input: string, dimensions: TagDimension[]): { dime
 export function defangValue(value: string, entityType: string): string {
   const kind = entityType.toLocaleLowerCase();
   if (kind === "url" || kind === "uri" || /^https?:\/\//i.test(value)) {
-    const scheme = value.toLocaleLowerCase().startsWith("https://") ? "hxxps" : "hxxp";
-    return `${scheme}[:]//${value.split("://").slice(1).join("://").replaceAll(".", "[.]")}`;
+    const separator = value.indexOf("://");
+    if (separator < 0) return value.replaceAll(".", "[.]"); // a scheme-less URL value
+    const original = value.slice(0, separator);
+    const scheme = { http: "hxxp", https: "hxxps" }[original.toLocaleLowerCase()] ?? original;
+    return `${scheme}[:]//${value.slice(separator + 3).replaceAll(".", "[.]")}`;
   }
   if (["email", "email-addr", "email-address"].includes(kind) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
     const at = value.lastIndexOf("@");
@@ -228,4 +239,32 @@ export function clipboardText(items: Array<{ value: string; entityType: string }
 export function hexGroups(value: string): string[] | null {
   if (!/^[0-9a-f]{24,}$/i.test(value)) return null;
   return value.match(/.{1,8}/g) ?? null;
+}
+
+export type FocusSort = "source" | "new-first" | "first-seen" | "value";
+export const FOCUS_SORTS: Array<{ value: FocusSort; label: string }> = [
+  { value: "source", label: "Source order" },
+  { value: "new-first", label: "New first" },
+  { value: "first-seen", label: "First seen, oldest" },
+  { value: "value", label: "Value A–Z" },
+];
+
+/**
+ * Order the list (#29). Source order anchors on the first indicator a report
+ * names; the other orders let the analyst start elsewhere. Ties keep source order.
+ */
+export function sortIndicators(
+  indicators: FocusIndicator[], sort: FocusSort, context: Record<string, IndicatorContext | undefined>,
+): FocusIndicator[] {
+  if (sort === "source") return indicators;
+  const position = new Map(indicators.map((item, index) => [item.key, index]));
+  const known = (item: FocusIndicator) => Boolean(context[item.key]?.entity);
+  const seen = (item: FocusIndicator) => context[item.key]?.first_seen ?? null;
+  const compare: Record<Exclude<FocusSort, "source">, (a: FocusIndicator, b: FocusIndicator) => number> = {
+    "new-first": (a, b) => Number(known(a)) - Number(known(b)),
+    // Never-seen indicators sort last: there is no first-seen time to order by.
+    "first-seen": (a, b) => (seen(a) === null ? 1 : 0) - (seen(b) === null ? 1 : 0) || (seen(a) ?? "").localeCompare(seen(b) ?? ""),
+    value: (a, b) => a.value.localeCompare(b.value),
+  };
+  return [...indicators].sort((a, b) => compare[sort](a, b) || position.get(a.key)! - position.get(b.key)!);
 }

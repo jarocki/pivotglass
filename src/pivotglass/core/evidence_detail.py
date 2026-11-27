@@ -53,6 +53,42 @@ def _source_intelligence(item: dict[str, Any]) -> dict[str, Any] | None:
         if isinstance(value, str) and value.startswith(("https://", "http://")):
             links.append({"label": label, "url": value})
 
+    if item.get("type") == "vulnerability":
+        # One object per CVE merges the KEV, EPSS and NVD fields
+        # (DEC-WORKSPACE-VULNERABILITY-001); each fact is labelled with its source.
+        if "x_kev_listed" in item:
+            facts.append({
+                "label": "CISA KEV",
+                "value": (
+                    f"listed (added {item.get('x_kev_date_added', '')}, ransomware use: "
+                    f"{item.get('x_kev_known_ransomware', '')})"
+                    if item["x_kev_listed"]
+                    else f"not listed in catalog {item.get('x_kev_catalog_version', '')}"
+                ),
+            })
+        fact("KEV due date", "x_kev_due_date")
+        fact("EPSS score", "x_epss_score")
+        fact("EPSS percentile", "x_epss_percentile")
+        fact("EPSS model date", "x_epss_date")
+        fact("NVD status", "x_nvd_vuln_status")
+        fact("NVD published", "x_nvd_published")
+        fact("NVD last modified", "x_nvd_last_modified")
+        fact("CWEs", "x_nvd_cwes")
+        fact("Description", "description")
+        scores = item.get("x_nvd_cvss")
+        if isinstance(scores, list) and scores:
+            groups.append({"title": "CVSS (NVD)", "items": _scrub(scores)})
+        refs = item.get("x_nvd_references")
+        if isinstance(refs, list) and refs:
+            groups.append({"title": "NVD references", "items": _scrub(refs[:25])})
+        return {
+            "provider": "CISA KEV, FIRST EPSS, NVD",
+            "headline": "Vulnerability context",
+            "facts": facts,
+            "links": links,
+            "groups": groups,
+        }
+
     if "abuseipdb" in source or "x_abuse_confidence_score" in item:
         for label, key in (
             ("Abuse confidence", "x_abuse_confidence_score"),

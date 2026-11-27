@@ -67,6 +67,7 @@ preferences and coaching drafts locally.
 | Document admission and grouping history | Document library and pivot trail | Uploading a file silently collecting its indicators |
 | Chart choice, source scope, missingness | Python visualization intents | Renderer-specific interpretation changing the record's meaning |
 | Graph position, filters, saved layout, themes, music | Presentation state | Layout or atmosphere becoming evidence |
+| PIR category and tier, report types, report elements, markings, issued reports | Report system ([design](REPORTS.md), in progress for v1.5.0) | A report section filled by a model, or silently omitted, appearing as evidence |
 
 The implementation is organized under the `pivotglass` Python package. Important
 modules include `core/analytic_ledger.py`, `core/analytic_commands.py`,

@@ -11,7 +11,7 @@ from pivotglass.agent.model_control import (
     execute_model_command,
 )
 from pivotglass.core.config import ConfigManager
-from pivotglass.core.module_credentials import resolve_module_credentials
+from pivotglass.core.module_config import resolve_module_credentials
 
 
 def _control(tmp_path: Path) -> ModelControl:

@@ -80,8 +80,28 @@ class AttackTactic(BaseModel):
     shortname: str
 
 
+class AttackDataComponent(BaseModel):
+    """An ATT&CK data component (DC id and name): what telemetry can see a technique."""
+
+    model_config = ConfigDict(frozen=True)
+
+    attack_id: str = Field(pattern=r"^DC\d{4}$")
+    name: str
+
+
 class AttackCatalog(BaseModel):
-    """A verified, minimal projection of a pinned ATT&CK collection."""
+    """A verified, minimal projection of a pinned ATT&CK collection.
+
+    @decision DEC-ATTACK-DATA-COMPONENTS-001
+    @title Data components come from detection strategies, as ATT&CK v18+ models them
+    @status accepted
+    @rationale From v18 ATT&CK no longer links data components to techniques
+    directly. A detection strategy ``detects`` a technique and names analytics;
+    each analytic's ``x_mitre_log_source_references`` name data components.
+    The catalog follows that chain for active objects only, so a hunt plan
+    cites the telemetry ATT&CK itself says can observe the technique (verified
+    against the pinned 19.2 bundle).
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -89,6 +109,15 @@ class AttackCatalog(BaseModel):
     collection_modified: str
     tactics: tuple[AttackTactic, ...]
     techniques: tuple[AttackTechnique, ...]
+    data_components: tuple[AttackDataComponent, ...] = ()
+    # (technique attack_id, data component attack_ids), sorted.
+    technique_data_components: tuple[tuple[str, tuple[str, ...]], ...] = ()
+
+    def data_components_for(self, attack_id: str) -> tuple[AttackDataComponent, ...]:
+        normalized = attack_id.strip().upper()
+        ids = dict(self.technique_data_components).get(normalized, ())
+        by_id = {item.attack_id: item for item in self.data_components}
+        return tuple(by_id[item] for item in ids if item in by_id)
 
     def technique(self, attack_id: str) -> AttackTechnique | None:
         normalized = attack_id.strip().upper()
@@ -148,12 +177,51 @@ class AttackCatalog(BaseModel):
                 key=lambda item: item.attack_id,
             )
         )
+        components, technique_components = _data_components(objects, techniques, manifest.domain)
         return cls(
             manifest=manifest,
             collection_modified=str(collection.get("modified", "")),
             tactics=tactics,
             techniques=techniques,
+            data_components=components,
+            technique_data_components=technique_components,
         )
+
+
+def _data_components(
+    objects: list[dict[str, Any]], techniques: tuple[AttackTechnique, ...], domain: str
+) -> tuple[tuple[AttackDataComponent, ...], tuple[tuple[str, tuple[str, ...]], ...]]:
+    components: dict[str, AttackDataComponent] = {}
+    for item in objects:
+        if _active_attack_object(item, "x-mitre-data-component", domain):
+            component = AttackDataComponent(attack_id=_external_id(item, re.compile(r"DC\d{4}")), name=str(item["name"]))
+            components[str(item["id"])] = component
+    analytics = {
+        str(item["id"]): item for item in objects
+        if item.get("type") == "x-mitre-analytic" and not item.get("revoked") and not item.get("x_mitre_deprecated")
+    }
+    strategies = {
+        str(item["id"]): item for item in objects
+        if _active_attack_object(item, "x-mitre-detection-strategy", domain)
+    }
+    technique_ids = {item.stix_id: item.attack_id for item in techniques}
+    found: dict[str, set[str]] = {}
+    for rel in objects:
+        if rel.get("type") != "relationship" or rel.get("relationship_type") != "detects" or rel.get("revoked"):
+            continue
+        strategy = strategies.get(str(rel.get("source_ref")))
+        technique = technique_ids.get(str(rel.get("target_ref")))
+        if strategy is None or technique is None:
+            continue
+        for analytic_ref in strategy.get("x_mitre_analytic_refs", ()):
+            for source in (analytics.get(str(analytic_ref)) or {}).get("x_mitre_log_source_references", ()):
+                component = components.get(str(source.get("x_mitre_data_component_ref", ""))) if isinstance(source, dict) else None
+                if component is not None:
+                    found.setdefault(technique, set()).add(component.attack_id)
+    return (
+        tuple(sorted(components.values(), key=lambda item: item.attack_id)),
+        tuple(sorted((technique, tuple(sorted(ids))) for technique, ids in found.items())),
+    )
 
 
 def _active_attack_object(item: Mapping[str, Any], object_type: str, domain: str) -> bool:

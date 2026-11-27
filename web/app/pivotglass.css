@@ -758,20 +758,16 @@ main>.command-rail.has-focus{position:relative!important;z-index:12000!important
 .viewport-tooltip.below{transform:translateX(-50%)}
 
 /* The Dossier reads as a faceted evidence object, with each plane opening its pieces. */
-.dossier-object{position:relative;margin:4px 12px 12px;padding:14px;perspective:720px;border:1px solid color-mix(in srgb,var(--line) 28%,transparent);border-radius:12px;background:radial-gradient(circle at center,color-mix(in srgb,var(--accent) 9%,transparent),transparent 68%)}
-.dossier-core{position:absolute;z-index:2;inset:50% auto auto 50%;display:grid;place-items:center;width:92px;height:56px;transform:translate(-50%,-50%);clip-path:polygon(20% 0,80% 0,100% 50%,80% 100%,20% 100%,0 50%);background:var(--elevated);border:1px solid var(--heading);pointer-events:none}
-.dossier-core b{color:var(--heading);font-size:var(--fs-xs);letter-spacing:.02em}
-.dossier-core span{color:var(--dim);font-size:var(--fs-xs)}
-.dossier-facets{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;transform:rotateX(4deg) rotateZ(-.5deg);transform-style:preserve-3d}
-.dossier-facets button{display:grid;align-content:center;gap:2px;min-width:0;height:58px;padding:5px;border:1px solid color-mix(in srgb,var(--line) 48%,transparent);clip-path:polygon(10% 0,90% 0,100% 50%,90% 100%,10% 100%,0 50%);background:var(--control);color:var(--dim);cursor:pointer}
-.dossier-facets button:nth-child(2),.dossier-facets button:nth-child(8){transform:translateZ(8px)}
-.dossier-facets button:nth-child(4),.dossier-facets button:nth-child(6){transform:translateZ(4px)}
-.dossier-facets button span{font-size:var(--fs-xs);font-weight:800}
-.dossier-facets button small{overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-xs)}
-.dossier-facets button.filled{background:color-mix(in srgb,var(--accent) 58%,var(--surface));color:var(--ink)}
-.dossier-facets button.partial{background:color-mix(in srgb,var(--heading) 22%,var(--surface));color:var(--heading)}
-.dossier-facets button.deferred{background:repeating-linear-gradient(135deg,var(--control) 0 5px,color-mix(in srgb,var(--dim) 18%,var(--control)) 6px 9px)}
-.dossier-facets button.selected{outline:3px solid var(--focus-ring);outline-offset:2px;transform:translateZ(15px)}
+/* Dossier: a readable nine-row list, one dimension per row (#32). */
+.dossier-list{margin:4px 12px 12px}
+.dossier-list>header{display:flex;gap:8px;align-items:baseline;margin-bottom:6px}.dossier-list>header b{color:var(--heading);font-size:var(--fs-sm)}.dossier-list>header span{color:var(--dim);font-size:var(--fs-xs)}
+.dossier-list ol{display:grid;gap:3px;margin:0;padding:0;list-style:none}
+.dossier-list button{display:grid;grid-template-columns:2ch minmax(0,1fr) auto 10ch;align-items:center;gap:10px;width:100%;padding:6px 10px;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);border-left-width:4px;border-radius:6px;background:var(--control);color:var(--ink);text-align:left;cursor:pointer}
+.dossier-list .n{color:var(--dim);font-size:var(--fs-xs)}.dossier-list b{font-weight:600}.dossier-list .status{color:var(--dim);font-size:var(--fs-xs)}.dossier-list small{color:var(--dim);font-size:var(--fs-xs);text-align:right}
+.dossier-list button.filled{border-left-color:var(--accent)}.dossier-list button.filled .status{color:var(--accent)}
+.dossier-list button.partial{border-left-color:var(--heading)}.dossier-list button.partial .status{color:var(--heading)}
+.dossier-list button.deferred{border-left-style:dashed}
+.dossier-list button.selected{outline:2px solid var(--focus-ring);outline-offset:1px}
 .facet-evidence{display:grid;gap:8px;margin:0 12px 12px;padding:10px;border:1px solid color-mix(in srgb,var(--line) 42%,transparent);border-radius:10px;background:var(--control)}
 .facet-evidence header{display:flex;align-items:center;justify-content:space-between}
 .facet-evidence header b{color:var(--heading);font-size:var(--fs-xs);letter-spacing:.02em}
@@ -868,9 +864,6 @@ main{padding:10px}
 .command-combobox{grid-column:1/2}
 .command-rail form>.prompt{grid-column:1/-1}
 .source-intelligence dl{grid-template-columns:1fr}
-.dossier-object{padding:10px}
-.dossier-facets{gap:4px}
-.dossier-facets button{height:52px}
 .configuration-center{padding:16px}
 .configuration-grid{grid-template-columns:1fr}
 .configuration-section>header,.model-catalog>header,.service-catalog>header{display:grid}
@@ -938,6 +931,10 @@ code,pre,kbd,.command-rail input,.artifact-row b{font-family:var(--font-mono)}
 .focus-view .cockpit-grid:has(.right-stack.inspector-open.active-artifact-field){grid-template-columns:minmax(0,1fr)}
 .focus-view .cockpit-grid:has(.right-stack.inspector-open.active-artifact-field)>.feed-panel{display:none}
 .focus-view .right-stack.inspector-open.active-artifact-field{width:100%;min-width:0}
+/* Evidence owns the main area too (#32): no inspector squeezed beside Activity. */
+.focus-view .cockpit-grid:has(.right-stack.inspector-open.active-dossier){grid-template-columns:minmax(0,1fr)}
+.focus-view .cockpit-grid:has(.right-stack.inspector-open.active-dossier)>.feed-panel{display:none}
+.focus-view .right-stack.inspector-open.active-dossier{width:100%;min-width:0}
 
 /* Intake is an explicit first step in Investigate. Candidate admission remains
    a separate analyst decision and never implies that parsed text is true. */
@@ -1014,19 +1011,7 @@ main>.guided-help-layer{position:fixed;z-index:19000;top:12px;left:12px;width:mi
 
 /* Exact IoC values remain readable in expanded and compact evidence surfaces. */
 .investigation-queue li>b,.artifact-list button b,.artifact-list button span,.task-matrix tbody th,.task-matrix tbody th button b,.visualization-selection b,.relationship-node-wrap b,.unconnected-graph button b,.facet-evidence button b,.detail-drawer h2,.detail-drawer dd,.relationship-list b,.graph-node-list b{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;max-width:none;min-width:0}
-.provenance-graph{display:grid;align-content:start;gap:16px;overflow:auto;padding:8px}
-.provenance-branch{display:grid;grid-template-columns:minmax(120px,1fr) 24px minmax(180px,2fr);align-items:center;gap:10px}
-.provenance-source,.provenance-branch li{display:grid;gap:5px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow-wrap:anywhere}
-.provenance-source{border-color:var(--accent)}
-.provenance-arrow{color:var(--accent);font-size:var(--fs-2xl)}
-.provenance-branch ol{list-style:none;margin:0;padding:0;display:grid;gap:8px;border-left:2px solid var(--accent)}
-.provenance-branch li{margin-left:10px;position:relative}
-.provenance-branch li:before{content:"";position:absolute;left:-12px;top:50%;width:10px;border-top:2px solid var(--accent)}
-.provenance-branch small,.provenance-branch p{font-size:var(--fs-sm);color:var(--dim);margin:0}
-@media(max-width:520px){.provenance-branch{grid-template-columns:1fr}.provenance-arrow{transform:rotate(90deg);justify-self:center}}
 
-.provenance-branch{align-items:start}
-.provenance-source{position:sticky;top:0}
 
 /* Guided question framing shares the notebook's analytical authority. */
 .question-coach { border:1px solid var(--accent,#52dfed); padding:1rem; margin:1rem 0; min-width:0; }
@@ -1048,7 +1033,18 @@ main>.guided-help-layer{position:fixed;z-index:19000;top:12px;left:12px;width:mi
 .question-coach button:focus-visible,.question-coach textarea:focus-visible,.question-coach input:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 
 .report-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-@media print{.command-result .report-actions{display:none}}
+@media print{.command-result .report-actions,.command-result .report-picker{display:none}}
+.report-picker{display:grid;gap:8px;margin:4px 0 12px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--line) 35%,transparent);border-radius:8px;background:var(--elevated)}
+.report-state{display:flex;flex-wrap:wrap;gap:4px 14px;margin:0;font-size:.92em}
+.report-state.incomplete span:last-child{color:var(--focus-ring)}
+.report-controls{display:grid;grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr));gap:8px}
+.report-controls label{display:grid;gap:3px;font-size:.85em;min-width:0}
+.report-controls select{min-width:0;width:100%}
+.report-purpose{opacity:.85}
+.report-actor{display:grid;gap:3px;font-size:.85em}.report-actor input{min-width:0}
+.report-buttons{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.report-buttons input{flex:1 1 220px;min-width:0}
+@media (max-width:640px){.report-controls{grid-template-columns:1fr 1fr}.report-controls label:first-child{grid-column:1/-1}}
 
 /* ---- Source intake (#17): one bar, details on demand ---- */
 .document-intake{display:grid;gap:8px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--line) 34%,transparent);border-radius:10px;background:color-mix(in srgb,var(--control) 70%,var(--surface))}
@@ -1082,9 +1078,9 @@ main>.guided-help-layer{position:fixed;z-index:19000;top:12px;left:12px;width:mi
 .focus-bar .segmented .selected{background:color-mix(in srgb,var(--line) 25%,var(--control))}
 .indicator-focus>.focus-notice{margin:0;padding:5px 14px;color:var(--dim);font-size:var(--fs-xs);border-bottom:1px solid color-mix(in srgb,var(--line) 20%,transparent)}
 .focus-body{display:grid;grid-template-columns:clamp(320px,26vw,520px) 1fr;min-height:0}
-.focus-list{display:grid;grid-template-rows:auto auto 1fr auto;min-height:0;border-right:1px solid color-mix(in srgb,var(--line) 30%,transparent)}
+.focus-list{display:flex;flex-direction:column;min-height:0;border-right:1px solid color-mix(in srgb,var(--line) 30%,transparent)}
 .focus-list>input{margin:10px;min-height:32px;padding:5px 9px;border:1px solid color-mix(in srgb,var(--line) 50%,transparent);border-radius:6px;background:var(--surface);color:var(--ink)}
-.focus-list>ol{margin:0;padding:0 0 12px;overflow:auto;list-style:none}
+.focus-list>ol{flex:1 1 auto;min-height:0;margin:0;padding:0 0 12px;overflow:auto;list-style:none}
 .focus-group>h3{position:sticky;top:0;z-index:1;margin:0;padding:6px 12px;background:var(--base);color:var(--heading);font-size:var(--fs-xs);font-weight:650;letter-spacing:.02em;border-bottom:1px solid color-mix(in srgb,var(--line) 18%,transparent)}
 .focus-group>h3 small{color:var(--dim);font-weight:400}
 .focus-group>ol{margin:0;padding:0;list-style:none}
@@ -1192,6 +1188,7 @@ kbd{display:inline-block;min-width:1.6em;padding:0 5px;border:1px solid var(--ha
   main:not([data-width="column"]):not([data-solo]) .workspace-body:has(>#sources:not([hidden])){display:grid;grid-template-columns:minmax(380px,5fr) minmax(0,7fr);grid-auto-flow:row dense;align-items:start;column-gap:16px;row-gap:10px}
   main:not([data-width="column"]):not([data-solo]) .workspace-body:has(>#sources:not([hidden]))>#sources,
   main:not([data-width="column"]):not([data-solo]) .workspace-body:has(>#sources:not([hidden]))>#brief{grid-column:1}
+  main:not([data-width="column"]):not([data-solo]) .workspace-body:has(>#sources:not([hidden]))>#indicators{grid-column:1}
   main:not([data-width="column"]):not([data-solo]) .workspace-body:has(>#sources:not([hidden]))>.telemetry-rack{grid-column:1/-1}
   main:not([data-width="column"]):not([data-solo]) .workspace-body:has(>#sources:not([hidden]))>.cockpit-grid{grid-column:2;grid-row:1/span 3}
 }
@@ -1337,10 +1334,6 @@ main[data-solo]>.masthead,main[data-solo]>.command-rail,main[data-solo]>.voice-s
 .panel-actions{flex-wrap:wrap;justify-content:flex-end;margin-left:auto}
 .panel-actions small{white-space:nowrap}
 .focus-view .cockpit-grid:has(.right-stack.inspector-open){grid-template-columns:minmax(0,1fr) minmax(min(380px,100%),.5fr)}
-/* Dossier dimensions: plain readable tiles, not clipped hexagons. */
-.dossier-facets{transform:none}
-.dossier-facets button{height:auto;min-height:52px;clip-path:none;border-radius:8px}
-.dossier-facets button small{white-space:normal;overflow:visible;text-overflow:clip}
 /* Character ambience (watermarks, scenery) is decoration: only with Full motion. */
 main:not(.effects-full) .ambient-environment{display:none}
 /* Day theme: tabs keep the plain underline style. */
@@ -1348,9 +1341,6 @@ main.display-day .masthead .pane-switcher button{background:none;box-shadow:none
 main.display-day .masthead .pane-switcher button[aria-current="page"]{border-bottom-color:var(--accent)}
 /* View controls inside Help get breathing room. */
 .help-modal .view-controls{margin-top:14px;padding-top:12px;border-top:1px solid var(--hairline)}
-/* The dossier summary label sits above the dimension tiles instead of over tile 5. */
-.dossier-object{perspective:none}
-.dossier-core{position:static;inset:auto;width:auto;height:auto;margin:0 0 8px;transform:none;clip-path:none;place-items:start;display:flex;gap:8px;align-items:baseline;background:none;border:0;box-shadow:none}
 /* Focus-mode key legend: each key stays on the same line as its action. */
 .focus-keys{display:flex;flex-wrap:wrap;gap:6px 12px}
 .focus-keys>span{white-space:nowrap}
@@ -1387,8 +1377,6 @@ main.display-day .masthead .pane-switcher button[aria-current="page"]{border-bot
 .visualization-data summary{font-weight:600;color:var(--dim)}
 .constellation-selection:empty{display:none}
 .flint-canvas{position:relative;min-height:260px}
-.provenance-graph{border:1px solid var(--hairline);border-radius:8px}
-.provenance-graph time{font-variant-numeric:tabular-nums}
 
 .relationship-visualization{display:flex;flex-direction:column;gap:6px;min-width:0}
 .relationship-controls{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
@@ -1432,6 +1420,9 @@ main.display-day .masthead .pane-switcher button[aria-current="page"]{border-bot
 .relationship-edges line{stroke:var(--dim);stroke-width:1;opacity:.45;vector-effect:non-scaling-stroke}
 .relationship-edges line.basis-explicit{opacity:.7;stroke-width:1.4}
 .relationship-edges line.basis-property{stroke-dasharray:5 4}
+.relationship-edges line.basis-bundle{stroke-width:3;opacity:.6}
+.graph-legend i.bundle{border-top-width:3px}
+.relationship-nodes>g.bundle circle{stroke:var(--heading);stroke-width:2;stroke-dasharray:1 2}
 .relationship-edges line.basis-manual{stroke:var(--dim);stroke-dasharray:2 3;stroke-width:1}
 .relationship-edges marker path{fill:var(--dim)}
 .relationship-edges g.focus line{stroke:var(--heading);opacity:.95;stroke-width:1.6}
@@ -1441,11 +1432,15 @@ main.display-day .masthead .pane-switcher button[aria-current="page"]{border-bot
 .relationship-nodes circle{stroke:color-mix(in srgb,var(--ink) 35%,transparent);stroke-width:1;fill:var(--elevated)}
 .relationship-nodes .node-label{fill:var(--ink);font-size:var(--fs-xs);font-weight:600;paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round;pointer-events:none}
 .relationship-nodes>g.hovered .node-label,.relationship-nodes>g.selected .node-label{fill:var(--heading);font-weight:750}
-.type-ipv4-addr circle,.type-ipv6-addr circle,.swatch.type-ipv4-addr,.swatch.type-ipv6-addr{fill:#4f9fd9;background:#4f9fd9}
-.type-domain-name circle,.swatch.type-domain-name{fill:#3fbf9f;background:#3fbf9f}
-.type-url circle,.swatch.type-url{fill:#9a86e0;background:#9a86e0}
-.type-email-addr circle,.swatch.type-email-addr{fill:#d68ab8;background:#d68ab8}
-.type-file circle,.swatch.type-file{fill:#d9a24f;background:#d9a24f}
+/* Indicator-type hues: the one authority for the graph, swatches, and charts (#37). */
+:root{--type-ipv4-addr:#4f9fd9;--type-ipv6-addr:#4f9fd9;--type-domain-name:#3fbf9f;--type-url:#9a86e0;--type-email-addr:#d68ab8;--type-file:#d9a24f;--type-vulnerability:#d9654f}
+.type-ipv4-addr circle,.swatch.type-ipv4-addr{fill:var(--type-ipv4-addr);background:var(--type-ipv4-addr)}
+.type-ipv6-addr circle,.swatch.type-ipv6-addr{fill:var(--type-ipv6-addr);background:var(--type-ipv6-addr)}
+.type-domain-name circle,.swatch.type-domain-name{fill:var(--type-domain-name);background:var(--type-domain-name)}
+.type-url circle,.swatch.type-url{fill:var(--type-url);background:var(--type-url)}
+.type-email-addr circle,.swatch.type-email-addr{fill:var(--type-email-addr);background:var(--type-email-addr)}
+.type-file circle,.swatch.type-file{fill:var(--type-file);background:var(--type-file)}
+.type-vulnerability circle,.swatch.type-vulnerability{fill:var(--type-vulnerability);background:var(--type-vulnerability)}
 .type-analyst-group circle,.swatch.type-analyst-group{fill:color-mix(in srgb,var(--dim) 30%,var(--surface));background:color-mix(in srgb,var(--dim) 30%,var(--surface))}
 .type-analyst-group circle{stroke-dasharray:3 3;stroke:var(--dim)}
 .relationship-nodes>g.neighbor circle{stroke:var(--heading);stroke-width:1.6}
@@ -1555,3 +1550,94 @@ article.model-proposal>span{color:var(--inference, var(--accent))}
 .proposal-basis .proposal-note{opacity:.75}
 .dossier-puzzle{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin:6px 0 0;font-size:.9em}
 .dossier-puzzle button{margin-left:auto}
+
+/* Facet bars: compact dossier coverage when a radar would collapse (#38). */
+.facet-bars{list-style:none;margin:0;padding:4px 0;display:grid;gap:6px;max-width:640px}
+.facet-bars li{display:grid;grid-template-columns:minmax(9ch,14ch) 1fr 16ch;align-items:center;gap:10px;font-size:var(--fs-sm)}
+.facet-bars .facet-name{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.facet-bars .facet-track{height:8px;background:transparent;border:1px dashed color-mix(in srgb,var(--dim) 45%,transparent);border-radius:2px;overflow:hidden}
+.facet-bars .facet-track>span{display:block;height:100%;background:var(--accent)}
+.facet-bars .facet-status{color:var(--dim);font-size:var(--fs-xs)}
+.facet-bars li.empty .facet-name{color:var(--dim)}
+
+/* Provenance timeline: one dense row per event, card on demand (#39). */
+.provenance-timeline{overflow:auto;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);border-radius:6px}
+.provenance-timeline table{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
+.provenance-timeline th{position:sticky;top:0;z-index:1;background:var(--surface);color:var(--dim);font-size:var(--fs-xs);font-weight:700;text-align:left;padding:6px 10px;border-bottom:1px solid color-mix(in srgb,var(--line) 40%,transparent)}
+.provenance-timeline td{padding:4px 10px;border-bottom:1px solid color-mix(in srgb,var(--line) 14%,transparent);color:var(--ink);max-width:36ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.provenance-timeline td:first-child{color:var(--dim);font-variant-numeric:tabular-nums;width:17ch}
+.provenance-timeline tbody tr:not(.provenance-card){cursor:pointer}
+.provenance-timeline tbody tr:not(.provenance-card):hover,.provenance-timeline tbody tr.open{background:color-mix(in srgb,var(--accent) 9%,transparent)}
+.provenance-timeline tbody tr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.provenance-card td{white-space:normal;max-width:none;background:color-mix(in srgb,var(--control) 60%,var(--surface))}
+.provenance-card dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(18ch,1fr));gap:6px 16px;margin:4px 0}
+.provenance-card dt{color:var(--dim);font-size:var(--fs-xs)}
+.provenance-card dd{margin:0;color:var(--ink);overflow-wrap:anywhere}
+
+/* PIR panel (DEC-PIR-001): the question's category, tier, and what an answer needs. */
+.pir-panel{display:grid;gap:8px;padding:10px;border:1px solid color-mix(in srgb,var(--line) 34%,transparent);border-left:3px solid var(--dim);border-radius:8px;background:var(--control)}
+.pir-panel.verdict-answered{border-left-color:var(--accent)}.pir-panel.verdict-partially_answered{border-left-color:#f0d96a}.pir-panel.verdict-not_answered{border-left-color:#f3a65a}
+.pir-panel>header{display:flex;align-items:start;justify-content:space-between;gap:12px}.pir-panel>header div{display:grid;gap:3px}
+.pir-panel>header span{color:var(--accent);font-size:var(--fs-xs);letter-spacing:.02em}.pir-panel>header b{color:var(--heading);font-size:var(--fs-sm)}.pir-panel>header small,.pir-meta{color:var(--dim);font-size:var(--fs-xs);line-height:1.45}
+.pir-verdict{padding:5px 8px;border:1px solid var(--line);border-radius:999px;color:var(--heading);font-size:var(--fs-xs);white-space:nowrap}
+.pir-fit,.pir-choice{margin:0;max-width:100ch;color:var(--dim);font-size:var(--fs-xs);line-height:1.45}.pir-fit b,.pir-choice b{color:var(--ink)}.pir-fit.fit-weak b,.pir-fit.fit-partial b{color:#f3a65a}.pir-choice i{display:block;margin-top:3px}
+.pir-stops{display:grid;gap:4px;margin:0;padding:0;list-style:none;counter-reset:stop}
+.pir-stops li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;padding:6px 7px;border:1px solid color-mix(in srgb,var(--line) 22%,transparent);border-radius:6px;background:var(--surface);color:var(--ink);font-size:var(--fs-xs);line-height:1.4;counter-increment:stop}
+.pir-stops li::before{content:counter(stop);display:grid;place-items:center;width:18px;height:18px;border:1px solid var(--dim);border-radius:50%;color:var(--dim);font-weight:800}
+.pir-stops li.met{color:var(--dim)}.pir-stops li.met::before{content:"✓";border-color:var(--accent);color:var(--accent)}
+.pir-panel button{min-height:28px;padding:4px 8px;border:1px solid color-mix(in srgb,var(--line) 45%,transparent);border-radius:5px;background:var(--surface);color:var(--heading);font-size:var(--fs-xs);cursor:pointer}.pir-panel button:disabled,.pir-panel select:disabled{opacity:.45;cursor:not-allowed}.pir-change{justify-self:start}
+.pir-form{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:7px}.pir-form label{display:grid;gap:4px;color:var(--dim);font-size:var(--fs-xs);letter-spacing:.02em}
+.pir-form select{min-width:0;height:34px;padding:5px;border:1px solid color-mix(in srgb,var(--line) 50%,transparent);border-radius:6px;background:var(--surface);color:var(--ink)}
+.pir-form>p,.pir-form>div,.pir-form>small{grid-column:1/-1}.pir-form>div{display:flex;gap:6px}.pir-form>small{color:var(--dim);font-size:var(--fs-xs)}
+@media(max-width:650px){.pir-form{grid-template-columns:1fr}.pir-panel>header{display:grid}.pir-verdict{justify-self:start}.pir-stops li{grid-template-columns:auto minmax(0,1fr)}.pir-stops li button{grid-column:2;justify-self:start}}
+/* Evidence drawer notes share the graph inspector's note store (#40). */
+.detail-drawer .annotation-caveat,.detail-drawer .annotation-empty{margin:0 0 6px;color:var(--dim);font-size:var(--fs-xs)}
+.detail-drawer .annotation-list{display:grid;gap:6px;margin:0 0 8px;padding:0;list-style:none}
+.detail-drawer .annotation-list li{padding:6px 8px;border-left:2px solid var(--accent);background:var(--surface)}
+.detail-drawer .annotation-list li p{margin:0;color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
+.detail-drawer .annotation-list time{color:var(--dim);font-size:var(--fs-xs)}
+/* Focus-mode export of the filtered list (#33). */
+.focus-export{position:relative;display:inline-flex}
+.focus-export-menu{position:absolute;top:calc(100% + 4px);right:0;z-index:5;display:grid;gap:2px;min-width:180px;padding:4px;border:1px solid var(--line);border-radius:6px;background:var(--elevated);box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.focus-export-menu button{text-align:left;white-space:nowrap}
+.listed-reserved{color:var(--dim);border-style:dashed}
+.focus-row-meta .first-seen,.focus-row-meta .observed{color:var(--dim)}
+/* ATT&CK tactic lanes (#31): fixed lane order, empty lanes stay visible. */
+.attack-lanes{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(92px,1fr);gap:6px;overflow-x:auto;min-height:260px;padding-bottom:6px}
+.attack-lane{display:flex;flex-direction:column;min-width:0;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);border-radius:6px;background:var(--surface)}
+.attack-lane.empty{opacity:.55}
+.attack-lane>header{display:grid;gap:2px;padding:6px 8px;border-bottom:1px solid color-mix(in srgb,var(--line) 20%,transparent)}
+.attack-lane>header b{color:var(--heading);font-size:var(--fs-xs);overflow-wrap:anywhere;hyphens:auto}
+.attack-lane>header small{color:var(--dim);font-size:var(--fs-xs)}
+.attack-lane ul{display:grid;gap:4px;margin:0;padding:6px;list-style:none;overflow:auto}
+.attack-lane li{display:grid;gap:1px;padding:4px 6px;border:1px solid color-mix(in srgb,var(--line) 40%,transparent);border-radius:4px;background:var(--elevated);font-size:var(--fs-xs);overflow-wrap:anywhere}
+.attack-lane li.inferred{border-style:dashed;background:transparent}
+.attack-lane li button{all:unset;cursor:pointer;color:var(--ink)}
+.attack-lane li button:focus-visible{outline:2px solid var(--focus-ring)}
+.attack-lane li small{color:var(--dim)}
+
+/* Investigate: persistent indicator table and ACH line (#32). */
+.indicator-table{display:grid;gap:8px;padding:10px 12px}
+.indicator-table-bar{display:flex;align-items:center;gap:8px}.indicator-table-bar b{color:var(--heading);font-size:var(--fs-md)}.indicator-table-bar>span{color:var(--dim);font-size:var(--fs-xs)}.indicator-table-bar label{margin-left:auto}
+.ach-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin:0;padding:6px 8px;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);border-radius:6px;background:var(--control);font-size:var(--fs-xs);color:var(--dim)}
+.ach-line b{color:var(--ink);font-weight:600;overflow-wrap:anywhere}.ach-line button{margin-left:auto}
+.indicator-table-groups{display:grid;gap:10px;max-height:min(60vh,640px);overflow:auto}
+.indicator-table-groups h3{position:sticky;top:0;z-index:1;margin:0;padding:4px 0;background:var(--surface);color:var(--heading);font-size:var(--fs-xs);font-weight:650}
+.indicator-table-groups h3 small{color:var(--dim);font-weight:400}
+.indicator-table-groups .untagged h3{color:var(--dim)}
+.indicator-table-groups table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:var(--fs-xs)}
+.indicator-table-groups th{color:var(--dim);font-weight:500;text-align:left;padding:2px 6px}
+.indicator-table-groups th:first-child{width:45%}
+.indicator-table-groups td{padding:3px 6px;border-top:1px solid color-mix(in srgb,var(--line) 15%,transparent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.indicator-link{all:unset;cursor:pointer;color:var(--ink);font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block}
+.indicator-link:hover{text-decoration:underline dotted}.indicator-link:focus-visible{outline:2px solid var(--focus-ring)}
+@media(max-width:560px){.dossier-list button{grid-template-columns:2ch minmax(0,1fr) auto;row-gap:2px}.dossier-list .status{grid-column:2;grid-row:2}.dossier-list small{grid-column:3;grid-row:1}}
+/* Cluster suggestions (#30): proposals, visibly not findings. */
+.cluster-suggestions{border:1px dashed color-mix(in srgb,var(--line) 45%,transparent);border-radius:6px;padding:6px 8px;font-size:var(--fs-xs)}
+.cluster-suggestions summary{cursor:pointer;color:var(--heading)}.cluster-suggestions summary span{color:var(--ink)}.cluster-suggestions summary small{color:var(--dim)}
+.cluster-suggestions ul{display:grid;gap:8px;margin:8px 0 0;padding:0;list-style:none}
+.cluster-suggestions li{display:grid;gap:4px;padding:6px;border:1px solid color-mix(in srgb,var(--line) 25%,transparent);border-radius:5px;background:var(--control)}
+.cluster-suggestions p{margin:0;overflow-wrap:anywhere}.cluster-suggestions .members{color:var(--dim);font-family:var(--font-mono)}
+.cluster-suggestions .actions{display:flex;flex-wrap:wrap;gap:6px}.cluster-suggestions input{min-width:0;flex:1 1 140px}
+.strength{font-style:normal;padding:0 5px;border:1px solid currentColor;border-radius:3px;margin-right:4px}
+.strength-strong{color:var(--accent)}.strength-moderate{color:var(--heading)}.strength-weak{color:var(--dim);border-style:dashed}

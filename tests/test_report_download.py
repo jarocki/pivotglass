@@ -17,7 +17,7 @@ def test_report_result_carries_original_workspace_and_version_without_collecting
     assert result["workspace"] == "report-case"
     assert result["version"] == __version__
     assert result["printable"] is True
-    assert "source.example" in result["text"]
+    assert "source[.]example" in result["text"]  # the Markdown report defangs indicators (#51)
     manager.switch("report-case")
     assert manager.get_observations() == observations
     assert manager.get_module_runs() == runs

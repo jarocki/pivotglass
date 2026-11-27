@@ -64,6 +64,7 @@ _FREE_ARG_VERBS: frozenset[str] = frozenset(
         "note",
         "hint",
         "challenges",
+        "pivot",
         "autopivot",
         "model",
         "config",
@@ -71,6 +72,8 @@ _FREE_ARG_VERBS: frozenset[str] = frozenset(
         "analysis",
         "framework",
         "integration",
+        "org",
+        "cluster",
     }
 )
 
@@ -442,7 +445,20 @@ def dispatch_repl_verb(
             "layout delete <name> --confirm <name>|annotate <node-id> | <text>|annotations [node-id]]"
         )
 
-    if name in {"search", "graph", "dossier", "gaps", "report", "hint", "challenges"}:
+    if name == "report":
+        if _workspace_mgr is None:
+            return "Workspace unavailable."
+        from pivotglass.reports.commands import execute_report_command
+
+        try:
+            result = execute_report_command(verb.args, _workspace_mgr)
+        except ValueError as exc:
+            return str(exc)
+        if "text" in result:
+            return str(result["text"])
+        return f"{result['title']}\n" + json.dumps(result["data"], indent=2, default=str)
+
+    if name in {"search", "graph", "dossier", "gaps", "hint", "challenges"}:
         if ctx is None:
             return "Command context unavailable."
         from pivotglass.agent.tools import execute_tool
@@ -452,7 +468,6 @@ def dispatch_repl_verb(
             "graph": ("render_graph", {}),
             "dossier": ("get_dossier_state", {}),
             "gaps": ("get_dossier_state", {}),
-            "report": ("generate_dossier_report", {}),
             "hint": ("get_next_hint", {"module": verb.args[0] if verb.args else None}),
             "challenges": ("list_challenges", {}),
         }
@@ -504,6 +519,28 @@ def dispatch_repl_verb(
             return "Export formats: json, csv, stix, gexf."
         summary, *_ = execute_tool(ctx, "export_workspace", {"format": fmt})
         return str(summary)
+
+    if name == "org":
+        if _workspace_mgr is None:
+            return "Workspace unavailable."
+        from pivotglass.reports.org import execute_org_command
+
+        try:
+            result = execute_org_command(" ".join(verb.args), _workspace_mgr)
+        except ValueError as exc:
+            return str(exc)
+        return f"{result['title']}\n{json.dumps(result['data'], indent=2, default=str)}"
+
+    if name == "cluster":
+        if _workspace_mgr is None:
+            return "Workspace unavailable."
+        from pivotglass.core.cluster_suggestions import execute_cluster_command
+
+        try:
+            result = execute_cluster_command(" ".join(verb.args), _workspace_mgr)
+        except ValueError as exc:
+            return str(exc)
+        return f"{result['title']}\n{json.dumps(result['data'], indent=2, default=str)}"
 
     if name == "analysis":
         if _workspace_mgr is None:
@@ -622,12 +659,32 @@ def dispatch_repl_verb(
             "delete <name> --confirm <name>"
         )
 
+    if name == "pivot":
+        if ctx is None:
+            return "Command context unavailable."
+        from pivotglass.modules.pivoting.commands import execute_pivot_command
+
+        # The cyberdeck installs a scrollback listener and runs pivots in the
+        # background so `pivot stop|skip|focus|add` stay typeable; without one
+        # (plain chat loop, tests) the run is foreground and Ctrl-C stops it.
+        listener = getattr(runner, "_pivot_listener", None)
+        try:
+            result = execute_pivot_command(
+                verb.args, ctx, listener=listener, background=listener is not None
+            )
+        except ValueError as exc:
+            return str(exc)
+        return str(result["text"])
+
     if name == "autopivot":
         if ctx is None or not verb.args or verb.args[0].lower() not in {"on", "off"}:
             return "Usage: autopivot on|off"
         enabled = verb.args[0].lower() == "on"
         ctx.set_autopivot(enabled)
-        return f"Auto-pivot {'enabled' if enabled else 'disabled'}."
+        if enabled:
+            return ("Autopivot on: after each enrichment that returns results, a depth-1 pivot run "
+                    "queries what it found. `pivot status` shows it; `pivot stop` halts it.")
+        return "Autopivot off: enrichments run alone."
 
     if name == "model":
         if config_mgr is None:
@@ -746,5 +803,6 @@ def _ioc_to_stix_type(ioc_type: str | None) -> str:
         "sha256": "file",
         "sha1": "file",
         "md5": "file",
+        "cve": "vulnerability",
     }
     return _MAP.get(ioc_type or "", "unrecognized-type")

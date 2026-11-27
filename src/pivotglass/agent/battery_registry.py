@@ -57,7 +57,7 @@ DEFAULT_BATTERIES: dict[str, Battery] = {
         # registration, capture, and resolution history for domains (#46).
         tools=(
             "whois_lookup", "crtsh_lookup", "check_breaches",
-            "rdap_lookup", "wayback_lookup", "mnemonic_pdns_lookup",
+            "rdap_lookup", "wayback_lookup", "mnemonic_pdns_lookup", "dns_lookup",
         ),
         target_slots=(DossierSlotName.IDENTITY,),
         applies_to=("domain-name", "email-addr"),
@@ -69,7 +69,7 @@ DEFAULT_BATTERIES: dict[str, Battery] = {
         # registration, and passive DNS names.
         tools=(
             "shodan_host_lookup", "censys_host_lookup", "internetdb_lookup",
-            "sans_isc_lookup", "rdap_lookup", "mnemonic_pdns_lookup",
+            "sans_isc_lookup", "rdap_lookup", "mnemonic_pdns_lookup", "ip_asn_lookup",
         ),
         target_slots=(DossierSlotName.INFRASTRUCTURE,),
         applies_to=("ipv4-addr", "ipv6-addr"),
@@ -91,6 +91,16 @@ DEFAULT_BATTERIES: dict[str, Battery] = {
         target_slots=(DossierSlotName.TTPS,),
         applies_to=("file", "url"),
         hypothesis_hint="known-malicious payload family",
+    ),
+    "vulnerability_battery": Battery(
+        name="vulnerability_battery",
+        # Keyless CVE context (#58): exploited-in-the-wild status, exploit prediction,
+        # and NVD severity/affected products. See dossier/slots.py for why a CVE is
+        # not auto-mapped to a slot; TTPS is where an analyst-chosen CVE contributes.
+        tools=("kev_lookup", "epss_lookup", "nvd_cve_lookup"),
+        target_slots=(DossierSlotName.TTPS,),
+        applies_to=("vulnerability",),
+        hypothesis_hint="exploited in the wild + exploit likelihood + severity and affected products",
     ),
     "behavioral_battery": Battery(
         name="behavioral_battery",

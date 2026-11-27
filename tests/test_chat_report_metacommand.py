@@ -2,8 +2,9 @@
 
 M-8 removes the --style flag and classic interview path from the chat report
 meta-command (DEC-68-DOSSIER-REFRAME-008 / DEC-M8-CLEANUP-001).
-The sole behaviour after M-8: bare 'report' and 'report generate' both render
-the dossier report via _execute_generate_dossier_report().
+Since v1.5.0 (#50) the meta-command is the shared `report` command
+(reports/commands.py); bare 'report' and 'report generate' preview the
+investigation report.
 
 @decision DEC-TEST-M8-CHAT-REPORT-001
 @title test_chat_report_metacommand verifies M-8 dossier-only report meta-command
@@ -11,7 +12,7 @@ the dossier report via _execute_generate_dossier_report().
 @rationale After M-8 the chat 'report' meta-command has one path: dossier renderer.
            Tests confirm: dossier report renders on 'report', 'report generate',
            unknown sub-commands produce a usage message, and no --style flag exists.
-           No mocks — uses real _execute_generate_dossier_report via unit import.
+           No mocks — uses the real report preview via unit import.
 """
 
 from __future__ import annotations
@@ -34,44 +35,23 @@ def ctx(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Unit tests for _execute_generate_dossier_report (sole renderer post-M-8)
+# The report preview the chat meta-command and the LLM tool share
 # ---------------------------------------------------------------------------
 
 
-class TestExecuteGenerateDossierReportPostM8:
-    """_execute_generate_dossier_report is parameterless and renders dossier report."""
+class TestReportPreview:
+    """_execute_preview_report renders through reports/commands.py."""
 
-    def test_parameterless_signature(self):
-        """_execute_generate_dossier_report accepts only ctx — no style param."""
-        from pivotglass.agent.tools import _execute_generate_dossier_report
+    def test_signature_has_no_style_param(self):
+        from pivotglass.agent.tools import _execute_preview_report
 
-        sig = inspect.signature(_execute_generate_dossier_report)
-        params = list(sig.parameters.keys())
-        assert params == ["ctx"], (
-            f"Expected only 'ctx' parameter, got: {params}. "
-            "style= was removed at M-8 (DEC-M8-CLEANUP-002)."
-        )
+        assert list(inspect.signature(_execute_preview_report).parameters) == ["ctx", "report_type"]
 
-    def test_raises_on_style_kwarg(self, ctx):
-        """Passing style= raises TypeError (parameter does not exist)."""
-        from pivotglass.agent.tools import _execute_generate_dossier_report
+    def test_returns_the_investigation_report(self, ctx):
+        from pivotglass.agent.tools import _execute_preview_report
 
-        with pytest.raises(TypeError):
-            _execute_generate_dossier_report(ctx, style="dossier")  # type: ignore[call-arg]
-
-    def test_returns_dossier_markdown(self, ctx):
-        """Calling without style returns dossier Markdown."""
-        from pivotglass.agent.tools import _execute_generate_dossier_report
-
-        result = _execute_generate_dossier_report(ctx)
-        assert isinstance(result, str)
+        result = _execute_preview_report(ctx)
         assert "## Dossier State" in result
-
-    def test_no_classic_report_format(self, ctx):
-        """Dossier renderer does NOT produce the classic interview header."""
-        from pivotglass.agent.tools import _execute_generate_dossier_report
-
-        result = _execute_generate_dossier_report(ctx)
         assert "## Interview Notes" not in result
 
 

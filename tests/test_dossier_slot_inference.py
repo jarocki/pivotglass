@@ -579,7 +579,7 @@ class TestCapabilityExtractor:
         at function call time (DEC-M2-DOSSIER-003: 'reads DEFAULT_SUBSCRIPTIONS
         at call time').
         """
-        from pivotglass.core.event_bus import DEFAULT_SUBSCRIPTIONS
+        from pivotglass.modules.pivoting.subscriptions import DEFAULT_SUBSCRIPTIONS
 
         # Verify DEFAULT_SUBSCRIPTIONS is non-empty (sanity check)
         assert len(DEFAULT_SUBSCRIPTIONS) >= 6, (

@@ -11,7 +11,8 @@ export type VisualizationView =
   | "line"
   | "bar"
   | "uncertainty_intervals"
-  | "timeline";
+  | "timeline"
+  | "attack_lanes";
 
 export type VisualizationRow = Record<string, unknown>;
 
@@ -26,13 +27,16 @@ export type VisualizationNode = {
   /** Curated-list recognition (benign, scanner, shared, sinkhole, contested). */
   known_category?: string;
   known_label?: string;
+  /** Present on an aggregate of a hub's same-type leaves (#41): presentation only. */
+  bundle?: { hub: string; members: string[] };
 };
 
 export type VisualizationEdge = {
   source: string;
   target: string;
   relationship: string;
-  basis: "explicit" | "property" | "manual";
+  /** "bundle" joins a hub to an aggregate of its leaves (#41): presentation, not a relationship. */
+  basis: "explicit" | "property" | "manual" | "bundle";
   provenance: string;
   assertion_id?: string | null;
   annotation?: string | null;
@@ -141,6 +145,87 @@ export function hiddenGraphReferences(
   return hidden;
 }
 
+/** A hub's same-type leaves are bundled only when there are at least this many. */
+export const MIN_BUNDLE_SIZE = 5;
+
+export function bundleReference(hub: string, entityType: string): string {
+  return `bundle:${hub}|${entityType}`;
+}
+
+/**
+ * Collapse degree-1 leaves of one type around the same hub into an aggregate node (#41).
+ *
+ * Presentation only: the aggregate carries no evidence, keeps the exact member list (so
+ * counts survive), and never absorbs a selected, pinned, or analyst-group node. Expanded
+ * bundles are passed back in by reference and drawn as their members.
+ */
+export function bundleGraphLeaves(
+  nodes: readonly VisualizationNode[],
+  edges: readonly VisualizationEdge[],
+  options: {
+    expanded?: ReadonlySet<string>;
+    protectedReferences?: ReadonlySet<string>;
+    minSize?: number;
+    label?: (entityType: string, count: number) => string;
+  } = {},
+): { nodes: VisualizationNode[]; edges: VisualizationEdge[]; bundled: Map<string, string> } {
+  const minSize = options.minSize ?? MIN_BUNDLE_SIZE;
+  const expanded = options.expanded ?? new Set<string>();
+  const protectedReferences = options.protectedReferences ?? new Set<string>();
+  const byReference = new Map(nodes.map((node) => [node.reference, node]));
+  const neighbors = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    if (edge.source === edge.target) continue;
+    if (!neighbors.has(edge.source)) neighbors.set(edge.source, new Set());
+    if (!neighbors.has(edge.target)) neighbors.set(edge.target, new Set());
+    neighbors.get(edge.source)!.add(edge.target);
+    neighbors.get(edge.target)!.add(edge.source);
+  }
+  const groups = new Map<string, string[]>();
+  for (const node of nodes) {
+    const adjacent = neighbors.get(node.reference);
+    if (!adjacent || adjacent.size !== 1) continue;
+    if (protectedReferences.has(node.reference) || node.entity_type === "analyst-group" || node.bundle) continue;
+    const [hub] = adjacent;
+    if (!byReference.has(hub) || (neighbors.get(hub)?.size ?? 0) < minSize) continue;
+    const key = bundleReference(hub, node.entity_type);
+    if (expanded.has(key)) continue;
+    groups.set(key, [...(groups.get(key) ?? []), node.reference]);
+  }
+  const bundled = new Map<string, string>();
+  const aggregates: VisualizationNode[] = [];
+  const aggregateEdges: VisualizationEdge[] = [];
+  for (const [key, members] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
+    if (members.length < minSize) continue;
+    const hub = key.slice("bundle:".length, key.lastIndexOf("|"));
+    const entityType = byReference.get(members[0])!.entity_type;
+    for (const member of members) bundled.set(member, key);
+    aggregates.push({
+      reference: key,
+      label: options.label?.(entityType, members.length) ?? `${members.length} ${entityType}`,
+      entity_type: entityType,
+      evidence: false,
+      bundle: { hub, members: [...members].sort() },
+    });
+    aggregateEdges.push({
+      source: hub,
+      target: key,
+      relationship: "bundled leaves",
+      basis: "bundle",
+      provenance: `${members.length} single-connection ${entityType} nodes of this hub, drawn as one`,
+    });
+  }
+  if (!bundled.size) return { nodes: [...nodes], edges: [...edges], bundled };
+  return {
+    nodes: [...nodes.filter((node) => !bundled.has(node.reference)), ...aggregates],
+    edges: [
+      ...edges.filter((edge) => !bundled.has(edge.source) && !bundled.has(edge.target)),
+      ...aggregateEdges,
+    ],
+    bundled,
+  };
+}
+
 const FLINT_CHART_TYPES: Partial<Record<VisualizationView, string>> = {
   bar: "Bar Chart",
   histogram: "Histogram",
@@ -224,6 +309,10 @@ export function compileFlintChartjs(
   const chartType = FLINT_CHART_TYPES[intent.view];
   if (!chartType) throw new Error(`No allow-listed Flint chart for ${intent.view}`);
 
+  if (intent.view === "histogram" && intent.semantic_types[intent.fields.value] === "Count") {
+    return countHistogramChartjs(intent, chartProperties) as ReturnType<typeof assembleChartjs>;
+  }
+
   const encodings: Record<string, { field: string }> = {};
   if (intent.view === "histogram") {
     encodings.x = { field: intent.fields.value };
@@ -254,6 +343,77 @@ export function compileFlintChartjs(
     },
     options: { addTooltips: true },
   });
+}
+
+/**
+ * Whole-number histogram bins (#36). Flint bins every value range into
+ * fractional widths, which splits counts such as 1 and 2 across "1.0–1.5"
+ * bins with empty slivers between them. A Count field is a whole number, so
+ * each bin is one integer, or an integer-width range once the span exceeds
+ * the bin limit. Every bin between the minimum and maximum is drawn, zeros
+ * included.
+ */
+export function countHistogramBins(
+  values: number[],
+  maxBins: number,
+): { labels: string[]; counts: number[] } {
+  const whole = values.filter(Number.isFinite).map((value) => Math.round(value));
+  if (whole.length === 0) return { labels: [], counts: [] };
+  let low = whole[0];
+  let high = whole[0];
+  for (const value of whole) {
+    if (value < low) low = value;
+    if (value > high) high = value;
+  }
+  const span = high - low + 1;
+  const width = Math.max(1, Math.ceil(span / Math.max(1, maxBins)));
+  const counts = new Array<number>(Math.ceil(span / width)).fill(0);
+  for (const value of whole) counts[Math.floor((value - low) / width)] += 1;
+  const labels = counts.map((_, index) => {
+    const start = low + index * width;
+    return width === 1 ? String(start) : `${start}\u2013${start + width - 1}`;
+  });
+  return { labels, counts };
+}
+
+function columnLabel(intent: VisualizationIntent, field: string): string {
+  return intent.table_columns.find((column) => column.key === field)?.label ?? field;
+}
+
+function countHistogramChartjs(
+  intent: VisualizationIntent,
+  chartProperties: Record<string, number | string | boolean>,
+) {
+  const field = intent.fields.value;
+  const maxBins = Number(chartProperties.binCount ?? 50);
+  const { labels, counts } = countHistogramBins(
+    plottedRows(intent).map((row) => Number(row[field])),
+    maxBins,
+  );
+  const axis = (text: string) => ({ display: true, text, font: { size: 12 } });
+  return {
+    type: "bar" as const,
+    data: { labels, datasets: [{ label: "Records", data: counts, categoryPercentage: 1, barPercentage: 0.94 }] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { title: axis(columnLabel(intent, field)), ticks: { font: { size: 12 } } },
+        y: { title: axis("Records"), beginAtZero: true, ticks: { precision: 0, font: { size: 12 } } },
+      },
+      plugins: { tooltip: { enabled: true }, legend: { display: false, labels: { font: { size: 11 } } } },
+    },
+  };
+}
+
+/**
+ * A radar needs at least three non-zero spokes to draw a readable shape (#38).
+ * With one indicator most dossier facets are empty and the polygon collapses,
+ * so the cockpit shows a compact bar list instead.
+ */
+export function radarHasShape(intent: VisualizationIntent): boolean {
+  const field = intent.fields.value;
+  return plottedRows(intent).filter((row) => Number(row[field]) > 0).length >= 3;
 }
 
 function csvCell(value: unknown): string {

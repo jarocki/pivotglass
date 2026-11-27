@@ -188,8 +188,13 @@ _TOOL_SLUG_MAP: dict[str, str] = {
     "internetdb_lookup": "internetdb_lookup",
     "sans_isc_lookup": "sans_isc_lookup",
     "rdap_lookup": "rdap_lookup",
+    "dns_lookup": "dns_lookup",
+    "ip_asn_lookup": "ip_asn_lookup",
     "wayback_lookup": "wayback_lookup",
     "hashlookup_lookup": "hashlookup_lookup",
+    "kev_lookup": "kev_lookup",
+    "epss_lookup": "epss_lookup",
+    "nvd_cve_lookup": "nvd_cve_lookup",
     # workspace / meta tools — all use "default_tool" slug (no activity phrase)
     "get_workspace_summary": "default_tool",
     "search_workspace": "default_tool",
@@ -203,7 +208,7 @@ _TOOL_SLUG_MAP: dict[str, str] = {
     "create_dossier_prediction": "default_tool",
     "create_dossier_note": "default_tool",
     "falsify_dossier_prediction": "default_tool",
-    "generate_dossier_report": "default_tool",
+    "preview_report": "default_tool",
     "export_dossier": "default_tool",
     "compare_dossier": "default_tool",
 }
@@ -787,7 +792,8 @@ class AgentRunner:
             cmd = None
 
         if cmd is not None:
-            from pivotglass.agent.yield_commands import dispatch_yield
+            # Battery run first, else the active pivot run (DEC-YIELD-ROUTING-001).
+            from pivotglass.agent.yield_commands import route_yield
 
             character = getattr(self, "_character", "default")
             try:
@@ -795,7 +801,7 @@ class AgentRunner:
 
                 _bus = getattr(self, "_event_bus", None) or _EventBus()
                 active_run = getattr(self, "_active_battery_run", None)
-                feedback = dispatch_yield(cmd, active_run, _bus, character)
+                feedback = route_yield(cmd, battery_run=active_run, ctx=self.ctx, bus=_bus, character=character)
             except Exception:  # noqa: BLE001
                 feedback = f"[{cmd.primitive}]"
             return feedback

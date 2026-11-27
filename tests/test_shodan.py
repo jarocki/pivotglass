@@ -427,11 +427,13 @@ class TestShodanIPHuntResults:
         assert len(domain_scos) == 0
 
     def test_hunt_total_result_count_with_hostnames(self, mock_success):
-        """Full response: 1 ipv4-addr + 2 domain-name SCOs = 3 total."""
+        """Full response: 1 ipv4-addr + 2 domain-name SCOs + one vulnerability stub per CVE."""
         mod = ShodanIP()
         mod.initialize({"api_key": "test-key"})
         results = asyncio.run(mod.hunt("1.2.3.4", {}))
-        assert len(results) == 3
+        stubs = [r for r in results if r["type"] == "vulnerability"]
+        assert len(results) == 3 + len(stubs)
+        assert stubs  # the fixture reports CVEs
 
     def test_hunt_total_result_count_without_hostnames(self, mock_success_no_vulns):
         """No hostnames: exactly 1 SCO (ipv4-addr only)."""

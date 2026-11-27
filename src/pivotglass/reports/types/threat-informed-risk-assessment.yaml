@@ -1,0 +1,41 @@
+# Type 3. Rewritten from 03_Threat_Informed_Risk_Assessment.md.
+# Changes: assets and exposure are organisation input, never estimated; actor
+# capability uses the shared rubric; each scenario states likelihood (ICD 203),
+# impact (severity), current control status, recommended control and residual
+# risk.
+id: threat-informed-risk-assessment
+number: 3
+code: TIRA
+title: Threat-Informed Risk Assessment
+domain: strategic
+tier: strategic
+audience: [Risk management, Business owners, M&A and vendor-risk teams]
+purpose: >-
+  Assess the threat to a specific system, business unit, vendor, initiative or
+  acquisition target: who would attack it, how, how likely, with what impact,
+  and which controls reduce the risk.
+use_when: >-
+  Before a cloud migration, an acquisition, onboarding a critical vendor, or a
+  change to a crown-jewel system. Needs the organisation profile and assets
+  (#59); without them the report is incomplete and says so.
+related: [executive-threat-briefing, threat-actor-profile, defensive-coverage-assessment, attack-graph-tree]
+default_marking: {tlp: AMBER+STRICT, pap: CLEAR}
+validity_days: 180
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - id: asset_profile
+    guidance: What is assessed, its critical assets and data, and the business consequence of losing each.
+  - id: actor_matrix
+    guidance: Actors relevant to the scope, with motivation, intent to target, capability level from the rubric, and cited precedent.
+  - id: attack_surface
+    guidance: Externally visible services and exposures that belong to the assessed scope, each with its source and date.
+  - id: risk_scenarios
+    guidance: >-
+      Prioritised scenarios. Each states likelihood (ICD 203 term), impact (severity),
+      current control status, the recommended control and the residual risk.
+  - id: recommendations
+    guidance: The controls to fund or change, in priority order, each with an owner and due date.
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json]

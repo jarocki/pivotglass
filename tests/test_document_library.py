@@ -221,7 +221,7 @@ def test_document_library_exports_and_merges_with_verified_source_bytes(tmp_path
     )
 
     exported = export_workspace(manager, "source")
-    assert exported["format"] == "pivotglass-workspace-v13"
+    assert exported["format"] == f"pivotglass-workspace-v{CURRENT_WORKSPACE_SCHEMA_VERSION}"
     assert exported["tables"]["document_occurrences"][0]["filename"] == "merge.txt"
     counts = merge_workspaces(manager, "source", "destination")
     assert counts["document_occurrences"] == 1

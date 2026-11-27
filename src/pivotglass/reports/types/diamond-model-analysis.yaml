@@ -1,0 +1,33 @@
+# Type 8. Rewritten from 08_Diamond_Model_Intrusion_Analysis.md.
+# Changes: each vertex carries its evidence and confidence; the full
+# meta-feature set (timestamp, phase, result, direction, methodology,
+# resources, social-political, technology) is recorded; events link into
+# activity threads, each link marked observed or inferred.
+id: diamond-model-analysis
+number: 8
+code: DMA
+title: Diamond Model Intrusion Analysis
+domain: analytical
+tier: operational
+audience: [CTI analysts, Incident responders]
+purpose: >-
+  Decompose intrusion events into adversary, capability, infrastructure and
+  victim, show how events connect into activity threads, and expose which
+  vertices are known and which are inferred.
+use_when: >-
+  Structuring an intrusion for pivoting and comparison, or preparing evidence
+  for attribution. One report may hold several events.
+related: [ach-attribution-matrix, infrastructure-clustering-graph, campaign-intrusion-analysis]
+default_marking: {tlp: AMBER, pap: AMBER}
+validity_days: 90
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - id: diamond_events
+    guidance: >-
+      One block per event. An unknown vertex is written as unknown with the
+      collection that would fill it; it is never guessed.
+  - {id: activity_threads}
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json, stix, mermaid]

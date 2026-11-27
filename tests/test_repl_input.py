@@ -207,10 +207,10 @@ class TestPivotglassCompleterModelSubcommand:
 
 
 class TestPivotglassCompleterReportSubcommand:
-    def test_report_space_suggests_answer_and_generate(self):
+    def test_report_space_suggests_actions_and_report_types(self):
         results = _completions("report ")
-        assert "answer" in results
-        assert "generate" in results
+        assert "answer" not in results  # the classic interview was removed at M-8
+        assert {"generate", "types", "issue ", "history", "investigation-report"} <= set(results)
 
 
 # ---------------------------------------------------------------------------

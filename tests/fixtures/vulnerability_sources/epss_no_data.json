@@ -1,0 +1,10 @@
+{
+  "status": "OK",
+  "status-code": 200,
+  "version": "1.0",
+  "access": "public",
+  "total": 0,
+  "offset": 0,
+  "limit": 100,
+  "data": []
+}

@@ -65,6 +65,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from pivotglass.models.database import Relationship
+from pivotglass.models.stix import NEIGHBOUR_FIELDS
 
 _LOG = logging.getLogger(__name__)
 
@@ -207,6 +208,10 @@ class RelationshipGraph:
             "x_contacted_domains": "contacts",
             "x_contacted_ips": "contacts",
             "x_contacted_urls": "contacts",
+            # Neighbour fields (#21): one authority, also stored as explicit
+            # relationships (DEC-NEIGHBOUR-RELATIONSHIP-001). Registrar is deliberately
+            # not a shared-property edge: one registrar spans millions of domains.
+            **NEIGHBOUR_FIELDS,
         }
         shared_fields = {
             "sha256": "shares-sha256",

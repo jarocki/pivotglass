@@ -128,9 +128,11 @@ class TestYieldWinsOverChat:
 
     def test_stop_calls_dispatch_yield_not_chat(self):
         """'stop' → parse_repl_verb returns None (not a REPL verb); parse_yield
-        returns YieldCommand('stop', None) → dispatch_yield called. chat() NOT called.
+        returns YieldCommand('stop', None) → a battery is running, so dispatch_yield
+        is called (DEC-YIELD-ROUTING-001). chat() NOT called.
         """
         runner = _make_runner()
+        runner._active_battery_run = object()  # a running battery owns bare verbs
 
         # @mock-exempt: AgentRunner.chat → litellm.completion() (external LLM boundary)
         # @mock-exempt: dispatch_yield → phrase cache + EventBus; mocked for routing isolation
@@ -152,6 +154,7 @@ class TestYieldWinsOverChat:
 
     def test_focus_with_arg_calls_dispatch_yield(self):
         runner = _make_runner()
+        runner._active_battery_run = object()  # a running battery owns bare verbs
 
         with (
             patch(
@@ -332,6 +335,7 @@ class TestHandleInputAlwaysReturnsStr:
 
     def test_yield_path_returns_str(self):
         runner = _make_runner()
+        runner._active_battery_run = object()  # a running battery owns bare verbs
         with patch(
             "pivotglass.agent.yield_commands.dispatch_yield",
             return_value="stopped",

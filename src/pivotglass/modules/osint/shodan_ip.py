@@ -55,11 +55,13 @@ from typing import Any
 
 import httpx
 
+from pivotglass.core.module_config import credential_remedy
 from pivotglass.modules.base import (
     AuthenticationError,
     BaseModule,
     RateLimitError,
 )
+from pivotglass.modules.vulnerability import cve_stubs
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +72,7 @@ class ShodanIP(BaseModule):
 
     Requires a Shodan API key from https://account.shodan.io (free tier available).
     Configure via:
-      pivotglass config set api_keys.shodan <key>
+      pivotglass config set shodan
     or the PIVOTGLASS_SHODAN_API_KEY environment variable.
 
     Returns STIX 2.1 SCO dicts (plain dicts, not stix2 objects). At minimum
@@ -137,8 +139,7 @@ class ShodanIP(BaseModule):
         if not api_key:
             raise AuthenticationError(
                 "Shodan API key not configured. "
-                "Set via 'pivotglass config set api_keys.shodan <key>' "
-                "or PIVOTGLASS_SHODAN_API_KEY env var."
+                + credential_remedy("shodan")
             )
 
         minify = options.get("MINIFY", self.options["MINIFY"]["default"]).lower() == "true"
@@ -249,5 +250,9 @@ def _build_results(target: str, data: dict[str, Any]) -> list[dict]:
     for hostname in data.get("hostnames", []):
         if hostname:
             results.append({"type": "domain-name", "value": hostname})
+
+    # CVEs Shodan associates with the host become bare vulnerability stubs, the pivot
+    # handle for cti/cisa_kev, cti/first_epss and cti/nvd_cve (#58).
+    results.extend(cve_stubs(ip_sco["x_vulns"]))
 
     return results

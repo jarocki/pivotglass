@@ -1,0 +1,35 @@
+# Type 17. Rewritten from 17_Detection_Signature_Bundle.md.
+# Changes: Sigma rules are status experimental until validated, with ISO dates
+# and current tags; Suricata sids are in the local range 1000000-1999999 with
+# metadata and reference; YARA rules carry a sample hash and reference and are
+# marked untested drafts; a validation section says what was and was not tested.
+id: detection-signature-bundle
+number: 17
+code: DSB
+title: Detection Signature Bundle
+domain: detection
+tier: tactical
+audience: [Detection engineers, SOC analysts]
+purpose: >-
+  Detection content for one malware family or campaign across the Pyramid of
+  Pain: indicators to block, and Sigma, Suricata and YARA rules, each with how
+  it was validated.
+use_when: >-
+  Indicators and behaviours are confirmed and need to become detections. The
+  rule files download in their native formats.
+related: [threat-activity-alert, threat-hunting-package, campaign-intrusion-analysis]
+default_marking: {tlp: AMBER, pap: GREEN}
+validity_days: 90
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - {id: pyramid_of_pain}
+  - {id: sigma_rules}
+  - {id: suricata_rules}
+  - id: yara_rules
+    required: false
+  - {id: ioc_table}
+  - {id: validation_notes}
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json, stix, sigma, suricata, yara]

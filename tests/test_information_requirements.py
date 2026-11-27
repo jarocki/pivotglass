@@ -15,7 +15,6 @@ from pivotglass.core.analytic_ledger import (
     Materiality,
 )
 from pivotglass.core.command_completion import command_completions
-from pivotglass.core.dossier_report import generate_dossier_report
 from pivotglass.core.information_requirements import (
     POLICY_ID,
     build_information_requirements,
@@ -23,6 +22,8 @@ from pivotglass.core.information_requirements import (
     validate_requirement_criteria,
 )
 from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.reports.engine import build_report
+from pivotglass.reports.render import render
 
 
 def _workspace(tmp_path) -> WorkspaceManager:
@@ -214,7 +215,7 @@ def test_requirement_commands_and_completions_share_one_authority(tmp_path):
     assert "analysis priorities" in command_completions("analysis pr")
     assert "analysis prioritize " in command_completions("analysis pr")
     assert "analysis requirement " in command_completions("analysis req")
-    report = generate_dossier_report(manager)
+    report = render(build_report(manager))
     assert "Priority Intelligence Requirements and Next Best Information" in report
     assert "Obtain an independent certificate history" in report
     assert "75/100" in report

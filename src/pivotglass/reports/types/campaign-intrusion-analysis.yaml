@@ -1,0 +1,49 @@
+# Type 5. Rewritten from 05_Campaign_Intrusion_Analysis_Report.md.
+# Changes: attribution is a key judgment with likelihood and confidence, not a
+# header field; the narrative cites evidence per step and states breaks in the
+# chain; the appendices become linked companion reports (Navigator layer,
+# detection bundle) and machine-readable renderings, not pasted rule text.
+id: campaign-intrusion-analysis
+number: 5
+code: CAMP
+title: Campaign and Intrusion Analysis Report
+domain: operational
+tier: operational
+audience: [Incident response leads, Threat hunters, SOC leadership]
+purpose: >-
+  The complete account of one campaign or intrusion set: when it ran, whom it
+  targeted, how it worked end to end, the infrastructure and tools behind it,
+  who is likely responsible, and what to change.
+use_when: >-
+  After an alert has been worked, or when an intrusion set has enough evidence
+  for a full account. Attribution here is a judgment; the ACH Attribution
+  Matrix holds the test behind it.
+related: [threat-activity-alert, ach-attribution-matrix, attack-navigator-layer, detection-signature-bundle, infrastructure-clustering-graph]
+default_marking: {tlp: AMBER, pap: AMBER}
+validity_days: 90
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - id: threat_summary
+    guidance: The campaign in three sentences - period, victims, objective - and the main defensive takeaway.
+  - id: key_judgments
+    guidance: Attribution and objective, each with likelihood, separate confidence and basis; reference the ACH matrix if one was issued.
+  - {id: campaign_timeline}
+  - {id: victimology}
+  - id: attack_narrative
+    guidance: Phase by phase from initial access to actions on objectives, each step with ATT&CK IDs and citations. State gaps; do not bridge them.
+  - {id: infrastructure_breakdown}
+  - id: arsenal
+    guidance: Malware families and tools used in this campaign, with capability and first and last use.
+  - id: attack_matrix
+    required: false
+  - id: recommendations
+    guidance: Remediation and hardening steps, each with an owner and due date, in priority order.
+  - id: ioc_table
+    options: {detail: true}
+    guidance: The campaign's full indicator set; the JSON and STIX renderings are the machine-readable appendix.
+  - id: detection_pointers
+    required: false
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json, stix]

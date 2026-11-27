@@ -83,9 +83,6 @@ _MODEL_SUBCMDS: list[str] = [
     "advisor",
 ]
 
-#: Report sub-commands.
-_REPORT_SUBCMDS: list[str] = ["answer", "generate"]
-
 #: Autopivot sub-commands.
 _AUTOPIVOT_SUBCMDS: list[str] = ["on", "off"]
 
@@ -104,7 +101,7 @@ class PivotglassCompleter(Completer):
       * ``hint <TAB>`` → complete against module names + "buy"
       * ``export <TAB>`` → complete against "gexf" / "stix"
       * ``model <TAB>`` → complete against the shared model-control commands
-      * ``report <TAB>`` → complete against "answer" / "generate"
+      * ``report <TAB>`` → complete against report actions and report type ids
       * ``autopivot <TAB>`` → complete against "on" / "off"
       * Anything else → no completions (let the LLM handle it)
     """

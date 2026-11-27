@@ -18,6 +18,9 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
+from pivotglass.core.information_requirements import active_investigation_row
+from pivotglass.reports.pir import build_pir_state
+
 POLICY_ID = "pivotglass-pursuit-brief-v1"
 
 _SCIENTIFIC_STAGES: tuple[tuple[str, frozenset[str]], ...] = (
@@ -42,15 +45,8 @@ def build_pursuit_brief(
     """Build a bounded, non-mutating summary of the active pursuit."""
 
     dossier = [dict(slot) for slot in dossier_slots]
-    investigation_rows = list(analysis.get("investigations") or [])
-    active = next(
-        (
-            row
-            for row in reversed(investigation_rows)
-            if row.get("status") not in {"concluded", "suspended"}
-        ),
-        investigation_rows[-1] if investigation_rows else None,
-    )
+    active = active_investigation_row(analysis)
+    pir = build_pir_state(active, analysis)
     active_id = str(active.get("id")) if active and active.get("id") else None
     lifecycle = [
         row
@@ -173,6 +169,7 @@ def build_pursuit_brief(
         pending_method_reviews=pending_method_reviews,
         pending_external_reviews=pending_external_reviews,
         pending_framework_reviews=pending_framework_reviews,
+        pir=pir,
         hypotheses=hypotheses,
         stop_conditions=stop_conditions,
         information_requirements=analysis.get("information_requirements") or {},
@@ -206,6 +203,7 @@ def build_pursuit_brief(
                 else "Ready for analyst action"
             ),
         },
+        "pir": pir,
         "next_action": next_action,
         "progress": [
             {
@@ -235,6 +233,13 @@ def build_pursuit_brief(
                 "current": review_complete,
                 "total": review_total,
                 "detail": f"{pending_reviews} decision{'s' if pending_reviews != 1 else ''} pending",
+            },
+            {
+                "id": "pir",
+                "label": "PIR",
+                "current": int(pir.get("resolved_count") or 0),
+                "total": len(pir.get("stop_conditions") or []),
+                "detail": str(pir.get("verdict_label") or ""),
             },
         ],
         "open_work": {
@@ -326,6 +331,18 @@ def _choose_next_action(**context: Any) -> dict[str, Any]:
             action_type="command",
             value="analysis question ",
             basis=[{"kind": "policy", "id": POLICY_ID}],
+            permission="analyst_record",
+        )
+
+    if context["pir"].get("category", "unspecified") == "unspecified":
+        return _action(
+            "set_pir",
+            "Choose the PIR category and tier",
+            "The category defines what an answer needs and which reports fit; the tier sets who the answer is for.",
+            category="required",
+            action_type="command",
+            value="analysis pir ",
+            basis=[{"kind": "policy", "id": "DEC-PIR-001"}],
             permission="analyst_record",
         )
 

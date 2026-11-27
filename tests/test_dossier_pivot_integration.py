@@ -1,19 +1,21 @@
-"""M-6 compound integration tests — dossier-aware auto-pivot end-to-end.
+"""M-6 compound integration tests — dossier-aware pivot-run ordering end-to-end.
 
 These tests exercise the full production sequence: DossierState loaded from
-a real workspace → ranker constructed → EventBus.process_results called with
-that ranker → F60 gates evaluate the ranked list → callbacks fire in slot-pressure
-order → budget consumed by high-value pivots first.
+a real workspace → ranker constructed → a PivotRun seeded with module results
+(autopivot's shape, DEC-PIVOT-AUTOPIVOT-001) orders its frontier with that
+ranker (DEC-M6-PIVOT-010) → policy gates evaluate each indicator → modules are
+called in slot-pressure order → budget consumed by high-value pivots first.
+Until v1.5.0 the same scenarios ran through the retired event-harness cascade.
 
 This is the "M-6 ships" acceptance test (plan §4, three-stage).
 
 Stage A — ranker reorders by slot pressure (INT1)
-Stage B — M-6 disabled → byte-identical F60 ordering (INT2)
+Stage B — M-6 disabled → discovery ordering (INT2)
 Stage C — budget consumed by high-value pivots first (INT3)
 Additional:
   INT4 — all-EMPTY dossier: ordering follows slot-weight hierarchy
   INT5 — all-FILLED dossier: ordering preserves input order
-  INT6 — decision log ALLOW entries carry dossier_weight > 0; SKIP entries
+  INT6 — decision ALLOW entries carry dossier_weight > 0; SKIP entries
           (budget gate) carry the score for full diagnostic coverage
 
 Production sequence exercised here:
@@ -21,30 +23,26 @@ Production sequence exercised here:
   2. save_dossier_state() persists a fabricated DossierState
   3. load_dossier_state() reads it back (same path as _execute_run_module line ~449)
   4. make_dossier_pivot_ranker(pre_dossier) builds the ranker closure
-  5. EventBus.process_results(results, ..., ranker=ranker) re-orders + iterates
-  6. F60 budget gate caps the number of callbacks
-  7. Decision log shows dossier_weight for diagnostic inspection
+  5. PivotRun(result_seeds=results, ranker=ranker) orders its frontier + expands
+  6. The policy's budget gate caps the number of module calls
+  7. The run's decisions show dossier_weight for diagnostic inspection
 
 @decision DEC-M6-INTEGRATION-TEST-001
-@title Compound integration test crosses DossierState persistence, ranker, EventBus,
-       and F60 budget gate in one realistic sequence
+@title Compound integration test crosses DossierState persistence, ranker, PivotRun,
+       and the policy budget gate in one realistic sequence
 @status accepted
 @rationale The implementer instructions require at least one test exercising the real
            production sequence end-to-end, crossing the boundaries of multiple internal
            components (CLAUDE.md Compound-Interaction Test Requirement). This file
            satisfies that requirement for M-6.
 
-# @mock-exempt: AsyncMock callbacks simulate external module hunt() boundaries.
+A recording executor stands in for the module boundary (``ToolContext.run_module``).
 """
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock
-
 from pivotglass.core.config import AutoPivotPolicyConfig
 from pivotglass.core.dossier_pivot import make_dossier_pivot_ranker
-from pivotglass.core.event_bus import EventBus, PivotConfig
 from pivotglass.core.workspace import WorkspaceManager
 from pivotglass.dossier.slot_inference import DossierState, SlotState
 from pivotglass.dossier.slots import DossierSlotName, SlotStatus
@@ -53,6 +51,7 @@ from pivotglass.dossier.state import (
     load_dossier_state,
     save_dossier_state,
 )
+from pivotglass.modules.pivoting.run import ModuleOutcome, PivotRun
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -74,14 +73,18 @@ def _make_state(overrides: dict[DossierSlotName, SlotStatus] | None = None) -> D
     return DossierState(slots=slots, total_sco_count=0)
 
 
-def _permissive_bus(max_per_cascade: int = 100) -> EventBus:
-    cfg = AutoPivotPolicyConfig(
-        max_per_cascade=max_per_cascade,
-        max_per_session=10_000,
-        allowlist_path="/dev/null",
-        denylist_path="/dev/null",
-    )
-    return EventBus(PivotConfig(enabled=True, policy=cfg))
+class _Harness:
+    """Modules subscribed one per STIX type; records the values they are asked about."""
+
+    def __init__(self, budget: int) -> None:
+        self.budget = budget
+        self.types: list[str] = []
+        self.fired: list[str] = []
+        self.log: list[dict] = []
+
+
+def _permissive_run(max_per_cascade: int = 100) -> _Harness:
+    return _Harness(max_per_cascade)
 
 
 def _sco(sco_type: str, value: str, sco_id: str = "", **extra) -> dict:
@@ -92,18 +95,27 @@ def _sco(sco_type: str, value: str, sco_id: str = "", **extra) -> dict:
     return d
 
 
-def _register_recording_callback(bus: EventBus, stix_type: str, fired: list) -> None:
-    """Register an async callback that records (value) when invoked."""
-    cb = AsyncMock(return_value=[])
-    cb._module_path = f"test/{stix_type}"
-    fired_ref = fired
+def _register_recording_callback(harness: _Harness, stix_type: str, fired: list) -> None:
+    """Subscribe a module to *stix_type* that records each value it is asked about."""
+    harness.types.append(stix_type)
+    harness.fired = fired
 
-    async def _impl(event):
-        fired_ref.append(event.value)
-        return []
 
-    cb.side_effect = _impl
-    bus.subscribe(stix_type, cb)
+def _process(harness: _Harness, results: list[dict], ranker=None) -> dict:
+    """Seed a pivot run with *results* as autopivot does and run it to completion."""
+
+    def executor(_module: str, value: str) -> ModuleOutcome:
+        harness.fired.append(value)
+        return ModuleOutcome([])
+
+    cfg = AutoPivotPolicyConfig(allowlist_path="/dev/null", denylist_path="/dev/null")
+    snapshot = PivotRun(
+        result_seeds=results, result_source="test/source", executor=executor,
+        subscriptions={f"test/{stix_type}": [stix_type] for stix_type in harness.types},
+        policy_config=cfg, budget=harness.budget, ranker=ranker,
+    ).run()
+    harness.log = snapshot["decisions"]
+    return snapshot
 
 
 # ---------------------------------------------------------------------------
@@ -134,10 +146,10 @@ class TestStageA_RankerReordersBySlotPressure:
         assert pre_dossier is not None
 
         ranker = make_dossier_pivot_ranker(pre_dossier)
-        bus = _permissive_bus()
+        harness = _permissive_run()
         fired = []
         for stype in ("email-addr", "x509-certificate", "url", "file", "domain-name", "ipv4-addr"):
-            _register_recording_callback(bus, stype, fired)
+            _register_recording_callback(harness, stype, fired)
 
         # Infrastructure-first input order (domain, ipv4, email, url, x509, file).
         # Use values that pass F60's IOC filter:
@@ -153,7 +165,7 @@ class TestStageA_RankerReordersBySlotPressure:
             _sco("file", "evil.exe", sco_id="f1"),
         ]
 
-        asyncio.run(bus.process_results(results, "test/source", ranker=ranker))
+        _process(harness, results, ranker=ranker)
 
         # Both Identity SCOs (email-addr, x509-certificate) must precede Infrastructure
         assert fired.index("actor@threatmail.ru") < fired.index("actor-c2.malicious.ru")
@@ -178,30 +190,30 @@ class TestStageA_RankerReordersBySlotPressure:
         assert pre_dossier is not None
 
         ranker = make_dossier_pivot_ranker(pre_dossier)
-        bus = _permissive_bus()
+        harness = _permissive_run()
         fired = []
-        _register_recording_callback(bus, "email-addr", fired)
-        _register_recording_callback(bus, "ipv4-addr", fired)
+        _register_recording_callback(harness, "email-addr", fired)
+        _register_recording_callback(harness, "ipv4-addr", fired)
 
         results = [
             _sco("ipv4-addr", "infra-first"),
             _sco("email-addr", "identity-second"),
         ]
-        asyncio.run(bus.process_results(results, "test/source", ranker=ranker))
+        _process(harness, results, ranker=ranker)
         assert fired[0] == "identity-second"
         assert fired[1] == "infra-first"
 
 
 # ---------------------------------------------------------------------------
-# Stage B — M-6 disabled → byte-identical F60 ordering
+# Stage B — M-6 disabled → discovery ordering
 # ---------------------------------------------------------------------------
 
 
 class TestStageB_M6Disabled:
-    """Plan §4 Stage B: config flag False → input order unchanged + dossier_weight=None."""
+    """Plan §4 Stage B: config flag False → input order unchanged, no dossier_weight."""
 
     def test_ranker_none_preserves_input_order(self, tmp_path):
-        """INT2: when ranker=None, process_results iterates in original input order."""
+        """INT2: with no ranker, the run expands in original discovery order."""
         wm = _make_workspace(tmp_path)
         state = _make_state(
             {
@@ -211,36 +223,35 @@ class TestStageB_M6Disabled:
         )
         save_dossier_state(wm, state)
 
-        bus = _permissive_bus()
+        harness = _permissive_run()
         fired = []
-        _register_recording_callback(bus, "ipv4-addr", fired)
-        _register_recording_callback(bus, "email-addr", fired)
+        _register_recording_callback(harness, "ipv4-addr", fired)
+        _register_recording_callback(harness, "email-addr", fired)
 
         # Infrastructure-first input; WITHOUT ranker this order must be preserved
         results = [
             _sco("ipv4-addr", "infra-first"),
             _sco("email-addr", "identity-second"),
         ]
-        asyncio.run(bus.process_results(results, "test/source", ranker=None))
+        _process(harness, results, ranker=None)
         assert fired[0] == "infra-first"
         assert fired[1] == "identity-second"
 
-    def test_decision_log_has_dossier_weight_none_when_no_ranker(self, tmp_path):
-        """INT2: decision log entries carry dossier_weight=None when ranker is None."""
+    def test_decision_log_has_no_dossier_weight_when_no_ranker(self, tmp_path):
+        """INT2: decisions carry no dossier_weight when there is no ranker."""
         wm = _make_workspace(tmp_path)
         state = _make_state({DossierSlotName.IDENTITY: SlotStatus.EMPTY})
         save_dossier_state(wm, state)
 
-        bus = _permissive_bus()
-        _register_recording_callback(bus, "email-addr", [])
+        harness = _permissive_run()
+        _register_recording_callback(harness, "email-addr", [])
 
         results = [_sco("email-addr", "actor@example.com", sco_id="sco-1")]
-        asyncio.run(bus.process_results(results, "test/source", ranker=None))
+        _process(harness, results, ranker=None)
 
-        for entry in bus.get_decision_log():
-            assert entry.get("dossier_weight") is None, (
-                f"dossier_weight must be None when no ranker: got {entry.get('dossier_weight')}"
-            )
+        assert harness.log
+        for entry in harness.log:
+            assert "dossier_weight" not in entry, f"no ranker, no dossier_weight: {entry}"
 
 
 # ---------------------------------------------------------------------------
@@ -249,7 +260,7 @@ class TestStageB_M6Disabled:
 
 
 class TestStageC_BudgetConsumedByHighValuePivots:
-    """Plan §4 Stage C: 10 candidates, budget=5, ranker → only Identity+TTPs callbacks fire."""
+    """Plan §4 Stage C: 10 candidates, budget=5, ranker → only Identity+TTPs module calls happen."""
 
     def test_high_value_pivots_consume_budget_before_infra(self, tmp_path):
         """INT3: with Identity=EMPTY, 5-callback budget is spent on Identity+TTPs SCOs,
@@ -267,11 +278,11 @@ class TestStageC_BudgetConsumedByHighValuePivots:
         assert pre_dossier is not None
 
         ranker = make_dossier_pivot_ranker(pre_dossier)
-        # max_per_cascade=5 → 5 callbacks allowed
-        bus = _permissive_bus(max_per_cascade=5)
+        # budget 5 → 5 module calls allowed
+        harness = _permissive_run(max_per_cascade=5)
         fired = []
         for stype in ("ipv4-addr", "domain-name", "email-addr", "url", "file"):
-            _register_recording_callback(bus, stype, fired)
+            _register_recording_callback(harness, stype, fired)
 
         # 10 candidates: 5 Infrastructure (lexically first) + 2 Identity + 3 TTPs
         results = [
@@ -287,9 +298,9 @@ class TestStageC_BudgetConsumedByHighValuePivots:
             _sco("file", "loader.exe"),
         ]
 
-        asyncio.run(bus.process_results(results, "test/source", ranker=ranker))
+        _process(harness, results, ranker=ranker)
 
-        # Exactly 5 callbacks fired
+        # Exactly 5 module calls made
         assert len(fired) == 5
 
         # All 5 must be Identity or TTPs — not Infrastructure
@@ -313,18 +324,18 @@ class TestStageC_BudgetConsumedByHighValuePivots:
 
         ranker = make_dossier_pivot_ranker(pre_dossier)
         # Budget=1: only 1 Identity SCO fires; the rest skip
-        bus = _permissive_bus(max_per_cascade=1)
-        _register_recording_callback(bus, "email-addr", [])
-        _register_recording_callback(bus, "ipv4-addr", [])
+        harness = _permissive_run(max_per_cascade=1)
+        _register_recording_callback(harness, "email-addr", [])
+        _register_recording_callback(harness, "ipv4-addr", [])
 
         results = [
             _sco("email-addr", "id1@example.com", sco_id="e1"),
             _sco("ipv4-addr", "1.2.3.4", sco_id="i1"),
             _sco("email-addr", "id2@example.com", sco_id="e2"),
         ]
-        asyncio.run(bus.process_results(results, "test/source", ranker=ranker))
+        _process(harness, results, ranker=ranker)
 
-        log = bus.get_decision_log()
+        log = harness.log
         # All log entries must have dossier_weight populated (not None)
         for entry in log:
             assert "dossier_weight" in entry
@@ -352,17 +363,17 @@ class TestAllEmptyDossier:
         assert pre_dossier is not None
 
         ranker = make_dossier_pivot_ranker(pre_dossier)
-        bus = _permissive_bus()
+        harness = _permissive_run()
         fired = []
-        _register_recording_callback(bus, "email-addr", fired)
-        _register_recording_callback(bus, "ipv4-addr", fired)
+        _register_recording_callback(harness, "email-addr", fired)
+        _register_recording_callback(harness, "ipv4-addr", fired)
 
         # Infrastructure first in input; Identity must win due to higher weight
         results = [
             _sco("ipv4-addr", "infra-first"),  # Infrastructure weight=2.0 → score 2.0
             _sco("email-addr", "identity-last"),  # Identity weight=5.0 → score 5.0
         ]
-        asyncio.run(bus.process_results(results, "test/source", ranker=ranker))
+        _process(harness, results, ranker=ranker)
         # email-addr (Identity=5.0) must fire before ipv4-addr (Infrastructure=2.0)
         assert fired[0] == "identity-last"
         assert fired[1] == "infra-first"
@@ -383,17 +394,17 @@ class TestAllFilledDossier:
         assert pre_dossier is not None
 
         ranker = make_dossier_pivot_ranker(pre_dossier)
-        bus = _permissive_bus()
+        harness = _permissive_run()
         fired = []
-        _register_recording_callback(bus, "email-addr", fired)
-        _register_recording_callback(bus, "ipv4-addr", fired)
+        _register_recording_callback(harness, "email-addr", fired)
+        _register_recording_callback(harness, "ipv4-addr", fired)
 
         # When all slots are FILLED every score is 0.0 → stable sort preserves input order
         results = [
             _sco("ipv4-addr", "first"),
             _sco("email-addr", "second"),
         ]
-        asyncio.run(bus.process_results(results, "test/source", ranker=ranker))
+        _process(harness, results, ranker=ranker)
         assert fired[0] == "first"
         assert fired[1] == "second"
 
@@ -404,16 +415,16 @@ class TestAllFilledDossier:
         pre_dossier = load_dossier_state(wm) or default_deferred_state()
 
         ranker = make_dossier_pivot_ranker(pre_dossier)
-        bus = _permissive_bus()
+        harness = _permissive_run()
         fired = []
-        _register_recording_callback(bus, "email-addr", fired)
-        _register_recording_callback(bus, "ipv4-addr", fired)
+        _register_recording_callback(harness, "email-addr", fired)
+        _register_recording_callback(harness, "ipv4-addr", fired)
 
         results = [
             _sco("ipv4-addr", "first"),
             _sco("email-addr", "second"),
         ]
-        asyncio.run(bus.process_results(results, "test/source", ranker=ranker))
+        _process(harness, results, ranker=ranker)
         # All DEFERRED → all scores 0.0 → input order preserved
         assert fired[0] == "first"
         assert fired[1] == "second"

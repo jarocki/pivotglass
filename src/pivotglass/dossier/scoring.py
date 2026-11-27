@@ -78,6 +78,16 @@ _SLOT_DISPLAY_NAMES: dict[DossierSlotName, str] = {
     DossierSlotName.TIMING: "Timing",
 }
 
+
+
+def slot_display_name(name: str) -> str:
+    """Display name for a dossier slot id (e.g. 'ttps' -> 'TTPs'); unknown ids are returned spaced."""
+    try:
+        return _SLOT_DISPLAY_NAMES[DossierSlotName(name)]
+    except ValueError:
+        return name.replace("_", " ")
+
+
 # ---------------------------------------------------------------------------
 # Transition detection helpers
 # ---------------------------------------------------------------------------

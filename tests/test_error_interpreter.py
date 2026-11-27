@@ -42,7 +42,7 @@ from pivotglass.core.error_interpreter import (
     render_interactive,
     render_summary_line,
 )
-from pivotglass.core.module_credentials import ServiceDisabledError
+from pivotglass.core.module_config import ServiceDisabledError
 
 # ---------------------------------------------------------------------------
 # Helpers

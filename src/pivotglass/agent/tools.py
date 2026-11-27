@@ -68,31 +68,18 @@ execution, result formatting, and workspace storage.
 
 @decision DEC-AGENT-AUTOPIVOT-001
 @title EventBus auto-pivot integrated into ToolContext; opt-in via autopivot_enabled flag
-@status accepted
-@rationale The cmd2 console (PivotglassConsole) has no autopivot integration yet — this is the
-           first wiring of EventBus.process_results into an execution path. The agent
-           tool path is the right place because:
-           (1) Opt-in by default (DEC-EVENTBUS-002): autopivot_enabled=False on
-               ToolContext. Analysts enable it explicitly via 'autopivot on' in the
-               chat meta-command, mirroring the cmd2 pattern where it is a toggle.
-           (2) EventBus.process_results is the canonical cascade workhorse. After
-               run_module() produces STIX results, process_results() publishes each
-               STIX indicator as a PivotEvent which triggers all subscribed module
-               callbacks for that STIX type. Cascaded results are collected and
-               merged into the tool response summary so the LLM and user both see
-               what fired secondarily.
-           (3) Depth limit deferred to PivotConfig.max_depth (default=2, DEC-EVENTBUS-001).
-               Module whitelist deferred to PivotConfig.module_whitelist. Both are
-               respected transparently by EventBus.publish() — the tool layer does not
-               duplicate that logic.
-           (4) Async bridge: run_module() uses asyncio.run() for each async call
-               sequentially (not nested). After asyncio.run(mod.hunt()) returns, a
-               second asyncio.run(event_bus.process_results()) starts a fresh event
-               loop — valid in Python 3.12+ when calls are sequential.
-           (5) Module subscriptions: DEFAULT_SUBSCRIPTIONS maps module_path → stix_types.
-               Each entry is registered via event_bus.register_module_subscriptions()
-               with a per-module callback that initialises and runs that module's
-               hunt() for the pivoted indicator value.
+@status superseded by DEC-PIVOT-AUTOPIVOT-001
+@rationale Original: the first wiring of an automatic pivot into an execution path.
+           After run_module() produced results, EventBus.process_results() published
+           each indicator to subscribed module callbacks (registered from
+           DEFAULT_SUBSCRIPTIONS, each calling that module's hunt() directly) and the
+           cascaded results were merged into the tool summary. The opt-in flag
+           (autopivot_enabled=False, DEC-EVENTBUS-002) and the async bridge
+           (sequential asyncio.run calls) were the load-bearing choices.
+           v1.5.0: the flag remains; what it starts is a depth-1 PivotRun seeded with
+           the results (``modules/pivoting/autopivot.py``), whose snapshot is returned
+           under ``autopivot`` and summarised for the model. The event bus,
+           its callbacks and ``cascade_results``/``cascade_count`` were removed.
 
 @decision DEC-AGENT-CHALLENGES-001
 @title ChallengeManager wired into ToolContext; list_challenges + check_challenges LLM tools
@@ -130,12 +117,13 @@ execution, result formatting, and workspace storage.
            _build_workspace_data(). This is the identical strategy, not a new mechanism.
 
 @decision DEC-M8-CLEANUP-002
-@title generate_dossier_report is the sole report LLM tool; classic interview tools removed
-@status accepted
+@title One report LLM tool; classic interview tools removed
+@status accepted (amended v1.5.0, #50)
 @rationale DEC-68-DOSSIER-REFRAME-008 one-release deprecation runway expired at M-8.
-           start_report_interview, answer_report_question, and generate_report (classic
-           interview path) are deleted. generate_dossier_report becomes parameterless.
-           Tool count drops from 31 to 28. No interview state on ToolContext.
+           start_report_interview, answer_report_question, and the classic interview
+           generate_report were deleted. In v1.5.0 the dossier-only
+           generate_dossier_report became preview_report(report_type?), a read-only
+           preview through reports/commands.py; issuing stays an analyst command.
 """
 
 from __future__ import annotations
@@ -143,30 +131,25 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import threading
 from typing import Any
 
 from rich.console import Console  # DEC-ERROR-ROUTING-004: ToolContext.console injection
 
 from pivotglass.core.config import ConfigManager
-from pivotglass.core.dossier_pivot import make_dossier_pivot_ranker  # M-6 DEC-M6-PIVOT-001
 from pivotglass.core.error_interpreter import (  # DEC-ERROR-ROUTING-001..007
     interpret,
     render_interactive,
     render_summary_line,
 )
-from pivotglass.core.event_bus import (
-    DEFAULT_SUBSCRIPTIONS,
-    EventBus,
-    PivotConfig,
-)
 from pivotglass.core.graph import RelationshipGraph
-from pivotglass.core.module_credentials import (
+from pivotglass.core.module_config import (
     CREDENTIAL_BUILDERS as _CREDENTIAL_BUILDERS,  # noqa: F401 — re-exported for tests
 )
-from pivotglass.core.module_credentials import (
+from pivotglass.core.module_config import (
     SERVICE_NAMES as _SERVICE_NAMES,  # noqa: F401 — re-exported for tests
 )
-from pivotglass.core.module_credentials import (
+from pivotglass.core.module_config import (
     resolve_module_credentials as _resolve_module_credentials,
 )
 from pivotglass.core.plugin_mgr import PluginManager
@@ -308,28 +291,38 @@ class ToolContext:
         # in the run_module summary. Parallel to _awarded_badges for badges.
         self._announced_challenges: set[str] = set()
 
-        # EventBus for auto-pivot cascades (DEC-AGENT-AUTOPIVOT-001).
-        # Starts disabled (autopivot_enabled=False) per DEC-EVENTBUS-002.
-        # PivotConfig receives AutoPivotPolicyConfig so PivotPolicy is constructed
-        # with user-configured thresholds and budgets (DEC-60-PIVOT-POLICY-CONFIG-001).
-        self.event_bus: EventBus = EventBus(
-            config=PivotConfig(
-                enabled=False,
-                policy=self.config.general.auto_pivot_policy,
-            )
-        )
+        # Autopivot: after an enrichment, a depth-1 pivot run over its results
+        # (DEC-PIVOT-AUTOPIVOT-001). Off until the analyst turns it on.
         self.autopivot_enabled: bool = False
+        # Autopivot requests spent this session, capped by auto_pivot_policy.max_per_session.
+        self.autopivot_requests_used: int = 0
+        # Serializes run_module across threads (see run_module).
+        self.execution_lock = threading.RLock()
+        # One bounded multi-hop pivot run per workspace (DEC-PIVOT-RUN-001).
+        from pivotglass.modules.pivoting.run import PivotRunRegistry
 
-        # Register module subscriptions from DEFAULT_SUBSCRIPTIONS so the event
-        # bus knows which modules to cascade-trigger for each STIX type.
-        # Each subscription registers a per-module callback that will initialise
-        # and hunt() on the pivoted indicator value (see _make_cascade_callback).
-        for module_path, stix_types in DEFAULT_SUBSCRIPTIONS.items():
-            callback = self._make_cascade_callback(module_path)
-            self.event_bus.register_module_subscriptions(module_path, stix_types, callback)
+        self.pivot_runs: PivotRunRegistry = PivotRunRegistry()
 
-    def run_module(  # noqa: PLR0912
-        self, module_path: str, target: str, options: dict | None = None
+    def run_module(
+        self, module_path: str, target: str, options: dict | None = None, *, autopivot: bool = True
+    ) -> dict:
+        """Run one module through the evidence path, one caller at a time.
+
+        ``autopivot=False`` suppresses autopivot for this call regardless of the
+        ``autopivot`` toggle. Every pivot run's executor passes it
+        (``modules/pivoting/context.py``, DEC-PIVOT-RUN-001), so a run is the only
+        thing choosing its next hop and never starts a second run beneath itself.
+
+        Calls are serialized by ``execution_lock`` because a pivot run executes
+        on a background thread while the cockpit, the cyberdeck or the model may
+        call tools on the same context; the workspace scoring, dossier and
+        challenge updates below are read-modify-write sequences.
+        """
+        with self.execution_lock:
+            return self._run_module_unlocked(module_path, target, options, autopivot=autopivot)
+
+    def _run_module_unlocked(  # noqa: PLR0912
+        self, module_path: str, target: str, options: dict | None = None, *, autopivot: bool = True
     ) -> dict:
         """Run a module and return formatted results with scoring.
 
@@ -337,11 +330,10 @@ class ToolContext:
         the workspace, applies scoring, computes the celebration artifact, and
         returns a summary dict.
 
-        The ``dry_run`` key in ``options`` (default ``False``) is threaded to
-        ``EventBus.process_results`` so that policy gates are evaluated without
-        invoking any cascade callbacks (DEC-60-PIVOT-POLICY-005).  In dry-run
-        mode ``cascade_results`` and ``cascade_count`` are ``[]``/``0``;
-        ``decision_log`` carries the full gate verdicts.
+        The ``dry_run`` key in ``options`` (default ``False``) plans the autopivot
+        instead of running it: a plan-only pivot run evaluates every gate and
+        executes nothing (DEC-PIVOT-AUTOPIVOT-001); ``decision_log`` carries its
+        verdicts. ``dry_run`` plans even when autopivot is off.
 
         @decision DEC-AGENT-CELEBRATIONS-001
         @title CelebrationEngine wired into run_module return value
@@ -404,7 +396,7 @@ class ToolContext:
         options:
             Optional options dict passed to hunt(). Defaults to {}.
             Special key: ``dry_run`` (bool, default False) — when True,
-            evaluate pivot policy gates but do NOT invoke cascade callbacks.
+            plan the autopivot (gates evaluated, nothing executed).
 
         Returns
         -------
@@ -417,8 +409,10 @@ class ToolContext:
                 when no points were awarded (silent path).
             badges (list[Badge]): newly-earned Badge objects this run, or []
                 when no new badges earned (silent path).
-            decision_log (list[dict]): policy decision log entries; populated on
-                dry_run=True, empty list otherwise (DEC-60-PIVOT-POLICY-005).
+            autopivot (dict | None): the autopivot run's (or plan's) snapshot, or
+                None when none started (DEC-PIVOT-AUTOPIVOT-001).
+            decision_log (list[dict]): that snapshot's per-(indicator, module)
+                gate decisions; empty when no run started.
 
         Returns {"error": str} if the module is not found.
         """
@@ -763,49 +757,25 @@ class ToolContext:
         except Exception:  # noqa: BLE001
             pass  # first_blood display must never block tool result delivery
 
-        # Auto-pivot cascade (DEC-AGENT-AUTOPIVOT-001, DEC-60-PIVOT-POLICY-005).
-        # When autopivot is enabled (or dry_run is True) and results are non-empty,
-        # feed the STIX results into the event bus.  process_results() publishes a
-        # PivotEvent for each (type, value) pair and routes through PivotPolicy gates
-        # before invoking subscribed module callbacks.
-        # In dry_run mode, policy gates fire but no callbacks are invoked — the
-        # decision_log records each gate verdict.
-        # Cascade errors are non-fatal — hunt flow must not be blocked.
+        # Autopivot (DEC-PIVOT-AUTOPIVOT-001): with autopivot on (or a dry_run
+        # plan) and results to pivot on, a depth-1 pivot run seeded with them runs
+        # here, synchronously, ranked from this hunt's pre_dossier snapshot
+        # (DEC-M6-PIVOT-009). A failure is reported in the summary and never
+        # blocks the primary tool result.
         dry_run: bool = bool((options or {}).get("dry_run", False))
-        cascade_results: list[dict] = []
-        cascade_module_count: int = 0
-        decision_log: list[dict] = []
-        if (self.autopivot_enabled or dry_run) and results:
+        autopivot_run: dict | None = None
+        autopivot_text = ""
+        if autopivot and (self.autopivot_enabled or dry_run) and results:
+            from pivotglass.modules.pivoting.autopivot import run_autopivot
+
             try:
-                # M-6: build dossier-aware ranker when the config flag is True.
-                # Reuses the already-loaded pre_dossier snapshot from M-4 wiring
-                # above (line ~449) — no second load_dossier_state call.
-                # When flag is False, ranker=None preserves byte-identical F60 order.
-                # (DEC-M6-PIVOT-001, DEC-M6-PIVOT-008, DEC-M6-PIVOT-009)
-                if self.config.general.auto_pivot_policy.dossier_aware_ranking:
-                    _pivot_ranker = make_dossier_pivot_ranker(pre_dossier)
-                else:
-                    _pivot_ranker = None
-                cascade_results = asyncio.run(
-                    self.event_bus.process_results(
-                        results,
-                        source_module=module_path,
-                        depth=0,
-                        dry_run=dry_run,
-                        ranker=_pivot_ranker,
-                    )
+                autopivot_run, autopivot_text = run_autopivot(
+                    self, source_module=module_path, target=target, results=results,
+                    plan_only=dry_run, dossier_state=pre_dossier,
                 )
-                # In dry_run mode cascade_results is always [] — callbacks were
-                # not invoked; surface the decision log instead.
-                if dry_run:
-                    decision_log = list(self.event_bus.get_decision_log())
-                    cascade_results = []
-                    cascade_module_count = 0
-                else:
-                    # Count how many distinct subscribed callbacks fired
-                    cascade_module_count = self.event_bus.subscriber_count
-            except Exception:  # noqa: BLE001
-                pass  # cascade errors must never block primary tool result
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("autopivot failed", exc_info=True)
+                autopivot_text = f"Autopivot failed: {type(exc).__name__}: {exc}"
 
         # Auto-check challenges after scoring and badges (DEC-AGENT-CHALLENGES-001).
         # Mirrors PivotglassConsole._check_challenges_after_run(): build workspace_data from
@@ -901,12 +871,9 @@ class ToolContext:
         #            gamification display in chat.py. The LLM narrates discovery findings only.
         #            M-3 extends this: dossier_slot_filled action text is also excluded
         #            (DEC-M3-DOSSIER-002 / DEC-64-LLM-PANEL-SEPARATION-001).
-        # Surface cascade discoveries so the LLM and user see what fired secondarily.
-        if cascade_results:
-            summary_lines.append(
-                f"\nAuto-pivoted: {len(cascade_results)} additional discoveries "
-                f"from {cascade_module_count} cascaded module subscriptions."
-            )
+        # Surface the autopivot so the LLM and user see what was queried next.
+        if autopivot_text:
+            summary_lines.append("\n" + autopivot_text)
 
         return {
             "results": results,
@@ -916,63 +883,20 @@ class ToolContext:
             "celebration": celebration,
             "badges": newly_earned_badges,
             "challenges": newly_completed_challenges,
-            "cascade_results": cascade_results,
-            "cascade_count": len(cascade_results),
-            "decision_log": decision_log,
+            "autopivot": autopivot_run,
+            "decision_log": list(autopivot_run["decisions"]) if autopivot_run else [],
         }
 
-    def _make_cascade_callback(self, module_path: str):
-        """Return an async callback that runs module_path.hunt() for a pivot event.
-
-        The returned coroutine is registered with EventBus.subscribe() so that when
-        a PivotEvent fires for a matching STIX type, the module is initialised and
-        its hunt() is called against the event's indicator value.
-
-        The callback is a closure over module_path and self so it captures the
-        ToolContext's plugin_mgr and config_mgr without holding stale references.
-        Module initialisation re-reads credentials fresh on each cascade call.
-
-        Parameters
-        ----------
-        module_path:
-            Canonical path of the module to run on cascade, e.g. "osint/abuseipdb".
-
-        Returns
-        -------
-        Callable[[PivotEvent], Coroutine[Any, Any, list[dict]]]
-            Async callback suitable for EventBus.subscribe().
-        """
-        from pivotglass.core.event_bus import (
-            PivotEvent,
-        )  # local import avoids circularity
-
-        async def _callback(event: PivotEvent) -> list[dict]:
-            mod = self.plugin_mgr.get_module(module_path)
-            if mod is None:
-                return []
-            # Build credentials via the shared resolver — identical to run_module().
-            # (DEC-AGENT-SERVICE-NAME-MAP-001, DEC-AGENT-TOOLS-003)
-            init_config = _resolve_module_credentials(module_path, self.config_mgr)
-            # Gateway/proxy base-URL override for this module's service (DEC-ENDPOINTS-001).
-            init_config = {**init_config, **endpoint_init_config(self.config_mgr, getattr(mod, "service_id", ""))}
-            mod.initialize(init_config)
-            try:
-                return await mod.hunt(event.value, {})
-            except Exception:  # noqa: BLE001
-                return []
-
-        return _callback
-
     def set_autopivot(self, enabled: bool) -> None:
-        """Toggle EventBus auto-pivot and keep PivotConfig.enabled in sync.
+        """Turn autopivot on or off (DEC-PIVOT-AUTOPIVOT-001).
 
         Parameters
         ----------
         enabled:
-            True to enable auto-pivot cascades, False to disable.
+            True to start a depth-1 pivot run after each enrichment that returns
+            results, False to stop doing so.
         """
         self.autopivot_enabled = enabled
-        self.event_bus.config.enabled = enabled
 
 
 def create_tools(ctx: ToolContext) -> list[dict]:
@@ -1461,6 +1385,42 @@ def create_tools(ctx: ToolContext) -> list[dict]:
         {
             "type": "function",
             "function": {
+                "name": "dns_lookup",
+                "description": (
+                    "Live DNS records for a domain via DNS-over-HTTPS (no API key; the operator host "
+                    "never resolves): A, AAAA, NS, MX, TXT, CNAME and the response status (NXDOMAIN is "
+                    "a valid answer). A snapshot from one resolver at query time, not DNS history."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "domain": {"type": "string", "description": "Domain name"},
+                    },
+                    "required": ["domain"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "ip_asn_lookup",
+                "description": (
+                    "Autonomous system number, AS organisation, and network prefix for an IP from the "
+                    "local DB-IP Lite database (offline; requires the geolocation data to be installed). "
+                    "Names a network operator, not an actor."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "ip_address": {"type": "string", "description": "IPv4 or IPv6 address"},
+                    },
+                    "required": ["ip_address"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "wayback_lookup",
                 "description": (
                     "Wayback Machine capture history for a domain or URL (no API key): first and "
@@ -1496,6 +1456,70 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                         },
                     },
                     "required": ["hash_value"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "kev_lookup",
+                "description": (
+                    "Check a CVE against the CISA Known Exploited Vulnerabilities catalog (no API key). "
+                    "Always answers: listed (date added, due date, ransomware use, vendor, product, required action) "
+                    "or not listed in the named catalog version. Listing means exploitation has been "
+                    "observed in the wild; it does not mean any host in the case is affected."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cve": {
+                            "type": "string",
+                            "description": "CVE identifier, e.g. CVE-2021-44228",
+                        },
+                    },
+                    "required": ["cve"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "epss_lookup",
+                "description": (
+                    "FIRST EPSS exploit-prediction score for a CVE (no API key): probability of exploitation "
+                    "activity in the next 30 days, its percentile, and the model date. A prediction, "
+                    "not an observation. Returns nothing when FIRST has no score."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cve": {
+                            "type": "string",
+                            "description": "CVE identifier, e.g. CVE-2021-44228",
+                        },
+                    },
+                    "required": ["cve"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "nvd_cve_lookup",
+                "description": (
+                    "NVD record for a CVE (no API key; limited to 5 requests per 30 seconds): English "
+                    "description, CVSS vectors and scores per source, CWEs, affected product versions, and "
+                    "references. Returns nothing for an unknown CVE."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cve": {
+                            "type": "string",
+                            "description": "CVE identifier, e.g. CVE-2021-44228",
+                        },
+                    },
+                    "required": ["cve"],
                 },
             },
         },
@@ -1897,27 +1921,28 @@ def create_tools(ctx: ToolContext) -> list[dict]:
                 },
             },
         },
-        # -----------------------------------------------------------------------
-        # M-8: dossier report tool — DEC-M8-CLEANUP-002 (parameterless)
-        # generate_dossier_report: sole report renderer; classic path removed.
-        # Tool count: 31 -> 28 (removed start_report_interview, answer_report_question,
-        # generate_report). DEC-68-DOSSIER-REFRAME-008 deprecation runway closed.
-        # -----------------------------------------------------------------------
+        # Report preview tool (#50, DEC-REPORT-TYPES-001). Read-only: issuing a
+        # report is an analyst act through the `report issue` command, never a
+        # model tool call.
         {
             "type": "function",
             "function": {
-                "name": "generate_dossier_report",
+                "name": "preview_report",
                 "description": (
-                    "Generate the dossier-style investigation report as Markdown. "
-                    "Renders the current threat actor dossier state (9 slots), "
-                    "the predictions log (pending / validated / falsified), the "
-                    "analyst notes, and the workspace STIX summary. "
-                    "Returns the complete Markdown report as a string. "
-                    "No interview required — the dossier state is the source of truth."
+                    "Preview a report of the given type as Markdown, built from the workspace's "
+                    "evidence, analytic ledger and dossier. Each section states its provenance "
+                    "(evidence, method, analyst, model draft, organisation input) and the report "
+                    "ends with its gaps and sources. Defaults to the investigation report. "
+                    "Read-only: it never issues or records the report."
                 ),
                 "parameters": {
                     "type": "object",
-                    "properties": {},
+                    "properties": {
+                        "report_type": {
+                            "type": "string",
+                            "description": "Report type id, as listed by `report types`.",
+                        },
+                    },
                     "required": [],
                 },
             },
@@ -1999,7 +2024,7 @@ def create_tools(ctx: ToolContext) -> list[dict]:
 
 # ---------------------------------------------------------------------------
 # Service-name map, credential builders, and resolver are now imported
-# from pivotglass.core.module_credentials (DEC-MODULE-CREDS-SHARED-001).
+# from pivotglass.core.module_config (DEC-MODULE-CREDS-SHARED-001).
 # The underscore-prefixed aliases above keep internal call sites unchanged.
 # ---------------------------------------------------------------------------
 
@@ -2100,6 +2125,14 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
         "osint/rdap",
         lambda a: (a["target"], {}),
     ),
+    "dns_lookup": (
+        "osint/dns_doh",
+        lambda a: (a["domain"], {}),
+    ),
+    "ip_asn_lookup": (
+        "osint/ip_asn",
+        lambda a: (a["ip_address"], {}),
+    ),
     "wayback_lookup": (
         "osint/wayback",
         lambda a: (a["target"], {}),
@@ -2107,6 +2140,19 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
     "hashlookup_lookup": (
         "cti/hashlookup",
         lambda a: (a["hash_value"], {}),
+    ),
+    # Keyless vulnerability sources (#58)
+    "kev_lookup": (
+        "cti/cisa_kev",
+        lambda a: (a["cve"], {}),
+    ),
+    "epss_lookup": (
+        "cti/first_epss",
+        lambda a: (a["cve"], {}),
+    ),
+    "nvd_cve_lookup": (
+        "cti/nvd_cve",
+        lambda a: (a["cve"], {}),
     ),
 }
 
@@ -2253,8 +2299,8 @@ def execute_tool(
         )
 
     # M-8: dossier report tool — DEC-M8-CLEANUP-002 (parameterless post-M-8)
-    if tool_name == "generate_dossier_report":
-        return _execute_generate_dossier_report(ctx), None, [], []
+    if tool_name == "preview_report":
+        return _execute_preview_report(ctx, arguments.get("report_type")), None, [], []
 
     # M-9: export_dossier + compare_dossier (DEC-M9-TOOL-EXPORT-001 / DEC-M9-TOOL-COMPARE-001)
     if tool_name == "export_dossier":
@@ -2719,34 +2765,31 @@ def _execute_export_workspace(ctx: ToolContext, fmt: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Dossier report helper — DEC-M8-CLEANUP-002 (sole report renderer post-M-8)
+# Report preview helper (#50)
 # ---------------------------------------------------------------------------
 
 
-def _execute_generate_dossier_report(ctx: ToolContext) -> str:
-    """Generate the dossier-style investigation report as Markdown.
+def _execute_preview_report(ctx: ToolContext, report_type: str | None = None) -> str:
+    """Preview one report type as Markdown through the shared report command authority."""
 
-    M-8: parameterless — classic interview path removed (DEC-68-DOSSIER-REFRAME-008,
-    DEC-M8-CLEANUP-002). Calls core.dossier_report.generate_dossier_report()
-    directly. No interview or style argument needed.
+    # Read-only by construction: the argument must be a report-type id, and the
+    # build path cannot issue or write. The shared `report` command (which can
+    # issue reports and record analyst text) is deliberately not reachable from
+    # a model tool call.
+    from pivotglass.reports.engine import build_report
+    from pivotglass.reports.registry import DEFAULT_TYPE, get_report_type
+    from pivotglass.reports.render import render_markdown
 
-    Parameters
-    ----------
-    ctx:
-        The shared ToolContext providing workspace access.
-
-    Returns
-    -------
-    str
-        Complete Markdown dossier report, or an error message.
-    """
     try:
-        from pivotglass.core.dossier_report import generate_dossier_report
+        from pivotglass.reports.org import OrgInputs
 
-        return generate_dossier_report(ctx.workspace_mgr)
+        type_id = get_report_type((report_type or DEFAULT_TYPE).strip()).id
+        # Organisation input reaches the model only when the analyst allowed it (DEC-ORG-INPUT-001).
+        withhold = not OrgInputs(ctx.workspace_mgr).sharing_allowed()
+        return render_markdown(build_report(ctx.workspace_mgr, type_id), withhold_org_input=withhold)
     except Exception as e:
-        logger.exception("generate_dossier_report failed")
-        return f"Error generating dossier report: {e}"
+        logger.exception("preview_report failed")
+        return f"Error generating report: {e}"
 
 
 def _execute_get_dossier_state(ctx: ToolContext) -> str:

@@ -39,6 +39,7 @@ async def keyless_get(
     params: dict[str, Any] | None = None,
     timeout: float = DEFAULT_TIMEOUT,
     follow_redirects: bool = False,
+    accept: str = "application/json",
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> httpx.Response:
     """GET *url* for keyless *source*; raise on 429 and network failure.
@@ -50,7 +51,7 @@ async def keyless_get(
             transport=transport,
             timeout=timeout,
             follow_redirects=follow_redirects,
-            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+            headers={"User-Agent": USER_AGENT, "Accept": accept},
         ) as client:
             response = await client.get(url, params=params)
     except httpx.TimeoutException as exc:

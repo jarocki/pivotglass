@@ -92,6 +92,35 @@ entities. They are workflow provenance, not observed threat relationships, and
 do not alter any evidence record. The backup is named
 `NAME.db.pre-v11-backup` when this is the first step required.
 
+The v12-to-v13 upgrade adds the append-only `indicator_tag_events` table for
+analyst indicator tags. Tags are analyst annotations, not evidence. The backup
+is named `NAME.db.pre-v12-backup` when this is the first step required.
+
+The v13-to-v14 upgrade adds two columns to `analytic_investigations`:
+`requirement_category` and `intelligence_level`, the PIR category and tier.
+Existing investigations get `unspecified` for both, and no evidence or
+lifecycle record changes. Choosing a category later seeds that category's stop
+conditions. The backup is named `NAME.db.pre-v13-backup` when this is the
+first step required.
+
+The v14-to-v15 upgrade adds the append-only `report_issues` table. Each row is
+one issued version of a report: its ID, version, status, marking, element
+statuses, the complete JSON rendering and its SHA-256 hash. No evidence or
+lifecycle record changes. Issued reports are exported with the workspace and
+kept by `workspace clear`. Merged workspaces keep each report's original ID, so
+two source workspaces can carry the same ID; the content hash tells them apart.
+The backup is named `NAME.db.pre-v14-backup` when this is the first step
+required.
+
+The v15-to-v16 upgrade adds the append-only `organisation_inputs` table:
+analyst-imported organisation profile, control inventory, environment model,
+telemetry, and the per-workspace setting that allows a model to see them. The
+current value of each kind is its newest row. No evidence or lifecycle record
+changes. Organisation input is exported with the workspace and kept by
+`workspace clear`; `workspace merge` does not copy it, so another
+workspace never inherits an organisation's data or its model-sharing consent. The backup is named `NAME.db.pre-v15-backup` when this is
+the first step required.
+
 ## Recovery
 
 If migration fails, Pivotglass leaves the prior active workspace selected and
@@ -125,7 +154,8 @@ workspace and exported its investigation record.
 - Corrections, retractions, and supersessions are append-only disposition
   events. They do not edit the original observation.
 - Clearing a workspace removes investigation content but retains the schema
-  receipt and external-publication audit receipts. The latter prevent a
+  receipt, external-publication audit receipts, issued reports, and
+  organisation input. The latter prevent a
   cleared or restarted workspace from silently repeating remote side effects.
 - Clear and delete do not remove sibling `*.pre-vN-backup` files or generated
   `<workspace>-report.md` files. Those are separate recovery/publication

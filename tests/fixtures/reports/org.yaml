@@ -1,0 +1,30 @@
+# Illustrative organisation input for report tests. Names are reserved (RFC 2606).
+profile:
+  name: Example Health
+  industry: [healthcare]
+  regions: [Western Europe]
+  technology:
+    - {vendor: Example, product: Gateway, version: "9.1.0", where: VPN edge}
+    - {vendor: Example, product: Portal, version: "2.0", where: patient portal}
+  crown_jewels:
+    - {name: ERP database, data: [finance, PHI], impact: critical}
+  vendors:
+    - {name: Example Billing, service: billing SaaS, criticality: high}
+  external_assets: [portal.example.org, 198.51.100.0/28]
+  capability_benchmark: {access: 3, malware: 3, evasion: 2, movement: 3, infrastructure: 3}
+controls:
+  - {technique: T1071.001, control: Web proxy, visibility: 2, alerting: 1, prevention: 0, last_tested: 2026-10-01, evidence: purple-team run 12}
+  - {technique: T1190, control: WAF, visibility: 1, alerting: 0, prevention: 0}
+environment:
+  nodes:
+    - {id: vpn, label: VPN appliance, kind: entry}
+    - {id: phish, label: Phished contractor account, kind: entry}
+    - {id: jump, label: Jump host, kind: asset}
+    - {id: dc, label: Domain controller, kind: asset}
+    - {id: erp, label: ERP database, kind: objective, gate: AND}
+  edges:
+    - {source: vpn, target: jump, technique: T1190, precondition: unpatched gateway, status: observed}
+    - {source: phish, target: jump, technique: T1078, precondition: no MFA on contractor accounts}
+    - {source: jump, target: dc, technique: T1558.003, precondition: kerberoastable service account}
+    - {source: dc, target: erp, technique: T1078.002, precondition: domain admin}
+    - {source: jump, target: erp, technique: T1021.001, precondition: RDP allowed to database tier}

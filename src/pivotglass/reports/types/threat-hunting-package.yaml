@@ -1,0 +1,37 @@
+# Type 16. Rewritten from 05_Detection_Hunting_and_Posture/16_Threat_Hunting_Package.md.
+# Changes: the hypothesis states what would refute it; data sources are ATT&CK
+# data components; queries are generated and marked untested until tested;
+# a hunt outcome section records what the hunt found, which the template
+# lacked.
+id: threat-hunting-package
+number: 16
+code: THP
+title: Threat Hunting Package
+domain: detection
+tier: operational
+audience: [Threat hunters, SOC analysts]
+purpose: >-
+  Everything a hunter needs to test one hypothesis: the behaviour, the data,
+  the queries, what normal looks like, how to triage hits and, afterwards,
+  what the hunt found.
+use_when: >-
+  A technique or actor of concern may be present but undetected. Issue it as
+  DRAFT before the hunt and reissue it with the outcome.
+related: [detection-signature-bundle, attack-navigator-layer, threat-activity-alert]
+default_marking: {tlp: AMBER, pap: GREEN}
+validity_days: 90
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - {id: hunt_hypothesis}
+  - {id: threat_context}
+  - {id: hunt_data_sources}
+  - {id: hunt_queries}
+  - {id: baseline_false_positives}
+  - {id: triage_playbook}
+  - id: hunt_outcome
+    required: false
+    guidance: Required in the reissue after the hunt; absent in the pre-hunt draft.
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json]

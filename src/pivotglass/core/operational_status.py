@@ -18,14 +18,21 @@ SERVICE_TOOL_NAMES: dict[str, tuple[str, ...]] = {
     "urlscan": ("scan_url", "search_urlscan_history"),
     "censys_pat": ("censys_host_lookup",),
     "greynoise": ("greynoise_lookup",),
+    "threatfox": ("threatfox_lookup",),
+    "urlhaus": ("urlhaus_lookup",),
+    "malwarebazaar": ("malwarebazaar_lookup",),
     "crtsh": ("crtsh_lookup",),
     "whois": ("whois_lookup",),
     "mnemonic_pdns": ("mnemonic_pdns_lookup",),
     "shodan_internetdb": ("internetdb_lookup",),
     "sans_isc": ("sans_isc_lookup",),
     "rdap": ("rdap_lookup",),
+    "dns_doh": ("dns_lookup",),
     "wayback": ("wayback_lookup",),
     "hashlookup": ("hashlookup_lookup",),
+    "cisa_kev": ("kev_lookup",),
+    "first_epss": ("epss_lookup",),
+    "nvd_cve": ("nvd_cve_lookup",),
 }
 
 

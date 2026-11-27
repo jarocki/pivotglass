@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   canSetAside, filterIndicators, groupIndicators, groupMentions, indexTags, indicatorKey,
-  locateInSegments, occurrenceOrdinal, parseTagInput, type FocusCandidate, type TagDimension,
+  locateInSegments, occurrenceOrdinal, parseTagInput, sortIndicators, type FocusCandidate, type IndicatorContext, type TagDimension,
 } from "../app/focus-model.ts";
 
 const c = (value: string, start: number, type = "domain-name"): FocusCandidate => ({
@@ -116,4 +116,51 @@ test("only uncontested known-good or scanner matches can be set aside, once", ()
   assert.equal(canSetAside({ ...base, known: [resolver, { ...resolver, category: "contested", set_aside: false }] }), false);
   assert.equal(canSetAside({ ...base, known: [resolver], tags: [{ entity_type: "ipv4-addr", normalized_value: "8.8.8.8", dimension: "role", value: "benign" }] }), false);
   assert.equal(canSetAside(undefined), false);
+});
+
+test("is:new and is:known filter on workspace state; sorts keep source order on ties (#29)", () => {
+  const items = groupMentions([c("b.example", 0), c("a.example", 20), c("c.example", 40)]);
+  const ctx = (entity: boolean, first_seen: string | null): IndicatorContext => ({
+    entity: entity ? { id: "x", type: "domain-name" } : null, relationships: [], observed_by: [], documents: [],
+    tags: [], investigated_at: null, first_seen,
+  });
+  const context: Record<string, IndicatorContext> = {
+    [items[0].key]: ctx(true, "2026-11-20T00:00:00Z"),
+    [items[1].key]: ctx(false, null),
+    [items[2].key]: ctx(true, "2026-11-01T00:00:00Z"),
+  };
+  const known = (key: string) => Boolean(context[key]?.entity);
+  const tags = indexTags([]);
+  assert.deepEqual(filterIndicators(items, "is:new", tags, known).map((i) => i.value), ["a.example"]);
+  assert.deepEqual(filterIndicators(items, "is:known", tags, known).map((i) => i.value), ["b.example", "c.example"]);
+  assert.deepEqual(sortIndicators(items, "source", context).map((i) => i.value), ["b.example", "a.example", "c.example"]);
+  assert.deepEqual(sortIndicators(items, "new-first", context).map((i) => i.value), ["a.example", "b.example", "c.example"]);
+  assert.deepEqual(sortIndicators(items, "first-seen", context).map((i) => i.value), ["c.example", "b.example", "a.example"]);
+  assert.deepEqual(sortIndicators(items, "value", context).map((i) => i.value), ["a.example", "b.example", "c.example"]);
+});
+
+test("a bare technique ID parses as a tactic-dimension tag (#31)", () => {
+  const dims: TagDimension[] = [{ name: "tactic", label: "ATT&CK tactic", key: "a", closed: true, ordered: true, values: [{ value: "impact", label: "TA0040 Impact" }] }];
+  assert.deepEqual(parseTagInput("T1071.001", dims), { dimension: "tactic", value: "t1071.001" });
+  assert.deepEqual(parseTagInput("t1003", dims), { dimension: "tactic", value: "t1003" });
+  assert.equal(parseTagInput("t10", dims), null);
+});
+
+test("the indicator table groups by cluster or role; untagged rows come last (#32)", async () => {
+  const { groupIndicatorRows } = await import("../app/indicator-table-model.ts");
+  const indicators = [
+    { reference: "r1", stix_id: "a", type: "domain-name", value: "a.example" },
+    { reference: "r2", stix_id: "b", type: "domain-name", value: "b.example" },
+    { reference: "r3", stix_id: "c", type: "ipv4-addr", value: "192.0.2.1" },
+  ];
+  const tags = [
+    { entity_type: "domain-name", normalized_value: "a.example", dimension: "cluster", value: "kit a" },
+    { entity_type: "domain-name", normalized_value: "a.example", dimension: "role", value: "c2" },
+    { entity_type: "ipv4-addr", normalized_value: "192.0.2.1", dimension: "cluster", value: "kit a" },
+    { entity_type: "ipv4-addr", normalized_value: "b.example", dimension: "role", value: "c2" }, // wrong type: ignored
+  ];
+  const byCluster = groupIndicatorRows(indicators, tags, "cluster");
+  assert.deepEqual(byCluster.map((g) => [g.label, g.items.map((i) => i.value)]), [["kit a", ["a.example", "192.0.2.1"]], ["No cluster", ["b.example"]]]);
+  const byRole = groupIndicatorRows(indicators, tags, "role");
+  assert.deepEqual(byRole.map((g) => g.label), ["c2", "No role"]);
 });

@@ -1,0 +1,32 @@
+# Type 11. Rewritten from 11_Infrastructure_Clustering_Graph.json.
+# Changes: values are never defanged inside the JSON; every edge has time
+# bounds, its evidence and a confidence; clusters have stated boundaries and
+# the method that drew them; the pivot points that join clusters are ranked.
+id: infrastructure-clustering-graph
+number: 11
+code: ICG
+title: Infrastructure Clustering Graph
+domain: analytical
+tier: operational
+audience: [CTI analysts, Threat hunters]
+purpose: >-
+  Show how domains, addresses, certificates and files connect, which clusters
+  they form, and which shared attributes are worth pivoting on next.
+use_when: >-
+  Mapping an actor's or campaign's infrastructure, or deciding where to pivot
+  next. Built from the investigation graph Pivotglass already maintains.
+related: [threat-actor-profile, diamond-model-analysis, campaign-intrusion-analysis]
+default_marking: {tlp: AMBER, pap: AMBER}
+validity_days: 30
+elements:
+  - {id: header}
+  - {id: pir_verdict}
+  - {id: infra_graph}
+  - {id: pivot_points}
+  - id: infra_opsec
+    required: false
+  - id: ioc_table
+    required: false
+  - {id: gaps_limitations}
+  - {id: sources}
+formats: [markdown, json, stix, mermaid]

@@ -8,6 +8,7 @@ TOP_LEVEL_COMMANDS: tuple[str, ...] = (
     "workspace",
     "mode",
     "hint",
+    "pivot",
     "autopivot",
     "challenges",
     "badges",
@@ -19,6 +20,8 @@ TOP_LEVEL_COMMANDS: tuple[str, ...] = (
     "note",
     "export",
     "report",
+    "org",
+    "cluster",
     "analysis",
     "framework",
     "integration",
@@ -55,8 +58,13 @@ MODULE_NAMES: tuple[str, ...] = (
     "shodan_internetdb",
     "sans_isc",
     "rdap",
+    "dns_doh",
+    "ip_asn",
     "wayback",
     "hashlookup",
+    "cisa_kev",
+    "first_epss",
+    "nvd_cve",
 )
 
 
@@ -114,7 +122,13 @@ def command_completions(
     elif command == "theme":
         choices = ["light", "dark", "high"]
     elif command == "report":
-        choices = ["answer", "generate"]
+        from pivotglass.reports.registry import report_types
+
+        choices = ["generate", "types", "issue ", "history", "open ", *report_types()]
+    elif command == "org":
+        choices = ["show", "import ", "telemetry ", "share-with-model "]
+    elif command == "cluster":
+        choices = ["suggest", "accept ", "reject "]
     elif command == "analysis":
         choices = [
             "show",
@@ -122,6 +136,7 @@ def command_completions(
             "methods",
             "contradictions",
             "priorities",
+            "pir ",
             "question ",
             "assertion ",
             "relation ",
@@ -248,6 +263,10 @@ def command_completions(
             "annotations",
             "annotations ",
         ]
+    elif command == "pivot":
+        from pivotglass.modules.pivoting.commands import COMPLETION_CHOICES
+
+        choices = list(COMPLETION_CHOICES)
     elif command == "autopivot":
         choices = ["on", "off"]
     elif command == "workspace":

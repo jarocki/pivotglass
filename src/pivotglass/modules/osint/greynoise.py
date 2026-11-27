@@ -55,6 +55,7 @@ from typing import Any
 
 import httpx
 
+from pivotglass.core.module_config import credential_remedy
 from pivotglass.modules.base import (
     AuthenticationError,
     BaseModule,
@@ -73,7 +74,7 @@ class GreyNoise(BaseModule):
 
     Requires an API key from https://viz.greynoise.io/account/api-key
     (Community tier: free, limited to 50 queries/day). Configure via:
-      pivotglass config set api_keys.greynoise <key>
+      pivotglass config set greynoise
     or the PIVOTGLASS_GREYNOISE_API_KEY environment variable.
 
     Returns a single STIX 2.1 ipv4-addr SCO dict with x_greynoise_*
@@ -136,8 +137,7 @@ class GreyNoise(BaseModule):
         if not api_key:
             raise AuthenticationError(
                 "GreyNoise API key not configured. "
-                "Set via 'pivotglass config set api_keys.greynoise <key>' "
-                "or PIVOTGLASS_GREYNOISE_API_KEY env var."
+                + credential_remedy("greynoise")
             )
 
         url = f"{self.base_url}/v3/community/{target}"
