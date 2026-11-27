@@ -24,6 +24,8 @@ import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Iterable
 
 from sqlalchemy import select
@@ -100,6 +102,51 @@ DIMENSIONS: tuple[TagDimension, ...] = (
 )
 _BY_NAME = {item.name: item for item in DIMENSIONS}
 _OPEN_VALUE = re.compile(r"^[a-z0-9][a-z0-9._:/ -]{0,63}$")
+# Technique-level tags live in the tactic dimension (#31), stored lower-case.
+TECHNIQUE_ID = re.compile(r"^t\d{4}(?:\.\d{3})?$")
+_TACTIC_ORDER = {value: index for index, (value, _tid, _label) in enumerate(ATTACK_TACTICS)}
+
+
+def is_technique(value: str) -> bool:
+    return bool(TECHNIQUE_ID.match(value))
+
+
+def attack_catalog() -> Any:
+    """The pinned ATT&CK content when the operator installed it, else None.
+
+    A file that fails verification counts as not installed here; the framework
+    commands report the mismatch.
+    """
+
+    from pivotglass.core.framework_commands import default_attack_catalog_path
+
+    path = default_attack_catalog_path()
+    return _load_catalog(str(path), path.stat().st_mtime) if path.is_file() else None
+
+
+@lru_cache(maxsize=2)
+def _load_catalog(path: str, _mtime: float) -> Any:
+    from pivotglass.core.framework_perspectives import AttackCatalog
+
+    try:
+        return AttackCatalog.from_path(Path(path))
+    except ValueError:
+        return None
+
+
+def technique_tactics(value: str, catalog: Any = None) -> tuple[str, ...] | None:
+    """Tactics of a technique tag in ATT&CK order; None when it cannot be resolved.
+
+    Resolution needs the pinned ATT&CK content; without it a technique tag is
+    kept but not placed on the attack path (stated, never guessed).
+    """
+
+    if catalog is None:
+        return None
+    technique = catalog.technique(value.upper())
+    if technique is None:
+        return None
+    return tuple(sorted((t for t in technique.tactics if t in _TACTIC_ORDER), key=_TACTIC_ORDER.__getitem__))
 
 
 def canonical_entity_type(entity_type: str) -> str:
@@ -111,12 +158,18 @@ def canonical_entity_type(entity_type: str) -> str:
 
 def _clean_value(dimension: TagDimension, raw: str) -> str:
     value = " ".join(raw.strip().casefold().split())
+    if dimension.name == "tactic" and is_technique(value):
+        catalog = attack_catalog()
+        if catalog is not None and catalog.technique(value.upper()) is None:
+            raise ValueError(f"{value.upper()} is not a technique in the installed ATT&CK content")
+        return value
     if dimension.closed:
         allowed = {item for item, _label in dimension.values}
         if value not in allowed:
             raise ValueError(
                 f"'{raw}' is not a {dimension.name} value; choose one of: "
                 + ", ".join(sorted(allowed))
+                + (", or a technique ID such as T1071.001" if dimension.name == "tactic" else "")
             )
         return value
     if not _OPEN_VALUE.match(value):

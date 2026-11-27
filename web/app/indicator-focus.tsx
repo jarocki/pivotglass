@@ -366,7 +366,7 @@ function IndicatorRow({ item, focused, selected, admitted, context, relations, o
       </span>
       {(context?.tags.length ?? 0) > 0 && <span className="focus-tags">{context!.tags.map((tag) =>
         <button key={`${tag.dimension}:${tag.value}`} className={`tag tag-${tag.dimension}`} title={`${tag.dimension}: ${tag.value} — click to remove`}
-          onClick={(event) => { event.stopPropagation(); onRemoveTag(tag); }}>{tag.dimension === "tactic" || tag.dimension === "status" ? tag.value : `${tag.dimension}:${tag.value}`}</button>)}</span>}
+          onClick={(event) => { event.stopPropagation(); onRemoveTag(tag); }}>{tag.dimension === "tactic" && /^t\d{4}/.test(tag.value) ? tag.value.toUpperCase() : tag.dimension === "tactic" || tag.dimension === "status" ? tag.value : `${tag.dimension}:${tag.value}`}</button>)}</span>}
     </div>
   </li>;
 }

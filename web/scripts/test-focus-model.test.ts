@@ -138,3 +138,10 @@ test("is:new and is:known filter on workspace state; sorts keep source order on 
   assert.deepEqual(sortIndicators(items, "first-seen", context).map((i) => i.value), ["c.example", "b.example", "a.example"]);
   assert.deepEqual(sortIndicators(items, "value", context).map((i) => i.value), ["a.example", "b.example", "c.example"]);
 });
+
+test("a bare technique ID parses as a tactic-dimension tag (#31)", () => {
+  const dims: TagDimension[] = [{ name: "tactic", label: "ATT&CK tactic", key: "a", closed: true, ordered: true, values: [{ value: "impact", label: "TA0040 Impact" }] }];
+  assert.deepEqual(parseTagInput("T1071.001", dims), { dimension: "tactic", value: "t1071.001" });
+  assert.deepEqual(parseTagInput("t1003", dims), { dimension: "tactic", value: "t1003" });
+  assert.equal(parseTagInput("t10", dims), null);
+});

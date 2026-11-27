@@ -64,6 +64,7 @@ const VISUALIZATION_VIEW_LABELS: Readonly<Record<VisualizationIntent["view"], st
   bar: "Bar chart",
   uncertainty_intervals: "Interval plot",
   timeline: "Chronological trail",
+  attack_lanes: "Tactic lane view",
 };
 
 function constellationStatusHelp(status: string): string {
@@ -395,6 +396,48 @@ function PivotTrail({ intent }: { intent: VisualizationIntent }) {
         </tbody>
       </table>
     </div>
+  </div>;
+}
+
+/**
+ * ATT&CK tactic lanes (#31). The lane list comes from the tag-dimension
+ * catalog (the server's single tactic authority), so empty lanes still show.
+ */
+function AttackLanes({ intent, onOpenEvidence }: { intent: VisualizationIntent; onOpenEvidence?: (reference: string, origin: HTMLElement) => void }) {
+  const [catalog, setCatalog] = useState<Array<{ value: string; label: string }>>([]);
+  useEffect(() => {
+    void fetch("/api/tags/dimensions", { cache: "no-store" }).then((response) => response.json())
+      .then((result: { dimensions?: Array<{ name: string; values: Array<{ value: string; label: string }> }> }) =>
+        setCatalog(result.dimensions?.find((item) => item.name === "tactic")?.values ?? []))
+      .catch(() => setCatalog([]));
+  }, []);
+  const lanes = catalog.length
+    ? catalog.map((item) => ({ id: item.label.split(" ")[0], label: item.label.split(" ").slice(1).join(" ") }))
+    : [...new Map(intent.data.rows.map((row) => [displayValue(row.tactic_id), displayValue(row.tactic_label)])).entries()]
+      .map(([id, label]) => ({ id, label }));
+  const byLane = new Map<string, VisualizationRow[]>();
+  for (const row of intent.data.rows) byLane.set(displayValue(row.tactic_id), [...(byLane.get(displayValue(row.tactic_id)) ?? []), row]);
+  if (!intent.data.rows.length) return <VisualizationEmpty intent={intent} />;
+  return <div className="attack-lanes" role="region" aria-label="ATT&CK tactic lanes" data-viz-fill="" tabIndex={0}>
+    {lanes.map((lane) => {
+      const items = byLane.get(lane.id) ?? [];
+      return <section key={lane.id} className={`attack-lane ${items.length ? "" : "empty"}`} aria-label={`${lane.id} ${lane.label}: ${items.length} indicators`}>
+        <header><b>{lane.label}</b><small>{lane.id} · {items.length}</small></header>
+        <ul>
+          {items.map((row) => {
+            const reference = displayValue(row.reference);
+            const inferred = displayValue(row.basis).includes("inferred");
+            const title = `${displayValue(row.label)} · ${displayValue(row.entity_type)} · placed by ${displayValue(row.basis)}${row.technique ? ` ${displayValue(row.technique)}` : ""}`;
+            return <li key={`${displayValue(row.label)}-${displayValue(row.technique)}-${displayValue(row.basis)}`} className={inferred ? "inferred" : ""}>
+              {reference && onOpenEvidence
+                ? <button type="button" title={title} onClick={(event) => onOpenEvidence(reference, event.currentTarget)}>{shortLabel(displayValue(row.label), 34)}</button>
+                : <span title={title}>{shortLabel(displayValue(row.label), 34)}</span>}
+              {row.technique ? <small>{displayValue(row.technique)}</small> : null}
+            </li>;
+          })}
+        </ul>
+      </section>;
+    })}
   </div>;
 }
 
@@ -2603,6 +2646,8 @@ export function VisualizationWorkspace({
             ? <CalendarHeatmap intent={selected} />
             : selected.view === "timeline"
               ? <PivotTrail intent={selected} />
+            : selected.view === "attack_lanes"
+              ? <AttackLanes intent={selected} onOpenEvidence={onOpenEvidence} />
             : selected.view === "task_matrix"
               ? <TaskMatrix intent={selected} onOpenEvidence={onOpenEvidence} />
               : selected.view === "dendrogram"

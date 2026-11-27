@@ -192,6 +192,8 @@ export function parseTagInput(input: string, dimensions: TagDimension[]): { dime
     const value = text.slice(colon + 1).trim();
     if (dimension && value) return { dimension: dimension.name, value };
   }
+  // A bare ATT&CK technique ID is a technique-level tactic tag (#31).
+  if (/^t\d{4}(\.\d{3})?$/.test(text) && dimensions.some((item) => item.name === "tactic")) return { dimension: "tactic", value: text };
   // Exact values win over labels across every dimension: "exfiltration" is the
   // ATT&CK tactic, even though the role "exfil" is labelled "Exfiltration".
   for (const exact of [true, false]) {

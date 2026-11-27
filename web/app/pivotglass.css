@@ -1611,3 +1611,16 @@ article.model-proposal>span{color:var(--inference, var(--accent))}
 .focus-export-menu button{text-align:left;white-space:nowrap}
 .listed-reserved{color:var(--dim);border-style:dashed}
 .focus-row-meta .first-seen,.focus-row-meta .observed{color:var(--dim)}
+/* ATT&CK tactic lanes (#31): fixed lane order, empty lanes stay visible. */
+.attack-lanes{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(92px,1fr);gap:6px;overflow-x:auto;min-height:260px;padding-bottom:6px}
+.attack-lane{display:flex;flex-direction:column;min-width:0;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);border-radius:6px;background:var(--surface)}
+.attack-lane.empty{opacity:.55}
+.attack-lane>header{display:grid;gap:2px;padding:6px 8px;border-bottom:1px solid color-mix(in srgb,var(--line) 20%,transparent)}
+.attack-lane>header b{color:var(--heading);font-size:var(--fs-xs);overflow-wrap:anywhere;hyphens:auto}
+.attack-lane>header small{color:var(--dim);font-size:var(--fs-xs)}
+.attack-lane ul{display:grid;gap:4px;margin:0;padding:6px;list-style:none;overflow:auto}
+.attack-lane li{display:grid;gap:1px;padding:4px 6px;border:1px solid color-mix(in srgb,var(--line) 40%,transparent);border-radius:4px;background:var(--elevated);font-size:var(--fs-xs);overflow-wrap:anywhere}
+.attack-lane li.inferred{border-style:dashed;background:transparent}
+.attack-lane li button{all:unset;cursor:pointer;color:var(--ink)}
+.attack-lane li button:focus-visible{outline:2px solid var(--focus-ring)}
+.attack-lane li small{color:var(--dim)}

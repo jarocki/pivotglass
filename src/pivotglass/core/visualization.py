@@ -43,6 +43,7 @@ class VisualizationQuestion(StrEnum):
     METRIC_TREND = "how_does_this_metric_change"
     EVIDENCE_COMPOSITION = "which_evidence_types_are_stored"
     PIVOT_TRAIL = "how_did_the_analyst_reach_the_current_pivot"
+    ATTACK_PATH = "where_do_indicators_sit_on_the_attack_path"
 
 
 class VisualizationView(StrEnum):
@@ -59,6 +60,7 @@ class VisualizationView(StrEnum):
     BAR = "bar"
     UNCERTAINTY_INTERVALS = "uncertainty_intervals"
     TIMELINE = "timeline"
+    ATTACK_LANES = "attack_lanes"
 
 
 class VisualizationRenderer(StrEnum):
@@ -272,6 +274,23 @@ VISUALIZATION_POLICIES: dict[VisualizationQuestion, VisualizationPolicy] = {
             "table when a precise count matters."
         ),
         guardrail="Count only stored records in the stated workspace scope.",
+    ),
+    VisualizationQuestion.ATTACK_PATH: VisualizationPolicy(
+        question=VisualizationQuestion.ATTACK_PATH,
+        view=VisualizationView.ATTACK_LANES,
+        renderer=VisualizationRenderer.NATIVE,
+        required_roles=("lane", "item"),
+        selection_reason=(
+            "Fourteen ATT&CK tactic lanes, Reconnaissance to Impact, show which stages of "
+            "the attack the tagged indicators cover and which stages have none."
+        ),
+        reading_guide=(
+            "Read left to right. Each chip is an indicator placed by its tactic tag, its "
+            "technique tag (through the installed ATT&CK content), or, dashed, inferred "
+            "from its role tag. An empty lane means nothing is tagged there, not that the "
+            "stage did not happen."
+        ),
+        guardrail="Lane order is ATT&CK's tactic order, not an observed sequence of events.",
     ),
     VisualizationQuestion.PIVOT_TRAIL: VisualizationPolicy(
         question=VisualizationQuestion.PIVOT_TRAIL,
@@ -1862,6 +1881,113 @@ def relationship_degree_distribution_intent(
     )
 
 
+# Role tags that imply a tactic. An inference, shown as such (#31).
+ROLE_TACTICS: dict[str, str] = {
+    "c2": "command-and-control",
+    "delivery": "initial-access",
+    "phishing": "initial-access",
+    "exfil": "exfiltration",
+    "staging": "resource-development",
+}
+
+
+def attack_path_lanes_intent(
+    workspace: str,
+    objects: list[dict[str, Any]],
+    tags: list[dict[str, Any]],
+    catalog: Any = None,
+) -> VisualizationIntent:
+    """Place tagged indicators in ATT&CK tactic lanes, TA0043 to TA0040 (#31)."""
+
+    from pivotglass.core.indicator_tags import ATTACK_TACTICS, is_technique, technique_tactics
+
+    lanes = {value: (index, tid, label) for index, (value, tid, label) in enumerate(ATTACK_TACTICS)}
+    references = {
+        (str(item.get("type", "")), str(item.get("value", item.get("x_indicator_value", item.get("name", ""))))):
+            evidence_ref(str(item["id"]))
+        for item in objects
+        if item.get("id")
+    }
+    by_indicator: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for tag in tags:
+        by_indicator.setdefault((str(tag["entity_type"]), str(tag["normalized_value"])), []).append(tag)
+    rows: list[dict[str, Any]] = []
+    unplaced: list[str] = []
+    for (entity_type, value), own in sorted(by_indicator.items(), key=lambda item: item[0][1]):
+        if any(t["dimension"] == "role" and t["value"] == "benign" for t in own):
+            continue
+        placements: list[tuple[str, str, str]] = []  # (tactic, basis, technique)
+        for tag in own:
+            if tag["dimension"] != "tactic":
+                continue
+            if tag["value"] in lanes:
+                placements.append((tag["value"], "tactic tag", ""))
+            elif is_technique(tag["value"]):
+                technique = tag["value"].upper()
+                resolved = technique_tactics(tag["value"], catalog)
+                if resolved:
+                    placements.extend((tactic, "technique tag", technique) for tactic in resolved)
+                else:
+                    unplaced.append(f"{value} ({technique}: ATT&CK content not installed or technique unknown)")
+        if not placements:
+            placements = [
+                (ROLE_TACTICS[t["value"]], "role tag, inferred", "")
+                for t in own
+                if t["dimension"] == "role" and t["value"] in ROLE_TACTICS
+            ]
+        for tactic, basis, technique in dict.fromkeys(placements):
+            index, tid, label = lanes[tactic]
+            rows.append({
+                "lane_order": index,
+                "tactic": tactic,
+                "tactic_id": tid,
+                "tactic_label": label,
+                "label": value,
+                "entity_type": entity_type,
+                "reference": references.get((entity_type, value), ""),
+                "basis": basis,
+                "technique": technique,
+            })
+    rows.sort(key=lambda row: (row["lane_order"], row["label"], row["technique"]))
+    visible = rows[:MAX_VISUALIZATION_ROWS]
+    covered = sorted({row["tactic_id"] for row in visible})
+    return _intent(
+        intent_id="attack-path-lanes",
+        title="Attack path lanes",
+        question=VisualizationQuestion.ATTACK_PATH,
+        question_text="Where do the tagged indicators sit on the attack path?",
+        workspace=workspace,
+        description="Indicator tags in the active workspace, placed in ATT&CK tactic lanes.",
+        record_count=len(visible),
+        data=VisualizationData(rows=tuple(visible)),
+        fields={"lane": "tactic_id", "item": "label"},
+        semantic_types={
+            "tactic_id": "Identifier", "tactic_label": "Category", "label": "Name",
+            "entity_type": "Category", "basis": "Status", "technique": "Identifier",
+        },
+        table_columns=(
+            VisualizationTableColumn(key="tactic_id", label="Tactic"),
+            VisualizationTableColumn(key="tactic_label", label="Name"),
+            VisualizationTableColumn(key="label", label="Indicator"),
+            VisualizationTableColumn(key="entity_type", label="Type"),
+            VisualizationTableColumn(key="technique", label="Technique"),
+            VisualizationTableColumn(key="basis", label="Placed by"),
+        ),
+        missing_data=VisualizationMissingData(
+            policy="omit_with_count" if unplaced or len(rows) > len(visible) else "show",
+            explanation=(
+                "Only indicators with a tactic, technique, or attack-stage role tag are placed. "
+                + (f"Not placed: {'; '.join(unplaced[:10])}." if unplaced else "")
+            ),
+            omitted_count=len(unplaced) + len(rows) - len(visible),
+        ),
+        caveats=(
+            f"{len(covered)} of 14 tactics have at least one indicator.",
+            "Role-based placements are inferences from the analyst's role tag, not ATT&CK mappings.",
+        ),
+    )
+
+
 def build_visualization_intents(
     *,
     workspace: str,
@@ -1870,6 +1996,8 @@ def build_visualization_intents(
     graph: dict[str, Any],
     investigations: list[dict[str, Any]],
     analysis: dict[str, Any] | None = None,
+    indicator_tags: list[dict[str, Any]] | None = None,
+    attack_catalog: Any = None,
 ) -> tuple[VisualizationIntent, ...]:
     """Build the initial 0.6.0 cockpit visualization set."""
 
@@ -1887,4 +2015,5 @@ def build_visualization_intents(
         competing_hypotheses_matrix_intent(workspace, analysis or {}),
         scientific_investigation_hierarchy_intent(workspace, analysis or {}),
         recorded_uncertainty_intent(workspace, analysis or {}),
+        attack_path_lanes_intent(workspace, objects, indicator_tags or [], attack_catalog),
     )

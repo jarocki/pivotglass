@@ -620,6 +620,7 @@ def test_state_exposes_workspace_objects_and_teaching_briefings(tmp_path):
         "which_entities_relate",
             "which_indicator_enrichment_work_is_pending",
             "how_did_the_analyst_reach_the_current_pivot",
+            "where_do_indicators_sit_on_the_attack_path",
         }
     assert all(intent["schema_version"] == "1.0" for intent in state["visualizations"])
     assert state["analysis"]["information_requirements"]["policy"]["id"] == (
@@ -1379,7 +1380,7 @@ def test_state_remains_available_after_joint_candidate_admission(tmp_path):
     })
     assert admitted["candidate_admission"]["new_entity_count"] == 2
     state = service.state()
-    assert len(state["visualizations"]) == 12
+    assert len(state["visualizations"]) == 13
     distribution = next(item for item in state["visualizations"]
                         if item["intent_id"] == "relationship-degree-distribution")
     assert distribution["source_scope"]["record_count"] == 2

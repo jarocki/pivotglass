@@ -604,7 +604,7 @@ membership. Each tag places one indicator on one dimension:
 | Dimension | Values |
 | --- | --- |
 | Infrastructure role | c2, delivery, staging, exfil, phishing, hosting, victim, benign, or a new value |
-| ATT&CK tactic | The 14 Enterprise tactics, TA0043 Reconnaissance through TA0040 Impact |
+| ATT&CK tactic | The 14 Enterprise tactics, TA0043 Reconnaissance through TA0040 Impact, or a technique ID such as `T1071.001` (checked against the installed ATT&CK content when present) |
 | Cluster | Any analyst-chosen name, such as `cluster:glass harbor` |
 | Review status | needs-pivot, reviewed, false-positive |
 
@@ -613,6 +613,18 @@ and press Enter. Group by **ATT&CK tactic** to read the indicators in
 attack-path order: tactics follow the ATT&CK matrix, an indicator with two
 tactics appears under both, and untagged indicators come last. Click a tag
 chip to remove it.
+
+**Visualize → Attack path lanes** places every tagged indicator in the 14
+tactic lanes, left to right. An indicator is placed by its tactic tag, by its
+technique tag through the installed ATT&CK content, or, drawn dashed, by a role
+tag that implies a stage (C2 → Command and Control, delivery and phishing →
+Initial Access, exfiltration → Exfiltration, staging → Resource Development).
+Role placements are inferences and are used only when the indicator has no
+tactic or technique tag. Indicators tagged *Benign / noise* are left out. A
+technique tag that cannot be resolved, for example because the ATT&CK content
+is not installed, is listed as not placed. An empty lane means nothing is
+tagged there, not that the stage did not happen. Click a chip to open its
+evidence.
 
 ![v1.3.0 indicators grouped by ATT&CK tactic in attack-path order, with role and cluster tags](media/pivotglass-focus-grouped-v1.3.0.png)
 

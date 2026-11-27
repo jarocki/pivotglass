@@ -78,7 +78,7 @@ from pivotglass.core.graph_presentation import GraphPresentationAuthority
 from pivotglass.core.indicator_context import IndicatorContextAuthority, document_relations
 from pivotglass.core.indicator_export import export_indicators
 from pivotglass.core.indicator_notes import add_indicator_note, indicator_notes
-from pivotglass.core.indicator_tags import IndicatorTagAuthority, dimension_catalog
+from pivotglass.core.indicator_tags import IndicatorTagAuthority, attack_catalog, dimension_catalog
 from pivotglass.core.information_requirements import build_information_requirements
 from pivotglass.core.integration_commands import execute_integration_command
 from pivotglass.core.investigation import (
@@ -407,6 +407,8 @@ class WebCockpitService:
             graph=relationship_graph.to_dict(),
             investigations=investigation_snapshots,
             analysis=visualization_analysis,
+            indicator_tags=IndicatorTagAuthority(self.ctx.workspace_mgr).current(),
+            attack_catalog=attack_catalog(),
         )
         graph_layouts = GraphPresentationAuthority(self.ctx.workspace_mgr).list()
         modes = []

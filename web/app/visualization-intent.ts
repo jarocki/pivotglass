@@ -11,7 +11,8 @@ export type VisualizationView =
   | "line"
   | "bar"
   | "uncertainty_intervals"
-  | "timeline";
+  | "timeline"
+  | "attack_lanes";
 
 export type VisualizationRow = Record<string, unknown>;
 
