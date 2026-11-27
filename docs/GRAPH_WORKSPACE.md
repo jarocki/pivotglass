@@ -62,7 +62,8 @@ infer a new relationship, or modify workspace state.
 `graph annotate` attaches an analyst note to a node already present in the
 current relationship graph. The note reuses the workspace analyst-note store;
 it is human-authored context, not evidence or a relationship. Pivotglass also
-offers the same action beside the selected node in the graph workspace.
+offers the same action beside the selected node in the graph workspace, and
+the evidence drawer shows and adds the same notes for that indicator.
 
 ## Saved presentations
 

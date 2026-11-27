@@ -1599,3 +1599,9 @@ article.model-proposal>span{color:var(--inference, var(--accent))}
 .pir-form select{min-width:0;height:34px;padding:5px;border:1px solid color-mix(in srgb,var(--line) 50%,transparent);border-radius:6px;background:var(--surface);color:var(--ink)}
 .pir-form>p,.pir-form>div,.pir-form>small{grid-column:1/-1}.pir-form>div{display:flex;gap:6px}.pir-form>small{color:var(--dim);font-size:var(--fs-xs)}
 @media(max-width:650px){.pir-form{grid-template-columns:1fr}.pir-panel>header{display:grid}.pir-verdict{justify-self:start}.pir-stops li{grid-template-columns:auto minmax(0,1fr)}.pir-stops li button{grid-column:2;justify-self:start}}
+/* Evidence drawer notes share the graph inspector's note store (#40). */
+.detail-drawer .annotation-caveat,.detail-drawer .annotation-empty{margin:0 0 6px;color:var(--dim);font-size:var(--fs-xs)}
+.detail-drawer .annotation-list{display:grid;gap:6px;margin:0 0 8px;padding:0;list-style:none}
+.detail-drawer .annotation-list li{padding:6px 8px;border-left:2px solid var(--accent);background:var(--surface)}
+.detail-drawer .annotation-list li p{margin:0;color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
+.detail-drawer .annotation-list time{color:var(--dim);font-size:var(--fs-xs)}

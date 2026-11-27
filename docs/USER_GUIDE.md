@@ -740,6 +740,8 @@ node selected remains the primary selection for its presentation label and
 evidence detail. Choose **Open evidence** to inspect the stored record. The
 inspector also lists every analyst note on the node and adds new ones
 (`Command/Control+Enter` saves); notes are analyst context, not evidence.
+The evidence drawer's **Analyst notes** section reads and writes the same
+notes, so a note added in either place appears in both.
 **Rename on this graph** changes only the label drawn here.
 Double-click a connected node, or use the selected-node control, to collapse or
 expand its direct connections. This changes only the bounded view: hidden

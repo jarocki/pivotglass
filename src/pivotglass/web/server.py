@@ -76,6 +76,7 @@ from pivotglass.core.geolocation import GeoDatabase
 from pivotglass.core.graph import RelationshipGraph, persisted_relationships
 from pivotglass.core.graph_presentation import GraphPresentationAuthority
 from pivotglass.core.indicator_context import IndicatorContextAuthority, document_relations
+from pivotglass.core.indicator_notes import add_indicator_note, indicator_notes
 from pivotglass.core.indicator_tags import IndicatorTagAuthority, dimension_catalog
 from pivotglass.core.information_requirements import build_information_requirements
 from pivotglass.core.integration_commands import execute_integration_command
@@ -1695,12 +1696,23 @@ class WebCockpitService:
 
     def evidence_detail(self, identifier: str) -> dict[str, Any]:
         """Return a deterministic detail projection for stored evidence."""
-        return project_evidence(
+        detail = project_evidence(
             self.ctx.workspace_mgr.get_stix_objects(),
             identifier,
             persisted_relationships(self.ctx.workspace_mgr),
             self.ctx.workspace_mgr.get_module_runs(),
         )
+        detail["notes"] = indicator_notes(self.ctx.workspace_mgr, detail["stix_id"])
+        return detail
+
+    def annotate_indicator(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Attach one analyst note to a stored indicator (DEC-INDICATOR-NOTES-001)."""
+
+        known = {str(item.get("id", "")) for item in self.ctx.workspace_mgr.get_stix_objects()}
+        note = add_indicator_note(
+            self.ctx.workspace_mgr, str(payload.get("stix_id", "")), str(payload.get("text", "")), known_ids=known
+        )
+        return {"saved": True, "annotation": note}
 
     def start_investigation(
         self,
@@ -2510,12 +2522,7 @@ def _handler(
                         self._json(service.execute_command(command), HTTPStatus.ACCEPTED)
                     return
                 if parsed.path == "/api/annotate":
-                    text = str(payload.get("text", "")).strip()
-                    stix_id = str(payload.get("stix_id", "")).strip() or None
-                    if not text:
-                        raise ValueError("annotation text is required")
-                    service.ctx.workspace_mgr.add_note(text, stix_id)
-                    self._json({"saved": True})
+                    self._json(service.annotate_indicator(payload))
                     return
                 if is_cancel:
                     investigation_id = unquote(parsed.path.split("/")[3])

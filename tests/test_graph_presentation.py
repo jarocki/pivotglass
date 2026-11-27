@@ -269,3 +269,31 @@ def test_graph_fingerprint_is_order_independent() -> None:
     assert graph_fingerprint({"b", "a"}, {"y", "x"}) == graph_fingerprint(
         {"a", "b"}, {"x", "y"}
     )
+
+
+def test_graph_and_evidence_drawer_share_one_note_store(tmp_path) -> None:
+    """#40: a note written in either place appears in both (DEC-INDICATOR-NOTES-001)."""
+
+    service = WebCockpitService(
+        ToolContext(config_dir=tmp_path / "config", workspace_dir=tmp_path / "workspaces")
+    )
+    service.ctx.workspace_mgr.store_stix_objects(
+        [{"type": "domain-name", "value": "shared-note.example"}],
+        module_name="test/annotation",
+        target="shared-note.example",
+    )
+    node_ref = next(iter(service._graph_presentation_scope()[0]))
+    from_graph = service.annotate_graph({"node_ref": node_ref, "text": "Seen on the graph."})["annotation"]
+    from_drawer = service.annotate_indicator({"stix_id": node_ref, "text": "Seen in the drawer."})["annotation"]
+    assert from_drawer["evidence"] is False and from_drawer["content_class"] == "analyst_annotation"
+
+    expected = [from_graph, from_drawer]
+    assert service.graph_annotations(node_ref)["annotations"] == expected
+    assert service.evidence_detail(node_ref)["notes"] == expected
+
+    with pytest.raises(ValueError, match="stored in this workspace"):
+        service.annotate_indicator({"stix_id": "domain-name--missing", "text": "Orphan"})
+    with pytest.raises(ValueError, match="required"):
+        service.annotate_indicator({"stix_id": node_ref, "text": "   "})
+    with pytest.raises(ValueError, match="4000"):
+        service.annotate_indicator({"stix_id": node_ref, "text": "x" * 4001})
