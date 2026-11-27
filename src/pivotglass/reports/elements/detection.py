@@ -10,7 +10,9 @@ tested without a validation record.
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
+import re
 import uuid
 from collections import defaultdict
 from typing import Any
@@ -55,18 +57,60 @@ def _text_md(result: ElementResult, output: OutputFormat) -> str:
     return "\n".join(lines)
 
 
-def blockable(context: ReportContext) -> dict[str, list[str]]:
-    """Indicator values by kind, from the indicators suitable for blocking (analyst exclusions respected)."""
+_HOSTNAME = re.compile(r"^(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}\.?$")
+_SAFE_URL = re.compile(r"^[\x21-\x7e]+$")  # printable ASCII, no spaces or control characters
 
+
+def safe_indicator(kind: str, value: str) -> str | None:
+    """The value in a form safe to place in a rule or query, or ``None`` if it does not parse strictly.
+
+    Indicator values come from documents and external sources; a value that is
+    not a well-formed address, hostname, URL or hash never reaches a rule file.
+    """
+
+    if kind == "ip":
+        try:
+            return str(ipaddress.ip_address(value.strip()))
+        except ValueError:
+            return None
+    if kind == "domain":
+        return value.strip().rstrip(".").lower() if _HOSTNAME.match(value.strip()) else None
+    if kind == "url":
+        parts = urlsplit(value.strip())
+        ok = parts.scheme in {"http", "https"} and parts.hostname and _SAFE_URL.match(value.strip())
+        host_ok = ok and (_HOSTNAME.match(parts.hostname) or safe_indicator("ip", parts.hostname) is not None)
+        return value.strip() if host_ok else None
+    if kind == "sha256":
+        return value.strip().lower() if re.fullmatch(r"[0-9a-fA-F]{64}", value.strip()) else None
+    return None
+
+
+def blockable(context: ReportContext) -> dict[str, list[str]]:
+    """Strictly parsed indicator values by kind, from the indicators suitable for blocking."""
+
+    return _blockable(context)[0]
+
+
+def rejected_values(context: ReportContext) -> list[str]:
+    """Indicator values left out of rules and queries because they did not parse strictly."""
+
+    return _blockable(context)[1]
+
+
+def _blockable(context: ReportContext) -> tuple[dict[str, list[str]], list[str]]:
     rows, _excluded = detailed_indicators(context, blocking=True)
     kinds: dict[str, list[str]] = defaultdict(list)
+    rejected = []
     for row in rows:
         kind = {"domain-name": "domain", "ipv4-addr": "ip", "ipv6-addr": "ip", "url": "url", "file": "sha256"}.get(row["type"])
-        if kind == "sha256" and len(row["value"]) != 64:  # noqa: PLR2004
+        if kind is None:
             continue
-        if kind:
-            kinds[kind].append(row["value"])
-    return {k: sorted(set(v)) for k, v in kinds.items()}
+        safe = safe_indicator(kind, row["value"])
+        if safe is None:
+            rejected.append(f"{row['type']} {row['value'][:80]!r}")
+        else:
+            kinds[kind].append(safe)
+    return {k: sorted(set(v)) for k, v in kinds.items()}, rejected
 
 
 def _rule_id(kind: str, values: list[str]) -> str:
@@ -437,9 +481,11 @@ def _rules_md(heading: str, language: str, note: str):  # noqa: ANN202 - small f
 def build_sigma_rules(context: ReportContext) -> ElementResult:
     rules = sigma_rules(context, blockable(context))
     spec = _spec("sigma_rules")
+    rejected = rejected_values(context)
+    gaps = [f"Left out of rules and queries because they are not well formed: {', '.join(rejected[:10])}."] if rejected else []
     if not rules:
-        return spec.result(ElementStatus.EMPTY, {"rules": []}, gaps=["No indicators to build Sigma rules from."])
-    return spec.result(ElementStatus.COMPLETE, {"rules": rules})
+        return spec.result(ElementStatus.EMPTY, {"rules": []}, gaps=["No indicators to build Sigma rules from.", *gaps])
+    return spec.result(ElementStatus.PARTIAL if gaps else ElementStatus.COMPLETE, {"rules": rules, "rejected": rejected}, gaps=gaps)
 
 
 def _sid(key: str, used: set[int]) -> int:
@@ -451,7 +497,11 @@ def _sid(key: str, used: set[int]) -> int:
 
 
 def _content(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', '\\"').replace(";", "\\;")
+    """Suricata content escaping: backslash, quote, semicolon and the hex-delimiter pipe."""
+
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value):  # noqa: PLR2004
+        raise ValueError("control characters are not allowed in rule content")
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace(";", "\\;").replace("|", "|7C|")
 
 
 def suricata_rules(context: ReportContext, kinds: dict[str, list[str]]) -> list[dict[str, Any]]:
@@ -502,7 +552,10 @@ def build_suricata_rules(context: ReportContext) -> ElementResult:
 
 
 def _yara_string(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', '\\"')
+    """YARA text-string escaping; other control characters are written as hex escapes."""
+
+    out = value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\t", "\\t").replace("\r", "\\r")
+    return "".join(f"\\x{ord(ch):02x}" if ord(ch) < 0x20 or ord(ch) == 0x7F else ch for ch in out)  # noqa: PLR2004
 
 
 def yara_rules(context: ReportContext) -> list[dict[str, Any]]:

@@ -104,3 +104,55 @@ def test_pyramid_and_validation_cover_every_generated_rule(wm):
 def test_detection_commands_validate(wm, command):
     with pytest.raises(ValueError, match="Usage"):
         execute_report_command(command, wm)
+
+
+@pytest.mark.parametrize(
+    "kind, value, expected",
+    [
+        ("ip", "192.0.2.7", "192.0.2.7"),
+        ("ip", "192.0.2.7] any (msg:\"x\"; sid:1;)", None),
+        ("domain", "C2.Example.NET.", "c2.example.net"),
+        ("domain", 'evil.example"; sid:1; content:"x', None),
+        ("domain", "bad|7C|.example", None),
+        ("url", "https://login.example.com/a?b=c", "https://login.example.com/a?b=c"),
+        ("url", "https://login.example.com/a b", None),
+        ("url", "https://login.example.com/a\"; sid:1;", None),  # spaces are never part of a URL value
+        ("url", "https://login.example.com/a\";sid:1;", "https://login.example.com/a\";sid:1;"),
+        ("url", "javascript:alert(1)", None),
+        ("sha256", "A" * 64, "a" * 64),
+        ("sha256", "a" * 63, None),
+    ],
+)
+def test_only_strictly_parsed_values_reach_rules(kind, value, expected):
+    from pivotglass.reports.elements.detection import safe_indicator
+
+    assert safe_indicator(kind, value) == expected
+
+
+def test_crafted_values_cannot_inject_rule_options(tmp_path):
+    from pivotglass.reports.elements import ReportContext, load_builtin_elements
+    from pivotglass.reports.elements.detection import (
+        _content,
+        _yara_string,
+        rejected_values,
+        suricata_rules,
+    )
+
+    manager = WorkspaceManager(workspace_dir=tmp_path / "ws")
+    manager.create("x")
+    manager.switch("x")
+    manager.store_stix_objects(
+        [{"type": "url", "value": 'https://drop.example.com/p";sid:1;|41|'},
+         {"type": "domain-name", "value": 'evil.example"; sid:1;'}],
+        module_name="test/crafted", target="crafted",
+    )
+    load_builtin_elements()
+    context = ReportContext(manager)
+    rules = suricata_rules(context, __import__("pivotglass.reports.elements.detection", fromlist=["blockable"]).blockable(context))
+    assert len(rules) == 1  # the URL parses; the domain does not
+    text = rules[0]["text"]
+    assert len(re.findall(r"(?<!\\);\s*sid:", text)) == 1 and '\\"' in text and "\;" in text and "|7C|41|7C|" in text
+    assert any("evil.example" in r for r in rejected_values(context))
+    with pytest.raises(ValueError):
+        _content("a\nb")
+    assert _yara_string('a"b\nc\x01') == 'a\\"b\\nc\\x01'
