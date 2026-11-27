@@ -6,8 +6,6 @@ Type 15 · Attack flow and behavioral · `forensic-intrusion-timeline` · ID pre
 
 The ordered, sourced record of what happened during an intrusion, with the dwell and response times that follow from it.
 
-**Status:** Built: `report forensic-intrusion-timeline` renders it.
-
 **Use it when:** During and after incident response, for handover, legal hold and lessons learned. Built from imported telemetry (#59); Pivotglass does not collect host or network logs itself.
 
 | | |
@@ -23,14 +21,14 @@ The ordered, sourced record of what happened during an intrusion, with the dwell
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Forensic timeline (`forensic_timeline`) | yes | Organisation input + Method | imported telemetry | built |
-| 4 | Dwell and response times (`dwell_metrics`) | yes | Organisation input + Method | imported telemetry markers | built |
-| 5 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 6 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | Forensic timeline (`forensic_timeline`) | yes | Organisation input + Method | imported telemetry |
+| 4 | Dwell and response times (`dwell_metrics`) | yes | Organisation input + Method | imported telemetry markers |
+| 5 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 6 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 

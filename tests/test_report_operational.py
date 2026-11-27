@@ -160,5 +160,3 @@ def test_not_in_kev_is_not_called_unexploited_and_unchecked_sources_are_gaps(tmp
     assert f"{CVE}: not looked up in NVD." in meta.gaps and f"{CVE}: not looked up in FIRST EPSS." in meta.gaps
 
 
-def test_vulnerability_brief_is_built():
-    assert get_report_type("vulnerability-exploitation-brief").available

@@ -2,56 +2,56 @@
 
 # Report types
 
-Pivotglass assembles reports from sections that each state where their content comes from. Preview any built type with `report <type>`, issue it with `report issue <type>`, and list the types with `report types`. The design is in [architecture/REPORTS.md](../architecture/REPORTS.md).
+Pivotglass assembles reports from sections that each state where their content comes from. Preview any type with `report <type>`, issue it with `report issue <type>`, and list the types with `report types`. The design is in [architecture/REPORTS.md](../architecture/REPORTS.md).
 
 ## Strategic and executive
 
-| # | Type | Tier | Audience | Marking | Status |
-|---:|---|---|---|---|---|
-| 1 | [Executive Threat Briefing](executive-threat-briefing.md) | Strategic | Executive leadership, Board risk committee | TLP:AMBER · PAP:CLEAR | built |
-| 2 | [Strategic Threat Landscape and Forecast](strategic-threat-landscape.md) | Strategic | Executive leadership, Board risk committee, Security strategy | TLP:AMBER · PAP:CLEAR | built |
-| 3 | [Threat-Informed Risk Assessment](threat-informed-risk-assessment.md) | Strategic | Risk management, Business owners, M&A and vendor-risk teams | TLP:AMBER+STRICT · PAP:CLEAR | built |
+| # | Type | Tier | Audience | Marking |
+|---:|---|---|---|---|
+| 1 | [Executive Threat Briefing](executive-threat-briefing.md) | Strategic | Executive leadership, Board risk committee | TLP:AMBER · PAP:CLEAR |
+| 2 | [Strategic Threat Landscape and Forecast](strategic-threat-landscape.md) | Strategic | Executive leadership, Board risk committee, Security strategy | TLP:AMBER · PAP:CLEAR |
+| 3 | [Threat-Informed Risk Assessment](threat-informed-risk-assessment.md) | Strategic | Risk management, Business owners, M&A and vendor-risk teams | TLP:AMBER+STRICT · PAP:CLEAR |
 
 ## Operational and incident
 
-| # | Type | Tier | Audience | Marking | Status |
-|---:|---|---|---|---|---|
-| 4 | [Threat Activity Alert](threat-activity-alert.md) | Tactical | SOC analysts, Incident responders | TLP:AMBER · PAP:GREEN | built |
-| 5 | [Campaign and Intrusion Analysis Report](campaign-intrusion-analysis.md) | Operational | Incident response leads, Threat hunters, SOC leadership | TLP:AMBER · PAP:AMBER | built |
-| 6 | [Vulnerability Exploitation Brief](vulnerability-exploitation-brief.md) | Operational | Vulnerability management, SOC analysts, IT operations | TLP:GREEN · PAP:CLEAR | built |
+| # | Type | Tier | Audience | Marking |
+|---:|---|---|---|---|
+| 4 | [Threat Activity Alert](threat-activity-alert.md) | Tactical | SOC analysts, Incident responders | TLP:AMBER · PAP:GREEN |
+| 5 | [Campaign and Intrusion Analysis Report](campaign-intrusion-analysis.md) | Operational | Incident response leads, Threat hunters, SOC leadership | TLP:AMBER · PAP:AMBER |
+| 6 | [Vulnerability Exploitation Brief](vulnerability-exploitation-brief.md) | Operational | Vulnerability management, SOC analysts, IT operations | TLP:GREEN · PAP:CLEAR |
 
 ## Analytical and attribution
 
-| # | Type | Tier | Audience | Marking | Status |
-|---:|---|---|---|---|---|
-| 7 | [Threat Actor Profile](threat-actor-profile.md) | Strategic | CTI analysts, Threat hunters, Security leadership | TLP:AMBER · PAP:AMBER | built |
-| 8 | [Diamond Model Intrusion Analysis](diamond-model-analysis.md) | Operational | CTI analysts, Incident responders | TLP:AMBER · PAP:AMBER | built |
-| 9 | [ACH Attribution Matrix](ach-attribution-matrix.md) | Operational | CTI analysts, Analytic reviewers | TLP:AMBER+STRICT · PAP:RED | built |
-| 10 | [Actor Capability Radar](actor-capability-radar.md) | Strategic | CTI analysts, Security leadership, Purple team | TLP:AMBER · PAP:CLEAR | built |
-| 11 | [Infrastructure Clustering Graph](infrastructure-clustering-graph.md) | Operational | CTI analysts, Threat hunters | TLP:AMBER · PAP:AMBER | built |
+| # | Type | Tier | Audience | Marking |
+|---:|---|---|---|---|
+| 7 | [Threat Actor Profile](threat-actor-profile.md) | Strategic | CTI analysts, Threat hunters, Security leadership | TLP:AMBER · PAP:AMBER |
+| 8 | [Diamond Model Intrusion Analysis](diamond-model-analysis.md) | Operational | CTI analysts, Incident responders | TLP:AMBER · PAP:AMBER |
+| 9 | [ACH Attribution Matrix](ach-attribution-matrix.md) | Operational | CTI analysts, Analytic reviewers | TLP:AMBER+STRICT · PAP:RED |
+| 10 | [Actor Capability Radar](actor-capability-radar.md) | Strategic | CTI analysts, Security leadership, Purple team | TLP:AMBER · PAP:CLEAR |
+| 11 | [Infrastructure Clustering Graph](infrastructure-clustering-graph.md) | Operational | CTI analysts, Threat hunters | TLP:AMBER · PAP:AMBER |
 
 ## Attack flow and behavioral
 
-| # | Type | Tier | Audience | Marking | Status |
-|---:|---|---|---|---|---|
-| 12 | [Cyber Kill Chain Mapping](kill-chain-mapping.md) | Operational | SOC leadership, Incident responders, Security architecture | TLP:AMBER · PAP:AMBER | built |
-| 13 | [ATT&CK Navigator Layer](attack-navigator-layer.md) | Operational | Threat hunters, Detection engineers, Purple team | TLP:AMBER · PAP:CLEAR | built |
-| 14 | [Attack Graph and Tree](attack-graph-tree.md) | Operational | Security architecture, Red and purple teams, Risk management | TLP:AMBER+STRICT · PAP:RED | built |
-| 15 | [Forensic Intrusion Timeline](forensic-intrusion-timeline.md) | Tactical | Incident responders, Forensic analysts, Legal and compliance | TLP:AMBER+STRICT · PAP:RED | built |
+| # | Type | Tier | Audience | Marking |
+|---:|---|---|---|---|
+| 12 | [Cyber Kill Chain Mapping](kill-chain-mapping.md) | Operational | SOC leadership, Incident responders, Security architecture | TLP:AMBER · PAP:AMBER |
+| 13 | [ATT&CK Navigator Layer](attack-navigator-layer.md) | Operational | Threat hunters, Detection engineers, Purple team | TLP:AMBER · PAP:CLEAR |
+| 14 | [Attack Graph and Tree](attack-graph-tree.md) | Operational | Security architecture, Red and purple teams, Risk management | TLP:AMBER+STRICT · PAP:RED |
+| 15 | [Forensic Intrusion Timeline](forensic-intrusion-timeline.md) | Tactical | Incident responders, Forensic analysts, Legal and compliance | TLP:AMBER+STRICT · PAP:RED |
 
 ## Detection, hunting and posture
 
-| # | Type | Tier | Audience | Marking | Status |
-|---:|---|---|---|---|---|
-| 16 | [Threat Hunting Package](threat-hunting-package.md) | Operational | Threat hunters, SOC analysts | TLP:AMBER · PAP:GREEN | built |
-| 17 | [Detection Signature Bundle](detection-signature-bundle.md) | Tactical | Detection engineers, SOC analysts | TLP:AMBER · PAP:GREEN | built |
-| 18 | [Defensive Coverage Assessment](defensive-coverage-assessment.md) | Strategic | Security leadership, Detection engineering, Purple team | TLP:AMBER+STRICT · PAP:CLEAR | needs #57 |
+| # | Type | Tier | Audience | Marking |
+|---:|---|---|---|---|
+| 16 | [Threat Hunting Package](threat-hunting-package.md) | Operational | Threat hunters, SOC analysts | TLP:AMBER · PAP:GREEN |
+| 17 | [Detection Signature Bundle](detection-signature-bundle.md) | Tactical | Detection engineers, SOC analysts | TLP:AMBER · PAP:GREEN |
+| 18 | [Defensive Coverage Assessment](defensive-coverage-assessment.md) | Strategic | Security leadership, Detection engineering, Purple team | TLP:AMBER+STRICT · PAP:CLEAR |
 
 ## Investigation record
 
-| # | Type | Tier | Audience | Marking | Status |
-|---:|---|---|---|---|---|
-| — | [Investigation Report](investigation-report.md) | Any | Investigating analyst, Peer reviewer | TLP:AMBER · PAP:AMBER | built |
+| # | Type | Tier | Audience | Marking |
+|---:|---|---|---|---|
+| — | [Investigation Report](investigation-report.md) | Any | Investigating analyst, Peer reviewer | TLP:AMBER · PAP:AMBER |
 
 ## Provenance classes
 

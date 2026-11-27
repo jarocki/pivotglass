@@ -40,7 +40,6 @@ def empty(tmp_path: Path) -> WorkspaceManager:
 @pytest.mark.parametrize("type_id", DOMAIN_3)
 def test_each_type_is_built_and_renders_in_every_declared_format(wm, type_id):
     report_type = get_report_type(type_id)
-    assert report_type.available
     for output in report_type.formats:
         result = execute_report_command(f"{type_id} {output.value}", wm)
         assert result["complete"], (type_id, result["missing_required"])
@@ -48,7 +47,7 @@ def test_each_type_is_built_and_renders_in_every_declared_format(wm, type_id):
         if output.value == "json":
             payload = json.loads(result["text"])
             assert [e["element_id"] for e in payload["elements"]] == [
-                item.id for item in report_type.elements if item.id not in report_type.planned_optional
+                item.id for item in report_type.elements
             ]
         if output.value == "stix":
             stix2.parse(json.loads(result["text"]), allow_custom=True)

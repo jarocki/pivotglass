@@ -6,8 +6,6 @@ Type 4 · Operational and incident · `threat-activity-alert` · ID prefix `PG-T
 
 Warn defenders about active, relevant activity within hours, with the indicators to block, the searches to run and the conditions for escalation.
 
-**Status:** Built: `report threat-activity-alert` renders it.
-
 **Use it when:** Activity is current and actionable. Keep it to what responders need now; the full story goes in a Campaign and Intrusion Analysis Report.
 
 | | |
@@ -24,18 +22,18 @@ Warn defenders about active, relevant activity within hours, with the indicators
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Threat summary (`threat_summary`) | yes | Model draft + Analyst | report section text, report severity | built |
-| 4 | Delivery and initial access (`delivery_vector`) | yes | Evidence | Kill Chain delivery and exploitation mappings, ATT&CK initial-access mappings, role and tactic tags | built |
-| 5 | Techniques observed (`technique_list`) | yes | Evidence | accepted framework mappings | built |
-| 6 | Triage and containment actions (`triage_actions`) | yes | Method + Analyst | indicator types, report section text | built |
-| 7 | Indicators of compromise (`ioc_table`) | yes | Evidence | STIX objects | built |
-| 8 | Detection and hunt pointers (`detection_pointers`) | optional | Method | issued reports | built |
-| 9 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 10 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | Threat summary (`threat_summary`) | yes | Model draft + Analyst | report section text, report severity |
+| 4 | Delivery and initial access (`delivery_vector`) | yes | Evidence | Kill Chain delivery and exploitation mappings, ATT&CK initial-access mappings, role and tactic tags |
+| 5 | Techniques observed (`technique_list`) | yes | Evidence | accepted framework mappings |
+| 6 | Triage and containment actions (`triage_actions`) | yes | Method + Analyst | indicator types, report section text |
+| 7 | Indicators of compromise (`ioc_table`) | yes | Evidence | STIX objects |
+| 8 | Detection and hunt pointers (`detection_pointers`) | optional | Method | issued reports |
+| 9 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 10 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 

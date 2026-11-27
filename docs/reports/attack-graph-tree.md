@@ -6,8 +6,6 @@ Type 14 · Attack flow and behavioral · `attack-graph-tree` · ID prefix `PG-AG
 
 Map the paths from entry points to a critical asset, show which steps must all succeed (AND) and which are alternatives (OR), and find the choke points where one control cuts the most paths.
 
-**Status:** Built: `report attack-graph-tree` renders it.
-
 **Use it when:** Protecting a crown-jewel asset or prioritising architecture work. Needs the organisation's environment model (#59); Pivotglass does not see internal networks.
 
 | | |
@@ -23,16 +21,16 @@ Map the paths from entry points to a critical asset, show which steps must all s
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Objective (`objective`) | yes | Organisation input | environment model | built |
-| 4 | Attack tree (`attack_tree`) | yes | Organisation input + Method | environment model | built |
-| 5 | Choke points (`choke_points`) | yes | Organisation input + Method | attack tree | built |
-| 6 | Recommendations (`recommendations`) | yes | Analyst | report recommendations | built |
-| 7 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 8 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | Objective (`objective`) | yes | Organisation input | environment model |
+| 4 | Attack tree (`attack_tree`) | yes | Organisation input + Method | environment model |
+| 5 | Choke points (`choke_points`) | yes | Organisation input + Method | attack tree |
+| 6 | Recommendations (`recommendations`) | yes | Analyst | report recommendations |
+| 7 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 8 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 

@@ -6,8 +6,6 @@ Type 5 · Operational and incident · `campaign-intrusion-analysis` · ID prefix
 
 The complete account of one campaign or intrusion set: when it ran, whom it targeted, how it worked end to end, the infrastructure and tools behind it, who is likely responsible, and what to change.
 
-**Status:** Built: `report campaign-intrusion-analysis` renders it.
-
 **Use it when:** After an alert has been worked, or when an intrusion set has enough evidence for a full account. Attribution here is a judgment; the ACH Attribution Matrix holds the test behind it.
 
 | | |
@@ -24,23 +22,23 @@ The complete account of one campaign or intrusion set: when it ran, whom it targ
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Threat summary (`threat_summary`) | yes | Model draft + Analyst | report section text, report severity | built |
-| 4 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses | built |
-| 5 | Campaign timeline (`campaign_timeline`) | yes | Evidence + Method | observation first- and last-seen fields, campaign claims | built |
-| 6 | Victimology (`victimology`) | yes | Evidence + Analyst | actor claims (targets-sector, targets-region) | built |
-| 7 | Attack narrative (`attack_narrative`) | yes | Model draft + Analyst + Method | Kill Chain mappings, ATT&CK mappings, report section text | built |
-| 8 | Infrastructure (`infrastructure_breakdown`) | yes | Evidence | STIX objects, role tags, investigation graph, observations | built |
-| 9 | Arsenal and tooling (`arsenal`) | yes | Evidence + Analyst | actor claims (uses-malware, uses-tool), file observations | built |
-| 10 | ATT&CK techniques and procedures (`attack_matrix`) | optional | Evidence | accepted framework mappings, pinned ATT&CK Enterprise v19.2 | built |
-| 11 | Recommendations (`recommendations`) | yes | Analyst | report recommendations | built |
-| 12 | Indicators of compromise (`ioc_table`) | yes | Evidence | STIX objects | built |
-| 13 | Detection and hunt pointers (`detection_pointers`) | optional | Method | issued reports | built |
-| 14 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 15 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | Threat summary (`threat_summary`) | yes | Model draft + Analyst | report section text, report severity |
+| 4 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses |
+| 5 | Campaign timeline (`campaign_timeline`) | yes | Evidence + Method | observation first- and last-seen fields, campaign claims |
+| 6 | Victimology (`victimology`) | yes | Evidence + Analyst | actor claims (targets-sector, targets-region) |
+| 7 | Attack narrative (`attack_narrative`) | yes | Model draft + Analyst + Method | Kill Chain mappings, ATT&CK mappings, report section text |
+| 8 | Infrastructure (`infrastructure_breakdown`) | yes | Evidence | STIX objects, role tags, investigation graph, observations |
+| 9 | Arsenal and tooling (`arsenal`) | yes | Evidence + Analyst | actor claims (uses-malware, uses-tool), file observations |
+| 10 | ATT&CK techniques and procedures (`attack_matrix`) | optional | Evidence | accepted framework mappings, pinned ATT&CK Enterprise v19.2 |
+| 11 | Recommendations (`recommendations`) | yes | Analyst | report recommendations |
+| 12 | Indicators of compromise (`ioc_table`) | yes | Evidence | STIX objects |
+| 13 | Detection and hunt pointers (`detection_pointers`) | optional | Method | issued reports |
+| 14 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 15 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 

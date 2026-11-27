@@ -6,8 +6,6 @@ Type 17 · Detection, hunting and posture · `detection-signature-bundle` · ID 
 
 Detection content for one malware family or campaign across the Pyramid of Pain: indicators to block, and Sigma, Suricata and YARA rules, each with how it was validated.
 
-**Status:** Built: `report detection-signature-bundle` renders it.
-
 **Use it when:** Indicators and behaviours are confirmed and need to become detections. The rule files download in their native formats.
 
 | | |
@@ -24,18 +22,18 @@ Detection content for one malware family or campaign across the Pyramid of Pain:
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Pyramid of Pain (`pyramid_of_pain`) | yes | Method | indicator types, ATT&CK mappings, actor tool claims | built |
-| 4 | Sigma rules (`sigma_rules`) | yes | Method | indicators, ATT&CK mappings | built |
-| 5 | Suricata rules (`suricata_rules`) | yes | Method | network indicators | built |
-| 6 | YARA rules (`yara_rules`) | optional | Analyst | analyst-supplied strings (`report yara`) | built |
-| 7 | Indicators of compromise (`ioc_table`) | yes | Evidence | STIX objects | built |
-| 8 | Validation (`validation_notes`) | yes | Analyst | report validate records | built |
-| 9 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 10 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | Pyramid of Pain (`pyramid_of_pain`) | yes | Method | indicator types, ATT&CK mappings, actor tool claims |
+| 4 | Sigma rules (`sigma_rules`) | yes | Method | indicators, ATT&CK mappings |
+| 5 | Suricata rules (`suricata_rules`) | yes | Method | network indicators |
+| 6 | YARA rules (`yara_rules`) | optional | Analyst | analyst-supplied strings (`report yara`) |
+| 7 | Indicators of compromise (`ioc_table`) | yes | Evidence | STIX objects |
+| 8 | Validation (`validation_notes`) | yes | Analyst | report validate records |
+| 9 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 10 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 

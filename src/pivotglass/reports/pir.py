@@ -369,12 +369,12 @@ def suggested_report_types(
 
 
 def _titled(type_ids: list[str]) -> list[dict[str, Any]]:
-    """Suggested report types with their registry titles and whether Pivotglass can build them yet."""
+    """Suggested report types with their registry titles."""
 
     from pivotglass.reports.registry import get_report_type  # the registry imports this module
 
     return [
-        {"id": t.id, "title": t.title, "available": t.available}
+        {"id": t.id, "title": t.title}
         for t in (get_report_type(type_id) for type_id in type_ids)
     ]
 

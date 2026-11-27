@@ -6,8 +6,6 @@ Investigation record · `investigation-report` · ID prefix `PG-INV-`
 
 The complete record of one workspace's investigation: the requirement and its verdict, the analytic lifecycle, the dossier, what was collected and from where, and what is still unknown.
 
-**Status:** Built: `report investigation-report` renders it.
-
 | | |
 |---|---|
 | Audience | Investigating analyst, Peer reviewer |
@@ -20,21 +18,21 @@ The complete record of one workspace's investigation: the requirement and its ve
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Overview (`overview`) | yes | Method | workspace, analytic ledger | built |
-| 4 | Scientific investigation (`scientific_investigation`) | yes | Analyst + Method | analytic ledger, information requirements, structured analysis | built |
-| 5 | Collection summary (`collection_summary`) | yes | Method | STIX objects, module runs | built |
-| 6 | Dossier state (`dossier_slots`) | yes | Evidence + Method | dossier state | built |
-| 7 | Legacy predictions log (`legacy_predictions`) | optional | Analyst | dossier predictions log | built |
-| 8 | Analyst notes (`analyst_notes`) | optional | Analyst | analyst notes | built |
-| 9 | Indicators of compromise (`ioc_table`) | yes | Evidence | STIX objects | built |
-| 10 | Investigation timeline (`collection_timeline`) | yes | Evidence | module runs | built |
-| 11 | Statistics (`statistics`) | yes | Method | STIX objects, score events | built |
-| 12 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 13 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | Overview (`overview`) | yes | Method | workspace, analytic ledger |
+| 4 | Scientific investigation (`scientific_investigation`) | yes | Analyst + Method | analytic ledger, information requirements, structured analysis |
+| 5 | Collection summary (`collection_summary`) | yes | Method | STIX objects, module runs |
+| 6 | Dossier state (`dossier_slots`) | yes | Evidence + Method | dossier state |
+| 7 | Legacy predictions log (`legacy_predictions`) | optional | Analyst | dossier predictions log |
+| 8 | Analyst notes (`analyst_notes`) | optional | Analyst | analyst notes |
+| 9 | Indicators of compromise (`ioc_table`) | yes | Evidence | STIX objects |
+| 10 | Investigation timeline (`collection_timeline`) | yes | Evidence | module runs |
+| 11 | Statistics (`statistics`) | yes | Method | STIX objects, score events |
+| 12 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 13 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 

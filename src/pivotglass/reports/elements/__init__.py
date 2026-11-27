@@ -71,7 +71,6 @@ class ReportContext:
     options: dict[str, dict[str, Any]] = field(default_factory=dict)
     results: dict[str, ElementResult] = field(default_factory=dict)
     load_errors: list[str] = field(default_factory=list)
-    omitted: list[str] = field(default_factory=list)  # optional sections not built yet
     _cache: dict[str, Any] = field(default_factory=dict)
 
     def _load(self, key: str, label: str, loader: Callable[[], Any], empty: Any) -> Any:
@@ -324,9 +323,4 @@ def load_builtin_elements() -> dict[str, ElementSpec]:
         strategic,
         vulnerability,
     )
-    from pivotglass.reports.elements.planned import PLANNED
-
-    both = sorted(set(PLANNED) & set(ELEMENTS))
-    if both:
-        raise RuntimeError(f"report elements both built and planned: {', '.join(both)}")
     return ELEMENTS

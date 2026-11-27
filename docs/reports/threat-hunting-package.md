@@ -6,8 +6,6 @@ Type 16 · Detection, hunting and posture · `threat-hunting-package` · ID pref
 
 Everything a hunter needs to test one hypothesis: the behaviour, the data, the queries, what normal looks like, how to triage hits and, afterwards, what the hunt found.
 
-**Status:** Built: `report threat-hunting-package` renders it.
-
 **Use it when:** A technique or actor of concern may be present but undetected. Issue it as DRAFT before the hunt and reissue it with the outcome.
 
 | | |
@@ -24,19 +22,19 @@ Everything a hunter needs to test one hypothesis: the behaviour, the data, the q
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Hunt hypothesis (`hunt_hypothesis`) | yes | Analyst | report section text, analytic ledger hypotheses | built |
-| 4 | Threat context (`threat_context`) | yes | Evidence + Analyst | report section text, actor claims | built |
-| 5 | Required data sources (`hunt_data_sources`) | yes | Method | indicator types | built |
-| 6 | Hunt queries (`hunt_queries`) | yes | Method | indicators | built |
-| 7 | Expected baseline and false positives (`baseline_false_positives`) | yes | Analyst | report section text | built |
-| 8 | Triage and escalation (`triage_playbook`) | yes | Analyst | report section text | built |
-| 9 | Hunt outcome (`hunt_outcome`) | optional | Analyst | report outcome | built |
-| 10 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 11 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | Hunt hypothesis (`hunt_hypothesis`) | yes | Analyst | report section text, analytic ledger hypotheses |
+| 4 | Threat context (`threat_context`) | yes | Evidence + Analyst | report section text, actor claims |
+| 5 | Required data sources (`hunt_data_sources`) | yes | Method | indicator types |
+| 6 | Hunt queries (`hunt_queries`) | yes | Method | indicators |
+| 7 | Expected baseline and false positives (`baseline_false_positives`) | yes | Analyst | report section text |
+| 8 | Triage and escalation (`triage_playbook`) | yes | Analyst | report section text |
+| 9 | Hunt outcome (`hunt_outcome`) | optional | Analyst | report outcome |
+| 10 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 11 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 

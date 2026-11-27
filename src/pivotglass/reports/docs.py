@@ -27,7 +27,6 @@ from pivotglass.reports.contract import (
     tlp_label,
 )
 from pivotglass.reports.elements import load_builtin_elements
-from pivotglass.reports.elements.planned import PLANNED
 from pivotglass.reports.pir import CATEGORIES, LEVELS
 from pivotglass.reports.registry import DOMAIN_LABELS, ReportDomain, ReportType, report_types
 from pivotglass.reports.rubrics import CAPABILITY_AXES
@@ -48,23 +47,13 @@ def _cell(text: str) -> str:
     return " ".join(text.split()).replace("|", "\\|")
 
 
-def _element_row(item_id: str) -> tuple[str, str, str, str]:
-    built = load_builtin_elements()
-    if item_id in built:
-        spec = built[item_id]
-        return spec.title, " + ".join(PROVENANCE_LABELS[p] for p in spec.provenance), ", ".join(spec.authorities), "built"
-    planned = PLANNED[item_id]
-    return (
-        planned.title,
-        " + ".join(PROVENANCE_LABELS[p] for p in planned.provenance),
-        ", ".join(planned.authorities),
-        f"#{planned.issue}",
-    )
+def _element_row(item_id: str) -> tuple[str, str, str]:
+    spec = load_builtin_elements()[item_id]
+    return spec.title, " + ".join(PROVENANCE_LABELS[p] for p in spec.provenance), ", ".join(spec.authorities)
 
 
 def _description(item_id: str) -> str:
-    built = load_builtin_elements()
-    return built[item_id].description if item_id in built else PLANNED[item_id].description
+    return load_builtin_elements()[item_id].description
 
 
 def _suggested_by(type_id: str) -> list[str]:
@@ -80,15 +69,6 @@ def type_page(t: ReportType) -> str:
     all_types = report_types()
     number = f"Type {t.number} · " if t.number else ""
     tier = LEVELS[t.tier].label if t.tier else "Any"
-    status = (
-        "Built: `report " + t.id + "` renders it."
-        if t.available
-        else "Defined, not built yet. Its sections arrive with "
-        + ", ".join(f"#{n}" for n in t.building_issues)
-        + "; until then `report "
-        + t.id
-        + "` explains what is missing and renders nothing."
-    )
     lines = [
         GENERATED,
         "",
@@ -97,8 +77,6 @@ def type_page(t: ReportType) -> str:
         f"{number}{DOMAIN_LABELS[t.domain]} · `{t.id}` · ID prefix `PG-{t.code}-`",
         "",
         _cell(t.purpose),
-        "",
-        f"**Status:** {status}",
         "",
     ]
     if t.use_when:
@@ -125,14 +103,14 @@ def type_page(t: ReportType) -> str:
         "In order. A required section with no content makes the report **Incomplete**, and the report "
         "names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.",
         "",
-        "| # | Section | Required | Provenance | Built from | Status |",
-        "|---:|---|---|---|---|---|",
+        "| # | Section | Required | Provenance | Built from |",
+        "|---:|---|---|---|---|",
     ]
     for index, item in enumerate(t.elements, 1):
-        title, provenance, authorities, built = _element_row(item.id)
+        title, provenance, authorities = _element_row(item.id)
         lines.append(
             f"| {index} | {title} (`{item.id}`) | {'yes' if item.required else 'optional'} | "
-            f"{provenance} | {_cell(authorities)} | {built} |"
+            f"{provenance} | {_cell(authorities)} |"
         )
     lines += ["", "## What each section must say", ""]
     for item in t.elements:
@@ -164,7 +142,7 @@ def index_page() -> str:
         "# Report types",
         "",
         "Pivotglass assembles reports from sections that each state where their content comes from. "
-        "Preview any built type with `report <type>`, issue it with `report issue <type>`, and list "
+        "Preview any type with `report <type>`, issue it with `report issue <type>`, and list "
         "the types with `report types`. The design is in "
         "[architecture/REPORTS.md](../architecture/REPORTS.md).",
         "",
@@ -172,13 +150,12 @@ def index_page() -> str:
     for domain in ReportDomain:
         if not by_domain.get(domain):
             continue
-        lines += [f"## {DOMAIN_LABELS[domain]}", "", "| # | Type | Tier | Audience | Marking | Status |", "|---:|---|---|---|---|---|"]
+        lines += [f"## {DOMAIN_LABELS[domain]}", "", "| # | Type | Tier | Audience | Marking |", "|---:|---|---|---|---|"]
         for t in by_domain[domain]:
-            status = "built" if t.available else "needs " + ", ".join(f"#{n}" for n in t.building_issues)
             lines.append(
                 f"| {t.number or '—'} | [{t.title}]({t.id}.md) | {LEVELS[t.tier].label if t.tier else 'Any'} | "
                 f"{_cell(', '.join(t.audience))} | {tlp_label(t.default_marking.tlp)} · "
-                f"{pap_label(t.default_marking.pap)} | {status} |"
+                f"{pap_label(t.default_marking.pap)} |"
             )
         lines.append("")
     lines += ["## Provenance classes", "", "| Class | Meaning |", "|---|---|"]

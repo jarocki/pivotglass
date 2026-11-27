@@ -334,3 +334,137 @@ def build_forensic_timeline(context: ReportContext) -> ElementResult:
         by_host[r["host"]] += 1
     gaps = [] if any(r["technique"] for r in rows) else ["No imported event names an ATT&CK technique."]
     return spec.result(ElementStatus.PARTIAL if gaps else ElementStatus.COMPLETE, {"events": rows, "hosts": dict(by_host)}, gaps=gaps)
+
+
+# --- coverage assessment (type 18, #57) ------------------------------------------------
+
+
+def _scope_md(result: ElementResult, output: OutputFormat) -> str:
+    rows = result.content.get("techniques", [])
+    lines = ["## Techniques in Scope", ""]
+    lines += [f"- **{r['technique']}** {md(r['name'])} — {r['reason']}" for r in rows] or ["_No technique is in scope._"]
+    return "\n".join(lines)
+
+
+@element(
+    "technique_scope",
+    "Techniques in scope",
+    (E, M, O),
+    ("accepted ATT&CK mappings", "control inventory"),
+    markdown=_scope_md,
+    description="The ATT&CK techniques assessed: those observed in this investigation and those in the control inventory.",
+)
+def build_technique_scope(context: ReportContext) -> ElementResult:
+    found: dict[str, dict[str, Any]] = {}
+    for m in context.mappings:
+        if m.framework.value == "attack" and m.state.value == "accepted":
+            found[m.content_id] = {"technique": m.content_id, "name": m.content_label, "reason": "observed in this investigation"}
+    for c in _org(context).controls() or ():
+        found.setdefault(c.technique, {"technique": c.technique, "name": "", "reason": "in the control inventory"})
+    rows = sorted(found.values(), key=lambda r: r["technique"])
+    spec = _spec("technique_scope")
+    if not rows:
+        return spec.result(ElementStatus.EMPTY, {"techniques": []}, gaps=["No observed technique and no control inventory."])
+    return spec.result(ElementStatus.COMPLETE, {"techniques": rows})
+
+
+_GAP_ORDER = {"critical": 0, "moderate": 1, "not_assessed": 2, "minor": 3, "none": 4}
+
+
+def coverage_gaps(context: ReportContext) -> list[dict[str, Any]]:
+    scope = build_technique_scope(context).content.get("techniques", [])
+    controls: dict[str, list[Any]] = defaultdict(list)
+    for c in _org(context).controls() or ():
+        controls[c.technique].append(c)
+    rows = []
+    for t in scope:
+        mine = controls.get(t["technique"], [])
+        if not mine:
+            rows.append({"technique": t["technique"], "control": None, "gap_status": "not_assessed", "missing": ["visibility", "alerting", "prevention"]})
+            continue
+        best = max(mine, key=lambda c: _GAP_ORDER[c.gap_status])  # the strongest control decides the gap
+        missing = [d for d in ("visibility", "alerting", "prevention") if getattr(best, d) < 2]  # noqa: PLR2004
+        rows.append({"technique": t["technique"], "control": best.control, "gap_status": best.gap_status, "missing": missing})
+    return sorted(rows, key=lambda r: (_GAP_ORDER[r["gap_status"]], r["technique"]))
+
+
+def _gaps_md(result: ElementResult, output: OutputFormat) -> str:
+    rows = result.content.get("gaps", [])
+    lines = ["## Coverage Gaps", ""]
+    if not rows:
+        return "\n".join([*lines, "_Nothing in scope._"])
+    lines += ["| Technique | Gap | Strongest control | Below full |", "|---|---|---|---|"]
+    lines += [f"| {r['technique']} | **{r['gap_status'].replace('_', ' ')}** | {md(r['control'] or 'none recorded')} | {', '.join(r['missing']) or '—'} |" for r in rows]
+    lines += ["", f"_Gap status is derived, never entered. {GAP_RULE}_"]
+    return "\n".join(lines)
+
+
+@element(
+    "gap_list",
+    "Coverage gaps",
+    (M, O),
+    ("control inventory", "gap rule (reports/contract.py)"),
+    markdown=_gaps_md,
+    description="Each technique in scope with its gap status from the stated rule, critical first; a technique with no control is not assessed.",
+)
+def build_gap_list(context: ReportContext) -> ElementResult:
+    rows = coverage_gaps(context)
+    spec = _spec("gap_list")
+    if not rows:
+        return spec.result(ElementStatus.EMPTY, {"gaps": []}, gaps=["Nothing in scope."])
+    unassessed = [r["technique"] for r in rows if r["gap_status"] == "not_assessed"]
+    return spec.result(ElementStatus.PARTIAL if unassessed else ElementStatus.COMPLETE, {"gaps": rows},
+                       gaps=[f"No control is recorded for {', '.join(unassessed)}."] if unassessed else [])
+
+
+def _emulation_md(result: ElementResult, output: OutputFormat) -> str:
+    c = result.content
+    lines = ["## Adversary Emulation Plan", ""]
+    if c.get("index"):
+        lines.append(f"_Tests from Atomic Red Team at commit `{c['index']['commit'][:8]}` ({c['index']['committed']}, {c['index']['licence']} licence). "
+                     "Run them by GUID with your Atomic runner; no commands are copied here._")
+    for step in c.get("steps", []):
+        lines += ["", f"### {step['technique']} — {step['gap_status'].replace('_', ' ')} gap", "", f"**Pass when:** {step['pass_criteria']}"]
+        lines += [f"- Test {t['number']}: {md(t['name'])} (`{t['guid']}`, {t['executor']})" for t in step["tests"][:5]] or ["- _No Atomic test for this technique in the pinned index._"]
+    if not c.get("steps"):
+        lines.append("_No gap needs emulation._")
+    return "\n".join(lines)
+
+
+_PASS = {
+    "visibility": "the expected telemetry appears in the SIEM",
+    "alerting": "an alert fires for the test",
+    "prevention": "the control blocks the test",
+}
+
+
+@element(
+    "emulation_plan",
+    "Adversary emulation plan",
+    (M,),
+    ("pinned Atomic Red Team index", "coverage gaps"),
+    markdown=_emulation_md,
+    description="Per gap, the Atomic Red Team tests by GUID from a pinned, hash-verified index, and the pass criteria the gap implies.",
+)
+def build_emulation_plan(context: ReportContext) -> ElementResult:
+    from pivotglass.reports.atomic import ATOMIC_INDEX, default_index_path, load_index
+
+    spec = _spec("emulation_plan")
+    path = default_index_path()
+    index = load_index(path) if path.is_file() else None
+    steps = []
+    for gap in coverage_gaps(context):
+        if gap["gap_status"] in {"none"}:
+            continue
+        tests = (index or {}).get(gap["technique"], [])
+        steps.append({
+            "technique": gap["technique"], "gap_status": gap["gap_status"],
+            "pass_criteria": "; ".join(_PASS[d] for d in gap["missing"]) or "the control behaves as recorded",
+            "tests": [t.__dict__ for t in tests],
+        })
+    content = {"steps": steps, "index": {"commit": ATOMIC_INDEX.commit, "committed": ATOMIC_INDEX.committed, "licence": ATOMIC_INDEX.licence} if index else None}
+    gaps = [] if index else [f"The pinned Atomic Red Team index is not installed at {path}; see `reports/atomic.py` for the one-line install."]
+    gaps += [f"{s['technique']}: no Atomic test in the pinned index." for s in steps if index and not s["tests"]]
+    if not steps:
+        return spec.result(ElementStatus.EMPTY, content, gaps=[*gaps, "No gap needs emulation."])
+    return spec.result(ElementStatus.PARTIAL if gaps else ElementStatus.COMPLETE, content, gaps=gaps)

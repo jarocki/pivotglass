@@ -44,7 +44,6 @@ from pivotglass.reports.elements import (
     load_builtin_elements,
 )
 from pivotglass.reports.elements.common import LATE_ELEMENTS
-from pivotglass.reports.elements.planned import PLANNED
 from pivotglass.reports.registry import ReportType, get_report_type
 
 if TYPE_CHECKING:
@@ -102,17 +101,14 @@ def build_report(
     omitted and exactly one actor has claims, that actor is used.
     """
 
-    report_type = get_report_type(type_id, buildable=True)
+    report_type = get_report_type(type_id)
     load_builtin_elements()
     context = ReportContext(workspace_mgr, now=now or datetime.now(timezone.utc))
     if subject or any(item.id in ACTOR_SCOPED for item in report_type.elements):
         context.subject = resolve_subject(context.analysis, subject)
     context.options = {item.id: dict(item.options) for item in report_type.elements}
     for item in report_type.elements:
-        if item.id in report_type.planned_optional:
-            planned = PLANNED[item.id]
-            context.omitted.append(f"{planned.title} is optional and not built yet (#{planned.issue}).")
-        elif item.id not in LATE_ELEMENTS:
+        if item.id not in LATE_ELEMENTS:
             context.results[item.id] = build_element(ELEMENTS[item.id], context)
     context.results["sources"] = build_element(ELEMENTS["sources"], context)
     context.results["gaps_limitations"] = build_element(ELEMENTS["gaps_limitations"], context)
@@ -197,7 +193,7 @@ def issue_report(
 
     from pivotglass.models.database import ReportIssue
 
-    report_type = get_report_type(type_id, buildable=True)
+    report_type = get_report_type(type_id)
     now = now or datetime.now(timezone.utc)
     preview = build_report(workspace_mgr, report_type.id, now=now, tlp=tlp, pap=pap, subject=subject)
     if status is ReportStatus.FINAL and preview.pending_model_drafts:

@@ -21,7 +21,6 @@ def wm(tmp_path_factory) -> WorkspaceManager:
 
 @pytest.mark.parametrize("type_id", TYPES)
 def test_types_render_complete(wm, type_id):
-    assert get_report_type(type_id).available
     for output in get_report_type(type_id).formats:
         result = execute_report_command(f"{type_id} {output.value}", wm)
         assert result["complete"], result["missing_required"]

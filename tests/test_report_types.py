@@ -8,7 +8,6 @@ import pytest
 
 from pivotglass.reports.contract import unreserved_values
 from pivotglass.reports.elements import ELEMENTS, load_builtin_elements
-from pivotglass.reports.elements.planned import PLANNED
 from pivotglass.reports.pir import CATEGORIES
 from pivotglass.reports.registry import ReportDomain, get_report_type, report_types
 
@@ -51,29 +50,23 @@ def test_each_definition_names_its_source_template_and_what_changed(number):
     assert t.tier is not None and t.use_when and t.related
 
 
-def test_planned_and_built_elements_are_disjoint_and_every_planned_element_is_used():
+def test_every_registered_element_is_used_by_a_type():
     built = load_builtin_elements()
-    assert not set(PLANNED) & set(built)
     used = {item.id for t in report_types().values() for item in t.elements}
-    assert set(PLANNED) - used == set()
-    assert all(p.issue in {53, 54, 55, 56, 57, 58, 59} for p in PLANNED.values())
+    assert set(built) - used == set()
 
 
-def test_a_planned_type_refuses_to_render_and_names_the_issues(tmp_path):
+def test_every_type_builds_on_an_empty_workspace_and_says_what_is_missing(tmp_path):
     from pivotglass.core.workspace import WorkspaceManager
-    from pivotglass.reports.commands import execute_report_command
+    from pivotglass.reports.engine import build_report
 
     wm = WorkspaceManager(workspace_dir=tmp_path / "ws")
     wm.create("x")
     wm.switch("x")
-    planned = next(t for t in report_types().values() if not t.available)
-    with pytest.raises(ValueError, match="not built yet.*#"):
-        execute_report_command(planned.id, wm)
-    with pytest.raises(ValueError, match="not built yet"):
-        execute_report_command(f"issue {planned.id}", wm)
-    summary = {row["id"]: row for row in execute_report_command("types", wm)["data"]}
-    assert summary[planned.id]["available"] is False and summary[planned.id]["building_issues"]
-    assert summary["investigation-report"]["available"] is True
+    for type_id in report_types():
+        report = build_report(wm, type_id)
+        assert report.complete is (not report.missing_required)
+        assert report.element("gaps_limitations").content["report_gaps"], type_id
 
 
 def test_every_pir_suggestion_is_a_defined_type():

@@ -15,8 +15,6 @@ from pivotglass.core.analytic_ledger import (
     Materiality,
 )
 from pivotglass.core.command_completion import command_completions
-from pivotglass.reports.engine import build_report
-from pivotglass.reports.render import render
 from pivotglass.core.information_requirements import (
     POLICY_ID,
     build_information_requirements,
@@ -24,6 +22,8 @@ from pivotglass.core.information_requirements import (
     validate_requirement_criteria,
 )
 from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.reports.engine import build_report
+from pivotglass.reports.render import render
 
 
 def _workspace(tmp_path) -> WorkspaceManager:

@@ -6,8 +6,6 @@ Type 10 · Analytical and attribution · `actor-capability-radar` · ID prefix `
 
 Compare an actor's capability across defined axes, and optionally against the organisation's own defensive maturity on the same axes.
 
-**Status:** Built: `report actor-capability-radar` renders it.
-
 **Use it when:** Prioritising actors, briefing leadership on capability, or choosing what to test in a purple-team exercise.
 
 | | |
@@ -24,15 +22,15 @@ Compare an actor's capability across defined axes, and optionally against the or
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Capability rubric (`capability_rubric`) | yes | Method | reports/rubrics.py | built |
-| 4 | Capability scores (`capability_radar`) | yes | Analyst | actor claims (capability:<axis>), capability rubric | built |
-| 5 | Defence benchmark (`defense_benchmark`) | optional | Organisation input | organisation profile (capability_benchmark), capability scores | built |
-| 6 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 7 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | Capability rubric (`capability_rubric`) | yes | Method | reports/rubrics.py |
+| 4 | Capability scores (`capability_radar`) | yes | Analyst | actor claims (capability:<axis>), capability rubric |
+| 5 | Defence benchmark (`defense_benchmark`) | optional | Organisation input | organisation profile (capability_benchmark), capability scores |
+| 6 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 7 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 

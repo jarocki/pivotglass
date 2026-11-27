@@ -6,8 +6,6 @@ Type 13 · Attack flow and behavioral · `attack-navigator-layer` · ID prefix `
 
 Show the techniques an actor or campaign uses as an ATT&CK Navigator layer, scored by how well each is evidenced, with the procedure behind each one.
 
-**Status:** Built: `report attack-navigator-layer` renders it.
-
 **Use it when:** Comparing actors, planning detection coverage, or scoping an emulation. Only accepted framework mappings are included.
 
 | | |
@@ -24,14 +22,14 @@ Show the techniques an actor or campaign uses as an ATT&CK Navigator layer, scor
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | ATT&CK Navigator layer (`navigator_layer`) | yes | Method | accepted ATT&CK mappings, pinned ATT&CK v19.2, observations | built |
-| 4 | ATT&CK techniques and procedures (`attack_matrix`) | yes | Evidence | accepted framework mappings, pinned ATT&CK Enterprise v19.2 | built |
-| 5 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 6 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | ATT&CK Navigator layer (`navigator_layer`) | yes | Method | accepted ATT&CK mappings, pinned ATT&CK v19.2, observations |
+| 4 | ATT&CK techniques and procedures (`attack_matrix`) | yes | Evidence | accepted framework mappings, pinned ATT&CK Enterprise v19.2 |
+| 5 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 6 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 

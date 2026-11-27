@@ -6,8 +6,6 @@ Type 11 · Analytical and attribution · `infrastructure-clustering-graph` · ID
 
 Show how domains, addresses, certificates and files connect, which clusters they form, and which shared attributes are worth pivoting on next.
 
-**Status:** Built: `report infrastructure-clustering-graph` renders it.
-
 **Use it when:** Mapping an actor's or campaign's infrastructure, or deciding where to pivot next. Built from the investigation graph Pivotglass already maintains.
 
 | | |
@@ -24,16 +22,16 @@ Show how domains, addresses, certificates and files connect, which clusters they
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Infrastructure graph (`infra_graph`) | yes | Evidence + Method | investigation graph, evidence clusters, observations | built |
-| 4 | Pivot points (`pivot_points`) | yes | Method | investigation graph | built |
-| 5 | Infrastructure and OPSEC patterns (`infra_opsec`) | optional | Evidence + Method | STIX objects | built |
-| 6 | Indicators of compromise (`ioc_table`) | optional | Evidence | STIX objects | built |
-| 7 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 8 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | Infrastructure graph (`infra_graph`) | yes | Evidence + Method | investigation graph, evidence clusters, observations |
+| 4 | Pivot points (`pivot_points`) | yes | Method | investigation graph |
+| 5 | Infrastructure and OPSEC patterns (`infra_opsec`) | optional | Evidence + Method | STIX objects |
+| 6 | Indicators of compromise (`ioc_table`) | optional | Evidence | STIX objects |
+| 7 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 8 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 

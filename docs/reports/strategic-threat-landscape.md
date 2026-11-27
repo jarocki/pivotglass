@@ -6,8 +6,6 @@ Type 2 · Strategic and executive · `strategic-threat-landscape` · ID prefix `
 
 Summarise how the threat to the organisation changed over a period and forecast the next six to twelve months, with scenarios and the signposts that would show each one unfolding.
 
-**Status:** Built: `report strategic-threat-landscape` renders it.
-
 **Use it when:** Quarterly or annual planning, board reporting, and security-strategy reviews. Pivotglass collection sees infrastructure and indicators, not geopolitics or the wider market, so most of this report is analyst judgment; the gaps section says so.
 
 | | |
@@ -24,19 +22,19 @@ Summarise how the threat to the organisation changed over a period and forecast 
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Period and coverage (`period_scope`) | yes | Method + Analyst | observations, report section text | built |
-| 4 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses | built |
-| 5 | Macro trends (`macro_trends`) | yes | Analyst + Model draft + Evidence | report section text, observations, ATT&CK mappings | built |
-| 6 | Sector and regional targeting (`sector_targeting`) | yes | Organisation input + Evidence | organisation profile, actor claims | built |
-| 7 | Emerging techniques (`emerging_ttps`) | optional | Analyst + Evidence | ATT&CK mappings, observations | built |
-| 8 | Forward-looking scenarios (`scenarios`) | yes | Analyst | report scenario records | built |
-| 9 | Recommendations (`recommendations`) | yes | Analyst | report recommendations | built |
-| 10 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 11 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | Period and coverage (`period_scope`) | yes | Method + Analyst | observations, report section text |
+| 4 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses |
+| 5 | Macro trends (`macro_trends`) | yes | Analyst + Model draft + Evidence | report section text, observations, ATT&CK mappings |
+| 6 | Sector and regional targeting (`sector_targeting`) | yes | Organisation input + Evidence | organisation profile, actor claims |
+| 7 | Emerging techniques (`emerging_ttps`) | optional | Analyst + Evidence | ATT&CK mappings, observations |
+| 8 | Forward-looking scenarios (`scenarios`) | yes | Analyst | report scenario records |
+| 9 | Recommendations (`recommendations`) | yes | Analyst | report recommendations |
+| 10 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 11 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 

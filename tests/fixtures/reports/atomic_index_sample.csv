@@ -1,0 +1,4 @@
+Tactic,Technique #,Technique Name,Test #,Test Name,Test GUID,Executor Name
+command-and-control,T1071.001,Application Layer Protocol: Web Protocols,1,Malicious User Agents - Powershell,81c13829-f6c9-45b8-85a6-053366d55297,powershell
+command-and-control,T1071.001,Application Layer Protocol: Web Protocols,2,Malicious User Agents - CMD,dc3488b0-08c7-4fea-b585-905c83b48180,command_prompt
+command-and-control,T1071.001,Application Layer Protocol: Web Protocols,3,Malicious User Agents - Nix,2d7c471a-e887-4b78-b0dc-b0df1f2e0658,sh

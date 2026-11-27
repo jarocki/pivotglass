@@ -196,14 +196,11 @@ The 18 starting templates in `cti-output-templates/` are source material and
 stay unchanged. #52 lists their defects. The definitions supersede them; each
 YAML file's comment names its template and what changed.
 
-**Planned elements.** The definitions were written before most builders
-exist. `reports/elements/planned.py` declares each unbuilt element (id,
-title, provenance, authorities, meaning, and the issue that builds it), so the
-loader validates all 18 types now. A type with any planned element is listed
-as not built and refuses to render or issue; it never shows placeholder
-content. A builder that lands deletes its planned entry in the same change,
-and a test fails if an id is both. Worked examples are generated per type as
-its builders land.
+**Planned elements (removed).** While the builders were written (#53-#59),
+`reports/elements/planned.py` declared each unbuilt element so the 18 types
+could be validated early, and a type with planned sections refused to render.
+All 18 types build now, so that file and its handling are gone; an undefined
+element is again a load error.
 
 ### Element catalogue
 
@@ -343,5 +340,8 @@ done.
 - Whether pinned ATT&CK v19.2 content carries usable data components for
   `hunt_data_sources`. It is a STIX bundle; this must be checked in the
   content itself.
-- Pinning Atomic Red Team: which index file to use, its hash, and its licence
-  terms, before `emulation_plan` ships.
+- Pinning Atomic Red Team: resolved in `reports/atomic.py` (DEC-ATOMIC-INDEX-001):
+  `atomics/Indexes/Indexes-CSV/index.csv` at commit `04a53f01` (2026-11-06),
+  SHA-256 `52b16865...`, MIT licence; operator-installed, hash-verified.
+- ATT&CK data components for `hunt_data_sources`: not yet derived; the section
+  maps indicator types to log sources and says so in its gaps.

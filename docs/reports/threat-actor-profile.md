@@ -6,8 +6,6 @@ Type 7 · Analytical and attribution · `threat-actor-profile` · ID prefix `PG-
 
 A maintained reference on one actor: who it is, what it wants, whom it targets, how its operations have changed, what it uses, how its infrastructure behaves, and which techniques it uses.
 
-**Status:** Built: `report threat-actor-profile` renders it.
-
 **Use it when:** An actor recurs in investigations or is named in a requirement. Reissue it as the dossier grows; the revision history records each change.
 
 | | |
@@ -24,20 +22,20 @@ A maintained reference on one actor: who it is, what it wants, whom it targets, 
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Actor identity (`actor_identity`) | yes | Evidence + Analyst | actor claims (alias, mitre-group, origin) | built |
-| 4 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses | built |
-| 5 | Motivation and objectives (`motivation`) | yes | Evidence + Analyst | actor claims (motivation) | built |
-| 6 | Victimology (`victimology`) | yes | Evidence + Analyst | actor claims (targets-sector, targets-region) | built |
-| 7 | Historical timeline (`historical_timeline`) | yes | Evidence | actor claims (campaign), observations | built |
-| 8 | Arsenal and tooling (`arsenal`) | yes | Evidence + Analyst | actor claims (uses-malware, uses-tool), file observations | built |
-| 9 | Infrastructure and OPSEC patterns (`infra_opsec`) | yes | Evidence + Method | STIX objects | built |
-| 10 | ATT&CK techniques and procedures (`attack_matrix`) | yes | Evidence | accepted framework mappings, pinned ATT&CK Enterprise v19.2 | built |
-| 11 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 12 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | Actor identity (`actor_identity`) | yes | Evidence + Analyst | actor claims (alias, mitre-group, origin) |
+| 4 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses |
+| 5 | Motivation and objectives (`motivation`) | yes | Evidence + Analyst | actor claims (motivation) |
+| 6 | Victimology (`victimology`) | yes | Evidence + Analyst | actor claims (targets-sector, targets-region) |
+| 7 | Historical timeline (`historical_timeline`) | yes | Evidence | actor claims (campaign), observations |
+| 8 | Arsenal and tooling (`arsenal`) | yes | Evidence + Analyst | actor claims (uses-malware, uses-tool), file observations |
+| 9 | Infrastructure and OPSEC patterns (`infra_opsec`) | yes | Evidence + Method | STIX objects |
+| 10 | ATT&CK techniques and procedures (`attack_matrix`) | yes | Evidence | accepted framework mappings, pinned ATT&CK Enterprise v19.2 |
+| 11 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 12 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 

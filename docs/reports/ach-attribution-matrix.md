@@ -6,8 +6,6 @@ Type 9 · Analytical and attribution · `ach-attribution-matrix` · ID prefix `P
 
 Test competing explanations of who is responsible against the evidence, and record which explanation survives, why the others were rejected, and how fragile the result is.
 
-**Status:** Built: `report ach-attribution-matrix` renders it.
-
 **Use it when:** Two or more hypotheses compete, or an attribution will be published. Built from an Analysis of Competing Hypotheses method run in the analytic ledger.
 
 | | |
@@ -23,16 +21,16 @@ Test competing explanations of who is responsible against the evidence, and reco
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Competing hypotheses (`ach_hypotheses`) | yes | Analyst | analytic ledger hypotheses | built |
-| 4 | ACH matrix (`ach_matrix`) | yes | Analyst + Method | analytic ledger evidence links | built |
-| 5 | ACH judgment (`ach_judgment`) | yes | Analyst + Method | ACH matrix, analysis_of_competing_hypotheses method runs | built |
-| 6 | Signposts (`signposts`) | yes | Analyst | signpost lifecycle items, indicators_and_signposts method runs | built |
-| 7 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 8 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | Competing hypotheses (`ach_hypotheses`) | yes | Analyst | analytic ledger hypotheses |
+| 4 | ACH matrix (`ach_matrix`) | yes | Analyst + Method | analytic ledger evidence links |
+| 5 | ACH judgment (`ach_judgment`) | yes | Analyst + Method | ACH matrix, analysis_of_competing_hypotheses method runs |
+| 6 | Signposts (`signposts`) | yes | Analyst | signpost lifecycle items, indicators_and_signposts method runs |
+| 7 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 8 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 

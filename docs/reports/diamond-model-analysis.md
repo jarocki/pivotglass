@@ -6,8 +6,6 @@ Type 8 · Analytical and attribution · `diamond-model-analysis` · ID prefix `P
 
 Decompose intrusion events into adversary, capability, infrastructure and victim, show how events connect into activity threads, and expose which vertices are known and which are inferred.
 
-**Status:** Built: `report diamond-model-analysis` renders it.
-
 **Use it when:** Structuring an intrusion for pivoting and comparison, or preparing evidence for attribution. One report may hold several events.
 
 | | |
@@ -24,14 +22,14 @@ Decompose intrusion events into adversary, capability, infrastructure and victim
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Diamond events (`diamond_events`) | yes | Evidence + Analyst | Diamond framework mappings, observations, Kill Chain mappings | built |
-| 4 | Activity threads (`activity_threads`) | yes | Evidence + Method | Diamond events | built |
-| 5 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 6 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | Diamond events (`diamond_events`) | yes | Evidence + Analyst | Diamond framework mappings, observations, Kill Chain mappings |
+| 4 | Activity threads (`activity_threads`) | yes | Evidence + Method | Diamond events |
+| 5 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 6 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 

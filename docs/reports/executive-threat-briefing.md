@@ -6,8 +6,6 @@ Type 1 · Strategic and executive · `executive-threat-briefing` · ID prefix `P
 
 Tell leadership, on one page, what happened or is expected, whether the organisation is affected, how sure the analysis is, and what decision or resource is needed now.
 
-**Status:** Built: `report executive-threat-briefing` renders it.
-
 **Use it when:** A threat, event or vulnerability may affect the organisation and leadership must decide, approve or be informed. Not for technical response: pair it with a Threat Activity Alert or Vulnerability Exploitation Brief.
 
 | | |
@@ -24,18 +22,18 @@ Tell leadership, on one page, what happened or is expected, whether the organisa
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Bottom line up front (`bluf`) | yes | Model draft + Analyst | report section text | built |
-| 4 | Overall risk (`risk_rating`) | yes | Analyst | report risk record | built |
-| 5 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses | built |
-| 6 | Situational overview (`situational_overview`) | yes | Model draft + Analyst | report section text | built |
-| 7 | Organisational exposure (`org_exposure`) | yes | Organisation input + Evidence | organisation profile, control inventory, actor claims, NVD and KEV records, ATT&CK mappings | built |
-| 8 | Recommendations (`recommendations`) | yes | Analyst | report recommendations | built |
-| 9 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 10 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | Bottom line up front (`bluf`) | yes | Model draft + Analyst | report section text |
+| 4 | Overall risk (`risk_rating`) | yes | Analyst | report risk record |
+| 5 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses |
+| 6 | Situational overview (`situational_overview`) | yes | Model draft + Analyst | report section text |
+| 7 | Organisational exposure (`org_exposure`) | yes | Organisation input + Evidence | organisation profile, control inventory, actor claims, NVD and KEV records, ATT&CK mappings |
+| 8 | Recommendations (`recommendations`) | yes | Analyst | report recommendations |
+| 9 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 10 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 

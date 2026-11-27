@@ -6,8 +6,6 @@ Type 12 · Attack flow and behavioral · `kill-chain-mapping` · ID prefix `PG-K
 
 Lay an intrusion or campaign along the seven kill-chain phases, show where controls saw or stopped it and where they did not, and say where to break the chain earliest.
 
-**Status:** Built: `report kill-chain-mapping` renders it.
-
 **Use it when:** After an incident or exercise, to explain control performance phase by phase. Control status needs the organisation's telemetry or control input.
 
 | | |
@@ -24,14 +22,14 @@ Lay an intrusion or campaign along the seven kill-chain phases, show where contr
 
 In order. A required section with no content makes the report **Incomplete**, and the report names it. Every report has the header, the PIR verdict, Gaps and Limitations, and Sources.
 
-| # | Section | Required | Provenance | Built from | Status |
-|---:|---|---|---|---|---|
-| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
-| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Kill chain (`kill_chain_table`) | yes | Evidence + Analyst + Organisation input | Kill Chain mappings, ATT&CK mappings, imported telemetry, report control records | built |
-| 4 | Recommendations (`recommendations`) | yes | Analyst | report recommendations | built |
-| 5 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
-| 6 | Sources (`sources`) | yes | Method | module runs | built |
+| # | Section | Required | Provenance | Built from |
+|---:|---|---|---|---|
+| 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py |
+| 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py |
+| 3 | Kill chain (`kill_chain_table`) | yes | Evidence + Analyst + Organisation input | Kill Chain mappings, ATT&CK mappings, imported telemetry, report control records |
+| 4 | Recommendations (`recommendations`) | yes | Analyst | report recommendations |
+| 5 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results |
+| 6 | Sources (`sources`) | yes | Method | module runs |
 
 ## What each section must say
 
