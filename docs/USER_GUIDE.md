@@ -575,10 +575,17 @@ Focus mode is keyboard-first:
 | `e` | Export the indicators the list shows (after the filter) as CSV, defanged or live, or as a STIX 2.1 bundle. CSV columns: value, type, role, tactic, cluster, other tags, source document, observed by, first seen. STIX values are never defanged; tags, source and first seen travel as `x_pivotglass_*` properties, and values with no valid STIX form are left out and counted |
 | `t` | Tag the selection or the focused indicator |
 | `g` | Cycle grouping: source order, type, then each tag dimension |
-| `/` | Filter by value, type, or `dimension:value` such as `role:c2` |
+| `/` | Filter by value, type, `dimension:value` such as `role:c2`, or `is:new` / `is:known` (already a workspace entity) |
 | `v` | Switch between the rendered source and exact parser text |
 | `Enter` | Close focus mode and put the indicator in the command field |
 | `Esc` | Close the card, the palette, or focus mode |
+
+Each row shows when the indicator was first observed in this workspace (`seen`),
+which source observed it (`via`), its tags, and any list match. The **Sort**
+menu offers source order, new first, first seen (oldest), and value, so triage
+need not start from the first indicator the report happens to name. **Pivot N
+new** adds every listed indicator that is not yet in the workspace to the
+investigation queue.
 
 **Admitting** stores the source and adds the selected indicators to the case
 in one step, with provenance. **Store source** keeps the source without
@@ -1047,6 +1054,7 @@ faded), and the evidence drawer. Each label names the list and its version.
 | Shared infrastructure | AWS, Google Cloud, Azure, Cloudflare, Akamai, Fastly address space; URL shorteners; dynamic DNS; parking servers; a URL on a popular site; a subdomain of any listed domain | No |
 | Sinkhole | Known sinkhole addresses | No |
 | Known file, also reported malicious | hashlookup knows the file but a source lists it as malicious | No |
+| Reserved or special-purpose value | Documentation ranges (RFC 5737, 3849), private, loopback and other non-global addresses; `.example`, `.test`, `.invalid`, `.localhost` and `example.com/net/org` domains, URLs and email addresses. Built in, not from a warninglist | No: a private address in a report may be the victim's own host |
 
 A label is context, never a verdict. **Set aside** (on a known indicator in the
 evidence drawer, or **Set aside N known** in focus mode for the whole source)

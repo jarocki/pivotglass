@@ -18,7 +18,7 @@ import {
   filterIndicators, groupIndicators, groupMentions, indexTags, locateInSegments, occurrenceOrdinal,
   parseTagInput, type DocumentRelations, type FocusCandidate, type FocusIndicator, type IndicatorContext,
   type Tag, type TagDimension,
-  canSetAside, clipboardText, hexGroups,
+  canSetAside, clipboardText, hexGroups, sortIndicators, FOCUS_SORTS, type FocusSort,
 } from "./focus-model";
 
 export type FocusRendering = { kind: "text" | "html" | "pdf"; anchoring: "exact" | "ordinal"; html: string | null; notes: string[] };
@@ -43,7 +43,7 @@ type ViewMode = "rendered" | "text";
 const EMPTY_CONTEXT: IndicatorContext = { entity: null, relationships: [], observed_by: [], documents: [], tags: [], investigated_at: null, known: [] };
 
 export function IndicatorFocus({
-  source, workspace, admittedKeys, busy, status, onClose, onAdmit, onStore, onInvestigate,
+  source, workspace, admittedKeys, busy, status, onClose, onAdmit, onStore, onInvestigate, onQueue,
 }: {
   source: FocusSource;
   workspace: string;
@@ -54,6 +54,8 @@ export function IndicatorFocus({
   onAdmit: (selectionKeys: string[]) => Promise<void>;
   onStore?: () => Promise<void>;
   onInvestigate?: (value: string) => void;
+  /** Queue indicators for investigation (#29: pivot every new indicator). */
+  onQueue?: (values: string[]) => void;
 }) {
   const indicators = useMemo(() => groupMentions(source.candidates), [source.candidates]);
   const [dimensions, setDimensions] = useState<TagDimension[]>([]);
@@ -61,6 +63,7 @@ export function IndicatorFocus({
   const [contextError, setContextError] = useState("");
   const [filter, setFilter] = useState("");
   const [grouping, setGrouping] = useState("source");
+  const [sort, setSort] = useState<FocusSort>("source");
   const [focusKey, setFocusKey] = useState<string | null>(indicators[0]?.key ?? null);
   const [mention, setMention] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -77,7 +80,10 @@ export function IndicatorFocus({
   const listRef = useRef<HTMLOListElement>(null);
 
   const tags = useMemo(() => indexTags(Object.values(context).flatMap((item) => item.tags)), [context]);
-  const visible = useMemo(() => filterIndicators(indicators, filter, tags), [indicators, filter, tags]);
+  const isKnown = useCallback((key: string) => Boolean(context[key]?.entity), [context]);
+  const visible = useMemo(() => sortIndicators(filterIndicators(indicators, filter, tags, isKnown), sort, context),
+    [indicators, filter, tags, isKnown, sort, context]);
+  const newVisible = useMemo(() => visible.filter((item) => !isKnown(item.key)), [visible, isKnown]);
   const groups = useMemo(() => groupIndicators(visible, grouping, tags, dimensions), [visible, grouping, tags, dimensions]);
   // Navigation order is display order; an indicator in several groups is visited once.
   const order = useMemo(() => [...new Map(groups.flatMap((group) => group.items).map((item) => [item.key, item])).values()], [groups]);
@@ -256,6 +262,9 @@ export function IndicatorFocus({
         <option value="source">Source order</option><option value="type">Type</option>
         {dimensions.map((item) => <option key={item.name} value={item.name}>{item.label}</option>)}
       </select></label>
+      <label><span className="sr-only">Sort</span><select value={sort} onChange={(event) => setSort(event.target.value as FocusSort)} aria-label="Sort indicators">
+        {FOCUS_SORTS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+      </select></label>
       {source.rendering.kind !== "text" && <div className="segmented" role="group" aria-label="Source view">
         <button className={view === "rendered" ? "selected" : ""} onClick={() => setView("rendered")}>Rendered</button>
         <button className={view === "text" ? "selected" : ""} onClick={() => setView("text")}>Text</button>
@@ -265,6 +274,8 @@ export function IndicatorFocus({
       <button className="primary" disabled={busy || (!selectionCount && !focusKey)} onClick={() => void admit()}>
         {busy ? "Saving…" : selectionCount ? `Admit ${selectionCount}` : "Admit current"}
       </button>
+      {onQueue && newVisible.length > 0 && <button title="Add every listed indicator that is not yet in the workspace to the investigation queue"
+        onClick={() => { onQueue(newVisible.map((item) => item.value)); setCopyNotice(`Queued ${newVisible.length} new indicators for investigation`); }}>Pivot {newVisible.length} new</button>}
       <span className="focus-export">
         <button aria-expanded={exportOpen} aria-haspopup="menu" disabled={!order.length} title="Export the filtered list (e)" onClick={() => setExportOpen((current) => !current)}>Export {order.length}</button>
         {exportOpen && <span className="focus-export-menu" role="menu" aria-label={`Export ${order.length} filtered indicators`}>
@@ -278,7 +289,7 @@ export function IndicatorFocus({
     {(status || contextError || tagError || copyNotice) && <p className="focus-notice" role="status">{[copyNotice, status, contextError, tagError].filter(Boolean).join(" · ")}</p>}
     <div className="focus-body">
       <section className="focus-list" aria-label="Indicators">
-        <input ref={filterRef} value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter — value, type, role:c2, tactic:…" aria-label="Filter indicators" />
+        <input ref={filterRef} value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter — value, type, role:c2, is:new, is:known…" aria-label="Filter indicators" />
         {palette && focusKey && <TagPalette dimensions={dimensions} count={targets().length} onClose={() => { setPalette(false); rootRef.current?.focus(); }}
           onApply={(dimension, value) => { void applyTags(targets().map((key) => ({ key, dimension, value, action: "add" }))); setPalette(false); rootRef.current?.focus(); }} />}
         <ol ref={listRef}>
@@ -349,6 +360,8 @@ function IndicatorRow({ item, focused, selected, admitted, context, relations, o
         {!admitted && known > 0 && <i className="known" title="Already a workspace entity">known</i>}
         {context?.known?.[0] && <i className={`listed listed-${context.known[0].category}`} title={`${context.known[0].category_label}: ${context.known.map((match) => `${match.label} (${match.source})`).join("; ")}. Context, not a verdict.`}>{context.known[0].label}</i>}
         {elsewhere > 0 && <i className="elsewhere" title="Also mentioned in other stored sources">{elsewhere} other src</i>}
+        {context?.first_seen && <i className="first-seen" title={`First observed in this workspace ${context.first_seen}`}>seen {context.first_seen.slice(0, 10)}</i>}
+        {context?.observed_by?.[0] && <i className="observed" title={context.observed_by.map((entry) => `${entry.source} ×${entry.count}`).join("; ")}>via {context.observed_by[0].source}{context.observed_by.length > 1 ? ` +${context.observed_by.length - 1}` : ""}</i>}
         {linked > 0 && <i className="linked" title="Relationships and structural links">{linked} links</i>}
       </span>
       {(context?.tags.length ?? 0) > 0 && <span className="focus-tags">{context!.tags.map((tag) =>

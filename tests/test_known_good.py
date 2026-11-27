@@ -60,9 +60,9 @@ def test_shared_infrastructure_is_context_and_never_offered_for_set_aside():
     assert crl_child and all(m.category == "shared" and not m.set_aside for m in crl_child)
 
 
-def test_unknown_and_private_values_have_no_matches():
+def test_unknown_values_have_no_matches():
     assert known_matches("ipv4-addr", "154.86.17.52") == []
-    assert known_matches("domain-name", "unlikely-pivotglass-test.example") == []
+    assert known_matches("domain-name", "unlikely-pivotglass-test.ru") == []
     assert known_matches("ipv4-addr", "not-an-ip") == []
     assert summarize([]) is None
 
@@ -102,3 +102,26 @@ def test_views_label_known_indicators():
     rows = visualization.indicator_constellation_intent("test", objects, graph).data.rows
     assert rows[0]["known"] == "Public DNS resolver"
     assert rows[0]["known_source"].startswith("MISP warninglist public-dns-v4 v")
+
+
+@pytest.mark.parametrize(
+    ("entity_type", "value", "label"),
+    [
+        ("ipv4-addr", "192.0.2.44", "Documentation address (RFC 5737/3849)"),
+        ("ipv6-addr", "2001:db8::44", "Documentation address (RFC 5737/3849)"),
+        ("ipv4-addr", "10.1.2.3", "Private address (RFC 1918/4193)"),
+        ("ipv4-addr", "127.0.0.1", "Loopback address"),
+        ("domain-name", "c2.example.net", "Reserved domain (RFC 2606/6761)"),
+        ("url", "https://host.test/path", "Reserved domain (RFC 2606/6761)"),
+        ("email-addr", "ops@harbor-cdn.example", "Reserved domain (RFC 2606/6761)"),
+    ],
+)
+def test_special_purpose_values_are_reserved_context_never_set_aside(entity_type, value, label):
+    """#29: placeholders and internal addresses are flagged, not dismissed."""
+    match = next(m for m in known_matches(entity_type, value) if m.list_id == "special-purpose")
+    assert (match.category, match.label, match.set_aside) == ("reserved", label, False)
+
+
+def test_global_values_are_not_special_purpose():
+    for entity_type, value in (("ipv4-addr", "8.8.8.8"), ("domain-name", "evil.ru"), ("domain-name", "examples.com")):
+        assert all(m.list_id != "special-purpose" for m in known_matches(entity_type, value))

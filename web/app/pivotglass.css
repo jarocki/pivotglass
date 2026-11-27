@@ -1609,3 +1609,5 @@ article.model-proposal>span{color:var(--inference, var(--accent))}
 .focus-export{position:relative;display:inline-flex}
 .focus-export-menu{position:absolute;top:calc(100% + 4px);right:0;z-index:5;display:grid;gap:2px;min-width:180px;padding:4px;border:1px solid var(--line);border-radius:6px;background:var(--elevated);box-shadow:0 6px 18px rgba(0,0,0,.35)}
 .focus-export-menu button{text-align:left;white-space:nowrap}
+.listed-reserved{color:var(--dim);border-style:dashed}
+.focus-row-meta .first-seen,.focus-row-meta .observed{color:var(--dim)}

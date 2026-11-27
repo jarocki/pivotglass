@@ -1259,6 +1259,7 @@ export default function Cockpit() {
     <section id="sources" data-focus-context="intake" data-pane="sources" className={`investigate-intake pane ${maximized === "sources" ? "pane-maximized" : ""}`} hidden={!solo && (activePane === "dossier" || activePane === "artifact-field") && maximized !== "sources"} onFocusCapture={() => { if (!solo) setActivePane("sources"); }}>
       {state?.workspace && <DocumentIntake key={state.workspace} workspace={state.workspace} controls={<PaneControls id="sources" chrome={chrome}/>}
         onChanged={refresh} onWorkflowEvent={handleIntakeWorkflow}
+        onQueueIndicators={(values) => values.forEach((value) => queueIndicator(value))}
         onUseIndicator={(value) => { setTarget(value); setWorkflowHelpVisible(false); requestAnimationFrame(() => commandInputRef.current?.focus()); }}/> }
     </section>
 

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   canSetAside, filterIndicators, groupIndicators, groupMentions, indexTags, indicatorKey,
-  locateInSegments, occurrenceOrdinal, parseTagInput, type FocusCandidate, type TagDimension,
+  locateInSegments, occurrenceOrdinal, parseTagInput, sortIndicators, type FocusCandidate, type IndicatorContext, type TagDimension,
 } from "../app/focus-model.ts";
 
 const c = (value: string, start: number, type = "domain-name"): FocusCandidate => ({
@@ -116,4 +116,25 @@ test("only uncontested known-good or scanner matches can be set aside, once", ()
   assert.equal(canSetAside({ ...base, known: [resolver, { ...resolver, category: "contested", set_aside: false }] }), false);
   assert.equal(canSetAside({ ...base, known: [resolver], tags: [{ entity_type: "ipv4-addr", normalized_value: "8.8.8.8", dimension: "role", value: "benign" }] }), false);
   assert.equal(canSetAside(undefined), false);
+});
+
+test("is:new and is:known filter on workspace state; sorts keep source order on ties (#29)", () => {
+  const items = groupMentions([c("b.example", 0), c("a.example", 20), c("c.example", 40)]);
+  const ctx = (entity: boolean, first_seen: string | null): IndicatorContext => ({
+    entity: entity ? { id: "x", type: "domain-name" } : null, relationships: [], observed_by: [], documents: [],
+    tags: [], investigated_at: null, first_seen,
+  });
+  const context: Record<string, IndicatorContext> = {
+    [items[0].key]: ctx(true, "2026-11-20T00:00:00Z"),
+    [items[1].key]: ctx(false, null),
+    [items[2].key]: ctx(true, "2026-11-01T00:00:00Z"),
+  };
+  const known = (key: string) => Boolean(context[key]?.entity);
+  const tags = indexTags([]);
+  assert.deepEqual(filterIndicators(items, "is:new", tags, known).map((i) => i.value), ["a.example"]);
+  assert.deepEqual(filterIndicators(items, "is:known", tags, known).map((i) => i.value), ["b.example", "c.example"]);
+  assert.deepEqual(sortIndicators(items, "source", context).map((i) => i.value), ["b.example", "a.example", "c.example"]);
+  assert.deepEqual(sortIndicators(items, "new-first", context).map((i) => i.value), ["a.example", "b.example", "c.example"]);
+  assert.deepEqual(sortIndicators(items, "first-seen", context).map((i) => i.value), ["c.example", "b.example", "a.example"]);
+  assert.deepEqual(sortIndicators(items, "value", context).map((i) => i.value), ["a.example", "b.example", "c.example"]);
 });

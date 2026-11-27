@@ -98,6 +98,7 @@ export function DocumentIntake({
   onChanged,
   onWorkflowEvent,
   onUseIndicator,
+  onQueueIndicators,
   controls,
 }: {
   workspace: string;
@@ -106,6 +107,7 @@ export function DocumentIntake({
   onChanged?: () => Promise<void> | void;
   onWorkflowEvent?: (event: IntakeWorkflowEvent) => void;
   onUseIndicator?: (value: string) => void;
+  onQueueIndicators?: (values: string[]) => void;
 }) {
   const [library, setLibrary] = useState<DocumentLibraryRecord[]>([]);
   const [libraryLoading, setLibraryLoading] = useState(true);
@@ -349,6 +351,7 @@ export function DocumentIntake({
         onAdmit={admit}
         onStore={focus.stored ? undefined : store}
         onInvestigate={onUseIndicator ? (value) => { setFocus(null); onUseIndicator(value); } : undefined}
+        onQueue={onQueueIndicators}
       />}
     </section>
   );
