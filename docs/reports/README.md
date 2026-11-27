@@ -43,8 +43,8 @@ Pivotglass assembles reports from sections that each state where their content c
 
 | # | Type | Tier | Audience | Marking | Status |
 |---:|---|---|---|---|---|
-| 16 | [Threat Hunting Package](threat-hunting-package.md) | Operational | Threat hunters, SOC analysts | TLP:AMBER · PAP:GREEN | needs #57 |
-| 17 | [Detection Signature Bundle](detection-signature-bundle.md) | Tactical | Detection engineers, SOC analysts | TLP:AMBER · PAP:GREEN | needs #57 |
+| 16 | [Threat Hunting Package](threat-hunting-package.md) | Operational | Threat hunters, SOC analysts | TLP:AMBER · PAP:GREEN | built |
+| 17 | [Detection Signature Bundle](detection-signature-bundle.md) | Tactical | Detection engineers, SOC analysts | TLP:AMBER · PAP:GREEN | built |
 | 18 | [Defensive Coverage Assessment](defensive-coverage-assessment.md) | Strategic | Security leadership, Detection engineering, Purple team | TLP:AMBER+STRICT · PAP:CLEAR | needs #57, #59 |
 
 ## Investigation record

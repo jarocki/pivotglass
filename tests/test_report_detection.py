@@ -1,0 +1,106 @@
+"""Domain 5 report types (#57): Threat Hunting Package and Detection Signature Bundle."""
+
+from __future__ import annotations
+
+import json
+import re
+import shutil
+import subprocess
+
+import pytest
+import yaml
+
+from pivotglass.core.workspace import WorkspaceManager
+from pivotglass.reports.commands import execute_report_command
+from pivotglass.reports.contract import unreserved_values
+from pivotglass.reports.engine import build_report
+from pivotglass.reports.registry import get_report_type
+from tests.report_fixtures import build_detection_workspace
+
+TYPES = ("threat-hunting-package", "detection-signature-bundle")
+
+
+@pytest.fixture()
+def wm(tmp_path) -> WorkspaceManager:
+    return build_detection_workspace(tmp_path)
+
+
+@pytest.mark.parametrize("type_id", TYPES)
+def test_types_render_complete_in_every_format(wm, type_id):
+    for output in get_report_type(type_id).formats:
+        result = execute_report_command(f"{type_id} {output.value}", wm)
+        assert result["complete"], result["missing_required"]
+        assert result["text"].strip()
+    assert unreserved_values(execute_report_command(type_id, wm)["text"]) == []
+
+
+def test_sigma_rules_follow_the_current_spec_and_stay_experimental_until_validated(wm):
+    text = execute_report_command("detection-signature-bundle sigma", wm)["text"]
+    rules = list(yaml.safe_load_all(text))
+    assert {r["logsource"]["category"] for r in rules} == {"dns", "network_connection", "proxy", "process_creation"}
+    for rule in rules:
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", rule["date"]) and rule["status"] == "experimental"
+        assert re.fullmatch(r"[0-9a-f-]{36}", rule["id"])
+    proxy = next(r for r in rules if r["logsource"]["category"] == "proxy")
+    assert proxy["tags"] == ["attack.t1071.001"]  # the technique mapped to the URL's evidence
+    rule_id = proxy["id"]
+    execute_report_command(f"validate {rule_id} passed | Replayed proxy logs with one known hit", wm)
+    again = {r["id"]: r for r in yaml.safe_load_all(execute_report_command("detection-signature-bundle sigma", wm)["text"])}
+    assert again[rule_id]["status"] == "test"
+
+
+def test_suricata_sids_are_local_stable_and_rules_carry_metadata(wm):
+    text = execute_report_command("detection-signature-bundle suricata", wm)["text"]
+    rules = [line for line in text.splitlines() if line.startswith("alert ")]
+    sids = [int(m) for m in re.findall(r"sid:(\d+);", text)]
+    assert len(sids) == len(rules) == len(set(sids)) and all(1_000_000 <= s <= 1_999_999 for s in sids)
+    assert all("metadata:created_at" in r and "rev:1;" in r for r in rules)
+    assert text == execute_report_command("detection-signature-bundle suricata", wm)["text"]
+    assert "[." not in text  # rule files are never defanged
+
+
+def test_yara_comes_only_from_supplied_strings_and_compiles(wm, tmp_path):
+    text = execute_report_command("detection-signature-bundle yara", wm)["text"]
+    assert 'sample_sha256 = "' + "a" * 64 + '"' in text and 'status = "untested draft"' in text
+    if shutil.which("yara") is None:
+        pytest.skip("yara is not installed; the rule's syntax is not compiled here")
+    rule_file, target = tmp_path / "r.yar", tmp_path / "t.bin"
+    rule_file.write_text(text)
+    target.write_bytes(b"Global\\ExampleMutex ... /api/v2/checkin?build=")
+    result = subprocess.run(["yara", str(rule_file), str(target)], capture_output=True, text=True, check=False)
+    assert result.returncode == 0 and "PG_sample_" in result.stdout
+
+
+def test_hunting_package_records_negative_outcomes_and_untested_queries(wm):
+    report = build_report(wm, "threat-hunting-package")
+    queries = report.element("hunt_queries").content["queries"]
+    assert {q["language"] for q in queries} == {"spl", "kql", "eql"}
+    assert all(q["status"] == "untested" for q in queries)
+    assert "earliest=-30d" in queries[0]["text"] and "operator@mail.example" not in json.dumps(queries)  # victim excluded
+    assert report.element("hunt_outcome") is not None and report.element("hunt_outcome").status.value == "empty"
+    execute_report_command("outcome refuted | No host resolved the C2 domain in 30 days of DNS logs.", wm)
+    outcome = build_report(wm, "threat-hunting-package").element("hunt_outcome").content
+    assert outcome["result"] == "refuted"
+    markdown = execute_report_command("threat-hunting-package", wm)["text"]
+    assert "A refuted or inconclusive hunt is a result" in markdown
+
+
+def test_pyramid_and_validation_cover_every_generated_rule(wm):
+    report = build_report(wm, "detection-signature-bundle")
+    levels = {lvl["key"]: lvl["items"] for lvl in report.element("pyramid_of_pain").content["levels"]}
+    assert levels["ttp"] == [(None, "T1071.001 Web Protocols")] and ("file", "a" * 64) in levels["hash"]
+    assert ("domain-name", "c2.example.net") in levels["domain"]
+    assert (None, "ExampleLoader") in levels["tool"]
+    validation = report.element("validation_notes").content["rules"]
+    kinds = {row["kind"].split("/")[0] for row in validation}
+    assert {"sigma", "suricata", "yara", "spl", "kql", "eql"} <= kinds
+    assert all(row["result"] == "not tested" for row in validation)
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["yara nothex | ref | s", f"yara {'a' * 64} | ref |", "validate x maybe | y", "outcome perhaps | z"],
+)
+def test_detection_commands_validate(wm, command):
+    with pytest.raises(ValueError, match="Usage"):
+        execute_report_command(command, wm)

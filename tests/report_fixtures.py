@@ -265,3 +265,22 @@ def build_operational_workspace(root: Path, name: str = "case") -> WorkspaceMana
     authority.disposition(m.id, MappingState.ACCEPTED)
     AnalyticLedger(wm)  # ledger unchanged otherwise
     return wm
+
+
+SAMPLE_SHA256 = "a" * 64
+
+
+def build_detection_workspace(root: Path, name: str = "case") -> WorkspaceManager:
+    """The operational workspace plus hunt text, sample strings for YARA, and one validation."""
+
+    from pivotglass.reports.commands import execute_report_command
+
+    wm = build_operational_workspace(root, name)
+    for command in (
+        "write hunt_hypothesis | Hosts beacon over HTTPS to the C2 domain (T1071.001); no DNS answers for it in 30 days refutes it.",
+        "write baseline_false_positives | Shared CDN addresses also serve legitimate sites; match on the domain, not the address.",
+        "write triage_playbook | Check the process that resolved the domain; escalate any unsigned process to incident response.",
+        f"yara {SAMPLE_SHA256} | https://sandbox.example/report/1 | Global\\ExampleMutex; /api/v2/checkin?build=; ExampleLoader.pdb",
+    ):
+        execute_report_command(command, wm)
+    return wm

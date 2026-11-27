@@ -7,6 +7,9 @@ record. Report sections read them; they never become evidence.
     report write <section> | <text>
     report severity <critical|high|medium|low|informational> | <reason>
     report recommend <priority 1-9> | <action> | <owner> | <due YYYY-MM-DD> | <expected outcome>
+    report outcome <supported|refuted|inconclusive> | <what the hunt found, including nothing>
+    report yara <sample-sha256> | <reference> | <string>; <string>; ...
+    report validate <rule-id> <passed|failed|not-tested> | <what was tested, against what>
 """
 
 from __future__ import annotations
@@ -20,9 +23,13 @@ from pivotglass.reports.contract import Severity
 
 SECTION_PREFIX = "report:"
 TEXT, SEVERITY, RECOMMENDATION = "text", "severity", "recommendation"
+OUTCOME, YARA, VALIDATION = "outcome", "yara-strings", "validation"
 WRITABLE_SECTIONS = (
     "threat_summary", "attack_narrative", "technical_mechanism", "triage_actions", "remediation_notes",
+    "hunt_hypothesis", "threat_context", "baseline_false_positives", "triage_playbook",
 )
+OUTCOMES = ("supported", "refuted", "inconclusive")
+VALIDATION_RESULTS = ("passed", "failed", "not-tested")
 
 
 def _active(analysis: dict[str, Any], subject: str, predicate: str) -> list[dict[str, Any]]:
@@ -55,8 +62,30 @@ def recommendations(analysis: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda r: (int(r.get("priority") or 9), str(r["id"])))
 
 
+def hunt_outcome(analysis: dict[str, Any]) -> dict[str, Any] | None:
+    rows = _active(analysis, SECTION_PREFIX + "hunt_outcome", OUTCOME)
+    return rows[-1] if rows else None
+
+
+def yara_inputs(analysis: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = []
+    for row in _active(analysis, SECTION_PREFIX + "yara", YARA):
+        rows.append({**json.loads(row.get("object_value") or "{}"), "id": row["id"], "author": row.get("author_kind")})
+    return rows
+
+
+def validations(analysis: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Latest validation record per rule id."""
+
+    found: dict[str, dict[str, Any]] = {}
+    for row in _active(analysis, SECTION_PREFIX + "validation", VALIDATION):
+        fields = json.loads(row.get("object_value") or "{}")
+        found[fields["rule_id"]] = {**fields, "note": row["statement"], "id": row["id"], "time": str(row.get("created_at") or "")[:16]}
+    return found
+
+
 def record(ledger: Any, words: list[str], rest: str) -> dict[str, Any]:
-    """Run ``report write|severity|recommend``; returns the created assertion id and a title."""
+    """Run ``report write|severity|recommend|outcome|yara|validate``; returns the created assertion id and a title."""
 
     from pivotglass.core.analytic_ledger import AssertionType
 
@@ -82,8 +111,26 @@ def record(ledger: Any, words: list[str], rest: str) -> dict[str, Any]:
             raise ValueError(usage) from exc
         subject, predicate, statement = SECTION_PREFIX + "recommendation", RECOMMENDATION, action
         value = json.dumps({"priority": int(words[1]), "owner": owner, "due": due, "outcome": outcome}, sort_keys=True)
+    elif verb == "outcome":
+        if len(words) != 2 or words[1].casefold() not in OUTCOMES or not rest.strip():  # noqa: PLR2004
+            raise ValueError(f"Usage: report outcome <{'|'.join(OUTCOMES)}> | <what the hunt found>")
+        subject, predicate, value, statement = SECTION_PREFIX + "hunt_outcome", OUTCOME, words[1].casefold(), rest.strip()
+    elif verb == "yara":
+        fields = [part.strip() for part in rest.split("|")]
+        usage = "Usage: report yara <sample-sha256> | <reference> | <string>; <string>; ..."
+        strings = [item.strip() for item in fields[-1].split(";") if item.strip()] if len(fields) == 2 else []  # noqa: PLR2004
+        if len(words) != 2 or not re.fullmatch(r"[0-9a-fA-F]{64}", words[1]) or len(strings) < 1 or not fields[0]:  # noqa: PLR2004
+            raise ValueError(usage)
+        subject, predicate = SECTION_PREFIX + "yara", YARA
+        statement = f"YARA strings from sample {words[1].lower()}"
+        value = json.dumps({"sha256": words[1].lower(), "reference": fields[0], "strings": strings}, sort_keys=True)
+    elif verb == "validate":
+        if len(words) != 3 or words[2].casefold() not in VALIDATION_RESULTS or not rest.strip():  # noqa: PLR2004
+            raise ValueError(f"Usage: report validate <rule-id> <{'|'.join(VALIDATION_RESULTS)}> | <what was tested>")
+        subject, predicate, statement = SECTION_PREFIX + "validation", VALIDATION, rest.strip()
+        value = json.dumps({"rule_id": words[1], "result": words[2].casefold()}, sort_keys=True)
     else:
-        raise ValueError("Usage: report write|severity|recommend ...")
+        raise ValueError("Usage: report write|severity|recommend|outcome|yara|validate ...")
     assertion_id = ledger.create_assertion(
         statement, assertion_type=AssertionType.JUDGMENT, subject_ref=subject, predicate=predicate, object_value=value
     )

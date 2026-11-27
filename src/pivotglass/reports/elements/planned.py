@@ -51,59 +51,6 @@ _PLANNED = (
     ),
     # --- Domain 5: detection, hunting and posture (#57) -----------------------
     PlannedElement(
-        "hunt_hypothesis", "Hunt hypothesis", (A,), ("analytic ledger hypotheses",),
-        "A testable statement of adversary behaviour in this environment, with the ATT&CK technique "
-        "and what result would refute it.", 57,
-    ),
-    PlannedElement(
-        "threat_context", "Threat context", (E, A), ("observations", "actor profiles"),
-        "Who uses the behaviour, recently, and why existing alerts may miss it.", 57,
-    ),
-    PlannedElement(
-        "hunt_data_sources", "Required data sources", (M,), ("ATT&CK v19.2 data components",),
-        "The data components the techniques need and example log sources for each.", 57,
-    ),
-    PlannedElement(
-        "hunt_queries", "Hunt queries", (M,), ("indicators", "techniques"),
-        "SPL, KQL and EQL queries generated from the indicators and techniques, marked untested until "
-        "the analyst records a test.", 57,
-    ),
-    PlannedElement(
-        "baseline_false_positives", "Expected baseline and false positives", (A,), ("analyst",),
-        "Legitimate activity that matches the queries and how to exclude it without blinding the hunt.", 57,
-    ),
-    PlannedElement(
-        "triage_playbook", "Triage and escalation", (A,), ("analyst",),
-        "What to check for each hit and the threshold for escalating to incident response.", 57,
-    ),
-    PlannedElement(
-        "hunt_outcome", "Hunt outcome", (A,), ("analyst",),
-        "Whether the hypothesis was supported, refuted or inconclusive, what was found, detections "
-        "created, and data gaps that limited the hunt.", 57,
-    ),
-    PlannedElement(
-        "pyramid_of_pain", "Pyramid of Pain", (M,), ("indicator types",),
-        "Each indicator and behaviour placed on the Pyramid of Pain, with the response suited to its level.", 57,
-    ),
-    PlannedElement(
-        "sigma_rules", "Sigma rules", (M,), ("indicators", "techniques"),
-        "Sigma rules generated from host and process artifacts, status experimental until validated.", 57,
-    ),
-    PlannedElement(
-        "suricata_rules", "Suricata rules", (M,), ("network indicators",),
-        "Suricata rules for network artifacts, sid in the local range 1000000-1999999, with metadata "
-        "and reference.", 57,
-    ),
-    PlannedElement(
-        "yara_rules", "YARA rules", (A,), ("analyst-supplied strings or sample features",),
-        "YARA rules written by the analyst from sample features, with sample hash and reference, "
-        "marked untested until validated.", 57,
-    ),
-    PlannedElement(
-        "validation_notes", "Validation", (A,), ("analyst",),
-        "For each rule: what it was tested against, the result, and what was not tested.", 57,
-    ),
-    PlannedElement(
         "technique_scope", "Techniques in scope", (E, M), ("accepted mappings", "actor profiles"),
         "The ATT&CK techniques assessed and why each is in scope (observed, or attributed to an actor "
         "of concern).", 57,

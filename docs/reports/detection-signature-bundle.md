@@ -6,7 +6,7 @@ Type 17 · Detection, hunting and posture · `detection-signature-bundle` · ID 
 
 Detection content for one malware family or campaign across the Pyramid of Pain: indicators to block, and Sigma, Suricata and YARA rules, each with how it was validated.
 
-**Status:** Defined, not built yet. Its sections arrive with #57; until then `report detection-signature-bundle` explains what is missing and renders nothing.
+**Status:** Built: `report detection-signature-bundle` renders it.
 
 **Use it when:** Indicators and behaviours are confirmed and need to become detections. The rule files download in their native formats.
 
@@ -28,12 +28,12 @@ In order. A required section with no content makes the report **Incomplete**, an
 |---:|---|---|---|---|---|
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Pyramid of Pain (`pyramid_of_pain`) | yes | Method | indicator types | #57 |
-| 4 | Sigma rules (`sigma_rules`) | yes | Method | indicators, techniques | #57 |
-| 5 | Suricata rules (`suricata_rules`) | yes | Method | network indicators | #57 |
-| 6 | YARA rules (`yara_rules`) | optional | Analyst | analyst-supplied strings or sample features | #57 |
+| 3 | Pyramid of Pain (`pyramid_of_pain`) | yes | Method | indicator types, ATT&CK mappings, actor tool claims | built |
+| 4 | Sigma rules (`sigma_rules`) | yes | Method | indicators, ATT&CK mappings | built |
+| 5 | Suricata rules (`suricata_rules`) | yes | Method | network indicators | built |
+| 6 | YARA rules (`yara_rules`) | optional | Analyst | analyst-supplied strings (`report yara`) | built |
 | 7 | Indicators of compromise (`ioc_table`) | yes | Evidence | STIX objects | built |
-| 8 | Validation (`validation_notes`) | yes | Analyst | analyst | #57 |
+| 8 | Validation (`validation_notes`) | yes | Analyst | report validate records | built |
 | 9 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 10 | Sources (`sources`) | yes | Method | module runs | built |
 
@@ -41,12 +41,12 @@ In order. A required section with no content makes the report **Incomplete**, an
 
 - **Report header.** Report ID, version, status, marking, audience, requirement, validity and producer.
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
-- **Pyramid of Pain.** Each indicator and behaviour placed on the Pyramid of Pain, with the response suited to its level.
-- **Sigma rules.** Sigma rules generated from host and process artifacts, status experimental until validated.
-- **Suricata rules.** Suricata rules for network artifacts, sid in the local range 1000000-1999999, with metadata and reference.
-- **YARA rules.** YARA rules written by the analyst from sample features, with sample hash and reference, marked untested until validated.
+- **Pyramid of Pain.** Indicators, tools and techniques placed on the Pyramid of Pain by type, with the response suited to each level.
+- **Sigma rules.** Sigma rules generated from the indicators by log source, ISO-dated, status experimental until validated, tagged with the ATT&CK techniques mapped to the same evidence.
+- **Suricata rules.** Suricata rules for domains, addresses and URLs, sid in the local range 1000000-1999999, with metadata.
+- **YARA rules.** YARA rules from analyst-supplied sample strings, with sample hash and reference, untested until validated.
 - **Indicators of compromise.** Every collected indicator, with its type and first-seen date. With `detail`, also its role and tactic tags, source count and suggested expiry; with `blocking`, only indicators suitable for blocking.
-- **Validation.** For each rule: what it was tested against, the result, and what was not tested.
+- **Validation.** For each generated rule and query: whether it was tested, against what, and the result. Untested is shown as untested.
 - **Gaps and limitations.** Recorded knowledge gaps and limitations, plus every element that came back empty or partial.
 - **Sources.** Every collection source that ran, with run and object counts and its Admiralty rating.
 

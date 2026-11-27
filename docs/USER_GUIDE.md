@@ -860,7 +860,18 @@ report write triage_actions | <an extra triage step>
 report write remediation_notes | <compensating controls and detection>
 report severity high | <why>
 report recommend 1 | <action> | <owner> | <due YYYY-MM-DD> | <expected outcome>
+report write hunt_hypothesis | <behaviour, technique, and what would refute it>
+report outcome refuted | <what the hunt searched and did not find>
+report yara <sample sha256> | <reference> | <string>; <string>; <string>
+report validate <rule-or-query-id> passed | <what it was tested against>
 ```
+
+Detection content is generated from the indicators you would block: Sigma
+(status `experimental` until you record a passed validation, then `test`),
+Suricata (sids in the local range 1000000-1999999, stable per indicator), and
+SPL, KQL and EQL hunt queries. YARA rules are built only from strings you
+supply from a sample. `report detection-signature-bundle sigma|suricata|yara`
+downloads the rule file. Nothing is shown as tested until you record a test.
 
 **Actor reports.** The Threat Actor Profile and the Actor Capability Radar read
 analyst claims about an actor, recorded as

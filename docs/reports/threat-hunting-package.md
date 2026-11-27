@@ -6,7 +6,7 @@ Type 16 · Detection, hunting and posture · `threat-hunting-package` · ID pref
 
 Everything a hunter needs to test one hypothesis: the behaviour, the data, the queries, what normal looks like, how to triage hits and, afterwards, what the hunt found.
 
-**Status:** Defined, not built yet. Its sections arrive with #57; until then `report threat-hunting-package` explains what is missing and renders nothing.
+**Status:** Built: `report threat-hunting-package` renders it.
 
 **Use it when:** A technique or actor of concern may be present but undetected. Issue it as DRAFT before the hunt and reissue it with the outcome.
 
@@ -28,13 +28,13 @@ In order. A required section with no content makes the report **Incomplete**, an
 |---:|---|---|---|---|---|
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Hunt hypothesis (`hunt_hypothesis`) | yes | Analyst | analytic ledger hypotheses | #57 |
-| 4 | Threat context (`threat_context`) | yes | Evidence + Analyst | observations, actor profiles | #57 |
-| 5 | Required data sources (`hunt_data_sources`) | yes | Method | ATT&CK v19.2 data components | #57 |
-| 6 | Hunt queries (`hunt_queries`) | yes | Method | indicators, techniques | #57 |
-| 7 | Expected baseline and false positives (`baseline_false_positives`) | yes | Analyst | analyst | #57 |
-| 8 | Triage and escalation (`triage_playbook`) | yes | Analyst | analyst | #57 |
-| 9 | Hunt outcome (`hunt_outcome`) | optional | Analyst | analyst | #57 |
+| 3 | Hunt hypothesis (`hunt_hypothesis`) | yes | Analyst | report section text, analytic ledger hypotheses | built |
+| 4 | Threat context (`threat_context`) | yes | Evidence + Analyst | report section text, actor claims | built |
+| 5 | Required data sources (`hunt_data_sources`) | yes | Method | indicator types | built |
+| 6 | Hunt queries (`hunt_queries`) | yes | Method | indicators | built |
+| 7 | Expected baseline and false positives (`baseline_false_positives`) | yes | Analyst | report section text | built |
+| 8 | Triage and escalation (`triage_playbook`) | yes | Analyst | report section text | built |
+| 9 | Hunt outcome (`hunt_outcome`) | optional | Analyst | report outcome | built |
 | 10 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 11 | Sources (`sources`) | yes | Method | module runs | built |
 
@@ -42,10 +42,10 @@ In order. A required section with no content makes the report **Incomplete**, an
 
 - **Report header.** Report ID, version, status, marking, audience, requirement, validity and producer.
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
-- **Hunt hypothesis.** A testable statement of adversary behaviour in this environment, with the ATT&CK technique and what result would refute it.
-- **Threat context.** Who uses the behaviour, recently, and why existing alerts may miss it.
-- **Required data sources.** The data components the techniques need and example log sources for each.
-- **Hunt queries.** SPL, KQL and EQL queries generated from the indicators and techniques, marked untested until the analyst records a test.
+- **Hunt hypothesis.** A testable statement of adversary behaviour in this environment, with the ATT&CK technique and what result would refute it, alongside the investigation's hypotheses.
+- **Threat context.** Who uses the behaviour and why existing alerts may miss it: analyst text and the actors with claims.
+- **Required data sources.** The log sources each indicator type needs, with examples, and the hunt's time window.
+- **Hunt queries.** SPL, KQL and EQL generated from the indicators, untested until a validation is recorded.
 - **Expected baseline and false positives.** Legitimate activity that matches the queries and how to exclude it without blinding the hunt.
 - **Triage and escalation.** What to check for each hit and the threshold for escalating to incident response.
 - **Hunt outcome.** Required in the reissue after the hunt; absent in the pre-hunt draft.

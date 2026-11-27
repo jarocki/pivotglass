@@ -54,7 +54,14 @@ def render(report: Report, output: OutputFormat | str = OutputFormat.MARKDOWN) -
         return json.dumps(render_stix(report), indent=2, ensure_ascii=False)
     if output is OutputFormat.MERMAID:
         return render_mermaid(report)
+    if output in _RULE_ELEMENTS:
+        from pivotglass.reports.elements.detection import native_rules
+
+        return native_rules(report, _RULE_ELEMENTS[output])
     raise ValueError(f"no renderer for {output.value} yet")
+
+
+_RULE_ELEMENTS = {OutputFormat.SIGMA: "sigma_rules", OutputFormat.SURICATA: "suricata_rules", OutputFormat.YARA: "yara_rules"}
 
 
 def render_mermaid(report: Report) -> str:
