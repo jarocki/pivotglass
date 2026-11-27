@@ -117,7 +117,8 @@ analyst-imported organisation profile, control inventory, environment model,
 telemetry, and the per-workspace setting that allows a model to see them. The
 current value of each kind is its newest row. No evidence or lifecycle record
 changes. Organisation input is exported with the workspace and kept by
-`workspace clear`. The backup is named `NAME.db.pre-v15-backup` when this is
+`workspace clear`; `workspace merge` does not copy it, so another
+workspace never inherits an organisation's data or its model-sharing consent. The backup is named `NAME.db.pre-v15-backup` when this is
 the first step required.
 
 ## Recovery

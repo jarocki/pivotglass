@@ -103,32 +103,6 @@ _PLANNED = (
         "status, recommended control and residual risk.", 53,
     ),
     # --- Domain 4: attack flow and behavioural (#56) --------------------------
-    PlannedElement(
-        "kill_chain_table", "Kill chain", (E, O), ("Kill Chain projection", "control status (#59)"),
-        "For each of the seven phases: the observed action with citations, ATT&CK IDs, the telemetry "
-        "source and the control status from the shared vocabulary.", 56,
-    ),
-    PlannedElement(
-        "navigator_layer", "ATT&CK Navigator layer", (M,), ("accepted mappings", "pinned ATT&CK v19.2"),
-        "A layer 4.5 file for Navigator 5.3.2 and ATT&CK 19.2: score is the number of independently "
-        "sourced procedures, colour is a single gradient, and each comment carries the procedure and "
-        "its citation.", 56,
-    ),
-    PlannedElement(
-        "attack_tree", "Attack tree", (O, M), ("environment model (#59)",),
-        "Paths from entry points to the objective with explicit AND and OR gates; each edge names the "
-        "technique, its precondition and whether it is observed or assumed.", 56,
-    ),
-    PlannedElement(
-        "choke_points", "Choke points", (M,), ("attack tree",),
-        "Nodes every path (or most paths) must cross, computed from the tree, with the share of paths "
-        "each one severs.", 56,
-    ),
-    PlannedElement(
-        "dwell_metrics", "Dwell and response times", (M,), ("forensic timeline",),
-        "First malicious event, detection, containment, and the dwell and response intervals computed "
-        "from them.", 56,
-    ),
 )
 
 PLANNED: dict[str, PlannedElement] = {item.id: item for item in _PLANNED}

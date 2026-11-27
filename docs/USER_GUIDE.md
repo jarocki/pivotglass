@@ -864,6 +864,7 @@ report write hunt_hypothesis | <behaviour, technique, and what would refute it>
 report outcome refuted | <what the hunt searched and did not find>
 report yara <sample sha256> | <reference> | <string>; <string>; <string>
 report validate <rule-or-query-id> passed | <what it was tested against>
+report control delivery detected | <telemetry source and what the control did>
 ```
 
 Detection content is generated from the indicators you would block: Sigma

@@ -10,6 +10,7 @@ record. Report sections read them; they never become evidence.
     report outcome <supported|refuted|inconclusive> | <what the hunt found, including nothing>
     report yara <sample-sha256> | <reference> | <string>; <string>; ...
     report validate <rule-id> <passed|failed|not-tested> | <what was tested, against what>
+    report control <kill-chain-phase> <control-status> | <telemetry source and basis>
 """
 
 from __future__ import annotations
@@ -23,7 +24,10 @@ from pivotglass.reports.contract import Severity
 
 SECTION_PREFIX = "report:"
 TEXT, SEVERITY, RECOMMENDATION = "text", "severity", "recommendation"
-OUTCOME, YARA, VALIDATION = "outcome", "yara-strings", "validation"
+OUTCOME, YARA, VALIDATION, CONTROL = "outcome", "yara-strings", "validation", "control-status"
+KILL_CHAIN_PHASE_IDS = (
+    "reconnaissance", "weaponization", "delivery", "exploitation", "installation", "command-and-control", "actions-on-objectives",
+)
 WRITABLE_SECTIONS = (
     "threat_summary", "attack_narrative", "technical_mechanism", "triage_actions", "remediation_notes",
     "hunt_hypothesis", "threat_context", "baseline_false_positives", "triage_playbook",
@@ -84,6 +88,17 @@ def validations(analysis: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return found
 
 
+def control_statuses(analysis: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Latest recorded control status per kill-chain phase."""
+
+    found: dict[str, dict[str, Any]] = {}
+    for phase in KILL_CHAIN_PHASE_IDS:
+        rows = _active(analysis, f"{SECTION_PREFIX}control:{phase}", CONTROL)
+        if rows:
+            found[phase] = {"status": rows[-1]["object_value"], "basis": rows[-1]["statement"], "id": rows[-1]["id"]}
+    return found
+
+
 def record(ledger: Any, words: list[str], rest: str) -> dict[str, Any]:
     """Run ``report write|severity|recommend|outcome|yara|validate``; returns the created assertion id and a title."""
 
@@ -129,8 +144,15 @@ def record(ledger: Any, words: list[str], rest: str) -> dict[str, Any]:
             raise ValueError(f"Usage: report validate <rule-id> <{'|'.join(VALIDATION_RESULTS)}> | <what was tested>")
         subject, predicate, statement = SECTION_PREFIX + "validation", VALIDATION, rest.strip()
         value = json.dumps({"rule_id": words[1], "result": words[2].casefold()}, sort_keys=True)
+    elif verb == "control":
+        from pivotglass.reports.contract import ControlStatus
+
+        statuses = [c.value for c in ControlStatus]
+        if len(words) != 3 or words[1] not in KILL_CHAIN_PHASE_IDS or words[2] not in statuses or not rest.strip():  # noqa: PLR2004
+            raise ValueError(f"Usage: report control <{'|'.join(KILL_CHAIN_PHASE_IDS)}> <{'|'.join(statuses)}> | <basis>")
+        subject, predicate, value, statement = f"{SECTION_PREFIX}control:{words[1]}", CONTROL, words[2], rest.strip()
     else:
-        raise ValueError("Usage: report write|severity|recommend|outcome|yara|validate ...")
+        raise ValueError("Usage: report write|severity|recommend|outcome|yara|validate|control ...")
     assertion_id = ledger.create_assertion(
         statement, assertion_type=AssertionType.JUDGMENT, subject_ref=subject, predicate=predicate, object_value=value
     )

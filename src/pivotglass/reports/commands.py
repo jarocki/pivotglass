@@ -31,16 +31,19 @@ REPORT_USAGE = (
     "history [<type>] | open <report-id> [<version>] [markdown|json|stix] | "
     "write <section> | <text> | severity <level> | <reason> | "
     "recommend <1-9> | <action> | <owner> | <due> | <outcome> | outcome <result> | <findings> | "
-    "yara <sha256> | <reference> | <strings> | validate <rule-id> <passed|failed|not-tested> | <test>]"
+    "yara <sha256> | <reference> | <strings> | validate <rule-id> <passed|failed|not-tested> | <test> | "
+    "control <kill-chain-phase> <control-status> | <basis>]"
 )
 _MIME = {
     OutputFormat.MARKDOWN: "text/markdown", OutputFormat.JSON: "application/json",
     OutputFormat.STIX: "application/json", OutputFormat.MERMAID: "text/vnd.mermaid",
     OutputFormat.SIGMA: "application/yaml", OutputFormat.SURICATA: "text/plain", OutputFormat.YARA: "text/plain",
+    OutputFormat.NAVIGATOR: "application/json",
 }
 _EXTENSION = {
     OutputFormat.MARKDOWN: "md", OutputFormat.JSON: "json", OutputFormat.STIX: "stix.json", OutputFormat.MERMAID: "mmd",
     OutputFormat.SIGMA: "sigma.yml", OutputFormat.SURICATA: "rules", OutputFormat.YARA: "yar",
+    OutputFormat.NAVIGATOR: "layer.json",
 }
 
 
@@ -105,7 +108,7 @@ def execute_report_command(text: str | tuple[str, ...], workspace_mgr: Any) -> d
         words = words[1:]
     action = words[0].casefold() if words else ""
 
-    if action in {"write", "severity", "recommend", "outcome", "yara", "validate"}:
+    if action in {"write", "severity", "recommend", "outcome", "yara", "validate", "control"}:
         from pivotglass.core.analytic_ledger import AnalyticLedger
         from pivotglass.reports.sections import record
 

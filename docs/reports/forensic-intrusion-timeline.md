@@ -6,7 +6,7 @@ Type 15 · Attack flow and behavioral · `forensic-intrusion-timeline` · ID pre
 
 The ordered, sourced record of what happened during an intrusion, with the dwell and response times that follow from it.
 
-**Status:** Defined, not built yet. Its sections arrive with #56; until then `report forensic-intrusion-timeline` explains what is missing and renders nothing.
+**Status:** Built: `report forensic-intrusion-timeline` renders it.
 
 **Use it when:** During and after incident response, for handover, legal hold and lessons learned. Built from imported telemetry (#59); Pivotglass does not collect host or network logs itself.
 
@@ -28,7 +28,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
 | 3 | Forensic timeline (`forensic_timeline`) | yes | Organisation input + Method | imported telemetry | built |
-| 4 | Dwell and response times (`dwell_metrics`) | yes | Method | forensic timeline | #56 |
+| 4 | Dwell and response times (`dwell_metrics`) | yes | Organisation input + Method | imported telemetry markers | built |
 | 5 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 6 | Sources (`sources`) | yes | Method | module runs | built |
 
@@ -37,7 +37,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 - **Report header.** Report ID, version, status, marking, audience, requirement, validity and producer.
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
 - **Forensic timeline.** Imported host and network events in UTC with host, source, technique, summary, precision and artifact reference.
-- **Dwell and response times.** First malicious event, detection, containment, and the dwell and response intervals computed from them.
+- **Dwell and response times.** First malicious event, detection and containment from marked telemetry, and the dwell and response intervals computed from them.
 - **Gaps and limitations.** Recorded knowledge gaps and limitations, plus every element that came back empty or partial.
 - **Sources.** Every collection source that ran, with run and object counts and its Admiralty rating.
 

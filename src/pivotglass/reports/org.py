@@ -34,7 +34,8 @@ File format for ``org import <path>`` (YAML or JSON; every section optional)::
 
 Telemetry is imported separately with ``org telemetry <path.csv|path.json>``:
 columns ``timestamp, host, source, summary`` and optional ``technique,
-artifact_ref, precision``. Timestamps must carry a zone or be stated as UTC.
+artifact_ref, precision, marker`` (``first-malicious``, ``detection`` or
+``containment``). Timestamps must carry a zone or be stated as UTC.
 """
 
 from __future__ import annotations
@@ -168,6 +169,8 @@ class TelemetryEvent(_Model):
     technique: str | None = Field(default=None, pattern=ATTACK_ID)
     artifact_ref: str | None = None
     precision: Literal["second", "minute", "hour", "day"] = "second"
+    # Marks the events dwell and response times are measured between.
+    marker: Literal["first-malicious", "detection", "containment"] | None = None
 
     @field_validator("timestamp")
     @classmethod
@@ -176,7 +179,7 @@ class TelemetryEvent(_Model):
             raise ValueError("telemetry timestamps must carry a time zone (for example 2026-11-20T08:14:22Z)")
         return value.astimezone(timezone.utc)
 
-    @field_validator("technique", "artifact_ref", mode="before")
+    @field_validator("technique", "artifact_ref", "marker", mode="before")
     @classmethod
     def _blank(cls, value: Any) -> Any:
         return None if value in ("", None) else value

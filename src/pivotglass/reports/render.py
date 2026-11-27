@@ -54,6 +54,11 @@ def render(report: Report, output: OutputFormat | str = OutputFormat.MARKDOWN) -
         return json.dumps(render_stix(report), indent=2, ensure_ascii=False)
     if output is OutputFormat.MERMAID:
         return render_mermaid(report)
+    if output is OutputFormat.NAVIGATOR:
+        layer = report.element("navigator_layer")
+        if layer is None or not layer.content.get("layer", {}).get("techniques"):
+            raise ValueError("this report has no ATT&CK techniques for a Navigator layer")
+        return json.dumps(layer.content["layer"], indent=2, ensure_ascii=False)
     if output in _RULE_ELEMENTS:
         from pivotglass.reports.elements.detection import native_rules
 
@@ -69,6 +74,11 @@ def render_mermaid(report: Report) -> str:
 
     from pivotglass.reports.elements.analytical import mermaid_diamond, mermaid_infra_graph
 
+    tree = report.element("attack_tree")
+    if tree is not None:
+        from pivotglass.reports.elements.behavioral import mermaid_attack_tree
+
+        return mermaid_attack_tree(tree.content)
     graph = report.element("infra_graph")
     if graph is not None:
         return mermaid_infra_graph(graph.content)
@@ -90,10 +100,15 @@ def render_markdown(report: Report, *, withhold_org_input: bool = False) -> str:
 
     load_builtin_elements()
     blocks: list[str] = []
+    org_elements = {r.element_id for r in report.elements if ProvenanceClass.ORG_INPUT in r.provenance}
     for result in report.elements:
-        if withhold_org_input and ProvenanceClass.ORG_INPUT in result.provenance:
+        if withhold_org_input and result.element_id in org_elements:
             blocks.append(f"## {result.title}\n\n{WITHHELD}")
             continue
+        if withhold_org_input and result.element_id == "gaps_limitations":
+            # Gap lines from organisation sections can carry organisation facts too.
+            rows = [g for g in result.content.get("report_gaps", []) if g.get("element") not in org_elements]
+            result = result.model_copy(update={"content": {**result.content, "report_gaps": rows}})
         blocks.append(ELEMENTS[result.element_id].markdown(result, OutputFormat.MARKDOWN))
         if result.element_id == "header":
             blocks.append(_completeness(report))

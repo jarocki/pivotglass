@@ -34,10 +34,10 @@ Pivotglass assembles reports from sections that each state where their content c
 
 | # | Type | Tier | Audience | Marking | Status |
 |---:|---|---|---|---|---|
-| 12 | [Cyber Kill Chain Mapping](kill-chain-mapping.md) | Operational | SOC leadership, Incident responders, Security architecture | TLP:AMBER · PAP:AMBER | needs #56 |
-| 13 | [ATT&CK Navigator Layer](attack-navigator-layer.md) | Operational | Threat hunters, Detection engineers, Purple team | TLP:AMBER · PAP:CLEAR | needs #56 |
-| 14 | [Attack Graph and Tree](attack-graph-tree.md) | Operational | Security architecture, Red and purple teams, Risk management | TLP:AMBER+STRICT · PAP:RED | needs #56 |
-| 15 | [Forensic Intrusion Timeline](forensic-intrusion-timeline.md) | Tactical | Incident responders, Forensic analysts, Legal and compliance | TLP:AMBER+STRICT · PAP:RED | needs #56 |
+| 12 | [Cyber Kill Chain Mapping](kill-chain-mapping.md) | Operational | SOC leadership, Incident responders, Security architecture | TLP:AMBER · PAP:AMBER | built |
+| 13 | [ATT&CK Navigator Layer](attack-navigator-layer.md) | Operational | Threat hunters, Detection engineers, Purple team | TLP:AMBER · PAP:CLEAR | built |
+| 14 | [Attack Graph and Tree](attack-graph-tree.md) | Operational | Security architecture, Red and purple teams, Risk management | TLP:AMBER+STRICT · PAP:RED | built |
+| 15 | [Forensic Intrusion Timeline](forensic-intrusion-timeline.md) | Tactical | Incident responders, Forensic analysts, Legal and compliance | TLP:AMBER+STRICT · PAP:RED | built |
 
 ## Detection, hunting and posture
 

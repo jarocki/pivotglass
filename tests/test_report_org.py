@@ -47,9 +47,10 @@ def wm(tmp_path):
 def test_import_records_each_kind_and_summary(wm):
     summary = execute_org_command("show", wm)["data"]
     assert {"profile", "controls", "environment", "telemetry"} <= set(summary)
-    assert summary["telemetry"]["rows"] == 5 and summary["share_with_model"] is False
+    assert summary["telemetry"]["rows"] == 6 and summary["share_with_model"] is False
     events = OrgInputs(wm).telemetry()
-    assert events[-1].timestamp.isoformat() == "2026-11-21T09:00:00+00:00"  # +01:00 normalised to UTC
+    detection = next(e for e in events if e.marker == "detection")
+    assert detection.timestamp.isoformat() == "2026-11-21T09:00:00+00:00"  # +01:00 normalised to UTC
 
 
 @pytest.mark.parametrize(
@@ -105,7 +106,7 @@ def test_controls_benchmark_objective_and_timeline_sections(wm):
     assert "Never tested: T1190." in controls.gaps
     assert build_element(ELEMENTS["objective"], context).content["objectives"][0]["protects"] == "ERP database"
     timeline = build_element(ELEMENTS["forensic_timeline"], context).content
-    assert len(timeline["events"]) == 5 and timeline["hosts"]["ws-fin-04.corp.example"] == 3
+    assert len(timeline["events"]) == 6 and timeline["hosts"]["ws-fin-04.corp.example"] == 3
 
 
 def test_organisation_input_is_withheld_from_the_model_until_allowed(wm):
@@ -128,3 +129,20 @@ def test_org_command_usage(wm):
         execute_org_command("share-with-model maybe", wm)
     with pytest.raises(ValueError, match="no such file"):
         execute_org_command("import /nonexistent/org.yaml", wm)
+
+
+def test_withheld_views_drop_organisation_gaps_and_merge_never_copies_org_input(wm, tmp_path):
+    from pivotglass.agent.tools import ToolContext, execute_tool
+    from pivotglass.core.workspace_admin import export_workspace, merge_workspaces
+
+    ctx = ToolContext(workspace_dir=wm._workspace_dir)
+    ctx.workspace_mgr = wm
+    text, *_ = execute_tool(ctx, "preview_report", {"report_type": "forensic-intrusion-timeline"})
+    assert "1d 0h 45m" not in text and "ws-fin-04" not in text  # dwell times and hosts come from telemetry
+    source = wm.active
+    assert export_workspace(wm, source)["tables"]["organisation_inputs"]
+    wm.create("other")
+    counts = merge_workspaces(wm, source, "other")
+    assert "organisation_inputs" not in counts
+    wm.switch("other")
+    assert OrgInputs(wm).summary() == {"share_with_model": False}

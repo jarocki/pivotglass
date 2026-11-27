@@ -315,6 +315,7 @@ def load_builtin_elements() -> dict[str, ElementSpec]:
 
     from pivotglass.reports.elements import (  # noqa: F401
         analytical,
+        behavioral,
         common,
         detection,
         investigation,

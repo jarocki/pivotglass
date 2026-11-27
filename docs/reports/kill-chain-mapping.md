@@ -6,7 +6,7 @@ Type 12 · Attack flow and behavioral · `kill-chain-mapping` · ID prefix `PG-K
 
 Lay an intrusion or campaign along the seven kill-chain phases, show where controls saw or stopped it and where they did not, and say where to break the chain earliest.
 
-**Status:** Defined, not built yet. Its sections arrive with #56; until then `report kill-chain-mapping` explains what is missing and renders nothing.
+**Status:** Built: `report kill-chain-mapping` renders it.
 
 **Use it when:** After an incident or exercise, to explain control performance phase by phase. Control status needs the organisation's telemetry or control input.
 
@@ -28,7 +28,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 |---:|---|---|---|---|---|
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Kill chain (`kill_chain_table`) | yes | Evidence + Organisation input | Kill Chain projection, control status (#59) | #56 |
+| 3 | Kill chain (`kill_chain_table`) | yes | Evidence + Analyst + Organisation input | Kill Chain mappings, ATT&CK mappings, imported telemetry, report control records | built |
 | 4 | Recommendations (`recommendations`) | yes | Analyst | report recommendations | built |
 | 5 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 6 | Sources (`sources`) | yes | Method | module runs | built |
@@ -37,7 +37,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 
 - **Report header.** Report ID, version, status, marking, audience, requirement, validity and producer.
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
-- **Kill chain.** For each of the seven phases: the observed action with citations, ATT&CK IDs, the telemetry source and the control status from the shared vocabulary.
+- **Kill chain.** For each of the seven phases: the observed action from accepted mappings, the ATT&CK techniques on the same evidence or in telemetry, the telemetry source, and the recorded control status.
 - **Recommendations.** Where to break the chain, earliest phase first, each with an owner and due date.
 - **Gaps and limitations.** Recorded knowledge gaps and limitations, plus every element that came back empty or partial.
 - **Sources.** Every collection source that ran, with run and object counts and its Admiralty rating.

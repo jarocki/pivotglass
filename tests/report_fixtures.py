@@ -284,3 +284,20 @@ def build_detection_workspace(root: Path, name: str = "case") -> WorkspaceManage
     ):
         execute_report_command(command, wm)
     return wm
+
+
+ORG_FIXTURES = Path(__file__).parent / "fixtures" / "reports"
+
+
+def build_behavioral_workspace(root: Path, name: str = "case") -> WorkspaceManager:
+    """The operational workspace plus organisation input and kill-chain control records."""
+
+    from pivotglass.reports.commands import execute_report_command
+    from pivotglass.reports.org import execute_org_command
+
+    wm = build_operational_workspace(root, name)
+    execute_org_command(f"import {ORG_FIXTURES / 'org.yaml'}", wm)
+    execute_org_command(f"telemetry {ORG_FIXTURES / 'telemetry.csv'}", wm)
+    execute_report_command("control delivery detected | Mail gateway alert; message still delivered", wm)
+    execute_report_command("control command-and-control blocked | Proxy blocked the second beacon", wm)
+    return wm
