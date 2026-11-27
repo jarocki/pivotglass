@@ -142,6 +142,12 @@ SLOT_EVIDENCE_TYPES: dict[str, list[DossierSlotName]] = {
     "ipv4-addr": [DossierSlotName.INFRASTRUCTURE],
     "ipv6-addr": [DossierSlotName.INFRASTRUCTURE],
     "autonomous-system": [DossierSlotName.INFRASTRUCTURE],
+    # "vulnerability" is deliberately NOT mapped (#58). The CVEs that reach the
+    # workspace mostly come from host scanners (InternetDB, Shodan) and describe a
+    # host's exposure, not an actor's tradecraft; mapping them to TTPs would fill
+    # that slot from victim or bystander infrastructure. An analyst-chosen CVE is
+    # still enriched by vulnerability_battery. Revisit with an actor-exploited-CVE
+    # relationship, which is the evidence that does belong in TTPs.
 }
 
 # Slots with active M-1 inference (all others are deferred)

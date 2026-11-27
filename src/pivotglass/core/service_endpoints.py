@@ -42,6 +42,9 @@ SERVICE_BASE_URLS: dict[str, str] = {
     "rdap": "https://rdap.org",
     "wayback": "https://web.archive.org",
     "hashlookup": "https://hashlookup.circl.lu",
+    "cisa_kev": "https://www.cisa.gov",
+    "first_epss": "https://api.first.org",
+    "nvd_cve": "https://services.nvd.nist.gov",
 }
 
 

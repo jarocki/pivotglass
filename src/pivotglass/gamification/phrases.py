@@ -1631,6 +1631,9 @@ _KNOWN_ACTIVITY_SLUGS: frozenset[str] = frozenset(
         "rdap_lookup",
         "wayback_lookup",
         "hashlookup_lookup",
+        "kev_lookup",
+        "epss_lookup",
+        "nvd_cve_lookup",
     }
 )
 

@@ -1503,6 +1503,70 @@ def create_tools(ctx: ToolContext) -> list[dict]:
         {
             "type": "function",
             "function": {
+                "name": "kev_lookup",
+                "description": (
+                    "Check a CVE against the CISA Known Exploited Vulnerabilities catalog (no API key). "
+                    "Always answers: listed (date added, due date, ransomware use, vendor, product, required action) "
+                    "or not listed in the named catalog version. Listing means exploitation has been "
+                    "observed in the wild; it does not mean any host in the case is affected."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cve": {
+                            "type": "string",
+                            "description": "CVE identifier, e.g. CVE-2021-44228",
+                        },
+                    },
+                    "required": ["cve"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "epss_lookup",
+                "description": (
+                    "FIRST EPSS exploit-prediction score for a CVE (no API key): probability of exploitation "
+                    "activity in the next 30 days, its percentile, and the model date. A prediction, "
+                    "not an observation. Returns nothing when FIRST has no score."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cve": {
+                            "type": "string",
+                            "description": "CVE identifier, e.g. CVE-2021-44228",
+                        },
+                    },
+                    "required": ["cve"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "nvd_cve_lookup",
+                "description": (
+                    "NVD record for a CVE (no API key; limited to 5 requests per 30 seconds): English "
+                    "description, CVSS vectors and scores per source, CWEs, affected product versions, and "
+                    "references. Returns nothing for an unknown CVE."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cve": {
+                            "type": "string",
+                            "description": "CVE identifier, e.g. CVE-2021-44228",
+                        },
+                    },
+                    "required": ["cve"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "get_workspace_summary",
                 "description": (
                     "Get a summary of the current workspace — total indicators, "
@@ -2109,6 +2173,19 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
     "hashlookup_lookup": (
         "cti/hashlookup",
         lambda a: (a["hash_value"], {}),
+    ),
+    # Keyless vulnerability sources (#58)
+    "kev_lookup": (
+        "cti/cisa_kev",
+        lambda a: (a["cve"], {}),
+    ),
+    "epss_lookup": (
+        "cti/first_epss",
+        lambda a: (a["cve"], {}),
+    ),
+    "nvd_cve_lookup": (
+        "cti/nvd_cve",
+        lambda a: (a["cve"], {}),
     ),
 }
 

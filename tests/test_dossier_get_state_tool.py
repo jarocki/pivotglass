@@ -115,8 +115,8 @@ class TestGetDossierStateRegistration:
         # v1.2: +shodan_dns_lookup +search_urlscan_history (31).
         # v1.4: -retired passive-DNS provider tool (30).
         # v1.4: +6 keyless context sources (36).
-        assert len(tools) == 36, (
-            f"Expected 36 tools including provider pivots, got {len(tools)}. "
+        assert len(tools) == 39, (
+            f"Expected 39 tools including provider pivots, got {len(tools)}. "
             "If this fails, a different tool count was agreed — update this assertion."
         )
 

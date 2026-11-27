@@ -23,6 +23,8 @@ authors. Module authors call helpers; the library handles validation.
 
 from __future__ import annotations
 
+import uuid
+
 from stix2 import (
     URL,
     Bundle,
@@ -32,7 +34,11 @@ from stix2 import (
     IPv4Address,
     IPv6Address,
     Relationship,
+    Vulnerability,
 )
+
+# Namespace for deterministic vulnerability ids (see create_vulnerability).
+_VULNERABILITY_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_OID, "pivotglass/stix/vulnerability")
 
 
 def create_ipv4(value: str, **kwargs) -> IPv4Address:
@@ -128,6 +134,24 @@ def create_file(value: str = "", **kwargs) -> File:
     )
 
 
+def create_vulnerability(**kwargs) -> Vulnerability:
+    """Create a STIX Vulnerability SDO whose id is derived from its CVE name.
+
+    SDO ids are random by default, so the same CVE reported by three modules (or
+    by two runs of one module) would become unrelated objects. A UUIDv5 over the
+    upper-cased name makes the id a function of the CVE: every module that reports
+    CVE-2024-0001 addresses the same object, which the workspace then deduplicates
+    by id exactly as it does for SCOs (DEC-WS-004, DEC-WORKSPACE-VULNERABILITY-001).
+    STIX 2.1 permits any UUID version in an SDO id.
+    """
+    name = str(kwargs.get("name", "")).strip().upper()
+    if not name:
+        raise ValueError("a vulnerability needs a name (the CVE identifier)")
+    kwargs["name"] = name
+    kwargs.setdefault("id", f"vulnerability--{uuid.uuid5(_VULNERABILITY_NAMESPACE, name)}")
+    return Vulnerability(allow_custom=True, **kwargs)
+
+
 def create_relationship(
     source_ref: str,
     target_ref: str,
@@ -192,6 +216,7 @@ def dict_to_stix(d: dict):
     - {"type": "domain-name", "value": "example.com"}
     - {"type": "url", "value": "https://example.com"}
     - {"type": "email-addr", "value": "user@example.com"}
+    - {"type": "vulnerability", "name": "CVE-2024-0001", ...} (an SDO, see create_vulnerability)
 
     Parameters
     ----------
@@ -206,6 +231,9 @@ def dict_to_stix(d: dict):
         See DEC-STIX-002 for rationale on returning the original dict.
     """
     stix_type = d.get("type", "")
+    if stix_type == "vulnerability":
+        # An SDO: named, not valued, and with no "value" to split off.
+        return create_vulnerability(**{k: v for k, v in d.items() if k != "type"})
     creator = _SCO_CREATORS.get(stix_type)
     if creator is None:
         return d  # unrecognized type -- pass through unchanged (DEC-STIX-002)

@@ -770,6 +770,37 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         validate_header_name="",
         docs_url="https://www.circl.lu/services/hashlookup/",
     ),
+    # Keyless vulnerability sources (#58). Tests query a public, non-case CVE.
+    CTIServiceSpec(
+        id="cisa_kev",
+        display_name="CISA KEV",
+        config_keys=[],
+        prompt_labels=[],
+        validate_path="/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+        validate_method="none",
+        validate_header_name="",
+        docs_url="https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+    ),
+    CTIServiceSpec(
+        id="first_epss",
+        display_name="FIRST EPSS",
+        config_keys=[],
+        prompt_labels=[],
+        validate_path="/data/v1/epss?cve=CVE-2021-44228",
+        validate_method="none",
+        validate_header_name="",
+        docs_url="https://www.first.org/epss/api",
+    ),
+    CTIServiceSpec(
+        id="nvd_cve",
+        display_name="NVD CVE",
+        config_keys=[],
+        prompt_labels=[],
+        validate_path="/rest/json/cves/2.0?cveId=CVE-1999-0001",
+        validate_method="none",
+        validate_header_name="",
+        docs_url="https://nvd.nist.gov/developers/vulnerabilities",
+    ),
 ]
 
 # Map from CTI service config_key to vendor env var for dotfile export.

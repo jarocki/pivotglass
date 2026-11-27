@@ -102,6 +102,12 @@ DEFAULT_SUBSCRIPTIONS: dict[str, list[str]] = {
     "osint/sans_isc": ["ipv4-addr"],
     "osint/rdap": ["domain-name"],
     "cti/hashlookup": ["file"],
+    # Keyless vulnerability sources (#58). CVEs reach them as ``vulnerability`` objects
+    # emitted by host scanners (InternetDB, Shodan host). NVD is rate limited to
+    # 5 requests per 30 s, enforced by its own limiter, so a cascade queues rather than fails.
+    "cti/cisa_kev": ["vulnerability"],
+    "cti/first_epss": ["vulnerability"],
+    "cti/nvd_cve": ["vulnerability"],
 }
 
 
@@ -294,7 +300,8 @@ class EventBus:
         pivot_results: list[dict] = []
         for result in ranked:
             stix_type = result.get("type", "")
-            value = result.get("value", "")
+            # A vulnerability SDO is named by its CVE; it has no "value".
+            value = result.get("value") or (result.get("name", "") if stix_type == "vulnerability" else "")
             if stix_type and value:
                 event = PivotEvent(
                     stix_type=stix_type,

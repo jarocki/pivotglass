@@ -166,7 +166,7 @@ class TestCreateTools:
     def test_returns_twenty_two_tools(self, tmp_ctx):
         """create_tools returns 36 definitions (v1.4: +6 keyless context sources)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 36
+        assert len(tools) == 39
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -223,6 +223,10 @@ class TestCreateTools:
             "rdap_lookup",
             "wayback_lookup",
             "hashlookup_lookup",
+            # v1.5 keyless vulnerability sources (#58)
+            "kev_lookup",
+            "epss_lookup",
+            "nvd_cve_lookup",
             # Workspace tools
             "get_workspace_summary",
             "search_workspace",
@@ -272,7 +276,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 36
+        assert len(roundtripped) == 39
 
     # --- New tool schema tests ---
 
@@ -692,7 +696,7 @@ class TestModuleMap:
 
     def test_module_map_has_eleven_entries(self):
         """_MODULE_MAP has exactly 21 entries (v1.4: +6 keyless context sources)."""
-        assert len(_MODULE_MAP) == 21
+        assert len(_MODULE_MAP) == 24
 
     def test_module_map_contains_new_tools(self):
         """_MODULE_MAP contains virustotal_lookup and censys_host_lookup."""
@@ -1321,7 +1325,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 36
+        assert len(r.tools) == 39
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""

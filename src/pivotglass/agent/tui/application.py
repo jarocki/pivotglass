@@ -941,6 +941,7 @@ class TuiApplication:
             "sha256": "file",
             "sha1": "file",
             "md5": "file",
+            "cve": "vulnerability",
         }
         target_type = stix_types.get(ioc_type or "", "unrecognized-type")
         batteries = dispatch_batteries(target_type, dossier_state=None)

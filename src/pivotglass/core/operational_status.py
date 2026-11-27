@@ -29,6 +29,9 @@ SERVICE_TOOL_NAMES: dict[str, tuple[str, ...]] = {
     "rdap": ("rdap_lookup",),
     "wayback": ("wayback_lookup",),
     "hashlookup": ("hashlookup_lookup",),
+    "cisa_kev": ("kev_lookup",),
+    "first_epss": ("epss_lookup",),
+    "nvd_cve": ("nvd_cve_lookup",),
 }
 
 

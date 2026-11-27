@@ -758,5 +758,6 @@ def _ioc_to_stix_type(ioc_type: str | None) -> str:
         "sha256": "file",
         "sha1": "file",
         "md5": "file",
+        "cve": "vulnerability",
     }
     return _MAP.get(ioc_type or "", "unrecognized-type")

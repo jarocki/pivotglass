@@ -12,8 +12,13 @@ Docs: https://internetdb.shodan.io/
            CVEs Shodan associates with the reported software versions; they are
            not confirmed exploitable, and ``tags`` are Shodan's labels, not
            verdicts, so both are recorded under the source's namespace without
-           interpretation. Hostnames become domain-name SCOs for pivoting. The
-           keyed Shodan host module stays the authority for banners and history.
+           interpretation. Hostnames become domain-name SCOs for pivoting, and each
+           reported CVE becomes a bare ``vulnerability`` stub (name and CVE
+           reference only, no x_ fields) so cti/cisa_kev, cti/first_epss and
+           cti/nvd_cve pivot on it through the same event-bus mechanism (#58). The stub
+           claims nothing about the CVE: severity, exploitation and exposure come
+           from those modules. The keyed Shodan host module stays the authority for
+           banners and history.
 """
 
 from __future__ import annotations
@@ -25,6 +30,7 @@ import httpx
 from pivotglass.core.ioc_types import detect_ioc_type
 from pivotglass.modules.base import BaseModule, ModuleError
 from pivotglass.modules.keyless_http import json_body, keyless_get, unexpected_status
+from pivotglass.modules.vulnerability import cve_stubs
 
 SOURCE = "Shodan InternetDB"
 _MAX_HOSTNAMES = 25
@@ -84,4 +90,5 @@ class ShodanInternetDB(BaseModule):
                 continue
             seen.add(name)
             results.append({"type": "domain-name", "value": name, "x_internetdb_hostname_of": primary["value"]})
+        results.extend(cve_stubs(primary["x_internetdb_vulns"]))
         return results

@@ -23,7 +23,6 @@ Verifies the classic-shim removal checklist (DEC-M8-CLEANUP-001..003):
 
 from __future__ import annotations
 
-import inspect
 import json
 from pathlib import Path
 
@@ -145,7 +144,7 @@ class TestToolCatalogPostM8:
         from pivotglass.agent.tools import create_tools
 
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 36, (
+        assert len(tools) == 39, (
             f"Expected 36 tools (v1.4 added six keyless context sources), got {len(tools)}. "
             "M-8 removed start_report_interview, answer_report_question, generate_report. "
             "M-9 added export_dossier, compare_dossier (DEC-M9-TOOLCOUNT-001)."
@@ -176,7 +175,7 @@ class TestToolCatalogPostM8:
 
         tools = create_tools(tmp_ctx)
         roundtripped = json.loads(json.dumps(tools))
-        assert len(roundtripped) == 36
+        assert len(roundtripped) == 39
 
 
 # ---------------------------------------------------------------------------

@@ -998,6 +998,7 @@ class TestCTIServicesRegistry:
     # Keyless context sources: listed for enable/disable and base URL, no credential.
     KEYLESS_IDS = {
         "mnemonic_pdns", "shodan_internetdb", "sans_isc", "rdap", "wayback", "hashlookup",
+        "cisa_kev", "first_epss", "nvd_cve",
     }
 
     def test_eleven_keyed_services_defined(self):

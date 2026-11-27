@@ -125,6 +125,7 @@ _TYPE_MAP = {
     "md5": "file",
     "sha1": "file",
     "sha256": "file",
+    "cve": "vulnerability",
 }
 
 

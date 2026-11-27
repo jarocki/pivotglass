@@ -57,6 +57,9 @@ MODULE_NAMES: tuple[str, ...] = (
     "rdap",
     "wayback",
     "hashlookup",
+    "cisa_kev",
+    "first_epss",
+    "nvd_cve",
 )
 
 

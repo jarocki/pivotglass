@@ -111,6 +111,21 @@ BRIEFINGS: dict[str, EnrichmentBriefing] = {
         "Recognises known software so analysts can set it aside; context, not a verdict.",
         "trust score, which set matched, and known-malicious annotations",
     ),
+    "kev_lookup": EnrichmentBriefing(
+        "CISA KEV", "whether CISA lists the CVE as exploited in the wild, with date added, due date, and ransomware use",
+        "Shows whether exploitation has been observed, not whether any host in the case is affected.",
+        "listed versus not listed (with catalog version), ransomware use, and recency of the date added",
+    ),
+    "epss_lookup": EnrichmentBriefing(
+        "FIRST EPSS", "the modelled probability of exploitation in the next 30 days, its percentile, and the model date",
+        "Ranks a CVE against all others by predicted exploitation; a prediction, not an observation.",
+        "score versus percentile, the model date, and disagreement with KEV status",
+    ),
+    "nvd_cve_lookup": EnrichmentBriefing(
+        "NVD", "description, CVSS vectors and scores by source, CWEs, affected products, and references",
+        "Gives the authoritative description and severity metadata for a CVE.",
+        "score differences between sources, analysis status, and affected version ranges",
+    ),
 }
 
 

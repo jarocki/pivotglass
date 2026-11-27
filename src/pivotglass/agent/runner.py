@@ -190,6 +190,9 @@ _TOOL_SLUG_MAP: dict[str, str] = {
     "rdap_lookup": "rdap_lookup",
     "wayback_lookup": "wayback_lookup",
     "hashlookup_lookup": "hashlookup_lookup",
+    "kev_lookup": "kev_lookup",
+    "epss_lookup": "epss_lookup",
+    "nvd_cve_lookup": "nvd_cve_lookup",
     # workspace / meta tools — all use "default_tool" slug (no activity phrase)
     "get_workspace_summary": "default_tool",
     "search_workspace": "default_tool",

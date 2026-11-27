@@ -62,6 +62,10 @@ _BUILTIN_MODULES: list[tuple[str, str]] = [
     ("osint/rdap", "pivotglass.modules.osint.rdap:Rdap"),
     ("osint/wayback", "pivotglass.modules.osint.wayback:Wayback"),
     ("cti/hashlookup", "pivotglass.modules.cti.hashlookup:HashLookup"),
+    # Keyless vulnerability sources (#58)
+    ("cti/cisa_kev", "pivotglass.modules.cti.cisa_kev:CisaKev"),
+    ("cti/first_epss", "pivotglass.modules.cti.first_epss:FirstEpss"),
+    ("cti/nvd_cve", "pivotglass.modules.cti.nvd_cve:NvdCve"),
 ]
 
 

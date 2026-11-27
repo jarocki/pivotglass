@@ -90,7 +90,8 @@ def test_keyless_services_appear_in_configuration_without_credentials(tmp_path: 
 
 def test_keyless_specs_are_derived_from_the_one_service_list():
     keyless_specs = {spec.id for spec in CTI_SERVICES if not spec.needs_credential}
-    assert keyless_specs == set(KEYLESS.values())
+    # The vulnerability sources are keyless services too (tests/test_vulnerability_sources.py).
+    assert keyless_specs == set(KEYLESS.values()) | {"cisa_kev", "first_epss", "nvd_cve"}
 
 
 def test_base_url_override_reaches_the_request(tmp_path: Path):
@@ -224,7 +225,9 @@ async def test_internetdb_record():
     assert primary["x_internetdb_ports"] == [53, 443]
     assert primary["x_internetdb_tags"] == ["pqc"]
     assert primary["x_internetdb_vulns"] == ["CVE-2000-0001"]
-    assert results[1:] == [{"type": "domain-name", "value": "dns.google", "x_internetdb_hostname_of": "8.8.8.8"}]
+    assert results[1:2] == [{"type": "domain-name", "value": "dns.google", "x_internetdb_hostname_of": "8.8.8.8"}]
+    # the reported CVE is a bare pivot stub for the vulnerability modules (#58)
+    assert [r["name"] for r in results[2:]] == ["CVE-2000-0001"]
 
 
 async def test_internetdb_404_is_no_data():

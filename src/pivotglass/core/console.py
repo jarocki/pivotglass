@@ -961,7 +961,7 @@ class PivotglassConsole(cmd2.Cmd):
         if ioc_type is None:
             self.poutput(
                 f"Unrecognized IoC format: '{ioc}'. "
-                "Supported: IPv4, IPv6, domain, URL, MD5, SHA1, SHA256, email."
+                "Supported: IPv4, IPv6, domain, URL, MD5, SHA1, SHA256, email, CVE."
             )
             return
 

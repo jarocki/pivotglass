@@ -92,6 +92,16 @@ DEFAULT_BATTERIES: dict[str, Battery] = {
         applies_to=("file", "url"),
         hypothesis_hint="known-malicious payload family",
     ),
+    "vulnerability_battery": Battery(
+        name="vulnerability_battery",
+        # Keyless CVE context (#58): exploited-in-the-wild status, exploit prediction,
+        # and NVD severity/affected products. See dossier/slots.py for why a CVE is
+        # not auto-mapped to a slot; TTPS is where an analyst-chosen CVE contributes.
+        tools=("kev_lookup", "epss_lookup", "nvd_cve_lookup"),
+        target_slots=(DossierSlotName.TTPS,),
+        applies_to=("vulnerability",),
+        hypothesis_hint="exploited in the wild + exploit likelihood + severity and affected products",
+    ),
     "behavioral_battery": Battery(
         name="behavioral_battery",
         # Interaction metadata comes from explicit services; Pivotglass never

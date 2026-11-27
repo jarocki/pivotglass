@@ -661,7 +661,9 @@ class WorkspaceManager:
                         entity_ref=obj.id,
                         entity_type=obj_type or "unknown",
                         entity_value=(
+                            # A vulnerability SDO is named by its CVE, not valued.
                             serialized.get("value")
+                            or (serialized.get("name") if obj_type == "vulnerability" else None)
                             if obj_type != "relationship"
                             else serialized.get("relationship_type")
                         ),
@@ -1664,12 +1666,16 @@ class WorkspaceManager:
         """
         existing = session.get(StixObject, obj.id)
         if existing is not None:
+            if obj.type == "vulnerability":
+                self._merge_vulnerability(existing, json.loads(obj.serialize()), provenance)
             return  # already stored — deduplicated
         # Serialize first so deterministic-id derivation is already complete,
         # then augment the dict with provenance fields (DEC-59-STIX-PROVENANCE-002).
         json_dict = json.loads(obj.serialize())
         if provenance:
             json_dict.update(provenance)
+        if obj.type == "vulnerability" and provenance:
+            json_dict["x_pivotglass_source_modules"] = [provenance["x_pivotglass_source_module"]]
         row = StixObject(
             id=obj.id,
             type=obj.type,
@@ -1681,6 +1687,34 @@ class WorkspaceManager:
             json_blob=json_dict,
         )
         session.add(row)
+
+    # @decision DEC-WORKSPACE-VULNERABILITY-001
+    # @title One vulnerability object per CVE; each module's fields merge into it, observations keep the blobs
+    # @status accepted
+    # @rationale Three modules (cti/cisa_kev, cti/first_epss, cti/nvd_cve) and the host
+    #            scanners' CVE stubs all report the same CVE, and create_vulnerability gives
+    #            them one id. SCO dedup keeps the first writer and drops later fields, which
+    #            would leave a CVE showing only whichever module ran first. For
+    #            vulnerabilities only, a later report is merged into the stored object: keys
+    #            the report states overwrite (a module owns its x_<prefix>_* fields and
+    #            re-running it refreshes them), other keys stay, and
+    #            x_pivotglass_source_modules lists every contributor. The authoritative
+    #            per-module record is unchanged: every report still writes its own
+    #            EvidenceObservation with the full observed_blob, filterable by source_module.
+    @staticmethod
+    def _merge_vulnerability(existing: StixObject, incoming: dict, provenance: dict | None) -> None:
+        immutable = {"id", "type", "spec_version", "created"}
+        blob = dict(existing.json_blob or {})
+        for key, value in incoming.items():
+            if key not in immutable and not key.startswith("x_pivotglass_"):
+                blob[key] = value
+        if provenance:
+            module = provenance["x_pivotglass_source_module"]
+            modules = list(blob.get("x_pivotglass_source_modules") or [blob.get("x_pivotglass_source_module")])
+            if module not in modules:
+                modules.append(module)
+            blob["x_pivotglass_source_modules"] = [m for m in modules if m]
+        existing.json_blob = blob
 
     def _store_relationship(self, session: Session, obj) -> None:
         """Insert a STIX Relationship SRO into relationships, ignoring duplicates."""

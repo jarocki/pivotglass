@@ -1087,6 +1087,15 @@ never a verdict.
 | RDAP (`rdap`) | `https://rdap.org` | domain, IP | Registrar, registration, expiry, and last-changed dates, status, nameservers; for IPs the network name, range, country, and registrant or abuse organisation. rdap.org redirects to the authoritative registry; personal names, e-mail addresses, and phone numbers are not recorded. |
 | Wayback Machine (`wayback`) | `https://web.archive.org` | domain, URL | First and last capture with archive links and the number of months with captures. |
 | CIRCL hashlookup (`hashlookup`) | `https://hashlookup.circl.lu` | MD5, SHA-1, SHA-256 | Known file (NSRL and other known-software sets), context not a verdict: matched sets, file name, product, trust score, and any known-malicious annotation. |
+| CISA KEV (`cisa_kev`) | `https://www.cisa.gov` | CVE | Whether the CVE is in the Known Exploited Vulnerabilities catalog, always answered: listed (date added, due date, ransomware use, vendor, product, required action) or *not listed in catalog version X*. The whole catalog is fetched once and cached for 6 hours. Listing means exploitation was observed; it does not mean a host in your case is affected. |
+| FIRST EPSS (`first_epss`) | `https://api.first.org` | CVE | Exploit Prediction Scoring System score and percentile (0-1) with the model date. A prediction of exploitation activity in the next 30 days, not an observation. No score returns no result. |
+| NVD CVE (`nvd_cve`) | `https://services.nvd.nist.gov` | CVE | English description, CVSS vectors and scores (v2.0, v3.x, v4.0) per source, CWEs, affected product versions (up to 200), and references (up to 100). Unauthenticated NVD allows 5 requests per 30 seconds; Pivotglass queues requests to stay inside that, and reports HTTP 403, 429, or 503 as *rate limited, retry later*. |
+
+A CVE identifier (`CVE-2024-0001`, any case) is an indicator type. The three vulnerability
+sources accept only CVEs. CVEs that Shodan InternetDB or the Shodan host module report
+for an IP become pivots to them. The workspace keeps one vulnerability object per CVE and
+each source's own answer as a separate evidence observation. A CVE does not fill a dossier
+slot by itself: CVEs on a scanned host describe its exposure, not an actor's tradecraft.
 
 ![v0.9.9 Configuration distinguishes model settings from missing intelligence-service credentials; checks are explicit](media/pivotglass-configuration-v1.0.0.png)
 
@@ -1171,7 +1180,8 @@ config configure
 
 Disabling a source prevents it from running while preserving its stored
 credential. WHOIS, crt.sh, and the keyless context sources (Mnemonic passive
-DNS, Shodan InternetDB, SANS ISC, RDAP, Wayback Machine, CIRCL hashlookup)
+DNS, Shodan InternetDB, SANS ISC, RDAP, Wayback Machine, CIRCL hashlookup, CISA KEV,
+FIRST EPSS, NVD CVE)
 require no API credential; the system WHOIS module does require a local `whois`
 executable.
 

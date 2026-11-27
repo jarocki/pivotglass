@@ -66,6 +66,9 @@ sans_isc = "pivotglass.modules.osint.sans_isc:SansIsc"
 rdap = "pivotglass.modules.osint.rdap:Rdap"
 wayback = "pivotglass.modules.osint.wayback:Wayback"
 hashlookup = "pivotglass.modules.cti.hashlookup:HashLookup"
+cisa_kev = "pivotglass.modules.cti.cisa_kev:CisaKev"
+first_epss = "pivotglass.modules.cti.first_epss:FirstEpss"
+nvd_cve = "pivotglass.modules.cti.nvd_cve:NvdCve"
 
 [build-system]
 requires = ["hatchling"]

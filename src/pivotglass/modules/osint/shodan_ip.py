@@ -61,6 +61,7 @@ from pivotglass.modules.base import (
     BaseModule,
     RateLimitError,
 )
+from pivotglass.modules.vulnerability import cve_stubs
 
 logger = logging.getLogger(__name__)
 
@@ -249,5 +250,9 @@ def _build_results(target: str, data: dict[str, Any]) -> list[dict]:
     for hostname in data.get("hostnames", []):
         if hostname:
             results.append({"type": "domain-name", "value": hostname})
+
+    # CVEs Shodan associates with the host become bare vulnerability stubs, the pivot
+    # handle for cti/cisa_kev, cti/first_epss and cti/nvd_cve (#58).
+    results.extend(cve_stubs(ip_sco["x_vulns"]))
 
     return results

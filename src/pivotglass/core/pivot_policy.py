@@ -525,6 +525,13 @@ class PivotPolicy:
         """
         attrs = sco_attrs or {}
 
+        # Gate 0: a module's own output never re-triggers that module. Only the
+        # vulnerability modules can hit this (their result type is their own
+        # subscription), and re-asking NVD for the CVE it just answered would
+        # spend its 5-per-30-second allowance for nothing (#58).
+        if sco_type == "vulnerability" and source_module == candidate_module:
+            return PolicyDecision("skip", "self_pivot", f"{candidate_module} produced this object")
+
         # Gate 1: IOC value
         decision = self._evaluate_ioc_value(sco_type, value)
         if decision is not None:
