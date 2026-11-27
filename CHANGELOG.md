@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Evidence owns the main area at full width, as Visualize already did, instead of an inspector beside Activity, and shows the nine dossier dimensions as a readable list instead of the hex grid. Investigate gains a persistent indicator table grouped by cluster or role, and an ACH line with the hypothesis count, the least inconsistent hypothesis and the strongest disconfirming item, one click from the full matrix; it reuses the report's ACH computation (#32).
 - The terminal UI uses plain panel labels (Command, Status, Hunt status) instead of per-persona vehicle and HUD names such as "ORBITAL ARRAY" or "TACTICAL HUD". Personas keep their voice, colours, pursuit titles and rail glyphs. The mode payload's `cockpit` object now carries only the two rail glyphs (#34).
 - Every "key not configured" message names commands that exist: Configuration, `pivotglass config set <key>`, or the `PIVOTGLASS_*` variable, from one helper. The messages that named `pivotglass config setup` and `config set api_keys.<x> <key>` are gone; a test fails if source text names a config subcommand the CLI does not accept. The LLM-provider hint names the real `PIVOTGLASS_<PROVIDER>_API_KEY` variables, and a broken `config.toml` hint says to move the file aside (#19).
 - Provenance is a dense timeline, one row per event, with details on demand (#39).

@@ -758,20 +758,16 @@ main>.command-rail.has-focus{position:relative!important;z-index:12000!important
 .viewport-tooltip.below{transform:translateX(-50%)}
 
 /* The Dossier reads as a faceted evidence object, with each plane opening its pieces. */
-.dossier-object{position:relative;margin:4px 12px 12px;padding:14px;perspective:720px;border:1px solid color-mix(in srgb,var(--line) 28%,transparent);border-radius:12px;background:radial-gradient(circle at center,color-mix(in srgb,var(--accent) 9%,transparent),transparent 68%)}
-.dossier-core{position:absolute;z-index:2;inset:50% auto auto 50%;display:grid;place-items:center;width:92px;height:56px;transform:translate(-50%,-50%);clip-path:polygon(20% 0,80% 0,100% 50%,80% 100%,20% 100%,0 50%);background:var(--elevated);border:1px solid var(--heading);pointer-events:none}
-.dossier-core b{color:var(--heading);font-size:var(--fs-xs);letter-spacing:.02em}
-.dossier-core span{color:var(--dim);font-size:var(--fs-xs)}
-.dossier-facets{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;transform:rotateX(4deg) rotateZ(-.5deg);transform-style:preserve-3d}
-.dossier-facets button{display:grid;align-content:center;gap:2px;min-width:0;height:58px;padding:5px;border:1px solid color-mix(in srgb,var(--line) 48%,transparent);clip-path:polygon(10% 0,90% 0,100% 50%,90% 100%,10% 100%,0 50%);background:var(--control);color:var(--dim);cursor:pointer}
-.dossier-facets button:nth-child(2),.dossier-facets button:nth-child(8){transform:translateZ(8px)}
-.dossier-facets button:nth-child(4),.dossier-facets button:nth-child(6){transform:translateZ(4px)}
-.dossier-facets button span{font-size:var(--fs-xs);font-weight:800}
-.dossier-facets button small{overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-xs)}
-.dossier-facets button.filled{background:color-mix(in srgb,var(--accent) 58%,var(--surface));color:var(--ink)}
-.dossier-facets button.partial{background:color-mix(in srgb,var(--heading) 22%,var(--surface));color:var(--heading)}
-.dossier-facets button.deferred{background:repeating-linear-gradient(135deg,var(--control) 0 5px,color-mix(in srgb,var(--dim) 18%,var(--control)) 6px 9px)}
-.dossier-facets button.selected{outline:3px solid var(--focus-ring);outline-offset:2px;transform:translateZ(15px)}
+/* Dossier: a readable nine-row list, one dimension per row (#32). */
+.dossier-list{margin:4px 12px 12px}
+.dossier-list>header{display:flex;gap:8px;align-items:baseline;margin-bottom:6px}.dossier-list>header b{color:var(--heading);font-size:var(--fs-sm)}.dossier-list>header span{color:var(--dim);font-size:var(--fs-xs)}
+.dossier-list ol{display:grid;gap:3px;margin:0;padding:0;list-style:none}
+.dossier-list button{display:grid;grid-template-columns:2ch minmax(0,1fr) auto 10ch;align-items:center;gap:10px;width:100%;padding:6px 10px;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);border-left-width:4px;border-radius:6px;background:var(--control);color:var(--ink);text-align:left;cursor:pointer}
+.dossier-list .n{color:var(--dim);font-size:var(--fs-xs)}.dossier-list b{font-weight:600}.dossier-list .status{color:var(--dim);font-size:var(--fs-xs)}.dossier-list small{color:var(--dim);font-size:var(--fs-xs);text-align:right}
+.dossier-list button.filled{border-left-color:var(--accent)}.dossier-list button.filled .status{color:var(--accent)}
+.dossier-list button.partial{border-left-color:var(--heading)}.dossier-list button.partial .status{color:var(--heading)}
+.dossier-list button.deferred{border-left-style:dashed}
+.dossier-list button.selected{outline:2px solid var(--focus-ring);outline-offset:1px}
 .facet-evidence{display:grid;gap:8px;margin:0 12px 12px;padding:10px;border:1px solid color-mix(in srgb,var(--line) 42%,transparent);border-radius:10px;background:var(--control)}
 .facet-evidence header{display:flex;align-items:center;justify-content:space-between}
 .facet-evidence header b{color:var(--heading);font-size:var(--fs-xs);letter-spacing:.02em}
@@ -868,9 +864,6 @@ main{padding:10px}
 .command-combobox{grid-column:1/2}
 .command-rail form>.prompt{grid-column:1/-1}
 .source-intelligence dl{grid-template-columns:1fr}
-.dossier-object{padding:10px}
-.dossier-facets{gap:4px}
-.dossier-facets button{height:52px}
 .configuration-center{padding:16px}
 .configuration-grid{grid-template-columns:1fr}
 .configuration-section>header,.model-catalog>header,.service-catalog>header{display:grid}
@@ -938,6 +931,10 @@ code,pre,kbd,.command-rail input,.artifact-row b{font-family:var(--font-mono)}
 .focus-view .cockpit-grid:has(.right-stack.inspector-open.active-artifact-field){grid-template-columns:minmax(0,1fr)}
 .focus-view .cockpit-grid:has(.right-stack.inspector-open.active-artifact-field)>.feed-panel{display:none}
 .focus-view .right-stack.inspector-open.active-artifact-field{width:100%;min-width:0}
+/* Evidence owns the main area too (#32): no inspector squeezed beside Activity. */
+.focus-view .cockpit-grid:has(.right-stack.inspector-open.active-dossier){grid-template-columns:minmax(0,1fr)}
+.focus-view .cockpit-grid:has(.right-stack.inspector-open.active-dossier)>.feed-panel{display:none}
+.focus-view .right-stack.inspector-open.active-dossier{width:100%;min-width:0}
 
 /* Intake is an explicit first step in Investigate. Candidate admission remains
    a separate analyst decision and never implies that parsed text is true. */
@@ -1191,6 +1188,7 @@ kbd{display:inline-block;min-width:1.6em;padding:0 5px;border:1px solid var(--ha
   main:not([data-width="column"]):not([data-solo]) .workspace-body:has(>#sources:not([hidden])){display:grid;grid-template-columns:minmax(380px,5fr) minmax(0,7fr);grid-auto-flow:row dense;align-items:start;column-gap:16px;row-gap:10px}
   main:not([data-width="column"]):not([data-solo]) .workspace-body:has(>#sources:not([hidden]))>#sources,
   main:not([data-width="column"]):not([data-solo]) .workspace-body:has(>#sources:not([hidden]))>#brief{grid-column:1}
+  main:not([data-width="column"]):not([data-solo]) .workspace-body:has(>#sources:not([hidden]))>#indicators{grid-column:1}
   main:not([data-width="column"]):not([data-solo]) .workspace-body:has(>#sources:not([hidden]))>.telemetry-rack{grid-column:1/-1}
   main:not([data-width="column"]):not([data-solo]) .workspace-body:has(>#sources:not([hidden]))>.cockpit-grid{grid-column:2;grid-row:1/span 3}
 }
@@ -1336,10 +1334,6 @@ main[data-solo]>.masthead,main[data-solo]>.command-rail,main[data-solo]>.voice-s
 .panel-actions{flex-wrap:wrap;justify-content:flex-end;margin-left:auto}
 .panel-actions small{white-space:nowrap}
 .focus-view .cockpit-grid:has(.right-stack.inspector-open){grid-template-columns:minmax(0,1fr) minmax(min(380px,100%),.5fr)}
-/* Dossier dimensions: plain readable tiles, not clipped hexagons. */
-.dossier-facets{transform:none}
-.dossier-facets button{height:auto;min-height:52px;clip-path:none;border-radius:8px}
-.dossier-facets button small{white-space:normal;overflow:visible;text-overflow:clip}
 /* Character ambience (watermarks, scenery) is decoration: only with Full motion. */
 main:not(.effects-full) .ambient-environment{display:none}
 /* Day theme: tabs keep the plain underline style. */
@@ -1347,9 +1341,6 @@ main.display-day .masthead .pane-switcher button{background:none;box-shadow:none
 main.display-day .masthead .pane-switcher button[aria-current="page"]{border-bottom-color:var(--accent)}
 /* View controls inside Help get breathing room. */
 .help-modal .view-controls{margin-top:14px;padding-top:12px;border-top:1px solid var(--hairline)}
-/* The dossier summary label sits above the dimension tiles instead of over tile 5. */
-.dossier-object{perspective:none}
-.dossier-core{position:static;inset:auto;width:auto;height:auto;margin:0 0 8px;transform:none;clip-path:none;place-items:start;display:flex;gap:8px;align-items:baseline;background:none;border:0;box-shadow:none}
 /* Focus-mode key legend: each key stays on the same line as its action. */
 .focus-keys{display:flex;flex-wrap:wrap;gap:6px 12px}
 .focus-keys>span{white-space:nowrap}
@@ -1624,3 +1615,20 @@ article.model-proposal>span{color:var(--inference, var(--accent))}
 .attack-lane li button{all:unset;cursor:pointer;color:var(--ink)}
 .attack-lane li button:focus-visible{outline:2px solid var(--focus-ring)}
 .attack-lane li small{color:var(--dim)}
+
+/* Investigate: persistent indicator table and ACH line (#32). */
+.indicator-table{display:grid;gap:8px;padding:10px 12px}
+.indicator-table-bar{display:flex;align-items:center;gap:8px}.indicator-table-bar b{color:var(--heading);font-size:var(--fs-md)}.indicator-table-bar>span{color:var(--dim);font-size:var(--fs-xs)}.indicator-table-bar label{margin-left:auto}
+.ach-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin:0;padding:6px 8px;border:1px solid color-mix(in srgb,var(--line) 30%,transparent);border-radius:6px;background:var(--control);font-size:var(--fs-xs);color:var(--dim)}
+.ach-line b{color:var(--ink);font-weight:600;overflow-wrap:anywhere}.ach-line button{margin-left:auto}
+.indicator-table-groups{display:grid;gap:10px;max-height:min(60vh,640px);overflow:auto}
+.indicator-table-groups h3{position:sticky;top:0;z-index:1;margin:0;padding:4px 0;background:var(--surface);color:var(--heading);font-size:var(--fs-xs);font-weight:650}
+.indicator-table-groups h3 small{color:var(--dim);font-weight:400}
+.indicator-table-groups .untagged h3{color:var(--dim)}
+.indicator-table-groups table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:var(--fs-xs)}
+.indicator-table-groups th{color:var(--dim);font-weight:500;text-align:left;padding:2px 6px}
+.indicator-table-groups th:first-child{width:45%}
+.indicator-table-groups td{padding:3px 6px;border-top:1px solid color-mix(in srgb,var(--line) 15%,transparent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.indicator-link{all:unset;cursor:pointer;color:var(--ink);font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block}
+.indicator-link:hover{text-decoration:underline dotted}.indicator-link:focus-visible{outline:2px solid var(--focus-ring)}
+@media(max-width:560px){.dossier-list button{grid-template-columns:2ch minmax(0,1fr) auto;row-gap:2px}.dossier-list .status{grid-column:2;grid-row:2}.dossier-list small{grid-column:3;grid-row:1}}

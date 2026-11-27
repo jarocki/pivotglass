@@ -145,3 +145,22 @@ test("a bare technique ID parses as a tactic-dimension tag (#31)", () => {
   assert.deepEqual(parseTagInput("t1003", dims), { dimension: "tactic", value: "t1003" });
   assert.equal(parseTagInput("t10", dims), null);
 });
+
+test("the indicator table groups by cluster or role; untagged rows come last (#32)", async () => {
+  const { groupIndicatorRows } = await import("../app/indicator-table-model.ts");
+  const indicators = [
+    { reference: "r1", stix_id: "a", type: "domain-name", value: "a.example" },
+    { reference: "r2", stix_id: "b", type: "domain-name", value: "b.example" },
+    { reference: "r3", stix_id: "c", type: "ipv4-addr", value: "192.0.2.1" },
+  ];
+  const tags = [
+    { entity_type: "domain-name", normalized_value: "a.example", dimension: "cluster", value: "kit a" },
+    { entity_type: "domain-name", normalized_value: "a.example", dimension: "role", value: "c2" },
+    { entity_type: "ipv4-addr", normalized_value: "192.0.2.1", dimension: "cluster", value: "kit a" },
+    { entity_type: "ipv4-addr", normalized_value: "b.example", dimension: "role", value: "c2" }, // wrong type: ignored
+  ];
+  const byCluster = groupIndicatorRows(indicators, tags, "cluster");
+  assert.deepEqual(byCluster.map((g) => [g.label, g.items.map((i) => i.value)]), [["kit a", ["a.example", "192.0.2.1"]], ["No cluster", ["b.example"]]]);
+  const byRole = groupIndicatorRows(indicators, tags, "role");
+  assert.deepEqual(byRole.map((g) => g.label), ["c2", "No role"]);
+});

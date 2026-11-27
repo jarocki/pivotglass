@@ -151,3 +151,15 @@ def test_actor_reports_reissue_per_actor(wm):
 @pytest.mark.parametrize("type_id", DOMAIN_3)
 def test_rendered_examples_use_reserved_values_only(wm, type_id):
     assert unreserved_values(execute_report_command(type_id, wm)["text"]) == []
+
+
+def test_ach_summary_reads_the_same_matrix_as_the_report(wm):
+    """#32: the cockpit's ACH line and the report agree."""
+    from pivotglass.reports.elements import ReportContext
+    from pivotglass.reports.elements.analytical import ach_summary
+
+    summary = ach_summary(ReportContext(wm))
+    report = build_report(wm, "ach-attribution-matrix")
+    assert summary["hypotheses"] == len(report.element("ach_hypotheses").content["hypotheses"]) == 3
+    assert [leader["label"] for leader in summary["leaders"]] == report.element("ach_judgment").content["leaders"]
+    assert summary["strongest_disconfirming"] is None  # nothing is scored inconsistent with H1

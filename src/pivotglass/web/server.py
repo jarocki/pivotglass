@@ -109,6 +109,8 @@ from pivotglass.integrations.scot_pivot_intake import (
 )
 from pivotglass.integrations.scot_publication import validate_scot_pivot_request
 from pivotglass.reports.commands import execute_report_command
+from pivotglass.reports.elements import ReportContext
+from pivotglass.reports.elements.analytical import ach_summary
 from pivotglass.reports.org import execute_org_command
 from pivotglass.reports.pir import catalogue as pir_catalogue
 from pivotglass.reports.pir import pir_state
@@ -400,6 +402,10 @@ class WebCockpitService:
             if row["id"] in cited
         }
         investigation_snapshots = self.investigations.snapshots()
+        indicator_tags = IndicatorTagAuthority(self.ctx.workspace_mgr).current()
+        ach_context = ReportContext(self.ctx.workspace_mgr)
+        ach_context._cache["analysis"] = analysis  # the snapshot already read above
+        analysis["ach_summary"] = ach_summary(ach_context)
         visualizations = build_visualization_intents(
             workspace=self.ctx.workspace_mgr.active,
             objects=objects,
@@ -407,7 +413,7 @@ class WebCockpitService:
             graph=relationship_graph.to_dict(),
             investigations=investigation_snapshots,
             analysis=visualization_analysis,
-            indicator_tags=IndicatorTagAuthority(self.ctx.workspace_mgr).current(),
+            indicator_tags=indicator_tags,
             attack_catalog=attack_catalog(),
         )
         graph_layouts = GraphPresentationAuthority(self.ctx.workspace_mgr).list()
@@ -461,6 +467,7 @@ class WebCockpitService:
             ],
             "pivot_trail": pivot_trail,
             "analysis": analysis,
+            "indicator_tags": indicator_tags,
             "pursuit_brief": pursuit_brief,
             "frameworks": {
                 "versions": {

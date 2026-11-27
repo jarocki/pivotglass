@@ -11,6 +11,8 @@ import { ReportPicker, type ReportMeta } from "./report-picker";
 import { FlowMusicEngine } from "./flow-music";
 import { ThemeArcade } from "./arcade-games";
 import { Icon } from "./icons";
+import { COVERAGE_LABELS } from "./constellation-presentation";
+import { IndicatorTable, type AchSummary, type TableTag } from "./indicator-table";
 import { ConfigurationCenter, type ConfigurationAdvisory } from "./configuration-center";
 import { ScientificWorkbench, type AnalyticSnapshot } from "./scientific-workbench";
 import { FrameworkLenses, type FrameworkState } from "./framework-lenses";
@@ -56,7 +58,7 @@ type IndicatorNote = { id: number; content: string; created_at: string | null; e
 type EvidenceDetail = { reference: string; stix_id: string; type: string; value: string; source_module: string; original_query: string; provenance: Record<string, unknown>; normalized: Record<string, unknown>; raw: Record<string, unknown>; relationships: EvidenceRelationship[]; purpose: string[]; breadcrumbs: Array<{indicator: string; relationship: string}>; history: unknown[]; dossier_contributions: unknown[]; supporting_observations: unknown[]; conflicting_observations: unknown[]; next_pivots: unknown[]; source_intelligence?: SourceIntelligence | null; notes?: IndicatorNote[]; location?: { flag: string; country_code: string; country_name: string; region: string; city: string; asn: number | null; as_org: string; source: string; attribution: string } | null; known?: KnownMatch[] };
 type BadgeAward = { badge_id: string; badge_name: string; badge_description?: string; badge_rarity?: string; badge_artwork?: string; badge_glyph?: string; challenge_id?: string; awarded_at: string };
 type ChallengeRecord = { id: string; name: string; description: string; status: string; origin?: string; subject_value?: string; points: number; progress_current?: number; progress_target?: number; progress_label?: string; evidence_basis?: Array<Record<string, unknown>>; badge?: BadgeAward };
-type State = { workspace: string; stats: Record<string, number>; objects: EvidenceCard[]; briefings: Record<string, Briefing>; character: string; modes: Mode[]; dossier_slots: DossierSlot[]; visualizations: VisualizationIntent[]; graph_layouts: GraphLayoutSummary[]; analysis: AnalyticSnapshot; pursuit_brief: PursuitBriefState; frameworks: FrameworkState; processed_targets: string[]; instruments: Instruments; challenges: ChallengeRecord[]; badges: BadgeAward[]; badge_summary: { count: number; latest: BadgeAward | null } };
+type State = { workspace: string; stats: Record<string, number>; objects: EvidenceCard[]; briefings: Record<string, Briefing>; character: string; modes: Mode[]; dossier_slots: DossierSlot[]; visualizations: VisualizationIntent[]; graph_layouts: GraphLayoutSummary[]; analysis: AnalyticSnapshot & { ach_summary?: AchSummary }; indicator_tags?: TableTag[]; pursuit_brief: PursuitBriefState; frameworks: FrameworkState; processed_targets: string[]; instruments: Instruments; challenges: ChallengeRecord[]; badges: BadgeAward[]; badge_summary: { count: number; latest: BadgeAward | null } };
 type InvestigationSnapshot = { investigation_id: string; lifecycle: Lifecycle; cursor: number; events: FeedEvent[] };
 type AlertEvent = FeedEvent & { acknowledged: boolean; investigation_id: string; target?: string; target_type?: string; artifacts?: Array<{ id: string; type: string; label: string }> };
 type AlertState = { alerts: AlertEvent[]; unread_count: number; highest_unread: string };
@@ -840,6 +842,17 @@ export default function Cockpit() {
     });
   }
 
+  /** Open the Workbench at its ACH matrix (#32: one click from Investigate). */
+  function openAchMatrix() {
+    openFullWorkbench();
+    requestAnimationFrame(() => {
+      const matrix = fullWorkbenchRef.current?.querySelector<HTMLDetailsElement>(".ach-workspace");
+      if (!matrix) return;
+      matrix.open = true;
+      matrix.scrollIntoView({ behavior: effects === "full" ? "smooth" : "auto", block: "start" });
+    });
+  }
+
   function followPursuitBrief(action: PursuitBriefAction) {
     recordAnalystActivity();
     if (guidanceProfile.level === "novice" && action.value === "analysis question ") {
@@ -1273,6 +1286,10 @@ export default function Cockpit() {
         onOpenWorkbench={openFullWorkbench}
       />
     </div>}
+    {!solo && <div id="indicators" data-pane="indicators" hidden={activePane === "dossier" || activePane === "artifact-field"}>
+      <IndicatorTable indicators={state?.objects ?? []} tags={state?.indicator_tags ?? []} ach={state?.analysis?.ach_summary}
+        onOpen={(reference, origin) => void openDetail(reference, origin)} onOpenAch={openAchMatrix}/>
+    </div>}
 
 
 
@@ -1295,7 +1312,7 @@ export default function Cockpit() {
       </div></article>
 
       <aside className={`right-stack active-${activePane} ${inspectorOpen ? "inspector-open" : ""}`} aria-label="Contextual inspector">
-        <article data-focus-context="evidence" data-pane="dossier" className={`panel instruments pane ${collapsed.dossier ? "collapsed" : ""} ${maximized === "dossier" ? "pane-maximized" : ""}`} id="dossier" tabIndex={-1}><PanelTitle id="dossier" status={`${state?.objects.length ?? 0} indicators · ${dossier} of 9 dimensions`} collapsed={collapsed.dossier} onToggle={() => togglePane("dossier")} chrome={chrome}/><div id="dossier-content" className="panel-content"><div className="dossier-object" aria-label={`${dossier} of 9 dossier facets filled`}><div className="dossier-core"><b>Dossier</b><span>{dossierProgress}/9 mapped</span></div><div className="dossier-facets">{(state?.dossier_slots ?? Array.from({length: 9}, (_, index) => ({name: `slot ${index + 1}`, status: "empty" as const, evidence_count: 0}))).map((slot, index) => <button className={`${slot.status} ${selectedFacet === slot.name ? "selected" : ""}`} key={slot.name} data-tooltip={`${slot.name.replaceAll("_", " ")}: ${slot.status}, ${slot.evidence_count} source-backed evidence pieces. Click to inspect this plane.`} onClick={() => setSelectedFacet((current) => current === slot.name ? null : slot.name)} aria-pressed={selectedFacet === slot.name} aria-label={`${slot.name}: ${slot.status}, ${slot.evidence_count} evidence. Inspect dossier facet.`}><span>{index + 1}</span><small>{slot.name.replaceAll("_", " ")}</small></button>)}</div></div>{selectedDossierSlot && <section className="facet-evidence"><header><b>{selectedDossierSlot.name.replaceAll("_", " ").toUpperCase()}</b><button onClick={() => setSelectedFacet(null)}>Close</button></header><p>{selectedDossierSlot.evidence_count} source-backed evidence pieces contribute to this dimension.</p>{selectedDossierSlot.evidence?.length ? <div>{selectedDossierSlot.evidence.map((item) => <button key={item.reference} onClick={(event) => void openDetail(item.reference, event.currentTarget)}><b title={item.value}>{item.value}</b><span>{item.type}</span></button>)}</div> : <small>No directly attributable stored evidence yet.</small>}</section>}{state?.analysis && (() => {
+        <article data-focus-context="evidence" data-pane="dossier" className={`panel instruments pane ${collapsed.dossier ? "collapsed" : ""} ${maximized === "dossier" ? "pane-maximized" : ""}`} id="dossier" tabIndex={-1}><PanelTitle id="dossier" status={`${state?.objects.length ?? 0} indicators · ${dossier} of 9 dimensions`} collapsed={collapsed.dossier} onToggle={() => togglePane("dossier")} chrome={chrome}/><div id="dossier-content" className="panel-content"><div className="dossier-list" aria-label={`${dossier} of 9 dossier facets filled`}><header><b>Dossier</b><span>{dossierProgress}/9 mapped</span></header><ol>{(state?.dossier_slots ?? Array.from({length: 9}, (_, index) => ({name: `slot ${index + 1}`, status: "empty" as const, evidence_count: 0}))).map((slot, index) => <li key={slot.name}><button className={`${slot.status} ${selectedFacet === slot.name ? "selected" : ""}`} onClick={() => setSelectedFacet((current) => current === slot.name ? null : slot.name)} aria-pressed={selectedFacet === slot.name} aria-label={`${slot.name.replaceAll("_", " ")}: ${COVERAGE_LABELS[slot.status] ?? slot.status}, ${slot.evidence_count} evidence. Inspect dossier facet.`}><span className="n">{index + 1}</span><b>{slot.name === "ttps" ? "TTPs" : slot.name.charAt(0).toUpperCase() + slot.name.slice(1).replaceAll("_", " ")}</b><span className="status">{COVERAGE_LABELS[slot.status] ?? slot.status}</span><small>{slot.evidence_count} evidence</small></button></li>)}</ol></div>{selectedDossierSlot && <section className="facet-evidence"><header><b>{selectedDossierSlot.name.replaceAll("_", " ").toUpperCase()}</b><button onClick={() => setSelectedFacet(null)}>Close</button></header><p>{selectedDossierSlot.evidence_count} source-backed evidence pieces contribute to this dimension.</p>{selectedDossierSlot.evidence?.length ? <div>{selectedDossierSlot.evidence.map((item) => <button key={item.reference} onClick={(event) => void openDetail(item.reference, event.currentTarget)}><b title={item.value}>{item.value}</b><span>{item.type}</span></button>)}</div> : <small>No directly attributable stored evidence yet.</small>}</section>}{state?.analysis && (() => {
           const hypotheses = state.analysis.hypotheses;
           const pending = hypotheses.filter((item) => item.author_kind === "model" && item.status === "proposed").length;
           const retained = hypotheses.filter((item) => item.status === "retained").length;

@@ -667,6 +667,32 @@ def _least_inconsistent(rows: list[dict[str, Any]], labels: list[str]) -> list[s
     return sorted(h for h, v in tally.items() if v == best)
 
 
+def ach_summary(context: ReportContext) -> dict[str, Any]:
+    """The cockpit's one-line ACH reading (#32), from the same matrix the report uses.
+
+    The leader is the hypothesis with the least weighted inconsistency (Heuer);
+    the strongest disconfirming item is the most diagnostic evidence scored
+    inconsistent with it. Ties keep matrix order.
+    """
+
+    matrix = ach_matrix(context)
+    labels = [h["label"] for h in matrix["hypotheses"]]
+    leaders = _least_inconsistent(matrix["rows"], labels) if matrix["rows"] else []
+    leader = leaders[0] if leaders else None
+    against = [r for r in matrix["rows"] if leader and r["scores"][leader] in {"I", "C/I"}]
+    against.sort(key=lambda r: -_DIAGNOSTIC_WEIGHT[r["diagnosticity"]])
+    statement = {h["label"]: h["statement"] for h in matrix["hypotheses"]}
+    return {
+        "hypotheses": len(labels),
+        "evidence_rows": len(matrix["rows"]),
+        "leaders": [{"label": label, "statement": statement[label]} for label in leaders],
+        "strongest_disconfirming": (
+            {"evidence": against[0]["evidence"], "diagnosticity": against[0]["diagnosticity"], "hypothesis": leader}
+            if against else None
+        ),
+    }
+
+
 def _ach_hyp_md(result: ElementResult, output: OutputFormat) -> str:
     rows = result.content.get("hypotheses", [])
     lines = ["## Competing Hypotheses", ""]

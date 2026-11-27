@@ -179,6 +179,16 @@ badges**, the character voices, music, badges, and the **Diversion** mini-game. 
 **Open workbench** when the complete scientific notebook and framework lenses
 are needed.
 
+Each tab owns the main area. **Investigate** shows Sources, the next step,
+Activity, and a persistent **Indicators** table grouped by cluster or role tag,
+with each indicator's type, role and tactic; click a value to open its
+evidence. Above the table, one line reads the competing hypotheses: how many
+there are, which is least inconsistent with the linked evidence, and the most
+diagnostic item scored against it. **Open ACH matrix** opens the workbench at
+the full matrix. **Evidence** fills the width with the nine dossier dimensions
+as a list (number, dimension, coverage, evidence count); select a row to see
+the evidence behind it. **Visualize** fills the width with the chosen view.
+
 **Investigate** is also where reports and indicator lists enter the workspace.
 Expand **Add indicators & reports**, preview a supported local file, and review
 the extracted strings. Check only the candidates that should become workspace
