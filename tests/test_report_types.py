@@ -115,7 +115,7 @@ def test_element_options_are_rejected_unless_the_element_declares_them():
     from pivotglass.reports import registry
 
     text = (TYPES_DIR / "threat-activity-alert.yaml").read_text(encoding="utf-8")
-    bad = text.replace("  - id: ioc_table\n", "  - id: ioc_table\n    options: {ttl: true}\n")
+    bad = text.replace("options: {detail: true, blocking: true}", "options: {ttl: true}")
     with pytest.raises(ValueError, match="does not take options: ttl"):
         registry._parse("threat-activity-alert.yaml", bad)
     assert ELEMENTS  # built elements are registered

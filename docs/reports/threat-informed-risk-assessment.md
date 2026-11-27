@@ -6,7 +6,7 @@ Type 3 · Strategic and executive · `threat-informed-risk-assessment` · ID pre
 
 Assess the threat to a specific system, business unit, vendor, initiative or acquisition target: who would attack it, how, how likely, with what impact, and which controls reduce the risk.
 
-**Status:** Defined, not built yet. Its sections arrive with #53, #54, #59; until then `report threat-informed-risk-assessment` explains what is missing and renders nothing.
+**Status:** Defined, not built yet. Its sections arrive with #53, #59; until then `report threat-informed-risk-assessment` explains what is missing and renders nothing.
 
 **Use it when:** Before a cloud migration, an acquisition, onboarding a critical vendor, or a change to a crown-jewel system. Needs the organisation profile and assets (#59); without them the report is incomplete and says so.
 
@@ -32,7 +32,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 | 4 | Relevant threat actors (`actor_matrix`) | yes | Evidence + Analyst | hypotheses, Nucleotide aliases, dossier Capability slot | #53 |
 | 5 | Attack surface (`attack_surface`) | yes | Evidence + Organisation input | Shodan, Censys and InternetDB observations, organisation assets (#59) | #53 |
 | 6 | Risk scenarios (`risk_scenarios`) | yes | Analyst | analyst | #53 |
-| 7 | Recommendations (`recommendations`) | yes | Analyst | analyst | #54 |
+| 7 | Recommendations (`recommendations`) | yes | Analyst | report recommendations | built |
 | 8 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 9 | Sources (`sources`) | yes | Method | module runs | built |
 

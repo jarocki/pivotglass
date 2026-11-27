@@ -180,6 +180,21 @@ class ReportContext:
         return self._load("observations", "evidence observations", self.workspace_mgr.get_observations, [])
 
     @property
+    def indicator_tags(self) -> dict[tuple[str, str], dict[str, set[str]]]:
+        """Current analyst tags keyed by (STIX type, lower-cased value) -> dimension -> values."""
+
+        def load() -> dict[tuple[str, str], dict[str, set[str]]]:
+            from pivotglass.core.indicator_tags import IndicatorTagAuthority, canonical_entity_type
+
+            found: dict[tuple[str, str], dict[str, set[str]]] = {}
+            for tag in IndicatorTagAuthority(self.workspace_mgr).current():
+                key = (canonical_entity_type(tag["entity_type"]), str(tag["normalized_value"]).lower())
+                found.setdefault(key, {}).setdefault(tag["dimension"], set()).add(tag["value"])
+            return found
+
+        return self._load("tags", "indicator tags", load, {})
+
+    @property
     def mappings(self) -> list[Any]:
         def load() -> list[Any]:
             from pivotglass.core.framework_projections import FrameworkProjectionAuthority
@@ -269,13 +284,14 @@ def element(
     *,
     markdown: MarkdownRenderer,
     description: str = "",
+    options: tuple[str, ...] = (),
 ) -> Callable[[Builder], Builder]:
     """Register an element builder. Duplicate ids are a programming error."""
 
     def register(build: Builder) -> Builder:
         if id in ELEMENTS:
             raise RuntimeError(f"report element {id!r} is registered twice")
-        ELEMENTS[id] = ElementSpec(id, title, provenance, authorities, build, markdown, description)
+        ELEMENTS[id] = ElementSpec(id, title, provenance, authorities, build, markdown, description, options)
         return build
 
     return register
@@ -297,7 +313,13 @@ def build_element(spec: ElementSpec, context: ReportContext) -> ElementResult:
 def load_builtin_elements() -> dict[str, ElementSpec]:
     """Import the built-in element modules so their builders register."""
 
-    from pivotglass.reports.elements import analytical, common, investigation  # noqa: F401
+    from pivotglass.reports.elements import (  # noqa: F401
+        analytical,
+        common,
+        investigation,
+        operational,
+        vulnerability,
+    )
     from pivotglass.reports.elements.planned import PLANNED
 
     both = sorted(set(PLANNED) & set(ELEMENTS))

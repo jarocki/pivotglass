@@ -32,6 +32,7 @@ REPORT_PREDICATES: dict[str, str] = {
     "campaign": "A dated event in the actor's history; the value is YYYY, YYYY-MM or YYYY-MM-DD.",
     "uses-malware": "A malware family the actor uses.",
     "uses-tool": "A dual-use or living-off-the-land tool the actor uses.",
+    "exploits": "A vulnerability (CVE ID) the actor exploits.",
     "capability": "capability:<axis> with a value 1-5 on the capability rubric.",
 }
 

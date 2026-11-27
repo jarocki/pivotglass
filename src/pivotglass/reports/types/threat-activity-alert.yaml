@@ -32,6 +32,7 @@ elements:
       Block (which indicators, where), Search (which logs, over what lookback
       window) and Isolate (which host behaviour triggers it), each with an owner.
   - id: ioc_table
+    options: {detail: true, blocking: true}
     guidance: >-
       Indicators with their role (delivery, staging, C2), confidence and a
       suggested expiry. Only indicators suitable for blocking belong here.

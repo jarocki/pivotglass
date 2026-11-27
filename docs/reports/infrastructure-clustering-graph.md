@@ -42,7 +42,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 - **Infrastructure graph.** Entities, connections with truth class, time bounds and evidence, and cluster boundaries with the method.
 - **Pivot points.** Entities that join two or more others, ranked by how many they join, with the relationships involved.
 - **Infrastructure and OPSEC patterns.** Attributes shared by two or more collected objects (TLD, registrar, name server, ASN, hosting, certificate issuer), with how often each was seen.
-- **Indicators of compromise.** Every collected indicator, with its type and first-seen date.
+- **Indicators of compromise.** Every collected indicator, with its type and first-seen date. With `detail`, also its role and tactic tags, source count and suggested expiry; with `blocking`, only indicators suitable for blocking.
 - **Gaps and limitations.** Recorded knowledge gaps and limitations, plus every element that came back empty or partial.
 - **Sources.** Every collection source that ran, with run and object counts and its Admiralty rating.
 

@@ -28,7 +28,9 @@ from pivotglass.reports.render import render
 REPORT_USAGE = (
     "Usage: report [types | <type> [actor:<name>] [markdown|json|stix] [tlp:<marking>] [pap:<marking>] | "
     "issue <type> [actor:<name>] [draft|final] [tlp:<marking>] [pap:<marking>] [| <change summary>] | "
-    "history [<type>] | open <report-id> [<version>] [markdown|json|stix]]"
+    "history [<type>] | open <report-id> [<version>] [markdown|json|stix] | "
+    "write <section> | <text> | severity <level> | <reason> | "
+    "recommend <1-9> | <action> | <owner> | <due> | <outcome>]"
 )
 _MIME = {
     OutputFormat.MARKDOWN: "text/markdown", OutputFormat.JSON: "application/json",
@@ -98,6 +100,11 @@ def execute_report_command(text: str | tuple[str, ...], workspace_mgr: Any) -> d
         words = words[1:]
     action = words[0].casefold() if words else ""
 
+    if action in {"write", "severity", "recommend"}:
+        from pivotglass.core.analytic_ledger import AnalyticLedger
+        from pivotglass.reports.sections import record
+
+        return record(AnalyticLedger(workspace_mgr), words, summary)
     if action == "types":
         return {"title": "Report types", "data": report_type_summaries()}
     if action == "history":

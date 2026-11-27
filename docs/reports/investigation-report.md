@@ -46,7 +46,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 - **Dossier state.** The nine dossier slots with status, evidence count and contributing types.
 - **Legacy predictions log.** The pre-v4 dossier predictions log, grouped by status.
 - **Analyst notes.** Free-text analyst notes, in the order written.
-- **Indicators of compromise.** Every collected indicator, with its type and first-seen date.
+- **Indicators of compromise.** Every collected indicator, with its type and first-seen date. With `detail`, also its role and tactic tags, source count and suggested expiry; with `blocking`, only indicators suitable for blocking.
 - **Investigation timeline.** Each collection run in order: time, source, target and object count.
 - **Statistics.** Indicator counts by type and the pursuit score.
 - **Gaps and limitations.** Recorded knowledge gaps and limitations, plus every element that came back empty or partial.

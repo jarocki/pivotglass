@@ -6,7 +6,7 @@ Type 4 · Operational and incident · `threat-activity-alert` · ID prefix `PG-T
 
 Warn defenders about active, relevant activity within hours, with the indicators to block, the searches to run and the conditions for escalation.
 
-**Status:** Defined, not built yet. Its sections arrive with #54; until then `report threat-activity-alert` explains what is missing and renders nothing.
+**Status:** Built: `report threat-activity-alert` renders it.
 
 **Use it when:** Activity is current and actionable. Keep it to what responders need now; the full story goes in a Campaign and Intrusion Analysis Report.
 
@@ -28,12 +28,12 @@ In order. A required section with no content makes the report **Incomplete**, an
 |---:|---|---|---|---|---|
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Threat summary (`threat_summary`) | yes | Model draft + Analyst | cited observations | #54 |
-| 4 | Delivery and initial access (`delivery_vector`) | yes | Evidence | Initial Access mappings, observations | #54 |
-| 5 | Techniques observed (`technique_list`) | yes | Evidence | accepted framework mappings | #54 |
-| 6 | Triage and containment actions (`triage_actions`) | yes | Method + Analyst | IOC-type playbook templates | #54 |
+| 3 | Threat summary (`threat_summary`) | yes | Model draft + Analyst | report section text, report severity | built |
+| 4 | Delivery and initial access (`delivery_vector`) | yes | Evidence | Kill Chain delivery and exploitation mappings, ATT&CK initial-access mappings, role and tactic tags | built |
+| 5 | Techniques observed (`technique_list`) | yes | Evidence | accepted framework mappings | built |
+| 6 | Triage and containment actions (`triage_actions`) | yes | Method + Analyst | indicator types, report section text | built |
 | 7 | Indicators of compromise (`ioc_table`) | yes | Evidence | STIX objects | built |
-| 8 | Detection and hunt pointers (`detection_pointers`) | optional | Method | issued reports | #54 |
+| 8 | Detection and hunt pointers (`detection_pointers`) | optional | Method | issued reports | built |
 | 9 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 10 | Sources (`sources`) | yes | Method | module runs | built |
 
@@ -43,7 +43,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
 - **Threat summary.** Two or three sentences - what, who is targeted, how it arrives, why now - with severity and its confidence.
 - **Delivery and initial access.** Initial access and the payload or tooling it delivers, with ATT&CK IDs and citations.
-- **Techniques observed.** ATT&CK technique IDs and names observed in this activity, pinned to v19.2.
+- **Techniques observed.** ATT&CK technique IDs and names observed in this activity, with the procedure, pinned to v19.2.
 - **Triage and containment actions.** Block (which indicators, where), Search (which logs, over what lookback window) and Isolate (which host behaviour triggers it), each with an owner.
 - **Indicators of compromise.** Indicators with their role (delivery, staging, C2), confidence and a suggested expiry. Only indicators suitable for blocking belong here.
 - **Detection and hunt pointers.** Issued detection bundles or hunting packages for this activity.

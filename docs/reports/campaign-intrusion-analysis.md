@@ -6,7 +6,7 @@ Type 5 · Operational and incident · `campaign-intrusion-analysis` · ID prefix
 
 The complete account of one campaign or intrusion set: when it ran, whom it targeted, how it worked end to end, the infrastructure and tools behind it, who is likely responsible, and what to change.
 
-**Status:** Defined, not built yet. Its sections arrive with #54; until then `report campaign-intrusion-analysis` explains what is missing and renders nothing.
+**Status:** Built: `report campaign-intrusion-analysis` renders it.
 
 **Use it when:** After an alert has been worked, or when an intrusion set has enough evidence for a full account. Attribution here is a judgment; the ACH Attribution Matrix holds the test behind it.
 
@@ -28,17 +28,17 @@ In order. A required section with no content makes the report **Incomplete**, an
 |---:|---|---|---|---|---|
 | 1 | Report header (`header`) | yes | Method | ReportIssue, reports/contract.py | built |
 | 2 | Priority intelligence requirement (`pir_verdict`) | yes | Method | AnalyticInvestigation, reports/pir.py | built |
-| 3 | Threat summary (`threat_summary`) | yes | Model draft + Analyst | cited observations | #54 |
+| 3 | Threat summary (`threat_summary`) | yes | Model draft + Analyst | report section text, report severity | built |
 | 4 | Key judgments (`key_judgments`) | yes | Analyst + Model draft | analytic ledger assertions and hypotheses | built |
-| 5 | Campaign timeline (`campaign_timeline`) | yes | Evidence + Method | observations | #54 |
+| 5 | Campaign timeline (`campaign_timeline`) | yes | Evidence + Method | observation first- and last-seen fields, campaign claims | built |
 | 6 | Victimology (`victimology`) | yes | Evidence + Analyst | actor claims (targets-sector, targets-region) | built |
-| 7 | Attack narrative (`attack_narrative`) | yes | Model draft + Analyst | collection timeline, framework mappings | #54 |
-| 8 | Infrastructure (`infrastructure_breakdown`) | yes | Evidence | ASN, hosting, certificate and passive DNS observations | #54 |
+| 7 | Attack narrative (`attack_narrative`) | yes | Model draft + Analyst + Method | Kill Chain mappings, ATT&CK mappings, report section text | built |
+| 8 | Infrastructure (`infrastructure_breakdown`) | yes | Evidence | STIX objects, role tags, investigation graph, observations | built |
 | 9 | Arsenal and tooling (`arsenal`) | yes | Evidence + Analyst | actor claims (uses-malware, uses-tool), file observations | built |
 | 10 | ATT&CK techniques and procedures (`attack_matrix`) | optional | Evidence | accepted framework mappings, pinned ATT&CK Enterprise v19.2 | built |
-| 11 | Recommendations (`recommendations`) | yes | Analyst | analyst | #54 |
+| 11 | Recommendations (`recommendations`) | yes | Analyst | report recommendations | built |
 | 12 | Indicators of compromise (`ioc_table`) | yes | Evidence | STIX objects | built |
-| 13 | Detection and hunt pointers (`detection_pointers`) | optional | Method | issued reports | #54 |
+| 13 | Detection and hunt pointers (`detection_pointers`) | optional | Method | issued reports | built |
 | 14 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 15 | Sources (`sources`) | yes | Method | module runs | built |
 
@@ -48,15 +48,15 @@ In order. A required section with no content makes the report **Incomplete**, an
 - **Priority intelligence requirement.** The question, its category and tier, and the deterministic verdict (DEC-PIR-001).
 - **Threat summary.** The campaign in three sentences - period, victims, objective - and the main defensive takeaway.
 - **Key judgments.** Attribution and objective, each with likelihood, separate confidence and basis; reference the ACH matrix if one was issued.
-- **Campaign timeline.** First and last observed activity and the phases in between, computed from sourced observations.
+- **Campaign timeline.** First and last observed activity from source-reported dates (not collection times), and dated events.
 - **Victimology.** Targeted sectors and regions, each with its basis and citations.
 - **Attack narrative.** Phase by phase from initial access to actions on objectives, each step with ATT&CK IDs and citations. State gaps; do not bridge them.
-- **Infrastructure.** Hosting providers and ASNs, certificate traits, resolution history and the role of each component (delivery, staging, C2, exfiltration).
+- **Infrastructure.** Each domain, address and URL with its role tag, hosting or ASN, connections and source count.
 - **Arsenal and tooling.** Malware families and tools used in this campaign, with capability and first and last use.
 - **ATT&CK techniques and procedures.** Tactic, technique ID and name, and the observed procedure, from accepted mappings against the pinned release.
 - **Recommendations.** Remediation and hardening steps, each with an owner and due date, in priority order.
 - **Indicators of compromise.** The campaign's full indicator set; the JSON and STIX renderings are the machine-readable appendix.
-- **Detection and hunt pointers.** References to issued detection bundles, hunting packages and Navigator layers for this activity.
+- **Detection and hunt pointers.** Issued detection bundles, hunting packages and Navigator layers for this investigation.
 - **Gaps and limitations.** Recorded knowledge gaps and limitations, plus every element that came back empty or partial.
 - **Sources.** Every collection source that ran, with run and object counts and its Admiralty rating.
 

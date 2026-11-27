@@ -849,6 +849,19 @@ Briefing to the Defensive Coverage Assessment, are defined in the
 [report reference](reports/README.md); a type whose sections are not built yet
 is listed but will not render, and the picker shows which issue builds it.
 
+**Writing report sections.** Some sections are yours to write. Each entry is
+recorded in the analytic ledger with you as its author:
+
+```text
+report write threat_summary | <two or three sentences>
+report write attack_narrative | <the intrusion end to end>
+report write technical_mechanism | <the flaw and its preconditions>
+report write triage_actions | <an extra triage step>
+report write remediation_notes | <compensating controls and detection>
+report severity high | <why>
+report recommend 1 | <action> | <owner> | <due YYYY-MM-DD> | <expected outcome>
+```
+
 **Actor reports.** The Threat Actor Profile and the Actor Capability Radar read
 analyst claims about an actor, recorded as
 `analysis claim judgment actor:<name> <predicate> <value> | <basis>` (for

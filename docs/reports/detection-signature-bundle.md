@@ -45,7 +45,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 - **Sigma rules.** Sigma rules generated from host and process artifacts, status experimental until validated.
 - **Suricata rules.** Suricata rules for network artifacts, sid in the local range 1000000-1999999, with metadata and reference.
 - **YARA rules.** YARA rules written by the analyst from sample features, with sample hash and reference, marked untested until validated.
-- **Indicators of compromise.** Every collected indicator, with its type and first-seen date.
+- **Indicators of compromise.** Every collected indicator, with its type and first-seen date. With `detail`, also its role and tactic tags, source count and suggested expiry; with `blocking`, only indicators suitable for blocking.
 - **Validation.** For each rule: what it was tested against, the result, and what was not tested.
 - **Gaps and limitations.** Recorded knowledge gaps and limitations, plus every element that came back empty or partial.
 - **Sources.** Every collection source that ran, with run and object counts and its Admiralty rating.

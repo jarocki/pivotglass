@@ -6,7 +6,7 @@ Type 14 · Attack flow and behavioral · `attack-graph-tree` · ID prefix `PG-AG
 
 Map the paths from entry points to a critical asset, show which steps must all succeed (AND) and which are alternatives (OR), and find the choke points where one control cuts the most paths.
 
-**Status:** Defined, not built yet. Its sections arrive with #54, #56, #59; until then `report attack-graph-tree` explains what is missing and renders nothing.
+**Status:** Defined, not built yet. Its sections arrive with #56, #59; until then `report attack-graph-tree` explains what is missing and renders nothing.
 
 **Use it when:** Protecting a crown-jewel asset or prioritising architecture work. Needs the organisation's environment model (#59); Pivotglass does not see internal networks.
 
@@ -30,7 +30,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 | 3 | Objective (`objective`) | yes | Organisation input | environment model (#59) | #59 |
 | 4 | Attack tree (`attack_tree`) | yes | Organisation input + Method | environment model (#59) | #56 |
 | 5 | Choke points (`choke_points`) | yes | Method | attack tree | #56 |
-| 6 | Recommendations (`recommendations`) | yes | Analyst | analyst | #54 |
+| 6 | Recommendations (`recommendations`) | yes | Analyst | report recommendations | built |
 | 7 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 8 | Sources (`sources`) | yes | Method | module runs | built |
 

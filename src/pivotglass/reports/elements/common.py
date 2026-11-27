@@ -318,16 +318,39 @@ def build_gaps_limitations(context: ReportContext) -> ElementResult:
 # --- IOC table --------------------------------------------------------------
 
 
+# Suggested expiry for blocking, by indicator type (days). A policy, stated in the
+# report, not a property of the indicator: hashes stay bad; addresses churn.
+INDICATOR_TTL_DAYS = {"file": 90, "url": 30, "domain-name": 30, "email-addr": 30, "ipv4-addr": 14, "ipv6-addr": 14}
+NOT_BLOCKABLE_ROLES = {"benign", "victim", "hosting"}
+
+
 def _ioc_md(result: ElementResult, output: OutputFormat) -> str:
     rows = result.content.get("indicators", [])
+    detail = result.content.get("detail", False)
     lines = ["## Indicators of Compromise", ""]
     if not rows:
         lines.append(_empty_line("No indicators collected."))
         return "\n".join(lines)
-    lines.extend(["| Type | Value | First Seen |", "|------|-------|------------|"])
+    if detail:
+        lines.extend(["| Type | Value | Role | Tactic | Sources | First Seen | Suggested expiry |", "|---|---|---|---|---:|---|---|"])
+    else:
+        lines.extend(["| Type | Value | First Seen |", "|------|-------|------------|"])
     for row in rows:
-        value = render_indicator(row["value"], row["type"], output)
-        lines.append(f"| {row['type']} | {md(value)} | {row['first_seen'] or 'unknown'} |")
+        value = md(render_indicator(row["value"], row["type"], output))
+        if detail:
+            ttl = f"{row['ttl_days']} days" if row.get("ttl_days") else "—"
+            lines.append(
+                f"| {row['type']} | {value} | {row.get('role') or '—'} | {row.get('tactic') or '—'} | "
+                f"{row.get('sources', 0)} | {row['first_seen'] or 'unknown'} | {ttl} |"
+            )
+        else:
+            lines.append(f"| {row['type']} | {value} | {row['first_seen'] or 'unknown'} |")
+    if detail:
+        lines.extend(["", "_Role and tactic are analyst tags. Sources counts the distinct collection modules that observed the "
+                      "value. Expiry is the suggested blocking period for the type, not a property of the indicator._"])
+        if result.content.get("excluded"):
+            lines.append(f"_{result.content['excluded']} indicator(s) excluded as not suitable for blocking (tagged benign, victim, "
+                         "hosting or false positive)._")
     if output in {OutputFormat.MARKDOWN}:
         lines.extend(["", "_Values are defanged for reading. The JSON and STIX renderings carry them unchanged._"])
     return "\n".join(lines)
@@ -350,11 +373,38 @@ def indicator_rows(stix_objects: list[dict[str, Any]]) -> list[dict[str, Any]]:
             {
                 "type": obj_type,
                 "value": value,
-                "first_seen": str(obj.get("created", ""))[:10] or None,
+                # A source-reported first-seen date when there is one; the object's creation date otherwise.
+                "first_seen": next(
+                    (str(obj[k])[:10] for k in ("first_seen", "x_first_seen", "firstseen", "created") if obj.get(k)), None
+                ),
                 "stix_id": obj.get("id"),
             }
         )
     return rows
+
+
+def detailed_indicators(context: ReportContext, *, blocking: bool) -> tuple[list[dict[str, Any]], int]:
+    """Indicator rows with role and tactic tags, source count and expiry; with ``blocking``, unsuitable ones removed."""
+
+    tags = context.indicator_tags
+    sources: dict[str, set[str]] = defaultdict(set)
+    for obs in context.observations:
+        sources[str(obs.get("entity_ref"))].add(str(obs.get("source_module")))
+    kept, excluded = [], 0
+    for row in indicator_rows(context.stix_objects):
+        row_tags = tags.get((row["type"], row["value"].lower()), {})
+        row.update(
+            role=", ".join(sorted(row_tags.get("role", ()))) or None,
+            tactic=", ".join(sorted(row_tags.get("tactic", ()))) or None,
+            sources=len(sources.get(str(row["stix_id"]), ())),
+            ttl_days=INDICATOR_TTL_DAYS.get(row["type"]),
+        )
+        unsuitable = set(row_tags.get("role", ())) & NOT_BLOCKABLE_ROLES or "false-positive" in row_tags.get("status", ())
+        if blocking and unsuitable:
+            excluded += 1
+            continue
+        kept.append(row)
+    return kept, excluded
 
 
 @element(
@@ -363,17 +413,30 @@ def indicator_rows(stix_objects: list[dict[str, Any]]) -> list[dict[str, Any]]:
     (E,),
     ("STIX objects",),
     markdown=_ioc_md,
-    description="Every collected indicator, with its type and first-seen date.",
+    description="Every collected indicator, with its type and first-seen date. With `detail`, also its role and "
+    "tactic tags, source count and suggested expiry; with `blocking`, only indicators suitable for blocking.",
+    options=("detail", "blocking"),
 )
 def build_ioc_table(context: ReportContext) -> ElementResult:
     from pivotglass.reports.elements import ELEMENTS
 
     spec = ELEMENTS["ioc_table"]
-    rows = indicator_rows(context.stix_objects)
+    options = context.options.get("ioc_table", {})
+    detail, blocking = bool(options.get("detail")), bool(options.get("blocking"))
+    rows, excluded = detailed_indicators(context, blocking=blocking) if (detail or blocking) else (indicator_rows(context.stix_objects), 0)
     if not rows:
-        return spec.result(ElementStatus.EMPTY, {"indicators": []}, gaps=["No indicators have been collected."])
+        return spec.result(ElementStatus.EMPTY, {"indicators": [], "detail": detail, "excluded": excluded},
+                           gaps=["No indicators have been collected." if not excluded else "Every indicator is excluded from blocking."])
     citations = [f"stix:{row['stix_id']}" for row in rows if row["stix_id"]]
-    return spec.result(ElementStatus.COMPLETE, {"indicators": rows}, citations=citations)
+    gaps = []
+    if detail and not any(row.get("role") for row in rows):
+        gaps.append("No indicator is tagged with its role (C2, delivery, staging); tag them in Indicator Focus.")
+    return spec.result(
+        ElementStatus.PARTIAL if gaps else ElementStatus.COMPLETE,
+        {"indicators": rows, "detail": detail, "excluded": excluded},
+        citations=citations,
+        gaps=gaps,
+    )
 
 
 # --- collection timeline ----------------------------------------------------

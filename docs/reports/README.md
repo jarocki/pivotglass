@@ -8,17 +8,17 @@ Pivotglass assembles reports from sections that each state where their content c
 
 | # | Type | Tier | Audience | Marking | Status |
 |---:|---|---|---|---|---|
-| 1 | [Executive Threat Briefing](executive-threat-briefing.md) | Strategic | Executive leadership, Board risk committee | TLP:AMBER · PAP:CLEAR | needs #53, #54, #59 |
-| 2 | [Strategic Threat Landscape and Forecast](strategic-threat-landscape.md) | Strategic | Executive leadership, Board risk committee, Security strategy | TLP:AMBER · PAP:CLEAR | needs #53, #54 |
-| 3 | [Threat-Informed Risk Assessment](threat-informed-risk-assessment.md) | Strategic | Risk management, Business owners, M&A and vendor-risk teams | TLP:AMBER+STRICT · PAP:CLEAR | needs #53, #54, #59 |
+| 1 | [Executive Threat Briefing](executive-threat-briefing.md) | Strategic | Executive leadership, Board risk committee | TLP:AMBER · PAP:CLEAR | needs #53, #59 |
+| 2 | [Strategic Threat Landscape and Forecast](strategic-threat-landscape.md) | Strategic | Executive leadership, Board risk committee, Security strategy | TLP:AMBER · PAP:CLEAR | needs #53 |
+| 3 | [Threat-Informed Risk Assessment](threat-informed-risk-assessment.md) | Strategic | Risk management, Business owners, M&A and vendor-risk teams | TLP:AMBER+STRICT · PAP:CLEAR | needs #53, #59 |
 
 ## Operational and incident
 
 | # | Type | Tier | Audience | Marking | Status |
 |---:|---|---|---|---|---|
-| 4 | [Threat Activity Alert](threat-activity-alert.md) | Tactical | SOC analysts, Incident responders | TLP:AMBER · PAP:GREEN | needs #54 |
-| 5 | [Campaign and Intrusion Analysis Report](campaign-intrusion-analysis.md) | Operational | Incident response leads, Threat hunters, SOC leadership | TLP:AMBER · PAP:AMBER | needs #54 |
-| 6 | [Vulnerability Exploitation Brief](vulnerability-exploitation-brief.md) | Operational | Vulnerability management, SOC analysts, IT operations | TLP:GREEN · PAP:CLEAR | needs #54, #58, #59 |
+| 4 | [Threat Activity Alert](threat-activity-alert.md) | Tactical | SOC analysts, Incident responders | TLP:AMBER · PAP:GREEN | built |
+| 5 | [Campaign and Intrusion Analysis Report](campaign-intrusion-analysis.md) | Operational | Incident response leads, Threat hunters, SOC leadership | TLP:AMBER · PAP:AMBER | built |
+| 6 | [Vulnerability Exploitation Brief](vulnerability-exploitation-brief.md) | Operational | Vulnerability management, SOC analysts, IT operations | TLP:GREEN · PAP:CLEAR | needs #59 |
 
 ## Analytical and attribution
 
@@ -34,9 +34,9 @@ Pivotglass assembles reports from sections that each state where their content c
 
 | # | Type | Tier | Audience | Marking | Status |
 |---:|---|---|---|---|---|
-| 12 | [Cyber Kill Chain Mapping](kill-chain-mapping.md) | Operational | SOC leadership, Incident responders, Security architecture | TLP:AMBER · PAP:AMBER | needs #54, #56 |
+| 12 | [Cyber Kill Chain Mapping](kill-chain-mapping.md) | Operational | SOC leadership, Incident responders, Security architecture | TLP:AMBER · PAP:AMBER | needs #56 |
 | 13 | [ATT&CK Navigator Layer](attack-navigator-layer.md) | Operational | Threat hunters, Detection engineers, Purple team | TLP:AMBER · PAP:CLEAR | needs #56 |
-| 14 | [Attack Graph and Tree](attack-graph-tree.md) | Operational | Security architecture, Red and purple teams, Risk management | TLP:AMBER+STRICT · PAP:RED | needs #54, #56, #59 |
+| 14 | [Attack Graph and Tree](attack-graph-tree.md) | Operational | Security architecture, Red and purple teams, Risk management | TLP:AMBER+STRICT · PAP:RED | needs #56, #59 |
 | 15 | [Forensic Intrusion Timeline](forensic-intrusion-timeline.md) | Tactical | Incident responders, Forensic analysts, Legal and compliance | TLP:AMBER+STRICT · PAP:RED | needs #56, #59 |
 
 ## Detection, hunting and posture
@@ -45,7 +45,7 @@ Pivotglass assembles reports from sections that each state where their content c
 |---:|---|---|---|---|---|
 | 16 | [Threat Hunting Package](threat-hunting-package.md) | Operational | Threat hunters, SOC analysts | TLP:AMBER · PAP:GREEN | needs #57 |
 | 17 | [Detection Signature Bundle](detection-signature-bundle.md) | Tactical | Detection engineers, SOC analysts | TLP:AMBER · PAP:GREEN | needs #57 |
-| 18 | [Defensive Coverage Assessment](defensive-coverage-assessment.md) | Strategic | Security leadership, Detection engineering, Purple team | TLP:AMBER+STRICT · PAP:CLEAR | needs #54, #57, #59 |
+| 18 | [Defensive Coverage Assessment](defensive-coverage-assessment.md) | Strategic | Security leadership, Detection engineering, Purple team | TLP:AMBER+STRICT · PAP:CLEAR | needs #57, #59 |
 
 ## Investigation record
 
@@ -82,6 +82,7 @@ analysis claim judgment actor:<name> <predicate> <value> | <statement with its b
 | `campaign` | A dated event in the actor's history; the value is YYYY, YYYY-MM or YYYY-MM-DD. |
 | `uses-malware` | A malware family the actor uses. |
 | `uses-tool` | A dual-use or living-off-the-land tool the actor uses. |
+| `exploits` | A vulnerability (CVE ID) the actor exploits. |
 | `capability` | capability:<axis> with a value 1-5 on the capability rubric. |
 
 Capability axes for `capability:<axis>`: `access`, `malware`, `evasion`, `movement`, `infrastructure`.

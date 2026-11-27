@@ -6,7 +6,7 @@ Type 18 · Detection, hunting and posture · `defensive-coverage-assessment` · 
 
 Measure how well current controls see, alert on and prevent the techniques of a threat of concern, derive the gaps by a stated rule, and plan the fixes and the tests that prove them.
 
-**Status:** Defined, not built yet. Its sections arrive with #54, #57, #59; until then `report defensive-coverage-assessment` explains what is missing and renders nothing.
+**Status:** Defined, not built yet. Its sections arrive with #57, #59; until then `report defensive-coverage-assessment` explains what is missing and renders nothing.
 
 **Use it when:** Planning detection engineering, justifying control investment, or preparing a purple-team exercise. Needs the control inventory (#59).
 
@@ -31,7 +31,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 | 3 | Techniques in scope (`technique_scope`) | yes | Evidence + Method | accepted mappings, actor profiles | #57 |
 | 4 | Control coverage (`control_matrix`) | yes | Organisation input | control inventory (#59) | #59 |
 | 5 | Coverage gaps (`gap_list`) | yes | Method | control matrix, gap rule (reports/contract.py) | #57 |
-| 6 | Recommendations (`recommendations`) | yes | Analyst | analyst | #54 |
+| 6 | Recommendations (`recommendations`) | yes | Analyst | report recommendations | built |
 | 7 | Adversary emulation plan (`emulation_plan`) | yes | Method | pinned Atomic Red Team index | #57 |
 | 8 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 9 | Sources (`sources`) | yes | Method | module runs | built |

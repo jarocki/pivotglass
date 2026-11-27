@@ -216,3 +216,52 @@ def build_analytical_workspace(root: Path, name: str = "case") -> WorkspaceManag
     ):
         mapping(Framework.DIAMOND, "diamond-model-1.0", f"diamond:{vertex}:{value}", vertex, [obs[ref]], f"{vertex} from {ref}")
     return wm
+
+
+def build_operational_workspace(root: Path, name: str = "case") -> WorkspaceManager:
+    """The analytical workspace plus what alerts and campaign reports read."""
+
+    from pivotglass.core.analytic_ledger import AnalyticLedger, ConfidenceLevel
+    from pivotglass.core.framework_projections import (
+        Framework,
+        FrameworkProjectionAuthority,
+        MappingOrigin,
+        MappingState,
+    )
+    from pivotglass.core.indicator_tags import IndicatorTagAuthority
+    from pivotglass.reports.commands import execute_report_command
+
+    wm = build_analytical_workspace(root, name)
+    wm.store_stix_objects(
+        [{"type": "domain-name", "value": "drop.example.org", "first_seen": "2026-10-01", "last_seen": "2026-11-15",
+          "as_name": "Example Hosting"}],
+        module_name="cti/threatfox",
+        target="drop.example.org",
+    )
+    IndicatorTagAuthority(wm).apply(
+        [
+            {"dimension": "role", "entity_type": "domain-name", "normalized_value": "c2.example.net", "value": "c2"},
+            {"dimension": "role", "entity_type": "url", "normalized_value": "https://login.example.com/c2", "value": "delivery"},
+            {"dimension": "role", "entity_type": "email-addr", "normalized_value": "operator@mail.example", "value": "victim"},
+        ],
+        operator="fixture",
+    )
+    for command in (
+        "write threat_summary | An operator is phishing hospital groups and beaconing over HTTPS to one C2 domain.",
+        "severity high | Active against our sector; no patch needed, only blocking.",
+        "write attack_narrative | Phishing delivered a link; the loader then beaconed to the C2 domain.",
+        "recommend 1 | Block the C2 domain and URL | SOC | 2026-12-01 | No further beacons",
+        "recommend 2 | Hunt for the loader hash | Threat hunting | 2026-12-08 | Infected hosts found or ruled out",
+    ):
+        execute_report_command(command, wm)
+    obs = {o["entity_value"]: o["id"] for o in wm.get_observations()}
+    authority = FrameworkProjectionAuthority(wm)
+    m = authority.propose(
+        framework=Framework.KILL_CHAIN, framework_version="lockheed-martin-2011", content_id="delivery",
+        content_label="Delivery", evidence_refs=[obs["https://login.example.com/c2"]], basis="Phishing link to the login URL.",
+        mapper="fixture", mapper_version="1", origin=MappingOrigin.HUMAN, confidence=ConfidenceLevel.MODERATE,
+        confidence_rationale="fixture",
+    )
+    authority.disposition(m.id, MappingState.ACCEPTED)
+    AnalyticLedger(wm)  # ledger unchanged otherwise
+    return wm

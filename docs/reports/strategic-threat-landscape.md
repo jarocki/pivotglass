@@ -6,7 +6,7 @@ Type 2 · Strategic and executive · `strategic-threat-landscape` · ID prefix `
 
 Summarise how the threat to the organisation changed over a period and forecast the next six to twelve months, with scenarios and the signposts that would show each one unfolding.
 
-**Status:** Defined, not built yet. Its sections arrive with #53, #54; until then `report strategic-threat-landscape` explains what is missing and renders nothing.
+**Status:** Defined, not built yet. Its sections arrive with #53; until then `report strategic-threat-landscape` explains what is missing and renders nothing.
 
 **Use it when:** Quarterly or annual planning, board reporting, and security-strategy reviews. Pivotglass collection sees infrastructure and indicators, not geopolitics or the wider market, so most of this report is analyst judgment; the gaps section says so.
 
@@ -34,7 +34,7 @@ In order. A required section with no content makes the report **Incomplete**, an
 | 6 | Sector and regional targeting (`sector_targeting`) | yes | Organisation input + Evidence | organisation profile (#59), victimology | #53 |
 | 7 | Emerging techniques (`emerging_ttps`) | optional | Analyst + Evidence | framework mappings | #53 |
 | 8 | Forward-looking scenarios (`scenarios`) | yes | Analyst | analyst, signposts | #53 |
-| 9 | Recommendations (`recommendations`) | yes | Analyst | analyst | #54 |
+| 9 | Recommendations (`recommendations`) | yes | Analyst | report recommendations | built |
 | 10 | Gaps and limitations (`gaps_limitations`) | yes | Method + Analyst | lifecycle knowledge_gap and limitation items, element results | built |
 | 11 | Sources (`sources`) | yes | Method | module runs | built |
 
