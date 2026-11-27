@@ -131,7 +131,6 @@ NVD = {"type": "vulnerability", "name": CVE, "description": "OS command injectio
                             {"url": "https://poc.example/exploit", "source": "third", "tags": ["Exploit"]}]}
 
 
-@pytest.mark.xfail(strict=True, reason="vulnerability objects are not storable until #58 lands; remove this marker then")
 def test_vulnerability_sections_read_each_source_and_keep_it(tmp_path):
     context = _vuln_context(tmp_path, [("cti/cisa_kev", KEV_LISTED), ("cti/first_epss", EPSS), ("cti/nvd_cve", NVD)])
     meta = build_element(ELEMENTS["vuln_metadata"], context)
@@ -150,7 +149,6 @@ def test_vulnerability_sections_read_each_source_and_keep_it(tmp_path):
     assert "EPSS** 0.943 (percentile 100%)" in markdown and "remediation due 2026-01-31" in markdown
 
 
-@pytest.mark.xfail(strict=True, reason="vulnerability objects are not storable until #58 lands; remove this marker then")
 def test_not_in_kev_is_not_called_unexploited_and_unchecked_sources_are_gaps(tmp_path):
     unlisted = {"type": "vulnerability", "name": CVE, "x_kev_listed": False, "x_kev_catalog_version": "2026.11.20",
                 "x_kev_catalog_released": "2026-11-20T00:00:00Z"}
