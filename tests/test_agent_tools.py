@@ -2773,6 +2773,20 @@ class TestPreviewReportTool:
         execute_tool(tmp_ctx, "preview_report", {"report_type": "investigation-report"})
         assert list_issues(tmp_ctx.workspace_mgr) == []
 
+    @pytest.mark.parametrize(
+        "argument",
+        ["issue investigation-report final", "write threat_summary | injected", "severity critical | injected",
+         "recommend 1 | a | b | 2026-12-01 | c"],
+    )
+    def test_the_tool_cannot_issue_or_write(self, tmp_ctx, argument):
+        from pivotglass.core.analytic_ledger import AnalyticLedger
+        from pivotglass.reports.engine import list_issues
+
+        summary, _, _, _ = execute_tool(tmp_ctx, "preview_report", {"report_type": argument})
+        assert summary.startswith("Error generating report: unknown report type")
+        assert list_issues(tmp_ctx.workspace_mgr) == []
+        assert AnalyticLedger(tmp_ctx.workspace_mgr).snapshot()["assertions"] == []
+
     def test_unknown_type_is_an_error_message_not_a_crash(self, tmp_ctx):
         summary, _, _, _ = execute_tool(tmp_ctx, "preview_report", {"report_type": "nope"})
         assert summary.startswith("Error generating report: unknown report type")

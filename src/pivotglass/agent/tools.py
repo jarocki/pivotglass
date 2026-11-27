@@ -2728,10 +2728,17 @@ def _execute_export_workspace(ctx: ToolContext, fmt: str) -> str:
 def _execute_preview_report(ctx: ToolContext, report_type: str | None = None) -> str:
     """Preview one report type as Markdown through the shared report command authority."""
 
-    from pivotglass.reports.commands import execute_report_command
+    # Read-only by construction: the argument must be a report-type id, and the
+    # build path cannot issue or write. The shared `report` command (which can
+    # issue reports and record analyst text) is deliberately not reachable from
+    # a model tool call.
+    from pivotglass.reports.engine import build_report
+    from pivotglass.reports.registry import DEFAULT_TYPE, get_report_type
+    from pivotglass.reports.render import render_markdown
 
     try:
-        return str(execute_report_command(report_type or "", ctx.workspace_mgr)["text"])
+        type_id = get_report_type((report_type or DEFAULT_TYPE).strip()).id
+        return render_markdown(build_report(ctx.workspace_mgr, type_id))
     except Exception as e:
         logger.exception("preview_report failed")
         return f"Error generating report: {e}"
