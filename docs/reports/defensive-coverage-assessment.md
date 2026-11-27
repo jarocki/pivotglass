@@ -16,6 +16,7 @@ Measure how well current controls see, alert on and prevent the techniques of a 
 | Valid for | 90 days from issue |
 | Formats | markdown, json |
 | Suggested for PIRs | Tactics, techniques, and procedures (strategic) |
+| Worked example | [examples/defensive-coverage-assessment.md](examples/defensive-coverage-assessment.md) |
 | Related types | [ATT&CK Navigator Layer](attack-navigator-layer.md), [Actor Capability Radar](actor-capability-radar.md), [Cyber Kill Chain Mapping](kill-chain-mapping.md), [Threat Hunting Package](threat-hunting-package.md) |
 
 ## Sections

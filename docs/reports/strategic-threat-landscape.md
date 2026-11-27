@@ -16,6 +16,7 @@ Summarise how the threat to the organisation changed over a period and forecast 
 | Valid for | 180 days from issue |
 | Formats | markdown, json |
 | Suggested for PIRs | Geopolitical and regulatory risk (operational); Geopolitical and regulatory risk (strategic) |
+| Worked example | [examples/strategic-threat-landscape.md](examples/strategic-threat-landscape.md) |
 | Related types | [Executive Threat Briefing](executive-threat-briefing.md), [Threat Actor Profile](threat-actor-profile.md), [Threat-Informed Risk Assessment](threat-informed-risk-assessment.md) |
 
 ## Sections

@@ -16,6 +16,7 @@ Warn defenders about active, relevant activity within hours, with the indicators
 | Valid for | 30 days from issue |
 | Formats | markdown, json, stix |
 | Suggested for PIRs | Threat actor and campaign tracking (tactical); Vulnerability and exploitation intelligence (tactical); Third-party and supply-chain risk (tactical); Brand, VIP, and digital-footprint protection (tactical) |
+| Worked example | [examples/threat-activity-alert.md](examples/threat-activity-alert.md) |
 | Related types | [Campaign and Intrusion Analysis Report](campaign-intrusion-analysis.md), [Detection Signature Bundle](detection-signature-bundle.md), [Threat Hunting Package](threat-hunting-package.md) |
 
 ## Sections

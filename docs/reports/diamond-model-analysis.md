@@ -16,6 +16,7 @@ Decompose intrusion events into adversary, capability, infrastructure and victim
 | Valid for | 90 days from issue |
 | Formats | markdown, json, stix, mermaid |
 | Suggested for PIRs | Threat actor and campaign tracking (operational) |
+| Worked example | [examples/diamond-model-analysis.md](examples/diamond-model-analysis.md) |
 | Related types | [ACH Attribution Matrix](ach-attribution-matrix.md), [Infrastructure Clustering Graph](infrastructure-clustering-graph.md), [Campaign and Intrusion Analysis Report](campaign-intrusion-analysis.md) |
 
 ## Sections

@@ -16,6 +16,7 @@ Show the techniques an actor or campaign uses as an ATT&CK Navigator layer, scor
 | Valid for | 180 days from issue |
 | Formats | markdown, json, navigator |
 | Suggested for PIRs | Tactics, techniques, and procedures (operational) |
+| Worked example | [examples/attack-navigator-layer.md](examples/attack-navigator-layer.md) |
 | Related types | [Threat Actor Profile](threat-actor-profile.md), [Defensive Coverage Assessment](defensive-coverage-assessment.md), [Threat Hunting Package](threat-hunting-package.md) |
 
 ## Sections

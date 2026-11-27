@@ -16,6 +16,7 @@ Tell leadership, on one page, what happened or is expected, whether the organisa
 | Valid for | 90 days from issue |
 | Formats | markdown, json |
 | Suggested for PIRs | Threat actor and campaign tracking (strategic); Vulnerability and exploitation intelligence (strategic); Third-party and supply-chain risk (strategic); Brand, VIP, and digital-footprint protection (strategic); Geopolitical and regulatory risk (strategic); Strategic and M&A risk (strategic) |
+| Worked example | [examples/executive-threat-briefing.md](examples/executive-threat-briefing.md) |
 | Related types | [Threat Activity Alert](threat-activity-alert.md), [Vulnerability Exploitation Brief](vulnerability-exploitation-brief.md), [Threat-Informed Risk Assessment](threat-informed-risk-assessment.md) |
 
 ## Sections

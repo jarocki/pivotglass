@@ -15,6 +15,7 @@ Test competing explanations of who is responsible against the evidence, and reco
 | Default marking | TLP:AMBER+STRICT · PAP:RED |
 | Valid for | 90 days from issue |
 | Formats | markdown, json |
+| Worked example | [examples/ach-attribution-matrix.md](examples/ach-attribution-matrix.md) |
 | Related types | [Campaign and Intrusion Analysis Report](campaign-intrusion-analysis.md), [Threat Actor Profile](threat-actor-profile.md), [Diamond Model Intrusion Analysis](diamond-model-analysis.md) |
 
 ## Sections

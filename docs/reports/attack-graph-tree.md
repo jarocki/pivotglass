@@ -15,6 +15,7 @@ Map the paths from entry points to a critical asset, show which steps must all s
 | Default marking | TLP:AMBER+STRICT · PAP:RED |
 | Valid for | 90 days from issue |
 | Formats | markdown, json, mermaid |
+| Worked example | [examples/attack-graph-tree.md](examples/attack-graph-tree.md) |
 | Related types | [Threat-Informed Risk Assessment](threat-informed-risk-assessment.md), [Defensive Coverage Assessment](defensive-coverage-assessment.md), [Cyber Kill Chain Mapping](kill-chain-mapping.md) |
 
 ## Sections

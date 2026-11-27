@@ -16,6 +16,7 @@ Compare an actor's capability across defined axes, and optionally against the or
 | Valid for | 180 days from issue |
 | Formats | markdown, json |
 | Suggested for PIRs | Tactics, techniques, and procedures (strategic) |
+| Worked example | [examples/actor-capability-radar.md](examples/actor-capability-radar.md) |
 | Related types | [Threat Actor Profile](threat-actor-profile.md), [Defensive Coverage Assessment](defensive-coverage-assessment.md) |
 
 ## Sections

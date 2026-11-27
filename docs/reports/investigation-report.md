@@ -13,6 +13,7 @@ The complete record of one workspace's investigation: the requirement and its ve
 | Default marking | TLP:AMBER · PAP:AMBER |
 | Valid for | No expiry (historical record) |
 | Formats | markdown, json, stix |
+| Worked example | [examples/investigation-report.md](examples/investigation-report.md) |
 
 ## Sections
 

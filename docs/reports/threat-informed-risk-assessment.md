@@ -16,6 +16,7 @@ Assess the threat to a specific system, business unit, vendor, initiative or acq
 | Valid for | 180 days from issue |
 | Formats | markdown, json |
 | Suggested for PIRs | Vulnerability and exploitation intelligence (strategic); Third-party and supply-chain risk (strategic); Strategic and M&A risk (operational); Strategic and M&A risk (strategic) |
+| Worked example | [examples/threat-informed-risk-assessment.md](examples/threat-informed-risk-assessment.md) |
 | Related types | [Executive Threat Briefing](executive-threat-briefing.md), [Threat Actor Profile](threat-actor-profile.md), [Defensive Coverage Assessment](defensive-coverage-assessment.md), [Attack Graph and Tree](attack-graph-tree.md) |
 
 ## Sections

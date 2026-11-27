@@ -16,6 +16,7 @@ Lay an intrusion or campaign along the seven kill-chain phases, show where contr
 | Valid for | 90 days from issue |
 | Formats | markdown, json |
 | Suggested for PIRs | Tactics, techniques, and procedures (operational) |
+| Worked example | [examples/kill-chain-mapping.md](examples/kill-chain-mapping.md) |
 | Related types | [Campaign and Intrusion Analysis Report](campaign-intrusion-analysis.md), [Defensive Coverage Assessment](defensive-coverage-assessment.md), [ATT&CK Navigator Layer](attack-navigator-layer.md) |
 
 ## Sections

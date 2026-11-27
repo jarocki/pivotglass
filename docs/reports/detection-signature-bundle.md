@@ -16,6 +16,7 @@ Detection content for one malware family or campaign across the Pyramid of Pain:
 | Valid for | 90 days from issue |
 | Formats | markdown, json, stix, sigma, suricata, yara |
 | Suggested for PIRs | Vulnerability and exploitation intelligence (tactical); Tactics, techniques, and procedures (tactical); Brand, VIP, and digital-footprint protection (tactical) |
+| Worked example | [examples/detection-signature-bundle.md](examples/detection-signature-bundle.md) |
 | Related types | [Threat Activity Alert](threat-activity-alert.md), [Threat Hunting Package](threat-hunting-package.md), [Campaign and Intrusion Analysis Report](campaign-intrusion-analysis.md) |
 
 ## Sections

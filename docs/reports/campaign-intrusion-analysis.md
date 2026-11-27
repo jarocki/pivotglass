@@ -16,6 +16,7 @@ The complete account of one campaign or intrusion set: when it ran, whom it targ
 | Valid for | 90 days from issue |
 | Formats | markdown, json, stix |
 | Suggested for PIRs | Threat actor and campaign tracking (operational); Third-party and supply-chain risk (operational); Brand, VIP, and digital-footprint protection (operational) |
+| Worked example | [examples/campaign-intrusion-analysis.md](examples/campaign-intrusion-analysis.md) |
 | Related types | [Threat Activity Alert](threat-activity-alert.md), [ACH Attribution Matrix](ach-attribution-matrix.md), [ATT&CK Navigator Layer](attack-navigator-layer.md), [Detection Signature Bundle](detection-signature-bundle.md), [Infrastructure Clustering Graph](infrastructure-clustering-graph.md) |
 
 ## Sections

@@ -16,6 +16,7 @@ Show how domains, addresses, certificates and files connect, which clusters they
 | Valid for | 30 days from issue |
 | Formats | markdown, json, stix, mermaid |
 | Suggested for PIRs | Threat actor and campaign tracking (operational); Brand, VIP, and digital-footprint protection (operational) |
+| Worked example | [examples/infrastructure-clustering-graph.md](examples/infrastructure-clustering-graph.md) |
 | Related types | [Threat Actor Profile](threat-actor-profile.md), [Diamond Model Intrusion Analysis](diamond-model-analysis.md), [Campaign and Intrusion Analysis Report](campaign-intrusion-analysis.md) |
 
 ## Sections

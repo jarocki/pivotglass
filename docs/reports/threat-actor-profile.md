@@ -16,6 +16,7 @@ A maintained reference on one actor: who it is, what it wants, whom it targets, 
 | Valid for | 180 days from issue |
 | Formats | markdown, json, stix |
 | Suggested for PIRs | Threat actor and campaign tracking (strategic) |
+| Worked example | [examples/threat-actor-profile.md](examples/threat-actor-profile.md) |
 | Related types | [ACH Attribution Matrix](ach-attribution-matrix.md), [Actor Capability Radar](actor-capability-radar.md), [ATT&CK Navigator Layer](attack-navigator-layer.md), [Infrastructure Clustering Graph](infrastructure-clustering-graph.md) |
 
 ## Sections

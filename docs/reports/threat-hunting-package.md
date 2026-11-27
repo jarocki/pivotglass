@@ -16,6 +16,7 @@ Everything a hunter needs to test one hypothesis: the behaviour, the data, the q
 | Valid for | 90 days from issue |
 | Formats | markdown, json |
 | Suggested for PIRs | Vulnerability and exploitation intelligence (operational); Tactics, techniques, and procedures (operational) |
+| Worked example | [examples/threat-hunting-package.md](examples/threat-hunting-package.md) |
 | Related types | [Detection Signature Bundle](detection-signature-bundle.md), [ATT&CK Navigator Layer](attack-navigator-layer.md), [Threat Activity Alert](threat-activity-alert.md) |
 
 ## Sections

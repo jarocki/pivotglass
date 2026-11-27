@@ -15,6 +15,7 @@ The ordered, sourced record of what happened during an intrusion, with the dwell
 | Default marking | TLP:AMBER+STRICT · PAP:RED |
 | Valid for | No expiry (historical record) |
 | Formats | markdown, json |
+| Worked example | [examples/forensic-intrusion-timeline.md](examples/forensic-intrusion-timeline.md) |
 | Related types | [Cyber Kill Chain Mapping](kill-chain-mapping.md), [Campaign and Intrusion Analysis Report](campaign-intrusion-analysis.md) |
 
 ## Sections

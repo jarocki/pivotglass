@@ -512,7 +512,9 @@ def diamond_events(context: ReportContext) -> list[dict[str, Any]]:
                 "provisional": any(m.state.value != "accepted" for m in members),
             }
         )
-    events.sort(key=lambda e: (e["meta_features"]["timestamp"] or "", e["evidence"]))
+    # Ties on time break on the vertex values, never on random record ids, so event numbering is stable.
+    events.sort(key=lambda e: (e["meta_features"]["timestamp"] or "",
+                               sorted(v["value"] for vs in e["vertices"].values() for v in vs)))
     for index, event in enumerate(events, 1):
         event["event_id"] = f"E{index}"
     return events
@@ -640,7 +642,8 @@ def ach_matrix(context: ReportContext) -> dict[str, Any]:
             mark = "C" if link["stance"] == "supports" else "I"
             scores[(link["source_kind"], str(link["source_id"]))][ids[str(link["target_id"])]].add(mark)
     rows = []
-    for index, (key, by_h) in enumerate(sorted(scores.items()), 1):
+    # Ordered by what the reader sees (the evidence label), so the same evidence always gets the same row ID.
+    for index, (key, by_h) in enumerate(sorted(scores.items(), key=lambda kv: (labels.get(kv[0], kv[0][1]), kv[0])), 1):
         cells = {h["label"]: ("C/I" if len(by_h.get(h["label"], ())) > 1 else next(iter(by_h.get(h["label"], {"—"})))) for h in hypotheses}
         marks = {v for v in cells.values() if v in {"C", "I"}}
         assessed = [v for v in cells.values() if v != "—"]
@@ -954,6 +957,9 @@ def infra_graph(context: ReportContext) -> dict[str, Any]:
                 "first_seen": stamps[0] if stamps else None, "last_seen": stamps[-1] if stamps else None,
             }
         )
+    label_of = {n["id"]: n["value"] for n in nodes}
+    edges.sort(key=lambda e: (label_of[e["source"]], e["relationship"], label_of[e["target"]], e["id"]))
+    nodes.sort(key=lambda n: (n["type"], n["value"]))
     record_to_node = {n["record_ref"]: n["id"] for n in nodes}
     clusters = [
         {

@@ -93,6 +93,7 @@ def type_page(t: ReportType) -> str:
     suggested = _suggested_by(t.id)
     if suggested:
         lines.append(f"| Suggested for PIRs | {_cell('; '.join(suggested))} |")
+    lines.append(f"| Worked example | [examples/{t.id}.md](examples/{t.id}.md) |")
     if t.related:
         links = ", ".join(f"[{all_types[r].title}]({r}.md)" for r in t.related)
         lines.append(f"| Related types | {links} |")
