@@ -751,6 +751,16 @@ CTI_SERVICES: list[CTIServiceSpec] = [
         docs_url="https://about.rdap.org/",
     ),
     CTIServiceSpec(
+        id="dns_doh",
+        display_name="DNS over HTTPS",
+        config_keys=[],
+        prompt_labels=[],
+        validate_path="/dns-query?name=example.com&type=A",
+        validate_method="none",
+        validate_header_name="",
+        docs_url="https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/make-api-requests/dns-json/",
+    ),
+    CTIServiceSpec(
         id="wayback",
         display_name="Wayback Machine",
         config_keys=[],

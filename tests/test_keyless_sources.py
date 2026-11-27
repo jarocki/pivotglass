@@ -35,6 +35,7 @@ KEYLESS = {
     "osint/shodan_internetdb": "shodan_internetdb",
     "osint/sans_isc": "sans_isc",
     "osint/rdap": "rdap",
+    "osint/dns_doh": "dns_doh",
     "osint/wayback": "wayback",
     "cti/hashlookup": "hashlookup",
 }

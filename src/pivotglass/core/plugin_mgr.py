@@ -60,6 +60,8 @@ _BUILTIN_MODULES: list[tuple[str, str]] = [
     ("osint/shodan_internetdb", "pivotglass.modules.osint.shodan_internetdb:ShodanInternetDB"),
     ("osint/sans_isc", "pivotglass.modules.osint.sans_isc:SansIsc"),
     ("osint/rdap", "pivotglass.modules.osint.rdap:Rdap"),
+    ("osint/dns_doh", "pivotglass.modules.osint.dns_doh:DnsOverHttps"),
+    ("osint/ip_asn", "pivotglass.modules.osint.ip_asn:IpAsn"),
     ("osint/wayback", "pivotglass.modules.osint.wayback:Wayback"),
     ("cti/hashlookup", "pivotglass.modules.cti.hashlookup:HashLookup"),
     # Keyless vulnerability sources (#58)

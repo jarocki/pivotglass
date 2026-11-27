@@ -56,6 +56,8 @@ MODULE_NAMES: tuple[str, ...] = (
     "shodan_internetdb",
     "sans_isc",
     "rdap",
+    "dns_doh",
+    "ip_asn",
     "wayback",
     "hashlookup",
     "cisa_kev",

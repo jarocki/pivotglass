@@ -101,6 +101,16 @@ BRIEFINGS: dict[str, EnrichmentBriefing] = {
         "Establishes registration chronology from the authoritative registry or RIR.",
         "recent registration, near expiry, unusual status codes, and reassigned networks",
     ),
+    "dns_lookup": EnrichmentBriefing(
+        "DNS over HTTPS", "live A, AAAA, NS, MX, TXT, and CNAME records and the response status",
+        "Resolves the name through a public resolver, so the operator host never queries DNS.",
+        "NXDOMAIN, shared nameservers or mail hosts, CNAME aliases, and resolver-specific answers",
+    ),
+    "ip_asn_lookup": EnrichmentBriefing(
+        "Local DB-IP ASN database", "AS number, AS organisation, and network prefix (offline, CC BY 4.0)",
+        "Maps the address to its network operator without sending it anywhere.",
+        "database edition age, prefix aggregation, and hosting versus transit networks",
+    ),
     "wayback_lookup": EnrichmentBriefing(
         "Wayback Machine", "first and last archived capture and months with captures",
         "Shows how long content has existed at the name or URL.",

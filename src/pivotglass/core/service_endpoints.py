@@ -40,6 +40,7 @@ SERVICE_BASE_URLS: dict[str, str] = {
     "shodan_internetdb": "https://internetdb.shodan.io",
     "sans_isc": "https://isc.sans.edu/api",
     "rdap": "https://rdap.org",
+    "dns_doh": "https://cloudflare-dns.com",
     "wayback": "https://web.archive.org",
     "hashlookup": "https://hashlookup.circl.lu",
     "cisa_kev": "https://www.cisa.gov",

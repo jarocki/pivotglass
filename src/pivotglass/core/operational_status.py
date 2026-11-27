@@ -27,6 +27,7 @@ SERVICE_TOOL_NAMES: dict[str, tuple[str, ...]] = {
     "shodan_internetdb": ("internetdb_lookup",),
     "sans_isc": ("sans_isc_lookup",),
     "rdap": ("rdap_lookup",),
+    "dns_doh": ("dns_lookup",),
     "wayback": ("wayback_lookup",),
     "hashlookup": ("hashlookup_lookup",),
     "cisa_kev": ("kev_lookup",),

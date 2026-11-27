@@ -1108,6 +1108,13 @@ edition, e.g. `DB-IP Lite 2026-11 (local)`. Location describes where
 infrastructure is hosted, not who operates it. IP geolocation by
 [DB-IP](https://db-ip.com), licensed CC BY 4.0.
 
+The **IP to ASN** module (`osint/ip_asn`) also needs no key and makes no
+request: it reads the same local DB-IP Lite ASN database and records the AS
+number, AS organisation, and matching network prefix on the IP, with the AS as
+its own observation linked to the address. If the databases are not installed
+it says so instead of returning nothing. An ASN names a network operator, not
+an actor.
+
 ### API base URLs and gateways
 
 Every model provider and intelligence service shows its **API base URL** in
@@ -1158,6 +1165,7 @@ never a verdict.
 | Shodan InternetDB (`shodan_internetdb`) | `https://internetdb.shodan.io` | IP | Open ports, hostnames, CPEs, Shodan tags, and CVEs Shodan associates with the reported versions (not confirmed). Refreshed weekly. |
 | SANS ISC (`sans_isc`) | `https://isc.sans.edu/api` | IPv4 | DShield sensor reports and targets, first/last reported, AS, network, and ISC feeds the address appears in (for example open resolvers). |
 | RDAP (`rdap`) | `https://rdap.org` | domain, IP | Registrar, registration, expiry, and last-changed dates, status, nameservers; for IPs the network name, range, country, and registrant or abuse organisation. rdap.org redirects to the authoritative registry; personal names, e-mail addresses, and phone numbers are not recorded. |
+| DNS over HTTPS (`dns_doh`) | `https://cloudflare-dns.com` | domain | Live A, AAAA, NS, MX, TXT, and CNAME records and the response status (NXDOMAIN is recorded, not an error). Pivotglass never resolves from your machine: Cloudflare's resolver asks the authoritative servers, so the adversary sees Cloudflare, not you; your address is visible to Cloudflare as an HTTPS client. A snapshot from one resolver at query time, not DNS history. A, AAAA, NS, MX, and CNAME answers become pivotable observations (at most 25 per type); TXT stays a property and is never parsed into indicators. |
 | Wayback Machine (`wayback`) | `https://web.archive.org` | domain, URL | First and last capture with archive links and the number of months with captures. |
 | CIRCL hashlookup (`hashlookup`) | `https://hashlookup.circl.lu` | MD5, SHA-1, SHA-256 | Known file (NSRL and other known-software sets), context not a verdict: matched sets, file name, product, trust score, and any known-malicious annotation. |
 | CISA KEV (`cisa_kev`) | `https://www.cisa.gov` | CVE | Whether the CVE is in the Known Exploited Vulnerabilities catalog, always answered: listed (date added, due date, ransomware use, vendor, product, required action) or *not listed in catalog version X*. The whole catalog is fetched once and cached for 6 hours. Listing means exploitation was observed; it does not mean a host in your case is affected. |

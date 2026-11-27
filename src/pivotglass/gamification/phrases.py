@@ -1629,6 +1629,8 @@ _KNOWN_ACTIVITY_SLUGS: frozenset[str] = frozenset(
         "internetdb_lookup",
         "sans_isc_lookup",
         "rdap_lookup",
+        "dns_lookup",
+        "ip_asn_lookup",
         "wayback_lookup",
         "hashlookup_lookup",
         "kev_lookup",

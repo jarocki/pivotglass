@@ -1462,6 +1462,42 @@ def create_tools(ctx: ToolContext) -> list[dict]:
         {
             "type": "function",
             "function": {
+                "name": "dns_lookup",
+                "description": (
+                    "Live DNS records for a domain via DNS-over-HTTPS (no API key; the operator host "
+                    "never resolves): A, AAAA, NS, MX, TXT, CNAME and the response status (NXDOMAIN is "
+                    "a valid answer). A snapshot from one resolver at query time, not DNS history."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "domain": {"type": "string", "description": "Domain name"},
+                    },
+                    "required": ["domain"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "ip_asn_lookup",
+                "description": (
+                    "Autonomous system number, AS organisation, and network prefix for an IP from the "
+                    "local DB-IP Lite database (offline; requires the geolocation data to be installed). "
+                    "Names a network operator, not an actor."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "ip_address": {"type": "string", "description": "IPv4 or IPv6 address"},
+                    },
+                    "required": ["ip_address"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "wayback_lookup",
                 "description": (
                     "Wayback Machine capture history for a domain or URL (no API key): first and "
@@ -2165,6 +2201,14 @@ _MODULE_MAP: dict[str, tuple[str, Any]] = {
     "rdap_lookup": (
         "osint/rdap",
         lambda a: (a["target"], {}),
+    ),
+    "dns_lookup": (
+        "osint/dns_doh",
+        lambda a: (a["domain"], {}),
+    ),
+    "ip_asn_lookup": (
+        "osint/ip_asn",
+        lambda a: (a["ip_address"], {}),
     ),
     "wayback_lookup": (
         "osint/wayback",

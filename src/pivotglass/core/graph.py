@@ -207,6 +207,16 @@ class RelationshipGraph:
             "x_contacted_domains": "contacts",
             "x_contacted_ips": "contacts",
             "x_contacted_urls": "contacts",
+            # Keyless infrastructure pivots (#21): the neighbour carries the field and
+            # names the queried object. Registrar is deliberately not a shared-property
+            # edge: one registrar spans millions of unrelated domains.
+            "x_rdap_nameserver_of": "nameserver-of",
+            "x_mnemonic_pdns_resolution_of": "resolution-of",
+            "x_dns_resolution_of": "resolution-of",
+            "x_dns_nameserver_of": "nameserver-of",
+            "x_dns_mail_exchanger_of": "mail-exchanger-of",
+            "x_dns_alias_of": "alias-of",
+            "x_asn_of": "announces",
         }
         shared_fields = {
             "sha256": "shares-sha256",

@@ -997,7 +997,7 @@ class TestCTIServicesRegistry:
     }
     # Keyless context sources: listed for enable/disable and base URL, no credential.
     KEYLESS_IDS = {
-        "mnemonic_pdns", "shodan_internetdb", "sans_isc", "rdap", "wayback", "hashlookup",
+        "mnemonic_pdns", "shodan_internetdb", "sans_isc", "rdap", "dns_doh", "wayback", "hashlookup",
         "cisa_kev", "first_epss", "nvd_cve",
     }
 

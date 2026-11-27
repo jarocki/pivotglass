@@ -164,9 +164,9 @@ class TestCreateTools:
         assert isinstance(tools, list)
 
     def test_returns_twenty_two_tools(self, tmp_ctx):
-        """create_tools returns 36 definitions (v1.4: +6 keyless context sources)."""
+        """create_tools returns 38 definitions (v1.4: +6 keyless context sources; v1.5: +dns_lookup, +ip_asn_lookup)."""
         tools = create_tools(tmp_ctx)
-        assert len(tools) == 39
+        assert len(tools) == 41
 
     def test_all_tools_have_type_function(self, tmp_ctx):
         """All tool definitions have type='function'."""
@@ -221,6 +221,8 @@ class TestCreateTools:
             "internetdb_lookup",
             "sans_isc_lookup",
             "rdap_lookup",
+            "dns_lookup",
+            "ip_asn_lookup",
             "wayback_lookup",
             "hashlookup_lookup",
             # v1.5 keyless vulnerability sources (#58)
@@ -276,7 +278,7 @@ class TestCreateTools:
         # Should not raise
         serialized = json.dumps(tools)
         roundtripped = json.loads(serialized)
-        assert len(roundtripped) == 39
+        assert len(roundtripped) == 41
 
     # --- New tool schema tests ---
 
@@ -695,8 +697,8 @@ class TestModuleMap:
     """_MODULE_MAP contains entries for the module-backed tools."""
 
     def test_module_map_has_eleven_entries(self):
-        """_MODULE_MAP has exactly 21 entries (v1.4: +6 keyless context sources)."""
-        assert len(_MODULE_MAP) == 24
+        """_MODULE_MAP has exactly 26 entries (v1.4: +6 keyless context sources; v1.5: +3 vulnerability, +DNS, +IP ASN)."""
+        assert len(_MODULE_MAP) == 26
 
     def test_module_map_contains_new_tools(self):
         """_MODULE_MAP contains virustotal_lookup and censys_host_lookup."""
@@ -1325,7 +1327,7 @@ class TestAgentRunnerImport:
 
         r = AgentRunner(tool_context=tmp_ctx)
         assert r.ctx is tmp_ctx
-        assert len(r.tools) == 39
+        assert len(r.tools) == 41
 
     def test_agent_runner_has_conversation_history(self, tmp_ctx):
         """AgentRunner initializes with system prompt in conversation."""

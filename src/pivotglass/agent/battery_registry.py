@@ -57,7 +57,7 @@ DEFAULT_BATTERIES: dict[str, Battery] = {
         # registration, capture, and resolution history for domains (#46).
         tools=(
             "whois_lookup", "crtsh_lookup", "check_breaches",
-            "rdap_lookup", "wayback_lookup", "mnemonic_pdns_lookup",
+            "rdap_lookup", "wayback_lookup", "mnemonic_pdns_lookup", "dns_lookup",
         ),
         target_slots=(DossierSlotName.IDENTITY,),
         applies_to=("domain-name", "email-addr"),
@@ -69,7 +69,7 @@ DEFAULT_BATTERIES: dict[str, Battery] = {
         # registration, and passive DNS names.
         tools=(
             "shodan_host_lookup", "censys_host_lookup", "internetdb_lookup",
-            "sans_isc_lookup", "rdap_lookup", "mnemonic_pdns_lookup",
+            "sans_isc_lookup", "rdap_lookup", "mnemonic_pdns_lookup", "ip_asn_lookup",
         ),
         target_slots=(DossierSlotName.INFRASTRUCTURE,),
         applies_to=("ipv4-addr", "ipv6-addr"),

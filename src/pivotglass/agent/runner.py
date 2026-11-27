@@ -188,6 +188,8 @@ _TOOL_SLUG_MAP: dict[str, str] = {
     "internetdb_lookup": "internetdb_lookup",
     "sans_isc_lookup": "sans_isc_lookup",
     "rdap_lookup": "rdap_lookup",
+    "dns_lookup": "dns_lookup",
+    "ip_asn_lookup": "ip_asn_lookup",
     "wayback_lookup": "wayback_lookup",
     "hashlookup_lookup": "hashlookup_lookup",
     "kev_lookup": "kev_lookup",

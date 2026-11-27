@@ -101,6 +101,8 @@ DEFAULT_SUBSCRIPTIONS: dict[str, list[str]] = {
     "osint/shodan_internetdb": ["ipv4-addr", "ipv6-addr"],
     "osint/sans_isc": ["ipv4-addr"],
     "osint/rdap": ["domain-name"],
+    "osint/dns_doh": ["domain-name"],
+    "osint/ip_asn": ["ipv4-addr", "ipv6-addr"],
     "cti/hashlookup": ["file"],
     # Keyless vulnerability sources (#58). CVEs reach them as ``vulnerability`` objects
     # emitted by host scanners (InternetDB, Shodan host). NVD is rate limited to
